@@ -19,6 +19,9 @@
 #       "<TAB>greenfield"), which the old trim left untouched and the first-word cut then emptied
 #   T3  bin/check-portability.sh (same toolkit) flags `sed 's/[ \t]*$//'` and
 #       `grep -c '^##[ \t]'`, passes [[:blank:]], an awk regex and a $'...' real tab
+#   T4  ... and flags \t OUTSIDE a bracket in a sed pattern or replacement (#488: the
+#       bug-lookup.sh index line and test-routing-tier.sh's demotion), passes ${TAB}, $'...',
+#       $(printf '\t'), an escaped \\t in an echo, awk, and `sed ...; awk -F'\t'` on one line
 
 set -uo pipefail
 SUT="${1:?usage: test-sed-tab-bracket.sh /path/to/bin/lib/entry-mode.sh}"
@@ -77,6 +80,31 @@ n="$(grep -c 'inside a sed/grep bracket' <<<"$out")"
 if [ "$rc" -eq 1 ] && [ "$n" -eq 2 ]; then ok "T3a sed trim and grep -c: 2 of 2 flagged"; else bad "T3a want rc 1 and 2 hits, got rc $rc and $n" "$out"; fi
 out="$(bash "$TK/bin/check-portability.sh" "$W/lint/good" 2>&1)"; rc=$?
 check "T3b [[:blank:]], awk regex, \$'...' tab: clean" "$rc" "0"
+
+echo "== T4 check-portability.sh: \\t outside a bracket (#488) =="
+mkdir -p "$W/lint4/bad" "$W/lint4/good"
+# The two shipped sites, verbatim but for @ = backslash; the first also holds ":##", which the
+# comment filter used to read as a comment and skip.
+tr '@' '\\' > "$W/lint4/bad/c.sh" <<'X'
+#!/usr/bin/env bash
+grep -n '^## ' "$1" | sed -E 's/^([0-9]+):## /@1@t/' | awk -F'@t' '{ print $2 }'
+sed -i.bak 's/^demo@tskills@/demo-tier@.md@t@(.*@)@tbaseline@treference$/demo@tskills@/demo-tier.md@t@1@tondemand@treference/' "$1"
+X
+tr '@' '\\' > "$W/lint4/good/d.sh" <<'X'
+#!/usr/bin/env bash
+TAB=$'@t'
+sed -i.bak "s/^demo${TAB}skills/x${TAB}y/" "$1"
+sed -E $'s/^([0-9]+):## /@@1@t/' "$1"
+echo "  SKIP: this sed --posix expands @@t in a bracket"
+grep -n '^## ' "$1" | awk '{ t=$0; sub(/^[0-9]+:## /, "", t); sub(/@t.*/, "", t); print t }'
+sed -n '/^## /p' "$1"; awk -F'@t' '{ print $2 }' "$1"
+sed "s/x/$(printf '@t')/" "$1"
+X
+out="$(bash "$TK/bin/check-portability.sh" "$W/lint4/bad" 2>&1)"; rc=$?
+n="$(grep -c 'in a sed pattern or replacement' <<<"$out")"
+if [ "$rc" -eq 1 ] && [ "$n" -eq 2 ]; then ok "T4a replacement \\1\\t and BRE \\t: 2 of 2 flagged"; else bad "T4a want rc 1 and 2 hits, got rc $rc and $n" "$out"; fi
+out="$(bash "$TK/bin/check-portability.sh" "$W/lint4/good" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ]; then ok "T4b \${TAB}, \$'...', \$(printf '\\t'), an escaped \\\\t, awk, sed ...; awk -F'\\t': clean"; else bad "T4b want rc 0, got rc $rc" "$out"; fi
 
 echo "-- $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

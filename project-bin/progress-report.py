@@ -922,6 +922,108 @@ def classify_state(raw):
     if l.startswith(("partial", "in progress", "started", "wip")): return "partial"
     return "todo"
 
+# HARNESS rows that run `verify-module.sh <Module>` (the module-close row, brd-to-build-plan.md
+# Step 5): Pass = the module's summary is clean AND its LOOK + CONFIRM is done. The agent that ran
+# the pass often never edits State (MendixMau review 2026-10-21), so the report reads the evidence
+# too. It promotes a row only on the full evidence and otherwise flags, like done-drift:
+#   clean  the run reached its `verdict` row (CLEAN), no FAULT, no FINDING, nothing SKIPPED but
+#          the look row and N/A rows (a --quick or --skip-* run is not a module close)
+#   fresh  newer than every BUILD-LOG row and done- file of the scripts the row depends on
+#          (dependsOn, followed back through the plan)
+#   LOOK   the newest design/ui-reviews/ui-review-*.html naming the module (the `look`
+#          obligation's artifact, bin/lib/obligations.tsv) states "N of N" in its headline and
+#          carries N PROOF-OF-LOOK citations of screenshots on disk of 10 KB or more. The git
+#          VALID AT staleness that obligation-check.sh adds is not run here: no git calls.
+VERIFY_STEP = re.compile(r"verify-module\.sh`?\s+[`\"']?([A-Za-z_]\w*)")
+PLAN_SCRIPT = re.compile(r"[A-Za-z0-9_.\-*…]+\.(?:mdl|sql)\b")
+
+def _summary_state(rows):
+    """'' when clean, else why not."""
+    if not rows or rows[-1][0] != "verdict": return "cut short (no verdict row)"
+    for r in rows:
+        v = r[1] if len(r) > 1 else ""
+        if v in ("FAULT", "FINDING"): return "%s: %s" % (v, r[0])
+        if v == "SKIPPED" and not r[0].startswith("look (") and not (len(r) > 4 and r[4].startswith("(N/A")):
+            return "SKIPPED: %s" % r[0]
+    return "" if rows[-1][1] == "CLEAN" else "verdict %s" % rows[-1][1]
+
+_EV_CACHE = {}
+def _reviews(proj):
+    """[(filename date, mtime, path, text)] of the LOOK reports, read once per project."""
+    if ("rev", proj) not in _EV_CACHE:
+        out = []
+        for f in glob.glob(os.path.join(proj, "design", "ui-reviews", "ui-review-*.html")):
+            try:
+                d = re.search(r"\d{4}-\d\d-\d\d", os.path.basename(f))
+                out.append((d.group(0) if d else "0000-00-00", os.path.getmtime(f), f, open(f, encoding="utf-8", errors="replace").read()))
+            except OSError: pass
+        _EV_CACHE[("rev", proj)] = out
+    return _EV_CACHE[("rev", proj)]
+
+def look_evidence(proj, mod):
+    """(n, m, why): the module's newest LOOK report's headline count; why is '' when it discharges."""
+    cands = [c for c in _reviews(proj) if mod in c[3]]
+    if not cands: return 0, 0, "no design/ui-reviews/ui-review-*.html names %s" % mod
+    _d, _t, f, txt = sorted(cands, reverse=True)[0]
+    m = re.search(r"(\d+)\s+of\s+(\d+)", txt[:4000].replace("\r", ""), re.I)
+    if not m: return 0, 0, "%s states no 'N of N' denominator" % os.path.basename(f)
+    n, tot = int(m.group(1)), int(m.group(2))
+    if n < tot or n == 0: return n, tot, "%s reviewed %d of %d" % (os.path.basename(f), n, tot)
+    ok = 0
+    for shot in re.findall(r"PROOF-OF-LOOK:\s*[^=<]+=\s*([^<>\s]+)", txt):
+        p = shot if os.path.isabs(shot) else os.path.join(os.path.dirname(f), shot)
+        try: ok += os.path.getsize(p) >= 10240
+        except OSError: pass
+    if ok < n: return n, tot, "%s: %d of %d PROOF-OF-LOOK screenshots on disk" % (os.path.basename(f), ok, n)
+    return n, tot, ""
+
+def _dep_scripts(x, by_n):
+    names, todo, seen = set(), list(x.get("dependsOn") or []), set()
+    while todo:
+        k = str(todo.pop()).strip()
+        if k in seen or k not in by_n: continue
+        seen.add(k); r = by_n[k]
+        for cell in (r.get("step"), r.get("produces")):
+            for t in PLAN_SCRIPT.findall(cell or ""):
+                names.add((t[5:] if t.startswith("done-") else t).replace("…", "*").replace("...", "*"))
+        todo.extend(r.get("dependsOn") or [])
+    return names
+
+def harness_verify(proj, x, by_n=None, log_rows=None, done_files=None):
+    """(cls, shown, flag) for a HARNESS row that runs verify-module.sh <Module>, None for any other
+    row. cls is what the row counts as; shown the State cell text; flag the drift line or ''."""
+    m = VERIFY_STEP.search(x.get("step") or "") if (x.get("kind") or "").strip().upper() == "HARNESS" else None
+    if not m: return None
+    mod, state = m.group(1), x.get("state") or ""
+    cl = classify_state(state); raw = state.strip().lower().replace("**", "")
+    f = os.path.join(proj, ".claude", "loop", "verify", mod, "summary.tsv")
+    try:
+        rows = [l.split("\t") for l in open(f, encoding="utf-8", errors="replace").read().splitlines()[1:] if l.strip()]
+        t = os.path.getmtime(f); day = datetime.datetime.fromtimestamp(t).strftime("%Y-%m-%d")
+    except OSError:
+        return ("built", "built? no verify summary", "State says built, but .claude/loop/verify/%s/summary.tsv does not exist" % mod) if cl == "built" else None
+    why = _summary_state(rows)
+    if why:
+        return (cl, state, "State says built, but the %s verify summary of %s is not clean (%s)" % (mod, day, why)) if cl == "built" else None
+    names = _dep_scripts(x, by_n or {})
+    match = lambda s_: any(fnmatch.fnmatchcase(os.path.basename(s_), n) or fnmatch.fnmatchcase(os.path.basename(s_), "done-" + n) for n in names)
+    if log_rows is None: log_rows = build_log_rows(proj)
+    if done_files is None:
+        if ("done", proj) not in _EV_CACHE:
+            _EV_CACHE[("done", proj)] = [os.path.join(r_, n_) for r_, _d, fs in os.walk(os.path.join(proj, "mdlsource")) for n_ in fs if n_.startswith("done-")]
+        done_files = _EV_CACHE[("done", proj)]
+    since = [r for r in log_rows if r[0] > t and match(r[1])] if names else []
+    newer = [d_ for d_ in done_files if names and match(d_) and os.path.getmtime(d_) > t]
+    if since or newer:
+        return cl, state, "verify stale (summary %s, %d execs since)" % (day, len(since))
+    n, tot, lwhy = look_evidence(proj, mod)
+    if lwhy:
+        return cl, state, "verify clean %s — LOOK + CONFIRM owed (%s)" % (day, lwhy)
+    shown = "built (verified %s, LOOK %d/%d)" % (day, n, tot)
+    if cl == "built": return "built", shown, ""
+    if raw.startswith(("blocked", "pending a person")): return cl, state, "verify clean %s and LOOK %d/%d, but State says %s" % (day, n, tot, state)
+    return "built", shown, "State says %s, but the %s summary of %s is clean and fresh and LOOK is %d/%d: update State" % (state or "nothing", mod, day, n, tot)
+
 def _cells(line):
     c = re.split(r"(?<!\\)\|", line.strip())
     if c and c[0].strip() == "": c = c[1:]
@@ -942,26 +1044,35 @@ def parse_plan_md(path):
             ci = {"n": next((k for k, x in enumerate(hd) if x in ("#", "no", "no.", "step", "row", "number")), None),
                   "state": next((k for k, x in enumerate(hd) if x.startswith(("state", "status"))), None),
                   "kind": next((k for k, x in enumerate(hd) if x.startswith("kind")), None),
-                  "step": next((k for k, x in enumerate(hd) if x == "step" or x.startswith("what") or x.startswith("do")), None)}
+                  "step": next((k for k, x in enumerate(hd) if x == "step" or x.startswith("what") or x.startswith("do")), None),
+                  "dep": next((k for k, x in enumerate(hd) if x.startswith("depend")), None),
+                  "prod": next((k for k, x in enumerate(hd) if x.startswith("produce")), None)}
             while i < len(lines) and lines[i].lstrip().startswith("|"):
                 c = _cells(lines[i]); i += 1
                 if ci["n"] is None or ci["state"] is None or not c or not re.match(r"^\d+$", c[ci["n"]] if ci["n"] < len(c) else ""): continue
                 if cur is None: cur = ("all", "All rows", []); phases.append(cur)
                 st = c[ci["state"]] if len(c) == len(hd) else c[-1]
-                cur[2].append({"number": c[ci["n"]], "kind": (c[ci["kind"]] if ci["kind"] is not None and ci["kind"] < len(c) else "") or "-",
-                               "step": (c[ci["step"]] if ci["step"] is not None and ci["step"] < len(c) and ci["step"] != ci["n"] else "")[:140], "state": st})
+                cell = lambda k: c[ci[k]] if ci[k] is not None and ci[k] < len(c) else ""
+                cur[2].append({"number": c[ci["n"]], "kind": cell("kind") or "-",
+                               "step": (cell("step") if ci["step"] != ci["n"] else ""), "state": st,
+                               "produces": cell("prod"), "dependsOn": [d for d in re.split(r"[,\s]+", cell("dep")) if d.strip("-\u2014")]})
             continue
         i += 1
     return [p for p in phases if p[2]]
 
 def finish_plan(phases, proj, generated, source):
     out = []; kinds = collections.Counter(); tot = collections.Counter()
+    by_n = {str(x.get("number")): x for _p, _n, st in phases for x in st}; logs = None
     for pid, name, steps in phases:
         c = collections.Counter(); kd = collections.Counter(); rows = []
         for x in steps:
-            cl = classify_state(x.get("state")); c[cl] += 1; kd[x.get("kind") or "-"] += 1
+            cl = classify_state(x.get("state")); shown = x.get("state") or ""
+            if logs is None and VERIFY_STEP.search(x.get("step") or ""): logs = build_log_rows(proj)
+            hv = harness_verify(proj, x, by_n, logs) if logs is not None else None
+            if hv: cl, shown = hv[0], hv[1] + (" (%s)" % hv[2] if hv[2] else "")
+            c[cl] += 1; kd[x.get("kind") or "-"] += 1
             if cl != "skip": kinds[x.get("kind") or "-"] += 1
-            rows.append({"n": x.get("number"), "kind": x.get("kind"), "step": x.get("step"), "state": x.get("state") or "", "cls": cl})
+            rows.append({"n": x.get("number"), "kind": x.get("kind"), "step": (x.get("step") or "")[:140], "state": shown, "cls": cl})
         tot.update(c)
         mods = os.path.join(proj, "architecture", "modules", name)
         out.append({"id": pid, "name": name, "n": len(steps) - c["skip"], "built": c["built"], "partial": c["partial"], "todo": c["todo"], "skip": c["skip"], "kinds": dict(kd),
@@ -1043,7 +1154,7 @@ def load_build_plan(path, proj=None):
         return bp
     if d is None: return None
     ph = [(p["id"], p["name"], p.get("steps", [])) for p in d.get("phases", [])]
-    bp = finish_plan([(i, n, [{"number": x.get("number"), "kind": x.get("kind"), "step": x.get("step"), "state": x.get("state")} for x in st]) for i, n, st in ph], proj, d.get("generatedAt"), "json")
+    bp = finish_plan([(i, n, [{"number": x.get("number"), "kind": x.get("kind"), "step": x.get("step"), "state": x.get("state"), "produces": x.get("produces"), "dependsOn": x.get("dependsOn") or []} for x in st]) for i, n, st in ph], proj, d.get("generatedAt"), "json")
     if stale: bp["note"] = "plan JSON is older than the newest BUILD-LOG.md row and there is no readable build-plan.md to recount from; built counts may lag"
     return bp
 
@@ -1752,7 +1863,7 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
         if lb: w("<div class=note id=lastbuild data-stamp>%s. Last build step: <code>%s</code> (%s), %s at %s.</div>" % (esc(facts_line(facts)), esc(lb[1][:90]), esc(re.sub(r"[^\w .,/()+-]", "", lb[2])[:40].strip() or "no result"), esc(ago(lb[0])), esc(datetime.datetime.fromtimestamp(lb[0]).strftime("%Y-%m-%d %H:%M"))))
         if facts and facts["score"]: w("<div class=note id=modelscore data-stamp>Latest model score %.1f (%s).</div>" % (facts["score"]["score"], esc(facts["score"]["script"][:40])))
         if bp.get("note"): w("<div class='note stale'>%s.</div>" % esc(bp["note"]))
-        w("<div class=note id=planread data-stamp>Kinds are the plan's own Kind column; row state is the plan's State column read by prefix (built or done = built, partial or in progress = partial, anything else = not built). Plan read %s from %s.</div></div>" % (esc(bp.get("generated") or "unknown"), "architecture/build-plan.md" if bp.get("source") == "md" else "architecture/build-plan.json"))
+        w("<div class=note id=planread data-stamp>Kinds are the plan's own Kind column; row state is the plan's State column read by prefix (built or done = built, partial or in progress = partial, anything else = not built); a HARNESS row running verify-module.sh &lt;Module&gt; is also read from that module's verify summary and LOOK report: built only when the summary is clean and newer than the scripts it depends on and the LOOK is N of N, flagged otherwise. Plan read %s from %s.</div></div>" % (esc(bp.get("generated") or "unknown"), "architecture/build-plan.md" if bp.get("source") == "md" else "architecture/build-plan.json"))
         w("<div class=phases style='margin-top:10px'>")
         for p in bp["phases"]:
             now = p is cur

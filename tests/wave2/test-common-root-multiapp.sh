@@ -21,8 +21,9 @@
 #   R5  nested multi-app folders: the inner project from inside it, the outer one from between
 #   R6  a project folder with no model yet: the walk stops there; find_mpr fails naming it
 #   R7  $HOME's .claude/ is not a project folder: the walk goes on past it (old behaviour)
-#   R8  PWD inside one app's folder: that app's folder (state follows the model, as before)
+#   R8  PWD inside one app's folder: the project when it is marked (#489), else the app folder
 #   R9  find_mpr: one app under apps/ found; two refused with both listed; MPR_FILE picks one
+#       (as an absolute path); from inside one app's folder, that app; outside any, refused
 #   R10 bin/check-requirements.sh (same walk): multi-app root named; a model-less project exits 2
 #   R11 a bare .claude/ (no PROJECT.md) is not a project folder: a stray /tmp/.claude above an
 #       unmarked project must not capture the walk; the old self-parent fallback still applies
@@ -37,6 +38,13 @@
 #   R15 doctor.sh <project>: reports the app's model, and names MPR_FILE when there are two
 #   R16 a model-less git worktree under <project>/.claude/worktrees/<w> (it carries its own
 #       bin/_common.sh) resolves to the worktree, no longer to the main project above it
+#   R17 PWD in app/, app/javasource, apps/A, apps/A/javasource of a marked project: the
+#       installed and toolkit copies both answer the project (#489); unmarked, the app folder;
+#       an app folder that is a project of its own keeps its root (g, h); any letter case (i, j)
+#   R18 from inside apps/A the app is picked at source time and survives exec.sh's cd to the
+#       root and its child snapshot-mpr.sh; explicit MPR_FILE wins; outside any app refuses;
+#       an inherited auto-pick re-derives in another app's folder (f), a user's never (g),
+#       and is dropped in another project (h)
 set -u
 
 COMMON="${1:?usage: $0 project-bin/_common.sh}"
@@ -101,7 +109,9 @@ eq "R7 walk passes \$HOME and finds the model above it" "$(root "$H/scratch/sub"
 
 echo "== R8 PWD inside one app's folder =="
 P="$T/r8/proj"; mkdir -p "$P/apps/A/javasource"; wire "$P"; : > "$P/apps/A/A.mpr"
-eq "R8 apps/A/javasource -> apps/A (the model's own folder)" "$(root "$P/apps/A/javasource" "$TKP")" "$P/apps/A"
+eq "R8a apps/A/javasource, project marked -> the project (#489)" "$(root "$P/apps/A/javasource" "$TKP")" "$P"
+rm -rf "$P/.claude" "$P/PROJECT.md"
+eq "R8b apps/A/javasource, no marker -> apps/A (the model's own folder, as before)" "$(root "$P/apps/A/javasource" "$TKP")" "$P/apps/A"
 
 echo "== R9 find_mpr in a multi-app folder =="
 P="$T/r9/proj"; mkdir -p "$P/apps/A"; wire "$P"; : > "$P/apps/A/A.mpr"
@@ -111,7 +121,15 @@ dir=$P/apps/A"
 mkdir -p "$P/apps/B"; : > "$P/apps/B/B.mpr"
 out="$(fm)"
 case "$out" in *"2 .mpr files"*"apps/A/A.mpr"*"apps/B/B.mpr"*"MPR_FILE=apps/"*) ok "R9b two apps: refused, both listed, MPR_FILE named" ;; *) fail "R9b: $out" ;; esac
-eq "R9c MPR_FILE=apps/B/B.mpr picks B (echoed as given, as before)" "$(fm apps/B/B.mpr | head -1)" "apps/B/B.mpr"
+eq "R9c MPR_FILE=apps/B/B.mpr picks B, as an absolute path (#489 review)" "$(fm apps/B/B.mpr | head -1)" "$P/apps/B/B.mpr"
+# R9d: two apps, MPR_FILE unset, the session inside one app's folder: that app (#489 review)
+fmin() { (cd "$1" && env -i PATH="$PATH" HOME="$T/nohome" bash -c ". '$T/tk/project-bin/_common.sh'; find_mpr" 2>&1); }
+mkdir -p "$P/apps/A/javasource" "$P/docs"
+eq "R9d two apps, PWD=apps/A/javasource: apps/A's model" "$(fmin "$P/apps/A/javasource")" "$P/apps/A/A.mpr"
+case "$(fmin "$P/docs")" in *"2 .mpr files"*"MPR_FILE=apps/"*) ok "R9e two apps, PWD=docs/ (in no app): still refused" ;; *) fail "R9e: $(fmin "$P/docs")" ;; esac
+# R9f: a cwd-relative MPR_FILE still names the model after the caller cd's to the root (exec.sh)
+out="$(cd "$P/apps" && env -i PATH="$PATH" HOME="$T/nohome" MPR_FILE=A/A.mpr bash -c ". '$T/tk/project-bin/_common.sh'; m=\$(find_mpr) && cd \"\$PROJECT_ROOT\" && [ -f \"\$m\" ] && echo \"\$m\"" 2>&1)"
+eq "R9f MPR_FILE=A/A.mpr from apps/: absolute, survives cd to the root" "$out" "$P/apps/A/A.mpr"
 
 echo "== R10 bin/check-requirements.sh uses the same walk =="
 CR="$TK_SRC/bin/check-requirements.sh"
@@ -164,6 +182,9 @@ case "$rc:$out" in 1:*"covers apps/A/ only"*"apps/B/"*) ok "R13e MPR_FILE=apps/A
 (cd "$P" && git reset -q apps/B)
 out="$(msA check --staged)"; rc=$?
 case "$rc" in 0) ok "R13f MPR_FILE=apps/A, only A staged (and stamped): passes" ;; *) fail "R13f rc=$rc: $out" ;; esac
+(cd "$P" && git add apps/B)
+out="$(cd "$P/apps/A" && env -i PATH="$PATH" HOME="$T/nohome" bash "$P/bin/model-stamp.sh" check --staged 2>&1)"; rc=$?
+case "$rc:$out" in 1:*"(picked from your cwd)"*"apps/B/"*) ok "R13g from apps/A, A and B staged: refused, the pick named as from the cwd" ;; *) fail "R13g rc=$rc: $out" ;; esac
 
 echo "== R14 lint-gate.sh model discovery in a multi-app folder =="
 P="$T/r14/proj"; mkdir -p "$P/bin" "$P/apps/A"; wire "$P"; : > "$P/apps/A/A.mpr"
@@ -187,6 +208,71 @@ case "$out" in *"checking apps/A/A.mpr only"*"MPR_FILE="*) ok "R15c --property-s
 echo "== R16 a model-less worktree under .claude/worktrees/ =="
 P="$T/r16/proj"; W="$P/.claude/worktrees/w"; install "$P"; : > "$P/App.mpr"; install "$W"; mkdir -p "$W/docs"
 eq "R16 toolkit copy from the worktree's docs/: the worktree" "$(root "$W/docs" "$TKP")" "$W"
+
+echo "== R17 PWD inside an app folder: installed and toolkit copies agree (#489) =="
+# Before #489 the toolkit copy stopped at the folder holding the model, the installed copy
+# (tier 2) answered the project, and the two wrote their ledgers to different roots.
+both() {  # both <label> <project> <pwd>
+  eq "$1, installed copy" "$(root "$3" "$2/bin/probe.sh")" "$2"
+  eq "$1, toolkit copy"   "$(root "$3" "$TKP")" "$2"
+}
+S="$T/r17/stray"; P="$S/two"; mkdir -p "$P/app/javasource"; : > "$S/stray.mpr"; : > "$P/app/App.mpr"; install "$P"
+both "R17a two-tree, PWD=app/"            "$P" "$P/app"
+both "R17b two-tree, PWD=app/javasource"  "$P" "$P/app/javasource"
+P="$S/multi"; mkdir -p "$P/apps/A/javasource" "$P/apps/B"; : > "$P/apps/A/A.mpr"; : > "$P/apps/B/B.mpr"; install "$P"
+both "R17c multi-app, PWD=apps/A"            "$P" "$P/apps/A"
+both "R17d multi-app, PWD=apps/A/javasource" "$P" "$P/apps/A/javasource"
+P="$S/single"; mkdir -p "$P/javasource"; : > "$P/App.mpr"; install "$P"
+both "R17e single tree, PWD=javasource (unchanged)" "$P" "$P/javasource"
+# R17g: a project nested at apps/X (its own install, .claude/, PROJECT.md, model) inside a
+# marked project keeps its own root
+P="$S/outer"; X="$P/apps/X"; install "$P"; mkdir -p "$X/javasource"; : > "$X/X.mpr"; install "$X"
+both "R17g nested project at apps/X, PWD=apps/X/javasource" "$X" "$X/javasource"
+# R17h: app/ is a wired project of its own (PROJECT.md + .claude/ + its install), parent marked
+P="$S/wiredapp"; install "$P"; mkdir -p "$P/app/javasource"; : > "$P/app/App.mpr"; install "$P/app"
+both "R17h app/ wired as its own project, PWD=app/javasource" "$P/app" "$P/app/javasource"
+rm -rf "$P/app/bin"
+eq "R17h2 ... marked by .claude/ + PROJECT.md only: toolkit copy keeps app/" "$(root "$P/app/javasource" "$TKP")" "$P/app"
+# R17i: the app folder's letter case does not matter (App/ on a case-insensitive disk)
+P="$S/case"; mkdir -p "$P/App/javasource" "$P/Apps/A/javasource"; : > "$P/App/App.mpr"; install "$P"
+eq "R17i App/javasource (capital A): the project" "$(root "$P/App/javasource" "$TKP")" "$P"
+rm -rf "$P/App"; : > "$P/Apps/A/A.mpr"
+eq "R17j Apps/A/javasource (capital A): the project" "$(root "$P/Apps/A/javasource" "$TKP")" "$P"
+P="$T/r17/bare"; mkdir -p "$P/app/javasource"; : > "$P/app/App.mpr"
+eq "R17f two-tree, no marker, PWD=app/javasource: app/ (the model's folder, as before)" "$(root "$P/app/javasource" "$TKP")" "$P/app"
+
+echo "== R18 the app picked from inside apps/A survives cd to the root and child scripts =="
+# exec.sh sources _common.sh from the cwd, then cd's to PROJECT_ROOT, then runs
+# find_model_dir and bin/snapshot-mpr.sh as a child. A pick made only inside find_mpr was
+# lost there: find_model_dir refused and snapshot-mpr.sh exited 1 under set -e (#489 review).
+P="$T/r18/proj"; install "$P"; cp "$TKB/snapshot-mpr.sh" "$P/bin/"
+for a in A B; do mkdir -p "$P/apps/$a/mprcontents" "$P/apps/$a/javasource"; echo m > "$P/apps/$a/$a.mpr"; echo u > "$P/apps/$a/mprcontents/u.mxunit"; done
+EXECLIKE='. "$1/bin/_common.sh"; cd "$PROJECT_ROOT" || exit 9; find_model_dir || exit 3; bash bin/snapshot-mpr.sh >/dev/null 2>&1 || exit 4'
+ex() { (cd "$1" && env -i PATH="$PATH" HOME="$T/nohome" ${3:+MPR_FILE="$3"} bash -c "$EXECLIKE" _ "$2" 2>&1); }
+out="$(ex "$P/apps/A/javasource" "$P")"; rc=$?
+eq "R18a two apps, PWD=apps/A/javasource, then cd root: find_model_dir is apps/A, snapshot ok (rc $rc)" "$rc:$out" "0:$P/apps/A"
+out="$(ex "$P/apps/A/javasource" "$P" "$P/apps/B/B.mpr")"; rc=$?
+eq "R18b an explicit MPR_FILE still wins over the cwd's app" "$rc:$out" "0:$P/apps/B"
+mkdir -p "$P/docs"; out="$(ex "$P/docs" "$P")"; rc=$?
+case "$rc" in 3) ok "R18c PWD outside any app (docs/): still refused (find_model_dir rc 1)" ;; *) fail "R18c rc=$rc: $out" ;; esac
+# R18f: a parent auto-picks apps/A, a child sourced inside apps/B re-derives apps/B; at the root
+# the inherited pick is kept (R18a). R18g: a MPR_FILE the user set is inherited unchanged.
+CHILD='. "$1/bin/_common.sh"; cd "$1/apps/B" && bash -c ". \"$1/bin/_common.sh\"; find_model_dir" _ "$1"'
+out="$(cd "$P/apps/A" && env -i PATH="$PATH" HOME="$T/nohome" bash -c "$CHILD" _ "$P" 2>&1)"
+eq "R18f parent picks apps/A, child in apps/B: apps/B" "$out" "$P/apps/B"
+out="$(cd "$P/apps/A" && env -i PATH="$PATH" HOME="$T/nohome" MPR_FILE="$P/apps/A/A.mpr" bash -c "$CHILD" _ "$P" 2>&1)"
+eq "R18g a user-set MPR_FILE inherited into apps/B still wins: apps/A" "$out" "$P/apps/A"
+# R18h: a pick made in one project's apps/A must not follow a child into another project
+P2="$T/r18/other"; install "$P2"; : > "$P2/Other.mpr"
+out="$(cd "$P/apps/A" && env -i PATH="$PATH" HOME="$T/nohome" bash -c '. "$1/bin/_common.sh"; cd "$2" && bash -c ". \"$2/bin/_common.sh\"; find_mpr"' _ "$P" "$P2" 2>&1)"
+eq "R18h pick in P1/apps/A, child at P2's root: P2's own model" "$out" "$P2/Other.mpr"
+P="$T/r18/two"; install "$P"; cp "$TKB/snapshot-mpr.sh" "$P/bin/"; mkdir -p "$P/app/mprcontents" "$P/app/javasource" "$P/apps/Z"
+echo m > "$P/app/App.mpr"; echo u > "$P/app/mprcontents/u.mxunit"; echo m > "$P/apps/Z/Z.mpr"
+out="$(ex "$P/apps/Z" "$P")"; rc=$?
+eq "R18d a model under app/ is never overridden by a cwd under apps/ (two-tree unchanged)" "$rc:$out" "0:$P/app"
+rm -rf "$P/apps"
+out="$(ex "$P/app/javasource" "$P")"; rc=$?
+eq "R18e single-app two-tree from app/javasource: app/, as before" "$rc:$out" "0:$P/app"
 
 echo
 echo "root-multiapp: $PASS passed, $FAIL failed"

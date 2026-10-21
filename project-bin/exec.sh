@@ -26,9 +26,12 @@
 #   0  applied, and the mxbuild gate passed (clean, or no new error over a measured baseline)
 #   1  NOT applied, or rolled back: a refusal, a failed pre-exec check, a gate that failed or
 #      could not run, a patch that failed or was not verified. Also a PARTIAL application.
+#      Exception: a LINT ROSE under `Lint gate: hard` (write KEPT; read the last line).
 #   2  usage error (no script, bad argument, missing or unrunnable file); nothing was touched
 #   4  applied and the gate passed, but LINT ROSE or LINT BLIND. The write is KEPT: do not
-#      re-apply it. The last line of output reads "gate passed, lint only".
+#      re-apply it. The last line of output reads "gate passed, lint only". Opt-in: with
+#      `Lint gate: hard` in PROJECT.md a LINT ROSE exits 1 instead (write still kept, #496).
+#      Env MXTK_LINT_GATE=soft|hard wins over PROJECT.md (doctor.sh's --patch call passes soft).
 #   5  applied, but UNVERIFIED: the gate ran and did not check the model (mxbuild exited
 #      non-zero with no model problem), or ALLOW_UNVERIFIED=1 skipped it. The write is kept with
 #      no verification stamp; run ./bin/verify-model.sh before the next exec or commit.
@@ -960,7 +963,7 @@ fi
 # is a suggestion; one that lives here runs. So lint runs HERE, after a clean
 # mxbuild, and its verdict lands in the same BUILD-LOG row as the mxbuild verdict.
 #
-# Semantics: a rise vs the committed baseline exits 4 (was 1 until #443) but does NOT restore the
+# Semantics: a rise vs the committed baseline exits 4 (1 under `Lint gate: hard`) but does NOT restore the
 # snapshot — lint findings are about shape, not corruption, and the write is
 # fixable by a follow-up script; a restore here would teach people to skip it.
 # SKIP_LINT=<reason> is the only override and the reason is written into the row.
@@ -2206,6 +2209,17 @@ if [ "$LINT_RC" -eq 1 ]; then
   echo "✗ Script applied and mxbuild is clean, but LINT ROSE — this is not a pass."
   echo "  $LINT_DETAIL"
   echo "  The write is kept (lint is shape, not corruption). Fix it before calling the task done."
+  # Opt-in hard gate (#496): PROJECT.md `Lint gate: hard` makes a rise stop the step with 1, the
+  # pre-#443 code. The write is still kept. Read the same way as `Context packs:`; env
+  # MXTK_LINT_GATE wins (doctor.sh passes soft: its repair must not read 1 as "not kept").
+  _lgm="${MXTK_LINT_GATE:-}"
+  [ -n "$_lgm" ] || _lgm="$(sed -nE 's/^[*_ -]*Lint gate:[*_ ]*[`]?([A-Za-z-]+).*/\1/p' "$PROJECT_ROOT/PROJECT.md" 2>/dev/null | head -1)"
+  _lgm="$(printf '%s' "$_lgm" | tr 'A-Z' 'a-z')"
+  case "$_lgm" in hard|soft|default|"") ;; *) echo "note: 'Lint gate: $_lgm' not recognised (hard | default)" ;; esac
+  if [ "$_lgm" = hard ]; then
+    echo "gate passed, LINT ROSE under 'Lint gate: hard' (exit 1: write kept, do not re-apply)"
+    exit 1
+  fi
   echo "gate passed, lint only (exit 4: LINT ROSE; write kept, do not re-apply)"
   exit 4
 fi

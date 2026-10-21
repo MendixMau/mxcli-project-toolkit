@@ -28,6 +28,16 @@
 # holds a PASS stamp for exactly that staged content. Commits that touch no model file
 # are untouched. It runs on every machine, cloud or laptop, with no toolkit clone needed.
 #
+# v2 (model-scope): the hook also runs model-scope.py check --staged and refuses a commit that
+# stages units whose bytes changed but whose meaning did not (XPath whitespace only; see
+# model-scope.py). One mxcli rename rewrote 135 units in 20 unrelated modules that way, and a
+# reviewer had to read all of them. The remedy is `python3 -I bin/model-scope.py restore` (not a
+# commit, so rule 7 holds); MODEL_SCOPE_OK=1 lets one commit through, out loud. A project whose
+# bin/ has no model-scope.py, or a machine with no Python, gets one warning and the commit stands.
+# Version marker: "# mxtk-model-stamp hook v<N>". Any version is OURS (never chained as a foreign
+# hook); only the current one counts as installed, so --check reports an older hook as stale and
+# a re-run rewrites it in place.
+#
 # Guard rules (toolkit CLAUDE.md, "Shipping an instrument" rules 6/7):
 #   * rule 7 — it never blocks the remedy: ./bin/verify-model.sh is not itself a commit, so
 #     there is always a way to earn the stamp without going through this hook.
@@ -48,7 +58,8 @@ cd "$PROJECT_ROOT"
 git rev-parse --show-toplevel >/dev/null 2>&1 || { echo "install-project-hooks.sh: $PROJECT_ROOT is not in a git repository"; exit 2; }
 HOOKS="$(git rev-parse --git-path hooks)"
 HOOK="$HOOKS/pre-commit"
-MARK="# mxtk-model-stamp hook v1"
+MARK_PREFIX="# mxtk-model-stamp hook v"
+MARK="${MARK_PREFIX}2"
 # bin/ relative to the git top level, so the hook works when the project root is a subdir.
 BIN_REL="$(git rev-parse --show-prefix)bin"
 
@@ -76,6 +87,9 @@ leftover() {   # ours | foreign | none
 if [ -n "$(git config --get core.hooksPath 2>/dev/null)" ]; then
   echo "⚠ core.hooksPath is set ($(git config --get core.hooksPath)) — add this to that pre-commit yourself:"
   echo "    \"\$(git rev-parse --show-toplevel)/$BIN_REL/model-stamp.sh\" check --staged || exit 1"
+  echo "  and, before it, the scope check (refuses units that changed only in whitespace; exit 1 refuses, other codes only warn):"  # portability-ok: advice text
+  echo "    b=\"\$(git rev-parse --show-toplevel)/$BIN_REL\"; py=\"\$(PROJECT_ROOT=\"\$b/..\" bash -c '. \"\$1/_common.sh\" >/dev/null 2>&1 && resolve_py' _ \"\$b\")\""
+  echo "    [ -z \"\$py\" ] || { \"\$py\" -I \"\$b/model-scope.py\" check --staged --project \"\$b/..\"; [ \$? != 1 ] || exit 1; }"
   echo "  and this to its post-commit (revision notes for Studio Pro History; python via resolve_py, never the shebang):"  # portability-ok: advice text
   echo "    b=\"\$(git rev-parse --show-toplevel)/$BIN_REL\"; py=\"\$(PROJECT_ROOT=\"\$b/..\" bash -c '. \"\$1/_common.sh\" >/dev/null 2>&1 && resolve_py' _ \"\$b\")\""
   echo "    [ -n \"\$py\" ] && MXTK_HOOK=1 \"\$py\" \"\$b/mx-metadata-note.py\" write HEAD || true"
@@ -85,6 +99,7 @@ fi
 if [ "${1:-}" = "--check" ]; then
   rc=0
   if [ -f "$HOOK" ] && grep -q "^$MARK" "$HOOK"; then echo "  ✓ pre-commit hook installed ($HOOK)"
+  elif [ -f "$HOOK" ] && grep -q "^$MARK_PREFIX" "$HOOK"; then echo "  ✗ pre-commit hook is an older version (no model-scope check) — run ./bin/install-project-hooks.sh"; rc=1
   else echo "  ✗ pre-commit model-verification hook missing — run ./bin/install-project-hooks.sh"; rc=1; fi
   for h in post-commit post-rewrite; do
     if [ -f "$HOOKS/$h" ] && grep -q "^$NOTE_MARK" "$HOOKS/$h"; then echo "  ✓ $h revision-note hook installed"
@@ -100,7 +115,7 @@ if [ "${1:-}" = "--check" ]; then
 fi
 
 mkdir -p "$HOOKS"
-if [ -f "$HOOK" ] && ! grep -q "^$MARK" "$HOOK"; then
+if [ -f "$HOOK" ] && ! grep -q "^$MARK_PREFIX" "$HOOK"; then
   mv "$HOOK" "$HOOK.pre-mxtk"
   echo "  existing pre-commit hook kept as $(basename "$HOOK").pre-mxtk and chained first"
 fi
@@ -109,6 +124,20 @@ cat > "$HOOK" <<HOOKEOF
 $MARK — written by bin/install-project-hooks.sh (mxcli-project-toolkit). Re-run it to refresh.
 top="\$(git rev-parse --show-toplevel)"
 [ -x "\$(dirname "\$0")/pre-commit.pre-mxtk" ] && { "\$(dirname "\$0")/pre-commit.pre-mxtk" || exit 1; }
+# Scope check first: units that changed only in whitespace are noise a reviewer would have to read.
+scope="\$top/$BIN_REL/model-scope.py"
+if [ -f "\$scope" ]; then
+  proj="\$(dirname "\$(dirname "\$scope")")"
+  py=""
+  [ -f "\$proj/bin/_common.sh" ] && py="\$(PROJECT_ROOT="\$proj" bash -c '. "\$1/_common.sh" >/dev/null 2>&1 && resolve_py' _ "\$proj/bin" 2>/dev/null)"
+  if [ -z "\$py" ]; then
+    echo "⚠ no python found — the model-scope check (units changed only in whitespace) was skipped for this commit" >&2  # portability-ok: resolve_py above is the probe
+  else
+    "\$py" -I "\$scope" check --staged --project "\$proj"; rc=\$?
+    [ "\$rc" = 1 ] && exit 1
+    [ "\$rc" = 0 ] || echo "⚠ the model-scope check could not run (exit \$rc) — skipped for this commit" >&2
+  fi
+fi
 stamp="\$top/$BIN_REL/model-stamp.sh"
 if [ ! -x "\$stamp" ]; then
   echo "⚠ $BIN_REL/model-stamp.sh is missing — the model-verification hook cannot check this commit (re-run the toolkit's sync-project.sh)" >&2
@@ -145,6 +174,7 @@ HOOKEOF
 chmod +x "$HOOK"
 echo "  ✓ pre-commit hook installed -> $HOOK"
 echo "    (refuses to commit .mpr/mprcontents changes that have no mxbuild-gate PASS stamp; ./bin/verify-model.sh writes one)"
+echo "    (and units that changed only in whitespace: python3 -I bin/model-scope.py restore puts them back)"  # portability-ok: command text shown to the user, not run here
 
 # --- revision notes for Studio Pro History (post-commit + post-rewrite) -------------------------
 # Both hooks find Python through bin/_common.sh's resolve_py (executes each candidate, skips the

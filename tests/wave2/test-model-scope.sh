@@ -17,6 +17,10 @@
 #   C  restore: second run writes nothing, --against REF, a model under app/, clean tree,
 #      a checkout that stops part-way leaves the index matching [guard]
 #   D  check --staged: exit codes, the restore command, MODEL_SCOPE_OK=1, no model yet
+#   E  the pre-commit hook (install-project-hooks.sh): refuses staged noise [guard], override,
+#      a v1 hook is reported stale and upgraded in place, no model-scope.py = no block
+#   F  exec.sh: the noise is restored before the mxbuild gate, which sees the final model [guard];
+#      MXTK_NO_SCOPE=1 control; --patch; no model-scope.py = exec.sh as before
 #
 # B-D run on SYNTHETIC models (fixtures/model-scope/mkmodel.py), shaped like the capture.
 # The ContentsHash check is the fixtures' own code (mkmodel.py hashes), never the subject's.
@@ -173,6 +177,119 @@ mk d5
 mkm edit "$R" MfB1 ws; mkm edit "$R" MfA1 ws; mkm edit "$R" PgA ws; ( cd "$R" && git add -A )
 out="$(ms check --staged 2>&1)"
 echo "$out" | grep -q 'refused: 3 staged unit file' && ok "counts every staged noise unit" || bad "count" "$out"
+
+echo "== E: the installed pre-commit hook"
+SD="$(dirname "$SUBJECT")"
+mk e1
+mkdir -p "$R/bin"
+cp "$TK/project-bin/_common.sh" "$TK/project-bin/model-stamp.sh" "$TK/project-bin/install-project-hooks.sh" "$R/bin/"
+cp "$SUBJECT" "$SD/mxpatch.py" "$SD/mxunit_bson.py" "$R/bin/"
+( cd "$R" && printf 'bin/\n' > .gitignore && gitq add .gitignore && gitq commit -qm ignore )
+( cd "$R" && ./bin/install-project-hooks.sh >/dev/null 2>&1 )
+grep -q 'model-scope.py' "$R/.git/hooks/pre-commit" && ok "hook calls model-scope.py" || bad "hook text"
+( cd "$R" && ./bin/install-project-hooks.sh --check >/dev/null 2>&1 ) && ok "--check: current hook accepted" || bad "--check rejected the current hook"
+mkm edit "$R" MfB1 ws; ( cd "$R" && git add -A )
+out="$(cd "$R" && MODEL_UNVERIFIED_OK=1 gitq commit -qm noise 2>&1)"; rc=$?
+[ "$rc" -ne 0 ] && echo "$out" | grep -q 'commit refused: 1 staged unit file' && ok "commit with noise refused by the hook [guard]" || bad "noise commit went through rc=$rc" "$out"
+[ "$(cd "$R" && git rev-list --count HEAD)" = 2 ] && ok "no commit was made" || bad "a commit was made"
+out="$(cd "$R" && MODEL_SCOPE_OK=1 MODEL_UNVERIFIED_OK=1 gitq commit -qm noise 2>&1)"; rc=$?
+[ "$rc" -eq 0 ] && ok "MODEL_SCOPE_OK=1 lets one commit through" || bad "override failed rc=$rc" "$out"
+mkm edit "$R" MfB2 field; ( cd "$R" && git add -A )
+out="$(cd "$R" && MODEL_UNVERIFIED_OK=1 gitq commit -qm real 2>&1)"; rc=$?
+[ "$rc" -eq 0 ] && ok "a commit with only real changes is untouched" || bad "real commit refused rc=$rc" "$out"
+# An older hook (v1) is OURS: --check reports it stale, a re-run rewrites it in place, never chains it.
+sed -i.bak 's/hook v2/hook v1/' "$R/.git/hooks/pre-commit"; rm -f "$R/.git/hooks/pre-commit.bak"
+out="$(cd "$R" && ./bin/install-project-hooks.sh --check 2>&1)"; rc=$?
+[ "$rc" -eq 1 ] && echo "$out" | grep -q 'older version' && ok "--check reports a v1 hook as stale" || bad "stale not reported rc=$rc" "$out"
+( cd "$R" && ./bin/install-project-hooks.sh >/dev/null 2>&1 )
+[ ! -e "$R/.git/hooks/pre-commit.pre-mxtk" ] && grep -q 'hook v2' "$R/.git/hooks/pre-commit" && ok "re-install upgrades v1 in place, no chaining" || bad "v1 chained or not upgraded"
+mv "$R/bin/model-scope.py" "$R/bin/model-scope.py.off"
+mkm edit "$R" MfA1 ws; ( cd "$R" && git add -A )
+out="$(cd "$R" && MODEL_UNVERIFIED_OK=1 gitq commit -qm "no scope script" 2>&1)"; rc=$?
+[ "$rc" -eq 0 ] && ok "no model-scope.py in the project: the hook does not block" || bad "blocked without the script rc=$rc" "$out"
+
+echo "== F: exec.sh"
+# A project with a synthetic model and a stub mxcli whose `exec` rewrites units the way the
+# field rename did: 3 XPath-whitespace units and 1 real change. The mxbuild stub records how many
+# unit files differ from HEAD each time it runs, so the test sees WHAT THE GATE SAW.
+fproj() {  # <name>
+  P="$WORK/$1"; mkm init "$P"
+  mkdir -p "$P/bin" "$P/mdlsource" "$WORK/jdk/bin"
+  ( cd "$P" && git config user.email t@t && git config user.name t )
+  cp "$TK/project-bin/_common.sh" "$TK/project-bin/restore-mpr.sh" "$TK/project-bin/exec.sh" "$P/bin/"
+  cp "$SUBJECT" "$SD/mxpatch.py" "$SD/mxunit_bson.py" "$P/bin/"
+  printf 'CREATE MODULE "Nope";\n' > "$P/mdlsource/test.mdl"
+  cat > "$P/bin/snapshot-mpr.sh" <<'SNAP'
+#!/usr/bin/env bash
+set -e
+cd "$(dirname "$0")/.."
+D=".mpr-snapshots/$(date +%Y%m%d-%H%M%S)-$$-$RANDOM"
+mkdir -p "$D"; cp App.mpr "$D/"; cp -r mprcontents "$D/"
+echo "Snapshot saved: $D"
+SNAP
+  cat > "$P/mxcli" <<MXCLI
+#!/usr/bin/env bash
+case "\${1:-}" in
+  exec) for e in "MfB1 ws" "PgA ws" "MfA1 ws" "MfB2 field"; do "$PYB" -I "$FIX/mkmodel.py" edit "$P" \$e; done; echo "stub mxcli exec" ;;
+esac
+exit 0
+MXCLI
+  cat > "$P/patch.py" <<PATCH
+import subprocess, sys
+for e in ("MfB1 ws", "PgA ws", "MfB2 field"):
+    subprocess.check_call([sys.executable, "-I", "$FIX/mkmodel.py", "edit", "$P"] + e.split())
+PATCH
+  cat > "$WORK/mxbuild" <<'MXB'
+#!/usr/bin/env bash
+n=$(( $(cat "$MXB_N" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$MXB_N"
+echo "$n $(git -C "$MXB_PROJ" status --porcelain -uall -- mprcontents | grep -c mxunit)" >> "$MXB_SEEN"
+err=""; for a in "$@"; do case "$a" in --write-errors=*) err="${a#--write-errors=}" ;; esac; done
+[ -n "$err" ] && printf '{"problems":[]}' > "$err"
+exit 0
+MXB
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$WORK/jdk/bin/java"
+  chmod +x "$P/bin/"*.sh "$P/mxcli" "$WORK/mxbuild" "$WORK/jdk/bin/java"
+  printf '.mpr-snapshots/\ndocs/\n.claude/\nbin/\n/mxcli\n/patch.py\nmdlsource/\n' > "$P/.gitignore"
+  ( cd "$P" && git add .gitignore && git commit -qm ignore )
+}
+frun() {  # <project> <env-and-args...>: runs exec.sh, prints its exit code
+  local p="$1"; shift
+  rm -f "$WORK/n" "$WORK/seen"; mkdir -p "$WORK/tmp"
+  ( cd "$p" && env TMPDIR="$WORK/tmp" SP_RESTART=0 MXTK_NO_INSTALL=1 MXB_N="$WORK/n" MXB_SEEN="$WORK/seen" MXB_PROJ="$p" \
+      MXBUILD_PATH="$WORK/mxbuild" JAVA_HOME="$WORK/jdk" MXTK_NO_SCORE=1 "$@" ) > "$WORK/out" 2>&1
+  echo $?
+}
+fchg() { ( cd "$P" && git status --porcelain -uall -- mprcontents | grep -c mxunit ); }
+
+fproj f1
+RC=$(frun "$P" ./bin/exec.sh mdlsource/test.mdl)
+[ "$RC" -eq 0 ] && ok "exec.sh succeeds" || bad "exec.sh rc=$RC" "$(tail -15 "$WORK/out")"
+grep -q '4 unit file(s) changed, 1 real, 3 noise' "$WORK/out" && grep -q 'restored 3 noise unit(s) from HEAD' "$WORK/out" \
+  && ok "summary printed in exec.sh output" || bad "no summary" "$(grep -n -i 'scope\|restor' "$WORK/out")"
+grep -q 'real changes by module: ModuleB 1' "$WORK/out" && ok "real change attributed to its module" || bad "no per-module line"
+[ "$(fchg)" -eq 1 ] && ok "only the real change is left in the working tree" || bad "tree" "$(cd "$P" && git status --short)"
+[ "$(mkm hashes "$P")" = clean ] && ok "ContentsHash index matches the files" || bad "index not clean"
+# The gate is mxbuild call 2 (call 1 is the baseline, before the write): it must see the FINAL model.
+[ "$(sed -n 2p "$WORK/seen" | awk '{print $2}')" = 1 ] && ok "the mxbuild gate saw the restored model (1 changed unit) [guard]" || bad "gate saw: $(cat "$WORK/seen")"
+grep -q 'scope: 4 unit file(s) changed, 1 real, 3 noise restored' "$P/docs/BUILD-LOG.md" && ok "BUILD-LOG row carries the scope note" || bad "no BUILD-LOG note" "$(tail -2 "$P/docs/BUILD-LOG.md")"
+
+fproj f2
+RC=$(frun "$P" MXTK_NO_SCOPE=1 ./bin/exec.sh mdlsource/test.mdl)
+[ "$(fchg)" -eq 4 ] && ! grep -q 'Model scope' "$WORK/out" \
+  && ok "MXTK_NO_SCOPE=1: the noise stays (control: the restore is what removes it)" || bad "control" "$(cd "$P" && git status --short)"
+
+fproj f3
+RC=$(frun "$P" ./bin/exec.sh --patch patch.py)
+[ "$RC" -eq 0 ] && ok "--patch run succeeds" || bad "--patch rc=$RC" "$(tail -15 "$WORK/out")"
+[ "$(fchg)" -eq 1 ] && grep -q 'restored 2 noise unit(s)' "$WORK/out" \
+  && ok "--patch: noise restored too" || bad "--patch tree" "$(grep -n -i 'scope\|restor' "$WORK/out"; cd "$P" && git status --short)"
+[ "$(sed -n 2p "$WORK/seen" | awk '{print $2}')" = 1 ] && ok "--patch: the gate saw the restored model" || bad "gate saw: $(cat "$WORK/seen")"
+
+fproj f4
+rm "$P/bin/model-scope.py"
+RC=$(frun "$P" ./bin/exec.sh mdlsource/test.mdl)
+[ "$RC" -eq 0 ] && ! grep -q 'Model scope' "$WORK/out" && [ "$(fchg)" -eq 4 ] \
+  && ok "no model-scope.py in bin/: exec.sh runs as before" || bad "missing script changed exec.sh rc=$RC" "$(tail -8 "$WORK/out")"
 
 echo ""
 echo "PASS: $PASS  FAIL: $FAIL"

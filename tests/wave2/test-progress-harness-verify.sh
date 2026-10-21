@@ -21,10 +21,17 @@
 #   H6  clean and fresh, but the module's LOOK report says 1 of 2: "Verify owed - LOOK + CONFIRM"
 #       (the page writes every em dash as " - ")
 #   H8  no summary, State not built: "Verify not run"
-#   N1  counts leave HARNESS rows out: 3 of 4 rows built (plan card, lede, Phase 1 2 of 2)
-#   N2  one status per module, 7 in all, and none for Catalog, a module with no HARNESS row
+#   H9  clean + fresh + LOOK 2/2 but State "pending a person": "held", never Verified, not counted
+#   H10 stale only by a done- file newer than the summary (no BUILD-LOG row):
+#       "Verify stale (a script was marked done- after it)", never "0 builds since"
+#   N1  counts leave HARNESS rows out: 4 of 5 rows built (plan card, lede, Phase 1 2 of 2)
+#   N2  one status per module, 9 in all, and none for Catalog, a module with no HARNESS row
 #   N3  no verify-module.sh row in the rendered row lists; the coherence HARNESS row stays, "(not counted)"
-#   N4  agent-facing output keeps the step: build-plan.json lists all 8 HARNESS rows with their Step
+#   N4  agent-facing output keeps the step: build-plan.json lists all 10 HARNESS rows with their Step,
+#       and its phase state still counts them (the JSON is not changed by the display rule)
+#   N5  the Phase state badge reads the build rows only: Phase 1 built, Phase 2 in progress,
+#       Phase 3 (HARNESS only) "sign-off only"; its card says "Sign-off phase: no build rows"
+#   N6  the Stage 5 counts name the sign-offs: ", 1 of 9 modules signed off" (Stage 5 card, KPI)
 #
 # Captured inputs (fixtures/verify-446/): the summaries were written by project-bin/verify-module.sh
 # itself (instruments stubbed, CAPTURE=<dir> bash test-verify-module-446.sh); BUILD-LOG.captured.md
@@ -88,14 +95,24 @@ mkproj() {  # $1 root, $2 mpr relpath -> writes the page, sets H
 |---|---|---|---|---|---|---|
 | 11 | BUILD | `11-catalog.mdl` | catalog entities | - | - | built |
 | 12 | BUILD | `12-catalog-pages.mdl` | catalog pages | 11 | - | not built |
+| 14 | BUILD | `14-pricing.mdl` | pricing entities | - | - | built |
+| 15 | HARNESS | `bin/verify-module.sh Pricing`, then LOOK + CONFIRM per `module-review.md` | summary has no FAULT; N of N pages reviewed | 14 | `module-review.md` | not built |
+
+### Phase 3 - Close
+
+| # | Kind | Step | Produces / Proves | Depends on | Skills | State |
+|---|---|---|---|---|---|---|
+| 13 | HARNESS | `bin/verify-module.sh Holds`, then LOOK + CONFIRM per `module-review.md` | summary has no FAULT; N of N pages reviewed | 11 | `module-review.md` | pending a person |
 MD
   summary "$R" Orders clean; summary "$R" Stock finding; summary "$R" Shipping skip-journeys
-  summary "$R" Invoices clean; summary "$R" Returns clean
+  summary "$R" Invoices clean; summary "$R" Returns clean; summary "$R" Holds clean; summary "$R" Pricing clean
+  mkdir -p "$R/mdlsource"; : > "$R/mdlsource/done-14-pricing.mdl"; touch -t 202610201000 "$R/mdlsource/done-14-pricing.mdl"
   { sed -n '1,/^|---|/p' "$FX/BUILD-LOG.captured.md"
     logrow 2026-10-19T09:00:00+0000 01-orders.mdl
     logrow 2026-10-20T10:00:00+0000 05-invoices.mdl; } > "$R/docs/BUILD-LOG.md"
   local U="$R/design/ui-reviews"
-  shot "$U/shots/orders-a.png"; shot "$U/shots/orders-b.png"; shot "$U/shots/returns-a.png"
+  shot "$U/shots/orders-a.png"; shot "$U/shots/orders-b.png"; shot "$U/shots/returns-a.png"; shot "$U/shots/holds-a.png"
+  printf '<p>1 of 1 pages reviewed: Holds. VALID AT: 1234567</p>\n<p>PROOF-OF-LOOK: Holds.Hold_List = shots/holds-a.png</p>\n' > "$U/ui-review-2026-10-19-holds.html"
   printf '<p>2 of 2 pages reviewed: Orders. VALID AT: 1234567</p>\n<p>PROOF-OF-LOOK: Orders.Order_List = shots/orders-a.png</p>\n<p>PROOF-OF-LOOK: Orders.Order_Edit = shots/orders-b.png</p>\n' > "$U/ui-review-2026-10-20.html"
   printf '<p>1 of 2 pages reviewed: Returns. VALID AT: 1234567</p>\n<p>PROOF-OF-LOOK: Returns.Return_List = shots/returns-a.png</p>\n' > "$U/ui-review-2026-10-20-returns.html"
   CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$R" --html --json --quiet >/dev/null 2>&1
@@ -133,20 +150,26 @@ for layout in single two; do
   s="$(status Payments)"
   { neverok "$s" && printf '%s' "$s" | grep -q 'Verify not run'; } \
     && ok "H8 $L: no summary, State not built: 'Verify not run'" || bad "H8 $L: Payments" "$s"
+  s="$(status Holds)"
+  { neverok "$s" && printf '%s' "$s" | grep -q "<span class='st-person'>Verify clean 2026-10-20, LOOK 1/1 - held: State says pending a person</span>"; } \
+    && ok "H9 $L: clean + LOOK 1/1, State pending a person: 'held', never Verified" || bad "H9 $L: Holds" "$s"
+  s="$(status Pricing)"
+  { neverok "$s" && printf '%s' "$s" | grep -q 'Verify stale (a script was marked done- after it)' && ! printf '%s' "$s" | grep -q '0 builds'; } \
+    && ok "H10 $L: stale by a newer done- file only: 'a script was marked done- after it'" || bad "H10 $L: Pricing" "$s"
 
   # N1: 4 build rows (1, 6, 11, 12), 3 built; the 8 HARNESS rows are in no count
-  { printf '%s' "$H" | grep -q '<b>3 of 4 rows built</b>' && printf '%s' "$H" | grep -q '2 of 2 rows built' \
-      && printf '%s' "$H" | grep -q '1 of 2 rows built' && printf '%s' "$H" | grep -q '4 build rows: <b class=st-built>3 built</b>' \
-      && printf '%s' "$H" | grep -q 'Not counted: 8 HARNESS rows (7 module sign-offs, 1 harness pass)' \
-      && ! printf '%s' "$H" | grep -q 'of 12 rows built\|of 13 rows built'; } \
-    && ok "N1 $L: counts leave HARNESS out: 3 of 4 rows built, Phase 1 2 of 2, Phase 2 1 of 2, lede 4 build rows" \
+  { printf '%s' "$H" | grep -q '<b>4 of 5 rows built</b>' && printf '%s' "$H" | grep -q '2 of 2 rows built' \
+      && printf '%s' "$H" | grep -q '2 of 3 rows built' && printf '%s' "$H" | grep -q '5 build rows: <b class=st-built>4 built</b>' \
+      && printf '%s' "$H" | grep -q 'Not counted: 10 HARNESS rows (sign-offs of 9 modules, 1 harness pass)' \
+      && ! printf '%s' "$H" | grep -q 'of 15 rows built\|of 14 rows built\|0 of 0 rows built'; } \
+    && ok "N1 $L: counts leave HARNESS out: 4 of 5 rows built, Phase 1 2 of 2, Phase 2 2 of 3, lede 5 build rows (sign-offs of 9 modules)" \
     || bad "N1 $L: counts" "$(printf '%s' "$H" | grep -o '[0-9]* of [0-9]* rows built\|[0-9]* build rows[^.]*\|Not counted[^.]*' | sort -u)"
   # N2: one status per module, 7 in all, none for the module without a HARNESS row
-  n=0; for m in Orders Billing Stock Shipping Invoices Returns Payments; do [ "$(nstatus "$m")" = 1 ] && n=$((n+1)); done
-  { [ "$n" = 7 ] && [ "$(nstatus Catalog)" = 0 ] && [ "$(printf '%s' "$H" | grep -o "class='k signoff'" | wc -l | tr -d ' ')" = 7 ] \
-      && printf '%s' "$H" | grep -q 'Module sign-offs: 1 of 7 modules verified'; } \
-    && ok "N2 $L: one sign-off status per module (7), none for Catalog (no HARNESS row), rollup 1 of 7 verified" \
-    || bad "N2 $L: per-module status" "$n of 7 once; Catalog $(nstatus Catalog); $(printf '%s' "$H" | grep -o 'Module sign-offs[^.]*')"
+  n=0; for m in Orders Billing Stock Shipping Invoices Returns Payments Holds Pricing; do [ "$(nstatus "$m")" = 1 ] && n=$((n+1)); done
+  { [ "$n" = 9 ] && [ "$(nstatus Catalog)" = 0 ] && [ "$(printf '%s' "$H" | grep -o "class='k signoff'" | wc -l | tr -d ' ')" = 9 ] \
+      && printf '%s' "$H" | grep -q 'Module sign-offs: 1 of 9 modules verified'; } \
+    && ok "N2 $L: one sign-off status per module (9), none for Catalog (no HARNESS row), rollup 1 of 9 verified (held not counted)" \
+    || bad "N2 $L: per-module status" "$n of 9 once; Catalog $(nstatus Catalog); $(printf '%s' "$H" | grep -o 'Module sign-offs[^.]*')"
   # N3: no verify-module.sh row in the row lists; the harness pass stays, marked not counted
   RL="$(rowlist)"
   { [ -n "$RL" ] && ! printf '%s' "$RL" | grep -q 'verify-module' \
@@ -156,10 +179,20 @@ for layout in single two; do
     || bad "N3 $L: row lists" "$(printf '%s' "$RL" | grep -o '<td>[0-9]*</td><td>HARNESS[^/]*' | head)"
   # N4: the agents' copy of the plan still carries every HARNESS row and its Step
   J="$R/architecture/build-plan.json"
-  nj="$("$PY" -c 'import json,sys; d=json.load(open(sys.argv[1])); print(sum(1 for p in d["phases"] for x in p["steps"] if x["kind"]=="HARNESS" and ("verify-module.sh" in x["step"] or "coherence" in x["step"])))' "$J" 2>/dev/null)"
-  { [ "$nj" = 8 ] && grep -q 'bin/verify-module.sh Orders' "$J" && grep -q '| 2 | HARNESS | `bin/verify-module.sh Orders`' "$R/architecture/build-plan.md"; } \
-    && ok "N4 $L: build-plan.json lists all 8 HARNESS rows with their Step; build-plan.md untouched" \
-    || bad "N4 $L: agent-facing plan" "json HARNESS rows: ${nj:-none}"
+  nj="$("$PY" -c 'import json,sys; d=json.load(open(sys.argv[1])); print(sum(1 for p in d["phases"] for x in p["steps"] if x["kind"]=="HARNESS" and ("verify-module.sh" in x["step"] or "coherence" in x["step"])), d["phases"][0]["state"])' "$J" 2>/dev/null)"
+  { [ "$nj" = "10 in progress" ] && grep -q 'bin/verify-module.sh Orders' "$J" && grep -q '| 2 | HARNESS | `bin/verify-module.sh Orders`' "$R/architecture/build-plan.md"; } \
+    && ok "N4 $L: build-plan.json lists all 10 HARNESS rows with their Step, Phase 1 state still in progress; build-plan.md untouched" \
+    || bad "N4 $L: agent-facing plan" "json HARNESS rows, phase 1 state: ${nj:-none}"
+  # N5: the badge reads build rows only; a HARNESS-only phase is a sign-off phase
+  bd="$(printf '%s' "$H" | grep -o 'Phase state: <span class="badge [^"]*">[^<]*' | sed 's/.*">//' | tr '\n' ',')"
+  { [ "$bd" = "built,in progress,sign-off only," ] && printf '%s' "$H" | grep -q 'Sign-off phase: no build rows'; } \
+    && ok "N5 $L: Phase state badges built / in progress / sign-off only; Phase 3 card 'Sign-off phase: no build rows'" \
+    || bad "N5 $L: badges" "$bd $(printf '%s' "$H" | grep -o 'Sign-off phase[^<]*')"
+  # N6: the Stage 5 counts say how many modules are signed off (held is not)
+  { printf '%s' "$H" | grep -q "4 of 5 rows built, 1 of 9 modules signed off</a>" \
+      && printf '%s' "$H" | grep -q "from architecture/build-plan.md, 1 of 9 modules signed off"; } \
+    && ok "N6 $L: Stage 5 card and KPI: ', 1 of 9 modules signed off'" \
+    || bad "N6 $L: sign-off suffix" "$(printf '%s' "$H" | grep -o '[^>]*modules signed off' | sort -u)"
 done
 
 echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

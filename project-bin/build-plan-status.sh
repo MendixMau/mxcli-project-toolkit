@@ -590,7 +590,7 @@ def classify(state):  # the parser's rollup reading, per row (keep in step with 
 
 CLS = {"built": "st-built", "not built": "st-todo", "pending a person": "st-person",
        "partial": "st-progress", "blocked": "st-todo", "skipped": "st-todo",
-       "in progress": "st-progress", "unknown": "st-unknown", None: "st-unknown"}
+       "in progress": "st-progress", "unknown": "st-unknown", "sign-off only": "st-person", None: "st-unknown"}
 
 phases = d.get("phases", [])
 all_steps = [s for p in phases for s in p["steps"]]
@@ -599,6 +599,19 @@ is_harness = lambda s: (s.get("kind") or "").strip().upper() == "HARNESS"
 is_signoff = lambda s: is_harness(s) and bool(VERIFY_STEP.search(s.get("step") or ""))
 build_steps = [s for s in all_steps if not is_harness(s)]
 n_signoff = sum(1 for s in all_steps if is_signoff(s)); n_harness = len(all_steps) - len(build_steps)
+signoff_mods = {VERIFY_STEP.search(s["step"] or "").group(1) for s in all_steps if is_signoff(s)}   # modules, as the card's "k of n modules"
+
+def disp_rollup(steps):  # the badge: parse_plan's rollup over the build rows only (build-plan.json keeps its own)
+    rows = [s for s in steps if not is_harness(s)]
+    if not rows: return "sign-off only" if steps else "unknown"
+    kinds = [classify(s["state"]) for s in rows]
+    if None in kinds: return "unknown"
+    kinds = [k for k in kinds if k != "skipped"]
+    if not kinds: return "unknown"
+    if all(k == "built" for k in kinds): return "built"
+    if all(k in ("not built", "blocked") for k in kinds): return "not built"
+    if all(k in ("built", "pending a person") for k in kinds): return "pending a person"
+    return "in progress"
 for s in build_steps:
     tally[classify(s["state"])] += 1
 named_total = named_done = drift_rows = 0
@@ -648,7 +661,7 @@ print("<p class=lede>From <code>architecture/build-plan.md</code>: %s, %s: "
       (", %d not needed" % tally["skipped"]) if tally["skipped"] else "",
       (", <b class=st-unknown>%d with a State cell this page cannot read</b>" % tally[None]) if tally[None] else "")
       + ("<p class=note>Not counted: %s (%s). A module's sign-off shows as its verify status on the phase card, not as a row.</p>" % (
-          plural(n_harness, "HARNESS row"), ", ".join(x for x in ((plural(n_signoff, "module sign-off") if n_signoff else ""), (plural(n_harness - n_signoff, "harness pass") if n_harness - n_signoff else "")) if x)) if n_harness else ""))
+          plural(n_harness, "HARNESS row"), ", ".join(x for x in ((("sign-offs of " + plural(len(signoff_mods), "module")) if n_signoff else ""), (plural(n_harness - n_signoff, "harness pass") if n_harness - n_signoff else "")) if x)) if n_harness else ""))
 if named_total:
     print("<p class=note>Scripts named in the plan: %d, of which %d are renamed <code>done-</code> under <code>mdlsource/</code>.%s</p>" % (
         named_total, named_done,
@@ -658,7 +671,7 @@ if named_total:
 det = []
 for p, out in zip(phases, rows_html):
     h = ['<!--phase:%s-->' % e(p["id"]),
-         '<p class=note>Phase state: <span class="badge %s">%s</span></p>' % (CLS.get(p["state"], "st-unknown"), e(p["state"]))]
+         '<p class=note>Phase state: <span class="badge %s">%s</span></p>' % (CLS.get(disp_rollup(p["steps"]), "st-unknown"), e(disp_rollup(p["steps"])))]
     if p.get("note"):
         h.append("<p class=note>%s</p>" % e(p["note"]))
     if p["steps"]:

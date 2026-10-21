@@ -323,7 +323,8 @@ ps_apply() {
   fi
   note "repairing through bin/exec.sh --patch (snapshot, fix, mxbuild gate, kept only on a verified gate)…"
   _psa_rc=0
-  ( cd "$PROJECT_DIR" && ./bin/exec.sh --patch "$TOOLKIT_ROOT/bin/doctor.sh" --property-sets-apply-step "$PMXCLI_PROBE" ) || _psa_rc=$?
+  # MXTK_LINT_GATE=soft: under a project's `Lint gate: hard` a kept repair would exit 1 (#496).
+  ( cd "$PROJECT_DIR" && MXTK_LINT_GATE=soft ./bin/exec.sh --patch "$TOOLKIT_ROOT/bin/doctor.sh" --property-sets-apply-step "$PMXCLI_PROBE" ) || _psa_rc=$?
   # exec.sh exit 4 = kept on a passed gate, lint rose (exec.sh "Exit codes"); not a failed repair.
   [ "$_psa_rc" -eq 4 ] && { note "property sets: repair kept; exec.sh reports a lint rise (see its BUILD-LOG row)"; _psa_rc=0; }
   if [ "$_psa_rc" -ne 0 ]; then

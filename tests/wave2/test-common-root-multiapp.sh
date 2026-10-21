@@ -41,6 +41,8 @@
 #   R17 PWD in app/, app/javasource, apps/A, apps/A/javasource of a marked project: the
 #       installed and toolkit copies both answer the project (#489); unmarked, the app folder;
 #       an app folder that is a project of its own keeps its root (g, h); any letter case (i, j)
+#   R18 from inside apps/A the app is picked at source time and survives exec.sh's cd to the
+#       root and its child snapshot-mpr.sh; explicit MPR_FILE wins; outside any app refuses
 set -u
 
 COMMON="${1:?usage: $0 project-bin/_common.sh}"
@@ -233,6 +235,28 @@ rm -rf "$P/App"; : > "$P/Apps/A/A.mpr"
 eq "R17j Apps/A/javasource (capital A): the project" "$(root "$P/Apps/A/javasource" "$TKP")" "$P"
 P="$T/r17/bare"; mkdir -p "$P/app/javasource"; : > "$P/app/App.mpr"
 eq "R17f two-tree, no marker, PWD=app/javasource: app/ (the model's folder, as before)" "$(root "$P/app/javasource" "$TKP")" "$P/app"
+
+echo "== R18 the app picked from inside apps/A survives cd to the root and child scripts =="
+# exec.sh sources _common.sh from the cwd, then cd's to PROJECT_ROOT, then runs
+# find_model_dir and bin/snapshot-mpr.sh as a child. A pick made only inside find_mpr was
+# lost there: find_model_dir refused and snapshot-mpr.sh exited 1 under set -e (#489 review).
+P="$T/r18/proj"; install "$P"; cp "$TKB/snapshot-mpr.sh" "$P/bin/"
+for a in A B; do mkdir -p "$P/apps/$a/mprcontents" "$P/apps/$a/javasource"; echo m > "$P/apps/$a/$a.mpr"; echo u > "$P/apps/$a/mprcontents/u.mxunit"; done
+EXECLIKE='. "$1/bin/_common.sh"; cd "$PROJECT_ROOT" || exit 9; find_model_dir || exit 3; bash bin/snapshot-mpr.sh >/dev/null 2>&1 || exit 4'
+ex() { (cd "$1" && env -i PATH="$PATH" HOME="$T/nohome" ${3:+MPR_FILE="$3"} bash -c "$EXECLIKE" _ "$2" 2>&1); }
+out="$(ex "$P/apps/A/javasource" "$P")"; rc=$?
+eq "R18a two apps, PWD=apps/A/javasource, then cd root: find_model_dir is apps/A, snapshot ok (rc $rc)" "$rc:$out" "0:$P/apps/A"
+out="$(ex "$P/apps/A/javasource" "$P" "$P/apps/B/B.mpr")"; rc=$?
+eq "R18b an explicit MPR_FILE still wins over the cwd's app" "$rc:$out" "0:$P/apps/B"
+mkdir -p "$P/docs"; out="$(ex "$P/docs" "$P")"; rc=$?
+case "$rc" in 3) ok "R18c PWD outside any app (docs/): still refused (find_model_dir rc 1)" ;; *) fail "R18c rc=$rc: $out" ;; esac
+P="$T/r18/two"; install "$P"; cp "$TKB/snapshot-mpr.sh" "$P/bin/"; mkdir -p "$P/app/mprcontents" "$P/app/javasource" "$P/apps/Z"
+echo m > "$P/app/App.mpr"; echo u > "$P/app/mprcontents/u.mxunit"; echo m > "$P/apps/Z/Z.mpr"
+out="$(ex "$P/apps/Z" "$P")"; rc=$?
+eq "R18d a model under app/ is never overridden by a cwd under apps/ (two-tree unchanged)" "$rc:$out" "0:$P/app"
+rm -rf "$P/apps"
+out="$(ex "$P/app/javasource" "$P")"; rc=$?
+eq "R18e single-app two-tree from app/javasource: app/, as before" "$rc:$out" "0:$P/app"
 
 echo
 echo "root-multiapp: $PASS passed, $FAIL failed"

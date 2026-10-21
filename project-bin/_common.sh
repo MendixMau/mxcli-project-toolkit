@@ -90,6 +90,25 @@ _mxtk_resolve_root() {
   printf '%s\n' "${self_parent:-$(pwd)}"
 }
 PROJECT_ROOT="${PROJECT_ROOT:-$(_mxtk_resolve_root)}"
+# Multi-app folder, MPR_FILE unset, the session inside one app's folder: pick that app HERE,
+# at source time, and export it (#489 review). Since #489 the root from apps/<X>/ is the
+# project, and a pick made later inside find_mpr did not survive exec.sh's cd "$PROJECT_ROOT"
+# or reach its children (snapshot-mpr.sh refused and set -e aborted the run mid-way). Only
+# when the root holds no *.mpr and no app/*.mpr, and exactly one apps/<X>/*.mpr sits in a
+# folder holding $PWD. Globs and builtins only. Outside any one app nothing is picked, so
+# find_mpr still refuses and names MPR_FILE.
+if [ -z "${MPR_FILE:-}" ] && [ -d "$PROJECT_ROOT/apps" ]; then
+  _mxtk_n=0; _mxtk_pick=""
+  for _mxtk_f in "$PROJECT_ROOT"/*.mpr "$PROJECT_ROOT"/app/*.mpr; do [ -e "$_mxtk_f" ] && _mxtk_n=2; done
+  if [ "$_mxtk_n" -eq 0 ]; then
+    for _mxtk_f in "$PROJECT_ROOT"/apps/*/*.mpr; do
+      [ -e "$_mxtk_f" ] || continue
+      case "$PWD/" in "${_mxtk_f%/*}"/*) _mxtk_n=$((_mxtk_n + 1)); _mxtk_pick="$_mxtk_f" ;; esac
+    done
+  fi
+  if [ "$_mxtk_n" -eq 1 ]; then MPR_FILE="$_mxtk_pick"; export MPR_FILE; fi
+  unset _mxtk_n _mxtk_pick _mxtk_f
+fi
 
 # mxtk_posix_path — a Windows-form path (C:\Program Files\Mendix) as Git Bash addresses it
 # (/c/Program Files/Mendix). Anything already POSIX passes through untouched. Used for every
@@ -197,18 +216,8 @@ find_mpr() {
     echo "ERROR: no .mpr found in $PROJECT_ROOT" >&2
     return 1
   fi
-  # Several apps, MPR_FILE unset: the session is inside one app's folder -> that app (#489
-  # review). Since #489 the root from apps/<X>/ is the project, so without this every
-  # instrument run from inside an app refused. Outside any one app it still refuses.
-  if [ "$count" -gt 1 ] && [ "$multi" = 1 ]; then
-    local here pick="" n=0
-    here="$(pwd)"
-    for f in "$PROJECT_ROOT"/apps/*/*.mpr; do
-      [ -e "$f" ] || continue
-      case "$here/" in "${f%/*}"/*) n=$((n + 1)); pick="$f" ;; esac
-    done
-    [ "$n" -eq 1 ] && { echo "$pick"; return 0; }
-  fi
+  # (A session inside one app's folder never gets here: _common.sh exported MPR_FILE for
+  # that app at source time, #489 review.)
   if [ "$count" -gt 1 ]; then
     echo "ERROR: $count .mpr files in $PROJECT_ROOT — refusing to guess which model to write." >&2
     for f in "$PROJECT_ROOT"/*.mpr; do [ -e "$f" ] && echo "  $(basename "$f")" >&2; done

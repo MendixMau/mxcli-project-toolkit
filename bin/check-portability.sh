@@ -56,7 +56,9 @@ is_meta() {
 report() { printf '%s:%s: %s\n     %s\n' "$1" "$2" "$3" "$4"; VIOLATIONS=$((VIOLATIONS + 1)); }
 
 # Strip comment lines and blank lines before matching, but keep original line numbers.
-code_lines() { grep -n '' "$1" | grep -v ':[[:space:]]*#' ; }
+# Anchored on the line number: unanchored, any code line holding ":#" (a sed matching "N:## ")
+# was dropped as a comment and never checked (#488).
+code_lines() { grep -n '' "$1" | grep -v '^[0-9]*:[[:space:]]*#' ; }
 
 while IFS= read -r f; do
   [ -f "$f" ] || continue
@@ -184,6 +186,14 @@ EOF
            && ! grep -Eq -- "\\\$'[^']*\\[[^]]*\\\\t" <<<"$txt"; then
           report "$f" "$ln" "\\t inside a sed/grep bracket expression (BSD: backslash or t, not tab)" \
             'Use [[:blank:]] (space or tab) or [[:space:]], or a real tab via $'"'"'\t'"'"'.'
+        # The same \t outside a bracket, in a sed pattern or replacement (#488): BSD sed reads
+        # it as a literal t, so bug-lookup.sh's s/^([0-9]+):## /\1\t/ fed awk -F'\t' no tab
+        # and --index printed nothing on macOS. A $'...' string is a real tab and is dropped
+        # first; an escaped \\t is a printed backslash, not a sed escape.
+        elif grep -Eq -- '(^|[^[:alnum:]_])sed([[:space:]]|$)[^|]*(^|[^\\])\\t' \
+               <<<"$(printf '%s' "$txt" | sed "s/\\\$'[^']*'//g")"; then
+          report "$f" "$ln" "\\t in a sed pattern or replacement (BSD sed: a literal t, not tab)" \
+            'Put a real tab in the script: TAB=$'"'"'\t'"'"' and "s/a/${TAB}/", or do the edit in awk, which expands \t everywhere.'
         fi ;;
     esac
 

@@ -568,7 +568,7 @@ take_score() {
 # Not found, or the scan itself errors (exit 2) → one warning, and the exec goes on: mxcli
 # check and the mxbuild gate still stand behind it.
 SCAN_NOTE=""; HV_NOTE=""   # HV_NOTE: the ContentsHash bracket's cell text, set below
-RESTATE_NOTE=""            # the restatement warning's cell text (#269), set after the check
+RESTATE_NOTE=""            # the restatement warnings' cell text (#269, #261), set after the check
 if [ "$PATCH_MODE" != "1" ]; then
   _SCAN=""
   for _s in "${MXTK_ROOT:-}/bin/mdl-scan.sh" \
@@ -1151,6 +1151,27 @@ if [ "$PATCH_MODE" != "1" ] && [ "${MXTK_RESTATE_GUARD:-}" != "off" ] && [ -f "$
     RESTATE_NOTE="WARN reverts: $(printf '%s\n' "$_so_docs" | head -3 | tr '\n' ' ' | sed 's/ $//')"
     if [ "$_so_n" -gt 3 ]; then RESTATE_NOTE="$RESTATE_NOTE +$((_so_n - 3))"; fi
   fi
+fi
+
+# ── Stale-draft warning (#261; WARN only, never a refusal) ───────────────────
+# A script drafted from a DESCRIBE taken BEFORE an earlier script of the batch ran put four old
+# messages back, every gate green. describe-baseline.sh verify compares the script's
+# `-- baseline:` header with a fresh DESCRIBE. Opt-in: a script with no header costs one grep and
+# no mxcli call. Rows print as WARN lines; DRIFT lands in the BUILD-LOG detail.
+if [ "$PATCH_MODE" != "1" ] && [ "${MXTK_RESTATE_GUARD:-}" != "off" ] && [ -f "$SCRIPT" ] \
+   && [ -f "$(dirname "$0")/describe-baseline.sh" ] && grep -qE '^[[:space:]]*--[[:space:]]*baseline:' "$SCRIPT"; then
+  _db_rc=0
+  _db_out="$(PROJECT_ROOT="$PROJECT_ROOT" bash "$(dirname "$0")/describe-baseline.sh" verify "$SCRIPT" 2>&1)" || _db_rc=$?
+  case "$_db_rc" in
+    1)
+      echo "WARN: stale draft: '-- baseline:' header no longer matches the model:"
+      printf '%s\n' "$_db_out" | grep -v '^SAME' | sed -E 's/^(DRIFT|STALEHEADER|RESTAMP|UNKNOWN)	([^	]*)	/    \2 — /'
+      echo "  → DESCRIBE it again, merge the live body into the script, re-stamp: bin/describe-baseline.sh stamp $SCRIPT"
+      _db_drift="$(printf '%s\n' "$_db_out" | awk -F'\t' '$1 == "DRIFT" { print $2 }' | head -3 | tr '\n' ' ' | sed 's/ $//')"
+      [ -n "$_db_drift" ] && RESTATE_NOTE="${RESTATE_NOTE:+$RESTATE_NOTE; }WARN stale baseline: $_db_drift"
+      ;;
+    3) echo "WARN: '-- baseline:' header present but DESCRIBE could not run — drift not checked" ;;
+  esac
 fi
 
 # ── Gate must be able to run ─────────────────────────────────────────────────

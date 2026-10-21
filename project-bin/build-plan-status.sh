@@ -536,18 +536,17 @@ render_plan_section() {  # stdout: the plan section's HTML
 import fnmatch, html, json, os, re, sys
 
 src, mdl, detail_out, proj, gen = sys.argv[1:6]
-# A HARNESS row that runs verify-module.sh <Module> is read from that module's verify summary as
-# well as from State; the rule lives in progress-report.py (harness_verify), so the page's
-# counts and these rows cannot disagree. Without it, State alone decides, as before.
-harness_verify = lambda *a, **k: None
-_logs = []
+# HARNESS rows are not build rows (MendixMau decision 2026-10-21): they are out of the tally, and a
+# HARNESS row that runs verify-module.sh <Module> is not listed here at all, because
+# progress-report.py shows it once as that module's sign-off status on the phase card
+# (verify_evidence / module_status there). build-plan.json and build-plan.md keep every row.
+VERIFY_STEP = re.compile(r"verify-module\.sh`?\s+[`\"']?([A-Za-z_]\w*)")   # same as progress-report.py's
 try:
     import importlib.util
     sys.dont_write_bytecode = True   # no bin/__pycache__/ left in the project
     _spec = importlib.util.spec_from_file_location("progress_report", gen)
     _m = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(_m)
-    harness_verify = _m.harness_verify
-    _logs = _m.build_log_rows(proj)
+    VERIFY_STEP = _m.VERIFY_STEP
 except (Exception, SystemExit):  # a broken or old generator: the generator's own run reports it
     pass
 d = json.load(open(src, encoding="utf-8"))
@@ -591,24 +590,36 @@ def classify(state):  # the parser's rollup reading, per row (keep in step with 
 
 CLS = {"built": "st-built", "not built": "st-todo", "pending a person": "st-person",
        "partial": "st-progress", "blocked": "st-todo", "skipped": "st-todo",
-       "in progress": "st-progress", "unknown": "st-unknown", None: "st-unknown"}
+       "in progress": "st-progress", "unknown": "st-unknown", "sign-off only": "st-person", None: "st-unknown"}
 
 phases = d.get("phases", [])
 all_steps = [s for p in phases for s in p["steps"]]
 tally = {"built": 0, "not built": 0, "pending a person": 0, "partial": 0, "blocked": 0, "skipped": 0, None: 0}
-by_n = {str(s["number"]): s for s in all_steps}
-for s in all_steps:
-    try: hv = harness_verify(proj, s, by_n, _logs)
-    except Exception: hv = None   # an older progress-report.py beside this script: State decides
-    # (class for the tally, State cell text, drift flag); only "built" overrides the State reading
-    s["_ev"] = (("built" if hv[0] == "built" else classify(s["state"])),) + tuple(hv[1:]) if hv else None
-    tally[s["_ev"][0] if s["_ev"] else classify(s["state"])] += 1
-ev_rows = sum(1 for s in all_steps if s["_ev"] and s["_ev"][2])
+is_harness = lambda s: (s.get("kind") or "").strip().upper() == "HARNESS"
+is_signoff = lambda s: is_harness(s) and bool(VERIFY_STEP.search(s.get("step") or ""))
+build_steps = [s for s in all_steps if not is_harness(s)]
+n_signoff = sum(1 for s in all_steps if is_signoff(s)); n_harness = len(all_steps) - len(build_steps)
+signoff_mods = {VERIFY_STEP.search(s["step"] or "").group(1) for s in all_steps if is_signoff(s)}   # modules, as the card's "k of n modules"
+
+def disp_rollup(steps):  # the badge: parse_plan's rollup over the build rows only (build-plan.json keeps its own)
+    rows = [s for s in steps if not is_harness(s)]
+    if not rows: return "sign-off only" if steps else "unknown"
+    kinds = [classify(s["state"]) for s in rows]
+    if None in kinds: return "unknown"
+    kinds = [k for k in kinds if k != "skipped"]
+    if not kinds: return "unknown"
+    if all(k == "built" for k in kinds): return "built"
+    if all(k in ("not built", "blocked") for k in kinds): return "not built"
+    if all(k in ("built", "pending a person") for k in kinds): return "pending a person"
+    return "in progress"
+for s in build_steps:
+    tally[classify(s["state"])] += 1
 named_total = named_done = drift_rows = 0
 rows_html = []
 for p in phases:
     out = []
     for s in p["steps"]:
+        if is_signoff(s): continue   # shown once, as the module's sign-off status on the phase card
         names = named_scripts(s["step"], s["produces"])
         k = classify(s["state"])
         disk = ""
@@ -633,11 +644,9 @@ for p in phases:
                 drift_rows += 1
                 disk += '<div class=drift>&#9888; %s</div>' % e(drift)
         st = e(s["state"])
-        if s["_ev"]:
-            k = s["_ev"][0]
-            st = e(s["_ev"][1]) + ('<div class=drift>&#9888; %s</div>' % e(s["_ev"][2]) if s["_ev"][2] else "")
+        kind = e(s["kind"]) + (' <span class=mut>(not counted)</span>' if is_harness(s) else "")
         out.append('<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td class="%s">%s</td><td>%s</td></tr>' % (
-            e(s["number"]), e(s["kind"]), ec(s["step"]), ec(s["produces"]),
+            e(s["number"]), kind, ec(s["step"]), ec(s["produces"]),
             e(", ".join(s["dependsOn"])), CLS[k], st, disk))
     rows_html.append(out)
 
@@ -645,13 +654,14 @@ plural = lambda n, w: "%d %s%s" % (n, w, "" if n == 1 else "s")
 print("<h2>The plan</h2>")
 print("<p class=lede>From <code>architecture/build-plan.md</code>: %s, %s: "
       "<b class=st-built>%d built</b>, <b class=st-progress>%d partial</b>, <b class=st-todo>%d not built</b>%s, <b class=st-person>%d pending a person</b>%s%s.</p>" % (
-      plural(len(phases), "phase"), plural(len(all_steps), "row"),
+      plural(len(phases), "phase"), plural(len(build_steps), "build row"),
       tally["built"], tally["partial"], tally["not built"] + tally["blocked"],
       (" (%d of them blocked)" % tally["blocked"]) if tally["blocked"] else "",
       tally["pending a person"],
       (", %d not needed" % tally["skipped"]) if tally["skipped"] else "",
       (", <b class=st-unknown>%d with a State cell this page cannot read</b>" % tally[None]) if tally[None] else "")
-      + ("<p class=note><span class=drift>&#9888; %s where State and the verify evidence (summary, LOOK report) disagree, or the evidence is incomplete (shown in State).</span></p>" % plural(ev_rows, "HARNESS row") if ev_rows else ""))
+      + ("<p class=note>Not counted: %s (%s). A module's sign-off shows as its verify status on the phase card, not as a row.</p>" % (
+          plural(n_harness, "HARNESS row"), ", ".join(x for x in ((("sign-offs of " + plural(len(signoff_mods), "module")) if n_signoff else ""), (plural(n_harness - n_signoff, "harness pass") if n_harness - n_signoff else "")) if x)) if n_harness else ""))
 if named_total:
     print("<p class=note>Scripts named in the plan: %d, of which %d are renamed <code>done-</code> under <code>mdlsource/</code>.%s</p>" % (
         named_total, named_done,
@@ -661,7 +671,7 @@ if named_total:
 det = []
 for p, out in zip(phases, rows_html):
     h = ['<!--phase:%s-->' % e(p["id"]),
-         '<p class=note>Phase state: <span class="badge %s">%s</span></p>' % (CLS.get(p["state"], "st-unknown"), e(p["state"]))]
+         '<p class=note>Phase state: <span class="badge %s">%s</span></p>' % (CLS.get(disp_rollup(p["steps"]), "st-unknown"), e(disp_rollup(p["steps"])))]
     if p.get("note"):
         h.append("<p class=note>%s</p>" % e(p["note"]))
     if p["steps"]:

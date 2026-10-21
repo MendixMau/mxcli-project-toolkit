@@ -112,7 +112,7 @@ py_look_hook_present() {  # $1 = settings.json path -> exit 0 iff the PostToolUs
 import json, sys
 d = json.load(open(sys.argv[1]))
 for grp in d.get("hooks", {}).get("PostToolUse", []) or []:
-    if grp.get("matcher") == "Read" and any(h.get("command") == "bash bin/look-ledger.sh seen || true" for h in grp.get("hooks", []) or []):
+    if grp.get("matcher") == "Read" and any("CLAUDE_PROJECT_DIR" in (h.get("command") or "") and "bin/look-ledger.sh seen" in (h.get("command") or "") for h in grp.get("hooks", []) or []):
         sys.exit(0)
 sys.exit(1)
 PY

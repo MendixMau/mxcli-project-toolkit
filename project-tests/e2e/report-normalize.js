@@ -1317,7 +1317,8 @@ function collectLoop(summaries) {
       continue;
     }
     const lines = s.file.text.split('\n').map(l => l.trim()).filter(Boolean)
-      .filter(l => !/^instrument\t/i.test(l));
+      .filter(l => !/^instrument\t/i.test(l))
+      .filter(l => !/^verdict\t/.test(l));   // verify-module's closing row: the run's verdict, not an instrument (#446)
     if (!lines.length) {
       instruments.push({ name: `verify-loop/${s.module}`, verdict: 'fault',
                          reason: `${s.file.path} is empty — the verify loop wrote a summary with no rows`,

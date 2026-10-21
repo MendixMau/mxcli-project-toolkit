@@ -21,7 +21,7 @@
 #       `grep -c '^##[ \t]'`, passes [[:blank:]], an awk regex and a $'...' real tab
 #   T4  ... and flags \t OUTSIDE a bracket in a sed pattern or replacement (#488: the
 #       bug-lookup.sh index line and test-routing-tier.sh's demotion), passes ${TAB}, $'...',
-#       an escaped \\t in an echo, and awk
+#       $(printf '\t'), an escaped \\t in an echo, awk, and `sed ...; awk -F'\t'` on one line
 
 set -uo pipefail
 SUT="${1:?usage: test-sed-tab-bracket.sh /path/to/bin/lib/entry-mode.sh}"
@@ -97,12 +97,14 @@ sed -i.bak "s/^demo${TAB}skills/x${TAB}y/" "$1"
 sed -E $'s/^([0-9]+):## /@@1@t/' "$1"
 echo "  SKIP: this sed --posix expands @@t in a bracket"
 grep -n '^## ' "$1" | awk '{ t=$0; sub(/^[0-9]+:## /, "", t); sub(/@t.*/, "", t); print t }'
+sed -n '/^## /p' "$1"; awk -F'@t' '{ print $2 }' "$1"
+sed "s/x/$(printf '@t')/" "$1"
 X
 out="$(bash "$TK/bin/check-portability.sh" "$W/lint4/bad" 2>&1)"; rc=$?
 n="$(grep -c 'in a sed pattern or replacement' <<<"$out")"
 if [ "$rc" -eq 1 ] && [ "$n" -eq 2 ]; then ok "T4a replacement \\1\\t and BRE \\t: 2 of 2 flagged"; else bad "T4a want rc 1 and 2 hits, got rc $rc and $n" "$out"; fi
 out="$(bash "$TK/bin/check-portability.sh" "$W/lint4/good" 2>&1)"; rc=$?
-if [ "$rc" -eq 0 ]; then ok "T4b \${TAB}, \$'...', an escaped \\\\t, awk: clean"; else bad "T4b want rc 0, got rc $rc" "$out"; fi
+if [ "$rc" -eq 0 ]; then ok "T4b \${TAB}, \$'...', \$(printf '\\t'), an escaped \\\\t, awk, sed ...; awk -F'\\t': clean"; else bad "T4b want rc 0, got rc $rc" "$out"; fi
 
 echo "-- $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

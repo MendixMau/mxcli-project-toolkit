@@ -989,22 +989,22 @@ def _dep_scripts(x, by_n):
         todo.extend(r.get("dependsOn") or [])
     return names
 
-def harness_verify(proj, x, by_n=None, log_rows=None, done_files=None):
-    """(cls, shown, flag) for a HARNESS row that runs verify-module.sh <Module>, None for any other
-    row. cls is what the row counts as; shown the State cell text; flag the drift line or ''."""
+def verify_evidence(proj, x, by_n=None, log_rows=None, done_files=None):
+    """The evidence for a HARNESS row that runs verify-module.sh <Module>, None for any other row:
+    {mod, state, cl, form, day, why, since, n, tot}. form: none (no summary), unclean, stale, owed
+    (clean and fresh, LOOK not discharged), verified. harness_verify and module_status read it."""
     m = VERIFY_STEP.search(x.get("step") or "") if (x.get("kind") or "").strip().upper() == "HARNESS" else None
     if not m: return None
     mod, state = m.group(1), x.get("state") or ""
-    cl = classify_state(state); raw = state.strip().lower().replace("**", "")
+    ev = {"mod": mod, "state": state, "cl": classify_state(state), "form": "none", "day": "", "why": "", "since": 0, "n": 0, "tot": 0}
     f = os.path.join(proj, ".claude", "loop", "verify", mod, "summary.tsv")
     try:
         rows = [l.split("\t") for l in open(f, encoding="utf-8", errors="replace").read().splitlines()[1:] if l.strip()]
-        t = os.path.getmtime(f); day = datetime.datetime.fromtimestamp(t).strftime("%Y-%m-%d")
+        t = os.path.getmtime(f); ev["day"] = datetime.datetime.fromtimestamp(t).strftime("%Y-%m-%d")
     except OSError:
-        return ("built", "built? no verify summary", "State says built, but .claude/loop/verify/%s/summary.tsv does not exist" % mod) if cl == "built" else None
-    why = _summary_state(rows)
-    if why:
-        return (cl, state, "State says built, but the %s verify summary of %s is not clean (%s)" % (mod, day, why)) if cl == "built" else None
+        return ev
+    ev["why"] = _summary_state(rows)
+    if ev["why"]: ev["form"] = "unclean"; return ev
     names = _dep_scripts(x, by_n or {})
     match = lambda s_: any(fnmatch.fnmatchcase(os.path.basename(s_), n) or fnmatch.fnmatchcase(os.path.basename(s_), "done-" + n) for n in names)
     if log_rows is None: log_rows = build_log_rows(proj)
@@ -1014,15 +1014,50 @@ def harness_verify(proj, x, by_n=None, log_rows=None, done_files=None):
         done_files = _EV_CACHE[("done", proj)]
     since = [r for r in log_rows if r[0] > t and match(r[1])] if names else []
     newer = [d_ for d_ in done_files if names and match(d_) and os.path.getmtime(d_) > t]
-    if since or newer:
-        return cl, state, "verify stale (summary %s, %d execs since)" % (day, len(since))
-    n, tot, lwhy = look_evidence(proj, mod)
-    if lwhy:
-        return cl, state, "verify clean %s — LOOK + CONFIRM owed (%s)" % (day, lwhy)
+    if since or newer: ev["form"] = "stale"; ev["since"] = len(since); return ev
+    ev["n"], ev["tot"], ev["why"] = look_evidence(proj, mod)
+    ev["form"] = "owed" if ev["why"] else "verified"
+    return ev
+
+def harness_verify(proj, x, by_n=None, log_rows=None, done_files=None):
+    """(cls, shown, flag) for a HARNESS row that runs verify-module.sh <Module>, None for any other
+    row. cls is what the row counts as; shown the State cell text; flag the drift line or ''."""
+    ev = verify_evidence(proj, x, by_n, log_rows, done_files)
+    if not ev: return None
+    mod, state, cl, day, n, tot = ev["mod"], ev["state"], ev["cl"], ev["day"], ev["n"], ev["tot"]
+    raw = state.strip().lower().replace("**", "")
+    if ev["form"] == "none":
+        return ("built", "built? no verify summary", "State says built, but .claude/loop/verify/%s/summary.tsv does not exist" % mod) if cl == "built" else None
+    if ev["form"] == "unclean":
+        return (cl, state, "State says built, but the %s verify summary of %s is not clean (%s)" % (mod, day, ev["why"])) if cl == "built" else None
+    if ev["form"] == "stale":
+        return cl, state, "verify stale (summary %s, %d execs since)" % (day, ev["since"])
+    if ev["form"] == "owed":
+        return cl, state, "verify clean %s \u2014 LOOK + CONFIRM owed (%s)" % (day, ev["why"])
     shown = "built (verified %s, LOOK %d/%d)" % (day, n, tot)
     if cl == "built": return "built", shown, ""
     if raw.startswith(("blocked", "pending a person")): return cl, state, "verify clean %s and LOOK %d/%d, but State says %s" % (day, n, tot, state)
     return "built", shown, "State says %s, but the %s summary of %s is clean and fresh and LOOK is %d/%d: update State" % (state or "nothing", mod, day, n, tot)
+
+# A module's sign-off status (MendixMau decision 2026-10-21): the HARNESS verify row is shown once,
+# as its module's status on the phase card, never as a build row. Same evidence, nothing measured.
+SIGNOFF_CLS = {"verified": "st-built", "owed": "st-progress", "stale": "st-progress", "unclean": "st-todo", "none": "st-todo", "claimed": "drift"}
+def module_status(ev):
+    """(form, label, detail) for the module of a verify_evidence result. detail is the evidence
+    or the State disagreement, '' when there is nothing to add."""
+    cl, day, st = ev["cl"], ev["day"], ev["state"] or "nothing"
+    if ev["form"] == "none":
+        if cl == "built": return "claimed", "built? no verify summary", "State says built, but .claude/loop/verify/%s/summary.tsv does not exist" % ev["mod"]
+        return "none", "Verify not run", ""
+    if ev["form"] == "unclean":
+        return "unclean", "Verify not clean %s (%s)" % (day, ev["why"]), ("State says built, but the summary is not clean" if cl == "built" else "")
+    if ev["form"] == "stale":
+        return "stale", "Verify stale (%d build%s since)" % (ev["since"], "" if ev["since"] == 1 else "s"), "summary %s is older than a script this row depends on" % day
+    if ev["form"] == "owed":
+        return "owed", "Verify owed - LOOK + CONFIRM", "verify clean %s; %s" % (day, ev["why"])
+    lbl = "Verified \u2713 %s (LOOK %d/%d)" % (day, ev["n"], ev["tot"])
+    if cl == "built": return "verified", lbl, ""
+    return "verified", lbl, "State says %s: update State" % st
 
 def _cells(line):
     c = re.split(r"(?<!\\)\|", line.strip())
@@ -1061,25 +1096,44 @@ def parse_plan_md(path):
     return [p for p in phases if p[2]]
 
 def finish_plan(phases, proj, generated, source):
+    """Counts per phase and for the plan. HARNESS rows are not build rows (MendixMau decision
+    2026-10-21): they are out of every 'x of y built' count, and a verify-module.sh row is shown as
+    its module's sign-off status on the phase card instead (the last such row per module)."""
     out = []; kinds = collections.Counter(); tot = collections.Counter()
     by_n = {str(x.get("number")): x for _p, _n, st in phases for x in st}; logs = None
-    for pid, name, steps in phases:
-        c = collections.Counter(); kd = collections.Counter(); rows = []
+    last = {}
+    for pi, (_pid, _name, steps) in enumerate(phases):
         for x in steps:
-            cl = classify_state(x.get("state")); shown = x.get("state") or ""
-            if logs is None and VERIFY_STEP.search(x.get("step") or ""): logs = build_log_rows(proj)
-            hv = harness_verify(proj, x, by_n, logs) if logs is not None else None
-            if hv: cl, shown = hv[0], hv[1] + (" (%s)" % hv[2] if hv[2] else "")
-            c[cl] += 1; kd[x.get("kind") or "-"] += 1
+            m = VERIFY_STEP.search(x.get("step") or "") if (x.get("kind") or "").strip().upper() == "HARNESS" else None
+            if m: last[m.group(1)] = (pi, x)
+    signoffs = []
+    for pi, (pid, name, steps) in enumerate(phases):
+        c = collections.Counter(); kd = collections.Counter(); rows = []; mods_here = []; harness = 0
+        for x in steps:
+            kd[x.get("kind") or "-"] += 1
+            if (x.get("kind") or "").strip().upper() == "HARNESS":
+                harness += 1
+                if logs is None and VERIFY_STEP.search(x.get("step") or ""): logs = build_log_rows(proj)
+                ev = verify_evidence(proj, x, by_n, logs) if logs is not None else None
+                if ev:
+                    if last.get(ev["mod"], (None, None))[1] is x:
+                        form, label, detail = module_status(ev)
+                        mods_here.append({"mod": ev["mod"], "form": form, "label": label, "detail": detail, "n": x.get("number")})
+                    continue   # its module's status says it; not a row of the list
+                rows.append({"n": x.get("number"), "kind": x.get("kind"), "step": (x.get("step") or "")[:140], "state": x.get("state") or "", "cls": "harness"})
+                continue
+            cl = classify_state(x.get("state")); c[cl] += 1
             if cl != "skip": kinds[x.get("kind") or "-"] += 1
-            rows.append({"n": x.get("number"), "kind": x.get("kind"), "step": (x.get("step") or "")[:140], "state": shown, "cls": cl})
-        tot.update(c)
+            rows.append({"n": x.get("number"), "kind": x.get("kind"), "step": (x.get("step") or "")[:140], "state": x.get("state") or "", "cls": cl})
+        tot.update(c); signoffs.extend(mods_here)
         mods = os.path.join(proj, "architecture", "modules", name)
-        out.append({"id": pid, "name": name, "n": len(steps) - c["skip"], "built": c["built"], "partial": c["partial"], "todo": c["todo"], "skip": c["skip"], "kinds": dict(kd),
+        out.append({"id": pid, "name": name, "n": c["built"] + c["partial"] + c["todo"], "built": c["built"], "partial": c["partial"], "todo": c["todo"], "skip": c["skip"], "kinds": dict(kd),
+                    "harness": harness, "signoffs": mods_here,
                     "brief": os.path.isfile(os.path.join(mods, "module-brief.md")), "ledger": os.path.isfile(os.path.join(mods, "coverage-ledger.md")),
                     "def": os.path.isfile(os.path.join(mods, "definition.md")), "steps": rows})
     return {"phases": out, "kinds": dict(kinds), "built": tot["built"], "partial": tot["partial"], "todo": tot["todo"], "skip": tot["skip"],
-            "total": sum(tot.values()) - tot["skip"], "generated": generated, "source": source, "note": ""}
+            "total": sum(tot.values()) - tot["skip"], "harness": sum(p["harness"] for p in out), "signoffs": signoffs,
+            "generated": generated, "source": source, "note": ""}
 
 def build_log_rows(proj):
     """[(epoch, script, result)] from docs/BUILD-LOG.md exec rows, oldest first."""
@@ -1593,6 +1647,26 @@ def render_ledgers(w, lg):
           "<tr><td>%s</td><td>%s</td><td class=n>%s</td><td class=n>%s</td><td>%s</td></tr>" % (esc(p["phase"]), esc(p["start"]), esc(p["min_txt"] or "-"), esc(p["tok_txt"] or "-"), esc(p["runs"] or "-")) for p in lg["phases"]) + "</table></div>")
     w("</div>")
 
+def signoff_html(p):
+    """The phase card's module sign-off line(s): one per module whose last verify row is here."""
+    out = []
+    for m in p.get("signoffs") or []:
+        drift = m["form"] == "claimed" or m["detail"].startswith("State says")
+        out.append("<div class='k signoff' data-module='%s'>Module sign-off, %s (row %s): <span class='%s'>%s</span>%s</div>" % (
+            esc(m["mod"]), esc(m["mod"]), esc(m["n"]), SIGNOFF_CLS.get(m["form"], "st-todo"), esc(m["label"]),
+            ("<div class=drift>&#9888; %s</div>" if drift else " <span class=mut>(%s)</span>") % esc(m["detail"]) if m["detail"] else ""))
+    return "".join(out)
+
+def signoff_rollup(bp):
+    """One line under the plan counts: module sign-offs and other HARNESS rows, never counted as built rows."""
+    so = bp.get("signoffs") or []
+    other = sum(1 for p in bp["phases"] for x in p["steps"] if x["cls"] == "harness")
+    if not so and not other: return ""
+    v = sum(1 for m in so if m["form"] == "verified")
+    txt = ("Module sign-offs: %d of %d module%s verified, each shown on its phase card." % (v, len(so), "" if len(so) == 1 else "s")) if so else ""
+    if other: txt += (" " if txt else "") + "%d other HARNESS row%s listed in %s phase, not counted." % (other, "" if other == 1 else "s", "its" if other == 1 else "their")
+    return "<div class=note id=signoffs>%s HARNESS rows are a module's sign-off or a harness pass, not build rows, so the counts above leave them out.</div>" % txt
+
 def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, tot, peak, args):
     L = args.has_log
     facts = exec_facts(proj, bp)
@@ -1863,15 +1937,15 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
         if lb: w("<div class=note id=lastbuild data-stamp>%s. Last build step: <code>%s</code> (%s), %s at %s.</div>" % (esc(facts_line(facts)), esc(lb[1][:90]), esc(re.sub(r"[^\w .,/()+-]", "", lb[2])[:40].strip() or "no result"), esc(ago(lb[0])), esc(datetime.datetime.fromtimestamp(lb[0]).strftime("%Y-%m-%d %H:%M"))))
         if facts and facts["score"]: w("<div class=note id=modelscore data-stamp>Latest model score %.1f (%s).</div>" % (facts["score"]["score"], esc(facts["score"]["script"][:40])))
         if bp.get("note"): w("<div class='note stale'>%s.</div>" % esc(bp["note"]))
-        w("<div class=note id=planread data-stamp>Kinds are the plan's own Kind column; row state is the plan's State column read by prefix (built or done = built, partial or in progress = partial, anything else = not built); a HARNESS row running verify-module.sh &lt;Module&gt; is also read from that module's verify summary and LOOK report: built only when the summary is clean and newer than the scripts it depends on and the LOOK is N of N, flagged otherwise. Plan read %s from %s.</div></div>" % (esc(bp.get("generated") or "unknown"), "architecture/build-plan.md" if bp.get("source") == "md" else "architecture/build-plan.json"))
+        w("<div class=note id=planread data-stamp>Kinds are the plan's own Kind column; row state is the plan's State column read by prefix (built or done = built, partial or in progress = partial, anything else = not built); HARNESS rows are not build rows and are not counted. A HARNESS row running verify-module.sh &lt;Module&gt; is that module's sign-off and shows on its phase card as one status, read from the module's verify summary and LOOK report: verified only when the summary is clean and newer than the scripts it depends on and the LOOK is N of N. The gate's own record of the look is the look obligation, in the obligations table of <code>gate-check.sh &lt;project&gt; 5</code> (index.html). Plan read %s from %s.</div>%s</div>" % (esc(bp.get("generated") or "unknown"), "architecture/build-plan.md" if bp.get("source") == "md" else "architecture/build-plan.json", signoff_rollup(bp)))
         w("<div class=phases style='margin-top:10px'>")
         for p in bp["phases"]:
             now = p is cur
-            w("<details class='card ph%s' id='phase-%s'%s><summary><b>Phase %s: %s</b>%s<div class='stack3' style='margin:6px 0'><i class=b style='width:%.0f%%'></i><i class=p style='width:%.0f%%'></i></div><div class=sub>%d of %d rows built%s%s</div><div class=k>%s</div><div class=k>module files: %s</div><div class=k>Click to show or hide the rows</div></summary>" %
+            w("<details class='card ph%s' id='phase-%s'%s><summary><b>Phase %s: %s</b>%s<div class='stack3' style='margin:6px 0'><i class=b style='width:%.0f%%'></i><i class=p style='width:%.0f%%'></i></div><div class=sub>%d of %d rows built%s%s</div><div class=k>%s</div><div class=k>module files: %s</div>%s<div class=k>Click to show or hide the rows</div></summary>" %
               (" now" if now else "", esc(p["id"]), " open" if now else "", esc(p["id"]), esc(p["name"]), " <span class=nowtag>building now</span>" if now else "", pct(p["built"], p["n"]), pct(p["partial"], p["n"]), p["built"], p["n"], (", %d partial" % p["partial"]) if p["partial"] else "", (" &middot; %d runs" % runs_by.get(str(p["id"]), 0)) if runs_by.get(str(p["id"])) else "", esc(" ".join("%s %d" % kv for kv in p["kinds"].items())),
-               esc(" ".join(("%s %s" % (n, "yes" if v else "no")) for n, v in (("definition", p["def"]), ("brief", p["brief"]), ("ledger", p["ledger"]))))))
+               esc(" ".join(("%s %s" % (n, "yes" if v else "no")) for n, v in (("definition", p["def"]), ("brief", p["brief"]), ("ledger", p["ledger"])))), signoff_html(p)))
             if str(p["id"]) in phase_detail: w(phase_detail[str(p["id"])])
-            else: w("<div class=tw><table class=steps><tr><th>#</th><th>Kind</th><th>Row</th><th>State</th></tr>" + "".join("<tr class='r-%s'><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>" % (x["cls"], esc(x["n"]), esc(x["kind"]), esc(x["step"]), esc(x["state"][:90])) for x in p["steps"]) + "</table></div>")
+            else: w("<div class=tw><table class=steps><tr><th>#</th><th>Kind</th><th>Row</th><th>State</th></tr>" + "".join("<tr class='r-%s'><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>" % (x["cls"], esc(x["n"]), esc(x["kind"]), esc(x["step"]), esc(x["state"][:90])) for x in p["steps"]) + "</table></div>" if p["steps"] else "")
             w("</details>")
         w("</div>")
     else: w("<div class=card>No plan to summarise yet: %s</div>" % esc(args.plan_msg or "architecture/build-plan.md was not read."))

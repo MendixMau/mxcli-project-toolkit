@@ -21,7 +21,7 @@
 #   R5  nested multi-app folders: the inner project from inside it, the outer one from between
 #   R6  a project folder with no model yet: the walk stops there; find_mpr fails naming it
 #   R7  $HOME's .claude/ is not a project folder: the walk goes on past it (old behaviour)
-#   R8  PWD inside one app's folder: that app's folder (state follows the model, as before)
+#   R8  PWD inside one app's folder: the project when it is marked (#489), else the app folder
 #   R9  find_mpr: one app under apps/ found; two refused with both listed; MPR_FILE picks one
 #   R10 bin/check-requirements.sh (same walk): multi-app root named; a model-less project exits 2
 #   R11 a bare .claude/ (no PROJECT.md) is not a project folder: a stray /tmp/.claude above an
@@ -37,6 +37,8 @@
 #   R15 doctor.sh <project>: reports the app's model, and names MPR_FILE when there are two
 #   R16 a model-less git worktree under <project>/.claude/worktrees/<w> (it carries its own
 #       bin/_common.sh) resolves to the worktree, no longer to the main project above it
+#   R17 PWD in app/, app/javasource, apps/A, apps/A/javasource of a marked project: the
+#       installed and toolkit copies both answer the project (#489); unmarked, the app folder
 set -u
 
 COMMON="${1:?usage: $0 project-bin/_common.sh}"
@@ -101,7 +103,9 @@ eq "R7 walk passes \$HOME and finds the model above it" "$(root "$H/scratch/sub"
 
 echo "== R8 PWD inside one app's folder =="
 P="$T/r8/proj"; mkdir -p "$P/apps/A/javasource"; wire "$P"; : > "$P/apps/A/A.mpr"
-eq "R8 apps/A/javasource -> apps/A (the model's own folder)" "$(root "$P/apps/A/javasource" "$TKP")" "$P/apps/A"
+eq "R8a apps/A/javasource, project marked -> the project (#489)" "$(root "$P/apps/A/javasource" "$TKP")" "$P"
+rm -rf "$P/.claude" "$P/PROJECT.md"
+eq "R8b apps/A/javasource, no marker -> apps/A (the model's own folder, as before)" "$(root "$P/apps/A/javasource" "$TKP")" "$P/apps/A"
 
 echo "== R9 find_mpr in a multi-app folder =="
 P="$T/r9/proj"; mkdir -p "$P/apps/A"; wire "$P"; : > "$P/apps/A/A.mpr"
@@ -187,6 +191,24 @@ case "$out" in *"checking apps/A/A.mpr only"*"MPR_FILE="*) ok "R15c --property-s
 echo "== R16 a model-less worktree under .claude/worktrees/ =="
 P="$T/r16/proj"; W="$P/.claude/worktrees/w"; install "$P"; : > "$P/App.mpr"; install "$W"; mkdir -p "$W/docs"
 eq "R16 toolkit copy from the worktree's docs/: the worktree" "$(root "$W/docs" "$TKP")" "$W"
+
+echo "== R17 PWD inside an app folder: installed and toolkit copies agree (#489) =="
+# Before #489 the toolkit copy stopped at the folder holding the model, the installed copy
+# (tier 2) answered the project, and the two wrote their ledgers to different roots.
+both() {  # both <label> <project> <pwd>
+  eq "$1, installed copy" "$(root "$3" "$2/bin/probe.sh")" "$2"
+  eq "$1, toolkit copy"   "$(root "$3" "$TKP")" "$2"
+}
+S="$T/r17/stray"; P="$S/two"; mkdir -p "$P/app/javasource"; : > "$S/stray.mpr"; : > "$P/app/App.mpr"; install "$P"
+both "R17a two-tree, PWD=app/"            "$P" "$P/app"
+both "R17b two-tree, PWD=app/javasource"  "$P" "$P/app/javasource"
+P="$S/multi"; mkdir -p "$P/apps/A/javasource" "$P/apps/B"; : > "$P/apps/A/A.mpr"; : > "$P/apps/B/B.mpr"; install "$P"
+both "R17c multi-app, PWD=apps/A"            "$P" "$P/apps/A"
+both "R17d multi-app, PWD=apps/A/javasource" "$P" "$P/apps/A/javasource"
+P="$S/single"; mkdir -p "$P/javasource"; : > "$P/App.mpr"; install "$P"
+both "R17e single tree, PWD=javasource (unchanged)" "$P" "$P/javasource"
+P="$T/r17/bare"; mkdir -p "$P/app/javasource"; : > "$P/app/App.mpr"
+eq "R17f two-tree, no marker, PWD=app/javasource: app/ (the model's folder, as before)" "$(root "$P/app/javasource" "$TKP")" "$P/app"
 
 echo
 echo "root-multiapp: $PASS passed, $FAIL failed"

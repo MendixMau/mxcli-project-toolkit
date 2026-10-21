@@ -49,10 +49,20 @@ _mxtk_is_project_dir() {
 # below /. The marker stop is what keeps the walk inside the project (#420): a multi-app folder
 # (apps/<X>/X.mpr) failed the root/app probe, the walk climbed on, and the first ancestor with
 # ANY .mpr became PROJECT_ROOT, so look-ledger rows landed in another folder's ledger.
+# A stop at an app folder (<p>/app or <p>/apps/<X>) whose project folder <p> is marked returns
+# <p> (#489): the installed copy (tier 2) already resolves <p> from there, and two answers for
+# one cwd split the ledgers. An unmarked app folder is still returned as itself.
 mxtk_walk_root() {
-  local d="$1"
+  local d="$1" p
   while [ -n "$d" ] && [ "$d" != "/" ]; do
-    if _mxtk_has_model "$d" || _mxtk_is_project_dir "$d"; then printf '%s\n' "$d"; return 0; fi
+    if _mxtk_has_model "$d" || _mxtk_is_project_dir "$d"; then
+      p="${d%/*}"
+      case "$d" in
+        */app)    [ -n "$p" ] && _mxtk_is_project_dir "$p" && d="$p" ;;
+        */apps/*) case "$p" in */apps) p="${p%/*}"; [ -n "$p" ] && _mxtk_is_project_dir "$p" && d="$p" ;; esac ;;
+      esac
+      printf '%s\n' "$d"; return 0
+    fi
     d=$(dirname "$d")
   done
   return 1

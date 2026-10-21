@@ -49,10 +49,25 @@ _mxtk_is_project_dir() {
 # below /. The marker stop is what keeps the walk inside the project (#420): a multi-app folder
 # (apps/<X>/X.mpr) failed the root/app probe, the walk climbed on, and the first ancestor with
 # ANY .mpr became PROJECT_ROOT, so look-ledger rows landed in another folder's ledger.
+# A stop at an app folder (<p>/app or <p>/apps/<X>, any letter case) whose project folder <p>
+# is marked returns <p> (#489): the installed copy (tier 2) already resolves <p> from there, and
+# two answers for one cwd split the ledgers. An unmarked app folder is still returned as itself,
+# and so is an app folder that is a project folder of its own (its own install, or .claude/
+# beside PROJECT.md): a project nested at apps/<X>/ or app/ keeps its own root.
 mxtk_walk_root() {
-  local d="$1"
+  local d="$1" p
   while [ -n "$d" ] && [ "$d" != "/" ]; do
-    if _mxtk_has_model "$d" || _mxtk_is_project_dir "$d"; then printf '%s\n' "$d"; return 0; fi
+    if _mxtk_has_model "$d" || _mxtk_is_project_dir "$d"; then
+      if ! _mxtk_is_project_dir "$d"; then
+        p="${d%/*}"
+        case "$d" in
+          */[Aa][Pp][Pp])  [ -n "$p" ] && _mxtk_is_project_dir "$p" && d="$p" ;;
+          */[Aa][Pp][Pp][Ss]/*)
+            case "$p" in */[Aa][Pp][Pp][Ss]) p="${p%/*}"; [ -n "$p" ] && _mxtk_is_project_dir "$p" && d="$p" ;; esac ;;
+        esac
+      fi
+      printf '%s\n' "$d"; return 0
+    fi
     d=$(dirname "$d")
   done
   return 1
@@ -75,6 +90,36 @@ _mxtk_resolve_root() {
   printf '%s\n' "${self_parent:-$(pwd)}"
 }
 PROJECT_ROOT="${PROJECT_ROOT:-$(_mxtk_resolve_root)}"
+# Multi-app folder, MPR_FILE unset, the session inside one app's folder: pick that app HERE,
+# at source time, and export it (#489 review). Since #489 the root from apps/<X>/ is the
+# project, and a pick made later inside find_mpr did not survive exec.sh's cd "$PROJECT_ROOT"
+# or reach its children (snapshot-mpr.sh refused and set -e aborted the run mid-way). Only
+# when the root holds no *.mpr and no app/*.mpr, and exactly one apps/<X>/*.mpr sits in a
+# folder holding $PWD. Globs and builtins only. Outside any one app nothing is picked, so
+# find_mpr still refuses and names MPR_FILE.
+# An auto-pick is marked MXTK_MPR_PICKED (both exported). A child that inherits it while its own
+# cwd sits inside a DIFFERENT apps/<X>/ re-derives; at the project root it keeps the pick (that
+# is exec.sh's cd, the case this exists for). A pick inherited from ANOTHER project is dropped.
+# A MPR_FILE the user set is never touched.
+if [ -n "${MXTK_MPR_PICKED:-}" ] && [ "${MPR_FILE:-}" = "$MXTK_MPR_PICKED" ]; then
+  case "$MPR_FILE" in "$PROJECT_ROOT"/*) ;; *) unset MPR_FILE MXTK_MPR_PICKED ;; esac
+  case "$PWD/" in
+    "${MPR_FILE%/*}"/*) ;;
+    "$PROJECT_ROOT"/apps/?*/*) unset MPR_FILE MXTK_MPR_PICKED ;;
+  esac
+fi
+if [ -z "${MPR_FILE:-}" ] && [ -d "$PROJECT_ROOT/apps" ]; then
+  _mxtk_n=0; _mxtk_pick=""
+  for _mxtk_f in "$PROJECT_ROOT"/*.mpr "$PROJECT_ROOT"/app/*.mpr; do [ -e "$_mxtk_f" ] && _mxtk_n=2; done
+  if [ "$_mxtk_n" -eq 0 ]; then
+    for _mxtk_f in "$PROJECT_ROOT"/apps/*/*.mpr; do
+      [ -e "$_mxtk_f" ] || continue
+      case "$PWD/" in "${_mxtk_f%/*}"/*) _mxtk_n=$((_mxtk_n + 1)); _mxtk_pick="$_mxtk_f" ;; esac
+    done
+  fi
+  if [ "$_mxtk_n" -eq 1 ]; then MPR_FILE="$_mxtk_pick"; MXTK_MPR_PICKED="$_mxtk_pick"; export MPR_FILE MXTK_MPR_PICKED; fi
+  unset _mxtk_n _mxtk_pick _mxtk_f
+fi
 
 # mxtk_posix_path — a Windows-form path (C:\Program Files\Mendix) as Git Bash addresses it
 # (/c/Program Files/Mendix). Anything already POSIX passes through untouched. Used for every
@@ -141,7 +186,12 @@ find_mpr() {
       echo "ERROR: MPR_FILE='$MPR_FILE' does not exist" >&2
       return 1
     fi
-    [ -f "$MPR_FILE" ] && { echo "$MPR_FILE"; return 0; }
+    # Always an absolute path (#489 review): a caller that later does `cd "$PROJECT_ROOT"`
+    # (exec.sh) would otherwise resolve a cwd-relative MPR_FILE against the wrong folder.
+    if [ -f "$MPR_FILE" ]; then
+      case "$MPR_FILE" in /*|[A-Za-z]:*) echo "$MPR_FILE" ;; *) echo "$(pwd)/$MPR_FILE" ;; esac
+      return 0
+    fi
     echo "$PROJECT_ROOT/$MPR_FILE"
     return 0
   fi
@@ -177,6 +227,8 @@ find_mpr() {
     echo "ERROR: no .mpr found in $PROJECT_ROOT" >&2
     return 1
   fi
+  # (A session inside one app's folder never gets here: _common.sh exported MPR_FILE for
+  # that app at source time, #489 review.)
   if [ "$count" -gt 1 ]; then
     echo "ERROR: $count .mpr files in $PROJECT_ROOT — refusing to guess which model to write." >&2
     for f in "$PROJECT_ROOT"/*.mpr; do [ -e "$f" ] && echo "  $(basename "$f")" >&2; done

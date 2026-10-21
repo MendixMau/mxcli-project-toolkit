@@ -565,7 +565,7 @@ take_score() {
 # Not found, or the scan itself errors (exit 2) → one warning, and the exec goes on: mxcli
 # check and the mxbuild gate still stand behind it.
 SCAN_NOTE=""; HV_NOTE=""   # HV_NOTE: the ContentsHash bracket's cell text, set below
-RESTATE_NOTE=""            # the restatement warnings' cell text (#261/#269), set after the check
+RESTATE_NOTE=""            # the restatement warning's cell text (#269), set after the check
 if [ "$PATCH_MODE" != "1" ]; then
   _SCAN=""
   for _s in "${MXTK_ROOT:-}/bin/mdl-scan.sh" \
@@ -1122,49 +1122,31 @@ elif [ "${SKIP_CHECK:-0}" != "1" ] && [ -n "$PMXCLI" ]; then
   echo "  ✓ check clean"
 fi
 
-# ── Restatement warnings (#261, #269; WARN only, never a refusal) ────────────
+# ── Restatement warnings (#269; WARN only, never a refusal) ──────────────────
 # A whole restatement (`create or modify|replace microflow|nanoflow|page|snippet`) is valid MDL
-# whatever it replaces, so check, mxbuild and lint stay green while it reverts newer work. Two
-# field shapes, one sibling instrument each:
-#   co-owned (#269)  three apps had 99/579, 130/357 and 38/159 documents created by more than one
-#                    mdlsource/ script; re-running an older one reverts the newer. script-owners.sh
-#                    check names every other owner no `-- supersedes:` header settles.
-#   stale (#261)     a script drafted from a DESCRIBE taken BEFORE an earlier script of the batch
-#                    ran put four old messages back. describe-baseline.sh verify compares the
-#                    script's `-- baseline:` header with a fresh DESCRIBE. Opt-in: no header, no call.
-# Each prints WARN lines and lands in the BUILD-LOG detail; the exec goes on and the exit code is
-# whatever the rest of the chain decides. MXTK_RESTATE_GUARD=off skips both. Cost without a
-# co-owner or a header: one grep over mdlsource/ for the restated names, no mxcli call.
-if [ "$PATCH_MODE" != "1" ] && [ "${MXTK_RESTATE_GUARD:-}" != "off" ] && [ -f "$SCRIPT" ]; then
-  _rs_bin="$(dirname "$0")"
-  if [ -f "$_rs_bin/script-owners.sh" ]; then
-    _so_rc=0
-    _so_out="$(PROJECT_ROOT="$PROJECT_ROOT" bash "$_rs_bin/script-owners.sh" check "$SCRIPT" "$PROJECT_ROOT" 2>/dev/null)" || _so_rc=$?
-    if [ "$_so_rc" -eq 1 ] && [ -n "$_so_out" ]; then
-      _so_docs="$(printf '%s\n' "$_so_out" | cut -f2 | sed 's/^[A-Z]* //' | LC_ALL=C sort -u)"
-      _so_n="$(printf '%s\n' "$_so_docs" | grep -c . || true)"
-      echo "WARN: restatement: $_so_n document(s) this script restates are also owned by another mdlsource/ script:"
-      printf '%s\n' "$_so_out" | awk -F'\t' '{ printf "    %s — %s\n", $2, $4 }'
-      echo "  → edit the owning script or use alter; a new owner says '-- supersedes: <older script>'"
-      echo "    (bin/script-owners.sh report; skills/learned-mdl-preflight.md STOP 33)"
-      grep -qE '^[[:space:]]*--[[:space:]]*baseline:' "$SCRIPT" || \
-        echo "    no '-- baseline:' header, so a stale draft cannot be detected: bin/describe-baseline.sh stamp <script>"
-      RESTATE_NOTE="WARN co-owned: $(printf '%s\n' "$_so_docs" | head -3 | tr '\n' ' ' | sed 's/ $//')"
-      if [ "$_so_n" -gt 3 ]; then RESTATE_NOTE="$RESTATE_NOTE +$((_so_n - 3))"; fi
-    fi
+# whatever it replaces, so check, mxbuild and lint stay green while it reverts newer work. Three
+# field apps had 99/579, 130/357 and 38/159 documents created by more than one mdlsource/ script;
+# re-running an older one reverts the newer. script-owners.sh check: REVERT/UNCHECKED rows print
+# as WARN lines and land in the BUILD-LOG detail; NOTE rows (a new owner without a supersedes
+# header, first run only) print as one NOTE line and stay out of the log. The exec goes on and the
+# exit code is whatever the rest of the chain decides. MXTK_RESTATE_GUARD=off skips it. Cost
+# without a co-owner: one grep over mdlsource/ for the restated names, no mxcli call.
+if [ "$PATCH_MODE" != "1" ] && [ "${MXTK_RESTATE_GUARD:-}" != "off" ] && [ -f "$SCRIPT" ] \
+   && [ -f "$(dirname "$0")/script-owners.sh" ]; then
+  _so_out="$(PROJECT_ROOT="$PROJECT_ROOT" bash "$(dirname "$0")/script-owners.sh" check "$SCRIPT" "$PROJECT_ROOT" 2>/dev/null || true)"
+  _so_warn="$(printf '%s\n' "$_so_out" | grep -E '^(REVERT|UNCHECKED)	' || true)"
+  _so_note="$(printf '%s\n' "$_so_out" | grep '^NOTE	' || true)"
+  if [ -n "$_so_note" ]; then
+    echo "NOTE: new owner of $(printf '%s\n' "$_so_note" | cut -f2 | sed 's/^[A-Z]* //' | LC_ALL=C sort -u | tr '\n' ' ')— older owner(s): $(printf '%s\n' "$_so_note" | cut -f3 | LC_ALL=C sort -u | tr '\n' ' '); add '-- supersedes: <older script>' (STOP 21)"
   fi
-  if [ -f "$_rs_bin/describe-baseline.sh" ] && grep -qE '^[[:space:]]*--[[:space:]]*baseline:' "$SCRIPT"; then
-    _db_rc=0
-    _db_out="$(PROJECT_ROOT="$PROJECT_ROOT" bash "$_rs_bin/describe-baseline.sh" verify "$SCRIPT" 2>&1)" || _db_rc=$?
-    case "$_db_rc" in
-      1)
-        echo "WARN: stale draft: document(s) this script restates changed since its '-- baseline:' DESCRIBE:"
-        printf '%s\n' "$_db_out" | grep -v '^SAME' | sed -E 's/^DRIFT	([^	]*)	/    \1 — /; s/^(STALEHEADER|UNKNOWN)	([^	]*)	/    \2 — /'
-        echo "  → DESCRIBE it again, merge the live body into the script, re-stamp: bin/describe-baseline.sh stamp $SCRIPT"
-        RESTATE_NOTE="${RESTATE_NOTE:+$RESTATE_NOTE; }WARN stale baseline: $(printf '%s\n' "$_db_out" | awk -F'\t' '$1 == "DRIFT" { print $2 }' | head -3 | tr '\n' ' ' | sed 's/ $//')"
-        ;;
-      3) echo "WARN: '-- baseline:' header present but DESCRIBE could not run — drift not checked" ;;
-    esac
+  if [ -n "$_so_warn" ]; then
+    _so_docs="$(printf '%s\n' "$_so_warn" | cut -f2 | sed 's/^[A-Z]* //' | LC_ALL=C sort -u)"
+    _so_n="$(printf '%s\n' "$_so_docs" | grep -c . || true)"
+    echo "WARN: restatement: $_so_n document(s) this script restates hold a newer owner's live work:"
+    printf '%s\n' "$_so_warn" | awk -F'\t' '{ printf "    %s — %s\n", $2, $4 }'
+    echo "  → edit the owning script or use alter (bin/script-owners.sh report; skills/learned-mdl-preflight.md STOP 21)"
+    RESTATE_NOTE="WARN reverts: $(printf '%s\n' "$_so_docs" | head -3 | tr '\n' ' ' | sed 's/ $//')"
+    if [ "$_so_n" -gt 3 ]; then RESTATE_NOTE="$RESTATE_NOTE +$((_so_n - 3))"; fi
   fi
 fi
 
@@ -1246,7 +1228,9 @@ restore_snapshot() {
     echo "  ⚠  No usable snapshot to restore from — the model is left as the script wrote it."
   elif [ ! -f "$RESTORER" ]; then
     echo "  ⚠  bin/restore-mpr.sh is not installed — cannot auto-restore (run sync-project.sh)."
-  elif R_OUT=$(bash "$RESTORER" "$NEWEST_SNAP" 2>&1); then
+  # The snapshot was taken just before this exec, so script-owners.sh's ledger still matches it:
+  # no RESTORE marker (restore-mpr.sh writes one for every other restore).
+  elif R_OUT=$(MXTK_RESTORE_SAME_LEDGER=1 bash "$RESTORER" "$NEWEST_SNAP" 2>&1); then
     RESTORED=1
     printf '%s\n' "$R_OUT" | sed 's/^/  → /'
     echo "  → Auto-restored from: $NEWEST_SNAP"

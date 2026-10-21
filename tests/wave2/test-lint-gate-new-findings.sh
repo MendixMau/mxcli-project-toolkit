@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Usage: bash test-lint-gate-new-findings.sh [path-to-lint-gate.sh]
 # Fixture for #239: a ratchet rise names the findings that are NEW, not three arbitrary ones.
+# T6-T7 (#496): the no-baseline message says when to take the first one; FAIL opens with a summary.
 # LINT_JSON mode, generic names, no mxcli or .mpr needed.
 set -uo pipefail
 TK="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -60,5 +61,26 @@ vis=$(printf '%s\n' "$out" | sed -n '/^FAIL/,$p' | head -60 | grep -c ' -> ')
 case "$out" in *"more in .claude/loop/lint-last.json"*) ok "overflow line names the file" ;; *) bad "no overflow pointer" ;; esac
 "$PY" -c 'import json,sys;d=json.load(open(sys.argv[1]));assert len(d["new_findings"])==17 and all(len(v)==7 for v in d["new_findings"].values())' "$P/.claude/loop/lint-last.json" \
   && ok "lint-last holds the full 7 per rule" || bad "lint-last.json lacks new_findings"
+
+echo "T6 no baseline yet: says take the first one now, after the scaffold, with the user (#496)"
+rm -f "$P/.claude/lint-baseline.json"; mk "$(f CONV009 OldA)"
+out=$(gate 2>&1); rc=$?
+[ "$rc" -eq 2 ] && ok "no baseline still exits 2" || bad "rc=$rc" "$out"
+case "$out" in *"Take the first baseline now, after the scaffold, with the user"*"bin/lint-gate.sh --update-baseline"*) ok "names when and the command" ;; *) bad "no first-baseline guidance" "$out" ;; esac
+
+echo "T7 the FAIL output opens with one summary line per rule: rule, base -> now, +N new (#496)"
+mk "$(f RULX01 OldA OldB) $(f RULX02 OldA) $(f RULX03 OldA)"; gate --update-baseline >/dev/null 2>&1
+mk "$(f RULX01 OldA OldB N1 N2 N3 N4) $(f RULX02 OldA N1) $(f RULX03 OldA N1 N2)"
+out=$(gate 2>&1)
+top=$(printf '%s\n' "$out" | sed -n '/^FAIL/,$p' | sed -n '3,5p')
+exp=$(printf '   RULX01   info     2 -> 6  (+4)  4 new\n   RULX02   info     1 -> 2  (+1)  1 new\n   RULX03   info     1 -> 3  (+2)  2 new')
+[ "$top" = "$exp" ] && ok "three summary lines, before any finding" || bad "summary block" "$out"
+first_find=$(printf '%s\n' "$out" | grep -n '^        + ' | head -1 | cut -d: -f1)
+last_sum=$(printf '%s\n' "$out" | grep -n ' -> ' | tail -1 | cut -d: -f1)
+[ -n "$first_find" ] && [ "$last_sum" -lt "$first_find" ] && ok "all summary lines precede the detail" || bad "summary interleaved with detail" "$out"
+# exec.sh reads its BUILD-LOG rule list with this regex: each rule exactly once
+rules=$(printf '%s\n' "$out" | grep -E '^ +[A-Z][A-Z0-9-]*[0-9]+ +[a-z]+ +[0-9]+ -> [0-9]+ +\(\+[0-9]+\)' | awk '{print $1}' | paste -sd, -)
+[ "$rules" = "RULX01,RULX02,RULX03" ] && ok "each rule parsed once by the exec.sh shape" || bad "rules parsed: $rules" "$out"
+case "$out" in *"   RULX01:"*"+ Orders | N1"*"+ ... 2 more in .claude/loop/lint-last.json"*) ok "detail kept: at most 3 per rule, overflow pointer" ;; *) bad "detail changed" "$out" ;; esac
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

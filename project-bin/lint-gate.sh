@@ -48,7 +48,8 @@
 # and 9 -> 187, and security warnings (CONV006, SEC003) went in in the same batches as naming
 # info. So an update that RAISES any rule now needs --reason, and is appended to
 # .claude/lint-acceptances.tsv (ts, total before/after, per-rule rises, security flag, reason)
-# — commit it with the baseline. A first baseline and a pure ratchet-down need no reason.
+# — commit it with the baseline. A first baseline (taken with the user right after the first
+# scaffold step, #496) and a pure ratchet-down need no reason.
 # A rise in a security-tier rule (default SEC* and CONV006; override, one id or glob per line,
 # in .claude/lint-security-rules.txt) also needs --approved-in-chat: a claim on the record that
 # the user was shown the findings and said yes, the same contract as gate-check --ack-protocol.
@@ -143,7 +144,7 @@ while [ $# -gt 0 ]; do
               REASON="$2"; shift ;;
     --reason=*) REASON="${1#--reason=}" ;;
     --approved-in-chat) APPROVED=1 ;;
-    -h|--help) sed -n '2,64p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,65p' "$0"; exit 0 ;;
     *) echo "lint-gate: unknown argument '$1'" >&2; exit 2 ;;
   esac
   shift
@@ -476,8 +477,10 @@ if update:
     sys.exit(0)
 
 if not os.path.exists(base_path):
-    print("lint-gate: no baseline at %s — run: bin/lint-gate.sh --update-baseline" % base_path,
-          file=sys.stderr)
+    # The first exec of a build is usually the scaffold, and this is where it lands (#496).
+    print("lint-gate: no baseline yet (%s)." % os.path.relpath(base_path), file=sys.stderr)
+    print("  Take the first baseline now, after the scaffold, with the user, so later rises", file=sys.stderr)
+    print("  measure the build, not the template:  bin/lint-gate.sh --update-baseline", file=sys.stderr)
     write_last("ERROR-NO-BASELINE", viol, counts)
     sys.exit(2)
 
@@ -532,20 +535,34 @@ if not rose:
     sys.exit(1 if blind else 0)
 
 print("\nFAIL — %d rule(s) got worse:\n" % len(rose))
+# Work out every rule's new findings first, so the top of the output can be a SUMMARY: one
+# line per rule (rule, severity, base -> now, net rise, new findings). In one field build ~90%
+# of runs rose (#496), and with the findings interleaved the rule list was lost in the detail.
+# The summary lines keep the shape exec.sh parses for its BUILD-LOG row (rule sev N -> M (+K));
+# the detail headers below deliberately do not, so each rule is read once.
+new_lists = {}
 for r, was, now in rose:
-    print("   %-8s %-8s %d -> %d  (+%d)" % (r, sev.get(r, "?"), was, now, now - was))
-    rule_viol = [x for x in viol if x["ruleId"] == r]
-    if base_findings is not None:
-        # New = findings beyond what the baseline holds, per key (multiset surplus).
-        left = collections.Counter(base_findings)
-        new = []
-        for x in rule_viol:
-            k = fkey(x)
-            if left[k] > 0: left[k] -= 1
-            else: new.append(x)
-        new_by_rule[r] = ["%s | %s | %s" % (v.get("module") or "(project)", v.get("document") or "-", v["message"][:120]) for v in new]
-        # Compact on purpose: exec.sh shows only the first 60 lines of this block, so a rule must
-        # not take more than the 5 lines it took before (rule, 3 findings, blank).
+    if base_findings is None:
+        continue
+    # New = findings beyond what the baseline holds, per key (multiset surplus).
+    left = collections.Counter(base_findings)
+    new = []
+    for x in (x for x in viol if x["ruleId"] == r):
+        k = fkey(x)
+        if left[k] > 0: left[k] -= 1
+        else: new.append(x)
+    new_lists[r] = new
+    new_by_rule[r] = ["%s | %s | %s" % (v.get("module") or "(project)", v.get("document") or "-", v["message"][:120]) for v in new]
+for r, was, now in rose:
+    tail = ("  %d new" % len(new_lists[r])) if r in new_lists else ""
+    print("   %-8s %-8s %d -> %d  (+%d)%s" % (r, sev.get(r, "?"), was, now, now - was, tail))
+print("   detail: up to 3 new findings per rule below; all of them in .claude/loop/lint-last.json (new_findings)\n"
+      if base_findings is not None else "")
+for r, was, now in rose:
+    print("   %s:" % r)
+    if r in new_lists:
+        new = new_lists[r]
+        # Compact on purpose: exec.sh shows only the first 60 lines of this block.
         if len(new) != now - was:
             print("        new or changed findings (%d); net rise +%d (reworded messages, earlier swaps or un-baselined drift count here)" % (len(new), now - was))
         shown = new if len(new) <= 3 else new[:2]
@@ -556,7 +573,7 @@ for r, was, now in rose:
     else:
         print("        (baseline holds counts only: these 3 are the FIRST in model order, not necessarily new.")
         print("         Re-baseline once on a clean tree to enable listing the new findings.)")
-        for v in rule_viol[:3]:
+        for v in [x for x in viol if x["ruleId"] == r][:3]:
             print("        %s | %s" % (v.get("module") or "(project)", v["message"][:120]))
     print()
 write_last("FAIL", viol, counts)

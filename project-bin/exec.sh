@@ -28,7 +28,8 @@
 #      could not run, a patch that failed or was not verified. Also a PARTIAL application.
 #   2  usage error (no script, bad argument, missing or unrunnable file); nothing was touched
 #   4  applied and the gate passed, but LINT ROSE or LINT BLIND. The write is KEPT: do not
-#      re-apply it. The last line of output reads "gate passed, lint only".
+#      re-apply it. The last line of output reads "gate passed, lint only". Opt-in: with
+#      `Lint gate: hard` in PROJECT.md a LINT ROSE exits 1 instead (write still kept, #496).
 #   5  applied, but UNVERIFIED: the gate ran and did not check the model (mxbuild exited
 #      non-zero with no model problem), or ALLOW_UNVERIFIED=1 skipped it. The write is kept with
 #      no verification stamp; run ./bin/verify-model.sh before the next exec or commit.
@@ -2148,6 +2149,13 @@ if [ "$LINT_RC" -eq 1 ]; then
   echo "✗ Script applied and mxbuild is clean, but LINT ROSE — this is not a pass."
   echo "  $LINT_DETAIL"
   echo "  The write is kept (lint is shape, not corruption). Fix it before calling the task done."
+  # Opt-in hard gate (#496): PROJECT.md `Lint gate: hard` makes a rise stop the step with 1, the
+  # pre-#443 code. The write is still kept. Read the same way as `Context packs:`.
+  _lgm="$(sed -nE 's/^[*_ -]*Lint gate:[*_ ]*[`]?([A-Za-z-]+).*/\1/p' "$PROJECT_ROOT/PROJECT.md" 2>/dev/null | head -1 | tr 'A-Z' 'a-z')"
+  if [ "$_lgm" = hard ]; then
+    echo "gate passed, LINT ROSE under 'Lint gate: hard' (exit 1: write kept, do not re-apply)"
+    exit 1
+  fi
   echo "gate passed, lint only (exit 4: LINT ROSE; write kept, do not re-apply)"
   exit 4
 fi

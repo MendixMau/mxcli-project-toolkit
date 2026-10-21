@@ -24,6 +24,8 @@
 #   H  version mismatch in errors[] + exit 3: NOT retried [guard], exit 5
 #   I  clean build + lint rise: exit 4, write kept, last line "gate passed, lint only",
 #      no extra mxbuild (2 runs) (master: exit 1)
+#   I2 the same with `Lint gate: hard` in PROJECT.md: exit 1, write kept (#496; master: 4);
+#      any other value keeps 4 [guard]
 #   J  clean build + lint unchanged: exit 0, 2 mxbuild runs [guard: happy path costs nothing new]
 #   K  the same bundle-only failure on every build: the baseline retries it, the gate does not
 #      (at most 3 mxbuild runs, not 4), still exit 5
@@ -220,6 +222,16 @@ RC=$(LINT_MODE=rose run I ok,ok)
 [ "$(calls)" -eq 2 ] && ok "no extra mxbuild (baseline, gate)" || bad "I: mxbuild calls" "$(calls)"
 tail -1 "$WORK/out.I" | grep -q '^gate passed, lint only' && ok "last line: gate passed, lint only" || bad "I: last line" "$(tail -1 "$WORK/out.I")"
 lastrow | grep -q 'applied, LINT ROSE' && lastrow | grep -q 'SEC003' && ok "LINT ROSE row names the rule" || bad "I: row" "$(lastrow)"
+
+echo "== I2: the same rise with 'Lint gate: hard' in PROJECT.md: exit 1, write still kept (#496) =="
+printf '# Project\n\n- **Lint gate:** `hard`\n' > "$P/PROJECT.md"
+RC=$(LINT_MODE=rose run I2 ok,ok)
+[ "$RC" -eq 1 ] && kept && ok "exit 1, write kept" || bad "I2 rc=$RC, expected 1" "$(tail -6 "$WORK/out.I2")"
+tail -1 "$WORK/out.I2" | grep -q "LINT ROSE under 'Lint gate: hard' (exit 1: write kept" && ok "last line names the hard gate" || bad "I2: last line" "$(tail -1 "$WORK/out.I2")"
+printf -- '- **Lint gate:** soft\n' > "$P/PROJECT.md"
+RC=$(LINT_MODE=rose run I3 ok,ok)
+[ "$RC" -eq 4 ] && ok "any other value keeps exit 4 [guard]" || bad "I3 rc=$RC, expected 4"
+rm -f "$P/PROJECT.md"
 
 echo "== J: clean build + lint unchanged: exit 0, 2 mxbuild runs [guard] =="
 RC=$(run J ok,ok)

@@ -23,6 +23,7 @@
 #   R7  $HOME's .claude/ is not a project folder: the walk goes on past it (old behaviour)
 #   R8  PWD inside one app's folder: the project when it is marked (#489), else the app folder
 #   R9  find_mpr: one app under apps/ found; two refused with both listed; MPR_FILE picks one
+#       (as an absolute path); from inside one app's folder, that app; outside any, refused
 #   R10 bin/check-requirements.sh (same walk): multi-app root named; a model-less project exits 2
 #   R11 a bare .claude/ (no PROJECT.md) is not a project folder: a stray /tmp/.claude above an
 #       unmarked project must not capture the walk; the old self-parent fallback still applies
@@ -38,7 +39,8 @@
 #   R16 a model-less git worktree under <project>/.claude/worktrees/<w> (it carries its own
 #       bin/_common.sh) resolves to the worktree, no longer to the main project above it
 #   R17 PWD in app/, app/javasource, apps/A, apps/A/javasource of a marked project: the
-#       installed and toolkit copies both answer the project (#489); unmarked, the app folder
+#       installed and toolkit copies both answer the project (#489); unmarked, the app folder;
+#       an app folder that is a project of its own keeps its root (g, h); any letter case (i, j)
 set -u
 
 COMMON="${1:?usage: $0 project-bin/_common.sh}"
@@ -115,7 +117,15 @@ dir=$P/apps/A"
 mkdir -p "$P/apps/B"; : > "$P/apps/B/B.mpr"
 out="$(fm)"
 case "$out" in *"2 .mpr files"*"apps/A/A.mpr"*"apps/B/B.mpr"*"MPR_FILE=apps/"*) ok "R9b two apps: refused, both listed, MPR_FILE named" ;; *) fail "R9b: $out" ;; esac
-eq "R9c MPR_FILE=apps/B/B.mpr picks B (echoed as given, as before)" "$(fm apps/B/B.mpr | head -1)" "apps/B/B.mpr"
+eq "R9c MPR_FILE=apps/B/B.mpr picks B, as an absolute path (#489 review)" "$(fm apps/B/B.mpr | head -1)" "$P/apps/B/B.mpr"
+# R9d: two apps, MPR_FILE unset, the session inside one app's folder: that app (#489 review)
+fmin() { (cd "$1" && env -i PATH="$PATH" HOME="$T/nohome" bash -c ". '$T/tk/project-bin/_common.sh'; find_mpr" 2>&1); }
+mkdir -p "$P/apps/A/javasource" "$P/docs"
+eq "R9d two apps, PWD=apps/A/javasource: apps/A's model" "$(fmin "$P/apps/A/javasource")" "$P/apps/A/A.mpr"
+case "$(fmin "$P/docs")" in *"2 .mpr files"*"MPR_FILE=apps/"*) ok "R9e two apps, PWD=docs/ (in no app): still refused" ;; *) fail "R9e: $(fmin "$P/docs")" ;; esac
+# R9f: a cwd-relative MPR_FILE still names the model after the caller cd's to the root (exec.sh)
+out="$(cd "$P/apps" && env -i PATH="$PATH" HOME="$T/nohome" MPR_FILE=A/A.mpr bash -c ". '$T/tk/project-bin/_common.sh'; m=\$(find_mpr) && cd \"\$PROJECT_ROOT\" && [ -f \"\$m\" ] && echo \"\$m\"" 2>&1)"
+eq "R9f MPR_FILE=A/A.mpr from apps/: absolute, survives cd to the root" "$out" "$P/apps/A/A.mpr"
 
 echo "== R10 bin/check-requirements.sh uses the same walk =="
 CR="$TK_SRC/bin/check-requirements.sh"
@@ -207,6 +217,20 @@ both "R17c multi-app, PWD=apps/A"            "$P" "$P/apps/A"
 both "R17d multi-app, PWD=apps/A/javasource" "$P" "$P/apps/A/javasource"
 P="$S/single"; mkdir -p "$P/javasource"; : > "$P/App.mpr"; install "$P"
 both "R17e single tree, PWD=javasource (unchanged)" "$P" "$P/javasource"
+# R17g: a project nested at apps/X (its own install, .claude/, PROJECT.md, model) inside a
+# marked project keeps its own root
+P="$S/outer"; X="$P/apps/X"; install "$P"; mkdir -p "$X/javasource"; : > "$X/X.mpr"; install "$X"
+both "R17g nested project at apps/X, PWD=apps/X/javasource" "$X" "$X/javasource"
+# R17h: app/ is a wired project of its own (PROJECT.md + .claude/ + its install), parent marked
+P="$S/wiredapp"; install "$P"; mkdir -p "$P/app/javasource"; : > "$P/app/App.mpr"; install "$P/app"
+both "R17h app/ wired as its own project, PWD=app/javasource" "$P/app" "$P/app/javasource"
+rm -rf "$P/app/bin"
+eq "R17h2 ... marked by .claude/ + PROJECT.md only: toolkit copy keeps app/" "$(root "$P/app/javasource" "$TKP")" "$P/app"
+# R17i: the app folder's letter case does not matter (App/ on a case-insensitive disk)
+P="$S/case"; mkdir -p "$P/App/javasource" "$P/Apps/A/javasource"; : > "$P/App/App.mpr"; install "$P"
+eq "R17i App/javasource (capital A): the project" "$(root "$P/App/javasource" "$TKP")" "$P"
+rm -rf "$P/App"; : > "$P/Apps/A/A.mpr"
+eq "R17j Apps/A/javasource (capital A): the project" "$(root "$P/Apps/A/javasource" "$TKP")" "$P"
 P="$T/r17/bare"; mkdir -p "$P/app/javasource"; : > "$P/app/App.mpr"
 eq "R17f two-tree, no marker, PWD=app/javasource: app/ (the model's folder, as before)" "$(root "$P/app/javasource" "$TKP")" "$P/app"
 

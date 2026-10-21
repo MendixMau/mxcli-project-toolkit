@@ -49,18 +49,23 @@ _mxtk_is_project_dir() {
 # below /. The marker stop is what keeps the walk inside the project (#420): a multi-app folder
 # (apps/<X>/X.mpr) failed the root/app probe, the walk climbed on, and the first ancestor with
 # ANY .mpr became PROJECT_ROOT, so look-ledger rows landed in another folder's ledger.
-# A stop at an app folder (<p>/app or <p>/apps/<X>) whose project folder <p> is marked returns
-# <p> (#489): the installed copy (tier 2) already resolves <p> from there, and two answers for
-# one cwd split the ledgers. An unmarked app folder is still returned as itself.
+# A stop at an app folder (<p>/app or <p>/apps/<X>, any letter case) whose project folder <p>
+# is marked returns <p> (#489): the installed copy (tier 2) already resolves <p> from there, and
+# two answers for one cwd split the ledgers. An unmarked app folder is still returned as itself,
+# and so is an app folder that is a project folder of its own (its own install, or .claude/
+# beside PROJECT.md): a project nested at apps/<X>/ or app/ keeps its own root.
 mxtk_walk_root() {
   local d="$1" p
   while [ -n "$d" ] && [ "$d" != "/" ]; do
     if _mxtk_has_model "$d" || _mxtk_is_project_dir "$d"; then
-      p="${d%/*}"
-      case "$d" in
-        */app)    [ -n "$p" ] && _mxtk_is_project_dir "$p" && d="$p" ;;
-        */apps/*) case "$p" in */apps) p="${p%/*}"; [ -n "$p" ] && _mxtk_is_project_dir "$p" && d="$p" ;; esac ;;
-      esac
+      if ! _mxtk_is_project_dir "$d"; then
+        p="${d%/*}"
+        case "$d" in
+          */[Aa][Pp][Pp])  [ -n "$p" ] && _mxtk_is_project_dir "$p" && d="$p" ;;
+          */[Aa][Pp][Pp][Ss]/*)
+            case "$p" in */[Aa][Pp][Pp][Ss]) p="${p%/*}"; [ -n "$p" ] && _mxtk_is_project_dir "$p" && d="$p" ;; esac ;;
+        esac
+      fi
       printf '%s\n' "$d"; return 0
     fi
     d=$(dirname "$d")
@@ -151,7 +156,12 @@ find_mpr() {
       echo "ERROR: MPR_FILE='$MPR_FILE' does not exist" >&2
       return 1
     fi
-    [ -f "$MPR_FILE" ] && { echo "$MPR_FILE"; return 0; }
+    # Always an absolute path (#489 review): a caller that later does `cd "$PROJECT_ROOT"`
+    # (exec.sh) would otherwise resolve a cwd-relative MPR_FILE against the wrong folder.
+    if [ -f "$MPR_FILE" ]; then
+      case "$MPR_FILE" in /*|[A-Za-z]:*) echo "$MPR_FILE" ;; *) echo "$(pwd)/$MPR_FILE" ;; esac
+      return 0
+    fi
     echo "$PROJECT_ROOT/$MPR_FILE"
     return 0
   fi
@@ -186,6 +196,18 @@ find_mpr() {
   if [ "$count" -eq 0 ]; then
     echo "ERROR: no .mpr found in $PROJECT_ROOT" >&2
     return 1
+  fi
+  # Several apps, MPR_FILE unset: the session is inside one app's folder -> that app (#489
+  # review). Since #489 the root from apps/<X>/ is the project, so without this every
+  # instrument run from inside an app refused. Outside any one app it still refuses.
+  if [ "$count" -gt 1 ] && [ "$multi" = 1 ]; then
+    local here pick="" n=0
+    here="$(pwd)"
+    for f in "$PROJECT_ROOT"/apps/*/*.mpr; do
+      [ -e "$f" ] || continue
+      case "$here/" in "${f%/*}"/*) n=$((n + 1)); pick="$f" ;; esac
+    done
+    [ "$n" -eq 1 ] && { echo "$pick"; return 0; }
   fi
   if [ "$count" -gt 1 ]; then
     echo "ERROR: $count .mpr files in $PROJECT_ROOT — refusing to guess which model to write." >&2

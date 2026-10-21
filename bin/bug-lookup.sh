@@ -7,7 +7,7 @@
 #   bin/bug-lookup.sh '<pasted error message>'    # ranked: top 3 — header, score, one excerpt line
 #   bin/bug-lookup.sh --full 2 '<same message>'   # the 2nd ranked entry, in full
 #   bin/bug-lookup.sh --exact "widget name"       # literal phrase match, case-insensitive
-#   bin/bug-lookup.sh --index                     # one line per entry: id, title, status flags
+#   bin/bug-lookup.sh --index                     # one line per entry: id, title, status flags (ledger only)
 #
 # WHY. bug-logs/mxcli-bugs.md is far too large to read on every session (`wc -w` it for the
 # current size; a number written here goes stale). Nobody needs all of it; they need the entry
@@ -20,8 +20,18 @@
 # term in the header x1.5, an exact BUG id in the header +100. "No confident match" is printed
 # when the best entry covers < MXTK_BUG_MINCOV (default 0.40) of the query's term weight, or
 # when the query's CE code is in no entry. Measured on tests/wave2/fixtures/bug-lookup/.
-# Exit: 0 entries printed (the "no confident match" banner too: it still lists the nearest 3),
-# 1 nothing matches or no query, 2 no ledger or a bad --full rank.
+# PROJECT DRAFTS. Run from inside a wired project, it also searches that project's own
+# bug-logs/**.md: the drafts a session writes for a bug it hit, one `## ` entry each, which the
+# ledger does not carry until someone merges them. Draft hits come AFTER the ledger's output,
+# under a "Project drafts" line, each marked `(project draft: <file>:<line>)`. The ledger's
+# output and ranking are the same with or without drafts (they are ranked in a separate pass,
+# so they never move the ledger's IDF). A ranked draft is shown only when it covers 40% of the
+# query's term weight; a ledger hit below that is shown under a banner, a draft is dropped.
+# The project is found as every toolkit script finds it (project-bin/_common.sh, mxtk_walk_root
+# from $PWD); MXTK_PROJECT_DIR=<dir> names it, MXTK_PROJECT_DIR= (empty) turns drafts off.
+# --full N and --index are ledger-only.
+# Exit: 0 entries printed (the "no confident match" banner too: it still lists the nearest 3;
+# a draft hit alone counts), 1 nothing matches or no query, 2 no ledger or a bad --full rank.
 # Bash 3.2 + POSIX awk (mawk, gawk, BWK awk); no gawk-isms.
 set -eu
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -48,13 +58,41 @@ done
 Q="$*"
 [ -n "$Q" ] || usage
 
+# --- The project's own drafts: bug-logs/**.md beside the project, never the ledger itself ---
+DRAFTS=()
+if [ -n "${MXTK_PROJECT_DIR+x}" ]; then PD="$MXTK_PROJECT_DIR"
+else PD="$( . "$ROOT/project-bin/_common.sh" >/dev/null 2>&1; mxtk_walk_root "$PWD" 2>/dev/null )" || PD=""; fi
+if [ -n "$PD" ] && [ -d "$PD/bug-logs" ]; then
+  while IFS= read -r _f; do [ "$_f" = "$LOG" ] || DRAFTS+=("$_f"); done \
+    < <(find "$PD/bug-logs" -name '*.md' -type f | sort)
+fi
+# draft_word: the draft entries that contain "$Q" (literal, ASCII case-insensitive), in full up
+# to 6 of them, headers only above. Prints nothing and returns 1 when none match.
+draft_word() {
+  [ "${#DRAFTS[@]}" -gt 0 ] || return 1
+  BUGQ="$Q" LC_ALL=C awk -v PD="$PD/" '
+  function flush(   i) { if (cur && index(tolower(body), q)) { n++; H[n] = hdr; W[n] = where; B[n] = body } cur = 0 }
+  BEGIN { q = tolower(ENVIRON["BUGQ"]) }
+  FNR == 1 { flush() }
+  /^## / { flush(); if ($0 ~ /^## Provenance/) next
+           cur = 1; hdr = $0; body = $0 "\n"; f = FILENAME
+           if (index(f, PD) == 1) f = substr(f, length(PD) + 1)
+           where = "(project draft: " f ":" FNR ")"; next }
+  cur { body = body $0 "\n" }
+  END { flush(); if (!n) exit 1
+        if (n > 6) { print "bug-lookup: project drafts: " n " entries mention \"" ENVIRON["BUGQ"] "\" — headers only:"
+                     for (i = 1; i <= n; i++) print "  " substr(H[i], 4) "  " W[i]; exit 0 }
+        print "bug-lookup: project drafts (" n "):"
+        for (i = 1; i <= n; i++) { print W[i]; printf "%s\n", B[i] } }' "${DRAFTS[@]}"
+}
+
 # --- Ranked path: several words, or --full ------------------------------------------------
 case "$Q" in *[[:space:]]*) MULTI=1 ;; *) MULTI=0 ;; esac
 if [ -n "$FULL" ] || { [ "$MULTI" = 1 ] && [ "$EXACT" = 0 ]; }; then
   TOP="${MXTK_BUG_TOP:-3}"; [ -n "$FULL" ] && [ "$FULL" -gt "$TOP" ] && TOP="$FULL"
   # The query goes in through ENVIRON, not -v: -v expands backslash escapes (a pasted Windows
   # path would change). LC_ALL=C: byte semantics, so every awk tokenises and truncates alike.
-  OUT="$(BUGQ="$Q" LC_ALL=C awk -v TOP="$TOP" -v MINCOV="${MXTK_BUG_MINCOV:-0.40}" -v FULL="${FULL:-0}" '
+  RANK_AWK='
 function toks(s, out,   n, i, a, t, m) {        # s -> out[token]=1 ; returns count
   s = tolower(s); n = 0
   while (index(s, "bug-") && match(s, /(bug-[a-z]+[0-9]+|bug-[0-9]+|bug-draft-[a-z0-9-]+)/)) {
@@ -77,7 +115,7 @@ BEGIN {
   nq = toks(ENVIRON["BUGQ"], QT)
 }
 /^## / { if ($0 ~ /^## Provenance/) { cur = 0; next }
-         N++; cur = N; HDR[N] = substr($0, 4); START[N] = NR
+         N++; cur = N; HDR[N] = substr($0, 4); START[N] = NR; SRC[N] = FILENAME; LNO[N] = FNR
          delete H; toks(HDR[N], H); for (t in H) HT[N SUBSEP t] = 1 }
 cur {
   delete L; toks($0, L)
@@ -98,22 +136,37 @@ END {
   for (k = 1; k <= TOP; k++) { m = 0; mi = 0
     for (e = 1; e <= N; e++) if (!(e in USED) && SC[e] > m) { m = SC[e]; mi = e }
     if (!mi) break; USED[mi] = 1; R[k] = mi }
-  if (!(1 in R)) { print "bug-lookup: no ledger entry shares a term with the query — likely not a known tool quirk."; exit 1 }
+  if (!(1 in R)) { if (!DRAFT) print "bug-lookup: no ledger entry shares a term with the query — likely not a known tool quirk."; exit 1 }
   if (FULL > 0) { if (FULL in R) { print "@" START[R[FULL]]; exit 0 }
                   print "bug-lookup: fewer than " FULL " entries share a term with the query."; exit 1 }
   cov = (TOT > 0) ? SC[R[1]] / (TOT * 1.5) : 0; if (cov > 1) cov = 1
+  if (DRAFT && (UNK != "" || cov < MINCOV)) exit 1
   if (UNK != "") printf "bug-lookup: no ledger entry mentions%s — likely not a known tool quirk. Nearest by wording:\n", UNK
   else if (cov < MINCOV) printf "bug-lookup: no confident match (best covers %.0f%% of query weight) — likely not a known tool quirk. Nearest:\n", cov * 100
   for (k = 1; k <= TOP && (k in R); k++) { e = R[k]
+    if (DRAFT && TOT > 0 && SC[e] / (TOT * 1.5) < MINCOV) break
     x = EX[e SUBSEP BT[e]]; gsub(/^[ \t>*`-]+/, "", x)
     if (length(x) > 160) { x = substr(x, 1, 157); sub(/[\300-\377][\200-\277]*$/, "", x); x = x "..." }
-    printf "%d. [%.1f] %s\n     %s\n", k, SC[e], HDR[e], x }
-  print "(--full N with the same query prints entry N in full)"
-}' "$LOG")" || { printf '%s\n' "$OUT"; exit 1; }
-  case "$OUT" in
-    @*) awk -v S="${OUT#@}" 'NR >= S { if (NR > S && /^## /) exit; print }' "$LOG" ;;
-    *)  printf '%s\n' "$OUT" ;;
-  esac
+    if (DRAFT) { f = SRC[e]; if (index(f, PD) == 1) f = substr(f, length(PD) + 1)
+                 printf "%d. [%.1f] %s  (project draft: %s:%d)\n     %s\n", k, SC[e], HDR[e], f, LNO[e], x }
+    else printf "%d. [%.1f] %s\n     %s\n", k, SC[e], HDR[e], x }
+  if (!DRAFT) print "(--full N with the same query prints entry N in full)"
+}'
+  # rank <full-rank> <draft 0|1> <file>...: the ledger (draft 0) or the project drafts (draft 1)
+  rank() { BUGQ="$Q" LC_ALL=C awk -v TOP="$TOP" -v MINCOV="${MXTK_BUG_MINCOV:-0.40}" -v FULL="$1" -v DRAFT="$2" -v PD="$PD/" "$RANK_AWK" "${@:3}"; }
+  RC=0; OUT="$(rank "${FULL:-0}" 0 "$LOG")" || RC=$?
+  DOUT=""
+  if [ -z "$FULL" ] && [ "${#DRAFTS[@]}" -gt 0 ]; then DOUT="$(rank 0 1 "${DRAFTS[@]}")" || DOUT=""; fi
+  if [ "$RC" -ne 0 ]; then
+    printf '%s\n' "$OUT"
+    [ -n "$DOUT" ] || exit 1
+  else
+    case "$OUT" in
+      @*) awk -v S="${OUT#@}" 'NR >= S { if (NR > S && /^## /) exit; print }' "$LOG" ;;
+      *)  printf '%s\n' "$OUT" ;;
+    esac
+  fi
+  [ -z "$DOUT" ] || printf 'Project drafts (not in the ledger):\n%s\n' "$DOUT"
   exit 0
 fi
 
@@ -134,9 +187,10 @@ for h in "${HDR[@]}"; do
   if sed -n "${a},${b}p" "$LOG" | grep -qiF -- "$Q"; then matches="$matches $h"; fi
 done
 set -- $matches
-if [ "$#" -eq 0 ]; then echo "bug-lookup: nothing in the ledger mentions '$Q' — it may be a modelling mistake, not a tool quirk. Try a shorter keyword or the CE code."; exit 1; fi
+if [ "$#" -eq 0 ]; then echo "bug-lookup: nothing in the ledger mentions '$Q' — it may be a modelling mistake, not a tool quirk. Try a shorter keyword or the CE code."; draft_word && exit 0; exit 1; fi
 if [ "$#" -gt 6 ]; then
   echo "bug-lookup: $# entries mention '$Q' — headers only; narrow the query to read one:"
-  for h in "$@"; do sed -n "${h}p" "$LOG" | sed 's/^## /  /'; done; exit 0
+  for h in "$@"; do sed -n "${h}p" "$LOG" | sed 's/^## /  /'; done; draft_word || true; exit 0
 fi
 for h in "$@"; do read -r a b < <(entry_range "$h"); sed -n "${a},${b}p" "$LOG"; echo; done
+draft_word || true

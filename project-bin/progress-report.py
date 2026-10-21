@@ -922,6 +922,29 @@ def classify_state(raw):
     if l.startswith(("partial", "in progress", "started", "wip")): return "partial"
     return "todo"
 
+# HARNESS rows that run `verify-module.sh <Module>` (brd-to-build-plan.md, the module-close row) are
+# read from evidence as well as State, because the agent that ran the pass often never edits the
+# cell (MendixMau review 2026-10-21). The evidence is the module's latest verify summary, the same
+# file view B reads: complete (it has the look row every finished run writes) and no FAULT row.
+VERIFY_STEP = re.compile(r"verify-module\.sh`?\s+[`\"']?([A-Za-z_]\w*)")
+def harness_verify(proj, kind, step, state):
+    """(cls, shown, flag) for a HARNESS verify-module row, or None for any other row. cls follows
+    classify_state; flag is the drift sentence when State and the summary disagree, else ""."""
+    m = VERIFY_STEP.search(step or "") if (kind or "").strip().upper() == "HARNESS" else None
+    if not m: return None
+    cl = classify_state(state); raw = (state or "").strip().lower().replace("**", "")
+    f = os.path.join(proj, ".claude", "loop", "verify", m.group(1), "summary.tsv")
+    try:
+        rows = [l.split("\t") for l in open(f, encoding="utf-8", errors="replace").read().splitlines()[1:] if l.strip()]
+        day = datetime.datetime.fromtimestamp(os.path.getmtime(f)).strftime("%Y-%m-%d")
+    except OSError: rows, day = None, None
+    clean = bool(rows) and any(r[0].startswith("look (") for r in rows) and not any(len(r) > 1 and r[1] == "FAULT" for r in rows)
+    if clean and cl in ("todo", "partial") and not raw.startswith(("blocked", "pending a person")):
+        return "built", "built (verified %s)" % day, "State says %s, but the %s verify summary of %s has no FAULT: update State" % (state or "nothing", m.group(1), day)
+    if cl == "built" and rows is None:
+        return "built", "built? no verify summary", "State says built, but .claude/loop/verify/%s/summary.tsv does not exist" % m.group(1)
+    return None
+
 def _cells(line):
     c = re.split(r"(?<!\\)\|", line.strip())
     if c and c[0].strip() == "": c = c[1:]
@@ -959,9 +982,12 @@ def finish_plan(phases, proj, generated, source):
     for pid, name, steps in phases:
         c = collections.Counter(); kd = collections.Counter(); rows = []
         for x in steps:
-            cl = classify_state(x.get("state")); c[cl] += 1; kd[x.get("kind") or "-"] += 1
+            cl = classify_state(x.get("state")); shown = x.get("state") or ""
+            hv = harness_verify(proj, x.get("kind"), x.get("step"), x.get("state"))
+            if hv: cl, shown = hv[0], "%s (%s)" % (hv[1], hv[2])
+            c[cl] += 1; kd[x.get("kind") or "-"] += 1
             if cl != "skip": kinds[x.get("kind") or "-"] += 1
-            rows.append({"n": x.get("number"), "kind": x.get("kind"), "step": x.get("step"), "state": x.get("state") or "", "cls": cl})
+            rows.append({"n": x.get("number"), "kind": x.get("kind"), "step": x.get("step"), "state": shown, "cls": cl})
         tot.update(c)
         mods = os.path.join(proj, "architecture", "modules", name)
         out.append({"id": pid, "name": name, "n": len(steps) - c["skip"], "built": c["built"], "partial": c["partial"], "todo": c["todo"], "skip": c["skip"], "kinds": dict(kd),
@@ -1752,7 +1778,7 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
         if lb: w("<div class=note id=lastbuild data-stamp>%s. Last build step: <code>%s</code> (%s), %s at %s.</div>" % (esc(facts_line(facts)), esc(lb[1][:90]), esc(re.sub(r"[^\w .,/()+-]", "", lb[2])[:40].strip() or "no result"), esc(ago(lb[0])), esc(datetime.datetime.fromtimestamp(lb[0]).strftime("%Y-%m-%d %H:%M"))))
         if facts and facts["score"]: w("<div class=note id=modelscore data-stamp>Latest model score %.1f (%s).</div>" % (facts["score"]["score"], esc(facts["score"]["script"][:40])))
         if bp.get("note"): w("<div class='note stale'>%s.</div>" % esc(bp["note"]))
-        w("<div class=note id=planread data-stamp>Kinds are the plan's own Kind column; row state is the plan's State column read by prefix (built or done = built, partial or in progress = partial, anything else = not built). Plan read %s from %s.</div></div>" % (esc(bp.get("generated") or "unknown"), "architecture/build-plan.md" if bp.get("source") == "md" else "architecture/build-plan.json"))
+        w("<div class=note id=planread data-stamp>Kinds are the plan's own Kind column; row state is the plan's State column read by prefix (built or done = built, partial or in progress = partial, anything else = not built); a HARNESS row running verify-module.sh &lt;Module&gt; also reads that module's latest verify summary, and is built when it has no FAULT. Plan read %s from %s.</div></div>" % (esc(bp.get("generated") or "unknown"), "architecture/build-plan.md" if bp.get("source") == "md" else "architecture/build-plan.json"))
         w("<div class=phases style='margin-top:10px'>")
         for p in bp["phases"]:
             now = p is cur

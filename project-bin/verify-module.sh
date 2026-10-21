@@ -40,7 +40,8 @@
 # silent skip:
 #   architecture/modules/<Module>/coverage-ledger.md   requirement traceability
 #   analysis/*/brd/*.brd.json | analysis/*/knowledge-base/brd/*.brd.json   the BRD
-#   journeys/<Module>.journey.json                     the golden-path walk
+#   journeys/<Module>.journey.json                     the golden-path walk (N/A, not a FAULT, for a
+#                               module with 0 pages in .claude/loop/page-scope.json)
 #   tests/e2e/journey-runner.js, tests/e2e/monkey.js   the runtime instruments
 #   tests/e2e/design-audit.js   the UI/a11y instrument — rungs 6-7, SEPARATE from the journey
 #                               (harness-architecture.md §6); informational, never gates a run
@@ -113,7 +114,7 @@ _tool() {
 
 MODULE="${1:-}"
 [ -n "$MODULE" ] && [ "${MODULE#--}" = "$MODULE" ] || {
-  sed -n '2,59p' "$0"; exit 2; }
+  sed -n '2,60p' "$0"; exit 2; }
 shift
 
 SKIP_MONKEY=0; SKIP_JOURNEYS=0; QUICK=0; PARALLEL_RUNTIME=0
@@ -160,11 +161,13 @@ print_scope() {
     NR > 1 {
       if      ($2 == "PASS")    pass = pass ? pass ", " $1 : $1
       else if ($2 == "INFO")    info = info ? info ", " $1 : $1
+      else if ($2 == "SKIPPED" && $5 ~ /^\(N\/A/) na = na ? na "; " $1 " " $5 : $1 " " $5
       else if ($2 == "SKIPPED") skip = skip ? skip "; " $1 " " $5 : $1 " " $5
     }
     END {
       if (pass) print "  Verified: " pass
       if (info) print "  Ran, informational — does not gate: " info
+      if (na)   print "  Not applicable: " na
       if (skip) print "  NOT MEASURED: " skip
       if (skip) print "                These are absent, not green."
     }' "$SUMMARY"
@@ -189,10 +192,15 @@ fault() {
 # conformance-check spends ~25s per ledger row (a 22-row module ≈ 9 min), so these budgets are
 # generous on purpose — a budget tight enough to clip a healthy run manufactures faults, which is its
 # own kind of lie.
+#
+# Neither the instrument nor its watchdog keeps fds 3/4 (the script's own stdout/stderr, pinned
+# for the traps below), and a cancelled watchdog takes its sleep with it (#446): an orphaned
+# `sleep 1800` holding fd 3 kept `verify-module.sh | tee` and `$(verify-module.sh)` waiting for
+# up to 30 minutes after the verdict was printed.
 with_timeout() {
   local secs="$1"; shift
-  "$@" & local child=$!
-  ( sleep "$secs"; kill -9 "$child" 2>/dev/null ) & local watchdog=$!
+  "$@" 3>&- 4>&- & local child=$!
+  ( trap 'kill "$s" 2>/dev/null; exit 0' TERM; sleep "$secs" & s=$!; wait "$s"; kill -9 "$child" 2>/dev/null ) 3>&- 4>&- & local watchdog=$!
   wait "$child" 2>/dev/null; local rc=$?
   kill "$watchdog" 2>/dev/null; wait "$watchdog" 2>/dev/null
   # 137 = SIGKILL from the watchdog. Remap to 2 so it lands in the FAULT bucket.
@@ -435,7 +443,9 @@ fi
 # runtime instruments in §2 there is nothing here to race on and no login session to spend, so
 # this needs no opt-in flag.
 # Rung budgets in seconds, overridable for big plans or loaded machines (TK-008):
-#   VM_TMO_CONFORMANCE (1200)  VM_TMO_GRAPH (300)  VM_TMO_COVERAGE (300)  VM_TMO_JOURNEYS (900)
+#   VM_TMO_CONFORMANCE (1200)  VM_TMO_GRAPH (300)  VM_TMO_COVERAGE (1200)  VM_TMO_JOURNEYS (900)
+# Coverage was 300 until #446: 12 BRDs on a loaded machine ran 48 s of measurement plus ~290 s
+# of phantom pass and timed out with a complete, clean log.
 if [ -x "$(_tool conformance-check.sh)" ]; then
   run_launch "conformance (ledger claims vs live model)" "$OUTDIR/10-conformance.log" gate "${VM_TMO_CONFORMANCE:-1200}" -- \
     "$(_tool conformance-check.sh)" --module "$MODULE"
@@ -498,12 +508,12 @@ else
   # 3 and 4 are not passes and not faults; they are graded absences, and the rung says which.
   PREFLIGHT="$(_tool coverage-preflight.sh)"
   if [ -n "$PREFLIGHT" ] && [ -x "$PREFLIGHT" ]; then
-    run_launch "coverage (BRD leaves: UNCLAIMED/PHANTOM/DOUBLE)" "$OUTDIR/12-coverage.log" gate "${VM_TMO_COVERAGE:-300}" -- \
+    run_launch "coverage (BRD leaves: UNCLAIMED/PHANTOM/DOUBLE)" "$OUTDIR/12-coverage.log" gate "${VM_TMO_COVERAGE:-1200}" -- \
       "$PREFLIGHT" --summary ${MODULE:+--module "$MODULE"}
   elif [ -f "$LEDGER" ] && [ -n "$BRD" ]; then
     # Preflight absent (an older wired project that has not synced). Fall back to the engine
     # directly — level 1 only, which is what this rung did before the grading layer existed.
-    run_launch "coverage (BRD leaves: UNCLAIMED/PHANTOM/DOUBLE)" "$OUTDIR/12-coverage.log" gate "${VM_TMO_COVERAGE:-300}" -- \
+    run_launch "coverage (BRD leaves: UNCLAIMED/PHANTOM/DOUBLE)" "$OUTDIR/12-coverage.log" gate "${VM_TMO_COVERAGE:-1200}" -- \
       "$COVERAGE_CHECK" --summary "$BRD" "$LEDGER"
   else
     fault "coverage (BRD leaves)" \
@@ -542,6 +552,59 @@ else
 fi
 
 # ── 2. Runtime instruments (need the app) ───────────────────────────────────
+# F-042 (MarkUseCase, 2026-08-28): design-audit.js reads .claude/loop/page-scope.json for
+# its page denominator, but nothing in any mandatory chain ever GENERATED that file — its
+# producer (bin/page-scope.sh) was wired into no step, so the audit either faulted on a
+# missing scope or ran against a stale one. Generate/refresh it here, before its consumers: the
+# journeys rung (a module with 0 pages in it is N/A, #446) and the design audit. info, not
+# gate: a scope refresh that fails leaves the audit to report the missing/stale scope itself.
+PAGE_SCOPE_SH="${PAGE_SCOPE_SH:-$(_tool page-scope.sh)}"
+if [ -x "$PAGE_SCOPE_SH" ]; then
+  run "page scope (denominator for the design audit)" "$OUTDIR/39-page-scope.log" info 300 -- \
+    "$PAGE_SCOPE_SH"
+else
+  fault "page scope (denominator for the design audit)" "not installed at ${PAGE_SCOPE_SH#$ROOT/}" \
+        "Set PAGE_SCOPE_SH, or install bin/page-scope.sh. The design audit's page denominator is whatever stale .claude/loop/page-scope.json says, or nothing."
+fi
+
+PAGE_SCOPE_JSON="$ROOT/.claude/loop/page-scope.json"
+# _module_pages — this module's page count from THIS run's page scope; empty when unknown (the
+# scope did not run clean this time, or does not list the module). Read from counts.perModule.
+_module_pages() {
+  grep -q "^page scope (denominator for the design audit)	INFO	0	" "$SUMMARY" || return 0
+  awk -v m="$MODULE" '/"perModule"/ { on = 1; next } on && /}/ { exit }
+    on && $1 == "\"" m "\":" { v = $2; sub(/,$/, "", v); print v; exit }' "$PAGE_SCOPE_JSON" 2>/dev/null
+}
+MODULE_PAGES="$(_module_pages)"
+
+# Tests this module has in a shape the journey runner does not walk (#446: tests/<module>.test.sh
+# playwright-cli scripts, 28 checks passing, reported as "no journeys"). Named, never run here.
+OTHER_SHAPE=""
+for _t in "$ROOT"/tests/*.test.sh "$ROOT"/tests/*/*.test.sh; do
+  [ -f "$_t" ] || continue
+  case "$(basename "$_t" | tr '[:upper:]' '[:lower:]')" in
+    "$(printf '%s' "$MODULE" | tr '[:upper:]' '[:lower:]')"*) OTHER_SHAPE="$OTHER_SHAPE ${_t#$ROOT/}" ;;
+  esac
+done
+
+# Playwright, probed once, from where the harness requires it (tests/e2e/). Without it journeys,
+# monkey and the rendered design audit each FAULTed with their own wording (#446: 16 of 19 design
+# audit faults); now one row names the one fix and the dependent rungs say they were not run.
+PW_FIX="(cd \"$ROOT\" && npm install playwright axe-core && npx playwright install chromium)"
+PW_OK=1
+if [ -f "${JOURNEY_RUNNER:-$ROOT/tests/e2e/journey-runner.js}" ] || [ -f "${MONKEY_JS:-$ROOT/tests/e2e/monkey.js}" ] \
+   || [ -f "${DESIGN_AUDIT_JS:-$ROOT/tests/e2e/design-audit.js}" ]; then
+  if ! command -v node >/dev/null 2>&1; then
+    PW_OK=0
+    fault "playwright (e2e harness dependency)" "node is not installed" \
+          "Install Node.js LTS, then: $PW_FIX. Journeys, monkey and the rendered design audit need it."
+  elif ! node -e 'require.resolve("playwright", { paths: [process.argv[1]] })' "$ROOT/tests/e2e" >/dev/null 2>&1; then
+    PW_OK=0
+    fault "playwright (e2e harness dependency)" "playwright is not installed for tests/e2e" \
+          "The one fix: $PW_FIX. Journeys, monkey and the rendered design audit need it and are not run."
+  fi
+fi
+
 JOURNEY_DIR="${JOURNEY_DIR:-$ROOT/journeys}"
 JOURNEY_RUNNER="${JOURNEY_RUNNER:-$ROOT/tests/e2e/journey-runner.js}"
 MONKEY_JS="${MONKEY_JS:-$ROOT/tests/e2e/monkey.js}"
@@ -574,10 +637,20 @@ else
   if [ "$SKIP_JOURNEYS" -eq 1 ]; then
     printf '\n\033[1m── journeys\033[0m\n'; c_warn "  · skipped by flag"; echo ""
     printf 'journeys\tSKIPPED\t0\t-\t(--skip-journeys)\n' >> "$SUMMARY"
+  elif [ ! -f "$JOURNEY" ] && [ "$MODULE_PAGES" = 0 ]; then
+    # A module with no pages (a REST client, a mock service) cannot have a UI journey: the runner
+    # knows UI steps only. Not applicable, so neither a fault nor a pass.
+    printf '\n\033[1m── journeys\033[0m\n'; c_warn "  · not applicable"; echo " — $MODULE has 0 pages in the page scope"
+    printf 'journeys\tSKIPPED\t0\t-\t(N/A: %s has 0 pages in .claude/loop/page-scope.json; its proof is its unit/trace suite, its journey is owed by the first page that calls it)\n' "$MODULE" >> "$SUMMARY"
+  elif [ ! -f "$JOURNEY" ]; then
+    fault "journeys" "no ${JOURNEY#$ROOT/}" \
+          "The golden path for $MODULE is UNTESTED end-to-end. Page-stop specs, if any, check that pages render — not that the journey through them does what was specified.${OTHER_SHAPE:+ Tests exist in another shape, not walked by the runner:$OTHER_SHAPE}"
   elif [ ! -f "$JOURNEY_RUNNER" ]; then
     fault "journeys" "no journey runner at ${JOURNEY_RUNNER#$ROOT/}" \
           "Set JOURNEY_RUNNER, or see the journey-proof.md skill for the harness this expects."
-  elif [ -f "$JOURNEY" ]; then
+  elif [ "$PW_OK" -eq 0 ]; then
+    printf 'journeys\tSKIPPED\t0\t-\t(not run: needs playwright, see the playwright row)\n' >> "$SUMMARY"
+  else
     _exec "journeys (UI + ordered spans + data effects)" "$OUTDIR/20-journeys.log" gate "${VM_TMO_JOURNEYS:-900}" -- \
       node "$JOURNEY_RUNNER" "$JOURNEY"
     # Non-vacuity: a journey that cannot fail is not evidence. Skipped under --quick because it
@@ -585,9 +658,6 @@ else
     [ "$QUICK" -eq 1 ] || _exec "journeys (positive control — MUST detect a broken precondition)" \
       "$OUTDIR/21-journeys-control.log" gate "${VM_TMO_JOURNEYS:-900}" -- \
       node "$JOURNEY_RUNNER" "$JOURNEY" --positive-control
-  else
-    fault "journeys" "no ${JOURNEY#$ROOT/}" \
-          "The golden path for $MODULE is UNTESTED end-to-end. Page-stop specs, if any, check that pages render — not that the journey through them does what was specified."
   fi
 
   if [ "$SKIP_MONKEY" -eq 1 ]; then
@@ -604,6 +674,8 @@ else
     # simply not installed) reach a CLEAN verdict having never run a crash net at all.
     fault "monkey" "not installed at ${MONKEY_JS#$ROOT/}" \
           "Set MONKEY_JS, or see journey-proof.md for the harness this expects. Crash-on-input for $MODULE is UNMEASURED — its findings are informational, its absence is not."
+  elif [ "$PW_OK" -eq 0 ]; then
+    printf 'monkey\tSKIPPED\t0\t-\t(not run: needs playwright, see the playwright row)\n' >> "$SUMMARY"
   else
     # info, not gate: on one project the monkey pass scored 0 fail while its scripted journeys found
     # all 9 real defects. It is a crash net. Letting it gate the module would give it an authority
@@ -633,26 +705,11 @@ fi
 # upgraded to look like a full run). So it still runs — at reduced strength — when the stack is
 # down or only caveated-up; the full rendered pass runs only once test-stack-up has verified
 # OWNERSHIP (STACK_OK=1), the same bar journeys/monkey require before trusting what they measure.
-# F-042 (MarkUseCase, 2026-08-28): design-audit.js reads .claude/loop/page-scope.json for
-# its page denominator, but nothing in any mandatory chain ever GENERATED that file — its
-# producer (bin/page-scope.sh) was wired into no step, so the audit either faulted on a
-# missing scope or ran against a stale one. Generate/refresh it here, right before its one
-# consumer. info, not gate: a scope refresh that fails leaves the audit to report the
-# missing/stale scope itself, which it already does loudly.
-PAGE_SCOPE_SH="${PAGE_SCOPE_SH:-$(_tool page-scope.sh)}"
-if [ -x "$PAGE_SCOPE_SH" ]; then
-  run "page scope (denominator for the design audit)" "$OUTDIR/39-page-scope.log" info 300 -- \
-    "$PAGE_SCOPE_SH"
-else
-  fault "page scope (denominator for the design audit)" "not installed at ${PAGE_SCOPE_SH#$ROOT/}" \
-        "Set PAGE_SCOPE_SH, or install bin/page-scope.sh. The design audit's page denominator is whatever stale .claude/loop/page-scope.json says, or nothing."
-fi
-
 DESIGN_AUDIT_JS="${DESIGN_AUDIT_JS:-$ROOT/tests/e2e/design-audit.js}"
 if [ ! -f "$DESIGN_AUDIT_JS" ]; then
   fault "design audit (rungs 6-7 — UI/a11y, informational)" "not installed at ${DESIGN_AUDIT_JS#$ROOT/}" \
         "Set DESIGN_AUDIT_JS, or see harness-architecture.md §6 for the instrument this expects. UI/a11y quality for $MODULE is UNMEASURED — it never gates a run even when present."
-elif [ "${STACK_OK:-0}" -eq 1 ]; then
+elif [ "${STACK_OK:-0}" -eq 1 ] && [ "$PW_OK" -eq 1 ]; then
   run "design audit (rungs 6-7 — UI/a11y, informational)" "$OUTDIR/40-design-audit.log" info 900 -- \
     node "$DESIGN_AUDIT_JS"
 else

@@ -471,17 +471,33 @@ fi
 # ledger — no second leaf enumeration here. A /slash claim is phantom only if it is phantom in
 # EVERY BRD (it names none); a prefixed claim is only ever measured by its own BRD.
 # ---------------------------------------------------------------------------
+#
+# Each BRD gets only the claims it can resolve (#446): every /slash claim, a claim whose prefix is
+# its file name (F003/... -> F003.brd.json or F003-*.brd.json), and any prefixed claim that names
+# no BRD file (left to the engine everywhere, as before). The engine skipped other BRDs' claims
+# anyway, one claim at a time: 12 BRDs x every claim in the plan was ~290 s in the field, after
+# the measurement itself, and the rung timed out with a clean log. A BRD with nothing to resolve
+# is not run at all.
 if [ "$NCLAIMS" -gt 0 ]; then
-  PC="$TMPD/plan-claims.md"
-  {
-    echo "| pointer | type | title | slice | writeMode | acceptance | status |"
-    echo "|---|---|---|---|---|---|---|"
-    printf '%s\n' "$CLAIMS" | while IFS=$'\t' read -r _row ptr; do
-      [ -n "$ptr" ] && printf '| %s | claim | - | - | - | - | - |\n' "$ptr"
-    done
-  } > "$PC"
+  BASES="$(for b in $BRDS; do basename "$b" .brd.json; done | tr '\n' ' ')"
   : > "$TMPD/phantoms.tsv"
   for b in $BRDS; do
+    PC="$TMPD/plan-claims.md"
+    printf '%s\n' "$CLAIMS" | awk -F'\t' -v me="$(basename "$b" .brd.json)" -v bases="$BASES" '
+      BEGIN { nb = split(bases, base, " ") }
+      function mine(pre, b) { return b == pre || index(b, pre "-") == 1 }
+      $2 == "" { next }
+      { p = $2; ok = 1
+        if (p !~ /^\// && p !~ /,/) {
+          pre = p; sub(/\/.*/, "", pre); named = 0
+          for (i = 1; i <= nb; i++) if (mine(pre, base[i])) named = 1
+          if (named) ok = mine(pre, me)
+        }
+        if (ok) print "| " p " | claim | - | - | - | - | - |" }' > "$PC.rows"
+    [ -s "$PC.rows" ] || continue
+    { echo "| pointer | type | title | slice | writeMode | acceptance | status |"
+      echo "|---|---|---|---|---|---|---|"
+      cat "$PC.rows"; } > "$PC"
     COVERAGE_CHECK_CAP=1000000 "$ENGINE" "$b" "$PC" 2>/dev/null \
       | awk -v b="$b" '/^  -- PHANTOM pointers --/ { on = 1; next } /^  -- / { on = 0 } on { sub(/^ +/, ""); print $0 "\t" b }' \
       >> "$TMPD/phantoms.tsv"

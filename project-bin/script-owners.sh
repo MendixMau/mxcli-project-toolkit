@@ -165,7 +165,8 @@ so_has_run() {  # $1 = root, $2 = root-relative script path → true when it has
   if [ -f "$1/$LEDGER_REL" ] && awk -F'\t' -v k="$(so_sortkey "$2")" '$2 == k { f = 1; exit } END { exit !f }' "$1/$LEDGER_REL"; then
     return 0
   fi
-  [ -f "$1/docs/BUILD-LOG.md" ] && awk -F'|' -v n="\`$b\`" 'index($3, n) && $5 ~ /applied/ { f = 1; exit } END { exit !f }' "$1/docs/BUILD-LOG.md"
+  [ -f "$1/docs/BUILD-LOG.md" ] && SO_N="$(printf '`%s`' "$b")" \
+    awk -F'|' 'index($3, ENVIRON["SO_N"]) && $5 ~ /applied/ { f = 1; exit } END { exit !f }' "$1/docs/BUILD-LOG.md"
 }
 so_rel() {  # $1 = script, $2 = root → root-relative path, or "" outside the root
   local abs; abs="$(cd "$(dirname "$1")" 2>/dev/null && pwd)/$(basename "$1")"

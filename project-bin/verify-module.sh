@@ -551,6 +551,23 @@ else
         "No structured report.json for this module; the summary below is the only artefact."
 fi
 
+# ── 1c. Canvas facts: how this module's microflows read in Studio Pro ───────
+# INFO, never a gate (skills/canvas-readability.md). The instrument prints facts, not verdicts:
+# in the one app it was measured on, LEFTWARD and TURN occurred in 5% of hand-drawn flows and in
+# 6% of the generated ones, and a SENSE fact is a prompt to read the true branch. The
+# reviewer judges the log against the skill's table. rc 2 (a flow it could not read, no model)
+# still lands in FAULT: unmeasured, not clean.
+_vm_canvas="$(_tool mf-canvas-facts.py)"
+_vm_py="$(resolve_py 2>/dev/null)" || _vm_py=""
+if [ -x "$_vm_canvas" ] && [ -n "$_vm_py" ] && [ -n "$_vm_mpr" ]; then
+  run "canvas facts (mf-canvas-facts — informational)" "$OUTDIR/14-canvas-facts.log" info 300 -- \
+    "$_vm_py" -I "$_vm_canvas" "$_vm_mpr" --module "$MODULE"
+else
+  fault "canvas facts (mf-canvas-facts — informational)" \
+        "needs bin/mf-canvas-facts.py (+ mxpatch.py, mxunit_bson.py), Python 3 and the .mpr" \
+        "This module's canvas readability is UNMEASURED. Run bin/sync-project.sh to install the scripts."
+fi
+
 # ── 2. Runtime instruments (need the app) ───────────────────────────────────
 # F-042 (MarkUseCase, 2026-08-28): design-audit.js reads .claude/loop/page-scope.json for
 # its page denominator, but nothing in any mandatory chain ever GENERATED that file — its

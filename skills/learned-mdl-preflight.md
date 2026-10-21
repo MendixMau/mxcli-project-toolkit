@@ -67,6 +67,8 @@ Re-probed on mxcli v0.24.0 / Mendix 11.13.0 (2026-09-30); rules that now work or
 | 30 | Put a `dynamicimage` on a React-client page | **Use the pluggable `image` widget.** | `check` passes; mxbuild CE0582; lint MPR012 flags it. #445 |
 | 31 | Bind a data-view widget's attribute across 2+ associations | **One hop per step: nest a data view.** | `check` passes; mxbuild CE1613. A database-sourced Gallery allows it: `learned-page-patterns.md` §ContentParams Multi-Hop. #445 |
 | 32 | Give a widget's `show page` any argument outside a data view/list/grid row, or besides its context object | **Call a microflow that shows the page.** | v0.26.0 `check` refuses: MDL-PAGEARG01. BUG-70/95. #445 |
+| 33 | Restate a document another `mdlsource/` script owns, or draft a restatement before earlier scripts ran | **Edit the owner or `alter`; a new owner adds `-- supersedes: <script>`. Drafting ahead: `bin/describe-baseline.sh stamp <script>` after the DESCRIBE.** | Every gate passes and the newer work reverts; exec.sh only warns. #261 #269 |
+| 34 | Restate a page, snippet or layout from `describe` | **First `grep -la -e ModuleRoles -e ConditionalVisibilitySettings /dev/null $(grep -rlF '<Doc>' mprcontents/)`; a hit: check it in Studio Pro or `alter page`.** | v0.25.0: DESCRIBE omits role and layout-row visibility; restated, every gate passes and the rules are gone. |
 
 **Default to the CLI for everything in the table above that is not a STOP row** (`./bin/exec.sh`, Studio Pro closed).
 

@@ -511,7 +511,7 @@ HDR2
   # The gate cell is read from GATE_STATE rather than passed in, so no caller
   # can omit it — a blank cell in this table reads as "fine", which is the exact
   # false-green the gate exists to prevent.
-  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${SCAN_NOTE:+ · $SCAN_NOTE}${GATE_NOTE:+ · $GATE_NOTE}${MXB_LOG_NOTE:+ · $MXB_LOG_NOTE}${HV_NOTE:+ · $HV_NOTE}$_EXEC_APPROVAL_SUFFIX${STEP_TIMES:+ · steps: $STEP_TIMES}"
+  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${SCAN_NOTE:+ · $SCAN_NOTE}${RESTATE_NOTE:+ · $RESTATE_NOTE}${GATE_NOTE:+ · $GATE_NOTE}${MXB_LOG_NOTE:+ · $MXB_LOG_NOTE}${HV_NOTE:+ · $HV_NOTE}$_EXEC_APPROVAL_SUFFIX${STEP_TIMES:+ · steps: $STEP_TIMES}"
   printf '| %s | `%s` | %s | %s | %s |\n' \
     "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$LOG_NAME" \
     "${GATE_STATE:-not-run}" "$1" "$_detail" >> "$BUILD_LOG"
@@ -565,6 +565,7 @@ take_score() {
 # Not found, or the scan itself errors (exit 2) → one warning, and the exec goes on: mxcli
 # check and the mxbuild gate still stand behind it.
 SCAN_NOTE=""; HV_NOTE=""   # HV_NOTE: the ContentsHash bracket's cell text, set below
+RESTATE_NOTE=""            # the restatement warnings' cell text (#261/#269), set after the check
 if [ "$PATCH_MODE" != "1" ]; then
   _SCAN=""
   for _s in "${MXTK_ROOT:-}/bin/mdl-scan.sh" \
@@ -1119,6 +1120,52 @@ elif [ "${SKIP_CHECK:-0}" != "1" ] && [ -n "$PMXCLI" ]; then
   fi
   rm -f "$_co"
   echo "  ✓ check clean"
+fi
+
+# ── Restatement warnings (#261, #269; WARN only, never a refusal) ────────────
+# A whole restatement (`create or modify|replace microflow|nanoflow|page|snippet`) is valid MDL
+# whatever it replaces, so check, mxbuild and lint stay green while it reverts newer work. Two
+# field shapes, one sibling instrument each:
+#   co-owned (#269)  three apps had 99/579, 130/357 and 38/159 documents created by more than one
+#                    mdlsource/ script; re-running an older one reverts the newer. script-owners.sh
+#                    check names every other owner no `-- supersedes:` header settles.
+#   stale (#261)     a script drafted from a DESCRIBE taken BEFORE an earlier script of the batch
+#                    ran put four old messages back. describe-baseline.sh verify compares the
+#                    script's `-- baseline:` header with a fresh DESCRIBE. Opt-in: no header, no call.
+# Each prints WARN lines and lands in the BUILD-LOG detail; the exec goes on and the exit code is
+# whatever the rest of the chain decides. MXTK_RESTATE_GUARD=off skips both. Cost without a
+# co-owner or a header: one grep over mdlsource/ for the restated names, no mxcli call.
+if [ "$PATCH_MODE" != "1" ] && [ "${MXTK_RESTATE_GUARD:-}" != "off" ] && [ -f "$SCRIPT" ]; then
+  _rs_bin="$(dirname "$0")"
+  if [ -f "$_rs_bin/script-owners.sh" ]; then
+    _so_rc=0
+    _so_out="$(PROJECT_ROOT="$PROJECT_ROOT" bash "$_rs_bin/script-owners.sh" check "$SCRIPT" "$PROJECT_ROOT" 2>/dev/null)" || _so_rc=$?
+    if [ "$_so_rc" -eq 1 ] && [ -n "$_so_out" ]; then
+      _so_docs="$(printf '%s\n' "$_so_out" | cut -f2 | sed 's/^[A-Z]* //' | LC_ALL=C sort -u)"
+      _so_n="$(printf '%s\n' "$_so_docs" | grep -c . || true)"
+      echo "WARN: restatement: $_so_n document(s) this script restates are also owned by another mdlsource/ script:"
+      printf '%s\n' "$_so_out" | awk -F'\t' '{ printf "    %s — %s\n", $2, $4 }'
+      echo "  → edit the owning script or use alter; a new owner says '-- supersedes: <older script>'"
+      echo "    (bin/script-owners.sh report; skills/learned-mdl-preflight.md STOP 33)"
+      grep -qE '^[[:space:]]*--[[:space:]]*baseline:' "$SCRIPT" || \
+        echo "    no '-- baseline:' header, so a stale draft cannot be detected: bin/describe-baseline.sh stamp <script>"
+      RESTATE_NOTE="WARN co-owned: $(printf '%s\n' "$_so_docs" | head -3 | tr '\n' ' ' | sed 's/ $//')"
+      if [ "$_so_n" -gt 3 ]; then RESTATE_NOTE="$RESTATE_NOTE +$((_so_n - 3))"; fi
+    fi
+  fi
+  if [ -f "$_rs_bin/describe-baseline.sh" ] && grep -qE '^[[:space:]]*--[[:space:]]*baseline:' "$SCRIPT"; then
+    _db_rc=0
+    _db_out="$(PROJECT_ROOT="$PROJECT_ROOT" bash "$_rs_bin/describe-baseline.sh" verify "$SCRIPT" 2>&1)" || _db_rc=$?
+    case "$_db_rc" in
+      1)
+        echo "WARN: stale draft: document(s) this script restates changed since its '-- baseline:' DESCRIBE:"
+        printf '%s\n' "$_db_out" | grep -v '^SAME' | sed -E 's/^DRIFT	([^	]*)	/    \1 — /; s/^(STALEHEADER|UNKNOWN)	([^	]*)	/    \2 — /'
+        echo "  → DESCRIBE it again, merge the live body into the script, re-stamp: bin/describe-baseline.sh stamp $SCRIPT"
+        RESTATE_NOTE="${RESTATE_NOTE:+$RESTATE_NOTE; }WARN stale baseline: $(printf '%s\n' "$_db_out" | awk -F'\t' '$1 == "DRIFT" { print $2 }' | head -3 | tr '\n' ' ' | sed 's/ $//')"
+        ;;
+      3) echo "WARN: '-- baseline:' header present but DESCRIBE could not run — drift not checked" ;;
+    esac
+  fi
 fi
 
 # ── Gate must be able to run ─────────────────────────────────────────────────
@@ -2066,6 +2113,12 @@ fi
 # gate-check.sh's Stage 5 "done" claim reads it. Not for --patch: a patch is opaque.
 if [ "$PATCH_MODE" = 0 ] && [ -f "$(dirname "$0")/look-ledger.sh" ]; then
   bash "$(dirname "$0")/look-ledger.sh" owe "$SCRIPT" || true
+fi
+# Last writer of each document this script names (script-owners.sh ledger), so a later check can
+# tell a replay that reverts nothing from one that does. Same place and reason as LOOK owed: a
+# restored or partial run exited above. No mxcli call: one awk over this script.
+if [ "$PATCH_MODE" = 0 ] && [ -f "$(dirname "$0")/script-owners.sh" ]; then
+  PROJECT_ROOT="$PROJECT_ROOT" bash "$(dirname "$0")/script-owners.sh" record "$SCRIPT" 2>/dev/null || true
 fi
 
 # ── Build plan page ──────────────────────────────────────────────────────────

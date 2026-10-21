@@ -514,7 +514,7 @@ HDR2
   # The gate cell is read from GATE_STATE rather than passed in, so no caller
   # can omit it — a blank cell in this table reads as "fine", which is the exact
   # false-green the gate exists to prevent.
-  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${SCAN_NOTE:+ · $SCAN_NOTE}${GATE_NOTE:+ · $GATE_NOTE}${MXB_LOG_NOTE:+ · $MXB_LOG_NOTE}${HV_NOTE:+ · $HV_NOTE}$_EXEC_APPROVAL_SUFFIX${STEP_TIMES:+ · steps: $STEP_TIMES}"
+  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${SCAN_NOTE:+ · $SCAN_NOTE}${RESTATE_NOTE:+ · $RESTATE_NOTE}${GATE_NOTE:+ · $GATE_NOTE}${MXB_LOG_NOTE:+ · $MXB_LOG_NOTE}${HV_NOTE:+ · $HV_NOTE}$_EXEC_APPROVAL_SUFFIX${STEP_TIMES:+ · steps: $STEP_TIMES}"
   printf '| %s | `%s` | %s | %s | %s |\n' \
     "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$LOG_NAME" \
     "${GATE_STATE:-not-run}" "$1" "$_detail" >> "$BUILD_LOG"
@@ -568,6 +568,7 @@ take_score() {
 # Not found, or the scan itself errors (exit 2) → one warning, and the exec goes on: mxcli
 # check and the mxbuild gate still stand behind it.
 SCAN_NOTE=""; HV_NOTE=""   # HV_NOTE: the ContentsHash bracket's cell text, set below
+RESTATE_NOTE=""            # the restatement warning's cell text (#269), set after the check
 if [ "$PATCH_MODE" != "1" ]; then
   _SCAN=""
   for _s in "${MXTK_ROOT:-}/bin/mdl-scan.sh" \
@@ -1124,6 +1125,34 @@ elif [ "${SKIP_CHECK:-0}" != "1" ] && [ -n "$PMXCLI" ]; then
   echo "  ✓ check clean"
 fi
 
+# ── Restatement warnings (#269; WARN only, never a refusal) ──────────────────
+# A whole restatement (`create or modify|replace microflow|nanoflow|page|snippet`) is valid MDL
+# whatever it replaces, so check, mxbuild and lint stay green while it reverts newer work. Three
+# field apps had 99/579, 130/357 and 38/159 documents created by more than one mdlsource/ script;
+# re-running an older one reverts the newer. script-owners.sh check: REVERT/UNCHECKED rows print
+# as WARN lines and land in the BUILD-LOG detail; NOTE rows (a new owner without a supersedes
+# header, first run only) print as one NOTE line and stay out of the log. The exec goes on and the
+# exit code is whatever the rest of the chain decides. MXTK_RESTATE_GUARD=off skips it. Cost
+# without a co-owner: one grep over mdlsource/ for the restated names, no mxcli call.
+if [ "$PATCH_MODE" != "1" ] && [ "${MXTK_RESTATE_GUARD:-}" != "off" ] && [ -f "$SCRIPT" ] \
+   && [ -f "$(dirname "$0")/script-owners.sh" ]; then
+  _so_out="$(PROJECT_ROOT="$PROJECT_ROOT" bash "$(dirname "$0")/script-owners.sh" check "$SCRIPT" "$PROJECT_ROOT" 2>/dev/null || true)"
+  _so_warn="$(printf '%s\n' "$_so_out" | grep -E '^(REVERT|UNCHECKED)	' || true)"
+  _so_note="$(printf '%s\n' "$_so_out" | grep '^NOTE	' || true)"
+  if [ -n "$_so_note" ]; then
+    echo "NOTE: new owner of $(printf '%s\n' "$_so_note" | cut -f2 | sed 's/^[A-Z]* //' | LC_ALL=C sort -u | tr '\n' ' ')— older owner(s): $(printf '%s\n' "$_so_note" | cut -f3 | LC_ALL=C sort -u | tr '\n' ' '); add '-- supersedes: <older script>' (STOP 21)"
+  fi
+  if [ -n "$_so_warn" ]; then
+    _so_docs="$(printf '%s\n' "$_so_warn" | cut -f2 | sed 's/^[A-Z]* //' | LC_ALL=C sort -u)"
+    _so_n="$(printf '%s\n' "$_so_docs" | grep -c . || true)"
+    echo "WARN: restatement: $_so_n document(s) this script restates hold a newer owner's live work:"
+    printf '%s\n' "$_so_warn" | awk -F'\t' '{ printf "    %s — %s\n", $2, $4 }'
+    echo "  → edit the owning script or use alter (bin/script-owners.sh report; skills/learned-mdl-preflight.md STOP 21)"
+    RESTATE_NOTE="WARN reverts: $(printf '%s\n' "$_so_docs" | head -3 | tr '\n' ' ' | sed 's/ $//')"
+    if [ "$_so_n" -gt 3 ]; then RESTATE_NOTE="$RESTATE_NOTE +$((_so_n - 3))"; fi
+  fi
+fi
+
 # ── Gate must be able to run ─────────────────────────────────────────────────
 # Discovery happens BEFORE the snapshot and the write, because the answer decides whether
 # there is a write at all. Until 2026-09-17 a missing mxbuild produced a warning and the
@@ -1202,7 +1231,9 @@ restore_snapshot() {
     echo "  ⚠  No usable snapshot to restore from — the model is left as the script wrote it."
   elif [ ! -f "$RESTORER" ]; then
     echo "  ⚠  bin/restore-mpr.sh is not installed — cannot auto-restore (run sync-project.sh)."
-  elif R_OUT=$(bash "$RESTORER" "$NEWEST_SNAP" 2>&1); then
+  # The snapshot was taken just before this exec, so script-owners.sh's ledger still matches it:
+  # no RESTORE marker (restore-mpr.sh writes one for every other restore).
+  elif R_OUT=$(MXTK_RESTORE_SAME_LEDGER=1 bash "$RESTORER" "$NEWEST_SNAP" 2>&1); then
     RESTORED=1
     printf '%s\n' "$R_OUT" | sed 's/^/  → /'
     echo "  → Auto-restored from: $NEWEST_SNAP"
@@ -2069,6 +2100,12 @@ fi
 # gate-check.sh's Stage 5 "done" claim reads it. Not for --patch: a patch is opaque.
 if [ "$PATCH_MODE" = 0 ] && [ -f "$(dirname "$0")/look-ledger.sh" ]; then
   bash "$(dirname "$0")/look-ledger.sh" owe "$SCRIPT" || true
+fi
+# Last writer of each document this script names (script-owners.sh ledger), so a later check can
+# tell a replay that reverts nothing from one that does. Same place and reason as LOOK owed: a
+# restored or partial run exited above. No mxcli call: one awk over this script.
+if [ "$PATCH_MODE" = 0 ] && [ -f "$(dirname "$0")/script-owners.sh" ]; then
+  PROJECT_ROOT="$PROJECT_ROOT" bash "$(dirname "$0")/script-owners.sh" record "$SCRIPT" 2>/dev/null || true
 fi
 
 # ── Build plan page ──────────────────────────────────────────────────────────

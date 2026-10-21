@@ -11,10 +11,13 @@
 #       not a FAULT
 #   V2  a module with pages, no journey JSON, and tests/<module>*.test.sh: the FAULT names the
 #       tests that exist in another shape
-#   V3  playwright not resolvable from tests/e2e: ONE fault row naming the one fix; journeys and
+#   V3  playwright + axe-core not resolvable from tests/e2e: ONE fault row naming the one fix; journeys and
 #       monkey are SKIPPED as its dependents; the design audit runs static-only
 #   V4  the coverage rung's default budget is 1200 s, not 300 s (by inspection)
 #   V5  no watchdog `sleep` outlives the run (they held fd 3, so `| tee` waited up to 30 min)
+#   V6  the summary's last row is `verdict` (a run cut short has none)
+#   V7  JOURNEY_RUNNER set: its own folder is probed; axe-core alone missing faults only the
+#       rendered design audit (journeys and monkey run)
 set -uo pipefail
 TK="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SUT="${1:-$TK/project-bin/verify-module.sh}"
@@ -29,7 +32,7 @@ bad() { echo "  FAIL — $1"; [ -n "${2:-}" ] && printf '%s\n' "$2" | sed 's/^/ 
 
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/vm446.XXXXXX")"; WORK="$(cd "$WORK" && pwd -P)"; trap 'rm -rf "$WORK"' EXIT
 P="$WORK/proj"
-mkdir -p "$P/bin" "$P/app" "$P/tests/e2e" "$P/journeys" "$P/node_modules/playwright" "$WORK/stub"
+mkdir -p "$P/bin" "$P/app" "$P/tests/e2e" "$P/journeys" "$WORK/stub"
 : > "$P/app/App.mpr"; printf '# PROJECT\n' > "$P/PROJECT.md"
 cp "$SD/_common.sh" "$SUT" "$P/bin/"
 printf '#!/usr/bin/env bash\necho "App serving on http://localhost:8080"\nexit 0\n' > "$P/bin/test-stack-up.sh"
@@ -42,8 +45,11 @@ printf '#!/usr/bin/env bash\nexit 0\n' > "$WORK/stub/cov.sh"; chmod +x "$WORK/st
 for j in journey-runner monkey design-audit; do printf 'console.log("stub %s", process.argv.slice(2).join(" "));\n' "$j" > "$P/tests/e2e/$j.js"; done
 printf 'const fs=require("fs");fs.mkdirSync("docs",{recursive:true});fs.writeFileSync("docs/report.json","{}");\n' > "$WORK/stub/norm.js"
 printf 'const fs=require("fs");fs.mkdirSync("docs/verification",{recursive:true});fs.writeFileSync("docs/verification/report.html","<p>");\n' > "$WORK/stub/rend.js"
-printf '{"name":"playwright","main":"index.js"}\n' > "$P/node_modules/playwright/package.json"
-printf 'module.exports = {};\n' > "$P/node_modules/playwright/index.js"
+fake_mod() {  # $1 node_modules dir, $2 package name: a resolvable stand-in package
+  mkdir -p "$1/$2"; printf '{"name":"%s","main":"index.js"}\n' "$2" > "$1/$2/package.json"
+  printf 'module.exports = {};\n' > "$1/$2/index.js"
+}
+fake_mod "$P/node_modules" playwright; fake_mod "$P/node_modules" axe-core
 
 # Sleeping processes left behind with their cwd in the project (Linux /proc only; else "skip").
 leftover() {
@@ -62,10 +68,10 @@ reap() {  # a run on the old subject leaves watchdog sleeps behind: end them, ne
 }
 trap 'reap; rm -rf "$WORK"' EXIT
 
-vm() {  # $1 module -> out, rc, sum. Output goes to a file: on the pre-#446 subject a $(...) here
+vm() {  # $1 module [flags] -> out, rc, sum. Output goes to a file: on the pre-#446 subject a $(...) here
         # waited for the orphaned watchdog sleeps, up to 30 minutes.
   ( cd "$P" && PROJECT_ROOT="$P" COVERAGE_CHECK="$WORK/stub/cov.sh" REPORT_NORMALIZE_JS="$WORK/stub/norm.js" \
-    REPORT_RENDER_JS="$WORK/stub/rend.js" bash "$P/bin/verify-module.sh" "$1" ) > "$WORK/out" 2>&1; rc=$?
+    REPORT_RENDER_JS="$WORK/stub/rend.js" bash "$P/bin/verify-module.sh" "$@" ) > "$WORK/out" 2>&1; rc=$?
   out="$(cat "$WORK/out")"
   sum="$(cat "$P/.claude/loop/verify/$1/summary.tsv" 2>/dev/null)"
 }
@@ -79,6 +85,9 @@ case "$left" in
   *)    bad "V5: $left watchdog sleep(s) still running after the run, holding its output open" ;;
 esac
 reap
+last="$(printf '%s\n' "$sum" | tail -1 | cut -f1-2)"
+[ "$last" = "verdict	CLEAN" ] && ok "V6: the summary's last row is the run's verdict (verdict CLEAN)" \
+  || bad "V6: last summary row is not the verdict" "$last"
 { row '^journeys$' | grep -q '^SKIPPED	(N/A: Svc has 0 pages' && ! printf '%s' "$sum" | grep -q '^journeys	FAULT'; } \
   && ok "V1: page-less module, journeys N/A (SKIPPED), not FAULT (rc $rc)" || bad "V1: journeys row" "$(row '^journeys')"
 
@@ -91,12 +100,31 @@ vm MyFirstModule
 printf '{"name":"golden"}\n' > "$P/journeys/MyFirstModule.journey.json"
 rm -rf "$P/node_modules"
 vm MyFirstModule
-pw="$(printf '%s\n' "$sum" | grep -c '^playwright')"
-{ [ "$pw" = 1 ] && row '^playwright' | grep -q '^FAULT' && printf '%s' "$out" | grep -q 'npm install playwright' \
+pw="$(printf '%s\n' "$sum" | grep -c '^e2e harness dependency')"
+{ [ "$pw" = 1 ] && row '^e2e harness dependency' | grep -q '^FAULT	(not installed: playwright axe-core)' \
+    && printf '%s' "$out" | grep -q 'npm install playwright' \
     && row '^journeys$' | grep -q '^SKIPPED	(not run: needs playwright' && row '^monkey$' | grep -q '^SKIPPED	(not run: needs playwright' \
     && printf '%s' "$sum" | grep -q '^design audit.*static-only'; } \
-  && ok "V3: one playwright FAULT with the fix; journeys + monkey SKIPPED as dependents; design audit static-only" \
+  && ok "V3: one dependency FAULT (playwright, axe-core) with the fix; journeys + monkey SKIPPED; design audit static-only" \
   || bad "V3: playwright rows=$pw" "$sum"
+
+# V7: JOURNEY_RUNNER elsewhere, playwright beside it, axe-core nowhere: only the rendered audit is
+# owed, journeys and monkey run.
+mkdir -p "$WORK/alt"; cp "$P/tests/e2e/journey-runner.js" "$WORK/alt/"; fake_mod "$WORK/alt/node_modules" playwright
+JOURNEY_RUNNER="$WORK/alt/journey-runner.js" vm MyFirstModule
+{ row '^e2e harness dependency' | grep -q '^FAULT	(not installed: axe-core)' && row '^journeys [(]UI' | grep -q '^PASS' \
+    && row '^monkey' | grep -q '^INFO' && printf '%s' "$sum" | grep -q '^design audit.*static-only'; } \
+  && ok "V7: JOURNEY_RUNNER's own folder is probed; axe-core missing faults the rendered audit only" \
+  || bad "V7: JOURNEY_RUNNER / axe-core probe" "$sum"
+
+# Golden summaries for test-progress-harness-verify.sh, written by this subject (CAPTURE=<dir>).
+if [ -n "${CAPTURE:-}" ]; then
+  fake_mod "$P/node_modules" playwright; fake_mod "$P/node_modules" axe-core
+  vm MyFirstModule; cp "$P/.claude/loop/verify/MyFirstModule/summary.tsv" "$CAPTURE/clean.summary.tsv"
+  vm MyFirstModule --skip-journeys; cp "$P/.claude/loop/verify/MyFirstModule/summary.tsv" "$CAPTURE/skip-journeys.summary.tsv"
+  printf '#!/usr/bin/env bash\necho "stub: 1 STALE row"\nexit 1\n' > "$P/bin/conformance-check.sh"
+  vm MyFirstModule; cp "$P/.claude/loop/verify/MyFirstModule/summary.tsv" "$CAPTURE/finding.summary.tsv"
+fi
 
 grep -q 'VM_TMO_COVERAGE:-1200' "$SUT" && ! grep -q 'VM_TMO_COVERAGE:-300' "$SUT" \
   && ok "V4: coverage rung default budget is 1200 s" || bad "V4: coverage budget still 300 s"

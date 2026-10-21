@@ -247,7 +247,7 @@ SESSION_HOOK="bash bin/session-check.sh || true"
 # Claude Code sets $CLAUDE_PROJECT_DIR for every hook; PROJECT_ROOT is $PWD after the cd, so a
 # Windows-form value reaches look-ledger.sh as Git Bash spells it. A missing script or a failed
 # run is logged ONCE per distinct message to .claude/loop/look/hook.log and printed to stderr.
-LOOK_HOOK='d="${CLAUDE_PROJECT_DIR:-$PWD}"; l="$d/.claude/loop/look/hook.log"; w() { grep -qsF "$1" "$l" && return 0; [ -d "$d/.claude" ] && mkdir -p "${l%/*}" && printf "%s\t%s\n" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" >> "$l"; echo "look hook: $1 (logged once to $l)" >&2; }; if [ -f "$d/bin/look-ledger.sh" ]; then (cd "$d" && PROJECT_ROOT="$PWD" bash bin/look-ledger.sh seen) || w "bin/look-ledger.sh seen failed (exit $?)"; else w "no bin/look-ledger.sh under $d"; fi; exit 0'
+LOOK_HOOK='d="${CLAUDE_PROJECT_DIR:-$PWD}"; l="$d/.claude/loop/look/hook.log"; w() { grep -qsF "$1" "$l" && return 0; if [ -d "$d/.claude" ] && mkdir -p "${l%/*}" && printf "%s\t%s\n" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" >> "$l"; then echo "look hook: $1 (logged once to $l)" >&2; else echo "look hook: $1" >&2; fi; }; if [ -f "$d/bin/look-ledger.sh" ]; then (cd "$d" && PROJECT_ROOT="$PWD" bash bin/look-ledger.sh seen) || w "bin/look-ledger.sh seen failed (exit $?)"; else w "no bin/look-ledger.sh under $d"; fi; exit 0'
 LOOK_HOOK_OLD="bash bin/look-ledger.sh seen || true"
 # event <TAB> matcher ("" = none) <TAB> command [<TAB> older form this replaces in place], one per line.
 HOOKS="SessionStart		$SESSION_HOOK
@@ -285,6 +285,17 @@ def hook_present(d, spec):
             if h.get("command") == cmd:
                 return True
     return False
+
+
+def extra_copies(d, spec):
+    """Look hooks beyond the one wanted: the older form, or a second copy of the current one."""
+    ev, matcher, cmd = spec
+    old = legacy.get(cmd)
+    if not old:
+        return 0
+    hs = [h for grp in d.get("hooks", {}).get(ev, []) or [] if (grp.get("matcher") or "") == matcher
+          for h in grp.get("hooks", []) or [] if h.get("command") in (cmd, old)]
+    return max(len(hs) - 1, 0) if any(h.get("command") == cmd for h in hs) else 0
 
 
 def hook_label(spec):
@@ -332,7 +343,7 @@ if mode == "check":
     missing = [e for e in entries if e not in allow]
     missing_deny = [e for e in deny_entries if e not in deny]
     missing_ask = [e for e in ask_entries if e not in d.get("permissions", {}).get("ask", [])]
-    missing_hooks = [h for h in hook_specs if not hook_present(d, h)]
+    missing_hooks = [h for h in hook_specs if not hook_present(d, h) or extra_copies(d, h)]
     if missing or missing_deny or missing_ask or missing_hooks:
         print("Missing entries in %s:" % settings_path)
         for m in missing:
@@ -459,6 +470,27 @@ if ask_entries or "ask" in perms:
 new_hooks, replaced = [], []
 for spec in hook_specs:
     if hook_present(d, spec):
+        # Already current: drop any older form and any second copy beside it, so one look hook
+        # runs per Read (an earlier install could leave the old form next to the new one).
+        ev, matcher, cmd = spec
+        if extra_copies(d, spec):
+            seen = False
+            groups = d["hooks"][ev]
+            for grp in groups:
+                if (grp.get("matcher") or "") != matcher:
+                    continue
+                keep = []
+                for h in grp.get("hooks", []) or []:
+                    c = h.get("command")
+                    if c == legacy.get(cmd) or (c == cmd and seen):
+                        if c != cmd:
+                            replaced.append(c)
+                        continue
+                    seen = seen or c == cmd
+                    keep.append(h)
+                grp["hooks"] = keep
+            d["hooks"][ev] = [g for g in groups if g.get("hooks")]
+            new_hooks.append(spec)
         continue
     ev, matcher, cmd = spec
     old_cmd = legacy.get(cmd)
@@ -521,7 +553,7 @@ if newly_added or newly_denied or newly_asked or new_hooks or pruned:
     for h in new_hooks:
         print("  + " + hook_label(h))
     for c in replaced:
-        print("  - hook (older form, replaced in place): " + c)
+        print("  - hook (older form, replaced or removed): " + c)
 else:
     print("All permission entries already present in %s -- nothing to do" % settings_path)
 PY

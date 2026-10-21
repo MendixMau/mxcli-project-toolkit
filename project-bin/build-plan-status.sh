@@ -539,12 +539,15 @@ src, mdl, detail_out, proj, gen = sys.argv[1:6]
 # A HARNESS row that runs verify-module.sh <Module> is read from that module's verify summary as
 # well as from State; the rule lives in progress-report.py (harness_verify), so the page's
 # counts and these rows cannot disagree. Without it, State alone decides, as before.
-harness_verify = lambda *a: None
+harness_verify = lambda *a, **k: None
+_logs = []
 try:
     import importlib.util
+    sys.dont_write_bytecode = True   # no bin/__pycache__/ left in the project
     _spec = importlib.util.spec_from_file_location("progress_report", gen)
     _m = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(_m)
     harness_verify = _m.harness_verify
+    _logs = _m.build_log_rows(proj)
 except (Exception, SystemExit):  # a broken or old generator: the generator's own run reports it
     pass
 d = json.load(open(src, encoding="utf-8"))
@@ -593,12 +596,14 @@ CLS = {"built": "st-built", "not built": "st-todo", "pending a person": "st-pers
 phases = d.get("phases", [])
 all_steps = [s for p in phases for s in p["steps"]]
 tally = {"built": 0, "not built": 0, "pending a person": 0, "partial": 0, "blocked": 0, "skipped": 0, None: 0}
-EVK = {"built": "built", "todo": "not built", "partial": "partial"}
+by_n = {str(s["number"]): s for s in all_steps}
 for s in all_steps:
-    hv = harness_verify(proj, s["kind"], s["step"], s["state"])
-    s["_ev"] = (EVK[hv[0]],) + tuple(hv[1:]) if hv else None
+    try: hv = harness_verify(proj, s, by_n, _logs)
+    except Exception: hv = None   # an older progress-report.py beside this script: State decides
+    # (class for the tally, State cell text, drift flag); only "built" overrides the State reading
+    s["_ev"] = (("built" if hv[0] == "built" else classify(s["state"])),) + tuple(hv[1:]) if hv else None
     tally[s["_ev"][0] if s["_ev"] else classify(s["state"])] += 1
-ev_rows = sum(1 for s in all_steps if s["_ev"])
+ev_rows = sum(1 for s in all_steps if s["_ev"] and s["_ev"][2])
 named_total = named_done = drift_rows = 0
 rows_html = []
 for p in phases:
@@ -630,7 +635,7 @@ for p in phases:
         st = e(s["state"])
         if s["_ev"]:
             k = s["_ev"][0]
-            st = '%s<div class=drift>&#9888; %s</div>' % (e(s["_ev"][1]), e(s["_ev"][2]))
+            st = e(s["_ev"][1]) + ('<div class=drift>&#9888; %s</div>' % e(s["_ev"][2]) if s["_ev"][2] else "")
         out.append('<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td class="%s">%s</td><td>%s</td></tr>' % (
             e(s["number"]), e(s["kind"]), ec(s["step"]), ec(s["produces"]),
             e(", ".join(s["dependsOn"])), CLS[k], st, disk))
@@ -646,7 +651,7 @@ print("<p class=lede>From <code>architecture/build-plan.md</code>: %s, %s: "
       tally["pending a person"],
       (", %d not needed" % tally["skipped"]) if tally["skipped"] else "",
       (", <b class=st-unknown>%d with a State cell this page cannot read</b>" % tally[None]) if tally[None] else "")
-      + ("<p class=note><span class=drift>&#9888; %s where State and the verify-module.sh summary disagree (shown in State).</span></p>" % plural(ev_rows, "HARNESS row") if ev_rows else ""))
+      + ("<p class=note><span class=drift>&#9888; %s where State and the verify evidence (summary, LOOK report) disagree, or the evidence is incomplete (shown in State).</span></p>" % plural(ev_rows, "HARNESS row") if ev_rows else ""))
 if named_total:
     print("<p class=note>Scripts named in the plan: %d, of which %d are renamed <code>done-</code> under <code>mdlsource/</code>.%s</p>" % (
         named_total, named_done,

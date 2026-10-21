@@ -11,6 +11,9 @@
 #   L2  hook run from a lane folder outside the project (CLAUDE_PROJECT_DIR set) writes a seen row
 #   L3  bin/look-ledger.sh missing: exit 0, one hook.log line and one stderr line over two Reads
 #   L4  a settings.json holding the old relative hook gets it rewritten in place, not duplicated
+#   L5  old and new hook side by side (and a second new copy): one look hook remains
+#   L6  no .claude/ under the root to log into: stderr says so without claiming "logged once"
+#   L7  doctor.sh flags ANY look hook not in the root-resolving form, not only the exact old string
 #
 # Usage: bash tests/wave2/test-look-hook-cwd.sh [path-to-install-claude-permissions.sh]
 set -uo pipefail
@@ -82,5 +85,31 @@ cmds="$(hook_cmds "$Q/.claude/settings.json")"
     && printf '%s' "$cmds" | grep -q CLAUDE_PROJECT_DIR; } \
   && ok "L4: the old relative hook is flagged by --check and rewritten in place (one look hook)" \
   || bad "L4: check rc before/after $crc/$crc2" "$cmds"
+
+D2="$WORK/dup"; mkdir -p "$D2/.claude"
+"$PY" - "$D2/.claude/settings.json" "$CMD" <<'PY'
+import json, sys
+new = {"type": "command", "command": sys.argv[2]}
+old = {"type": "command", "command": "bash bin/look-ledger.sh seen || true"}
+d = {"hooks": {"PostToolUse": [{"matcher": "Read", "hooks": [old, new]}, {"matcher": "Read", "hooks": [dict(new)]}]}}
+open(sys.argv[1], "w").write(json.dumps(d, indent=2) + "\n")
+PY
+"$SUT" "$D2" --hooks-only --check >/dev/null 2>&1; drc=$?
+"$SUT" "$D2" --hooks-only >/dev/null 2>&1
+dc="$(hook_cmds "$D2/.claude/settings.json" | grep -c look-ledger)"
+{ [ "$drc" = 1 ] && [ "$dc" = 1 ] && hook_cmds "$D2/.claude/settings.json" | grep -q CLAUDE_PROJECT_DIR; } \
+  && ok "L5: old + new + a second copy: --check flags it, install leaves one look hook" || bad "L5: check rc $drc, look hooks after install: $dc"
+
+mkdir -p "$WORK/bare"
+read_png "$WORK/lane" "$WORK/bare"
+{ [ "$rc" = 0 ] && grep -q 'no bin/look-ledger.sh' "$WORK/err.$n" && ! grep -q 'logged once' "$WORK/err.$n"; } \
+  && ok "L6: nothing to log into: stderr names the problem, no 'logged once' claim" || bad "L6" "$(cat "$WORK/err.$n")"
+
+DL="$(grep -F "grep -F 'look-ledger.sh seen'" "$TK/bin/doctor.sh" | head -1)"
+printf '{\n  "hooks": {"PostToolUse": [{"matcher": "Read", "hooks": [{"type": "command", "command": "bash ./bin/look-ledger.sh seen 2>/dev/null"}]}]}\n}\n' > "$WORK/hand.json"
+gap="$( [ -n "$DL" ] && PSET="$WORK/hand.json" HOOK_GAP="" bash -c "$DL"'; printf %s "$HOOK_GAP"')"
+gap2="$( [ -n "$DL" ] && PSET="$P/.claude/settings.json" HOOK_GAP="" bash -c "$DL"'; printf %s "$HOOK_GAP"')"
+{ printf '%s' "$gap" | grep -q 'project root' && [ -z "$gap2" ]; } \
+  && ok "L7: doctor flags a hand-written relative look hook, not the installed one" || bad "L7: doctor gap '$gap' / '$gap2'"
 
 echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

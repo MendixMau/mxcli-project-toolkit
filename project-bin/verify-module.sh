@@ -587,21 +587,32 @@ for _t in "$ROOT"/tests/*.test.sh "$ROOT"/tests/*/*.test.sh; do
   esac
 done
 
-# Playwright, probed once, from where the harness requires it (tests/e2e/). Without it journeys,
-# monkey and the rendered design audit each FAULTed with their own wording (#446: 16 of 19 design
-# audit faults); now one row names the one fix and the dependent rungs say they were not run.
+# The e2e harness dependencies (playwright; axe-core for the rendered design audit), probed once,
+# from where the harness scripts sit (JOURNEY_RUNNER / MONKEY_JS / DESIGN_AUDIT_JS when set, else
+# tests/e2e/). Without them journeys, monkey and the rendered design audit each FAULTed with their
+# own wording (#446: 16 of 19 design audit faults); now one row names the one fix and the
+# dependent rungs say they were not run. PW_OK gates journeys + monkey, AXE_OK the rendered audit.
 PW_FIX="(cd \"$ROOT\" && npm install playwright axe-core && npx playwright install chromium)"
-PW_OK=1
-if [ -f "${JOURNEY_RUNNER:-$ROOT/tests/e2e/journey-runner.js}" ] || [ -f "${MONKEY_JS:-$ROOT/tests/e2e/monkey.js}" ] \
-   || [ -f "${DESIGN_AUDIT_JS:-$ROOT/tests/e2e/design-audit.js}" ]; then
+PW_OK=1; AXE_OK=1; _E2E_DIRS=()
+for _j in "${JOURNEY_RUNNER:-$ROOT/tests/e2e/journey-runner.js}" "${MONKEY_JS:-$ROOT/tests/e2e/monkey.js}" \
+          "${DESIGN_AUDIT_JS:-$ROOT/tests/e2e/design-audit.js}"; do
+  [ -f "$_j" ] && _E2E_DIRS+=("$(dirname "$_j")")
+done
+if [ "${#_E2E_DIRS[@]}" -gt 0 ]; then
   if ! command -v node >/dev/null 2>&1; then
-    PW_OK=0
-    fault "playwright (e2e harness dependency)" "node is not installed" \
-          "Install Node.js LTS, then: $PW_FIX. Journeys, monkey and the rendered design audit need it."
-  elif ! node -e 'require.resolve("playwright", { paths: [process.argv[1]] })' "$ROOT/tests/e2e" >/dev/null 2>&1; then
-    PW_OK=0
-    fault "playwright (e2e harness dependency)" "playwright is not installed for tests/e2e" \
-          "The one fix: $PW_FIX. Journeys, monkey and the rendered design audit need it and are not run."
+    PW_OK=0; AXE_OK=0; _E2E_MISSING="node"
+  else
+    _E2E_MISSING="$(node -e 'const p = process.argv.slice(1); for (const m of ["playwright", "axe-core"])
+      { try { require.resolve(m, { paths: p }) } catch (e) { console.log(m) } }' "${_E2E_DIRS[@]}" 2>/dev/null | tr '\n' ' ')"
+    case "$_E2E_MISSING" in *playwright*) PW_OK=0; AXE_OK=0 ;; esac
+    case "$_E2E_MISSING" in *axe-core*) AXE_OK=0 ;; esac
+  fi
+  _E2E_MISSING="${_E2E_MISSING% }"
+  if [ -n "$_E2E_MISSING" ]; then
+    _fix="$PW_FIX"; [ "$_E2E_MISSING" = node ] && _fix="install Node.js LTS, then $PW_FIX"
+    _dep="the rendered design audit"; [ "$PW_OK" -eq 0 ] && _dep="journeys, monkey and $_dep"
+    fault "e2e harness dependency" "not installed: $_E2E_MISSING" \
+          "The one fix: $_fix. Not run because of it: $_dep."
   fi
 fi
 
@@ -649,7 +660,7 @@ else
     fault "journeys" "no journey runner at ${JOURNEY_RUNNER#$ROOT/}" \
           "Set JOURNEY_RUNNER, or see the journey-proof.md skill for the harness this expects."
   elif [ "$PW_OK" -eq 0 ]; then
-    printf 'journeys\tSKIPPED\t0\t-\t(not run: needs playwright, see the playwright row)\n' >> "$SUMMARY"
+    printf 'journeys\tSKIPPED\t0\t-\t(not run: needs playwright, see the e2e harness dependency row)\n' >> "$SUMMARY"
   else
     _exec "journeys (UI + ordered spans + data effects)" "$OUTDIR/20-journeys.log" gate "${VM_TMO_JOURNEYS:-900}" -- \
       node "$JOURNEY_RUNNER" "$JOURNEY"
@@ -675,7 +686,7 @@ else
     fault "monkey" "not installed at ${MONKEY_JS#$ROOT/}" \
           "Set MONKEY_JS, or see journey-proof.md for the harness this expects. Crash-on-input for $MODULE is UNMEASURED — its findings are informational, its absence is not."
   elif [ "$PW_OK" -eq 0 ]; then
-    printf 'monkey\tSKIPPED\t0\t-\t(not run: needs playwright, see the playwright row)\n' >> "$SUMMARY"
+    printf 'monkey\tSKIPPED\t0\t-\t(not run: needs playwright, see the e2e harness dependency row)\n' >> "$SUMMARY"
   else
     # info, not gate: on one project the monkey pass scored 0 fail while its scripted journeys found
     # all 9 real defects. It is a crash net. Letting it gate the module would give it an authority
@@ -709,7 +720,7 @@ DESIGN_AUDIT_JS="${DESIGN_AUDIT_JS:-$ROOT/tests/e2e/design-audit.js}"
 if [ ! -f "$DESIGN_AUDIT_JS" ]; then
   fault "design audit (rungs 6-7 — UI/a11y, informational)" "not installed at ${DESIGN_AUDIT_JS#$ROOT/}" \
         "Set DESIGN_AUDIT_JS, or see harness-architecture.md §6 for the instrument this expects. UI/a11y quality for $MODULE is UNMEASURED — it never gates a run even when present."
-elif [ "${STACK_OK:-0}" -eq 1 ] && [ "$PW_OK" -eq 1 ]; then
+elif [ "${STACK_OK:-0}" -eq 1 ] && [ "$AXE_OK" -eq 1 ]; then
   run "design audit (rungs 6-7 — UI/a11y, informational)" "$OUTDIR/40-design-audit.log" info 900 -- \
     node "$DESIGN_AUDIT_JS"
 else
@@ -759,6 +770,11 @@ else
   echo "  report: NOT PRODUCED this run — see the report rows above; the verdict below is"
   echo "          unaffected (the report renders evidence, it does not add any)."
 fi
+
+# The last row says the run reached its verdict (#446 review). A summary without it was cut short
+# (interrupted, killed, crashed) and is not evidence; readers key on the name `verdict`.
+if [ "$FAULTED" -gt 0 ]; then _v=INCOMPLETE; elif [ "$FINDINGS" -gt 0 ]; then _v=FINDINGS; else _v=CLEAN; fi
+printf 'verdict\t%s\t-\t-\t(%s fault(s), %s with findings)\n' "$_v" "$FAULTED" "$FINDINGS" >> "$SUMMARY"
 
 if [ "$FAULTED" -gt 0 ]; then
   echo ""

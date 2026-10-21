@@ -31,12 +31,15 @@
 # before 10-b; no `sort -V`, older macOS sort lacks it) and a leading `done-` ignored
 # (iterative-build-loop.md renames an executed script done-<name>).
 #
-# "O's write is live". Neither S nor O has ever run on this machine → S is new: nothing. Else the
+# "O's write is live". Neither S nor O has ever run → S is new: nothing. "Has run" is any of: a
+# ledger row, a `done-` file name, or a docs/BUILD-LOG.md row naming it in backticks whose result
+# says applied (the done-drift-check.sh pattern). The last two are committed, so a fresh clone or
+# cloud session, whose ledger is empty, still sees a replay over committed newer work. Else the
 # LAST-WRITER LEDGER: last writer is S or a script before S → O's work is not in the model. Else ONE
 # DESCRIBE per document (absent → nothing to revert, e.g. a fresh model), at most 5 per check; the
 # rest print as UNCHECKED. No ./mxcli → REVERT. The ledger knows only exec.sh's writes: restore-mpr.sh
-# appends a RESTORE row and rows before the last one are ignored (DESCRIBE decides again); a
-# Studio Pro edit is invisible to it.
+# appends a RESTORE row and rows before the last one are ignored (DESCRIBE decides again). It cannot
+# see a Studio Pro edit, nor a `git pull` / `git checkout` that changes the .mpr.
 #
 # LEDGER: <root>/.claude/loop/script-owners/written.tsv, epoch <tab> key <tab> KIND Module.Name
 # (key = root-relative path, done- removed), or epoch <tab> RESTORE <tab> <snapshot>. MACHINE-LOCAL,
@@ -156,8 +159,13 @@ so_last_writer() {  # $1 = root, $2 = "KIND Module.Name"; rows before the last R
   [ -f "$1/$LEDGER_REL" ] || return 0
   awk -F'\t' -v d="$2" '$2 == "RESTORE" { w = "" } $3 == d { w = $2 } END { if (w != "") print w }' "$1/$LEDGER_REL"
 }
-so_has_run() {  # $1 = root, $2 = ledger key → true when that script has any ledger row
-  [ -f "$1/$LEDGER_REL" ] && awk -F'\t' -v k="$2" '$2 == k { f = 1; exit } END { exit !f }' "$1/$LEDGER_REL"
+so_has_run() {  # $1 = root, $2 = root-relative script path → true when it has run (see header)
+  local b; b="$(basename "$2")"
+  case "$b" in done-*) return 0 ;; esac
+  if [ -f "$1/$LEDGER_REL" ] && awk -F'\t' -v k="$(so_sortkey "$2")" '$2 == k { f = 1; exit } END { exit !f }' "$1/$LEDGER_REL"; then
+    return 0
+  fi
+  [ -f "$1/docs/BUILD-LOG.md" ] && awk -F'|' -v n="\`$b\`" 'index($3, n) && $5 ~ /applied/ { f = 1; exit } END { exit !f }' "$1/docs/BUILD-LOG.md"
 }
 so_rel() {  # $1 = script, $2 = root → root-relative path, or "" outside the root
   local abs; abs="$(cd "$(dirname "$1")" 2>/dev/null && pwd)/$(basename "$1")"
@@ -220,7 +228,7 @@ case "$cmd" in
     [ -f "${2:-}" ] || usage
     S="$2"; ROOT="$(so_root "${3:-}")"
     S_REL="$(so_rel "$S" "$ROOT")"; S_KEY="$(so_key "$S")"
-    S_RAN=0; [ -n "$S_REL" ] && so_has_run "$ROOT" "$(so_sortkey "$S_REL")" && S_RAN=1
+    S_RAN=0; [ -n "$S_REL" ] && so_has_run "$ROOT" "$S_REL" && S_RAN=1
     DOCS="$(so_docs "$S" | awk -F'\t' '$4 != "create" { print $1 " " $2 }' | LC_ALL=C sort -u)"
     [ -n "$DOCS" ] || exit 0
     # Only scripts containing a restated document's bare name are lexed (quoted or not, it is in
@@ -237,7 +245,7 @@ case "$cmd" in
     # rc 0: O's work on doc $1 is not in the model; 1: it is (or unknown); 2: DESCRIBE cap reached.
     not_live() {  # $1 = "KIND Module.Name", $2 = O
       local w live rc=1
-      if [ "$S_RAN" = 0 ] && ! so_has_run "$ROOT" "$(so_sortkey "$2")"; then return 0; fi   # S is new
+      if [ "$S_RAN" = 0 ] && ! so_has_run "$ROOT" "$2"; then return 0; fi   # S is new
       case "$NL_SEEN" in *"|$1="*) rc="${NL_SEEN#*"|$1="}"; return "${rc%%|*}" ;; esac
       w="$(so_last_writer "$ROOT" "$1")"
       if [ -n "$w" ] && [ -n "$S_REL" ] && { [ "$w" = "$(so_sortkey "$S_REL")" ] || so_before "$w" "$S_REL"; }; then

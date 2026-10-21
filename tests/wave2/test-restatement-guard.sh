@@ -68,7 +68,7 @@ OUT="$(rchk mdlsource/11-fixes/b.mdl)"; RC=$?
 [ "$RC" -eq 0 ] && has "forward exec of 11-fixes: NOTE, older owner 2-core" "$OUT" "NOTE	MICROFLOW Sales.ACT_ApprovalStep_Reject	mdlsource/2-core/a.mdl	older owner" || bad "11-fixes rc $RC: $OUT"
 hasnt "  not called a replay" "$OUT" "REVERT"
 OUT="$(rchk mdlsource/ph/done-10-b.mdl)"; RC=$?
-[ "$RC" -eq 0 ] && has "forward exec of 10-b: older owner 9-a" "$OUT" "older owner mdlsource/ph/9-a.mdl" || bad "10-b rc $RC: $OUT"
+[ "$RC" -eq 0 ] && hasnt "re-run of done-10-b (it has run): 9-a is older, not a replay" "$OUT" "REVERT" || bad "10-b rc $RC: $OUT"
 
 # ── check + ledger, without an mxcli ─────────────────────────────────────────
 echo "-- check and ledger"
@@ -116,6 +116,23 @@ T="$WORK/twotree"; mkdir -p "$T/app/mdlsource"; cp "$REJ" "$T/app/mdlsource/05-r
 OUT="$(bash "$OWNERS" count "$T" 2>&1)"
 [ "$OUT" = "1 1" ] && ok "two-tree: app/mdlsource/ found (1 of 1 co-owned)" || bad "two-tree count '$OUT'"
 
+echo "-- fresh clone (empty ledger): committed evidence that the newer owner ran"
+F="$WORK/clone"; mkdir -p "$F/mdlsource" "$F/docs"
+cp "$REJ" "$F/mdlsource/05-reject.mdl"
+{ echo "-- supersedes: 05-reject.mdl"; fix "A reason is required."; } > "$F/mdlsource/done-09-reject-fix.mdl"
+fchk() { ( cd "$F" && PROJECT_ROOT="$F" bash "$OWNERS" check "$1" "$F" ) 2>&1; }
+OUT="$(fchk mdlsource/05-reject.mdl)"; RC=$?
+[ "$RC" -eq 1 ] && has "done-09 supersedes 05, replay 05, no ledger: REVERT" "$OUT" "REVERT	MICROFLOW Sales.ACT_ApprovalStep_Reject	mdlsource/done-09-reject-fix.mdl" || bad "done- evidence rc $RC: $OUT"
+mv "$F/mdlsource/done-09-reject-fix.mdl" "$F/mdlsource/09-reject-fix.mdl"
+OUT="$(fchk mdlsource/05-reject.mdl)"; RC=$?
+[ "$RC" -eq 0 ] && [ -z "$OUT" ] && ok "09 never run (draft-ahead), no ledger: quiet" || bad "draft-ahead rc $RC: $OUT"
+printf '| when (ISO-8601 local) | script | gate | result | detail |\n|---|---|---|---|---|\n| 2026-10-20T10:00:00+0000 | `09-reject-fix.mdl` | pass | ✅ applied | mxbuild clean |\n' > "$F/docs/BUILD-LOG.md"
+OUT="$(fchk mdlsource/05-reject.mdl)"; RC=$?
+[ "$RC" -eq 1 ] && has "BUILD-LOG ✅ applied row for 09, no ledger: REVERT" "$OUT" "REVERT	MICROFLOW Sales.ACT_ApprovalStep_Reject	mdlsource/09-reject-fix.mdl" || bad "BUILD-LOG evidence rc $RC: $OUT"
+printf '| when (ISO-8601 local) | script | gate | result | detail |\n|---|---|---|---|---|\n| 2026-10-20T10:00:00+0000 | `09-reject-fix.mdl` | fail | ❌ gate failed | script rolled back |\n' > "$F/docs/BUILD-LOG.md"
+OUT="$(fchk mdlsource/05-reject.mdl)"; RC=$?
+[ "$RC" -eq 0 ] && [ -z "$OUT" ] && ok "a rolled-back BUILD-LOG row is not 'has run': quiet" || bad "rolled-back row rc $RC: $OUT"
+
 # ── fixture project for live + exec.sh ───────────────────────────────────────
 P="$WORK/proj"
 mkdir -p "$P/bin" "$P/mprcontents" "$P/mdlsource" "$P/live"
@@ -158,6 +175,7 @@ MXCLI
 cat > "$WORK/mxbuild" <<'MXB'
 #!/usr/bin/env bash
 OUT=""; for a in "$@"; do case "$a" in --write-errors=*) OUT="${a#--write-errors=}" ;; esac; done
+if [ "${FAIL_GATE:-0}" = 1 ]; then printf '{"problems":[{"severity":"Error","errorCode":"CE1234","message":"boom"}]}' > "$OUT"; exit 0; fi
 [ -n "$OUT" ] && printf '{"problems":[]}' > "$OUT"; exit 0
 MXB
 chmod +x "$P/bin/"*.sh "$P/mxcli" "$WORK/mxbuild"
@@ -211,6 +229,15 @@ hasnt "happy path: no WARN/NOTE" "$OUT" "WARN: restatement"
 [ ! -s "$P/describe.log" ] && ok "happy path: zero DESCRIBE calls" || bad "happy path ran $(wc -l < "$P/describe.log") DESCRIBE call(s)"
 grep -q "mdlsource/01-solo.mdl	MICROFLOW Sales.ACT_Solo" "$P/.claude/loop/script-owners/written.tsv" 2>/dev/null \
   && ok "a kept write is recorded in the ledger" || bad "no ledger row for the kept write"
+
+echo "-- exec.sh: its own rollback writes no RESTORE marker"
+printf 'create or modify microflow "Sales"."ACT_Broken" ()\nbegin\nend;\n/\n' > "$C/02-broken.mdl"
+LGP="$P/.claude/loop/script-owners/written.tsv"
+OUT="$(FAIL_GATE=1 run mdlsource/02-broken.mdl)"; RC=$(cat "$WORK/rc")
+[ "$RC" -eq 1 ] && has "[setup] the failed gate rolled the write back" "$OUT" "Auto-restored from" || bad "[setup] rollback rc $RC: $(tail -3 "$WORK/out")"
+[ -f "$LGP" ] && ! grep -q 'RESTORE' "$LGP" && ok "rollback: no RESTORE row in the ledger" || bad "rollback wrote a RESTORE row: $(cat "$LGP" 2>/dev/null)"
+hasnt "rollback: the rolled-back script is not recorded" "$(cat "$LGP" 2>/dev/null)" "02-broken.mdl"
+rm -f "$C/02-broken.mdl"
 
 echo "-- exec.sh: 05, then 09 (supersedes 05), replay 05, restore, replay 05"
 cp "$REJ" "$C/05-reject.mdl"

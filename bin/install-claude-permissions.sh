@@ -47,12 +47,12 @@
 # that says at the top of every session whether the model on disk is verified, whether the
 # mxbuild gate can run here, and whether the installed guard scripts are stale. It never blocks.
 #
-# THE SECOND HOOK (2026-10-02): `bash bin/look-ledger.sh seen || true` on PostToolUse, matcher
-# `Read`. Two unattended builds built every page and never opened a screenshot of one; nothing
+# THE SECOND HOOK (2026-10-02): `bin/look-ledger.sh seen`, run from $CLAUDE_PROJECT_DIR (#446,
+# see LOOK_HOOK below), on PostToolUse, matcher `Read`. Two unattended builds built every page and never opened a screenshot of one; nothing
 # could tell, because the only record of a LOOK was a report nobody had to write. This hook
 # writes one ledger row per image the agent actually opens, and gate-check.sh's Stage 5 check
 # joins it against the pages bin/exec.sh built. It ignores every non-image Read, never blocks,
-# and exits 0 even when look-ledger.sh is not installed yet.
+# and exits 0 even when look-ledger.sh is not installed yet (it logs that once).
 #
 # MERGE PATTERN reused from bin/install-claude-hooks.sh (~line 112-206): Python via
 # lib/portable.sh's require_py, a timestamped backup before any write, and a merge that keeps
@@ -241,10 +241,17 @@ if [ "$PROFILE" = full ]; then
 fi
 
 SESSION_HOOK="bash bin/session-check.sh || true"
-LOOK_HOOK="bash bin/look-ledger.sh seen || true"
-# event <TAB> matcher ("" = none) <TAB> command, one hook per line.
+# The look hook runs from the project root, not from the cwd of whoever did the Read (#446). The
+# old form, `bash bin/look-ledger.sh seen || true`, exited 127 from any other cwd (a subagent in
+# a private copy, a shell in app/javasource) and `|| true` hid it: 30 pages owed, 1 seen.
+# Claude Code sets $CLAUDE_PROJECT_DIR for every hook; PROJECT_ROOT is $PWD after the cd, so a
+# Windows-form value reaches look-ledger.sh as Git Bash spells it. A missing script or a failed
+# run is logged ONCE per distinct message to .claude/loop/look/hook.log and printed to stderr.
+LOOK_HOOK='d="${CLAUDE_PROJECT_DIR:-$PWD}"; l="$d/.claude/loop/look/hook.log"; w() { grep -qsF "$1" "$l" && return 0; if [ -d "$d/.claude" ] && mkdir -p "${l%/*}" && printf "%s\t%s\n" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" >> "$l"; then echo "look hook: $1 (logged once to $l)" >&2; else echo "look hook: $1" >&2; fi; }; if [ -f "$d/bin/look-ledger.sh" ]; then (cd "$d" && PROJECT_ROOT="$PWD" bash bin/look-ledger.sh seen) || w "bin/look-ledger.sh seen failed (exit $?)"; else w "no bin/look-ledger.sh under $d"; fi; exit 0'
+LOOK_HOOK_OLD="bash bin/look-ledger.sh seen || true"
+# event <TAB> matcher ("" = none) <TAB> command [<TAB> older form this replaces in place], one per line.
 HOOKS="SessionStart		$SESSION_HOOK
-PostToolUse	Read	$LOOK_HOOK"
+PostToolUse	Read	$LOOK_HOOK	$LOOK_HOOK_OLD"
 
 require_py
 
@@ -260,7 +267,13 @@ settings_path, sidecar_path, mode, hooks_arg, n_allow, n_deny, *rest = sys.argv[
 n_allow, n_deny = int(n_allow), int(n_deny)
 entries, deny_entries, ask_entries = rest[:n_allow], rest[n_allow:n_allow + n_deny], rest[n_allow + n_deny:]
 # (event, matcher, command) per line; matcher "" means the group carries no matcher.
-hook_specs = [tuple(l.split("\t", 2)) for l in hooks_arg.splitlines() if l.strip()]
+hook_specs, legacy = [], {}
+for l in hooks_arg.splitlines():
+    if l.strip():
+        f = l.split("\t", 3)
+        hook_specs.append(tuple(f[:3]))
+        if len(f) > 3 and f[3]:
+            legacy[f[2]] = f[3]
 
 
 def hook_present(d, spec):
@@ -272,6 +285,17 @@ def hook_present(d, spec):
             if h.get("command") == cmd:
                 return True
     return False
+
+
+def extra_copies(d, spec):
+    """Look hooks beyond the one wanted: the older form, or a second copy of the current one."""
+    ev, matcher, cmd = spec
+    old = legacy.get(cmd)
+    if not old:
+        return 0
+    hs = [h for grp in d.get("hooks", {}).get(ev, []) or [] if (grp.get("matcher") or "") == matcher
+          for h in grp.get("hooks", []) or [] if h.get("command") in (cmd, old)]
+    return max(len(hs) - 1, 0) if any(h.get("command") == cmd for h in hs) else 0
 
 
 def hook_label(spec):
@@ -319,7 +343,7 @@ if mode == "check":
     missing = [e for e in entries if e not in allow]
     missing_deny = [e for e in deny_entries if e not in deny]
     missing_ask = [e for e in ask_entries if e not in d.get("permissions", {}).get("ask", [])]
-    missing_hooks = [h for h in hook_specs if not hook_present(d, h)]
+    missing_hooks = [h for h in hook_specs if not hook_present(d, h) or extra_copies(d, h)]
     if missing or missing_deny or missing_ask or missing_hooks:
         print("Missing entries in %s:" % settings_path)
         for m in missing:
@@ -365,11 +389,12 @@ if mode == "uninstall":
             d["permissions"]["ask"] = [e for e in perms["ask"] if e not in added_ask]
     for spec in hook_specs:
         ev, _m, cmd = spec
-        if cmd not in added_hooks or "hooks" not in d or ev not in d["hooks"]:
+        mine = {c for c in (cmd, legacy.get(cmd)) if c and c in added_hooks}
+        if not mine or "hooks" not in d or ev not in d["hooks"]:
             continue
         groups = d["hooks"].get(ev, []) or []
         for grp in groups:
-            grp["hooks"] = [h for h in grp.get("hooks", []) if h.get("command") != cmd]
+            grp["hooks"] = [h for h in grp.get("hooks", []) if h.get("command") not in mine]
         d["hooks"][ev] = [g for g in groups if g.get("hooks")]
         if not d["hooks"][ev]:
             del d["hooks"][ev]
@@ -442,14 +467,45 @@ if ask_entries or "ask" in perms:
     newly_asked = [e for e in ask_entries if e not in ask]
     ask.extend(newly_asked)
 
-new_hooks = []
+new_hooks, replaced = [], []
 for spec in hook_specs:
     if hook_present(d, spec):
+        # Already current: drop any older form and any second copy beside it, so one look hook
+        # runs per Read (an earlier install could leave the old form next to the new one).
+        ev, matcher, cmd = spec
+        if extra_copies(d, spec):
+            seen = False
+            groups = d["hooks"][ev]
+            for grp in groups:
+                if (grp.get("matcher") or "") != matcher:
+                    continue
+                keep = []
+                for h in grp.get("hooks", []) or []:
+                    c = h.get("command")
+                    if c == legacy.get(cmd) or (c == cmd and seen):
+                        if c != cmd:
+                            replaced.append(c)
+                        continue
+                    seen = seen or c == cmd
+                    keep.append(h)
+                grp["hooks"] = keep
+            d["hooks"][ev] = [g for g in groups if g.get("hooks")]
+            new_hooks.append(spec)
         continue
     ev, matcher, cmd = spec
-    grp = {"matcher": matcher} if matcher else {}
-    grp["hooks"] = [{"type": "command", "command": cmd}]
-    d.setdefault("hooks", {}).setdefault(ev, []).append(grp)
+    old_cmd = legacy.get(cmd)
+    # The older form of this hook, written by an earlier run: rewrite it in place, so the project
+    # keeps one look hook rather than gaining a second that writes a duplicate row from the root.
+    olds = [h for grp in d.get("hooks", {}).get(ev, []) or [] if (grp.get("matcher") or "") == matcher
+            for h in grp.get("hooks", []) or [] if old_cmd and h.get("command") == old_cmd]
+    if olds:
+        for h in olds:
+            h["command"] = cmd
+        replaced.append(old_cmd)
+    else:
+        grp = {"matcher": matcher} if matcher else {}
+        grp["hooks"] = [{"type": "command", "command": cmd}]
+        d.setdefault("hooks", {}).setdefault(ev, []).append(grp)
     new_hooks.append(spec)
 
 if HOOKS_ONLY and not new_hooks:
@@ -477,6 +533,7 @@ if newly_added or newly_denied or newly_asked or new_hooks or pruned:
     added_deny.update(newly_denied)
     added_ask.update(newly_asked)
     added_hooks.update(h[2] for h in new_hooks)
+    added_hooks.difference_update(replaced)
     side = {"allow": sorted(added), "deny": sorted(added_deny)}
     if added_ask:
         side["ask"] = sorted(added_ask)
@@ -495,6 +552,8 @@ if newly_added or newly_denied or newly_asked or new_hooks or pruned:
         print("  - " + e)
     for h in new_hooks:
         print("  + " + hook_label(h))
+    for c in replaced:
+        print("  - hook (older form, replaced or removed): " + c)
 else:
     print("All permission entries already present in %s -- nothing to do" % settings_path)
 PY

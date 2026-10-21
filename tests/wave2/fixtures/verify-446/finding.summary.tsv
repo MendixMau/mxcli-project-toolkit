@@ -1,0 +1,15 @@
+instrument	verdict	rc	elapsed	log
+stack (test-stack-up --check)	PASS	0	0s	.claude/loop/verify/MyFirstModule/00-stack.log
+conformance (ledger claims vs live model)	FINDING	1	0s	.claude/loop/verify/MyFirstModule/10-conformance.log
+graph sweep (orphans + wiring shape)	PASS	0	0s	.claude/loop/verify/MyFirstModule/11-graph.log
+coverage (BRD leaves: UNCLAIMED/PHANTOM/DOUBLE)	PASS	0	0s	.claude/loop/verify/MyFirstModule/12-coverage.log
+review (model vs decided — report.json)	INFO	0	0s	.claude/loop/verify/MyFirstModule/13-review.log
+page scope (denominator for the design audit)	INFO	0	0s	.claude/loop/verify/MyFirstModule/39-page-scope.log
+journeys (UI + ordered spans + data effects)	PASS	0	0s	.claude/loop/verify/MyFirstModule/20-journeys.log
+journeys (positive control — MUST detect a broken precondition)	PASS	0	0s	.claude/loop/verify/MyFirstModule/21-journeys-control.log
+monkey (crash net — informational)	INFO	0	0s	.claude/loop/verify/MyFirstModule/30-monkey.log
+design audit (rungs 6-7 — UI/a11y, informational)	INFO	0	0s	.claude/loop/verify/MyFirstModule/40-design-audit.log
+look (module-review.md §4)	SKIPPED	0	-	(judgement pass — not performed by this chain; review-agent owns it)
+report (normalize → docs/report.json)	INFO	0	0s	.claude/loop/verify/MyFirstModule/50-report-normalize.log
+report (render → docs/verification/report.html)	INFO	0	0s	.claude/loop/verify/MyFirstModule/51-report-render.log
+verdict	FINDINGS	-	-	(0 fault(s), 1 with findings)

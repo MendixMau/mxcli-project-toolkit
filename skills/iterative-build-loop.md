@@ -320,8 +320,8 @@ Every MDL script, and every one-off model patch (`--patch`), is applied with `./
 A raw `./mxcli exec` writes no BUILD-LOG row, takes no snapshot and runs no gate, so the change
 shows as "not recorded" to everything that reads the build log (status, done-drift, proof views).
 
-When a guard refuses, the script's change is not in the model, unless exec.sh says the write is kept (exit 4 or 5, ⚠️ PARTIAL) — then do not re-apply it.
-Exit codes (defined in the `exec.sh` header): `0` applied, gate passed · `1` not applied or rolled back, or ⚠️ PARTIAL · `2` usage ·
+When a guard refuses, the script's change is not in the model, unless exec.sh says the write is kept (exit 4 or 5, exit 1 under `Lint gate: hard`, ⚠️ PARTIAL) — then do not re-apply it.
+Exit codes (defined in the `exec.sh` header): `0` applied, gate passed · `1` not applied or rolled back, or ⚠️ PARTIAL (kept: a LINT ROSE under `Lint gate: hard`) · `2` usage ·
 `4` applied, gate passed, lint only (LINT ROSE/BLIND) · `5` applied, UNVERIFIED: run `./bin/verify-model.sh` before the next exec. Most refusals also write a
 BUILD-LOG row (uncommitted model, `--commit-first`, a failed pre-exec check, a gate that could
 not run, PRE-EXISTING errors, a NEW gate error); the plain Studio Pro refusal, the lock refusal and argument errors only print.
@@ -335,7 +335,8 @@ Your move is one of three — **commit, wait, or stop and report** — never an 
 | The mxbuild gate cannot run, even after its own download | Stop and report; run `bin/doctor.sh`. `ALLOW_UNVERIFIED=1` only when the person says so |
 | Pre-exec check or a NEW mxbuild error | Fix the script. That is the gate working |
 | `PRE-EXISTING <codes>` — errors already in the model before this script | Not the script's cause. Stop and report: it needs Studio Pro (e.g. "Update security") or a separate fix script, not a retry |
-| `LINT ROSE` after a clean mxbuild (exit 4, write kept) | Expected often in a growing app, and not a broken script: do not re-apply it. Fix the new lint findings, or stop and report; only the person accepts a rise, with `bin/lint-gate.sh --update-baseline --reason "<why>"` |
+| `lint could not run` with "no baseline yet" (the first exec, usually the scaffold) | Take the first baseline now, with the person: `bin/lint-gate.sh --update-baseline`. Later rises then measure the build, not the template |
+| `LINT ROSE` after a clean mxbuild (exit 4, or 1 under `Lint gate: hard`; write kept) | Expected often in a growing app, and not a broken script: do not re-apply it. Fix the new lint findings, or stop and report; only the person accepts a rise, with `bin/lint-gate.sh --update-baseline --reason "<why>"` |
 | Any other refusal | Read the remedy exec.sh prints and do that; the table above is not the full list of guards |
 
 **Never set `FORCE_EXEC=1` on your own initiative** — only when the person tells you to, naming

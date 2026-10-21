@@ -323,7 +323,8 @@ ps_apply() {
   fi
   note "repairing through bin/exec.sh --patch (snapshot, fix, mxbuild gate, kept only on a verified gate)…"
   _psa_rc=0
-  ( cd "$PROJECT_DIR" && ./bin/exec.sh --patch "$TOOLKIT_ROOT/bin/doctor.sh" --property-sets-apply-step "$PMXCLI_PROBE" ) || _psa_rc=$?
+  # MXTK_LINT_GATE=soft: under a project's `Lint gate: hard` a kept repair would exit 1 (#496).
+  ( cd "$PROJECT_DIR" && MXTK_LINT_GATE=soft ./bin/exec.sh --patch "$TOOLKIT_ROOT/bin/doctor.sh" --property-sets-apply-step "$PMXCLI_PROBE" ) || _psa_rc=$?
   # exec.sh exit 4 = kept on a passed gate, lint rose (exec.sh "Exit codes"); not a failed repair.
   [ "$_psa_rc" -eq 4 ] && { note "property sets: repair kept; exec.sh reports a lint rise (see its BUILD-LOG row)"; _psa_rc=0; }
   if [ "$_psa_rc" -ne 0 ]; then
@@ -1260,6 +1261,9 @@ if [ -n "$PROJECT_DIR" ]; then
     HOOK_GAP=""
     grep -qF 'bin/session-check.sh' "$PSET" 2>/dev/null || HOOK_GAP="session-check (SessionStart)"
     grep -qF 'bin/look-ledger.sh seen' "$PSET" 2>/dev/null || HOOK_GAP="${HOOK_GAP:+$HOOK_GAP and }look-ledger seen (PostToolUse Read)"
+    # #446: the pre-2026-10-21 relative form records nothing from any cwd but the project root.
+    # Any look hook not in the root-resolving form (one JSON string per line, so per-line is exact).
+    grep -F 'look-ledger.sh seen' "$PSET" 2>/dev/null | grep -vqF 'CLAUDE_PROJECT_DIR' && HOOK_GAP="${HOOK_GAP:+$HOOK_GAP and }look-ledger seen run from the project root (a look hook that does not cd to \$CLAUDE_PROJECT_DIR first records nothing from any other cwd)"
     if [ -n "$HOOK_GAP" ] && [ -f "$PROJECT_DIR/.mxtk/no-hook-repair" ]; then
       ok "hook gap ($HOOK_GAP) accepted: .mxtk/no-hook-repair is set"
     elif [ -n "$HOOK_GAP" ]; then

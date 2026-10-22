@@ -212,6 +212,8 @@ for ns, clusters in sorted(harvest.items()):
             conflicts.append((ns, ck, {v: sorted(spellings[v]) for v in variants}))
 
 # --- act ----------------------------------------------------------------------------------------
+EMPTY_MSG = ("PENDING facts-lock: 0 identifiers found under any known key in %d BRD(s): the lock is empty "
+             "and check proves nothing (keys read: " + ", ".join(k for ks in KEYED.values() for k in ks) + ", *_CODE_SET)")
 if CMD == "build":
     for ns, ck, canon, srcs in new_facts:
         frozen.setdefault(ns, {})[ck] = {"canonical": canon, "sources": srcs}
@@ -229,6 +231,8 @@ if CMD == "build":
     total = sum(len(v) for v in frozen.values())
     print("facts-lock: %d fact(s) frozen across %d namespace(s), from %d BRD(s)" % (total, len(frozen), len(brds)))
     print("            %s" % LOCK)
+    if total == 0 and not conflicts:
+        print(EMPTY_MSG % len(brds))
 
 for src, err in unreadable:
     print("  UNREADABLE  %s — %s (its facts are NOT in the lock)" % (src, err))
@@ -253,7 +257,13 @@ if CMD == "check":
         print("  UNFROZEN   %s/%s is contested (%s) — build has not resolved it" % (ns, ck, "/".join(sorted(sp))))
     if not deviations and not conflicts:
         total = sum(len(v) for v in frozen.values())
-        print("facts-lock: %d BRD(s) agree with all %d frozen fact(s)" % (len(brds), total))
+        if total == 0:
+            # 0 compared is not agreement (#519): a lock with no facts proves nothing.
+            print(EMPTY_MSG % len(brds) if not harvest else
+                  "PENDING facts-lock: the lock holds 0 facts while %d identifier(s) were found in %d BRD(s): run build first; check compared nothing"
+                  % (sum(len(c) for c in harvest.values()), len(brds)))
+        else:
+            print("facts-lock: %d BRD(s) agree with all %d frozen fact(s)" % (len(brds), total))
 
 if unreadable:
     sys.exit(1)

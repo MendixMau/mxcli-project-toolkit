@@ -23,6 +23,7 @@
 #   4. build_mode 'fast'   + empty refs    -> FAULT, as before
 #   4b. refs typed, but none of the orphan-read kinds -> sweeps, with the orphan-list WARNING
 #   5. app-facts: 'source' + calls and action-only both pass the guard; kind-less FAULTs
+#   (case 1 also asserts the orphan list's note on pluggable-widget datasource/action properties)
 #
 # The catalog databases are SYNTHETIC: no real catalog.db is captured in this repo, and the
 # report quotes only the FAULT line and the counts. Tables and columns are exactly the ones the
@@ -119,6 +120,15 @@ for layout in single two; do
     ok "[$layout] orphan finding still reads call edges (SUB_Unused listed, called SUB_Total not)"
   else
     bad "[$layout] orphan finding wrong on a 'source' catalog" "$(out)"
+  fi
+  # The orphan list must say that a flow used only by a pluggable widget's datasource/action
+  # property has no edge, and print the one search that finds the page holding it (it needs
+  # a SOURCE catalog, which this sweep's FULL catalog is not).
+  if grep -q "NOTE: a flow used only as a pluggable widget's datasource or action property may have no edge" "$WORK/out" \
+     && grep -q "REFRESH CATALOG FULL SOURCE" "$WORK/out" && grep -q 'search ".*<Module.Flow>"' "$WORK/out"; then
+    ok "[$layout] orphan list carries the pluggable-widget note and the source-search command"
+  else
+    bad "[$layout] orphan list lacks the pluggable-widget note" "$(out)"
   fi
 
   # --- 2. no microflow-to-microflow calls at all: still sweeps (the review-caught regression) ----

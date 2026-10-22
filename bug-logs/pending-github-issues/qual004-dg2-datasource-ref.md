@@ -1,6 +1,6 @@
 Repo: mendixlabs/mxcli
 Source: toolkit issue #360; `bug-logs/mxcli-bugs.md` BUG-DRAFT-qual004-dg2-datasource
-Status: **NOT FILED.** Reduce to a blank app first: one page, one Data grid 2 on a `DS_` microflow, `mxcli lint`, then the same with a classic list view.
+Status: **FILED — https://github.com/mendixlabs/mxcli/issues/1513 (2026-10-16)**. Not reduced to a blank app, and not retested on v0.27.0 when filed.
 
 --- everything above this line is stripped before filing ---
 

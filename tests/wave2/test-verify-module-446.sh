@@ -19,7 +19,9 @@
 #   V7  JOURNEY_RUNNER set: its own folder is probed; axe-core alone missing faults only the
 #       rendered design audit (journeys and monkey run)
 #   V8  the canvas-facts rung (1c, 14-canvas-facts.log) is an INFO row when mf-canvas-facts.py is
-#       installed and a FAULT row naming the install when it is not
+#       installed; when it is missing (as with no Python on Git Bash) or exits 2 (a flow it
+#       could not decode) the row is still INFO, says NOT MEASURED, and the module verdict is
+#       the same as the installed run's -- the rung is never a gate
 set -uo pipefail
 TK="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SUT="${1:-$TK/project-bin/verify-module.sh}"
@@ -126,10 +128,19 @@ vm MyFirstModule
 { row '^canvas facts' | grep -q '^INFO	.claude/loop/verify/MyFirstModule/14-canvas-facts.log$' \
     && grep -q '^# facts: 0 flows' "$P/.claude/loop/verify/MyFirstModule/14-canvas-facts.log"; } \
   && ok "V8: mf-canvas-facts installed: an INFO row, log 14-canvas-facts.log" || bad "V8: canvas facts row" "$(row '^canvas facts')"
+_v8_verdict="$(row '^verdict')"; _v8_rc=$rc
 mv "$P/bin/mf-canvas-facts.py" "$WORK/stub/mf-canvas-facts.py"
 vm MyFirstModule
-{ row '^canvas facts' | grep -q '^FAULT	' && printf '%s' "$out" | grep -q 'bin/sync-project.sh to install the scripts'; } \
-  && ok "V8: mf-canvas-facts not installed: a FAULT row that says how to install it" || bad "V8: missing instrument" "$(row '^canvas facts')"
+{ row '^canvas facts' | grep -q '^INFO	(NOT MEASURED: ' && printf '%s' "$out" | grep -q 'bin/sync-project.sh to install the scripts' \
+    && [ "$(row '^verdict')" = "$_v8_verdict" ] && [ "$rc" = "$_v8_rc" ]; } \
+  && ok "V8: mf-canvas-facts not installed: INFO NOT MEASURED row, verdict and exit unchanged" \
+  || bad "V8: missing instrument must not gate" "$(row '^canvas facts') / $(row '^verdict') rc=$rc (was $_v8_verdict rc=$_v8_rc)"
+printf 'import sys\nprint("cannot decode flow")\nsys.exit(2)\n' > "$P/bin/mf-canvas-facts.py"; chmod +x "$P/bin/mf-canvas-facts.py"
+vm MyFirstModule
+{ row '^canvas facts' | grep -q '^INFO	' && grep -q 'NOT MEASURED (exit 2)' "$P/.claude/loop/verify/MyFirstModule/14-canvas-facts.log" \
+    && [ "$(row '^verdict')" = "$_v8_verdict" ] && [ "$rc" = "$_v8_rc" ]; } \
+  && ok "V8: mf-canvas-facts exit 2 (undecodable flow): INFO row, verdict and exit unchanged" \
+  || bad "V8: undecodable flow must not gate" "$(row '^canvas facts') / $(row '^verdict') rc=$rc (was $_v8_verdict rc=$_v8_rc)"
 mv "$WORK/stub/mf-canvas-facts.py" "$P/bin/mf-canvas-facts.py"
 
 # Golden summaries for test-progress-harness-verify.sh, written by this subject (CAPTURE=<dir>).

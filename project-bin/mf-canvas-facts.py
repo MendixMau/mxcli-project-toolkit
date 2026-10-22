@@ -3,7 +3,7 @@
 
 An INSTRUMENT (skills/skills-over-scripts.md): it prints facts, one line each, and no verdicts.
 Which facts are defects, which are the norm in hand-drawn flows, and how to avoid or repair each
-one is in skills/canvas-readability.md -- read that before acting on this output.
+one is the reviewer's call -- the FACTS list below is the reference; read it before acting.
 
     mf-canvas-facts.py <model> --all                       every microflow and nanoflow
     mf-canvas-facts.py <model> --module Shop [--module M]  the flows of these modules

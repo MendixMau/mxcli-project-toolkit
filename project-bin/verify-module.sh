@@ -229,7 +229,13 @@ _report_result() {
   # failure — the app was never measured, so it is a FAULT, not a FINDING. Scoped to the stack
   # rung's kind on purpose: exit 4 means something else elsewhere (conformance-check.sh: NOT
   # APPLICABLE), so it is not a global remap.
+  # `note:*` is an informational rung that is never a gate even when it could not measure
+  # (canvas facts): checked before `*:2` so its rc 2 is an INFO row, not a FAULT that would
+  # turn the module verdict INCOMPLETE. The log says it was unmeasured.
+  [ "$kind" = note ] && [ "$rc" -ne 0 ] && \
+    echo "NOT MEASURED (exit $rc) — informational rung, does not gate the verdict." >> "$log"
   case "$kind:$rc" in
+    note:*)   verdict=INFO ;;
     *:2)      verdict=FAULT ;;
     stack:4)  verdict=FAULT ;;
     info:*)   verdict=INFO ;;
@@ -250,6 +256,7 @@ _report_result() {
 # run <name> <logfile> <kind> <timeout_s> -- <cmd...>
 #   kind=gate   exit 1 => finding, exit 2 => instrument fault
 #   kind=info   never fails the pass; recorded for the trend line
+#   kind=note   as info, and even exit 2 / timeout stays INFO (never a gate, never a fault)
 #   kind=stack  as gate, plus exit 4 (test-stack-up: port held by another process) => fault
 # Blocks until the instrument finishes.
 run() {
@@ -552,20 +559,23 @@ else
 fi
 
 # ── 1c. Canvas facts: how this module's microflows read in Studio Pro ───────
-# INFO, never a gate (skills/canvas-readability.md). The instrument prints facts, not verdicts:
-# in the one app it was measured on, LEFTWARD and TURN occurred in 5% of hand-drawn flows and in
-# 6% of the generated ones, and a SENSE fact is a prompt to read the true branch. The
-# reviewer judges the log against the skill's table. rc 2 (a flow it could not read, no model)
-# still lands in FAULT: unmeasured, not clean.
+# INFO, never a gate (project-bin/mf-canvas-facts.py header documents the facts). The instrument
+# prints facts, not verdicts: in the one app it was measured on, LEFTWARD and TURN occurred in 5%
+# of hand-drawn flows and in 6% of the generated ones, and a SENSE fact is a prompt to read the
+# true branch. Because it is never a gate, nothing here touches FAULTED: a flow it could not read
+# (rc 2), a timeout, no Python (Git Bash) or no .mpr is an INFO row saying NOT MEASURED.
 _vm_canvas="$(_tool mf-canvas-facts.py)"
 _vm_py="$(resolve_py 2>/dev/null)" || _vm_py=""
+_vm_canvas_name="canvas facts (mf-canvas-facts — informational)"
 if [ -x "$_vm_canvas" ] && [ -n "$_vm_py" ] && [ -n "$_vm_mpr" ]; then
-  run "canvas facts (mf-canvas-facts — informational)" "$OUTDIR/14-canvas-facts.log" info 300 -- \
+  run "$_vm_canvas_name" "$OUTDIR/14-canvas-facts.log" note 300 -- \
     "$_vm_py" -I "$_vm_canvas" "$_vm_mpr" --module "$MODULE"
 else
-  fault "canvas facts (mf-canvas-facts — informational)" \
-        "needs bin/mf-canvas-facts.py (+ mxpatch.py, mxunit_bson.py), Python 3 and the .mpr" \
-        "This module's canvas readability is UNMEASURED. Run bin/sync-project.sh to install the scripts."
+  _vm_canvas_why="needs bin/mf-canvas-facts.py (+ mxpatch.py, mxunit_bson.py), Python 3 and the .mpr"
+  printf '\n\033[1m── %s\033[0m\n' "$_vm_canvas_name"
+  c_warn "  · info"; echo " — NOT MEASURED: $_vm_canvas_why (informational, does not gate)"
+  echo "      Run bin/sync-project.sh to install the scripts."
+  printf '%s\tINFO\t-\t-\t(NOT MEASURED: %s)\n' "$_vm_canvas_name" "$_vm_canvas_why" >> "$SUMMARY"
 fi
 
 # ── 2. Runtime instruments (need the app) ───────────────────────────────────

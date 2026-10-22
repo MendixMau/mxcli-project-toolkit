@@ -2238,6 +2238,14 @@ if [ -n "$STEP_TIMES" ]; then echo "  steps: $STEP_TIMES"; fi
 echo "  Gate passed (mxbuild-clean). If the happy path / coverage checklist is ALSO"
 echo "  verified for this script, rename it now: git mv <path> <path>/done-<name>"
 echo "  (skills/iterative-build-loop.md — a clean gate is necessary, not sufficient)"
+# `create java action ... as $$` writes javasource/<module>/actions/*.java beside the model, and a
+# commit of only the .mpr + mprcontents/ builds here but not in a clone (#540). A hint, never a
+# failure; same model folder as the mprcontents/ dirty check above, so both layouts resolve.
+_ACTSRC=$(git status --porcelain -- "$MODEL_DIR/javasource" "$MODEL_DIR/javascriptsource" 2>/dev/null | head -5 || true)
+if [ -n "$_ACTSRC" ]; then
+  echo "  Action sources changed outside the model (javasource/, javascriptsource/): stage them with the .mpr."
+  echo "$_ACTSRC" | sed 's/^/    /'
+fi
 echo ""
 
 # --- Close the loop in Studio Pro -------------------------------------------

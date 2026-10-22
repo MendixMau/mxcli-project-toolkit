@@ -22,6 +22,9 @@
 #       invoked script's own location (dirname "$0"/..), so copying just bin/ + project-bin/ into
 #       a git-free directory and invoking the copy from there IS a toolkit worktree with no
 #       history — no env override needed.
+#   T5  section 1 drafts every '## ' section of every bug-log file, not only the first of each,
+#       and still skips a later section whose heading the toolkit log carries. Fixture:
+#       fixtures/harvest-learnings/ (see its CAPTURE.md).
 #
 # Usage: bash tests/wave2/test-harvest-learnings.sh /path/to/harvest-learnings.sh
 
@@ -171,6 +174,64 @@ else
     bad "no-git run printed a stale/local-fix summary it never computed"
   else
     ok "no-git run prints no summary line (nothing was actually determined)"
+  fi
+fi
+
+# ---------------------------------------------------------------------------------------------
+# T5: section 1 drafts every section of a multi-section bug log, not only the first. awk's print
+# put a newline after each \x01 delimiter, so sections 2..n began with an empty line, read an
+# empty heading and were skipped: each bug-log file drafted one entry.
+# ---------------------------------------------------------------------------------------------
+echo "== T5: every section of a multi-section bug log is drafted, not only the first =="
+
+FIX5="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fixtures/harvest-learnings"
+if [ ! -f "$CLONE/bin/harvest-learnings.sh" ] || [ ! -f "$CLONE/bug-logs/mxcli-bugs.md" ]; then
+  bad "control: no isolated clone with bug-logs/mxcli-bugs.md (see T1) — fixture cannot run"
+elif [ ! -d "$FIX5/bug-logs" ]; then
+  bad "control: fixture missing at $FIX5/bug-logs"
+else
+  P5="$WORK/multiproj"; mkdir -p "$P5"
+  cp -R "$FIX5/bug-logs" "$P5/bug-logs"
+  # Every fixture heading, stripped the way the harvester strips it.
+  EXPECTED5="$(cat "$FIX5"/bug-logs/*.md | grep '^## ' | sed 's/^## *//; s/[~*`]//g')"
+  N5="$(printf '%s\n' "$EXPECTED5" | grep -c .)"
+  # A later section whose heading the toolkit log already carries must still be filtered out.
+  # Taken with no ~ * or ` in it: the harvester strips those from a heading before matching it
+  # against the log, so a heading that has them never matches and is drafted every time.
+  KNOWN5="$(grep -m1 -E '^## BUG-[0-9]+: [^~*`]+$' "$CLONE/bug-logs/mxcli-bugs.md")"
+  if [ -n "$KNOWN5" ]; then
+    printf '\n%s\n\nA section the toolkit log already carries; never drafted.\n' "$KNOWN5" \
+      >> "$P5/bug-logs/2026-10-13-second-log.md"
+  else
+    bad "control: the clone's bug-logs/mxcli-bugs.md has no plain '## BUG-<n>: ' heading to reuse"
+  fi
+
+  OUT5="$(bash "$CLONE/bin/harvest-learnings.sh" "$P5" --to "$WORK/inbox5" 2>&1)"; RC5=$?
+  DRAFT5="$WORK/inbox5/$STAMP-multiproj-bugs.md"
+  [ "$RC5" -eq 0 ] && ok "exit 0" || bad "exit $RC5, expected 0" "$OUT5"
+  if [ ! -f "$DRAFT5" ]; then
+    bad "no bugs draft written at $DRAFT5" "$OUT5"
+  else
+    GOT5="$(grep -c '^## \[candidate' "$DRAFT5")"
+    if [ "$GOT5" -eq "$N5" ]; then
+      ok "$N5 of $N5 fixture sections drafted, across 2 files"
+    else
+      bad "$GOT5 sections drafted, expected $N5" "$(grep '^## \[candidate' "$DRAFT5")"
+    fi
+    MISSING5=""
+    while IFS= read -r h; do
+      grep -qF "] $h" "$DRAFT5" || MISSING5="$MISSING5$h"$'\n'
+    done <<< "$EXPECTED5"
+    if [ -z "$MISSING5" ]; then
+      ok "every heading drafted by name, the later sections of each file included"
+    else
+      bad "headings not drafted" "${MISSING5%$'\n'}"
+    fi
+    if [ -n "$KNOWN5" ] && grep -qF "${KNOWN5#'## '}" "$DRAFT5"; then
+      bad "a heading the toolkit log carries was drafted (the known-heading filter broke)"
+    else
+      ok "the known heading, added as a later section, is not drafted"
+    fi
   fi
 fi
 

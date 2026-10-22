@@ -51,3 +51,5 @@ All code work is already on master or on its own PR branch.
 - Bigger labelled no-CE no-match set for `bin/bug-lookup.sh`.
 - Existing projects never regenerate completed agent stubs, so they miss the stub-diet savings.
 - `.mpr-snapshots/` missing from the `.gitignore` that `init-project.sh` writes.
+
+> **Newer handoff:** see `handoff/2026-10-22/HANDOFF.md`.

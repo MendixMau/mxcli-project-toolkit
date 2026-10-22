@@ -1,0 +1,8248 @@
+{
+ "modules": {
+  "FeedbackModule": {
+   "entities": [
+    {
+     "id": "QuR3zMhwqEGeed267LSCzg==",
+     "name": "ResponseHelper",
+     "loc": [
+      410.0,
+      595.0
+     ],
+     "kind": "nonpersistent",
+     "generalization": null,
+     "attrs": [
+      {
+       "id": "0F8kH1S44UK+M8kafTJO8Q==",
+       "name": "URL",
+       "type": "String",
+       "len": 0
+      }
+     ]
+    },
+    {
+     "id": "DEj35ZwYB0CS3agytPglAw==",
+     "name": "Feedback",
+     "loc": [
+      690.0,
+      240.0
+     ],
+     "kind": "nonpersistent",
+     "generalization": null,
+     "attrs": [
+      {
+       "id": "14eMktXZLECE2QRMTCo8ig==",
+       "name": "Summary",
+       "type": "String",
+       "len": 200
+      },
+      {
+       "id": "PtQY5aiOtkSBR8zjVcagDQ==",
+       "name": "Description",
+       "type": "String",
+       "len": 0
+      },
+      {
+       "id": "UScUyILK+UKG3kHnoU9ktg==",
+       "name": "SubmitterUUID",
+       "type": "String",
+       "len": 200
+      },
+      {
+       "id": "osjPoWXzKEeSpiW3zfr7vg==",
+       "name": "SubmitterEmail",
+       "type": "String",
+       "len": 200
+      },
+      {
+       "id": "xuwWPu0uhky30mW7ewe0fA==",
+       "name": "SubmitterDisplayName",
+       "type": "String",
+       "len": 200
+      },
+      {
+       "id": "ukZprXInCEKVWfYRjAmpGg==",
+       "name": "ImageB64",
+       "type": "String",
+       "len": 0
+      },
+      {
+       "id": "osM5y171V0+DQgEVOt1mpw==",
+       "name": "ActiveUserRoles",
+       "type": "String",
+       "len": 1000
+      },
+      {
+       "id": "4xoOmIzfhUijyiOiuxohUQ==",
+       "name": "PageName",
+       "type": "String",
+       "len": 0
+      },
+      {
+       "id": "6oFIlX6E80ikU6tp6i5I4g==",
+       "name": "Browser",
+       "type": "String",
+       "len": 400
+      },
+      {
+       "id": "+IaU9kHhC0GDql01/Unqqg==",
+       "name": "EnvironmentURL",
+       "type": "String",
+       "len": 400
+      },
+      {
+       "id": "k5y4ZHzW7UGkbOOMsbuVAw==",
+       "name": "ScreenshotName",
+       "type": "String",
+       "len": 200
+      },
+      {
+       "id": "b3bh7ne6mE6OxcT2PKfx2g==",
+       "name": "AppID",
+       "type": "String",
+       "len": 200
+      },
+      {
+       "id": "uWW/9c2i/kWDXF6cb+SnAQ==",
+       "name": "Priority",
+       "type": "String",
+       "len": 200
+      },
+      {
+       "id": "iW92Q7QkzUi5mSD/ri4C8g==",
+       "name": "ScreenWidth",
+       "type": "Integer",
+       "len": null
+      },
+      {
+       "id": "PyUfyrkEe0aHtwm2cIxP6A==",
+       "name": "ScreenHeight",
+       "type": "Integer",
+       "len": null
+      },
+      {
+       "id": "7SqhuRwIdkWbJwrfWHoeUQ==",
+       "name": "_showEmail",
+       "type": "Boolean",
+       "len": null
+      }
+     ]
+    }
+   ],
+   "associations": [],
+   "annotations": []
+  },
+  "Administration": {
+   "entities": [
+    {
+     "id": "qDAoViD/B0WNE9Q1w0fSvQ==",
+     "name": "Account",
+     "loc": [
+      220.0,
+      140.0
+     ],
+     "kind": "persistent",
+     "generalization": "System.User",
+     "attrs": [
+      {
+       "id": "Zg3AqsF8702o1ouB+h9Udw==",
+       "name": "FullName",
+       "type": "String",
+       "len": 200
+      },
+      {
+       "id": "qvLF+blqYk6cvJUEBTNTdw==",
+       "name": "Email",
+       "type": "String",
+       "len": 200
+      },
+      {
+       "id": "6QbbnEO6TEahqI7uAn5Wow==",
+       "name": "IsLocalUser",
+       "type": "Boolean",
+       "len": null
+      }
+     ]
+    },
+    {
+     "id": "fLGKGDFcHkuwSaOdwQTpzA==",
+     "name": "AccountPasswordData",
+     "loc": [
+      600.0,
+      140.0
+     ],
+     "kind": "nonpersistent",
+     "generalization": null,
+     "attrs": [
+      {
+       "id": "NHzlQtEBcEeCxgriTatpLg==",
+       "name": "OldPassword",
+       "type": "String",
+       "len": 200
+      },
+      {
+       "id": "sRIIXLkE+EupMzWMMykUUw==",
+       "name": "NewPassword",
+       "type": "String",
+       "len": 200
+      },
+      {
+       "id": "zZe1oEgAKkODz9o1FhI2hw==",
+       "name": "ConfirmPassword",
+       "type": "String",
+       "len": 200
+      }
+     ]
+    }
+   ],
+   "associations": [
+    {
+     "id": "t+jc7ebx/U+sWfQc/3KUSQ==",
+     "name": "AccountPasswordData_Account",
+     "type": "Reference",
+     "owner": "Default",
+     "parent": "fLGKGDFcHkuwSaOdwQTpzA==",
+     "child": "qDAoViD/B0WNE9Q1w0fSvQ==",
+     "pc": [
+      0.0,
+      54.0
+     ],
+     "cc": [
+      100.0,
+      54.0
+     ],
+     "cross": false,
+     "parent_qn": "Administration.AccountPasswordData",
+     "child_qn": "Administration.Account"
+    }
+   ],
+   "annotations": []
+  },
+  "NanoflowCommons": {
+   "entities": [
+    {
+     "id": "5urXvj8q4E2Ldsztg4zvVA==",
+     "name": "Geolocation",
+     "loc": [
+      220.0,
+      250.0
+     ],
+     "kind": "nonpersistent",
+     "generalization": null,
+     "attrs": [
+      {
+       "id": "mnWHtr68fEuuSTG3n/FdMQ==",
+       "name": "Timestamp",
+       "type": "DateTime",
+       "len": null
+      },
+      {
+       "id": "eKTwN66/WEKWS0w7GkGTPw==",
+       "name": "Latitude",
+       "type": "String",
+       "len": 200
+      },
+      {
+       "id": "/ua3YOtkQUylAWbe6ykjJg==",
+       "name": "Longitude",
+       "type": "String",
+       "len": 200
+      },
+      {
+       "id": "dc4ykQqQNESaT0Waj49pVQ==",
+       "name": "Altitude",
+       "type": "String",
+       "len": 200
+      },
+      {
+       "id": "YDKWhvQ2Hk+Hf9NH2gtVog==",
+       "name": "Accuracy",
+       "type": "String",
+       "len": 200
+      },
+      {
+       "id": "yyFrjNl0wUWzxkJ/B2JnbQ==",
+       "name": "AltitudeAccuracy",
+       "type": "String",
+       "len": 200
+      },
+      {
+       "id": "TXsoKZZyYkKQFoJGDoIB7w==",
+       "name": "Heading",
+       "type": "String",
+       "len": 200
+      },
+      {
+       "id": "QwViQZv3Ekmt4d/C2dF+UQ==",
+       "name": "Speed",
+       "type": "String",
+       "len": 200
+      }
+     ]
+    },
+    {
+     "id": "LI+zAWe0H06zynttOkM7Ug==",
+     "name": "Position",
+     "loc": [
+      470.0,
+      260.0
+     ],
+     "kind": "nonpersistent",
+     "generalization": null,
+     "attrs": [
+      {
+       "id": "rJSDg+snVEeNRGLhmdPsvQ==",
+       "name": "Latitude",
+       "type": "String",
+       "len": 200
+      },
+      {
+       "id": "pzxug+WRQkCyLfHd5ZIJRA==",
+       "name": "Longitude",
+       "type": "String",
+       "len": 200
+      }
+     ]
+    }
+   ],
+   "associations": [],
+   "annotations": []
+  },
+  "Atlas_Core": {
+   "entities": [],
+   "associations": [],
+   "annotations": []
+  },
+  "MyFirstModule": {
+   "entities": [],
+   "associations": [],
+   "annotations": [
+    {
+     "id": "6RozHl7Kr0eWGGC76BozMw==",
+     "text": "This Domain model defines the data structure of this module. \r\n\r\nAdd new entities and associations to define your database tables and their relations. \r\nWe automatically provision the underlying database for you.\r\n\r\nTo define in-memory data, you can turn off the 'persistable' property on the entity.\r\n\r\nMore info: https://docs.mendix.com/refguide/domain-model",
+     "loc": [
+      60.0,
+      240.0
+     ],
+     "w": 440
+    }
+   ]
+  },
+  "DataWidgets": {
+   "entities": [],
+   "associations": [],
+   "annotations": []
+  },
+  "Atlas_Web_Content": {
+   "entities": [
+    {
+     "id": "aQ1tpc1MyEmqOGeUEkHoLA==",
+     "name": "LoginContext",
+     "loc": [
+      300.0,
+      170.0
+     ],
+     "kind": "nonpersistent",
+     "generalization": null,
+     "attrs": [
+      {
+       "id": "l065Zk+ZZU+MtG08xQhZCg==",
+       "name": "Username",
+       "type": "String",
+       "len": 200
+      },
+      {
+       "id": "EFZO+ZttR062skBS5dhNUA==",
+       "name": "Password",
+       "type": "String",
+       "len": 200
+      },
+      {
+       "id": "gmKLN3Kv90iSFOwfvdgANA==",
+       "name": "RememberMe",
+       "type": "Boolean",
+       "len": null
+      },
+      {
+       "id": "PGLNgJKO7kqSnLm2Tq25+A==",
+       "name": "ValidationMessage",
+       "type": "String",
+       "len": 200
+      }
+     ]
+    }
+   ],
+   "associations": [],
+   "annotations": []
+  },
+  "WebActions": {
+   "entities": [],
+   "associations": [],
+   "annotations": []
+  }
+ },
+ "flows": [
+  {
+   "qn": "FeedbackModule.ACT_SubmitFeedback",
+   "module": "FeedbackModule",
+   "kind": "Nanoflow",
+   "objects": [
+    {
+     "id": "GbaLPYtBTk2Eb0UCwmdstQ==",
+     "type": "StartEvent",
+     "x": -515.0,
+     "y": 125.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "GhhQjfRk2kuBkbmtERxB9Q==",
+     "type": "EndEvent",
+     "x": 980.0,
+     "y": 125.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "wEh5L+1toU+RLGAzKHiBaQ==",
+     "type": "Parameter",
+     "x": -450.0,
+     "y": -155.0,
+     "w": 30.0,
+     "h": 30.0,
+     "parent": null,
+     "label": "Feedback"
+    },
+    {
+     "id": "R4cClfrFqkGFvRvbZJM9FA==",
+     "type": "ActionActivity",
+     "x": -375.0,
+     "y": 125.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Validate Feedback",
+     "kind": "Call",
+     "target": "FeedbackModule.VAL_Feedback",
+     "disabled": false
+    },
+    {
+     "id": "VBeoUIS/4kGjS/2zgZeJgw==",
+     "type": "ExclusiveSplit",
+     "x": -220.0,
+     "y": 125.0,
+     "w": 90.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Feedback form Valid?"
+    },
+    {
+     "id": "u0CJtD/+nkibLREOMT1Ceg==",
+     "type": "EndEvent",
+     "x": -220.0,
+     "y": 285.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "JujjRoTJSUuNNkrUBXJXkQ==",
+     "type": "ActionActivity",
+     "x": -15.0,
+     "y": 125.0,
+     "w": 170.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Send Feedback to Server",
+     "kind": "Call",
+     "target": "FeedbackModule.SUB_Feedback_SendToServer",
+     "disabled": false
+    },
+    {
+     "id": "msoFHfr5TkeaElUKJHNXhQ==",
+     "type": "ActionActivity",
+     "x": 830.0,
+     "y": 125.0,
+     "w": 200.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Reset Stored Feedback Object",
+     "kind": "Call",
+     "target": "FeedbackModule.SUB_Feedback_ResetLocalStorage",
+     "disabled": false
+    },
+    {
+     "id": "dhgzZZUyw0aJs94tZvwBBA==",
+     "type": "ExclusiveSplit",
+     "x": 375.0,
+     "y": 125.0,
+     "w": 90.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "is Success?"
+    },
+    {
+     "id": "DGRzHZ09vE6vsA6XHzpYUg==",
+     "type": "ExclusiveMerge",
+     "x": 375.0,
+     "y": 285.0,
+     "w": 30.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "aW1v2OwqSE+BlS2epolfJg==",
+     "type": "ActionActivity",
+     "x": 590.0,
+     "y": 285.0,
+     "w": 190.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Show page PopupFailure",
+     "kind": "Show page",
+     "target": "FeedbackModule.PopupFailure",
+     "disabled": false
+    },
+    {
+     "id": "Gex2o6CtvUW+T1OIPHfpAg==",
+     "type": "ActionActivity",
+     "x": 590.0,
+     "y": 125.0,
+     "w": 190.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Show page PopupSuccess",
+     "kind": "Show page",
+     "target": "FeedbackModule.PopupSuccess",
+     "disabled": false
+    },
+    {
+     "id": "Gzd9I+5DIUucEuZj5rU5vQ==",
+     "type": "EndEvent",
+     "x": 980.0,
+     "y": 285.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "8IQjC8nWfkaG4/YlOgk1MA==",
+     "type": "ActionActivity",
+     "x": 200.0,
+     "y": 125.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Close page",
+     "kind": "Close page",
+     "target": "",
+     "disabled": false
+    }
+   ],
+   "flows": [
+    {
+     "id": "0iH+D9o3wk28OU8qMccekg==",
+     "from": "GbaLPYtBTk2Eb0UCwmdstQ==",
+     "to": "R4cClfrFqkGFvRvbZJM9FA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "K/F86/q7G0C6/OvM8SeKWA==",
+     "from": "VBeoUIS/4kGjS/2zgZeJgw==",
+     "to": "JujjRoTJSUuNNkrUBXJXkQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": "true"
+    },
+    {
+     "id": "IlgsO3i8lUiqAsSp4jUVUg==",
+     "from": "R4cClfrFqkGFvRvbZJM9FA==",
+     "to": "VBeoUIS/4kGjS/2zgZeJgw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "ziPwYTbKakWIMJcUZ09MEA==",
+     "from": "VBeoUIS/4kGjS/2zgZeJgw==",
+     "to": "u0CJtD/+nkibLREOMT1Ceg==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      15.0
+     ],
+     "dcv": [
+      0.0,
+      -15.0
+     ],
+     "err": false,
+     "label": "false"
+    },
+    {
+     "id": "ssi8LtxQfUifiiQ/fhe0Kw==",
+     "from": "msoFHfr5TkeaElUKJHNXhQ==",
+     "to": "GhhQjfRk2kuBkbmtERxB9Q==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "QMOmQRddfES+P1xe8B1pjA==",
+     "from": "JujjRoTJSUuNNkrUBXJXkQ==",
+     "to": "8IQjC8nWfkaG4/YlOgk1MA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "ucDcltbMR0+RU/0KsLNLJQ==",
+     "from": "dhgzZZUyw0aJs94tZvwBBA==",
+     "to": "Gex2o6CtvUW+T1OIPHfpAg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": "true"
+    },
+    {
+     "id": "uTzgSyRfl0+jAaeDA1MQTQ==",
+     "from": "dhgzZZUyw0aJs94tZvwBBA==",
+     "to": "DGRzHZ09vE6vsA6XHzpYUg==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      15.0
+     ],
+     "dcv": [
+      0.0,
+      -15.0
+     ],
+     "err": false,
+     "label": "false"
+    },
+    {
+     "id": "PYhDww2WyEG9W1iN5CRhsw==",
+     "from": "DGRzHZ09vE6vsA6XHzpYUg==",
+     "to": "aW1v2OwqSE+BlS2epolfJg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "VzkCvwl260+ltRkNf9MDcw==",
+     "from": "Gex2o6CtvUW+T1OIPHfpAg==",
+     "to": "msoFHfr5TkeaElUKJHNXhQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "Kdz/SSqhAE+IUL9kYl+32A==",
+     "from": "aW1v2OwqSE+BlS2epolfJg==",
+     "to": "Gzd9I+5DIUucEuZj5rU5vQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "gj5p9xb7pUmhnI4FbuYUfQ==",
+     "from": "8IQjC8nWfkaG4/YlOgk1MA==",
+     "to": "dhgzZZUyw0aJs94tZvwBBA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "FeedbackModule.ACT_Feedback_TriggerScreenshotMode",
+   "module": "FeedbackModule",
+   "kind": "Nanoflow",
+   "objects": [
+    {
+     "id": "dkGXqq57TkGJ4v7wRj75DA==",
+     "type": "StartEvent",
+     "x": -801.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "xsFgrbxkd0+dC9PhUHPxVg==",
+     "type": "EndEvent",
+     "x": 1108.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "qPBzz3nxM0uWOhzmMEXfRg==",
+     "type": "ActionActivity",
+     "x": -416.0,
+     "y": 200.0,
+     "w": 230.0,
+     "h": 70.0,
+     "parent": null,
+     "label": "JS JS_ToggleFeedbackScreenshotWidget",
+     "kind": "JS",
+     "target": "FeedbackModule.JS_ToggleFeedbackScreenshotWidget",
+     "disabled": false
+    },
+    {
+     "id": "60Ud1y9m60y3w36Lo/iCBQ==",
+     "type": "ActionActivity",
+     "x": 573.0,
+     "y": 200.0,
+     "w": 160.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Change $Feedback",
+     "kind": "Change",
+     "target": "Feedback",
+     "disabled": false
+    },
+    {
+     "id": "5h3H5h2N00Si3BCUmyhmcQ==",
+     "type": "Parameter",
+     "x": -801.0,
+     "y": 35.0,
+     "w": 30.0,
+     "h": 30.0,
+     "parent": null,
+     "label": "Feedback"
+    },
+    {
+     "id": "NY290qPSrUWZtSCjhmvqwA==",
+     "type": "Annotation",
+     "x": -416.0,
+     "y": 360.0,
+     "w": 340.0,
+     "h": 70.0,
+     "parent": null,
+     "label": "This JS Action triggers the Screenshot pop-up mode in the Feedback Widget. \r\nThe widget will send back to the mendix client browser a base64 formatted image."
+    },
+    {
+     "id": "lhmmyAF8gUGor+tvFC+8og==",
+     "type": "ExclusiveSplit",
+     "x": 28.0,
+     "y": 200.0,
+     "w": 90.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "is not Empty?"
+    },
+    {
+     "id": "TcXWeHFeyk6OOyLRs5ajng==",
+     "type": "EndEvent",
+     "x": 28.0,
+     "y": 360.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "R2mZLa5dvE2BQz/B5YyusQ==",
+     "type": "ActionActivity",
+     "x": -661.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Close page",
+     "kind": "Close page",
+     "target": "",
+     "disabled": false
+    },
+    {
+     "id": "ZkFjANMrDEe+U1QI8ffQqA==",
+     "type": "ActionActivity",
+     "x": 973.0,
+     "y": 200.0,
+     "w": 150.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Show page ShareFeedback",
+     "kind": "Show page",
+     "target": "FeedbackModule.ShareFeedback",
+     "disabled": false
+    },
+    {
+     "id": "d3WqVa/QRU6ns95Do7bzBQ==",
+     "type": "ExclusiveSplit",
+     "x": -146.0,
+     "y": 200.0,
+     "w": 90.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Upload Not Cancelled?"
+    },
+    {
+     "id": "tmLAznF8aUmc0XMKmMVeDA==",
+     "type": "ExclusiveMerge",
+     "x": -146.0,
+     "y": 70.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "nI8pQ4PHBk6eT9aoWQWXrg==",
+     "type": "ExclusiveMerge",
+     "x": 783.0,
+     "y": 70.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "acLkFGtaWUWln9qz2Xxp3Q==",
+     "type": "ExclusiveMerge",
+     "x": 783.0,
+     "y": 200.0,
+     "w": 90.0,
+     "h": 60.0,
+     "parent": null
+    },
+    {
+     "id": "OhluJ3yXCUy0LKX2U16now==",
+     "type": "ActionActivity",
+     "x": 223.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "JS JS_isStrictMode",
+     "kind": "JS",
+     "target": "FeedbackModule.JS_isStrictMode",
+     "disabled": false
+    },
+    {
+     "id": "SiBo3ay9sk2kWkagZDJGMQ==",
+     "type": "ExclusiveSplit",
+     "x": 378.0,
+     "y": 200.0,
+     "w": 90.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Strict Mode Disabled?"
+    },
+    {
+     "id": "ir0De1lFK06KoDMEfZ0njQ==",
+     "type": "ExclusiveMerge",
+     "x": 378.0,
+     "y": 360.0,
+     "w": 30.0,
+     "h": 28.0,
+     "parent": null
+    },
+    {
+     "id": "nJdDrbjUPU2Qex6Oilfm/Q==",
+     "type": "ActionActivity",
+     "x": 573.0,
+     "y": 360.0,
+     "w": 210.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "JS JS_SetSingleLocalStorageObjectItem",
+     "kind": "JS",
+     "target": "FeedbackModule.JS_SetSingleLocalStorageObjectItem",
+     "disabled": false
+    },
+    {
+     "id": "YOBqMP4dfEuZEyNY7+8Suw==",
+     "type": "ExclusiveMerge",
+     "x": 783.0,
+     "y": 360.0,
+     "w": 30.0,
+     "h": 30.0,
+     "parent": null
+    }
+   ],
+   "flows": [
+    {
+     "id": "b11oHRjrx0641sCOFGShdA==",
+     "from": "dkGXqq57TkGJ4v7wRj75DA==",
+     "to": "R2mZLa5dvE2BQz/B5YyusQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "PEWuZwJIi0W2ToVdWzX8Zw==",
+     "from": "qPBzz3nxM0uWOhzmMEXfRg==",
+     "to": "d3WqVa/QRU6ns95Do7bzBQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "sIIqMC5Xv0uuxm+daCTBVg==",
+     "from": "60Ud1y9m60y3w36Lo/iCBQ==",
+     "to": "acLkFGtaWUWln9qz2Xxp3Q==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "v7xRxibNi0i53XxLiGZ4mQ==",
+     "from": "NY290qPSrUWZtSCjhmvqwA==",
+     "to": "qPBzz3nxM0uWOhzmMEXfRg==",
+     "oi": 0,
+     "di": 2,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      30.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "+EAQ7sf590a2VPlNHpTRDg==",
+     "from": "lhmmyAF8gUGor+tvFC+8og==",
+     "to": "OhluJ3yXCUy0LKX2U16now==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": "true"
+    },
+    {
+     "id": "9qMV/APAjE291xkKeJF3bQ==",
+     "from": "lhmmyAF8gUGor+tvFC+8og==",
+     "to": "TcXWeHFeyk6OOyLRs5ajng==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      15.0
+     ],
+     "dcv": [
+      0.0,
+      -15.0
+     ],
+     "err": false,
+     "label": "false"
+    },
+    {
+     "id": "eMONuW5m40+CWfFn6Fw8Rw==",
+     "from": "ZkFjANMrDEe+U1QI8ffQqA==",
+     "to": "xsFgrbxkd0+dC9PhUHPxVg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "1RRLH1LW1k+ff8wCD73Iug==",
+     "from": "R2mZLa5dvE2BQz/B5YyusQ==",
+     "to": "qPBzz3nxM0uWOhzmMEXfRg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "BwWKJGchFE2XlVlyQ0dDRg==",
+     "from": "d3WqVa/QRU6ns95Do7bzBQ==",
+     "to": "lhmmyAF8gUGor+tvFC+8og==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": "true"
+    },
+    {
+     "id": "EbkcKhuj602cLCkTL5ceGQ==",
+     "from": "tmLAznF8aUmc0XMKmMVeDA==",
+     "to": "nI8pQ4PHBk6eT9aoWQWXrg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "0W81agAlPkywEmU3qzouVA==",
+     "from": "acLkFGtaWUWln9qz2Xxp3Q==",
+     "to": "ZkFjANMrDEe+U1QI8ffQqA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "FqxDjblwOU+45ycc1dfqTg==",
+     "from": "d3WqVa/QRU6ns95Do7bzBQ==",
+     "to": "tmLAznF8aUmc0XMKmMVeDA==",
+     "oi": 0,
+     "di": 2,
+     "ocv": [
+      0.0,
+      -15.0
+     ],
+     "dcv": [
+      0.0,
+      15.0
+     ],
+     "err": false,
+     "label": "false"
+    },
+    {
+     "id": "PwKcXrXCLUqpaq5nm7yvaA==",
+     "from": "nI8pQ4PHBk6eT9aoWQWXrg==",
+     "to": "acLkFGtaWUWln9qz2Xxp3Q==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      15.0
+     ],
+     "dcv": [
+      0.0,
+      -15.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "Li9VO21JKUK7F/mcveqeAg==",
+     "from": "OhluJ3yXCUy0LKX2U16now==",
+     "to": "SiBo3ay9sk2kWkagZDJGMQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "GeL0X3YcbkK5jHM2IZ8g/w==",
+     "from": "SiBo3ay9sk2kWkagZDJGMQ==",
+     "to": "60Ud1y9m60y3w36Lo/iCBQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": "true"
+    },
+    {
+     "id": "ET7G0+yu7kCHLOV8k0wDdg==",
+     "from": "SiBo3ay9sk2kWkagZDJGMQ==",
+     "to": "ir0De1lFK06KoDMEfZ0njQ==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": "false"
+    },
+    {
+     "id": "Qk4QNnrZ7UGBT3QVPxq+2g==",
+     "from": "ir0De1lFK06KoDMEfZ0njQ==",
+     "to": "nJdDrbjUPU2Qex6Oilfm/Q==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "/WcliVqZ6UCWXM6vxNwGVA==",
+     "from": "nJdDrbjUPU2Qex6Oilfm/Q==",
+     "to": "YOBqMP4dfEuZEyNY7+8Suw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "Ps4PNMVYV0+rcAdnhQX3Cg==",
+     "from": "YOBqMP4dfEuZEyNY7+8Suw==",
+     "to": "acLkFGtaWUWln9qz2Xxp3Q==",
+     "oi": 0,
+     "di": 2,
+     "ocv": [
+      0.0,
+      -15.0
+     ],
+     "dcv": [
+      0.0,
+      15.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "FeedbackModule.ACT_Feedback_ClearImage",
+   "module": "FeedbackModule",
+   "kind": "Nanoflow",
+   "objects": [
+    {
+     "id": "V6UC6BlwN0W2l69YMJYm+g==",
+     "type": "StartEvent",
+     "x": -147.0,
+     "y": 10.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "QS5JuN3XH0aPgsO77ljjSg==",
+     "type": "EndEvent",
+     "x": 375.0,
+     "y": 10.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "7hT/pI6Lg06KBHDeXjiaLg==",
+     "type": "Parameter",
+     "x": -147.0,
+     "y": -155.0,
+     "w": 30.0,
+     "h": 30.0,
+     "parent": null,
+     "label": "Feedback"
+    },
+    {
+     "id": "cpBdWv3MK0SthR6JhTAATg==",
+     "type": "ActionActivity",
+     "x": 11.0,
+     "y": 10.0,
+     "w": 160.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Change $Feedback",
+     "kind": "Change",
+     "target": "Feedback",
+     "disabled": false
+    },
+    {
+     "id": "Cn1RtjnDSkCvmKDwgFymJg==",
+     "type": "ActionActivity",
+     "x": 234.0,
+     "y": 10.0,
+     "w": 204.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "JS JS_SetFeedbackStorageObject",
+     "kind": "JS",
+     "target": "FeedbackModule.JS_SetFeedbackStorageObject",
+     "disabled": false
+    }
+   ],
+   "flows": [
+    {
+     "id": "Df4avuLVXUW6fJML5ZOoZQ==",
+     "from": "V6UC6BlwN0W2l69YMJYm+g==",
+     "to": "cpBdWv3MK0SthR6JhTAATg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "joFhZX+4R0GGh21eIB7CcQ==",
+     "from": "cpBdWv3MK0SthR6JhTAATg==",
+     "to": "Cn1RtjnDSkCvmKDwgFymJg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "Gdshq8odm0Sqe7q2QVXGMw==",
+     "from": "Cn1RtjnDSkCvmKDwgFymJg==",
+     "to": "QS5JuN3XH0aPgsO77ljjSg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "FeedbackModule.ConvertUUIDToURL",
+   "module": "FeedbackModule",
+   "kind": "Microflow",
+   "objects": [
+    {
+     "id": "C3HUzor6OUOFoSlaZceKyg==",
+     "type": "StartEvent",
+     "x": 100.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "KiAeMWcHhEWjYbIlO6E+NA==",
+     "type": "EndEvent",
+     "x": 700.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": "'https://appinsights.mendix.com/link/showfeedback/'+$uuid"
+    },
+    {
+     "id": "e/SpHCGC3UiofPsK6l96JA==",
+     "type": "Parameter",
+     "x": 100.0,
+     "y": 85.0,
+     "w": 30.0,
+     "h": 30.0,
+     "parent": null,
+     "label": "uuid"
+    },
+    {
+     "id": "f+lqSr/ulkm1c9s4ULDHsA==",
+     "type": "Annotation",
+     "x": 205.0,
+     "y": 10.0,
+     "w": 230.0,
+     "h": 50.0,
+     "parent": null,
+     "label": "The URL for the submitted feedback is generated here."
+    }
+   ],
+   "flows": [
+    {
+     "id": "qhumUxBW/E6OGWEBwejViQ==",
+     "from": "C3HUzor6OUOFoSlaZceKyg==",
+     "to": "KiAeMWcHhEWjYbIlO6E+NA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "joPguzvvEUC/yOFOzNB4Yg==",
+     "from": "f+lqSr/ulkm1c9s4ULDHsA==",
+     "to": "KiAeMWcHhEWjYbIlO6E+NA==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      -15.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "Atlas_Web_Content.DS_LoginContext",
+   "module": "Atlas_Web_Content",
+   "kind": "Nanoflow",
+   "objects": [
+    {
+     "id": "CkCfWeksLU25BYuuKIPyNQ==",
+     "type": "StartEvent",
+     "x": 100.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "rsuWMSsEYE+QSM68yWcb0Q==",
+     "type": "EndEvent",
+     "x": 700.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": "$NewLoginContext"
+    },
+    {
+     "id": "Bk1axS69H0mV5u9GFIpwRA==",
+     "type": "ActionActivity",
+     "x": 400.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Create LoginContext",
+     "kind": "Create",
+     "target": "Atlas_Web_Content.LoginContext",
+     "disabled": false
+    }
+   ],
+   "flows": [
+    {
+     "id": "OoKmEj62SU6pbUVTInC3vQ==",
+     "from": "CkCfWeksLU25BYuuKIPyNQ==",
+     "to": "Bk1axS69H0mV5u9GFIpwRA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "pmByS65JOE+lA82LHASMVQ==",
+     "from": "Bk1axS69H0mV5u9GFIpwRA==",
+     "to": "rsuWMSsEYE+QSM68yWcb0Q==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "FeedbackModule.SUB_Feedback_GetOrCreate",
+   "module": "FeedbackModule",
+   "kind": "Nanoflow",
+   "objects": [
+    {
+     "id": "RgKKPWPm80yzNmeToq5jnw==",
+     "type": "StartEvent",
+     "x": -160.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "u2UYwCFLcU2qzAzLoWGp9A==",
+     "type": "EndEvent",
+     "x": 1009.0,
+     "y": 350.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": "$NewFeedback"
+    },
+    {
+     "id": "mbnneh/Nnkux473zAeSxrQ==",
+     "type": "ExclusiveSplit",
+     "x": 608.0,
+     "y": 200.0,
+     "w": 90.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Found?"
+    },
+    {
+     "id": "n55RASndTEmBBueMgi2ANA==",
+     "type": "ExclusiveMerge",
+     "x": 391.0,
+     "y": 350.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "th0yoNmF2kqQke/MA/Lwjw==",
+     "type": "ExclusiveMerge",
+     "x": 608.0,
+     "y": 350.0,
+     "w": 90.0,
+     "h": 60.0,
+     "parent": null
+    },
+    {
+     "id": "NjBLQLzT/kiob6qNHw+60Q==",
+     "type": "ActionActivity",
+     "x": 804.0,
+     "y": 350.0,
+     "w": 140.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Create Feedback",
+     "kind": "Create",
+     "target": "FeedbackModule.Feedback",
+     "disabled": false
+    },
+    {
+     "id": "tQbtvzIb7Uu05LWSRqqvwg==",
+     "type": "EndEvent",
+     "x": 1009.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": "$LocalFeedback"
+    },
+    {
+     "id": "/GwLyNhf3U+gUoZjYIO50A==",
+     "type": "ActionActivity",
+     "x": -4.0,
+     "y": 200.0,
+     "w": 160.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "isStrictMode",
+     "kind": "JS",
+     "target": "FeedbackModule.JS_isStrictMode",
+     "disabled": false
+    },
+    {
+     "id": "Yu1N+zxArE+WOmZ6WRZOoA==",
+     "type": "ExclusiveSplit",
+     "x": 191.0,
+     "y": 200.0,
+     "w": 90.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Strict Mode Disabled?"
+    },
+    {
+     "id": "pR0zX92ePUyjhXgZfMfK2w==",
+     "type": "ExclusiveMerge",
+     "x": 191.0,
+     "y": 519.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "tolMEcvdvkur7seUHuw4iA==",
+     "type": "EndEvent",
+     "x": 1009.0,
+     "y": 519.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": "$StrictModeFeedback"
+    },
+    {
+     "id": "DxinTohPbEuaB+eAYxxq3g==",
+     "type": "ActionActivity",
+     "x": 436.0,
+     "y": 519.0,
+     "w": 238.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Call Get_And_Set_Feedback_NPE",
+     "kind": "Call",
+     "target": "FeedbackModule.Get_And_Set_Feedback_NPE",
+     "disabled": false
+    },
+    {
+     "id": "7CVklWe9W02cYMDlF8OmrQ==",
+     "type": "ActionActivity",
+     "x": 391.0,
+     "y": 200.0,
+     "w": 210.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "JS JS_GetFeedbackStorageObject",
+     "kind": "JS",
+     "target": "FeedbackModule.JS_GetFeedbackStorageObject",
+     "disabled": false
+    }
+   ],
+   "flows": [
+    {
+     "id": "IBq1ZnwZBkCY2JlUYweuLQ==",
+     "from": "RgKKPWPm80yzNmeToq5jnw==",
+     "to": "/GwLyNhf3U+gUoZjYIO50A==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "acg27nBzykKpZYANutAjMA==",
+     "from": "n55RASndTEmBBueMgi2ANA==",
+     "to": "th0yoNmF2kqQke/MA/Lwjw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "4dvzEJ+gE0GcflyrX3uKPQ==",
+     "from": "th0yoNmF2kqQke/MA/Lwjw==",
+     "to": "NjBLQLzT/kiob6qNHw+60Q==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "k/6HdxZrVUGQFpVfsbci1g==",
+     "from": "mbnneh/Nnkux473zAeSxrQ==",
+     "to": "th0yoNmF2kqQke/MA/Lwjw==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      15.0
+     ],
+     "dcv": [
+      0.0,
+      -15.0
+     ],
+     "err": false,
+     "label": "false"
+    },
+    {
+     "id": "+B7cxqKlmUCDIxcBsXK8iQ==",
+     "from": "NjBLQLzT/kiob6qNHw+60Q==",
+     "to": "u2UYwCFLcU2qzAzLoWGp9A==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "Uu8dUeEgm021IPObCRnI1Q==",
+     "from": "mbnneh/Nnkux473zAeSxrQ==",
+     "to": "tQbtvzIb7Uu05LWSRqqvwg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": "true"
+    },
+    {
+     "id": "TRohrsdX/kGR/WZl80GETA==",
+     "from": "/GwLyNhf3U+gUoZjYIO50A==",
+     "to": "Yu1N+zxArE+WOmZ6WRZOoA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "woYHcFH4PUK/qU1gWCiW3g==",
+     "from": "Yu1N+zxArE+WOmZ6WRZOoA==",
+     "to": "pR0zX92ePUyjhXgZfMfK2w==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": "false"
+    },
+    {
+     "id": "EnP6JnMu50+co81rxVpGOw==",
+     "from": "pR0zX92ePUyjhXgZfMfK2w==",
+     "to": "DxinTohPbEuaB+eAYxxq3g==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "49d0cNC300+5dWGO6/xovA==",
+     "from": "DxinTohPbEuaB+eAYxxq3g==",
+     "to": "tolMEcvdvkur7seUHuw4iA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "f1+mtOQCEEewVEUQ96U2cw==",
+     "from": "Yu1N+zxArE+WOmZ6WRZOoA==",
+     "to": "7CVklWe9W02cYMDlF8OmrQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": "true"
+    },
+    {
+     "id": "9gxJ+vr3LEWaz/fjh3CtzQ==",
+     "from": "7CVklWe9W02cYMDlF8OmrQ==",
+     "to": "mbnneh/Nnkux473zAeSxrQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "EuxLLbHi2kyKqgvnffWLXA==",
+     "from": "7CVklWe9W02cYMDlF8OmrQ==",
+     "to": "n55RASndTEmBBueMgi2ANA==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      30.0
+     ],
+     "dcv": [
+      0.0,
+      -15.0
+     ],
+     "err": true,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "FeedbackModule.SUB_Feedback_Sanitize",
+   "module": "FeedbackModule",
+   "kind": "Microflow",
+   "objects": [
+    {
+     "id": "RZsDWUv6FkCC36GXjGN3pA==",
+     "type": "StartEvent",
+     "x": -830.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "TqSSDRX6FkmTqcbYXDpt8Q==",
+     "type": "EndEvent",
+     "x": 1365.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "N9GTA6gK4kW97wXube9P1w==",
+     "type": "Parameter",
+     "x": -830.0,
+     "y": 50.0,
+     "w": 30.0,
+     "h": 30.0,
+     "parent": null,
+     "label": "Feedback"
+    },
+    {
+     "id": "sM03j6KEAU6ZLJQzNTtq9g==",
+     "type": "ActionActivity",
+     "x": -672.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Java XSS_Sanitizer",
+     "kind": "Java",
+     "target": "FeedbackModule.XSS_Sanitizer",
+     "disabled": false
+    },
+    {
+     "id": "gjvrrAmyfE+35WnmU5b/xw==",
+     "type": "ActionActivity",
+     "x": -464.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Java XSS_Sanitizer",
+     "kind": "Java",
+     "target": "FeedbackModule.XSS_Sanitizer",
+     "disabled": false
+    },
+    {
+     "id": "itXzsrttBka0r7E3WVcx5w==",
+     "type": "ActionActivity",
+     "x": -256.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Java XSS_Sanitizer",
+     "kind": "Java",
+     "target": "FeedbackModule.XSS_Sanitizer",
+     "disabled": false
+    },
+    {
+     "id": "lJ/XyJ+YYkazOYkknQxy1g==",
+     "type": "ActionActivity",
+     "x": -48.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Java XSS_Sanitizer",
+     "kind": "Java",
+     "target": "FeedbackModule.XSS_Sanitizer",
+     "disabled": false
+    },
+    {
+     "id": "Jt0hjRbXQEWjsq6jMgv0Mw==",
+     "type": "ActionActivity",
+     "x": 160.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Java XSS_Sanitizer",
+     "kind": "Java",
+     "target": "FeedbackModule.XSS_Sanitizer",
+     "disabled": false
+    },
+    {
+     "id": "WuQZlOAyp0GVY/QLPdb23Q==",
+     "type": "ActionActivity",
+     "x": 368.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Java XSS_Sanitizer",
+     "kind": "Java",
+     "target": "FeedbackModule.XSS_Sanitizer",
+     "disabled": false
+    },
+    {
+     "id": "wMaNL8zDtEKTqspOA5iAJQ==",
+     "type": "ActionActivity",
+     "x": 576.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Java XSS_Sanitizer",
+     "kind": "Java",
+     "target": "FeedbackModule.XSS_Sanitizer",
+     "disabled": false
+    },
+    {
+     "id": "57zD3eQONUWR5Oyxqlfh6A==",
+     "type": "ActionActivity",
+     "x": 784.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Java XSS_Sanitizer",
+     "kind": "Java",
+     "target": "FeedbackModule.XSS_Sanitizer",
+     "disabled": false
+    },
+    {
+     "id": "lwDw0fEGV0eKkAKu7pb/SA==",
+     "type": "ActionActivity",
+     "x": 992.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Java XSS_Sanitizer",
+     "kind": "Java",
+     "target": "FeedbackModule.XSS_Sanitizer",
+     "disabled": false
+    },
+    {
+     "id": "Bo4XxGPlZUKRFc1j0RIKuQ==",
+     "type": "ActionActivity",
+     "x": 1200.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Change $Feedback",
+     "kind": "Change",
+     "target": "Feedback",
+     "disabled": false
+    },
+    {
+     "id": "hAHm36ShIUaWR3N2s7dQYQ==",
+     "type": "Annotation",
+     "x": -640.0,
+     "y": 50.0,
+     "w": 230.0,
+     "h": 50.0,
+     "parent": null,
+     "label": "The feedback is sanitized to prevent XSS."
+    }
+   ],
+   "flows": [
+    {
+     "id": "xdiY3EyKpkC/Gd8ZrmUb/g==",
+     "from": "RZsDWUv6FkCC36GXjGN3pA==",
+     "to": "sM03j6KEAU6ZLJQzNTtq9g==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "Q2bqphhmL02KbMbYqTb7xw==",
+     "from": "sM03j6KEAU6ZLJQzNTtq9g==",
+     "to": "gjvrrAmyfE+35WnmU5b/xw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "h6WM7S10hUCPJyXDOMPztg==",
+     "from": "gjvrrAmyfE+35WnmU5b/xw==",
+     "to": "itXzsrttBka0r7E3WVcx5w==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "Zsdpw/Cm5UCh+vXwyPPhzw==",
+     "from": "itXzsrttBka0r7E3WVcx5w==",
+     "to": "lJ/XyJ+YYkazOYkknQxy1g==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "jjXI4kE+akiC0rRKTCYAcg==",
+     "from": "lJ/XyJ+YYkazOYkknQxy1g==",
+     "to": "Jt0hjRbXQEWjsq6jMgv0Mw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "b6XrSupeiUu819XOIcGFiA==",
+     "from": "Jt0hjRbXQEWjsq6jMgv0Mw==",
+     "to": "WuQZlOAyp0GVY/QLPdb23Q==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "fsaYZK/xjUeHBpSKG6skMA==",
+     "from": "WuQZlOAyp0GVY/QLPdb23Q==",
+     "to": "wMaNL8zDtEKTqspOA5iAJQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "vBhTN94xW0uoPkwk2TkcfQ==",
+     "from": "wMaNL8zDtEKTqspOA5iAJQ==",
+     "to": "57zD3eQONUWR5Oyxqlfh6A==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "Yg9IlmJX3UipbHNKyLv9LA==",
+     "from": "57zD3eQONUWR5Oyxqlfh6A==",
+     "to": "lwDw0fEGV0eKkAKu7pb/SA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "kfvFZJiilU2FwYw/ejpI3w==",
+     "from": "lwDw0fEGV0eKkAKu7pb/SA==",
+     "to": "Bo4XxGPlZUKRFc1j0RIKuQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "ZMqxaK3r3UCOPBspRDHdbg==",
+     "from": "Bo4XxGPlZUKRFc1j0RIKuQ==",
+     "to": "TqSSDRX6FkmTqcbYXDpt8Q==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "FeedbackModule.Get_And_Set_Feedback_NPE",
+   "module": "FeedbackModule",
+   "kind": "Nanoflow",
+   "objects": [
+    {
+     "id": "cW6eflCMm06DOrQ1pL8wqA==",
+     "type": "ActionActivity",
+     "x": -86.0,
+     "y": 519.0,
+     "w": 260.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "JS JS_GetSingleLocalStorageObjectItem",
+     "kind": "JS",
+     "target": "FeedbackModule.JS_GetSingleLocalStorageObjectItem",
+     "disabled": false
+    },
+    {
+     "id": "tBrwX/dJT0OR+X3sF7sQ7w==",
+     "type": "StartEvent",
+     "x": -296.0,
+     "y": 519.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "T69rts/TR0icJQRaUXT3Pg==",
+     "type": "EndEvent",
+     "x": 2756.0,
+     "y": 519.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": "$NewFeedback"
+    },
+    {
+     "id": "UNMKpHKHsU+KM6eyj+FtHA==",
+     "type": "ActionActivity",
+     "x": 243.0,
+     "y": 519.0,
+     "w": 260.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "JS JS_GetSingleLocalStorageObjectItem",
+     "kind": "JS",
+     "target": "FeedbackModule.JS_GetSingleLocalStorageObjectItem",
+     "disabled": false
+    },
+    {
+     "id": "G9YPaCl1PEqLMW2NKxtcYg==",
+     "type": "ActionActivity",
+     "x": 549.0,
+     "y": 519.0,
+     "w": 260.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "JS JS_GetSingleLocalStorageObjectItem",
+     "kind": "JS",
+     "target": "FeedbackModule.JS_GetSingleLocalStorageObjectItem",
+     "disabled": false
+    },
+    {
+     "id": "TuUYlwmuXEyiQvi6LJq24g==",
+     "type": "ActionActivity",
+     "x": 879.0,
+     "y": 519.0,
+     "w": 260.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "JS JS_GetSingleLocalStorageObjectItem",
+     "kind": "JS",
+     "target": "FeedbackModule.JS_GetSingleLocalStorageObjectItem",
+     "disabled": false
+    },
+    {
+     "id": "qoxtBz9V/0iSGYUCUVsQ9g==",
+     "type": "ActionActivity",
+     "x": 1209.0,
+     "y": 519.0,
+     "w": 260.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "JS JS_GetSingleLocalStorageObjectItem",
+     "kind": "JS",
+     "target": "FeedbackModule.JS_GetSingleLocalStorageObjectItem",
+     "disabled": false
+    },
+    {
+     "id": "/mM9Zvn3y0+M3ynidwVyrg==",
+     "type": "ActionActivity",
+     "x": 1539.0,
+     "y": 519.0,
+     "w": 260.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "JS JS_GetSingleLocalStorageObjectItem",
+     "kind": "JS",
+     "target": "FeedbackModule.JS_GetSingleLocalStorageObjectItem",
+     "disabled": false
+    },
+    {
+     "id": "0gldrkAbPEulBQz90oPJYw==",
+     "type": "ActionActivity",
+     "x": 1869.0,
+     "y": 519.0,
+     "w": 260.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "JS JS_GetSingleLocalStorageObjectItem",
+     "kind": "JS",
+     "target": "FeedbackModule.JS_GetSingleLocalStorageObjectItem",
+     "disabled": false
+    },
+    {
+     "id": "qmJl92FvvE6+5ua3zdPeaA==",
+     "type": "ActionActivity",
+     "x": 2199.0,
+     "y": 519.0,
+     "w": 260.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "JS JS_GetSingleLocalStorageObjectItem",
+     "kind": "JS",
+     "target": "FeedbackModule.JS_GetSingleLocalStorageObjectItem",
+     "disabled": false
+    },
+    {
+     "id": "Gh/xDgftgUeGi5Hvz0dJ1w==",
+     "type": "ActionActivity",
+     "x": 2504.0,
+     "y": 519.0,
+     "w": 210.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Create Feedback",
+     "kind": "Create",
+     "target": "FeedbackModule.Feedback",
+     "disabled": false
+    }
+   ],
+   "flows": [
+    {
+     "id": "Mru9Y7HQNEyIwMVCJMm+Bg==",
+     "from": "tBrwX/dJT0OR+X3sF7sQ7w==",
+     "to": "cW6eflCMm06DOrQ1pL8wqA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "mSJ61kiHJE66BOZSbKcxEw==",
+     "from": "cW6eflCMm06DOrQ1pL8wqA==",
+     "to": "UNMKpHKHsU+KM6eyj+FtHA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "g04LcAXH00iijHqfjxntVQ==",
+     "from": "UNMKpHKHsU+KM6eyj+FtHA==",
+     "to": "G9YPaCl1PEqLMW2NKxtcYg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "AH/Vpg3ZU0ScOosySCRCUw==",
+     "from": "G9YPaCl1PEqLMW2NKxtcYg==",
+     "to": "TuUYlwmuXEyiQvi6LJq24g==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "8aaRsmquVEWbut8z9REySQ==",
+     "from": "TuUYlwmuXEyiQvi6LJq24g==",
+     "to": "qoxtBz9V/0iSGYUCUVsQ9g==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "FMBRS2mFQEeKZAfMGA+jDg==",
+     "from": "qoxtBz9V/0iSGYUCUVsQ9g==",
+     "to": "/mM9Zvn3y0+M3ynidwVyrg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "lCvOszAgOE+YzBEFymiHmQ==",
+     "from": "/mM9Zvn3y0+M3ynidwVyrg==",
+     "to": "0gldrkAbPEulBQz90oPJYw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "i6D7yca4J0C/CVbKLuZYRg==",
+     "from": "0gldrkAbPEulBQz90oPJYw==",
+     "to": "qmJl92FvvE6+5ua3zdPeaA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "/wPzekfch0+01dHZEApnLQ==",
+     "from": "qmJl92FvvE6+5ua3zdPeaA==",
+     "to": "Gh/xDgftgUeGi5Hvz0dJ1w==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "2dRy3x2s90udWudTwEk3vg==",
+     "from": "Gh/xDgftgUeGi5Hvz0dJ1w==",
+     "to": "T69rts/TR0icJQRaUXT3Pg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "MyFirstModule.MyFirstLogic",
+   "module": "MyFirstModule",
+   "kind": "Microflow",
+   "objects": [
+    {
+     "id": "YnSuHVnSgkygVUhmo4WQNQ==",
+     "type": "StartEvent",
+     "x": -88.0,
+     "y": 199.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "rMd3RSkQAk+zg6kL4IZHjw==",
+     "type": "EndEvent",
+     "x": 217.0,
+     "y": 199.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "xURKs+Pv+U2eV+54gZ679Q==",
+     "type": "Annotation",
+     "x": 97.0,
+     "y": 35.0,
+     "w": 385.0,
+     "h": 109.0,
+     "parent": null,
+     "label": "Microflows are used to define server logic in your app.\r\n\r\n- For client logic you can use Nanoflows\r\n- For business process logic you can use Workflows\r\n\r\nDocumentation: https://docs.mendix.com/refguide/application-logic"
+    }
+   ],
+   "flows": [
+    {
+     "id": "tCZ8lwGiKkSAKHUntgr4dw==",
+     "from": "YnSuHVnSgkygVUhmo4WQNQ==",
+     "to": "rMd3RSkQAk+zg6kL4IZHjw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "FeedbackModule.ConvertBase64String",
+   "module": "FeedbackModule",
+   "kind": "Microflow",
+   "objects": [
+    {
+     "id": "R6int0TPF06FQSbtELCTaQ==",
+     "type": "StartEvent",
+     "x": 100.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "MOPX0lQb1ky2IXxzE/3ABA==",
+     "type": "EndEvent",
+     "x": 700.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": "substring($ImageB64,find($ImageB64, ',') + 1,length($ImageB64)-22)\n\n"
+    },
+    {
+     "id": "55Wh1zU3NkODKSo8peb2bw==",
+     "type": "Parameter",
+     "x": 100.0,
+     "y": 80.0,
+     "w": 30.0,
+     "h": 30.0,
+     "parent": null,
+     "label": "ImageB64"
+    },
+    {
+     "id": "zys+EMEIYECJ5DcXAIHVkg==",
+     "type": "ExclusiveSplit",
+     "x": 385.0,
+     "y": 200.0,
+     "w": 90.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Has Screenshot?"
+    },
+    {
+     "id": "n0uegnFkj0aK21n7LwmtGg==",
+     "type": "ExclusiveMerge",
+     "x": 385.0,
+     "y": 335.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "Tn/l22Y6BkSKW5EIrjgePA==",
+     "type": "EndEvent",
+     "x": 700.0,
+     "y": 335.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": "empty"
+    },
+    {
+     "id": "jhRWsQn6FEGfWISdSfInBw==",
+     "type": "Annotation",
+     "x": 310.0,
+     "y": 80.0,
+     "w": 290.0,
+     "h": 70.0,
+     "parent": null,
+     "label": "We need to separate the section containing the base64 string. The original value is used to render the base64 on the ShareFeedback page."
+    }
+   ],
+   "flows": [
+    {
+     "id": "64NobSDlt0CQnIJs1eZ+Sg==",
+     "from": "R6int0TPF06FQSbtELCTaQ==",
+     "to": "zys+EMEIYECJ5DcXAIHVkg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "wICv8Cxawk2mHFrb8mP7Ng==",
+     "from": "zys+EMEIYECJ5DcXAIHVkg==",
+     "to": "MOPX0lQb1ky2IXxzE/3ABA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": "true"
+    },
+    {
+     "id": "G1gQfhh6J0aLSxqwY47jyg==",
+     "from": "zys+EMEIYECJ5DcXAIHVkg==",
+     "to": "n0uegnFkj0aK21n7LwmtGg==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      15.0
+     ],
+     "dcv": [
+      0.0,
+      -15.0
+     ],
+     "err": false,
+     "label": "false"
+    },
+    {
+     "id": "TEtNRFhLSUeBRsfOzlMaTw==",
+     "from": "n0uegnFkj0aK21n7LwmtGg==",
+     "to": "Tn/l22Y6BkSKW5EIrjgePA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "fLuI1JvjqUe0/pxUV4W/mQ==",
+     "from": "jhRWsQn6FEGfWISdSfInBw==",
+     "to": "MOPX0lQb1ky2IXxzE/3ABA==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      -15.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "Administration.ShowMyPasswordForm",
+   "module": "Administration",
+   "kind": "Microflow",
+   "objects": [
+    {
+     "id": "pcgRtAPr7EqrOBPR0AvnXQ==",
+     "type": "StartEvent",
+     "x": 100.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "DTbT63qa+k+32qkWHoDpsg==",
+     "type": "EndEvent",
+     "x": 665.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "+f3PRFPJxk6NNQMa0Of3hQ==",
+     "type": "Parameter",
+     "x": 100.0,
+     "y": 0.0,
+     "w": 30.0,
+     "h": 30.0,
+     "parent": null,
+     "label": "Account"
+    },
+    {
+     "id": "0ajGg5bs4kCV2BQTernvdA==",
+     "type": "ActionActivity",
+     "x": 520.0,
+     "y": 200.0,
+     "w": 200.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Show page ChangeMyPasswordForm",
+     "kind": "Show page",
+     "target": "Administration.ChangeMyPasswordForm",
+     "disabled": false
+    },
+    {
+     "id": "sAMOjUvIk0iedqYBrpdkeg==",
+     "type": "ActionActivity",
+     "x": 265.0,
+     "y": 200.0,
+     "w": 230.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Create AccountPasswordData",
+     "kind": "Create",
+     "target": "Administration.AccountPasswordData",
+     "disabled": false
+    }
+   ],
+   "flows": [
+    {
+     "id": "ylqh0YC7gk2pKbXSnCD35Q==",
+     "from": "pcgRtAPr7EqrOBPR0AvnXQ==",
+     "to": "sAMOjUvIk0iedqYBrpdkeg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "tIJHRTrss0+AqSIV7CUh2A==",
+     "from": "0ajGg5bs4kCV2BQTernvdA==",
+     "to": "DTbT63qa+k+32qkWHoDpsg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "gPAPe+R0L0SrqyDDinedwg==",
+     "from": "sAMOjUvIk0iedqYBrpdkeg==",
+     "to": "0ajGg5bs4kCV2BQTernvdA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "Administration.ShowPasswordForm",
+   "module": "Administration",
+   "kind": "Microflow",
+   "objects": [
+    {
+     "id": "vZdGT7KpZU6AKy9B13wrjA==",
+     "type": "StartEvent",
+     "x": 100.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "lHCov7/NzEm6AglIzr2HGw==",
+     "type": "EndEvent",
+     "x": 695.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "VmlcXfs8d0G8ZHmCz5evqg==",
+     "type": "Parameter",
+     "x": 100.0,
+     "y": 0.0,
+     "w": 30.0,
+     "h": 30.0,
+     "parent": null,
+     "label": "Account"
+    },
+    {
+     "id": "ydw45gqsvkqjB/9J2A8bfw==",
+     "type": "ActionActivity",
+     "x": 515.0,
+     "y": 200.0,
+     "w": 210.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Show page ChangePasswordForm",
+     "kind": "Show page",
+     "target": "Administration.ChangePasswordForm",
+     "disabled": false
+    },
+    {
+     "id": "npAK7mHfC0C3/6JTj95/Vg==",
+     "type": "ActionActivity",
+     "x": 265.0,
+     "y": 200.0,
+     "w": 230.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Create AccountPasswordData",
+     "kind": "Create",
+     "target": "Administration.AccountPasswordData",
+     "disabled": false
+    }
+   ],
+   "flows": [
+    {
+     "id": "V/Tmx4cIxUSoORyIjBRRKg==",
+     "from": "vZdGT7KpZU6AKy9B13wrjA==",
+     "to": "npAK7mHfC0C3/6JTj95/Vg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "Wdkv/T+8l0SX5xaHRVbEIg==",
+     "from": "ydw45gqsvkqjB/9J2A8bfw==",
+     "to": "lHCov7/NzEm6AglIzr2HGw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "kTZgDQk04U2sc2XbydoMrA==",
+     "from": "npAK7mHfC0C3/6JTj95/Vg==",
+     "to": "ydw45gqsvkqjB/9J2A8bfw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "Administration.SaveNewAccount",
+   "module": "Administration",
+   "kind": "Microflow",
+   "objects": [
+    {
+     "id": "aeCgmnixZkqn1OrKRQzNIQ==",
+     "type": "ExclusiveSplit",
+     "x": 430.0,
+     "y": 200.0,
+     "w": 130.0,
+     "h": 80.0,
+     "parent": null,
+     "label": "Passwords equal?"
+    },
+    {
+     "id": "B8W36RsFuUO9uYp3lYy3Zw==",
+     "type": "ActionActivity",
+     "x": 430.0,
+     "y": 75.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Message",
+     "kind": "Message",
+     "target": "",
+     "disabled": false
+    },
+    {
+     "id": "+Hfk0IpaS0CRCwVTWfvmUg==",
+     "type": "EndEvent",
+     "x": 430.0,
+     "y": -20.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "ChrtBNm3jUqkz/++lryhhQ==",
+     "type": "StartEvent",
+     "x": 145.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "pCMswzL9NEqwP+n7xHxtOw==",
+     "type": "EndEvent",
+     "x": 1090.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "9p47A+Jl60+u4LmVkR1DDQ==",
+     "type": "ActionActivity",
+     "x": 635.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Set password and save account",
+     "kind": "Change",
+     "target": "Account",
+     "disabled": false
+    },
+    {
+     "id": "8ygPevSLU0evn+iNnjvjew==",
+     "type": "Parameter",
+     "x": 145.0,
+     "y": 75.0,
+     "w": 30.0,
+     "h": 30.0,
+     "parent": null,
+     "label": "AccountPasswordData"
+    },
+    {
+     "id": "5o/Hhzaqsk6paq0foiGJzA==",
+     "type": "ActionActivity",
+     "x": 260.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Retrieve AccountPasswordData_Account",
+     "kind": "Retrieve",
+     "target": "Administration.AccountPasswordData_Account",
+     "disabled": false
+    },
+    {
+     "id": "7HZZoXmt1U+ZP+Wbp3pWcA==",
+     "type": "ActionActivity",
+     "x": 805.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Delete $AccountPasswordData",
+     "kind": "Delete",
+     "target": "AccountPasswordData",
+     "disabled": false
+    },
+    {
+     "id": "2ZU0XxdaUUKzzrbdCy/kRQ==",
+     "type": "ActionActivity",
+     "x": 975.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Close page",
+     "kind": "Close page",
+     "target": "",
+     "disabled": false
+    }
+   ],
+   "flows": [
+    {
+     "id": "sFoIYfja+EWBUKLc6DAkEg==",
+     "from": "aeCgmnixZkqn1OrKRQzNIQ==",
+     "to": "9p47A+Jl60+u4LmVkR1DDQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": "true"
+    },
+    {
+     "id": "G5DxHEk3uU6HxM+J+xaIxQ==",
+     "from": "aeCgmnixZkqn1OrKRQzNIQ==",
+     "to": "B8W36RsFuUO9uYp3lYy3Zw==",
+     "oi": 0,
+     "di": 2,
+     "ocv": [
+      0.0,
+      -15.0
+     ],
+     "dcv": [
+      0.0,
+      30.0
+     ],
+     "err": false,
+     "label": "false"
+    },
+    {
+     "id": "EkDNEYDPZEK3oRzbG/qSDA==",
+     "from": "B8W36RsFuUO9uYp3lYy3Zw==",
+     "to": "+Hfk0IpaS0CRCwVTWfvmUg==",
+     "oi": 0,
+     "di": 2,
+     "ocv": [
+      0.0,
+      -30.0
+     ],
+     "dcv": [
+      0.0,
+      15.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "c0JuRz30XUOYX+6hptPsrw==",
+     "from": "9p47A+Jl60+u4LmVkR1DDQ==",
+     "to": "7HZZoXmt1U+ZP+Wbp3pWcA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "97WgLLZG3U2aNVvf4w3R8Q==",
+     "from": "ChrtBNm3jUqkz/++lryhhQ==",
+     "to": "5o/Hhzaqsk6paq0foiGJzA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "75h+ew94tUWySUhkJ5eO7w==",
+     "from": "5o/Hhzaqsk6paq0foiGJzA==",
+     "to": "aeCgmnixZkqn1OrKRQzNIQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "TY+ubZzpuU6/AOJWg89mOQ==",
+     "from": "7HZZoXmt1U+ZP+Wbp3pWcA==",
+     "to": "2ZU0XxdaUUKzzrbdCy/kRQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "I/8x+wxTmkWvEV77bDGzDw==",
+     "from": "2ZU0XxdaUUKzzrbdCy/kRQ==",
+     "to": "pCMswzL9NEqwP+n7xHxtOw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "FeedbackModule.ACT_Open_Feedback_Modal",
+   "module": "FeedbackModule",
+   "kind": "Nanoflow",
+   "objects": [
+    {
+     "id": "8k+m14/LHE+Or840RMISFQ==",
+     "type": "StartEvent",
+     "x": 100.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "he5bLcFbSkik3WkQmcvnPA==",
+     "type": "EndEvent",
+     "x": 700.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "Rb2ei6UgBk2KKPLWcqzl7g==",
+     "type": "ActionActivity",
+     "x": 390.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Show page ShareFeedback",
+     "kind": "Show page",
+     "target": "FeedbackModule.ShareFeedback",
+     "disabled": false
+    }
+   ],
+   "flows": [
+    {
+     "id": "4yPnZTgWdkKGIvNqPd8X6w==",
+     "from": "8k+m14/LHE+Or840RMISFQ==",
+     "to": "Rb2ei6UgBk2KKPLWcqzl7g==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "8kEwUsAbx0+dtZjKlLhrcQ==",
+     "from": "Rb2ei6UgBk2KKPLWcqzl7g==",
+     "to": "he5bLcFbSkik3WkQmcvnPA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "FeedbackModule.OCH_Feedback_SaveToLocalStorage",
+   "module": "FeedbackModule",
+   "kind": "Nanoflow",
+   "objects": [
+    {
+     "id": "ND4gPw1iLEqtrMS6Am5Rkg==",
+     "type": "StartEvent",
+     "x": -5.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "OrHQ2HkgI0CAQU6FssX7Hg==",
+     "type": "EndEvent",
+     "x": 490.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "ZvkexoAgpUSy4MEE4bOdIg==",
+     "type": "Parameter",
+     "x": -5.0,
+     "y": 90.0,
+     "w": 30.0,
+     "h": 30.0,
+     "parent": null,
+     "label": "Feedback"
+    },
+    {
+     "id": "/1JWDoHXwku85IU3eCENpQ==",
+     "type": "ActionActivity",
+     "x": 236.0,
+     "y": 200.0,
+     "w": 250.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "JS JS_SetFeedbackStorageObject",
+     "kind": "JS",
+     "target": "FeedbackModule.JS_SetFeedbackStorageObject",
+     "disabled": false
+    }
+   ],
+   "flows": [
+    {
+     "id": "njKOqjLnDEO4okfgpxrVwQ==",
+     "from": "ND4gPw1iLEqtrMS6Am5Rkg==",
+     "to": "/1JWDoHXwku85IU3eCENpQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "OleXgAANEE6bessEXfLybA==",
+     "from": "/1JWDoHXwku85IU3eCENpQ==",
+     "to": "OrHQ2HkgI0CAQU6FssX7Hg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "Administration.NewWebServiceAccount",
+   "module": "Administration",
+   "kind": "Microflow",
+   "objects": [
+    {
+     "id": "TJgCazqULUWVmHNMXpsUAg==",
+     "type": "StartEvent",
+     "x": 680.0,
+     "y": 345.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "NN7oWKNOj0mOMHoPnlHbIw==",
+     "type": "ActionActivity",
+     "x": 785.0,
+     "y": 345.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Create Account",
+     "kind": "Create",
+     "target": "Administration.Account",
+     "disabled": false
+    },
+    {
+     "id": "kZZwaKR0C0WWC3fw1ECFKw==",
+     "type": "EndEvent",
+     "x": 1485.0,
+     "y": 345.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "k6R0wG7ZL0yR9AI+6L5gmg==",
+     "type": "ActionActivity",
+     "x": 1365.0,
+     "y": 345.0,
+     "w": 150.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Show page Account_New",
+     "kind": "Show page",
+     "target": "Administration.Account_New",
+     "disabled": false
+    },
+    {
+     "id": "Egzxk6Eq9Eqa8Aq00/U3YA==",
+     "type": "ActionActivity",
+     "x": 935.0,
+     "y": 345.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Mark as web service user",
+     "kind": "Change",
+     "target": "NewAccount",
+     "disabled": false
+    },
+    {
+     "id": "dlxl30+FdUGkCn1Mx/1sAQ==",
+     "type": "ActionActivity",
+     "x": 1145.0,
+     "y": 345.0,
+     "w": 230.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Create AccountPasswordData",
+     "kind": "Create",
+     "target": "Administration.AccountPasswordData",
+     "disabled": false
+    }
+   ],
+   "flows": [
+    {
+     "id": "jJYHCdl1ok253js0KRpvnA==",
+     "from": "TJgCazqULUWVmHNMXpsUAg==",
+     "to": "NN7oWKNOj0mOMHoPnlHbIw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "q564zSrGs0Kpx3QBGHwU5Q==",
+     "from": "NN7oWKNOj0mOMHoPnlHbIw==",
+     "to": "Egzxk6Eq9Eqa8Aq00/U3YA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "wcvUYWHvaESrxVDNFQM3DA==",
+     "from": "k6R0wG7ZL0yR9AI+6L5gmg==",
+     "to": "kZZwaKR0C0WWC3fw1ECFKw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "xXEsRPeNR0OtkQciJrouXQ==",
+     "from": "Egzxk6Eq9Eqa8Aq00/U3YA==",
+     "to": "dlxl30+FdUGkCn1Mx/1sAQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "hjAy7BtZ20eM3tWess9GtQ==",
+     "from": "dlxl30+FdUGkCn1Mx/1sAQ==",
+     "to": "k6R0wG7ZL0yR9AI+6L5gmg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "FeedbackModule.ACT_Feedback_UploadImage",
+   "module": "FeedbackModule",
+   "kind": "Nanoflow",
+   "objects": [
+    {
+     "id": "U/R+u+phAEOZ+LiVSuj64g==",
+     "type": "StartEvent",
+     "x": -2563.0,
+     "y": 160.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "v3jqIoj4PEy7MGZLEnKuvQ==",
+     "type": "EndEvent",
+     "x": 470.0,
+     "y": 160.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "U/3elT/GXEeOOhjyuh0C3g==",
+     "type": "Parameter",
+     "x": -2563.0,
+     "y": 35.0,
+     "w": 30.0,
+     "h": 30.0,
+     "parent": null,
+     "label": "Feedback"
+    },
+    {
+     "id": "m69XInsEY0SifM1i5RxzPw==",
+     "type": "ExclusiveSplit",
+     "x": -1518.0,
+     "y": 160.0,
+     "w": 90.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Uploaded Image?"
+    },
+    {
+     "id": "EEX8NCn+DESy8rpWkISCbw==",
+     "type": "EndEvent",
+     "x": -1518.0,
+     "y": 470.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "8+9x6xcXMki/7zeOVxCU6Q==",
+     "type": "ActionActivity",
+     "x": -723.0,
+     "y": 160.0,
+     "w": 280.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "JS JS_ToggleFeedbackAnnotateWidget",
+     "kind": "JS",
+     "target": "FeedbackModule.JS_ToggleFeedbackAnnotateWidget",
+     "disabled": false
+    },
+    {
+     "id": "JUWU/EA+IUW8BrwJZqqyWA==",
+     "type": "ActionActivity",
+     "x": -2428.0,
+     "y": 160.0,
+     "w": 160.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "MIME Types",
+     "kind": "CreateVariable",
+     "target": "mimeTypes",
+     "disabled": false
+    },
+    {
+     "id": "/9uOQ6OCe0m1voB5TjI5ZA==",
+     "type": "ExclusiveSplit",
+     "x": -1358.0,
+     "y": 160.0,
+     "w": 90.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Correct Upload Size?"
+    },
+    {
+     "id": "Pn60yhW8OkKi5y/tWEgu/A==",
+     "type": "EndEvent",
+     "x": -1358.0,
+     "y": 470.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "XTqKkiCUrkKIED9WRR/OtQ==",
+     "type": "ActionActivity",
+     "x": -1358.0,
+     "y": 335.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Message",
+     "kind": "Message",
+     "target": "",
+     "disabled": false
+    },
+    {
+     "id": "m+Omid2t306UaYMsGLMo/Q==",
+     "type": "ExclusiveSplit",
+     "x": -1168.0,
+     "y": 160.0,
+     "w": 90.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Correct File Type?"
+    },
+    {
+     "id": "37IyMtENGkmAUtL4h1EY/w==",
+     "type": "EndEvent",
+     "x": -1168.0,
+     "y": 470.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "oWOQG9lK6UGufwT7dDhz4A==",
+     "type": "ActionActivity",
+     "x": -1168.0,
+     "y": 335.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Message",
+     "kind": "Message",
+     "target": "",
+     "disabled": false
+    },
+    {
+     "id": "HGDOlzfHD0WF5ylVO4cdHA==",
+     "type": "ActionActivity",
+     "x": -2203.0,
+     "y": 160.0,
+     "w": 140.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "File size limit in MB",
+     "kind": "CreateVariable",
+     "target": "fileUploadSize",
+     "disabled": false
+    },
+    {
+     "id": "3OQzIa3i2k2TOHvcfdUArQ==",
+     "type": "ActionActivity",
+     "x": -1518.0,
+     "y": 335.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Message",
+     "kind": "Message",
+     "target": "",
+     "disabled": false
+    },
+    {
+     "id": "9cOSMVhvLUKATVaS8fuL1w==",
+     "type": "ActionActivity",
+     "x": -428.0,
+     "y": 160.0,
+     "w": 220.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Change $Feedback",
+     "kind": "Change",
+     "target": "Feedback",
+     "disabled": false
+    },
+    {
+     "id": "TYHfOZR8+0KMelhO22FbgA==",
+     "type": "Annotation",
+     "x": -723.0,
+     "y": 315.0,
+     "w": 300.0,
+     "h": 50.0,
+     "parent": null,
+     "label": "The widget will convert the annotated image to base64"
+    },
+    {
+     "id": "BzEMynm2HkmtKLSeqL8Wng==",
+     "type": "ExclusiveSplit",
+     "x": -1678.0,
+     "y": 160.0,
+     "w": 90.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Upload Not Cancelled?"
+    },
+    {
+     "id": "NOKhriSNzkiRzEOlO5DXnA==",
+     "type": "EndEvent",
+     "x": -1678.0,
+     "y": 470.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "LeJ+EXf1tE658Ub6genngA==",
+     "type": "Annotation",
+     "x": -1933.0,
+     "y": 15.0,
+     "w": 390.0,
+     "h": 110.0,
+     "parent": null,
+     "label": "Expand this annotation to read more...\r\n\r\nWhat does this JavaScript Action do?\r\n\r\nThis is a custom build JavaScript Action that triggers the file upload dialog box to open in your internet browser. \r\n\r\nDependency Note: \r\nThis JavaScript action should be used with the JavaScript Action called 'JS_RevokeUploadedFileFromMemory' so that the image uploaded is removed from local memory :)\r\n\r\nExplanation of this JavaScript Action & Memory management.\r\n\r\nWe use createObjectURL() to upload and store files in local memory. We can access and cosume this in memory image resource via the URL path that is returned from the createObjectURL() method. \r\n\r\nHowever, each time you call createObjectURL(), a new object is created in memory, even if you've already created one for the same object. \r\nSo each of these must be released by calling the JS Action called 'JS_RevokeUploadedFileFromMemory' when you no longer need them.\r\n\r\nBrowsers will release object URLs automatically when the document is unloaded; however, for optimal performance and memory usage, if there are safe times when you can explicitly unload them, you should do so with the JavaScriptAction called 'JS_RevokeUploadedFileFromMemory'."
+    },
+    {
+     "id": "xUHMtBQIu0K4b18zcxwmCA==",
+     "type": "ActionActivity",
+     "x": 285.0,
+     "y": 160.0,
+     "w": 250.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "JS JS_RevokeUploadedFileFromMemory",
+     "kind": "JS",
+     "target": "FeedbackModule.JS_RevokeUploadedFileFromMemory",
+     "disabled": false
+    },
+    {
+     "id": "ozP4AqjtX0CsYP03RRkUPA==",
+     "type": "Annotation",
+     "x": 285.0,
+     "y": -45.0,
+     "w": 620.0,
+     "h": 170.0,
+     "parent": null,
+     "label": "Expand this annotation to read more....\r\n\r\nWhat does this JavaScript action do?\r\n\r\nAfter you have uploaded an image it removes locally stored image from memory. This is a custom build action.\r\n\r\nDependency Note: \r\nThis JavaScript action should be used only when you have inserted the Image Upload JavaScript Action called 'JS_UploadAndConvertToFileBlobURL' into your nanoflow.\r\n\r\nMore detailed explanation:  Memory management.\r\n\r\nTo upload a image we use a custom build Javascript action called  'JS_UploadAndConvertToFileBlobURL'.\r\nInside this action we use a JavaScript method called createObjectURL() to upload and store files in local memory. We can access and cosume this in memory image resource via the URL path that is returned from the createObjectURL() method. \r\n\r\nHowever, each time you call createObjectURL(), a new object is created in memory, even if you've already created one for the same object. \r\nSo each of these must be released by calling this action called 'JS_RevokeUploadedFileFromMemory' when you no longer need them.\r\n\r\nBrowsers will release object URLs automatically when the document is unloaded; however, for optimal performance and memory usage, if there are safe times when you can explicitly unload them, you should do so with the JavaScriptAction called 'JS_RevokeUploadedFileFromMemory'."
+    },
+    {
+     "id": "cg+SjpViyUuiEOs/nheu7Q==",
+     "type": "ActionActivity",
+     "x": -963.0,
+     "y": 160.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Close page",
+     "kind": "Close page",
+     "target": "",
+     "disabled": false
+    },
+    {
+     "id": "DkX5S0mdN0aNstTskUXWvQ==",
+     "type": "ActionActivity",
+     "x": -198.0,
+     "y": 160.0,
+     "w": 150.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Show page ShareFeedback",
+     "kind": "Show page",
+     "target": "FeedbackModule.ShareFeedback",
+     "disabled": false
+    },
+    {
+     "id": "Y302R0FjPEC7w857u1S+xQ==",
+     "type": "ActionActivity",
+     "x": -1933.0,
+     "y": 160.0,
+     "w": 240.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "JS JS_UploadAndConvertToFileBlobURL",
+     "kind": "JS",
+     "target": "FeedbackModule.JS_UploadAndConvertToFileBlobURL",
+     "disabled": false
+    },
+    {
+     "id": "D/EbcZQdREyLGuEaQ6/qeA==",
+     "type": "ActionActivity",
+     "x": 21.0,
+     "y": 160.0,
+     "w": 190.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "JS JS_SetFeedbackStorageObject",
+     "kind": "JS",
+     "target": "FeedbackModule.JS_SetFeedbackStorageObject",
+     "disabled": false
+    }
+   ],
+   "flows": [
+    {
+     "id": "d6juNQfbdk2U1L6w1AaLOQ==",
+     "from": "U/R+u+phAEOZ+LiVSuj64g==",
+     "to": "JUWU/EA+IUW8BrwJZqqyWA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "qj9G1/bkw0ukwgXWBgXgbw==",
+     "from": "m69XInsEY0SifM1i5RxzPw==",
+     "to": "3OQzIa3i2k2TOHvcfdUArQ==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      15.0
+     ],
+     "dcv": [
+      0.0,
+      -30.0
+     ],
+     "err": false,
+     "label": "false"
+    },
+    {
+     "id": "Kjg+oJWZEkaMIz+kjneKtg==",
+     "from": "m69XInsEY0SifM1i5RxzPw==",
+     "to": "/9uOQ6OCe0m1voB5TjI5ZA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": "true"
+    },
+    {
+     "id": "RmY5zuubrkS9XGvIC6ASgQ==",
+     "from": "8+9x6xcXMki/7zeOVxCU6Q==",
+     "to": "9cOSMVhvLUKATVaS8fuL1w==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "2JINj2eGH0ey3kTZT/9Riw==",
+     "from": "JUWU/EA+IUW8BrwJZqqyWA==",
+     "to": "HGDOlzfHD0WF5ylVO4cdHA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "95oD4yWcrEWAuxuwlDgVeQ==",
+     "from": "HGDOlzfHD0WF5ylVO4cdHA==",
+     "to": "Y302R0FjPEC7w857u1S+xQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "3qZ4JKtLy0CtE3tmiMSi/w==",
+     "from": "/9uOQ6OCe0m1voB5TjI5ZA==",
+     "to": "m+Omid2t306UaYMsGLMo/Q==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": "true"
+    },
+    {
+     "id": "VunCO4hL/Uidt58ZSzBqWw==",
+     "from": "/9uOQ6OCe0m1voB5TjI5ZA==",
+     "to": "XTqKkiCUrkKIED9WRR/OtQ==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      15.0
+     ],
+     "dcv": [
+      0.0,
+      -30.0
+     ],
+     "err": false,
+     "label": "false"
+    },
+    {
+     "id": "TjBvyFx/qUCe48iID/LkYA==",
+     "from": "XTqKkiCUrkKIED9WRR/OtQ==",
+     "to": "Pn60yhW8OkKi5y/tWEgu/A==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      30.0
+     ],
+     "dcv": [
+      0.0,
+      -15.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "Pqfi+gQlA0aW22hc8inLhQ==",
+     "from": "m+Omid2t306UaYMsGLMo/Q==",
+     "to": "oWOQG9lK6UGufwT7dDhz4A==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      15.0
+     ],
+     "dcv": [
+      0.0,
+      -30.0
+     ],
+     "err": false,
+     "label": "false"
+    },
+    {
+     "id": "euT99OtPGUy25TgSqSvHaA==",
+     "from": "oWOQG9lK6UGufwT7dDhz4A==",
+     "to": "37IyMtENGkmAUtL4h1EY/w==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      30.0
+     ],
+     "dcv": [
+      0.0,
+      -15.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "5SaqziZUPU6PHPWfxb11uA==",
+     "from": "m+Omid2t306UaYMsGLMo/Q==",
+     "to": "cg+SjpViyUuiEOs/nheu7Q==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": "true"
+    },
+    {
+     "id": "xkeePcYueUCmgNtANwVdVw==",
+     "from": "3OQzIa3i2k2TOHvcfdUArQ==",
+     "to": "EEX8NCn+DESy8rpWkISCbw==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      30.0
+     ],
+     "dcv": [
+      0.0,
+      -15.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "4hylBc6xvUKWhOCRI03vBg==",
+     "from": "9cOSMVhvLUKATVaS8fuL1w==",
+     "to": "DkX5S0mdN0aNstTskUXWvQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "XNS61PEBXEC+EQ33tNDFzA==",
+     "from": "TYHfOZR8+0KMelhO22FbgA==",
+     "to": "8+9x6xcXMki/7zeOVxCU6Q==",
+     "oi": 0,
+     "di": 2,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      30.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "/bqPNXA3x0uApJaT+7BDrg==",
+     "from": "BzEMynm2HkmtKLSeqL8Wng==",
+     "to": "m69XInsEY0SifM1i5RxzPw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": "true"
+    },
+    {
+     "id": "Y/vWzAbCwEm3+OLd6Lg/vg==",
+     "from": "BzEMynm2HkmtKLSeqL8Wng==",
+     "to": "NOKhriSNzkiRzEOlO5DXnA==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      15.0
+     ],
+     "dcv": [
+      0.0,
+      -15.0
+     ],
+     "err": false,
+     "label": "false"
+    },
+    {
+     "id": "hemtO9IwQEqCwekUEGuYHg==",
+     "from": "xUHMtBQIu0K4b18zcxwmCA==",
+     "to": "v3jqIoj4PEy7MGZLEnKuvQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "DSIKNDBocUS4kCqyRaDsOg==",
+     "from": "ozP4AqjtX0CsYP03RRkUPA==",
+     "to": "xUHMtBQIu0K4b18zcxwmCA==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      -30.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "MWyMsatLLkKILJcXC5ELiQ==",
+     "from": "cg+SjpViyUuiEOs/nheu7Q==",
+     "to": "8+9x6xcXMki/7zeOVxCU6Q==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "6xML5zi3z0OOruukZe8Yqw==",
+     "from": "DkX5S0mdN0aNstTskUXWvQ==",
+     "to": "D/EbcZQdREyLGuEaQ6/qeA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "ngrqCOe1n0y2h+13r31Pqg==",
+     "from": "Y302R0FjPEC7w857u1S+xQ==",
+     "to": "BzEMynm2HkmtKLSeqL8Wng==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "Qdp5czpv6EW0XXSXoZv8EA==",
+     "from": "LeJ+EXf1tE658Ub6genngA==",
+     "to": "Y302R0FjPEC7w857u1S+xQ==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      -30.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "fq1c4z+tG0ywpV4hLqLeWA==",
+     "from": "D/EbcZQdREyLGuEaQ6/qeA==",
+     "to": "xUHMtBQIu0K4b18zcxwmCA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "Administration.ChangePassword",
+   "module": "Administration",
+   "kind": "Microflow",
+   "objects": [
+    {
+     "id": "1WREAkkRFEStnVgFKujtqQ==",
+     "type": "ExclusiveSplit",
+     "x": 425.0,
+     "y": 200.0,
+     "w": 130.0,
+     "h": 80.0,
+     "parent": null,
+     "label": "Passwords equal?"
+    },
+    {
+     "id": "t2otPJzSjUO2HZkNcgEwIA==",
+     "type": "ActionActivity",
+     "x": 425.0,
+     "y": 75.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Message",
+     "kind": "Message",
+     "target": "",
+     "disabled": false
+    },
+    {
+     "id": "s3E7cCRuwEa4/7NcTw6qzw==",
+     "type": "EndEvent",
+     "x": 425.0,
+     "y": -15.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "dZFlijAsBUaBRhKsyE+AtQ==",
+     "type": "StartEvent",
+     "x": 260.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "AbMjr/n0OEe+fUilqDiq3g==",
+     "type": "ActionActivity",
+     "x": 1280.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Close page",
+     "kind": "Close page",
+     "target": "",
+     "disabled": false
+    },
+    {
+     "id": "XptwBSDB80yHiBpCsSgi3A==",
+     "type": "EndEvent",
+     "x": 1400.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "VKLmzh7xpkmD7RXJfMwVLg==",
+     "type": "ActionActivity",
+     "x": 790.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Save password",
+     "kind": "Change",
+     "target": "Account",
+     "disabled": false
+    },
+    {
+     "id": "yb64axW0TU+7jRH5Ymv2Tg==",
+     "type": "ActionActivity",
+     "x": 960.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Message",
+     "kind": "Message",
+     "target": "",
+     "disabled": false
+    },
+    {
+     "id": "zUbr+1HYk0e05ui4iLB47Q==",
+     "type": "Parameter",
+     "x": 260.0,
+     "y": 75.0,
+     "w": 30.0,
+     "h": 30.0,
+     "parent": null,
+     "label": "AccountPasswordData"
+    },
+    {
+     "id": "WjvNm5onlE+0eN3Ip/Q2/Q==",
+     "type": "ActionActivity",
+     "x": 1125.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Delete $AccountPasswordData",
+     "kind": "Delete",
+     "target": "AccountPasswordData",
+     "disabled": false
+    },
+    {
+     "id": "AQtNuUURVE+InR4KxG9wmQ==",
+     "type": "ActionActivity",
+     "x": 630.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Retrieve AccountPasswordData_Account",
+     "kind": "Retrieve",
+     "target": "Administration.AccountPasswordData_Account",
+     "disabled": false
+    }
+   ],
+   "flows": [
+    {
+     "id": "MT/A3BlKS0ie0faA1/aHpg==",
+     "from": "1WREAkkRFEStnVgFKujtqQ==",
+     "to": "AQtNuUURVE+InR4KxG9wmQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": "true"
+    },
+    {
+     "id": "9QEesApA0kOC3jVy1ii0YQ==",
+     "from": "AbMjr/n0OEe+fUilqDiq3g==",
+     "to": "XptwBSDB80yHiBpCsSgi3A==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "B6S2VjQblEe4t8qR1bVcQA==",
+     "from": "1WREAkkRFEStnVgFKujtqQ==",
+     "to": "t2otPJzSjUO2HZkNcgEwIA==",
+     "oi": 0,
+     "di": 2,
+     "ocv": [
+      0.0,
+      -15.0
+     ],
+     "dcv": [
+      0.0,
+      30.0
+     ],
+     "err": false,
+     "label": "false"
+    },
+    {
+     "id": "CIqBkzze5k2QsEDB6BLElQ==",
+     "from": "t2otPJzSjUO2HZkNcgEwIA==",
+     "to": "s3E7cCRuwEa4/7NcTw6qzw==",
+     "oi": 0,
+     "di": 2,
+     "ocv": [
+      0.0,
+      -30.0
+     ],
+     "dcv": [
+      0.0,
+      15.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "9UApcjtuZUaUxwJkX9+SHQ==",
+     "from": "VKLmzh7xpkmD7RXJfMwVLg==",
+     "to": "yb64axW0TU+7jRH5Ymv2Tg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "1/7Oe8l9bU6t5T0FC+HxJQ==",
+     "from": "yb64axW0TU+7jRH5Ymv2Tg==",
+     "to": "WjvNm5onlE+0eN3Ip/Q2/Q==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "S74qfZMcBEaGwZ5pHimR4g==",
+     "from": "dZFlijAsBUaBRhKsyE+AtQ==",
+     "to": "1WREAkkRFEStnVgFKujtqQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "6jn4D0k9TUWYXKjuo7Ex9A==",
+     "from": "WjvNm5onlE+0eN3Ip/Q2/Q==",
+     "to": "AbMjr/n0OEe+fUilqDiq3g==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "cEm/AVU+eUSZhRvjrsSXyA==",
+     "from": "AQtNuUURVE+InR4KxG9wmQ==",
+     "to": "VKLmzh7xpkmD7RXJfMwVLg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "Administration.ChangeMyPassword",
+   "module": "Administration",
+   "kind": "Microflow",
+   "objects": [
+    {
+     "id": "XrxP/klUFEic84Fnf2RFPQ==",
+     "type": "ExclusiveSplit",
+     "x": 430.0,
+     "y": 200.0,
+     "w": 130.0,
+     "h": 80.0,
+     "parent": null,
+     "label": "Passwords equal?"
+    },
+    {
+     "id": "KKkvSTf4TEmXViLL+rkIOw==",
+     "type": "ActionActivity",
+     "x": 430.0,
+     "y": 75.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Message",
+     "kind": "Message",
+     "target": "",
+     "disabled": false
+    },
+    {
+     "id": "zXc1qfAtIU+rfItQ7QyG2w==",
+     "type": "EndEvent",
+     "x": 430.0,
+     "y": -20.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "PDr+YtnbiUCAUdKlgWhiAQ==",
+     "type": "StartEvent",
+     "x": -220.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "lPknhgurcEaTzorCOxb4XA==",
+     "type": "ActionActivity",
+     "x": 1110.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Close page",
+     "kind": "Close page",
+     "target": "",
+     "disabled": false
+    },
+    {
+     "id": "RMV5L1clzkGWio9I+ig0fQ==",
+     "type": "EndEvent",
+     "x": 1230.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "t35Pq21wtEmuLVnmnUbHIw==",
+     "type": "ActionActivity",
+     "x": 620.0,
+     "y": 330.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Save new pass",
+     "kind": "Change",
+     "target": "Account",
+     "disabled": false
+    },
+    {
+     "id": "bLaJPgjQikOMuFwOxT9vGw==",
+     "type": "ExclusiveSplit",
+     "x": 230.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 80.0,
+     "parent": null,
+     "label": "Old password okay?"
+    },
+    {
+     "id": "PzBnOEF17kuTcWNPXs12Eg==",
+     "type": "EndEvent",
+     "x": 230.0,
+     "y": -20.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "hWSh1rigrUysGUHMCzvezQ==",
+     "type": "ActionActivity",
+     "x": 55.0,
+     "y": 200.0,
+     "w": 150.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Java VerifyPassword",
+     "kind": "Java",
+     "target": "System.VerifyPassword",
+     "disabled": false
+    },
+    {
+     "id": "XcrkXNKnd0aoYgTtXakb7g==",
+     "type": "ActionActivity",
+     "x": 790.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Message",
+     "kind": "Message",
+     "target": "",
+     "disabled": false
+    },
+    {
+     "id": "8iz4piLIwUax1/1Ay+KMRQ==",
+     "type": "ActionActivity",
+     "x": 230.0,
+     "y": 75.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Validation",
+     "kind": "Validation",
+     "target": "",
+     "disabled": false
+    },
+    {
+     "id": "Xrqh8sidaEqm9acwFi0PHg==",
+     "type": "Parameter",
+     "x": -220.0,
+     "y": 75.0,
+     "w": 30.0,
+     "h": 30.0,
+     "parent": null,
+     "label": "AccountPasswordData"
+    },
+    {
+     "id": "i6oih84zGkWy+HAeDscEkg==",
+     "type": "ActionActivity",
+     "x": -115.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Retrieve AccountPasswordData_Account",
+     "kind": "Retrieve",
+     "target": "Administration.AccountPasswordData_Account",
+     "disabled": false
+    },
+    {
+     "id": "Hw/GY2G9KU+HNm0fL7U7XA==",
+     "type": "ActionActivity",
+     "x": 950.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Delete $AccountPasswordData",
+     "kind": "Delete",
+     "target": "AccountPasswordData",
+     "disabled": false
+    }
+   ],
+   "flows": [
+    {
+     "id": "JVISBa2iyEO7aAR/WlgKCw==",
+     "from": "XrxP/klUFEic84Fnf2RFPQ==",
+     "to": "t35Pq21wtEmuLVnmnUbHIw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": "true"
+    },
+    {
+     "id": "1U9Wf9ojbUm7crlMFMrJpw==",
+     "from": "lPknhgurcEaTzorCOxb4XA==",
+     "to": "RMV5L1clzkGWio9I+ig0fQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "hMFcCwA+RUOYv0bujgeB+g==",
+     "from": "XrxP/klUFEic84Fnf2RFPQ==",
+     "to": "KKkvSTf4TEmXViLL+rkIOw==",
+     "oi": 0,
+     "di": 2,
+     "ocv": [
+      0.0,
+      -15.0
+     ],
+     "dcv": [
+      0.0,
+      30.0
+     ],
+     "err": false,
+     "label": "false"
+    },
+    {
+     "id": "fGQPUMm30Eq0Y1VhWLnDsw==",
+     "from": "KKkvSTf4TEmXViLL+rkIOw==",
+     "to": "zXc1qfAtIU+rfItQ7QyG2w==",
+     "oi": 0,
+     "di": 2,
+     "ocv": [
+      0.0,
+      -30.0
+     ],
+     "dcv": [
+      0.0,
+      15.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "VH00+Fwf+0CaBfg6uw5e4A==",
+     "from": "t35Pq21wtEmuLVnmnUbHIw==",
+     "to": "XcrkXNKnd0aoYgTtXakb7g==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "h+gw231M1kmGu7PsUcvgxA==",
+     "from": "PDr+YtnbiUCAUdKlgWhiAQ==",
+     "to": "i6oih84zGkWy+HAeDscEkg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "rPQNDAp6mUuqzwoR9zFhPA==",
+     "from": "bLaJPgjQikOMuFwOxT9vGw==",
+     "to": "XrxP/klUFEic84Fnf2RFPQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": "true"
+    },
+    {
+     "id": "wZ6ruThIGkKAHg+IF5ZGBA==",
+     "from": "hWSh1rigrUysGUHMCzvezQ==",
+     "to": "bLaJPgjQikOMuFwOxT9vGw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "m7BppEtFsEWTleiWJ0I5Pg==",
+     "from": "bLaJPgjQikOMuFwOxT9vGw==",
+     "to": "8iz4piLIwUax1/1Ay+KMRQ==",
+     "oi": 0,
+     "di": 2,
+     "ocv": [
+      0.0,
+      -15.0
+     ],
+     "dcv": [
+      0.0,
+      30.0
+     ],
+     "err": false,
+     "label": "false"
+    },
+    {
+     "id": "y1doyRmRaUWahOOKsi90kQ==",
+     "from": "XcrkXNKnd0aoYgTtXakb7g==",
+     "to": "Hw/GY2G9KU+HNm0fL7U7XA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "isthEYdJ4kaURNgd/5EPBA==",
+     "from": "8iz4piLIwUax1/1Ay+KMRQ==",
+     "to": "PzBnOEF17kuTcWNPXs12Eg==",
+     "oi": 0,
+     "di": 2,
+     "ocv": [
+      0.0,
+      -30.0
+     ],
+     "dcv": [
+      0.0,
+      15.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "wLLQ3NOLNkSI/n5LnS1Ikw==",
+     "from": "i6oih84zGkWy+HAeDscEkg==",
+     "to": "hWSh1rigrUysGUHMCzvezQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "Iq3VZxGxeUavLWp/GhsHxA==",
+     "from": "Hw/GY2G9KU+HNm0fL7U7XA==",
+     "to": "lPknhgurcEaTzorCOxb4XA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "FeedbackModule.ACT_Feedback_ClearForm",
+   "module": "FeedbackModule",
+   "kind": "Nanoflow",
+   "objects": [
+    {
+     "id": "Rd9R6GlH6Eq5r+3Uqb40Yg==",
+     "type": "StartEvent",
+     "x": -77.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "4kEp0TiSP0GtLnfAEmiT4Q==",
+     "type": "EndEvent",
+     "x": 487.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "IYgwSVuOyE6ATaKnCdyQwQ==",
+     "type": "Parameter",
+     "x": -77.0,
+     "y": 0.0,
+     "w": 30.0,
+     "h": 30.0,
+     "parent": null,
+     "label": "Feedback"
+    },
+    {
+     "id": "WGpUIMOdhUOX1kBzelnDpA==",
+     "type": "ActionActivity",
+     "x": 108.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Clear form",
+     "kind": "Change",
+     "target": "Feedback",
+     "disabled": false
+    },
+    {
+     "id": "jqsw/5wJzkSQNkNUPLpBIQ==",
+     "type": "ActionActivity",
+     "x": 323.0,
+     "y": 200.0,
+     "w": 200.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "JS JS_SetFeedbackStorageObject",
+     "kind": "JS",
+     "target": "FeedbackModule.JS_SetFeedbackStorageObject",
+     "disabled": false
+    }
+   ],
+   "flows": [
+    {
+     "id": "xNd16RYAgUqtlw+QkDLTLA==",
+     "from": "Rd9R6GlH6Eq5r+3Uqb40Yg==",
+     "to": "WGpUIMOdhUOX1kBzelnDpA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "a6AtsgZxtk2St5MqyiVWAg==",
+     "from": "WGpUIMOdhUOX1kBzelnDpA==",
+     "to": "jqsw/5wJzkSQNkNUPLpBIQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "fIrfqNJy9E2B30gdQMaR8w==",
+     "from": "jqsw/5wJzkSQNkNUPLpBIQ==",
+     "to": "4kEp0TiSP0GtLnfAEmiT4Q==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "Administration.NewAccount",
+   "module": "Administration",
+   "kind": "Microflow",
+   "objects": [
+    {
+     "id": "QygqrMkhsE+z+Kdtw2K52w==",
+     "type": "StartEvent",
+     "x": 100.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "t7b7S/lP/U6+2DZWndCNjQ==",
+     "type": "EndEvent",
+     "x": 770.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "JrTtTV4tPkiCAfrie7Nr+w==",
+     "type": "ActionActivity",
+     "x": 215.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Create Account",
+     "kind": "Create",
+     "target": "Administration.Account",
+     "disabled": false
+    },
+    {
+     "id": "AieLd2ju9kSvynn17Ck+OQ==",
+     "type": "ActionActivity",
+     "x": 650.0,
+     "y": 200.0,
+     "w": 150.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Show page Account_New",
+     "kind": "Show page",
+     "target": "Administration.Account_New",
+     "disabled": false
+    },
+    {
+     "id": "nPcnCbjBO0mSKorP59wJ0w==",
+     "type": "ActionActivity",
+     "x": 420.0,
+     "y": 200.0,
+     "w": 230.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Create AccountPasswordData",
+     "kind": "Create",
+     "target": "Administration.AccountPasswordData",
+     "disabled": false
+    }
+   ],
+   "flows": [
+    {
+     "id": "HZuC1w5mzUSejGvhzFSVPg==",
+     "from": "QygqrMkhsE+z+Kdtw2K52w==",
+     "to": "JrTtTV4tPkiCAfrie7Nr+w==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "kO25MTi+TEWH3/O85PdiOg==",
+     "from": "JrTtTV4tPkiCAfrie7Nr+w==",
+     "to": "nPcnCbjBO0mSKorP59wJ0w==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "Gt4rlLCjKkG33Rwsl7Un1g==",
+     "from": "nPcnCbjBO0mSKorP59wJ0w==",
+     "to": "AieLd2ju9kSvynn17Ck+OQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "PK9ZbdmiOEmEMA40no2Tqg==",
+     "from": "AieLd2ju9kSvynn17Ck+OQ==",
+     "to": "t7b7S/lP/U6+2DZWndCNjQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "Atlas_Web_Content.ACT_Login",
+   "module": "Atlas_Web_Content",
+   "kind": "Nanoflow",
+   "objects": [
+    {
+     "id": "h42HNnEtSke5ADXBH0yipw==",
+     "type": "StartEvent",
+     "x": 90.0,
+     "y": 35.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "7US3IA0S20qd7gzB1NbXnA==",
+     "type": "EndEvent",
+     "x": 1449.0,
+     "y": 35.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "ZHaYNQwcKEWYBc2nd4wa3w==",
+     "type": "Parameter",
+     "x": 90.0,
+     "y": -165.0,
+     "w": 30.0,
+     "h": 30.0,
+     "parent": null,
+     "label": "LoginContext"
+    },
+    {
+     "id": "evcDTfHdGEOiPxLi4l0scA==",
+     "type": "ActionActivity",
+     "x": 395.0,
+     "y": 35.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "JS SignIn",
+     "kind": "JS",
+     "target": "NanoflowCommons.SignIn",
+     "disabled": false
+    },
+    {
+     "id": "0DRRROuJR06lW5pH7q0Qgg==",
+     "type": "ExclusiveSplit",
+     "x": 570.0,
+     "y": 35.0,
+     "w": 90.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Response OK?"
+    },
+    {
+     "id": "7vnbefO++k+i3S7CpEh48g==",
+     "type": "ExclusiveSplit",
+     "x": 570.0,
+     "y": 167.0,
+     "w": 90.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Network error?"
+    },
+    {
+     "id": "vRf0BsMvO0ahJEfPIzjLZw==",
+     "type": "ExclusiveSplit",
+     "x": 570.0,
+     "y": 297.0,
+     "w": 90.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Unauthorized?"
+    },
+    {
+     "id": "YeQ4RsSTekqhW3kiWLCVBA==",
+     "type": "ActionActivity",
+     "x": 824.0,
+     "y": 167.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Change $LoginContext",
+     "kind": "Change",
+     "target": "LoginContext",
+     "disabled": false
+    },
+    {
+     "id": "j0WLGzHoVkOequz2aVIPrw==",
+     "type": "ActionActivity",
+     "x": 824.0,
+     "y": 35.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Change $LoginContext",
+     "kind": "Change",
+     "target": "LoginContext",
+     "disabled": false
+    },
+    {
+     "id": "v5tNIr/sU0u+WNe7j6lpQg==",
+     "type": "ActionActivity",
+     "x": 824.0,
+     "y": 297.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Change $LoginContext",
+     "kind": "Change",
+     "target": "LoginContext",
+     "disabled": false
+    },
+    {
+     "id": "TLmkN1xmY0q4vTxGH+QNvw==",
+     "type": "ActionActivity",
+     "x": 824.0,
+     "y": 409.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Change $LoginContext",
+     "kind": "Change",
+     "target": "LoginContext",
+     "disabled": false
+    },
+    {
+     "id": "+XXkCDYhH0eBLZe4sQHPIg==",
+     "type": "ExclusiveMerge",
+     "x": 1000.0,
+     "y": 297.0,
+     "w": 90.0,
+     "h": 60.0,
+     "parent": null
+    },
+    {
+     "id": "D9NMU+HxHka2FI0Ezm10uw==",
+     "type": "ActionActivity",
+     "x": 1170.0,
+     "y": 297.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Validation",
+     "kind": "Validation",
+     "target": "",
+     "disabled": false
+    },
+    {
+     "id": "x3mBkF13JUGBapXXPl/oqg==",
+     "type": "ActionActivity",
+     "x": 1325.0,
+     "y": 297.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Validation",
+     "kind": "Validation",
+     "target": "",
+     "disabled": false
+    },
+    {
+     "id": "JEMp7uBCrEiU8bGoS5BXEw==",
+     "type": "EndEvent",
+     "x": 1449.0,
+     "y": 297.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    }
+   ],
+   "flows": [
+    {
+     "id": "pPj4Jp8zHEyfYzV4gGO9Pg==",
+     "from": "h42HNnEtSke5ADXBH0yipw==",
+     "to": "evcDTfHdGEOiPxLi4l0scA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "50/yjyvZXkiJmGYEz5Cxaw==",
+     "from": "evcDTfHdGEOiPxLi4l0scA==",
+     "to": "0DRRROuJR06lW5pH7q0Qgg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "b6v8UW6FnUG2jnhYYQVllg==",
+     "from": "0DRRROuJR06lW5pH7q0Qgg==",
+     "to": "j0WLGzHoVkOequz2aVIPrw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": "true"
+    },
+    {
+     "id": "4U7msSV0j02XZZT2pEevow==",
+     "from": "0DRRROuJR06lW5pH7q0Qgg==",
+     "to": "7vnbefO++k+i3S7CpEh48g==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      15.0
+     ],
+     "dcv": [
+      0.0,
+      -15.0
+     ],
+     "err": false,
+     "label": "false"
+    },
+    {
+     "id": "YVIAFTxQI0+7XRZyqqVfUg==",
+     "from": "7vnbefO++k+i3S7CpEh48g==",
+     "to": "vRf0BsMvO0ahJEfPIzjLZw==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      15.0
+     ],
+     "dcv": [
+      0.0,
+      -15.0
+     ],
+     "err": false,
+     "label": "false"
+    },
+    {
+     "id": "SNSqrYB15EWrE4D1LItEjg==",
+     "from": "vRf0BsMvO0ahJEfPIzjLZw==",
+     "to": "v5tNIr/sU0u+WNe7j6lpQg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": "true"
+    },
+    {
+     "id": "2vb2IlehiUqF45fFIj+pIw==",
+     "from": "vRf0BsMvO0ahJEfPIzjLZw==",
+     "to": "TLmkN1xmY0q4vTxGH+QNvw==",
+     "oi": 2,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": "false"
+    },
+    {
+     "id": "FP/KNiStzUapYpXVeoZ7FA==",
+     "from": "7vnbefO++k+i3S7CpEh48g==",
+     "to": "YeQ4RsSTekqhW3kiWLCVBA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": "true"
+    },
+    {
+     "id": "s3Hjej2prESMMunDU2xcHg==",
+     "from": "j0WLGzHoVkOequz2aVIPrw==",
+     "to": "7US3IA0S20qd7gzB1NbXnA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "MePj6yVT+Uyh8EFnEbFvCw==",
+     "from": "v5tNIr/sU0u+WNe7j6lpQg==",
+     "to": "+XXkCDYhH0eBLZe4sQHPIg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "fIwjR1EkfE2vRuw8Ndn0nQ==",
+     "from": "TLmkN1xmY0q4vTxGH+QNvw==",
+     "to": "+XXkCDYhH0eBLZe4sQHPIg==",
+     "oi": 1,
+     "di": 2,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      15.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "qMMaAa3kZU6s2kd6Plj9/w==",
+     "from": "YeQ4RsSTekqhW3kiWLCVBA==",
+     "to": "+XXkCDYhH0eBLZe4sQHPIg==",
+     "oi": 1,
+     "di": 0,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      -15.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "/dXyoIU/zkKipMMTyRWNHQ==",
+     "from": "+XXkCDYhH0eBLZe4sQHPIg==",
+     "to": "D9NMU+HxHka2FI0Ezm10uw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "UVoAA2Z4G0Wl/OleI4IZ8Q==",
+     "from": "D9NMU+HxHka2FI0Ezm10uw==",
+     "to": "x3mBkF13JUGBapXXPl/oqg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "Uqw3mOjO6E6sC5sXW8f9tg==",
+     "from": "x3mBkF13JUGBapXXPl/oqg==",
+     "to": "JEMp7uBCrEiU8bGoS5BXEw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "FeedbackModule.PopulateUserAttributes",
+   "module": "FeedbackModule",
+   "kind": "Microflow",
+   "objects": [
+    {
+     "id": "Q5lNCKJHR0G/xUUQhALjRg==",
+     "type": "StartEvent",
+     "x": 100.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "baY+SgPGVkSqRX/vmTK52w==",
+     "type": "EndEvent",
+     "x": 700.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "0pyBkGP5F0ySZ7cAUlaA2A==",
+     "type": "Parameter",
+     "x": 100.0,
+     "y": 65.0,
+     "w": 30.0,
+     "h": 30.0,
+     "parent": null,
+     "label": "Feedback"
+    },
+    {
+     "id": "AxINuf5z+0+pRP/EDmGztQ==",
+     "type": "ActionActivity",
+     "x": 275.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Retrieve User",
+     "kind": "Retrieve",
+     "target": "System.User",
+     "disabled": false
+    },
+    {
+     "id": "dcqTtsDGj0q4DAfr3ZvOyg==",
+     "type": "ActionActivity",
+     "x": 500.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Change $Feedback",
+     "kind": "Change",
+     "target": "Feedback",
+     "disabled": false
+    },
+    {
+     "id": "sUKGVfOd6EWYHeM/IQ2LhA==",
+     "type": "Annotation",
+     "x": 395.0,
+     "y": 65.0,
+     "w": 300.0,
+     "h": 80.0,
+     "parent": null,
+     "label": "Change this retrieve the current user in your app and use the action next to it to populate submitter attributes of the feedback. This will indicate the submitter of the feedback in App Insights."
+    }
+   ],
+   "flows": [
+    {
+     "id": "vJPMBh+S3ECpzQ2kKys7xQ==",
+     "from": "Q5lNCKJHR0G/xUUQhALjRg==",
+     "to": "AxINuf5z+0+pRP/EDmGztQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "wr4pbeN9Zkyc6LkaKkVndw==",
+     "from": "AxINuf5z+0+pRP/EDmGztQ==",
+     "to": "dcqTtsDGj0q4DAfr3ZvOyg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "fplyGY6uAkyT4RU0BcRFyg==",
+     "from": "dcqTtsDGj0q4DAfr3ZvOyg==",
+     "to": "baY+SgPGVkSqRX/vmTK52w==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "NH82ZEkpF0G9f4X1daWHHQ==",
+     "from": "sUKGVfOd6EWYHeM/IQ2LhA==",
+     "to": "AxINuf5z+0+pRP/EDmGztQ==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      -30.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "SLorRrglxkOtGOIKtuTXug==",
+     "from": "sUKGVfOd6EWYHeM/IQ2LhA==",
+     "to": "dcqTtsDGj0q4DAfr3ZvOyg==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      -30.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "FeedbackModule.SUB_Feedback_ResetLocalStorage",
+   "module": "FeedbackModule",
+   "kind": "Nanoflow",
+   "objects": [
+    {
+     "id": "S11ieeGO8UqMjGeWyKdE5w==",
+     "type": "StartEvent",
+     "x": 0.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "IwgpIWHYyE6xYPZZ+0w4IA==",
+     "type": "EndEvent",
+     "x": 720.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "sj0wqa+Vu06XuLVOmEAP4A==",
+     "type": "ActionActivity",
+     "x": 180.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Change $Feedback",
+     "kind": "Change",
+     "target": "Feedback",
+     "disabled": false
+    },
+    {
+     "id": "VAnLO2DKDkuRoxbHVPQpMA==",
+     "type": "Annotation",
+     "x": 370.0,
+     "y": 75.0,
+     "w": 230.0,
+     "h": 50.0,
+     "parent": null,
+     "label": "Cleans up the feedback and stores it in local storage"
+    },
+    {
+     "id": "Edd1IWrqVEGMHRFhnHO5Sg==",
+     "type": "Parameter",
+     "x": 0.0,
+     "y": -30.0,
+     "w": 30.0,
+     "h": 30.0,
+     "parent": null,
+     "label": "Feedback"
+    },
+    {
+     "id": "geW1fa8iOk+ZRsmtwYPVyw==",
+     "type": "ActionActivity",
+     "x": 526.0,
+     "y": 200.0,
+     "w": 210.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "JS JS_SetFeedbackStorageObject",
+     "kind": "JS",
+     "target": "FeedbackModule.JS_SetFeedbackStorageObject",
+     "disabled": false
+    }
+   ],
+   "flows": [
+    {
+     "id": "qXSMgUxcy0qDVDSN2qvljw==",
+     "from": "S11ieeGO8UqMjGeWyKdE5w==",
+     "to": "sj0wqa+Vu06XuLVOmEAP4A==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "/xIieC3I20eJUR7KkD4ACg==",
+     "from": "sj0wqa+Vu06XuLVOmEAP4A==",
+     "to": "geW1fa8iOk+ZRsmtwYPVyw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "3IpmCIeomkWaYTCtG7MulQ==",
+     "from": "VAnLO2DKDkuRoxbHVPQpMA==",
+     "to": "sj0wqa+Vu06XuLVOmEAP4A==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      -30.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "Rvhx6OW+5UqjwlT2wBwD0g==",
+     "from": "geW1fa8iOk+ZRsmtwYPVyw==",
+     "to": "IwgpIWHYyE6xYPZZ+0w4IA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "whQFMwUZsU2VXs3is0A24A==",
+     "from": "VAnLO2DKDkuRoxbHVPQpMA==",
+     "to": "geW1fa8iOk+ZRsmtwYPVyw==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "FeedbackModule.SUB_Feedback_SendToServer",
+   "module": "FeedbackModule",
+   "kind": "Microflow",
+   "objects": [
+    {
+     "id": "M35OkKdV4ECJ8KzbWV/sJw==",
+     "type": "StartEvent",
+     "x": -875.0,
+     "y": -50.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "latLPjaJfEOyXX8PuIl5wg==",
+     "type": "EndEvent",
+     "x": 435.0,
+     "y": -50.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": "$Response"
+    },
+    {
+     "id": "Hr5PrCCjiEOMQS3PjlsGIQ==",
+     "type": "Parameter",
+     "x": -875.0,
+     "y": -165.0,
+     "w": 30.0,
+     "h": 30.0,
+     "parent": null,
+     "label": "Feedback"
+    },
+    {
+     "id": "MEWabLhaxEm0555PUsbvJA==",
+     "type": "ActionActivity",
+     "x": -730.0,
+     "y": -50.0,
+     "w": 130.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "XSS Sanitize Feedback",
+     "kind": "Call",
+     "target": "FeedbackModule.SUB_Feedback_Sanitize",
+     "disabled": false
+    },
+    {
+     "id": "W+3jKNQCuUWGgrGOejTkHw==",
+     "type": "ActionActivity",
+     "x": -375.0,
+     "y": -50.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Set Screenshot Name",
+     "kind": "Change",
+     "target": "Feedback",
+     "disabled": false
+    },
+    {
+     "id": "mYAPRy9kv0WnWeDtBxUtbg==",
+     "type": "EndEvent",
+     "x": 230.0,
+     "y": 280.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": "empty"
+    },
+    {
+     "id": "uy9DxMq3IUqMvyMuvlEX8g==",
+     "type": "ExclusiveSplit",
+     "x": -550.0,
+     "y": -50.0,
+     "w": 90.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Has Screenshot?"
+    },
+    {
+     "id": "H4+TZZRkvkerVPB1DsvH7g==",
+     "type": "ExclusiveMerge",
+     "x": -200.0,
+     "y": -50.0,
+     "w": 90.0,
+     "h": 60.0,
+     "parent": null
+    },
+    {
+     "id": "eukRJUnD60ySV+4d4ROD4Q==",
+     "type": "ExclusiveMerge",
+     "x": -550.0,
+     "y": -165.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "6j/CWDvQ5kaH1pg6okSRjw==",
+     "type": "ExclusiveMerge",
+     "x": -200.0,
+     "y": -165.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "DQQjpeU9y06pWfEKEA0w9g==",
+     "type": "ExclusiveSplit",
+     "x": -40.0,
+     "y": -50.0,
+     "w": 90.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "AppId is not empty or 1?"
+    },
+    {
+     "id": "33OtHjk6YUy4ocKqOp6Xuw==",
+     "type": "ActionActivity",
+     "x": -40.0,
+     "y": 75.0,
+     "w": 160.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Log",
+     "kind": "Log",
+     "target": "",
+     "disabled": false
+    },
+    {
+     "id": "8uYwX4ovuU+xLv8c+4jEKQ==",
+     "type": "ExclusiveMerge",
+     "x": -40.0,
+     "y": 160.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "5jQdJQVm7ky4qP+O001R7A==",
+     "type": "ExclusiveMerge",
+     "x": 230.0,
+     "y": 160.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "l7SR6CfgCUaMKZF5/XjuqQ==",
+     "type": "ActionActivity",
+     "x": 230.0,
+     "y": -50.0,
+     "w": 210.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Post feedback to App Insights",
+     "kind": "Call",
+     "target": "FeedbackModule.SUB_Feedback_PostToAppInsights",
+     "disabled": false
+    }
+   ],
+   "flows": [
+    {
+     "id": "MCpDlrya2km/VcxFd/MYNg==",
+     "from": "M35OkKdV4ECJ8KzbWV/sJw==",
+     "to": "MEWabLhaxEm0555PUsbvJA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "rV9Z1NNVSEiKLMvg57+F1g==",
+     "from": "W+3jKNQCuUWGgrGOejTkHw==",
+     "to": "H4+TZZRkvkerVPB1DsvH7g==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "L8IuYh15+ky47lbGgzCl1g==",
+     "from": "uy9DxMq3IUqMvyMuvlEX8g==",
+     "to": "W+3jKNQCuUWGgrGOejTkHw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": "true"
+    },
+    {
+     "id": "1B95xwfP0EmhnxEnCMKBeQ==",
+     "from": "H4+TZZRkvkerVPB1DsvH7g==",
+     "to": "DQQjpeU9y06pWfEKEA0w9g==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "+sETlqEA90a3Cwi2KYf2Hg==",
+     "from": "uy9DxMq3IUqMvyMuvlEX8g==",
+     "to": "eukRJUnD60ySV+4d4ROD4Q==",
+     "oi": 0,
+     "di": 2,
+     "ocv": [
+      0.0,
+      -15.0
+     ],
+     "dcv": [
+      0.0,
+      15.0
+     ],
+     "err": false,
+     "label": "false"
+    },
+    {
+     "id": "9E2zvZ1B0UG5MosfQyKwfA==",
+     "from": "eukRJUnD60ySV+4d4ROD4Q==",
+     "to": "6j/CWDvQ5kaH1pg6okSRjw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "DIAcCvOM/UOEvpG5ZBdCWA==",
+     "from": "6j/CWDvQ5kaH1pg6okSRjw==",
+     "to": "H4+TZZRkvkerVPB1DsvH7g==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      15.0
+     ],
+     "dcv": [
+      0.0,
+      -15.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "MaL5UEhaPU61ZhCnKq4HQA==",
+     "from": "5jQdJQVm7ky4qP+O001R7A==",
+     "to": "mYAPRy9kv0WnWeDtBxUtbg==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      15.0
+     ],
+     "dcv": [
+      0.0,
+      -15.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "08S5I0KDDkypd0LAP4Cwyw==",
+     "from": "33OtHjk6YUy4ocKqOp6Xuw==",
+     "to": "8uYwX4ovuU+xLv8c+4jEKQ==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      30.0
+     ],
+     "dcv": [
+      0.0,
+      -15.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "0howBiUglkiyjaRxOJ71Bw==",
+     "from": "8uYwX4ovuU+xLv8c+4jEKQ==",
+     "to": "5jQdJQVm7ky4qP+O001R7A==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "U0unf8yLxU2wU34PT1TH4g==",
+     "from": "DQQjpeU9y06pWfEKEA0w9g==",
+     "to": "33OtHjk6YUy4ocKqOp6Xuw==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      15.0
+     ],
+     "dcv": [
+      0.0,
+      -30.0
+     ],
+     "err": false,
+     "label": "false"
+    },
+    {
+     "id": "QzLR4m3Fk0GUqHQ4DRU9vQ==",
+     "from": "DQQjpeU9y06pWfEKEA0w9g==",
+     "to": "l7SR6CfgCUaMKZF5/XjuqQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": "true"
+    },
+    {
+     "id": "rLG7VRhgBUewNYkR7qVtDA==",
+     "from": "l7SR6CfgCUaMKZF5/XjuqQ==",
+     "to": "latLPjaJfEOyXX8PuIl5wg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "lie2X97pBUi5RlDKki7wPQ==",
+     "from": "l7SR6CfgCUaMKZF5/XjuqQ==",
+     "to": "5jQdJQVm7ky4qP+O001R7A==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      30.0
+     ],
+     "dcv": [
+      0.0,
+      -15.0
+     ],
+     "err": true,
+     "label": ""
+    },
+    {
+     "id": "BKd8AvZAXUW0pVbhGi8BAw==",
+     "from": "MEWabLhaxEm0555PUsbvJA==",
+     "to": "uy9DxMq3IUqMvyMuvlEX8g==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "FeedbackModule.DS_Feedback_Populate",
+   "module": "FeedbackModule",
+   "kind": "Nanoflow",
+   "objects": [
+    {
+     "id": "0sAm5R2QP0iijlGBxNf5iw==",
+     "type": "StartEvent",
+     "x": -565.0,
+     "y": 165.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "mY+dhabThkKt+oMYFXeEoA==",
+     "type": "EndEvent",
+     "x": 1125.0,
+     "y": 165.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": "$Feedback"
+    },
+    {
+     "id": "Whx4aHGgKEaLe18jf76woA==",
+     "type": "ActionActivity",
+     "x": -90.0,
+     "y": 165.0,
+     "w": 170.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Call PopulateUserAttributes",
+     "kind": "Call",
+     "target": "FeedbackModule.PopulateUserAttributes",
+     "disabled": false
+    },
+    {
+     "id": "sCLa8/EwG0OkAUyzx6wLAQ==",
+     "type": "ActionActivity",
+     "x": -360.0,
+     "y": 165.0,
+     "w": 210.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Call SUB_Feedback_GetOrCreate",
+     "kind": "Call",
+     "target": "FeedbackModule.SUB_Feedback_GetOrCreate",
+     "disabled": false
+    },
+    {
+     "id": "snpjanygC06bRswCReL5fQ==",
+     "type": "ActionActivity",
+     "x": 340.0,
+     "y": 165.0,
+     "w": 170.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Populate Feedback Metadata",
+     "kind": "JS",
+     "target": "FeedbackModule.JS_PopulateFeedbackMetadata",
+     "disabled": false
+    },
+    {
+     "id": "MQPeJj15fEKMxBntKJVb3Q==",
+     "type": "ActionActivity",
+     "x": 125.0,
+     "y": 165.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Set Email field visibility",
+     "kind": "Change",
+     "target": "Feedback",
+     "disabled": false
+    },
+    {
+     "id": "AvvqffMLV0KhrPaS+/Rk0A==",
+     "type": "ActionActivity",
+     "x": 940.0,
+     "y": 165.0,
+     "w": 190.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "JS JS_Recalculate_MendixModal_Error_PopUp_Zindex",
+     "kind": "JS",
+     "target": "FeedbackModule.JS_Recalculate_MendixModal_Error_PopUp_Zindex",
+     "disabled": false
+    },
+    {
+     "id": "tmYS04U+2EeNw7CMsGG7AA==",
+     "type": "ActionActivity",
+     "x": 621.0,
+     "y": 165.0,
+     "w": 220.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "JS JS_SetFeedbackStorageObject",
+     "kind": "JS",
+     "target": "FeedbackModule.JS_SetFeedbackStorageObject",
+     "disabled": false
+    }
+   ],
+   "flows": [
+    {
+     "id": "Ma+bGGrRGUCE1mXwASmo3w==",
+     "from": "0sAm5R2QP0iijlGBxNf5iw==",
+     "to": "sCLa8/EwG0OkAUyzx6wLAQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "IwqJ34+CT0Sed3uKG4vpyA==",
+     "from": "Whx4aHGgKEaLe18jf76woA==",
+     "to": "MQPeJj15fEKMxBntKJVb3Q==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "F3CWp4k2j0Wx6+pY9yFeIg==",
+     "from": "sCLa8/EwG0OkAUyzx6wLAQ==",
+     "to": "Whx4aHGgKEaLe18jf76woA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "puCjDxIR+0e8ZprqS2EdMA==",
+     "from": "snpjanygC06bRswCReL5fQ==",
+     "to": "tmYS04U+2EeNw7CMsGG7AA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "RZAa1o2lo0q40D7wL6gKlQ==",
+     "from": "MQPeJj15fEKMxBntKJVb3Q==",
+     "to": "snpjanygC06bRswCReL5fQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "DhbdWUJFhE+TafdKIHMWoQ==",
+     "from": "AvvqffMLV0KhrPaS+/Rk0A==",
+     "to": "mY+dhabThkKt+oMYFXeEoA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "mYxIceEKzkSRTiG2/hOmxw==",
+     "from": "tmYS04U+2EeNw7CMsGG7AA==",
+     "to": "AvvqffMLV0KhrPaS+/Rk0A==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "FeedbackModule.SUB_Feedback_PostToAppInsights",
+   "module": "FeedbackModule",
+   "kind": "Microflow",
+   "objects": [
+    {
+     "id": "zXRGAGJJWEinl6fyoJnDsQ==",
+     "type": "ActionActivity",
+     "x": 715.0,
+     "y": -50.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "REST call ResponseHelper",
+     "kind": "REST call",
+     "target": "FeedbackModule.ResponseHelper",
+     "disabled": false
+    },
+    {
+     "id": "Ams5yywW2kCAfW3kJXVSjA==",
+     "type": "ActionActivity",
+     "x": 535.0,
+     "y": -50.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "CreateVariable $ServerLocation",
+     "kind": "CreateVariable",
+     "target": "ServerLocation",
+     "disabled": false
+    },
+    {
+     "id": "bTSz001vQUuHhBej1ghWGA==",
+     "type": "StartEvent",
+     "x": 360.0,
+     "y": -50.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "kM2Drf7giU2bCvygqWVn2w==",
+     "type": "EndEvent",
+     "x": 915.0,
+     "y": -50.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": "$Response"
+    },
+    {
+     "id": "Vi/rFsOU+EqhsgAMKSot+w==",
+     "type": "Parameter",
+     "x": 360.0,
+     "y": -175.0,
+     "w": 30.0,
+     "h": 30.0,
+     "parent": null,
+     "label": "Feedback"
+    },
+    {
+     "id": "yZQe4S/LXEiYp+FLKEaQjw==",
+     "type": "ActionActivity",
+     "x": 715.0,
+     "y": 85.0,
+     "w": 160.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Log",
+     "kind": "Log",
+     "target": "",
+     "disabled": false
+    },
+    {
+     "id": "R79+W5x6lUO/zNQ6GG6FEQ==",
+     "type": "EndEvent",
+     "x": 715.0,
+     "y": 195.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": "empty"
+    },
+    {
+     "id": "2Y26n9uis0uspkkyO//nLg==",
+     "type": "Annotation",
+     "x": 555.0,
+     "y": -170.0,
+     "w": 230.0,
+     "h": 50.0,
+     "parent": null,
+     "label": "This microflow sends the feedback to App Insights."
+    }
+   ],
+   "flows": [
+    {
+     "id": "jhk9B+j+rEWd0KVRtsWgwg==",
+     "from": "Ams5yywW2kCAfW3kJXVSjA==",
+     "to": "zXRGAGJJWEinl6fyoJnDsQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "okZBwknVsU+QMPW8Js96hQ==",
+     "from": "bTSz001vQUuHhBej1ghWGA==",
+     "to": "Ams5yywW2kCAfW3kJXVSjA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "Y/clkYHeYUe6T9m9GmGa6w==",
+     "from": "zXRGAGJJWEinl6fyoJnDsQ==",
+     "to": "kM2Drf7giU2bCvygqWVn2w==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "jD0sfhEp40urGE3mQbPVtA==",
+     "from": "zXRGAGJJWEinl6fyoJnDsQ==",
+     "to": "yZQe4S/LXEiYp+FLKEaQjw==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      30.0
+     ],
+     "dcv": [
+      0.0,
+      -30.0
+     ],
+     "err": true,
+     "label": ""
+    },
+    {
+     "id": "Hg/cnKvM6E6Eh63MdyB7Ng==",
+     "from": "yZQe4S/LXEiYp+FLKEaQjw==",
+     "to": "R79+W5x6lUO/zNQ6GG6FEQ==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      30.0
+     ],
+     "dcv": [
+      0.0,
+      -15.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "FeedbackModule.VAL_Feedback",
+   "module": "FeedbackModule",
+   "kind": "Microflow",
+   "objects": [
+    {
+     "id": "SKquy4uji0Grkx7N12ligw==",
+     "type": "ActionActivity",
+     "x": -390.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "CreateVariable $ValidFeedback",
+     "kind": "CreateVariable",
+     "target": "ValidFeedback",
+     "disabled": false
+    },
+    {
+     "id": "aKSaYweaYkK+2Nsa1B/Dgg==",
+     "type": "ExclusiveSplit",
+     "x": -215.0,
+     "y": 200.0,
+     "w": 90.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Subject not empty?"
+    },
+    {
+     "id": "EMqJW9lfEE+XWKg33hJWvg==",
+     "type": "ActionActivity",
+     "x": -215.0,
+     "y": 325.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Validation",
+     "kind": "Validation",
+     "target": "",
+     "disabled": false
+    },
+    {
+     "id": "v1LwGOLixEWfL+SAvn9k9A==",
+     "type": "ActionActivity",
+     "x": 135.0,
+     "y": 460.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "ChangeVariable $ValidFeedback",
+     "kind": "ChangeVariable",
+     "target": "ValidFeedback",
+     "disabled": false
+    },
+    {
+     "id": "6OuzeiMrfUCGPY4wo1CjAg==",
+     "type": "ExclusiveMerge",
+     "x": 245.0,
+     "y": 200.0,
+     "w": 90.0,
+     "h": 60.0,
+     "parent": null
+    },
+    {
+     "id": "AWdm7KE/rkm7d8DIrC4BjQ==",
+     "type": "ExclusiveMerge",
+     "x": 245.0,
+     "y": 460.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "ll+gS60+8k658Nn14Z+TzQ==",
+     "type": "ExclusiveSplit",
+     "x": 770.0,
+     "y": 200.0,
+     "w": 90.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Email not empty?"
+    },
+    {
+     "id": "b8tQ8bn1bUG2mfVCaFqUlg==",
+     "type": "ActionActivity",
+     "x": 770.0,
+     "y": 325.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Validation",
+     "kind": "Validation",
+     "target": "",
+     "disabled": false
+    },
+    {
+     "id": "V1pyfpOQck2hDH/DeBr4Lw==",
+     "type": "ExclusiveMerge",
+     "x": 1155.0,
+     "y": 460.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "CvY/S6O3ekSXuS8zNkhCyg==",
+     "type": "StartEvent",
+     "x": -545.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "juisLgNMv02dfBlQ9QFdoA==",
+     "type": "Parameter",
+     "x": -545.0,
+     "y": 60.0,
+     "w": 30.0,
+     "h": 30.0,
+     "parent": null,
+     "label": "Feedback"
+    },
+    {
+     "id": "rVs6GGjWbUa8pxgbWlkzYw==",
+     "type": "ExclusiveSplit",
+     "x": 420.0,
+     "y": 200.0,
+     "w": 90.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Description < 32000 characters?"
+    },
+    {
+     "id": "JMhTv3GJLECEGVa7BVIvjA==",
+     "type": "ActionActivity",
+     "x": 420.0,
+     "y": 325.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Validation",
+     "kind": "Validation",
+     "target": "",
+     "disabled": false
+    },
+    {
+     "id": "eWqcrET/e0mnSFmtpcdJwg==",
+     "type": "ActionActivity",
+     "x": 420.0,
+     "y": 460.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "ChangeVariable $ValidFeedback",
+     "kind": "ChangeVariable",
+     "target": "ValidFeedback",
+     "disabled": false
+    },
+    {
+     "id": "tI6jA89vM0uBeX+WMg1uoQ==",
+     "type": "ExclusiveMerge",
+     "x": 595.0,
+     "y": 200.0,
+     "w": 90.0,
+     "h": 60.0,
+     "parent": null
+    },
+    {
+     "id": "VaVfvYOIjEOFLgAb7IQ6fA==",
+     "type": "ExclusiveMerge",
+     "x": 595.0,
+     "y": 460.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "pMd2UcegRUGIfqo24TRSag==",
+     "type": "ExclusiveSplit",
+     "x": 1155.0,
+     "y": 200.0,
+     "w": 90.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Email is Valid?"
+    },
+    {
+     "id": "cIgPSdblwkinhTym7Vc2Pg==",
+     "type": "ActionActivity",
+     "x": 1155.0,
+     "y": 325.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Validation",
+     "kind": "Validation",
+     "target": "",
+     "disabled": false
+    },
+    {
+     "id": "1CKuF7ZO4EyS0ZI8dOMSxw==",
+     "type": "ActionActivity",
+     "x": 1305.0,
+     "y": 460.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "ChangeVariable $ValidFeedback",
+     "kind": "ChangeVariable",
+     "target": "ValidFeedback",
+     "disabled": false
+    },
+    {
+     "id": "AXasnSea40uorxGvqZPkDg==",
+     "type": "ExclusiveMerge",
+     "x": 1460.0,
+     "y": 200.0,
+     "w": 90.0,
+     "h": 60.0,
+     "parent": null
+    },
+    {
+     "id": "GHIqXDW4C0mR1fVwScAEXw==",
+     "type": "ExclusiveMerge",
+     "x": 1460.0,
+     "y": 460.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "wwZISB/q/kaAd4MRiof0iA==",
+     "type": "ActionActivity",
+     "x": 980.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Java ValidateEmail",
+     "kind": "Java",
+     "target": "FeedbackModule.ValidateEmail",
+     "disabled": false
+    },
+    {
+     "id": "bueBId/FjUWrhYfMQ/3+dg==",
+     "type": "ExclusiveMerge",
+     "x": 770.0,
+     "y": 460.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "hU3yB/fElUOkIbhOLoEOAw==",
+     "type": "EndEvent",
+     "x": 1640.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": "$ValidFeedback"
+    },
+    {
+     "id": "/WVuEK+SCEGWMu8Enl0liA==",
+     "type": "ExclusiveSplit",
+     "x": -40.0,
+     "y": 200.0,
+     "w": 90.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Subject < 200 characters"
+    },
+    {
+     "id": "+OKHg/T71kOxxbPcosbpQA==",
+     "type": "ExclusiveMerge",
+     "x": -40.0,
+     "y": 460.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "tKccNrTXFUKO2HqXcKilCw==",
+     "type": "ActionActivity",
+     "x": -40.0,
+     "y": 330.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Validation",
+     "kind": "Validation",
+     "target": "",
+     "disabled": false
+    },
+    {
+     "id": "bqdP6ptxRUaT+OzCDFOFSA==",
+     "type": "ExclusiveMerge",
+     "x": -215.0,
+     "y": 460.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "PuMaCYerzUKcLmsdPOwmRw==",
+     "type": "Annotation",
+     "x": -345.0,
+     "y": 60.0,
+     "w": 230.0,
+     "h": 50.0,
+     "parent": null,
+     "label": "The validations are identical to those used in the Mendix Feedback API v2"
+    }
+   ],
+   "flows": [
+    {
+     "id": "yb5lNx6T8UOhig3yh1H+aA==",
+     "from": "SKquy4uji0Grkx7N12ligw==",
+     "to": "aKSaYweaYkK+2Nsa1B/Dgg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "46qGwVhAKUqUV3SyRNVGDA==",
+     "from": "aKSaYweaYkK+2Nsa1B/Dgg==",
+     "to": "/WVuEK+SCEGWMu8Enl0liA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": "true"
+    },
+    {
+     "id": "U3dll/ssuEuHZlaYOXP6PQ==",
+     "from": "aKSaYweaYkK+2Nsa1B/Dgg==",
+     "to": "EMqJW9lfEE+XWKg33hJWvg==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      15.0
+     ],
+     "dcv": [
+      0.0,
+      -30.0
+     ],
+     "err": false,
+     "label": "false"
+    },
+    {
+     "id": "NtbNVfKyREacVWxPA3BPsg==",
+     "from": "6OuzeiMrfUCGPY4wo1CjAg==",
+     "to": "rVs6GGjWbUa8pxgbWlkzYw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "6Qwz7sdFSkGAf7yLKGNJSw==",
+     "from": "v1LwGOLixEWfL+SAvn9k9A==",
+     "to": "AWdm7KE/rkm7d8DIrC4BjQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "WPi9MwEdgEqhAhlxROH5eA==",
+     "from": "AWdm7KE/rkm7d8DIrC4BjQ==",
+     "to": "6OuzeiMrfUCGPY4wo1CjAg==",
+     "oi": 0,
+     "di": 2,
+     "ocv": [
+      0.0,
+      -15.0
+     ],
+     "dcv": [
+      0.0,
+      15.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "kW/dve/1NkyK7luuZAW6NQ==",
+     "from": "ll+gS60+8k658Nn14Z+TzQ==",
+     "to": "b8tQ8bn1bUG2mfVCaFqUlg==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      15.0
+     ],
+     "dcv": [
+      0.0,
+      -30.0
+     ],
+     "err": false,
+     "label": "false"
+    },
+    {
+     "id": "q7T3RHqKHUixheIMHBDYIg==",
+     "from": "CvY/S6O3ekSXuS8zNkhCyg==",
+     "to": "SKquy4uji0Grkx7N12ligw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "mvyUzlsTB0iZ0RgOwzOXXQ==",
+     "from": "rVs6GGjWbUa8pxgbWlkzYw==",
+     "to": "tI6jA89vM0uBeX+WMg1uoQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": "true"
+    },
+    {
+     "id": "XMHvmrP/nE6ZR6Qd1OLUcw==",
+     "from": "rVs6GGjWbUa8pxgbWlkzYw==",
+     "to": "JMhTv3GJLECEGVa7BVIvjA==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      15.0
+     ],
+     "dcv": [
+      0.0,
+      -30.0
+     ],
+     "err": false,
+     "label": "false"
+    },
+    {
+     "id": "JeCy+rRpm0iLnfDNuy29dw==",
+     "from": "JMhTv3GJLECEGVa7BVIvjA==",
+     "to": "eWqcrET/e0mnSFmtpcdJwg==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      30.0
+     ],
+     "dcv": [
+      0.0,
+      -30.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "sgW4/G5p10CLsK9iNqjnNQ==",
+     "from": "eWqcrET/e0mnSFmtpcdJwg==",
+     "to": "VaVfvYOIjEOFLgAb7IQ6fA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "nawoTropS0iOcyuSmw1bzw==",
+     "from": "VaVfvYOIjEOFLgAb7IQ6fA==",
+     "to": "tI6jA89vM0uBeX+WMg1uoQ==",
+     "oi": 0,
+     "di": 2,
+     "ocv": [
+      0.0,
+      -15.0
+     ],
+     "dcv": [
+      0.0,
+      15.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "KqvXIpVzWki/tng77um87A==",
+     "from": "tI6jA89vM0uBeX+WMg1uoQ==",
+     "to": "ll+gS60+8k658Nn14Z+TzQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "aK5nUVM1hUu6erDJvBeJFw==",
+     "from": "pMd2UcegRUGIfqo24TRSag==",
+     "to": "AXasnSea40uorxGvqZPkDg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": "true"
+    },
+    {
+     "id": "QgEWesYTpEuqIWai1mlQCQ==",
+     "from": "pMd2UcegRUGIfqo24TRSag==",
+     "to": "cIgPSdblwkinhTym7Vc2Pg==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      15.0
+     ],
+     "dcv": [
+      0.0,
+      -30.0
+     ],
+     "err": false,
+     "label": "false"
+    },
+    {
+     "id": "bGYJQiLeJkiQMUaxpeNymA==",
+     "from": "1CKuF7ZO4EyS0ZI8dOMSxw==",
+     "to": "GHIqXDW4C0mR1fVwScAEXw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "1Yh9W1x0V0+QQMuI7SQTIA==",
+     "from": "GHIqXDW4C0mR1fVwScAEXw==",
+     "to": "AXasnSea40uorxGvqZPkDg==",
+     "oi": 0,
+     "di": 2,
+     "ocv": [
+      0.0,
+      -15.0
+     ],
+     "dcv": [
+      0.0,
+      15.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "qT2QTRkzJ0ukA9jOAYTXog==",
+     "from": "wwZISB/q/kaAd4MRiof0iA==",
+     "to": "pMd2UcegRUGIfqo24TRSag==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "btaRvy1UrE2EFPcBrbGXJg==",
+     "from": "ll+gS60+8k658Nn14Z+TzQ==",
+     "to": "wwZISB/q/kaAd4MRiof0iA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": "true"
+    },
+    {
+     "id": "loU8Fb/yHEiNruUVxik9BA==",
+     "from": "b8tQ8bn1bUG2mfVCaFqUlg==",
+     "to": "bueBId/FjUWrhYfMQ/3+dg==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      30.0
+     ],
+     "dcv": [
+      0.0,
+      -15.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "y1nk9rENI0mjREZqVc07fg==",
+     "from": "bueBId/FjUWrhYfMQ/3+dg==",
+     "to": "V1pyfpOQck2hDH/DeBr4Lw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "c3qMBaJXME2qCMJHLf7WQw==",
+     "from": "V1pyfpOQck2hDH/DeBr4Lw==",
+     "to": "1CKuF7ZO4EyS0ZI8dOMSxw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "hyheHCnaWUeXFnyy0EUbcA==",
+     "from": "cIgPSdblwkinhTym7Vc2Pg==",
+     "to": "V1pyfpOQck2hDH/DeBr4Lw==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      30.0
+     ],
+     "dcv": [
+      0.0,
+      -15.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "m3Ug6XpqnkG3JH6QdwI5QQ==",
+     "from": "AXasnSea40uorxGvqZPkDg==",
+     "to": "hU3yB/fElUOkIbhOLoEOAw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "ZYi0s/OskkCZzLIMyTDbxA==",
+     "from": "/WVuEK+SCEGWMu8Enl0liA==",
+     "to": "6OuzeiMrfUCGPY4wo1CjAg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": "true"
+    },
+    {
+     "id": "3+eqck10WESBkPxqlXAgzA==",
+     "from": "/WVuEK+SCEGWMu8Enl0liA==",
+     "to": "tKccNrTXFUKO2HqXcKilCw==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      15.0
+     ],
+     "dcv": [
+      0.0,
+      -30.0
+     ],
+     "err": false,
+     "label": "false"
+    },
+    {
+     "id": "9Vf6ORHc0U+M7/V43RQf4Q==",
+     "from": "+OKHg/T71kOxxbPcosbpQA==",
+     "to": "v1LwGOLixEWfL+SAvn9k9A==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "DFyuiyg1LE2RyDmKbYiBmg==",
+     "from": "tKccNrTXFUKO2HqXcKilCw==",
+     "to": "+OKHg/T71kOxxbPcosbpQA==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      30.0
+     ],
+     "dcv": [
+      0.0,
+      -15.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "RRXEcYgJ60OnapsRTnekaw==",
+     "from": "EMqJW9lfEE+XWKg33hJWvg==",
+     "to": "bqdP6ptxRUaT+OzCDFOFSA==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      30.0
+     ],
+     "dcv": [
+      0.0,
+      -15.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "yuGOmyn6XUaYZIl62mWayw==",
+     "from": "bqdP6ptxRUaT+OzCDFOFSA==",
+     "to": "+OKHg/T71kOxxbPcosbpQA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "Administration.ManageMyAccount",
+   "module": "Administration",
+   "kind": "Microflow",
+   "objects": [
+    {
+     "id": "O7UcQv2QSUeYIPPVYmbSOg==",
+     "type": "StartEvent",
+     "x": 100.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "dHLRXpMDI0CDSk7zv+fEUA==",
+     "type": "InheritanceSplit",
+     "x": 220.0,
+     "y": 200.0,
+     "w": 60.0,
+     "h": 40.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "GFvtqz4aT0SwVrgFa9NKdw==",
+     "type": "EndEvent",
+     "x": 865.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "vbJKe8Y7GkSg94iFMjfZHw==",
+     "type": "ActionActivity",
+     "x": 730.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Show page MyAccount",
+     "kind": "Show page",
+     "target": "Administration.MyAccount",
+     "disabled": false
+    },
+    {
+     "id": "VzQPNUW2TE+aP/OKbla2/Q==",
+     "type": "ActionActivity",
+     "x": 555.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Cast Account",
+     "kind": "Cast",
+     "target": "Account",
+     "disabled": false
+    },
+    {
+     "id": "m2NBACET8ke/vdXTK2KfMw==",
+     "type": "ExclusiveMerge",
+     "x": 225.0,
+     "y": 300.0,
+     "w": 110.0,
+     "h": 40.0,
+     "parent": null
+    },
+    {
+     "id": "4uUJUumeFE6Tj7sFJS+e6Q==",
+     "type": "EndEvent",
+     "x": 225.0,
+     "y": 480.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "LZDSgH+K/E+9giOX+lv4pw==",
+     "type": "ActionActivity",
+     "x": 225.0,
+     "y": 390.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Message",
+     "kind": "Message",
+     "target": "",
+     "disabled": false
+    }
+   ],
+   "flows": [
+    {
+     "id": "iQ460vZ0ikC8+GwVkr5B3g==",
+     "from": "O7UcQv2QSUeYIPPVYmbSOg==",
+     "to": "dHLRXpMDI0CDSk7zv+fEUA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "eZAChKBR+0qldH3aozLMuw==",
+     "from": "vbJKe8Y7GkSg94iFMjfZHw==",
+     "to": "GFvtqz4aT0SwVrgFa9NKdw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "JVfHZOLZkEi546WKJauaaQ==",
+     "from": "dHLRXpMDI0CDSk7zv+fEUA==",
+     "to": "VzQPNUW2TE+aP/OKbla2/Q==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": "Administration.Account"
+    },
+    {
+     "id": "hnMh1FQtA0+HrbMkXx4YIA==",
+     "from": "VzQPNUW2TE+aP/OKbla2/Q==",
+     "to": "vbJKe8Y7GkSg94iFMjfZHw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "lgUwZ/ZmkUmV4E3JHZBiHg==",
+     "from": "dHLRXpMDI0CDSk7zv+fEUA==",
+     "to": "m2NBACET8ke/vdXTK2KfMw==",
+     "oi": 2,
+     "di": 1,
+     "ocv": [
+      0.0,
+      15.0
+     ],
+     "dcv": [
+      15.0,
+      0.0
+     ],
+     "err": false,
+     "label": "System.User"
+    },
+    {
+     "id": "yPcn70jwMEaWyRDLuO7hNg==",
+     "from": "dHLRXpMDI0CDSk7zv+fEUA==",
+     "to": "m2NBACET8ke/vdXTK2KfMw==",
+     "oi": 2,
+     "di": 3,
+     "ocv": [
+      0.0,
+      15.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "nc6bix2pR0KB4hVSR+zhAg==",
+     "from": "m2NBACET8ke/vdXTK2KfMw==",
+     "to": "LZDSgH+K/E+9giOX+lv4pw==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      15.0
+     ],
+     "dcv": [
+      0.0,
+      -30.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "zl0w/FF9EUGCIAQNdPqgsw==",
+     "from": "LZDSgH+K/E+9giOX+lv4pw==",
+     "to": "4uUJUumeFE6Tj7sFJS+e6Q==",
+     "oi": 2,
+     "di": 0,
+     "ocv": [
+      0.0,
+      30.0
+     ],
+     "dcv": [
+      0.0,
+      -15.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  }
+ ],
+ "pages": [
+  {
+   "qn": "FeedbackModule.PopupSuccess_Logo",
+   "module": "FeedbackModule",
+   "kind": "Page"
+  },
+  {
+   "qn": "Atlas_Core.LanguageSelectorWidget",
+   "module": "Atlas_Core",
+   "kind": "Snippet"
+  },
+  {
+   "qn": "Administration.RuntimeInstances",
+   "module": "Administration",
+   "kind": "Page"
+  },
+  {
+   "qn": "Administration.MyAccount",
+   "module": "Administration",
+   "kind": "Page"
+  },
+  {
+   "qn": "MyFirstModule.Home_Web",
+   "module": "MyFirstModule",
+   "kind": "Page"
+  },
+  {
+   "qn": "FeedbackModule._ReadMe",
+   "module": "FeedbackModule",
+   "kind": "Snippet"
+  },
+  {
+   "qn": "FeedbackModule.PopupFailure_Logo",
+   "module": "FeedbackModule",
+   "kind": "Page"
+  },
+  {
+   "qn": "Administration.ActiveSessions",
+   "module": "Administration",
+   "kind": "Page"
+  },
+  {
+   "qn": "FeedbackModule.ShareFeedback",
+   "module": "FeedbackModule",
+   "kind": "Page"
+  },
+  {
+   "qn": "Administration.ScheduledEvents",
+   "module": "Administration",
+   "kind": "Page"
+  },
+  {
+   "qn": "Atlas_Core.FeedbackWidget",
+   "module": "Atlas_Core",
+   "kind": "Snippet"
+  },
+  {
+   "qn": "FeedbackModule.PopupSuccess",
+   "module": "FeedbackModule",
+   "kind": "Page"
+  },
+  {
+   "qn": "Administration.Account_Edit",
+   "module": "Administration",
+   "kind": "Page"
+  },
+  {
+   "qn": "Administration.ReadMe",
+   "module": "Administration",
+   "kind": "Snippet"
+  },
+  {
+   "qn": "FeedbackModule.ShareFeedback_Logo",
+   "module": "FeedbackModule",
+   "kind": "Page"
+  },
+  {
+   "qn": "Administration.Account_Overview",
+   "module": "Administration",
+   "kind": "Page"
+  },
+  {
+   "qn": "FeedbackModule.PopupFailure",
+   "module": "FeedbackModule",
+   "kind": "Page"
+  },
+  {
+   "qn": "Administration.ChangeMyPasswordForm",
+   "module": "Administration",
+   "kind": "Page"
+  },
+  {
+   "qn": "Administration.ChangePasswordForm",
+   "module": "Administration",
+   "kind": "Page"
+  },
+  {
+   "qn": "Administration.Account_New",
+   "module": "Administration",
+   "kind": "Page"
+  }
+ ],
+ "edges": [
+  [
+   "FeedbackModule.ACT_SubmitFeedback",
+   "FeedbackModule.VAL_Feedback",
+   "calls"
+  ],
+  [
+   "FeedbackModule.ACT_SubmitFeedback",
+   "FeedbackModule.SUB_Feedback_SendToServer",
+   "calls"
+  ],
+  [
+   "FeedbackModule.ACT_SubmitFeedback",
+   "FeedbackModule.SUB_Feedback_ResetLocalStorage",
+   "calls"
+  ],
+  [
+   "FeedbackModule.ACT_SubmitFeedback",
+   "FeedbackModule.PopupFailure",
+   "opens"
+  ],
+  [
+   "FeedbackModule.ACT_SubmitFeedback",
+   "FeedbackModule.PopupSuccess",
+   "opens"
+  ],
+  [
+   "FeedbackModule.ACT_Feedback_TriggerScreenshotMode",
+   "FeedbackModule.ShareFeedback",
+   "opens"
+  ],
+  [
+   "FeedbackModule.SUB_Feedback_GetOrCreate",
+   "FeedbackModule.Get_And_Set_Feedback_NPE",
+   "calls"
+  ],
+  [
+   "Administration.MyAccount",
+   "Administration.ShowMyPasswordForm",
+   "uses"
+  ],
+  [
+   "FeedbackModule.ShareFeedback",
+   "FeedbackModule.ACT_Feedback_ClearForm",
+   "uses"
+  ],
+  [
+   "FeedbackModule.ShareFeedback",
+   "FeedbackModule.ACT_Feedback_ClearImage",
+   "uses"
+  ],
+  [
+   "FeedbackModule.ShareFeedback",
+   "FeedbackModule.ACT_Feedback_TriggerScreenshotMode",
+   "uses"
+  ],
+  [
+   "FeedbackModule.ShareFeedback",
+   "FeedbackModule.ACT_Feedback_UploadImage",
+   "uses"
+  ],
+  [
+   "FeedbackModule.ShareFeedback",
+   "FeedbackModule.ACT_SubmitFeedback",
+   "uses"
+  ],
+  [
+   "FeedbackModule.ShareFeedback",
+   "FeedbackModule.DS_Feedback_Populate",
+   "uses"
+  ],
+  [
+   "FeedbackModule.ShareFeedback",
+   "FeedbackModule.OCH_Feedback_SaveToLocalStorage",
+   "uses"
+  ],
+  [
+   "Administration.ShowMyPasswordForm",
+   "Administration.ChangeMyPasswordForm",
+   "opens"
+  ],
+  [
+   "Administration.ShowPasswordForm",
+   "Administration.ChangePasswordForm",
+   "opens"
+  ],
+  [
+   "FeedbackModule.ACT_Open_Feedback_Modal",
+   "FeedbackModule.ShareFeedback",
+   "opens"
+  ],
+  [
+   "Administration.NewWebServiceAccount",
+   "Administration.Account_New",
+   "opens"
+  ],
+  [
+   "FeedbackModule.ACT_Feedback_UploadImage",
+   "FeedbackModule.ShareFeedback",
+   "opens"
+  ],
+  [
+   "Administration.Account_Edit",
+   "Administration.ShowPasswordForm",
+   "uses"
+  ],
+  [
+   "FeedbackModule.ShareFeedback_Logo",
+   "FeedbackModule.ACT_ClearForm",
+   "uses"
+  ],
+  [
+   "FeedbackModule.ShareFeedback_Logo",
+   "FeedbackModule.ACT_ClearImage",
+   "uses"
+  ],
+  [
+   "FeedbackModule.ShareFeedback_Logo",
+   "FeedbackModule.ACT_SubmitFeedback",
+   "uses"
+  ],
+  [
+   "FeedbackModule.ShareFeedback_Logo",
+   "FeedbackModule.ACT_TriggerScreenshotMode",
+   "uses"
+  ],
+  [
+   "FeedbackModule.ShareFeedback_Logo",
+   "FeedbackModule.ACT_UploadImage",
+   "uses"
+  ],
+  [
+   "FeedbackModule.ShareFeedback_Logo",
+   "FeedbackModule.DS_FeedbackForm",
+   "uses"
+  ],
+  [
+   "FeedbackModule.ShareFeedback_Logo",
+   "FeedbackModule.OCH_SaveToLocalStorage",
+   "uses"
+  ],
+  [
+   "Administration.NewAccount",
+   "Administration.Account_New",
+   "opens"
+  ],
+  [
+   "Administration.Account_Overview",
+   "Administration.NewAccount",
+   "uses"
+  ],
+  [
+   "Administration.Account_Overview",
+   "Administration.NewWebServiceAccount",
+   "uses"
+  ],
+  [
+   "FeedbackModule.SUB_Feedback_SendToServer",
+   "FeedbackModule.SUB_Feedback_Sanitize",
+   "calls"
+  ],
+  [
+   "FeedbackModule.SUB_Feedback_SendToServer",
+   "FeedbackModule.SUB_Feedback_PostToAppInsights",
+   "calls"
+  ],
+  [
+   "FeedbackModule.DS_Feedback_Populate",
+   "FeedbackModule.PopulateUserAttributes",
+   "calls"
+  ],
+  [
+   "FeedbackModule.DS_Feedback_Populate",
+   "FeedbackModule.SUB_Feedback_GetOrCreate",
+   "calls"
+  ],
+  [
+   "Administration.ManageMyAccount",
+   "Administration.MyAccount",
+   "opens"
+  ],
+  [
+   "Administration.ChangeMyPasswordForm",
+   "Administration.ChangeMyPassword",
+   "uses"
+  ],
+  [
+   "Administration.ChangePasswordForm",
+   "Administration.ChangePassword",
+   "uses"
+  ],
+  [
+   "Administration.Account_New",
+   "Administration.SaveNewAccount",
+   "uses"
+  ]
+ ]
+}

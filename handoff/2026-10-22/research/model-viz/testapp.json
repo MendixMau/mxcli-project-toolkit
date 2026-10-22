@@ -1,0 +1,796 @@
+{
+ "modules": {
+  "MyFirstModule": {
+   "entities": [
+    {
+     "id": "Tz/h9+ekSk2EyYRO6Hftpw==",
+     "name": "Car",
+     "loc": [
+      120.0,
+      240.0
+     ],
+     "kind": "persistent",
+     "generalization": null,
+     "attrs": [
+      {
+       "id": "EWXtZqAx9UWOeUMjnNOaow==",
+       "name": "ModelId",
+       "type": "AutoNumber",
+       "len": null
+      },
+      {
+       "id": "8B0b31Lb2EWhfVUUG4OjUw==",
+       "name": "Brand",
+       "type": "String",
+       "len": 200
+      },
+      {
+       "id": "HThMp6uCE06QPUafn6M6Vw==",
+       "name": "Model",
+       "type": "String",
+       "len": 200
+      },
+      {
+       "id": "eRwRaUXJbUCSMsMd92/rGA==",
+       "name": "ModelType",
+       "type": "String",
+       "len": 200
+      }
+     ]
+    },
+    {
+     "id": "vVVC+DXbEUiRyY7E2JBYAA==",
+     "name": "VCar",
+     "loc": [
+      360.0,
+      250.0
+     ],
+     "kind": "view",
+     "generalization": null,
+     "attrs": [
+      {
+       "id": "ghvknnvvIUSo6BpTppbEvw==",
+       "name": "ModelID",
+       "type": "Long",
+       "len": null
+      },
+      {
+       "id": "sCRuPuBR30SAdHx0gTfRqw==",
+       "name": "Brand",
+       "type": "String",
+       "len": 200
+      }
+     ]
+    }
+   ],
+   "associations": [],
+   "annotations": []
+  }
+ },
+ "flows": [
+  {
+   "qn": "MyFirstModule.ZzMxcliProbe_LoopSplit",
+   "module": "MyFirstModule",
+   "kind": "Microflow",
+   "objects": [
+    {
+     "id": "IpEQryE7D0GLJuJXuYosvQ==",
+     "type": "Parameter",
+     "x": 200.0,
+     "y": 53.0,
+     "w": 30.0,
+     "h": 30.0,
+     "parent": null,
+     "label": "Users"
+    },
+    {
+     "id": "8xEdf7gxu06DkB6+FX8oOw==",
+     "type": "StartEvent",
+     "x": 200.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "AiGjc3toNESTl4u8odafEg==",
+     "type": "ActionActivity",
+     "x": 360.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "CreateVariable $Count",
+     "kind": "CreateVariable",
+     "target": "Count",
+     "disabled": false
+    },
+    {
+     "id": "XNHB1DsX3Ui0HTOSnRD4FQ==",
+     "type": "ExclusiveSplit",
+     "x": 520.0,
+     "y": 200.0,
+     "w": 90.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "$Users != empty"
+    },
+    {
+     "id": "xWGKRPbcSUmLs75L5GGl0w==",
+     "type": "ExclusiveMerge",
+     "x": 990.0,
+     "y": 200.0,
+     "w": 40.0,
+     "h": 40.0,
+     "parent": null
+    },
+    {
+     "id": "tPJE9C7R70SaM2qXUJFamQ==",
+     "type": "LoopedActivity",
+     "x": 820.0,
+     "y": 350.0,
+     "w": 260.0,
+     "h": 160.0,
+     "parent": null,
+     "label": "User in $Users"
+    },
+    {
+     "id": "Rqopxze7ZUGMMhRNRe3PxA==",
+     "type": "ActionActivity",
+     "x": 840.0,
+     "y": 350.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": "tPJE9C7R70SaM2qXUJFamQ==",
+     "label": "ChangeVariable $Count",
+     "kind": "ChangeVariable",
+     "target": "Count",
+     "disabled": false
+    },
+    {
+     "id": "VTi6xuh3PU6xT0+eF3XPLw==",
+     "type": "EndEvent",
+     "x": 1110.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": "$Count"
+    }
+   ],
+   "flows": [
+    {
+     "id": "J8D/WIuMj0WdYG4xDAo7Og==",
+     "from": "8xEdf7gxu06DkB6+FX8oOw==",
+     "to": "AiGjc3toNESTl4u8odafEg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "B8jWpK9WfUGZcAzB3ngDNA==",
+     "from": "XNHB1DsX3Ui0HTOSnRD4FQ==",
+     "to": "xWGKRPbcSUmLs75L5GGl0w==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": "false"
+    },
+    {
+     "id": "kEMS3xzFx0+CjRhQiI6k9A==",
+     "from": "XNHB1DsX3Ui0HTOSnRD4FQ==",
+     "to": "tPJE9C7R70SaM2qXUJFamQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": "true"
+    },
+    {
+     "id": "2liXDvkXLEyiJ3XUgFty/A==",
+     "from": "tPJE9C7R70SaM2qXUJFamQ==",
+     "to": "xWGKRPbcSUmLs75L5GGl0w==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "sXwBGCzoCkCM64c+lrg/Tg==",
+     "from": "AiGjc3toNESTl4u8odafEg==",
+     "to": "XNHB1DsX3Ui0HTOSnRD4FQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "jI1NB+qmxEmqQs0DHEPPcQ==",
+     "from": "xWGKRPbcSUmLs75L5GGl0w==",
+     "to": "VTi6xuh3PU6xT0+eF3XPLw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "MyFirstModule.RetrieveExamples",
+   "module": "MyFirstModule",
+   "kind": "Microflow",
+   "objects": [
+    {
+     "id": "JaDdb+9xnUyAuG88P4xL0Q==",
+     "type": "StartEvent",
+     "x": 58.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "cjeNWxaYmEq1ky0YzpWoqQ==",
+     "type": "EndEvent",
+     "x": 706.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "KiLYsfY/yUyWn1Pza4gF0w==",
+     "type": "ActionActivity",
+     "x": 182.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Retrieve Account",
+     "kind": "Retrieve",
+     "target": "Administration.Account",
+     "disabled": false
+    },
+    {
+     "id": "ltuXbX49f0KpBgVLCq3AeA==",
+     "type": "ActionActivity",
+     "x": 372.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Retrieve Account",
+     "kind": "Retrieve",
+     "target": "Administration.Account",
+     "disabled": false
+    },
+    {
+     "id": "lA+3y89yRU6GOjtfoBo4Cg==",
+     "type": "ActionActivity",
+     "x": 566.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Retrieve Account",
+     "kind": "Retrieve",
+     "target": "Administration.Account",
+     "disabled": false
+    }
+   ],
+   "flows": [
+    {
+     "id": "QyVJ+xiUMk6wGMyA2i1ekg==",
+     "from": "JaDdb+9xnUyAuG88P4xL0Q==",
+     "to": "KiLYsfY/yUyWn1Pza4gF0w==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      15.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "f5oqb+3KXEapl7tNZh3A8Q==",
+     "from": "KiLYsfY/yUyWn1Pza4gF0w==",
+     "to": "ltuXbX49f0KpBgVLCq3AeA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "eA1loQuqlk2wl4TO8Dk12Q==",
+     "from": "ltuXbX49f0KpBgVLCq3AeA==",
+     "to": "lA+3y89yRU6GOjtfoBo4Cg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      30.0,
+      0.0
+     ],
+     "dcv": [
+      -30.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "A34RDzijJE+90/5HIC9kag==",
+     "from": "lA+3y89yRU6GOjtfoBo4Cg==",
+     "to": "cjeNWxaYmEq1ky0YzpWoqQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "MyFirstModule.MyFirstLogic",
+   "module": "MyFirstModule",
+   "kind": "Microflow",
+   "objects": [
+    {
+     "id": "YnSuHVnSgkygVUhmo4WQNQ==",
+     "type": "StartEvent",
+     "x": -88.0,
+     "y": 199.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "rMd3RSkQAk+zg6kL4IZHjw==",
+     "type": "EndEvent",
+     "x": 217.0,
+     "y": 199.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    },
+    {
+     "id": "xURKs+Pv+U2eV+54gZ679Q==",
+     "type": "Annotation",
+     "x": 97.0,
+     "y": 35.0,
+     "w": 385.0,
+     "h": 109.0,
+     "parent": null,
+     "label": "Microflows are used to define server logic in your app.\r\n\r\n- For client logic you can use Nanoflows\r\n- For business process logic you can use Workflows\r\n\r\nDocumentation: https://docs.mendix.com/refguide/application-logic"
+    }
+   ],
+   "flows": [
+    {
+     "id": "tCZ8lwGiKkSAKHUntgr4dw==",
+     "from": "YnSuHVnSgkygVUhmo4WQNQ==",
+     "to": "rMd3RSkQAk+zg6kL4IZHjw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      -15.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "MyFirstModule.ZzMxcliProbe_List",
+   "module": "MyFirstModule",
+   "kind": "Microflow",
+   "objects": [
+    {
+     "id": "jPKK0tUu/k+xeG/eZ5umjQ==",
+     "type": "StartEvent",
+     "x": 200.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "oMSNgk8FIUShJq20eTbtjA==",
+     "type": "ActionActivity",
+     "x": 360.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Retrieve User",
+     "kind": "Retrieve",
+     "target": "System.User",
+     "disabled": false
+    },
+    {
+     "id": "gJcBk9FE+k+lHhz6QQa4FQ==",
+     "type": "EndEvent",
+     "x": 520.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": "$Users"
+    }
+   ],
+   "flows": [
+    {
+     "id": "nQ/2SlgHmUmt1WlTJI2+zQ==",
+     "from": "jPKK0tUu/k+xeG/eZ5umjQ==",
+     "to": "oMSNgk8FIUShJq20eTbtjA==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "FWM6g/nTekqOeZpRZu9TMg==",
+     "from": "oMSNgk8FIUShJq20eTbtjA==",
+     "to": "gJcBk9FE+k+lHhz6QQa4FQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "MyFirstModule.ZzMxcliProbe_Boolean",
+   "module": "MyFirstModule",
+   "kind": "Microflow",
+   "objects": [
+    {
+     "id": "pYzn4SNvGUu0DZLQ6vHcyw==",
+     "type": "Parameter",
+     "x": 200.0,
+     "y": 53.0,
+     "w": 30.0,
+     "h": 30.0,
+     "parent": null,
+     "label": "Flag"
+    },
+    {
+     "id": "HRKA7NcVgUq5OZsXavbRcg==",
+     "type": "StartEvent",
+     "x": 200.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "EogZJ3EFdUeuGgZjH9mCEw==",
+     "type": "EndEvent",
+     "x": 360.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": "$Flag"
+    }
+   ],
+   "flows": [
+    {
+     "id": "6rfM5aS3ZEiBgzXb0N4OOQ==",
+     "from": "HRKA7NcVgUq5OZsXavbRcg==",
+     "to": "EogZJ3EFdUeuGgZjH9mCEw==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "MyFirstModule.ZzMxcliProbe_Trivial",
+   "module": "MyFirstModule",
+   "kind": "Microflow",
+   "objects": [
+    {
+     "id": "CxU3x//kGkS3oO6IEut7ew==",
+     "type": "StartEvent",
+     "x": 200.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "fs5NRvBp1E6Ah8rpG+wWjQ==",
+     "type": "ActionActivity",
+     "x": 360.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Log",
+     "kind": "Log",
+     "target": "",
+     "disabled": false
+    },
+    {
+     "id": "TNYA9fkgp0mWqJgIoOKzzQ==",
+     "type": "EndEvent",
+     "x": 600.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    }
+   ],
+   "flows": [
+    {
+     "id": "Th6FiuwvHEClE8AO2WbH9w==",
+     "from": "CxU3x//kGkS3oO6IEut7ew==",
+     "to": "fs5NRvBp1E6Ah8rpG+wWjQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "2ClGAtv86U2/4ZG8aXidmA==",
+     "from": "fs5NRvBp1E6Ah8rpG+wWjQ==",
+     "to": "TNYA9fkgp0mWqJgIoOKzzQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "MyFirstModule.ZzMxcliProbe_Entity",
+   "module": "MyFirstModule",
+   "kind": "Microflow",
+   "objects": [
+    {
+     "id": "5y9g+seNWEeXSAJLnfJQIg==",
+     "type": "StartEvent",
+     "x": 200.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "726ORcLIgUOseQ6mDO8jCQ==",
+     "type": "ActionActivity",
+     "x": 360.0,
+     "y": 200.0,
+     "w": 120.0,
+     "h": 60.0,
+     "parent": null,
+     "label": "Retrieve User",
+     "kind": "Retrieve",
+     "target": "System.User",
+     "disabled": false
+    },
+    {
+     "id": "UQimfOGiRUWSx6wlbth6qg==",
+     "type": "EndEvent",
+     "x": 520.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": "$FirstUser"
+    }
+   ],
+   "flows": [
+    {
+     "id": "2/lyxug1EkGArniS0w5AIg==",
+     "from": "5y9g+seNWEeXSAJLnfJQIg==",
+     "to": "726ORcLIgUOseQ6mDO8jCQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    },
+    {
+     "id": "OpWkAcny+UyNl+XzqzFnJA==",
+     "from": "726ORcLIgUOseQ6mDO8jCQ==",
+     "to": "UQimfOGiRUWSx6wlbth6qg==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  },
+  {
+   "qn": "MyFirstModule.Nanoflow",
+   "module": "MyFirstModule",
+   "kind": "Nanoflow",
+   "objects": [
+    {
+     "id": "3Y8hr6sZl06iYbtosuuk2A==",
+     "type": "StartEvent",
+     "x": 100.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null
+    },
+    {
+     "id": "XnUMlKH3CUGceCNMSQj+OQ==",
+     "type": "EndEvent",
+     "x": 700.0,
+     "y": 200.0,
+     "w": 20.0,
+     "h": 20.0,
+     "parent": null,
+     "label": ""
+    }
+   ],
+   "flows": [
+    {
+     "id": "bKDM+o/ylkGGdeT8UxkaIA==",
+     "from": "3Y8hr6sZl06iYbtosuuk2A==",
+     "to": "XnUMlKH3CUGceCNMSQj+OQ==",
+     "oi": 1,
+     "di": 3,
+     "ocv": [
+      0.0,
+      0.0
+     ],
+     "dcv": [
+      0.0,
+      0.0
+     ],
+     "err": false,
+     "label": ""
+    }
+   ]
+  }
+ ],
+ "pages": [
+  {
+   "qn": "MyFirstModule.Home_Web",
+   "module": "MyFirstModule",
+   "kind": "Page"
+  }
+ ],
+ "edges": [
+  [
+   "MyFirstModule.Home_Web",
+   "Mappings.ImportItems",
+   "uses"
+  ]
+ ]
+}

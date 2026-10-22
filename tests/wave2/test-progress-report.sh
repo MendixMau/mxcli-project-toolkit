@@ -342,14 +342,14 @@ MD
 out6="$(CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$P6" --html 2>&1)"
 printf '%s' "$out6" | grep -q "generator failed\|not updated\|TypeError" && bad "generator does not fail on a shared leading number" || ok "generator does not fail on a shared leading number"
 printf '%s' "$out6" | grep -q "wrote architecture/progress-report.html" && ok "page written with two scripts numbered 10" || bad "page written with two scripts numbered 10"
-SP="$("$PY" - "$ROOT/project-bin" "$P6" <<'PYEOF'
+IFS= read -r -d '' SP_PY <<'PYEOF' || true
 import sys, importlib.util
 spec = importlib.util.spec_from_file_location("pr", sys.argv[1] + "/progress-report.py"); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 ph = [{"id": "1", "name": "Data", "steps": [{"step": "mdlsource/10-data.mdl"}]}, {"id": "2", "name": "Flows", "steps": [{"step": "mdlsource/10b-data-flows.mdl"}]}]
 runs = [{"script": s} for s in ("10b-data-flows.mdl", "10-data.mdl", "11-misc.mdl")]
 print(m.script_phases(runs, ph)["11-misc.mdl"]["name"])
 PYEOF
-)"
+SP="$("$PY" -c "$SP_PY" "$ROOT/project-bin" "$P6")"
 [ "$SP" = "Flows" ] && ok "11- script takes the phase of the later-named 10 script (order by number, then name)" || bad "11- script takes the phase of the later-named 10 script (got: $SP)"
 
 echo "T16 narrow-width CSS (phone)"

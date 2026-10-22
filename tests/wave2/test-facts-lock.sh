@@ -119,6 +119,33 @@ esac
 bash "$SUBJECT" "$P" show >/dev/null 2>&1
 [ "$?" -ne 0 ] && ok "an unreadable BRD makes the run non-zero" || bad "exited 0 despite not reading a BRD"
 
+# --- 0 facts is not agreement (#519) -------------------------------------------------------------------
+# The issue's repro: BRDs that carry identifiers only under `name` keys give the harvest nothing.
+# check used to print "2 BRD(s) agree with all 0 frozen fact(s)", which reads as a pass over a
+# comparison that never happened. Exit codes are unchanged; the line must say PENDING, not agree.
+Z="$WORK/zero"; mkdir -p "$Z/analysis/x/knowledge-base/brd"
+echo '{"id":"F001","domainEntities":[{"name":"PaymentPlan"}],"pages":[{"name":"PaymentPlan_Overview"}]}' > "$Z/analysis/x/knowledge-base/brd/F001-a.brd.json"
+echo '{"id":"F002","domainEntities":[{"name":"Paymentplan"}],"pages":[{"name":"PaymentPlan_Overview"}]}' > "$Z/analysis/x/knowledge-base/brd/F002-b.brd.json"
+ZC=$(bash "$SUBJECT" "$Z" check 2>&1)
+case "$ZC" in
+  *"agree with all 0"*) bad "check over 0 harvested facts still reads as agreement"; echo "        $ZC" | head -2 ;;
+  *"PENDING facts-lock: 0 identifiers found under any known key in 2 BRD(s)"*) ok "check over 0 harvested facts says PENDING, not agree" ;;
+  *) bad "check over 0 harvested facts printed neither agree nor PENDING"; echo "        $ZC" | head -2 ;;
+esac
+ZB=$(bash "$SUBJECT" "$Z" build 2>&1)
+case "$ZB" in
+  *"PENDING facts-lock: 0 identifiers found"*) ok "build that freezes 0 facts says the lock is empty" ;;
+  *) bad "build froze 0 facts and did not say the lock is empty"; echo "        $ZB" | head -3 ;;
+esac
+# A lock not yet built over a corpus that does have identifiers: check says build first.
+N="$WORK/notbuilt"; mkdir -p "$N/analysis/x/knowledge-base/brd"
+echo '{"id":"F001","domainEntities":[{"entity":"PaymentPlan"}]}' > "$N/analysis/x/knowledge-base/brd/F001-a.brd.json"
+NC=$(bash "$SUBJECT" "$N" check 2>&1)
+case "$NC" in
+  *"run build first"*) ok "check with no lock built says run build first, not agree" ;;
+  *) bad "check with no lock built did not say run build first"; echo "        $NC" | head -2 ;;
+esac
+
 # --- usage --------------------------------------------------------------------------------------------
 bash "$SUBJECT" 2>/dev/null; [ "$?" -eq 2 ] && ok "no argument exits 2" || bad "no argument did not exit 2"
 bash "$SUBJECT" "$P" nonsense 2>/dev/null; [ "$?" -eq 2 ] && ok "unknown subcommand exits 2" || bad "unknown subcommand accepted"

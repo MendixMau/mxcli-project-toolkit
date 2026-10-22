@@ -178,7 +178,7 @@ function contentOf(html, popupLayout) {
   // of this fix; review of #482). Evidence is a `.popup-stage` or `.dialog-scrim` in the
   // wireframe, or a page whose MDL names a popup layout (`Layout: …Popup…`, the same test the
   // chrome set uses). Matched on the class WORD, so `dialog-head`/`dialog-foot` never count.
-  const cls = name => new RegExp(`<(div|section|dialog|aside)\\b[^>]*class="(?:[^"]*\\s)?${name}(?:\\s[^"]*)?"`, 'i');
+  const cls = (name, tags = 'div|section|dialog|aside') => new RegExp(`<(${tags})\\b[^>]*class="(?:[^"]*\\s)?${name}(?:\\s[^"]*)?"`, 'i');
   const popupEvidence = !!popupLayout || cls('popup-stage').test(html) || cls('dialog-scrim').test(html);
   const popup = !popupEvidence ? null
     : innerBalanced(html, cls('dialog'))
@@ -192,8 +192,11 @@ function contentOf(html, popupLayout) {
     : innerBalanced(html, /<(div)[^>]*class="[^"]*\bwf-screen\b[^"]*"/i)
     || innerBalanced(html, /<(div)[^>]*class="[^"]*\bwf-shell\b[^"]*"/i)
     || innerBalanced(html, /<(div)[^>]*class="[^"]*\bmockup-frame\b[^"]*"/i)
-    || innerBalanced(html, /<(div)[^>]*class="[^"]*\bmain\b[^"]*"/i)
-    || innerBalanced(html, /<(div)[^>]*class="[^"]*\bcontent\b[^"]*"/i)
+    // .main and .content as whole class words (#537): \b treats '-' as a boundary, so
+    // `widget-datagrid-content` (a wireframe's grid mimic) was taken as the page body and the
+    // title and buttons outside it were scored 0/0.
+    || innerBalanced(html, cls('main', 'div'))
+    || innerBalanced(html, cls('content', 'div'))
     || (html.match(/<body[^>]*>([\s\S]*)<\/body>/i) || [, html])[1];
   s = dropBalanced(s, /<(div)[^>]*class="[^"]*\buserchip\b[^"]*"/i);
   // The top bar is layout chrome and `chromeSet` below already drops the class `topbar`

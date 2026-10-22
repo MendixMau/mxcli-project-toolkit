@@ -810,8 +810,11 @@ async function runJourney(page, j) {
     // ── RUNG 1: landing guard ────────────────────────────────────────────────
     let onPage = true;
     if (step.ui && step.ui.ready) {
+      // waitFor, not isVisible: isVisible ignores its timeout and answers at once (#536), so a
+      // page that rendered after the settle read NOT-REACHED. The NOT-REACHED shot below is
+      // now taken after the full 12 s, so it shows what the page became.
       onPage = await page.locator(step.ui.ready).first()
-                         .isVisible({ timeout: 12000 }).catch(() => false);
+                         .waitFor({ state: 'visible', timeout: 12000 }).then(() => true, () => false);
       if (!onPage) {
         leg.shot = await shoot(page, `${j.id}-step${i + 1}-NOT-REACHED`);
         record('ui', `${step.name}: reached`, 'FAIL',

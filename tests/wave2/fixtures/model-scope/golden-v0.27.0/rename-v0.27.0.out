@@ -1,0 +1,4 @@
+Connected to: TestApp.mpr (Mendix 11.14.0)
+Renamed attribute 'Unused' to 'Unused2' on entity MyFirstModule.Item
+Updated 2 XPath constraint(s) in 2 document(s)
+Note: uses in microflow expressions ($obj/Unused) are stored as text and were not rewritten — run 'mxcli docker check' to find them.

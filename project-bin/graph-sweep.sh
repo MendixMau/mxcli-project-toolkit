@@ -183,8 +183,12 @@ ORDER BY COALESCE(i.n,0) ASC, e.n DESC;
 
 # --- finding 2: orphaned microflows -----------------------------------------------------------
 # No inbound call / page action / nav item. Entry-point prefixes are excluded: they are
-# legitimately unreferenced. Note SHOW REFERENCES TO misses layout snippetcalls, so this is
-# strong evidence of deadness, not proof.
+# legitimately unreferenced. The catalog also records no edge for some pluggable-widget
+# properties (observed on mxcli v0.27.0: a Gallery's microflow `DataSource` when the Gallery also
+# has a microflow `onClick`, and a third-party widget's datasource and action properties), and
+# SHOW REFERENCES TO misses layout snippetcalls. So this is evidence of deadness, not proof:
+# check the page source before deleting a flow (the report prints the command; see also
+# skills/lint-that-actually-runs.md).
 ORPHANS="$(q "
 SELECT m.QualifiedName, m.ActivityCount
 FROM microflows_data m
@@ -228,6 +232,10 @@ echo "  orphaned microflows (no call / action / nav inbound, entry-point prefixe
 if [ "$N_ORPH" -gt 0 ]; then
   printf '%s\n' "$ORPHANS" | awk -F'|' 'NF {printf "    %-56s %s activities\n", $1, $2}' | head -40
   [ "$N_ORPH" -gt 40 ] && echo "    ... and $((N_ORPH-40)) more"
+  echo "    NOTE: a flow used only as a pluggable widget's datasource or action property may have no edge, so it can"
+  echo "    be listed here. Before deleting one, find the page that holds it: rebuild with 'REFRESH CATALOG FULL SOURCE'"
+  echo "    (a plain FULL catalog has no page source), then look for a PAGE row under 'Source Matches':"
+  echo "      ./mxcli -p \"$MPR\" search \"<Module.Flow>\""
 fi
 
 echo

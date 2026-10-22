@@ -243,11 +243,11 @@ case "$cmd" in
     [ -n "$PAIRS" ] || exit 0
     MY_SUP="$(so_header "$S" supersedes)"; MY_SUPBY="$(so_header "$S" superseded-by)"
     OUT="$(NL_SEEN=""; NL_DESC=0
-    # rc 0: O's work on doc $1 is not in the model; 1: it is (or unknown); 2: DESCRIBE cap reached.
+    # rc 0: the work of O on doc $1 is not in the model; 1: it is (or unknown); 2: DESCRIBE cap reached.
     not_live() {  # $1 = "KIND Module.Name", $2 = O
       local w live rc=1
       if [ "$S_RAN" = 0 ] && ! so_has_run "$ROOT" "$2"; then return 0; fi   # S is new
-      case "$NL_SEEN" in *"|$1="*) rc="${NL_SEEN#*"|$1="}"; return "${rc%%|*}" ;; esac
+      case "$NL_SEEN" in (*"|$1="*) rc="${NL_SEEN#*"|$1="}"; return "${rc%%|*}" ;; esac
       w="$(so_last_writer "$ROOT" "$1")"
       if [ -n "$w" ] && [ -n "$S_REL" ] && { [ "$w" = "$(so_sortkey "$S_REL")" ] || so_before "$w" "$S_REL"; }; then
         rc=0
@@ -263,9 +263,9 @@ case "$cmd" in
     revert() {  # $1 doc $2 O $3 message
       local r=0; not_live "$1" "$2" || r=$?
       case "$r" in
-        0) ;;
-        2) printf 'UNCHECKED\t%s\t%s\tCONFLICT (not checked: 5 DESCRIBE calls per exec) — %s\n' "$1" "$2" "$3" ;;
-        *) printf 'REVERT\t%s\t%s\t%s\n' "$1" "$2" "$3" ;;
+        (0) ;;
+        (2) printf 'UNCHECKED\t%s\t%s\tCONFLICT (not checked: 5 DESCRIBE calls per exec) — %s\n' "$1" "$2" "$3" ;;
+        (*) printf 'REVERT\t%s\t%s\t%s\n' "$1" "$2" "$3" ;;
       esac
     }
     while IFS='	' read -r d o; do

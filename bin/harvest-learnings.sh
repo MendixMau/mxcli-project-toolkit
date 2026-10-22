@@ -73,10 +73,13 @@ if [ -d "$PROJECT_DIR/bug-logs" ]; then
   find "$PROJECT_DIR/bug-logs" -name '*.md' -type f | sort | while IFS= read -r f; do
     # Split the file on '## ' headings; test each heading's distinctive text against the
     # toolkit log. awk emits candidate sections whole, delimited for the outer loop.
+    # printf, not print: print appends a newline AFTER the \x01, so every section but the
+    # first began with an empty line, its heading read as empty, and it was skipped, so each
+    # bug-log file drafted one entry.
     awk '
-      /^## /   { if (buf != "") print buf "\x01"; buf = "" ; head = 1 }
+      /^## /   { if (buf != "") printf "%s\x01", buf; buf = "" ; head = 1 }
                 { if (head) buf = buf $0 "\n" }
-      END      { if (buf != "") print buf "\x01" }
+      END      { if (buf != "") printf "%s\x01", buf }
     ' "$f" | while IFS= read -r -d $'\x01' section; do
       heading="$(printf '%s' "$section" | head -1 | sed 's/^## *//; s/[~*`]//g')"
       # Distinctive slice: strip a leading BUG-nnn tag (numbering diverges across repos —

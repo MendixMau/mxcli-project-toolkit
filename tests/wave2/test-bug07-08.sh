@@ -23,6 +23,8 @@
 # (gate cannot run -> refuse) discriminates against every script before 2026-09-17.
 # Case K (mxbuild refused the model: exit 3, errors[], empty problems[]) discriminates
 # against every script before 2026-09-27 — the pre-fix row reads "pass · mxbuild clean".
+# Case A2 (#540: a changed javasource/ prints one staging hint) discriminates against every
+# exec.sh before 2026-10-22; A3 is its guard.
 # Case L (failed gate on a v1 single-file model is rolled back) discriminates against every
 # exec.sh with the inline mprcontents/-only restore.
 #
@@ -125,6 +127,17 @@ BEFORE=$(rows)
 RC=$(MODE_BUILD=clean run A)
 [ "$RC" -eq 0 ] && ok "[guard] exit 0" || bad "[guard] exit $RC, expected 0"
 [ "$(rows)" -gt "$BEFORE" ] && ok "[guard] row logged" || bad "no row logged"
+
+# ── A2: #540 an action source beside the model gets a staging hint ───────────
+echo "== A2: #540 javasource/ changed -> one staging hint, still exit 0 =="
+mkdir -p "$P/javasource/fixture/actions"; printf 'class JA_Go {}\n' > "$P/javasource/fixture/actions/JA_Go.java"
+RC=$(MODE_BUILD=clean run A2)
+[ "$RC" -eq 0 ] && ok "[guard] exit 0 with an action source changed" || bad "exit $RC, expected 0"
+grep -q 'Action sources changed outside the model' "$WORK/out.A2" && grep -q '?? javasource/' "$WORK/out.A2" \
+  && ok "staging hint names javasource/" || bad "no staging hint for a changed javasource/"
+rm -rf "$P/javasource"
+RC=$(MODE_BUILD=clean run A3)
+grep -q 'Action sources changed outside the model' "$WORK/out.A3" && bad "hint printed with no action source changed" || ok "[guard] no hint when javasource/ is clean"
 
 # ── B: mxbuild reports a real error ──────────────────────────────────────────
 echo "== B: mxbuild errors -> gate fails, errors file written =="

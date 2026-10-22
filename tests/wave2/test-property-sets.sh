@@ -119,9 +119,10 @@ printf '%s' "$OUT" | grep -q "added /.claude/.property-sets-receipt to the proje
 grep -q -- 'property-sets -p .*/App.mpr --dry-run' "$P/.stub-log" && ok "the check is the --dry-run" || bad "dry-run not used" "$(cat "$P/.stub-log")"
 
 echo "== P2b a clean dry-run below Mendix 10.24.24 is not proof (mendixlabs/mxcli#1595) =="
+. "$TK/bin/lib/portable.sh"; require_py
 setver() {   # <project> <version> — give the stub project's .mpr a readable _ProductVersion
   rm -f "$1/App.mpr"
-  python3 -c 'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.execute("create table _MetaData (_ProductVersion text)"); c.execute("insert into _MetaData values (?)",(sys.argv[2],)); c.commit()' "$1/App.mpr" "$2"
+  "$PY" -c 'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.execute("create table _MetaData (_ProductVersion text)"); c.execute("insert into _MetaData values (?)",(sys.argv[2],)); c.commit()' "$1/App.mpr" "$2"
 }
 P="$(mkproj below)"; echo clean > "$P/.stub-state"; setver "$P" 10.24.18.103793
 OUT="$("$DOCTOR" --property-sets "$P" 2>&1)"; RC=$?

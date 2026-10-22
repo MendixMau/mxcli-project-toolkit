@@ -281,6 +281,21 @@ OUT24=$(cd "$TMP" && node "$SUT" --no-log "$TMP/inline-dialog.html" Demo_Overvie
 echo "$OUT24" | sed 's/^/    | /'
 has   "an inline confirm does not become the boundary: the master score, unchanged" "$OUT24" "text-match 39%   headings 1/2  actions 1/3  content 1/2  classes 1/5"
 
+echo "  -- a grid mimic's widget-datagrid-content is not the page's .content block (#537)"
+# The issue's four-line wireframe: no <main>, no wf-screen/shell, no .main, no .content. On master
+# `\bcontent\b` matched `widget-datagrid-content`, the scorer read only the grid, and the h1 and
+# button outside it were never counted: UNMEASURED, headings 0/0, actions 0/0.
+printf '<html><body>\n  <h1>Orders</h1>\n  <button>New order</button>\n  <div class="widget-datagrid-content"><table><tr><td>No rows</td></tr></table></div>\n</body></html>\n' > "$TMP/grid-mimic.html"
+OUT25=$(cd "$TMP" && node "$SUT" --no-log "$TMP/grid-mimic.html" Demo_List "$FIX/demo-list.mdl" 2>&1)
+echo "$OUT25" | sed 's/^/    | /'
+has   "the heading outside the grid is counted"         "$OUT25" "headings 0/1"
+has   "the button outside the grid is counted"          "$OUT25" "actions 0/1"
+hasnt "the page is not reduced to the grid"             "$OUT25" "UNMEASURED"
+printf '<html><body><h1>Shell title</h1><div class="x content"><h1>Orders</h1><button>New order</button></div></body></html>\n' > "$TMP/content-word.html"
+OUT26=$(cd "$TMP" && node "$SUT" --no-log "$TMP/content-word.html" Demo_List "$FIX/demo-list.mdl" 2>&1)
+has   "a real .content class word is still the boundary" "$OUT26" "headings 0/1"
+hasnt "...and the shell outside it is not scored"       "$OUT26" "heading: Shell title"
+
 echo
 printf 'test-page-fidelity-mocks: %d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

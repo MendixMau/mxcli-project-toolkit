@@ -124,7 +124,7 @@ MXTK_AGENTS_STAGE_BUILD="mdl-agent.md gate-agent.md test-agent.md review-agent.m
 # describe-baseline.sh joined the same day (#261): exec.sh runs its verify for a script with a
 # `-- baseline:` header, and it reads script-owners.sh's ledger as ITS sibling.
 # mf-canvas-facts.py joined on 2026-10-21 and needs mxpatch.py and mxunit_bson.py beside it (the one
-# BSON reader). A project runs it after every microflow or nanoflow script, and verify-module.sh
+# BSON reader). Run it by hand on any flow, or let verify-module.sh
 # runs it per module (informational; see project-bin/mf-canvas-facts.py header).
 MXTK_PROJECT_BIN="process-map.js process-map.template.html app-restart.sh test-scratch.sh script-owners.sh describe-baseline.sh assemble-prototype.js prototype-route.js check-prototype-links.js wf-add-path-terminators.py wf-set-call-captions.py mf-canvas-facts.py mxunit_bson.py mxpatch.py _common.sh app-facts.sh _claims.sh snapshot-mpr.sh restore-mpr.sh exec.sh affected-tests.sh look-ledger.sh save-sp.sh restart-sp.sh check-sp-health.sh verify-module.sh test-stack-up.sh fixture-manifest.sh check-root-clean.sh lint-gate.sh lint-trend.sh metrics-ledger.sh metrics-trend.sh close-task.sh conformance-check.sh coverage-preflight.sh graph-sweep.sh review-module.sh coherence-cadence.sh build-plan-status.sh progress-report.py done-drift-check.sh page-scope.sh render-improvement-register.sh check-design-portability.sh check-design-reaches-app.sh check-page-shell.sh page-fidelity.js model-stamp.sh verify-model.sh install-project-hooks.sh mx-metadata-note.py session-check.sh constants-audit.sh context-pack.sh check-staged-secrets.sh"
 

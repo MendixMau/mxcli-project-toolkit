@@ -14,6 +14,9 @@
 #   T4  unknown kind / missing --for file: exit 2, nothing on stdout
 #   T5  a heading the table names that is gone: exit 1, loud on stderr, NOTHING on stdout
 #   T6  --check: clean on the tree; DRIFTED after a skill edit; COVERAGE after a new unmapped gotcha
+#   T7  build-ready item 2 (UI-quality routing) does not flip to FAIL after sync renders the new
+#       baseline block, on a single-tree and a two-tree (.mpr under app/) layout; an old table that
+#       still names ui-preflight-pages passes; a CLAUDE.local.md with neither still fails
 set -uo pipefail
 
 SUT="${1:?usage: test-mdl-rules.sh /path/to/bin/mdl-rules.sh}"
@@ -146,6 +149,27 @@ has "$O" "register row reaches no kind: A **brand-new construct**" && ok "an unm
 awk '{ if ($0 ~ /^\| 29 \|/) sub(/\| microflow \|$/, "| nanoflow |"); print }' "$C/skills/learned-mdl-preflight.md" > "$C/x" && mv "$C/x" "$C/skills/learned-mdl-preflight.md"
 O="$(bash "$C/bin/mdl-rules.sh" --check 2>&1)"
 has "$O" 'STOP row 29: Kind "nanoflow"' && ok "a STOP row with an unknown Kind is named" || bad "stop-kind coverage" "$O"
+
+echo "== T7: build-ready item 2 after sync, both layouts; old table passes; neither fails =="
+GATE="$TK/bin/gate-check.sh"; SYNC="$TK/bin/sync-project.sh"
+item2() { bash "$GATE" --no-html "$1" build-ready 2>&1 | grep -E 'baseline routing (references the UI-quality|missing UI-quality)' | head -1; }
+for layout in single two; do
+  P="$WORK/p-$layout"; mkdir -p "$P"
+  if [ "$layout" = two ]; then mkdir -p "$P/app"; : > "$P/app/App.mpr"; else : > "$P/App.mpr"; fi
+  printf '# CLAUDE.local.md\n\n## Wiring\n\n| Key | Path |\n|---|---|\n| Project MPR | `%s` |\n' \
+    "$([ "$layout" = two ] && echo app/App.mpr || echo App.mpr)" > "$P/CLAUDE.local.md"
+  bash "$SYNC" "$P" >/dev/null 2>&1
+  grep -q 'bin/mdl-rules.sh' "$P/CLAUDE.local.md" || bad "$layout-tree: sync did not render the mdl-rules row"
+  grep -q 'ui-preflight-pages' "$P/CLAUDE.local.md" && bad "$layout-tree: fixture invalid — the rendered block still names ui-preflight-pages"
+  L="$(item2 "$P")"
+  case "$L" in *"✓ baseline routing references the UI-quality skills"*) ok "$layout-tree, freshly synced: item 2 passes ($L)" ;;
+    *) bad "$layout-tree, freshly synced: item 2 = '$L'" ;; esac
+done
+P="$WORK/p-old"; mkdir -p "$P"
+printf '## Wiring\n\n## Baseline routing\n| Building any page | `skills/ui-preflight-pages.md` |\n' > "$P/CLAUDE.local.md"
+case "$(item2 "$P")" in *"✓"*) ok "an old, unsynced table naming ui-preflight-pages still passes" ;; *) bad "old table now fails" ;; esac
+P="$WORK/p-none"; mkdir -p "$P"; printf '## Wiring\n\nnothing routed here\n' > "$P/CLAUDE.local.md"
+case "$(item2 "$P")" in *"✗ baseline routing missing UI-quality rows"*) ok "a file with neither name still fails item 2" ;; *) bad "neither: '$(item2 "$P")'" ;; esac
 
 echo ""
 echo "test-mdl-rules: $PASS passed, $FAIL failed"

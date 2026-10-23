@@ -202,6 +202,13 @@ _routing_stage_arm() {
 #   of PR #378) the no-role full pack counted the runbook twice — 85,797 words, over the 80,000
 #   budget, on gate-check's advisory line.
 _ROUTING_READ_SCRIPTS="bin/runbook-slice.sh"
+#   bin/mdl-rules.sh is counted the same way (lazy-load PR 2, 2026-10-23): its core output (kind
+#   `any`, the part every MDL script reads) replaced learned-mdl-preflight.md and the kind-specific
+#   skills in the mdl helper's preload. The kind sections it adds per script are not counted here:
+#   they depend on the task (`bin/mdl-rules.sh --check` and the PR body give the per-kind totals).
+#   Like the slice, it counts 0 when skills/learned-mdl-preflight.md is itself in the pack (a role
+#   that preloads the file whole, or the no-role pack): it prints a subset of files counted already.
+_ROUTING_RULES_SCRIPT="bin/mdl-rules.sh"
 _routing_slice_words() { # _routing_slice_words <root> <stage> <full>
   if [ "$3" -eq 1 ]; then
     LC_ALL=C wc -w < "$1/skills/conversion-runbook.md" 2>/dev/null | tr -d '[:space:]'
@@ -212,11 +219,11 @@ _routing_slice_words() { # _routing_slice_words <root> <stage> <full>
 routing_baseline_pack() {
   local stage="$1" root="$2" role="${3:-}" words=0 files=0 paths="" p wc_out
   local name path when agents stages tier group
-  local known_stages=" P 0 1 2 3 4 5 6 7 " full=0 rb_counted=0 slice_words=0
+  local known_stages=" P 0 1 2 3 4 5 6 7 " full=0 rb_counted=0 slice_words=0 pf_counted=0 rules_words=0
   case "$known_stages" in *" $stage "*) : ;; *) full=1 ;; esac
   while IFS=$'\t' read -r name path when agents stages tier group; do
     [ "$tier" = "baseline" ] || continue
-    case "$path" in *.md|"$_ROUTING_READ_SCRIPTS") : ;; *) continue ;; esac
+    case "$path" in *.md|"$_ROUTING_READ_SCRIPTS"|"$_ROUTING_RULES_SCRIPT") : ;; *) continue ;; esac
     _routing_reaches "$agents" "$role" || continue
     if [ "$full" -eq 0 ] && [ "$stages" != "-" ]; then
       _routing_has "$stages" "$stage" || continue
@@ -229,8 +236,13 @@ routing_baseline_pack() {
       slice_words="$(_routing_slice_words "$root" "$stage" "$full")"
       [ -n "$slice_words" ] || slice_words=0
       wc_out=0
+    elif [ "$path" = "$_ROUTING_RULES_SCRIPT" ]; then
+      rules_words="$(bash "$p" any 2>/dev/null | LC_ALL=C wc -w | tr -d '[:space:]')"
+      [ -n "$rules_words" ] || rules_words=0
+      wc_out=0
     else
       [ "$path" = "skills/conversion-runbook.md" ] && rb_counted=1
+      [ "$path" = "skills/learned-mdl-preflight.md" ] && pf_counted=1
       wc_out="$(LC_ALL=C wc -w < "$p" 2>/dev/null | tr -d '[:space:]')"   # LC_ALL=C: see BASELINE_BUDGET in render-routing.sh
     fi
     [ -n "$wc_out" ] || wc_out=0
@@ -239,6 +251,7 @@ routing_baseline_pack() {
     paths="$paths $path"
   done < <(routing_rows)
   [ "$rb_counted" -eq 1 ] || words=$((words + slice_words))
+  [ "$pf_counted" -eq 1 ] || words=$((words + rules_words))
   if [ "$full" -eq 1 ]; then
     printf '%s\t%s\t%s\tfull\n' "$words" "$files" "${paths# }"
   else

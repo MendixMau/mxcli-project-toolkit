@@ -282,6 +282,14 @@ PY
   fi
 fi
 
+# The mxcli version a baseline was taken with, so bin/doctor.sh can say "re-baseline" after an
+# upgrade (new built-in rules raise counts on the next exec with no model change). One --version
+# call, on --update-baseline only; a check run never pays for it.
+MXCLI_VER=""
+if [ "$UPDATE" -eq 1 ]; then
+  MXCLI_VER="$("$MXCLI" --version 2>/dev/null | head -1 | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+fi
+
 # LINT_JSON=<file> skips mxcli entirely and reads pre-captured lint output. This makes
 # the comparison logic testable against fixtures with no .mpr, no mxcli and no catalog
 # (a full cold run costs ~12 min on a project whose catalog needs rebuilding).
@@ -302,7 +310,7 @@ fi
 [ -s "$OUT" ] || { echo "lint-gate: lint produced no output" >&2; exit 2; }
 
 BASELINE="$BASELINE" OUT="$OUT" UPDATE="$UPDATE" REASON="$REASON" APPROVED="$APPROVED" \
-  SECURITY_FILE="$SECURITY_FILE" ACCEPT_LOG="$ACCEPT_LOG" "$PY" - <<'PY'
+  SECURITY_FILE="$SECURITY_FILE" ACCEPT_LOG="$ACCEPT_LOG" MXCLI_VER="$MXCLI_VER" "$PY" - <<'PY'
 import json, os, sys, collections, datetime, fnmatch
 
 out_path  = os.environ["OUT"]
@@ -378,7 +386,7 @@ sev    = {v["ruleId"]: v["severity"] for v in viol}
 
 # A rule that did not actually run is a false PASS, not a clean result. Two forms,
 # and keying on only the first was a real bug in this script:
-#   1. Self-reported blindness: CONV010/CONV020 emit module="_rule" when they inspect
+#   1. Self-reported blindness: CONV010/MXTK-UX003 emit module="_rule" when they inspect
 #      documents but activities_for() hands back nothing.
 #   2. A hard Starlark crash: mxcli reports these as severity=error with an EMPTY
 #      module and a "Starlark rule error:" message prefix -- NOT as "_rule". Observed
@@ -402,7 +410,7 @@ if crashed:
 # PASS-BLIND via `blind` above, which was computed before this filter. The filter applies to
 # check runs too, not only --update-baseline: when it ran on updates alone, the blind finding
 # was missing from the baseline but present in every check, so each later run reported it as
-# "CONV020 0 -> 1 (+1)" — a rise — and exec.sh logged LINT ROSE for an instrument fault.
+# "CONV020 0 -> 1 (+1)" (the toolkit rule, now MXTK-UX003) — a rise — and exec.sh logged LINT ROSE for an instrument fault.
 viol = [v for v in viol if v.get("module") != "_rule"]
 counts = collections.Counter(v["ruleId"] for v in viol)
 
@@ -475,7 +483,8 @@ if update:
                "findings": dict(sorted(fcounts.items())),
                "note": "Per-rule finding counts on OUR modules, plus a multiset of findings "
                        "(rule|module|document|message) so a rise can name the new ones. "
-                       "Gate fails when any count rises."},
+                       "Gate fails when any count rises.",
+               **({"mxcli_version": os.environ["MXCLI_VER"]} if os.environ.get("MXCLI_VER") else {})},
               open(base_path, "w"), indent=2)
     open(base_path, "a").write("\n")
     print("==> baseline written: %d findings across %d rules" % (len(viol), len(counts)))

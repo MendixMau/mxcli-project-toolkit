@@ -107,8 +107,16 @@ else
   gone "playwright" "not installed — every browser rung will fault (rc 2)"
   note "fix: (cd $ROOT && npm i -D playwright && npx playwright install chromium)"
 fi
-command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1 \
-  && ok "docker" "responding" || gone "docker" "not responding — no app, no DB, no Jaeger"
+# The app needs a runtime, not a container: `mxcli run --local` serves it with none, so a missing
+# container runtime is a note, never a missing requirement. Same CLI choice as mxcli
+# (MXCLI_CONTAINER_CLI, else docker — Docker Desktop, colima, OrbStack — else podman).
+_ctr="${MXCLI_CONTAINER_CLI:-}"; [ -n "$_ctr" ] || { command -v docker >/dev/null 2>&1 && _ctr=docker; } || { command -v podman >/dev/null 2>&1 && _ctr=podman; }
+if [ -n "$_ctr" ] && "$_ctr" info >/dev/null 2>&1; then
+  ok "container runtime" "$_ctr responding (optional: mxcli docker, Jaeger)"
+else
+  ok "container runtime" "${_ctr:-none} not responding — fine: the app runs with mxcli run --local"
+  note "Jaeger trace assertions need one; test-stack-up.sh starts the app on the local lane without it"
+fi
 
 # --- the work itself ---------------------------------------------------------------------
 jn=$(ls "$ROOT"/journeys/*.journey.json 2>/dev/null | wc -l | tr -d ' ')

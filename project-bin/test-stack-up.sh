@@ -27,6 +27,7 @@
 #   bin/test-stack-up.sh --check     # report only, change nothing. Exit 0 iff required deps are up.
 #   bin/test-stack-up.sh             # report, then bring up what is missing (may run a Docker build)
 #   bin/test-stack-up.sh --no-docker # bring up auxiliaries only; never build. "SP is already running it".
+#   bin/test-stack-up.sh --local     # app down: start it with `mxcli run --local --watch --detach`, never a container
 #   bin/test-stack-up.sh --restart   # skip the hot reload; rebuild and restart the container (old path)
 #   bin/test-stack-up.sh --track <pid> [label]  # record a background test process THIS project started
 #   bin/test-stack-up.sh --reap      # stop recorded processes older than MXTK_STALE_HOURS; nothing else
@@ -104,6 +105,7 @@
 # project-specific in <project>/.claude/loop/stack.conf, which this script sources if present:
 #
 #   APP_PORTS="8080 8081"                                # fallback scan list; ownership beats it
+#   RUN_LOCAL_SERVE_PORT=6644                            # local lane's mxbuild port (default: first free from 6543)
 #   JAEGER_PORT=16686                                    # OTel collector UI (optional)
 #   MOCK_HEALTH_URL="http://localhost:3001/api/health"   # set to enable the mock rung
 #   MOCK_PORT=3001
@@ -139,6 +141,22 @@ BOOT_TIMEOUT="${BOOT_TIMEOUT:-240}"
 LOGDIR="${LOGDIR:-${TMPDIR:-/tmp}}"
 MOCK_LOG="$LOGDIR/${PROJ}-mock.log"
 DOCKER_LOG="$LOGDIR/${PROJ}-docker-run.log"
+LOCAL_LOG="$LOGDIR/${PROJ}-run-local.log"
+
+# APP LANE — how a down app is brought up. local = `mxcli run --local --watch --detach` (no container
+# runtime at all); container = `mxcli docker run`. Default auto: the container lane when a runtime
+# answers, else the local lane. MXTK_APP_LANE=local (or --local) skips containers even when one runs.
+APP_LANE="${MXTK_APP_LANE:-auto}"
+case "$APP_LANE" in auto|local|container) ;; *) echo "MXTK_APP_LANE takes auto, local or container" >&2; exit 2 ;; esac
+
+# The container CLI, for every direct call below. mxcli itself honours MXCLI_CONTAINER_CLI, so this
+# follows the same override; otherwise docker (Docker Desktop, colima, OrbStack, Rancher all ship it),
+# else podman. Compose labels are com.docker.compose.* under docker compose and podman's
+# docker-compose provider; podman-compose (python) labels differently and is not detected.
+if [ -n "${MXCLI_CONTAINER_CLI:-}" ]; then CTR="$MXCLI_CONTAINER_CLI"
+elif command -v docker >/dev/null 2>&1; then CTR=docker
+elif command -v podman >/dev/null 2>&1; then CTR=podman
+else CTR=""; fi
 
 # mxcli lives in the project root on a wired project, but may be on PATH instead.
 if [ -x "$ROOT/mxcli" ]; then MXCLI="$ROOT/mxcli"
@@ -149,6 +167,7 @@ MODE="up"
 case "${1:-}" in
   --check)     MODE="check" ;;
   --no-docker) MODE="nodocker" ;;
+  --local)     MODE="up"; APP_LANE=local ;;
   --restart)   MODE="restart" ;;
   --reap)      MODE="reap" ;;
   --track)     MODE="track" ;;
@@ -194,6 +213,10 @@ mendix_at() {
     case "$body" in
       *mxui*|*mx-name*|*"Mendix"*|*mxclientsystem*) return 0 ;;
     esac
+    # A themed index.html can carry none of those words (field project, 2026-10-23: its custom page has
+    # only a title and <div id="root">). The runtime's own client bundle cannot be themed away.
+    code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 4 "http://localhost:$p/mxclientsystem/mxui/mxui.js" 2>/dev/null)"
+    [ "$code" = 200 ] && return 0
   done
   return 1
 }
@@ -218,18 +241,18 @@ mendix_at() {
 # the pin is missing.)
 owned_app_port() {
   local want="$ROOT/.docker" name dir port
-  command -v docker >/dev/null 2>&1 || return 1
+  [ -n "$CTR" ] || return 1
   while IFS='|' read -r name dir port; do
     [ "$dir" = "$want" ] || continue
     [ -n "$port" ] || continue
     echo "$port"; return 0
   done <<EOF
-$(docker ps --filter 'label=com.docker.compose.service=mendix' \
+$("$CTR" ps --filter 'label=com.docker.compose.service=mendix' \
      --format '{{.Names}}' 2>/dev/null | while read -r n; do
        [ -n "$n" ] || continue
        printf '%s|%s|%s\n' "$n" \
-         "$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' "$n" 2>/dev/null)" \
-         "$(docker inspect -f '{{with index .NetworkSettings.Ports "8080/tcp"}}{{(index . 0).HostPort}}{{end}}' "$n" 2>/dev/null)"
+         "$("$CTR" inspect -f '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' "$n" 2>/dev/null)" \
+         "$("$CTR" inspect -f '{{with index .NetworkSettings.Ports "8080/tcp"}}{{(index . 0).HostPort}}{{end}}' "$n" 2>/dev/null)"
      done)
 EOF
   return 1
@@ -313,7 +336,9 @@ pid_alive() {
 run_local_ports() {
   local a="" m=""
   if pick_local_hs; then a="$(hs_field appPort)"; m="$(sed -n 's/^  "adminPort": *\([0-9][0-9]*\).*/\1/p' "$LOCAL_HS" 2>/dev/null | head -1)"; fi
-  a="${RUN_LOCAL_APP_PORT:-${a:-8080}}"
+  # No handshake (a `run stop` removes it): the project's first configured APP_PORTS entry, so a
+  # restart lands where it always runs instead of on 8080, which another project may own.
+  a="${RUN_LOCAL_APP_PORT:-${a:-${APP_PORTS%% *}}}"; a="${a:-8080}"
   m="${RUN_LOCAL_ADMIN_PORT:-${m:-$((a + 10))}}"
   echo "$a $m"
 }
@@ -626,9 +651,10 @@ fi
 # Confirmed: container->localhost:3001 = 000, container->host.docker.internal:3001 = 200.
 # Runs in --check too: this is exactly what you need to know BEFORE deciding to test.
 CTR_WARNED=0
-CONTAINER="$(docker ps --filter 'label=com.docker.compose.service=mendix' --format '{{.Names}}' 2>/dev/null | head -1)"
+CONTAINER=""
+[ -n "$CTR" ] && CONTAINER="$("$CTR" ps --filter 'label=com.docker.compose.service=mendix' --format '{{.Names}}' 2>/dev/null | head -1)"
 if [ -n "$CONTAINER" ] && [ $MOCK_REQUIRED -eq 1 ] && [ $MOCK_OK -eq 0 ]; then
-  FROM_CTR="$(docker exec "$CONTAINER" sh -c \
+  FROM_CTR="$("$CTR" exec "$CONTAINER" sh -c \
     "curl -s -o /dev/null -w '%{http_code}' --max-time 4 '$MOCK_HEALTH_URL'" 2>/dev/null)"
   if [ "$FROM_CTR" = "000" ] || [ -z "$FROM_CTR" ]; then
     CTR_WARNED=1
@@ -750,8 +776,9 @@ if [ $APP_FOUND -ne 0 ]; then
   # `mxcli docker run` fail with a daemon error the agent then reports as "cannot start Docker".
   # A cloud container ships the docker CLI with no daemon; that is normal, not a blocker.
   # Bounded: a stopped Docker Desktop can leave `docker info` silent for minutes.
-  _RT=docker; command -v docker >/dev/null 2>&1 || _RT=podman
-  if ! command -v "$_RT" >/dev/null 2>&1; then _DK=1; else
+  _RT="$CTR"
+  if [ "$APP_LANE" = local ]; then _DK=3
+  elif [ -z "$_RT" ] || ! command -v "$_RT" >/dev/null 2>&1; then _DK=1; else
     "$_RT" info >/dev/null 2>&1 & _dk_pid=$!; _dk_w=0; _DK=
     while kill -0 "$_dk_pid" 2>/dev/null; do
       [ "$_dk_w" -ge 15 ] && { kill "$_dk_pid" 2>/dev/null; _DK=2; break; }
@@ -759,7 +786,42 @@ if [ $APP_FOUND -ne 0 ]; then
     done
     [ -n "$_DK" ] || { wait "$_dk_pid"; _DK=$?; }
   fi
-  if [ "$_DK" != 0 ]; then
+  [ "$_DK" != 0 ] && [ "$APP_LANE" = container ] && { bad "App down, MXTK_APP_LANE=container, and no container runtime answers ($([ -n "$_RT" ] && echo "$_RT info failed" || echo 'none installed'))."; exit 1; }
+  # LOCAL LANE: start the app without any container. Measured with mxcli v0.26.0 (2026-10-23): a
+  # split model (mprcontents/, 3563 units) served by run --local --watch for hours stayed split and
+  # git-clean. Older builds consolidated it, so the unit count is compared before and after anyway.
+  if [ "$_DK" != 0 ] && [ -n "$MXCLI" ]; then
+    _U0=$(find "$MODEL_DIR/mprcontents" -name '*.mxunit' 2>/dev/null | wc -l | tr -d ' ')
+    check_run_local_ports || { bad "App not serving yet — this project's own runtime holds its port. Re-run --check when it answers."; exit 1; }
+    read -r _LA _LM <<<"$(run_local_ports)"
+    # mxbuild --serve listens on 6543 unless told otherwise, so a second project's local lane would
+    # collide with the first. RUN_LOCAL_SERVE_PORT (stack.conf) wins; else the first free port from 6543.
+    _LS="${RUN_LOCAL_SERVE_PORT:-}"
+    if [ -z "$_LS" ]; then
+      for _p in $(seq 6543 6599); do mxtk_port_holder "$_p" >/dev/null 2>&1 || { _LS=$_p; break; }; done
+    fi
+    echo "→ App is down. Starting it without a container: mxcli run --local --watch --detach (:$_LA, admin :$_LM, build :${_LS:-6543})..."
+    [ "$_DK" = 3 ] || echo "  (no container runtime answered; the local lane needs none)"
+    T0=$(date +%s)
+    "$MXCLI" run --local --watch --detach -p "$MPR" --app-port "$_LA" --admin-port "$_LM" ${_LS:+--serve-port "$_LS"} >"$LOCAL_LOG" 2>&1
+    LOCAL_RC=$?
+    if [ $LOCAL_RC -ne 0 ]; then
+      bad "mxcli run --local failed (rc=$LOCAL_RC) — see $LOCAL_LOG"; tail -20 "$LOCAL_LOG"
+      echo "  A missing database is the usual cause: it must exist before the first run (createdb, or --db-type hsqldb)."
+      exit 1
+    fi
+    _U1=$(find "$MODEL_DIR/mprcontents" -name '*.mxunit' 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$_U0" -gt 0 ] && [ "$_U1" -lt "$_U0" ]; then
+      warn "this mxcli consolidated the split model ($_U0 → $_U1 mprcontents units): a build artifact."
+      warn "  → never commit it; restore with: git checkout -- $(basename "$MPR") mprcontents/"
+    fi
+    if prove_app; then
+      APP_FOUND=0; record_served
+      ok "App serving on :$APP_PORT in $(( $(date +%s) - T0 ))s (ownership $APP_OWNERSHIP, $APP_SOURCE) — --watch keeps it current"
+    else
+      bad "mxcli run --local returned, but no Mendix of this project answers over HTTP — see $LOCAL_LOG"; exit 1
+    fi
+  elif [ "$_DK" != 0 ]; then
     check_run_local_ports || { bad "App not serving yet — this project's own runtime holds its port. Re-run --check when it answers."; exit 1; }
     bad "App down and no Docker/Podman reachable, so this script cannot build the app container."
     echo "  Normal in a cloud container, and fine on a desktop without one. Run the app without it:"
@@ -769,6 +831,9 @@ if [ $APP_FOUND -ne 0 ]; then
     echo "  Snapshot first — mxcli run --local consolidates a split-model .mpr. Then re-run with --check."
     exit 1
   fi
+fi
+# CONTAINER LANE — still down after the local lane, so a runtime answered and the lane allows it.
+if [ $APP_FOUND -ne 0 ]; then
   if [ -z "$MXCLI" ]; then
     bad "App down and no mxcli found (neither ./mxcli nor on PATH) — cannot build."
     exit 2

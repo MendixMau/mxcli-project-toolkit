@@ -15,7 +15,10 @@
 # written by the project's REAL bin/lint-gate.sh --update-baseline from verbatim `mxcli lint
 # --format json` captures on a public model, v0.27.0 and v0.28.0 (tests/wave2/fixtures/
 # lint-conv020-v028/CAPTURE.txt); the post-rename output is the v0.28.0 capture with only the
-# toolkit finding's ruleId changed. Projects are scaffolded by
+# toolkit finding's ruleId changed. T1b's baseline is the capture taken WITH the opt-out
+# (lint-conv020-disabled-v0.28.0.out); its post-sync output adds the toolkit finding as MXTK-UX003
+# only when the project would run that rule (installed and not disabled), since a CONV020 key no
+# longer reaches it. Projects are scaffolded by
 # the REAL bin/init-project.sh and migrated by the REAL sync-project.sh, on both layouts
 # (.mpr at the root, and under app/). doctor.sh runs --quick against a stub mxcli.
 set -uo pipefail
@@ -46,7 +49,8 @@ case " $MXTK_LINT_RULES $MXTK_LINT_RULES_CONFIGURABLE " in *" $NEW "*) ok "manif
 case " $MXTK_LINT_RULES $MXTK_LINT_RULES_CONFIGURABLE " in *" $OLD "*) bad "manifest still installs $OLD" ;; *) ok "manifest no longer installs $OLD" ;; esac
 # Every shipped line naming CONV020 must also name MXTK-UX003 or say it is mxcli's built-in.
 stray="$(cd "$TK" && grep -rn 'CONV020' bin project-bin project-tests lint-rules skills templates README.md 2>/dev/null \
-         | grep -v 'MXTK-UX003' | grep -vi 'built-in' || true)"
+         | grep -v 'MXTK-UX003' | grep -vi 'built-in' \
+         | grep -v '^lint-rules/conv010_act_microflow_content.star:[0-9]*:.*Same guard as CONV020\.$' || true)"
 [ -z "$stray" ] && ok "every CONV020 mention in shipped code/docs names MXTK-UX003 or the built-in" || bad "toolkit CONV020 left" "$stray"
 # Every shipped version of the old file is in MXTK_LINT_RENAMES (captured from git, not typed).
 VERS="$WORK/versions"; mkdir -p "$VERS"
@@ -123,7 +127,7 @@ for L in root app; do
   baseline_with "$P" "$WORK/before.json"
   grep -q '"mxcli_version": "v0.27.0"' "$P/.claude/lint-baseline.json" && ok "[$L] lint-gate --update-baseline records mxcli_version" || bad "[$L] mxcli_version not recorded" "$(cat "$P/.claude/lint-baseline.json")"
   [ "$(count "$P" CONV020)" = 2 ] && ok "[$L] pre-rename baseline (v0.28 capture): CONV020 2 (toolkit + built-in)" || bad "[$L] setup baseline wrong"
-  printf 'rules:\n  CONV020:\n    enabled: false\n' > "$P/.claude/lint-config.yaml"
+  printf 'rules:\n  CONV020:\n    severity: error\n' > "$P/.claude/lint-config.yaml"
   echo "- D-9: CONV020 opted out, no ACT_ convention. CONFIRMED" >> "$P/PROJECT.md"
   out="$("$SYNC" "$P" 2>&1)"
   [ ! -e "$P/.claude/lint-rules/$OLD" ] && cmp -s "$TK/lint-rules/$NEW" "$P/.claude/lint-rules/$NEW" \
@@ -145,6 +149,40 @@ for L in root app; do
   before="$(lintstate "$P")"; out="$("$SYNC" "$P" 2>&1)"
   [ "$(lintstate "$P")" = "$before" ] && ok "[$L] no lint file changed" || bad "[$L] second sync changed files" "$(diff <(echo "$before") <(lintstate "$P"))"
   printf '%s' "$out" | grep -qE "renamed|rekeyed|CONV020|carried over" && bad "[$L] second sync still talks about the rename" "$out" || ok "[$L] second sync silent about it"
+
+  echo "T1b [$L] lint-config CONV020 enabled: false (README's preferred opt-out): carried over, rule stays off"
+  P="$(mk "t1b-$L")"; put_old "$P" "$LAST"
+  printf 'rules:\n  CONV020:\n    enabled: false   # no ACT_ convention, PROJECT.md D-9\n' > "$P/.claude/lint-config.yaml"
+  cp "$P/.claude/lint-config.yaml" "$WORK/cfg-$L"
+  # What mxcli printed with that config (both rules off): no toolkit finding to baseline.
+  baseline_with "$P" "$CAP/lint-conv020-disabled-v0.28.0.out"
+  [ "$(count "$P" CONV020)" = 0 ] && ok "[$L] opt-out baseline holds no CONV020 finding" || bad "[$L] opt-out baseline wrong"
+  out="$("$SYNC" "$P" 2>&1)"
+  [ ! -e "$P/.claude/lint-rules/$OLD" ] && [ ! -e "$P/.claude/lint-rules/$NEW" ] \
+    && ok "[$L] old copy retired, $NEW NOT installed" || bad "[$L] opt-out lost: $NEW installed" "$out"
+  grep -qE "^$NEW  # reason: carried over from lint-config.yaml CONV020: enabled: false \([0-9]{4}-[0-9]{2}-[0-9]{2}\)$" "$P/.claude/lint-rules-disabled.txt" 2>/dev/null \
+    && ok "[$L] lint-rules-disabled.txt names $NEW with the carried-over reason" || bad "[$L] no disabled line" "$(cat "$P/.claude/lint-rules-disabled.txt" 2>&1)"
+  cmp -s "$P/.claude/lint-config.yaml" "$WORK/cfg-$L" && ok "[$L] lint-config.yaml CONV020 key left alone" || bad "[$L] lint-config.yaml rewritten"
+  printf '%s' "$out" | grep -q "enabled: false was carried over" && ok "[$L] NOTE says the opt-out was carried over" || bad "[$L] NOTE does not say carried over" "$out"
+  # mxcli v0.28 on the synced project: the CONV020 key switches off only the built-in; MXTK-UX003
+  # reports whenever the project would run it.
+  "$PY" -c '
+import json, os, sys
+d = json.load(open(sys.argv[1]))
+p = sys.argv[3]
+run = os.path.isfile(p + "/.claude/lint-rules/mxtk_ux003_action_user_feedback.star") and not any(
+    l.split()[:1] == ["mxtk_ux003_action_user_feedback.star"] and "reason:" in l
+    for l in (open(p + "/.claude/lint-rules-disabled.txt") if os.path.isfile(p + "/.claude/lint-rules-disabled.txt") else []))
+if run:
+    for v in json.load(open(sys.argv[2]))["violations"]:
+        if v["document"] == "Shop.ACT_SaveItem": v["ruleId"] = "MXTK-UX003"; d["violations"].append(v)
+json.dump(d, open(sys.argv[4], "w"), indent=2)
+' "$CAP/lint-conv020-disabled-v0.28.0.out" "$CAP/lint-conv020-v0.28.0.out" "$P" "$WORK/after-optout-$L.json"
+  out="$(cd "$P" && LINT_JSON="$WORK/after-optout-$L.json" bash bin/lint-gate.sh 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] && ok "[$L] lint-gate PASS after sync (no MXTK-UX003 0 -> 1)" || bad "[$L] lint-gate rc $rc after sync" "$out"
+  before="$(lintstate "$P")"; out="$("$SYNC" "$P" 2>&1)"
+  { [ "$(lintstate "$P")" = "$before" ] && ! printf '%s' "$out" | grep -qE "renamed|carried over|CONV020"; } \
+    && ok "[$L] second sync: no change, silent" || bad "[$L] second sync not a no-op" "$out"
 
   echo "T2b [$L] baseline taken on v0.27.0: rename maps it; the v0.28 upgrade then rises in CONV020 only"
   P="$(mk "t2b-$L")"; put_old "$P" "$LAST"
@@ -187,6 +225,9 @@ for L in root app; do
   out="$("$SYNC" "$P" 2>&1)"
   [ "$(portable_md5 "$P/.claude/lint-baseline.json")" = "$bm" ] && ok "[$L] counts-only baseline unchanged" || bad "[$L] counts-only baseline rewritten"
   printf '%s' "$out" | grep -q "holds CONV020 as a count only" && ok "[$L] NOTE says it cannot split the count" || bad "[$L] no count-only NOTE" "$out"
+  out="$("$SYNC" "$P" 2>&1)"
+  printf '%s' "$out" | grep -q "as a count only" && bad "[$L] count-only NOTE printed again on the second sync" "$out" || ok "[$L] count-only NOTE printed once (second sync silent)"
+  [ "$(portable_md5 "$P/.claude/lint-baseline.json")" = "$bm" ] && ok "[$L] counts-only baseline still unchanged" || bad "[$L] second sync rewrote the baseline"
 
   echo "T6 [$L] CRLF copy of a shipped version, and the empty-PROJECT_MODULES template"
   P="$(mk "t6-$L")"; awk '{ printf "%s\r\n", $0 }' "$LAST" > "$WORK/crlf.star"; put_old "$P" "$WORK/crlf.star"
@@ -216,6 +257,8 @@ for L in root app; do
   printf '{\n  "counts": {},\n  "total": 0\n}\n' > "$D/.claude/lint-baseline.json"
   out="$(dr)"
   printf '%s' "$out" | grep -q "lint baseline records no mxcli version" && ok "[$L] says so when the baseline predates the field" || bad "[$L] no note for an unversioned baseline" "$out"
+  printf '%s' "$out" | grep -qF -- "--update-baseline --reason" && bad "[$L] unversioned baseline: re-baseline command printed with no evidence of a rise" "$out" \
+    || ok "[$L] unversioned baseline: no re-baseline command, says the next one records it"
 done
 
 echo "pass=$PASS fail=$FAIL"

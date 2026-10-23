@@ -198,20 +198,42 @@ _mxtk_lint_receipt_finalize() {
   [ -z "$_pruned" ] || echo "Lint receipt: dropped row(s) for rules no longer shipped or disabled here:$_pruned"
 }
 
+# _mxtk_lint_cfg_disabled <lint-config.yaml> <RULE_ID>: 0 when the file sets `enabled: false` for
+# that rule. The scoped read lint-gate.sh's SEC014 notice uses (a key belongs to the rule while its
+# indent is deeper than the rule's own line), narrowed to `enabled: false`.
+_mxtk_lint_cfg_disabled() {
+  [ -f "$1" ] || return 1
+  awk -v id="$2" '
+    /^[[:space:]]*#/ { next }
+    { match($0, /^ */); ind = RLENGTH }
+    insec && NF && ind <= secind { insec = 0 }
+    $0 ~ "^[[:space:]]*\"?" id "\"?[[:space:]]*:" {
+      insec = 1; secind = ind
+      if ($0 ~ /enabled[[:space:]]*:[[:space:]]*false/) found = 1
+      next
+    }
+    insec && /^[[:space:]]*enabled[[:space:]]*:[[:space:]]*false/ { found = 1 }
+    END { exit found ? 0 : 1 }' "$1"
+}
+
 # RENAMED RULES (MXTK_LINT_RENAMES in install-manifest.sh). First case: CONV020 -> MXTK-UX003,
 # because mxcli v0.28.0 ships a built-in CONV020 and runs both rules under that one id. Per rename:
 #   1. lint-rules-disabled.txt naming the old FILE -> rewritten to the new file (a file name is
 #      unambiguous, and leaving it would install the new rule over the user's opt-out).
 #   2. the old file: an unedited copy (md5, CR-insensitive, equals a shipped version or the
-#      receipt row) is deleted; the loop below then installs the new one. An edited copy is left
-#      alone with a warning, and the new file is held back (MXTK_LINT_RENAME_HOLD), since installing
-#      it beside the edited one would run the rule twice.
+#      receipt row) is deleted; the loop below then installs the new one, unless lint-config.yaml
+#      switched the old id off (`enabled: false`): that opt-out is written to lint-rules-disabled.txt
+#      under the new file, so the rule stays off (the lint-config key is left as it is). An edited
+#      copy is left alone with a warning, and the new file is held back (MXTK_LINT_RENAME_HOLD),
+#      since installing it beside the edited one would run the rule twice.
 #   3. lint-baseline.json, once no old copy remains: findings whose message matches the toolkit
 #      rule's are rekeyed to the new id and the counts moved with them. A finding with another
-#      message stays (mxcli's built-in). A counts-only baseline (pre-#239) cannot be split: NOTE.
-#   4. On a run that changed something: a NOTE for lint-config.yaml settings under the old id and
-#      for PROJECT.md lines naming it. Neither file is rewritten: their text cannot say which rule
-#      it meant. A second run finds nothing to do and prints nothing.
+#      message stays (mxcli's built-in). A counts-only baseline (pre-#239) cannot be split: NOTE,
+#      once (marker line in .claude/.mxtk-lint-notes). Python runs only when a finding under the
+#      old id looks like the toolkit rule's (grep pre-filter), so a baselined built-in costs nothing.
+#   4. On a run that changed something: a NOTE for lint-config.yaml settings under the old id
+#      (saying so when its enabled: false was carried over in 2) and for PROJECT.md lines naming it.
+#      Neither file is rewritten: their text cannot say which rule it meant. A second run finds nothing to do and prints nothing.
 _mxtk_lint_migrate_renames() {
   _rn_proj="$1"; _rn_dry="$2"; _rn_src_dir="$3"
   MXTK_LINT_RENAME_HOLD=""
@@ -219,9 +241,11 @@ _mxtk_lint_migrate_renames() {
   _rn_dir="$_rn_proj/.claude/lint-rules"
   _rn_dis="$_rn_proj/.claude/lint-rules-disabled.txt"
   _rn_base="$_rn_proj/.claude/lint-baseline.json"
+  _rn_cfg="$_rn_proj/.claude/lint-config.yaml"
+  _rn_notes="$_rn_proj/.claude/.mxtk-lint-notes"
   while read -r _rn_old _rn_oid _rn_new _rn_nid _rn_md5s _rn_re; do
     [ -n "$_rn_old" ] && [ -n "$_rn_re" ] || continue
-    _rn_did=0; _rn_hold=0
+    _rn_did=0; _rn_hold=0; _rn_cfgoff=0
 
     # 1. opt-out line
     if [ -f "$_rn_dis" ] && awk -v o="$_rn_old" '$1 == o { f = 1 } END { exit f ? 0 : 1 }' "$_rn_dis"; then
@@ -259,6 +283,20 @@ _mxtk_lint_migrate_renames() {
           fi
           rm -f "$_rn_f"
         fi
+        # The project switched the old id off in lint-config.yaml (README's preferred opt-out).
+        # On mxcli v0.28.0+ that key reaches only the built-in, so carry the opt-out to the file.
+        if _mxtk_lint_cfg_disabled "$_rn_cfg" "$_rn_oid" && ! _mxtk_lint_is_disabled "$_rn_dis" "$_rn_new"; then
+          _rn_cfgoff=1
+          if [ "$_rn_dry" -eq 1 ]; then
+            echo "Would carry over: lint-config.yaml $_rn_oid enabled: false -> .claude/lint-rules-disabled.txt $_rn_new"
+          else
+            [ -s "$_rn_dis" ] && [ -n "$(tail -c 1 "$_rn_dis")" ] && echo >> "$_rn_dis"
+            printf '%s  # reason: carried over from lint-config.yaml %s: enabled: false (%s)\n' \
+              "$_rn_new" "$_rn_oid" "$(date +%Y-%m-%d)" >> "$_rn_dis"
+            echo "Lint opt-out carried over: lint-config.yaml has $_rn_oid enabled: false, so"
+            echo "   .claude/lint-rules-disabled.txt now names $_rn_new and it is not installed."
+          fi
+        fi
         _rn_did=1; MXTK_LINT_CHANGES=$((MXTK_LINT_CHANGES + 1))
       else
         _rn_hold=1; MXTK_LINT_RENAME_HOLD="$MXTK_LINT_RENAME_HOLD $_rn_new"
@@ -274,7 +312,18 @@ _mxtk_lint_migrate_renames() {
     fi
 
     # 3. the baseline
+    # Pre-filter: a findings baseline needs Python only when a key under the old id carries a
+    # message like the toolkit rule's (the regex with its anchors dropped: a superset, Python
+    # decides); a counts-only one only until its NOTE has printed.
+    _rn_need=0
     if [ "$_rn_hold" -eq 0 ] && [ -f "$_rn_base" ] && grep -q "\"$_rn_oid[|\"]" "$_rn_base"; then
+      if grep -q '"findings"' "$_rn_base"; then
+        grep -qE "\"$_rn_oid[|][^\"]*($(printf '%s' "$_rn_re" | tr -d '^'))" "$_rn_base" && _rn_need=1
+      elif ! grep -qx "$_rn_oid counts-only" "$_rn_notes" 2>/dev/null; then
+        _rn_need=1
+      fi
+    fi
+    if [ "$_rn_need" -eq 1 ]; then
       if ! _rn_py="$(resolve_py 2>/dev/null)"; then
         _mxtk_lint_warn "lint-baseline.json still keys findings as $_rn_oid and Python 3 was not found to" \
                         "rekey the toolkit rule's to $_rn_nid. Install Python 3 and re-run sync-project.sh."
@@ -336,6 +385,8 @@ RNEOF
               echo "NOTE: .claude/lint-baseline.json holds $_rn_oid as a count only ($_rn_a; written before findings were"
               echo "      recorded), so the toolkit rule's findings cannot be told from mxcli's built-in $_rn_oid. Not"
               echo "      changed. Re-baseline: bin/lint-gate.sh --update-baseline --reason \"$_rn_oid renamed $_rn_nid\""
+              echo "      (Said once.)"
+              [ "$_rn_dry" -eq 1 ] || echo "$_rn_oid counts-only" >> "$_rn_notes"
             fi ;;
           *) _mxtk_lint_warn "could not rekey $_rn_oid in .claude/lint-baseline.json: ${_rn_out:-no output}" ;;
         esac
@@ -347,8 +398,15 @@ RNEOF
       if [ -f "$_rn_proj/.claude/lint-config.yaml" ] &&
          grep -qE "^[[:space:]]*\"?$_rn_oid\"?[[:space:]]*:" "$_rn_proj/.claude/lint-config.yaml"; then
         echo "NOTE: .claude/lint-config.yaml has settings under $_rn_oid. On mxcli v0.28.0+ they reach mxcli's"
-        echo "      built-in $_rn_oid, not the toolkit rule. If they were meant for the toolkit rule (an opt-out:"
-        echo "      enabled: false), move them under $_rn_nid. Not changed automatically."
+        if [ "$_rn_cfgoff" -eq 1 ]; then
+          echo "      built-in $_rn_oid, not the toolkit rule. Its enabled: false was carried over: the"
+          echo "      toolkit rule stays off through .claude/lint-rules-disabled.txt ($_rn_new)."
+          echo "      The key now switches off only the built-in. Not changed: keep it, or remove it to run"
+          echo "      the built-in."
+        else
+          echo "      built-in $_rn_oid, not the toolkit rule. If they were meant for the toolkit rule, move them"
+          echo "      under $_rn_nid. Not changed automatically."
+        fi
       fi
       if [ -f "$_rn_proj/PROJECT.md" ] && grep -q "$_rn_oid" "$_rn_proj/PROJECT.md"; then
         echo "NOTE: PROJECT.md names $_rn_oid on line(s) $(grep -n "$_rn_oid" "$_rn_proj/PROJECT.md" | cut -d: -f1 | head -8 | paste -sd, -)."

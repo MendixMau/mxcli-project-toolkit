@@ -1560,12 +1560,15 @@ if [ -n "$PROJECT_DIR" ] && [ -f "$_lb" ] && [ -n "$_lb_now" ]; then
   _lb_was="$(sed -n 's/.*"mxcli_version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$_lb" | head -1)"
   if [ "$_lb_was" != "$_lb_now" ]; then
     head_ "Lint baseline: $PROJECT_DIR"
+    # No recorded version is no evidence of a rise: name no command (a reflex re-baseline is what
+    # skills/lint-that-actually-runs.md warns against). A recorded, different one is evidence.
     if [ -z "$_lb_was" ]; then
       note "lint baseline records no mxcli version; if mxcli was upgraded since it was taken, new built-in rules can raise lint."
+      note "  the next bin/lint-gate.sh --update-baseline records it; nothing to do until lint actually rises."
     else
       note "lint baseline was taken with mxcli $_lb_was; this is $_lb_now. New built-in rules can raise lint."
+      note "  after reviewing the new findings: bin/lint-gate.sh --update-baseline --reason \"mxcli $_lb_now built-in rules\""
     fi
-    note "  after reviewing the new findings: bin/lint-gate.sh --update-baseline --reason \"mxcli $_lb_now built-in rules\""
   fi
 fi
 

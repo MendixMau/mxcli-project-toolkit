@@ -150,7 +150,9 @@ persisted", mendixlabs/mxcli#1518). The toolkit's user-feedback rule had the sam
   purpose: they replace the file `mxcli init` seeds, so only one rule runs.
 - A rename is migrated by `bin/sync-project.sh` (`MXTK_LINT_RENAMES` in
   `bin/lib/install-manifest.sh`). An unedited project copy is replaced and the
-  `lint-baseline.json` findings whose message is the toolkit rule's are rekeyed. An edited copy
+  `lint-baseline.json` findings whose message is the toolkit rule's are rekeyed. A
+  `lint-config.yaml` `enabled: false` under the old id is carried over to a
+  `lint-rules-disabled.txt` line for the new file, so an opted-out rule stays off. An edited copy
   is left in place with a warning and manual steps. `lint-config.yaml` keys and `PROJECT.md`
   lines that name the old id get a NOTE, because their text cannot say which rule they meant.
 

@@ -1,0 +1,37 @@
+mdl 1;
+create persistent entity MyFirstModule."Customer" (
+  "Name": String(200)
+);
+create microflow MyFirstModule."ACT_Customer_Rename" ($Customer: MyFirstModule.Customer)
+begin
+  @annotation 'Keeps the old name in the log before it changes.'
+  log info node 'Canvas' 'renaming';
+  change $Customer ("Name" = 'Renamed');
+  return;
+end;
+create microflow MyFirstModule."ACT_Customer_Merge" (
+  $PrimaryCustomerRecord: MyFirstModule.Customer,
+  $SecondaryCustomerRecord: MyFirstModule.Customer
+)
+begin
+  return;
+end;
+create microflow MyFirstModule."ACT_Customer_MergeColumn" (
+  @position(200, 53) $PrimaryCustomerRecord: MyFirstModule.Customer,
+  @position(200, -27) $SecondaryCustomerRecord: MyFirstModule.Customer
+)
+begin
+  return;
+end;
+create microflow MyFirstModule."ACT_Customer_Check" ($Customer: MyFirstModule.Customer)
+begin
+  @caption 'Customer found?'
+  if $Customer = empty then
+    return;
+  end if;
+  @caption 'No customer?'
+  if $Customer = empty then
+    return;
+  end if;
+  return;
+end;

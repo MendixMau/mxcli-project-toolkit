@@ -40,28 +40,26 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/query-the-model.md` | Any question before asking the user or writing anything — query the model, then read the source, then ask the human, in that order |
 | `skills/degrade-to-judgement.md` | Any pass whose input is missing, stale or unresolvable — before recording UNMEASURED, N/A or a silent skip: name what was missing, say what you assessed against instead, still deliver a verdict |
 | `skills/module-brief.md` | Building any module — before the first script. The mdl-agent's single per-module input |
-| `skills/learned-mdl-preflight.md` | Writing ANY MDL script — before the first line. Step 0 picks the write mode, then the STOP table overrides it for corrupting operations |
+| `bin/mdl-rules.sh` | Writing ANY MDL script — before the first line: run bin/mdl-rules.sh <kinds> (page, microflow, access, workflow, entity) or --for <draft.mdl>, or read skills/generated/rules-<kind>.md, and read ALL of it — the STOP rows, gotchas and preflight sections for the statement kinds the script writes; your PREFLIGHT reports "STOP rows for kinds K: n/n checked" |
 | `skills/module-folder-convention.md` | Placing any document in a module — before the first `create`. Feature group, then Pages/Microflows/Services/Resources; the path comes from the brief's folder plan, and the table says which types mxcli can actually place |
-| `skills/learned-microflow-patterns.md` | Writing or fixing any microflow — MDL gotchas plus annotation discipline |
-| `skills/microflow-preflight.md` | Writing a microflow with any loop, a retrieve/commit/call inside a loop, nested or multiple loops, >20 activities counting loop bodies, or a list built from a list — post the checklist before the first MDL line |
-| `skills/ui-preflight-pages.md` | Building any page or snippet — before the first widget. Wireframe, tokens, gallery reuse, cross-check; no wireframe means STOP |
-| `skills/design-spacing.md` | Writing or reviewing any page or snippet — the spacing scale (8/16/24/32/48), section rhythm, and the page-header scaffold every full page starts with; sections at 0px apart and pages with no H1 are the defects it retires |
 | `project-bin/check-design-reaches-app.sh` | After the FIRST build that follows any design-system port, and before any page is built on it — reads the BUILT stylesheet and reports how many framework knobs point at a design token, how many tokens arrived, how many component classes arrived, each with its denominator. Measured on a real run: 55 tokens ported correctly into the right file, 0 of 35 knobs bound and 0 of 20 classes present, two build phases shipped in the framework's default blue with mx check, mxcli lint, the MDL suite and two e2e journeys all green |
 | `project-bin/check-page-shell.sh` | Before exec'ing ANY page script — compares the drafted MDL's shell against the wireframe's: page column, layout/nav shell, one H1. Measured 0/10 pages on a real first build, repaired wholesale 47 scripts later |
 | `project-bin/page-fidelity.js` | After drafting and again after exec'ing any page script — scores the page MDL (or `mxcli describe` output on stdin) against its wireframe: headings/actions/content/classes, weighted. The scored companion to check-page-shell's binary gate; 32% median measured without it, 90% first-draft with it. Every run is appended to the project's docs/PAGE-FIDELITY.tsv — first non-stub row per page = first-build score of record vs the ≥80% target (forward-reference stubs score with --stub, exempt) |
 | `bin/exec-approval.sh` | Before any mxcli exec / exec.sh / --mcp write — ask or run? the knob decides |
 | `project-bin/verify-module.sh` | Finishing any module — before calling it done. One command that runs every instrument and keeps "instrument faulted" apart from "feature failed"; in a wired project run the installed copy at bin/verify-module.sh |
 | `skills/tool-output-is-not-ground-truth.md` | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude |
-| `skills/learned-detection-gaps.md` | Before trusting a green check/exec/DESCRIBE result as proof, or when a runtime symptom appears over a fully green model — the register of constructs that pass early rungs and fail later ones |
-| `skills/security-is-not-a-later-script.md` | Creating any entity, or calling a module security-ready — entity and grants land in one script, and ready means SHOW SECURITY MATRIX proves it |
 | `bin/bug-lookup.sh` | A CE error (mx check or mxbuild: CE0066, CE0117…), a cited BUG-n, or behavior that looks like a known mxcli quirk rather than a modeling mistake — `bin/bug-lookup.sh CE0117` / `BUG-102` / "keyword" / the whole pasted error message (ranked top 3) prints the matching ledger entries, so the session reads one entry, not the whole ledger |
 | `bin/file-bugs.sh` | You hit, or worked around, a bug in mxcli or the toolkit — `bin/file-bugs.sh` (the `--add` line is in learned-detection-gaps.md) keeps docs/bugs.jsonl, redacts, shows duplicates, is filed only by a human with `!` (`--file PBUG-NN`, y/N, denied to agents), or prints new-issue links (`--links`, `--json`) |
 | `bin/status.sh` | The first command of every session, and any time someone asks "where are we" or "what next" — one screen: stage, done/overdue, the ONE next action, from the instruments, never from memory |
-| `skills/retesting-learned-rules.md` | Before obeying any learned-* STOP or workaround that costs a detour — probe the binary you actually have, then stamp the verdict back into the rule |
 | `skills/skills-over-scripts.md` | Script or skill? Before writing any .js or bash/.sh for a check, checker, linter, gate or report, or adding a rule or regex to an existing one |
 | `skills/checkpoints/checkpoint-build.md` | CAC-5, after design sign-off and before the build plan |
 | `skills/image-transcription.md` | Images to read listed by images-to-md or the documents index |
+| `skills/learned-mdl-preflight.md` | Writing ANY MDL script |
+| `skills/learned-microflow-patterns.md` | Writing or fixing any microflow |
+| `skills/microflow-preflight.md` | Writing a microflow with any loop, a retrieve/commit/call inside a loop, nested or multiple loops, >20 activities counting loop bodies, or a list built from a list |
 | `skills/mendix-best-practices-index.md` | Asked "is there a Mendix best practice for this", or mapping a lint rule that rose in the ratchet back to the practice and the skill that prevents it |
+| `skills/ui-preflight-pages.md` | Building any page or snippet |
+| `skills/design-spacing.md` | Writing or reviewing any page or snippet |
 | `skills/learned-stylegallery.md` | Building or using the in-app design gallery |
 | `skills/ui-loop.md` | After every page-building script, and any time the UI looks wrong |
 | `project-bin/check-design-portability.sh` | Before porting ds.css into SCSS, and at the Stage-3 gate |
@@ -110,13 +108,16 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/field-run.md` | Driving the whole toolkit pipeline on a real source to find what the written skills don't say |
 | `skills/learned-mdl-cannot-express.md` | Before a wireframe or a design commits to a WIDGET, when a requirement shows a widget to one role and not another, and when a page script hits a parse error that looks like a syntax mistake: the short list of things MDL cannot write at all, and the four-minute probe that answers it at Stage 3 instead of at build time |
 | `skills/learned-css-that-never-applied.md` | A CSS/SCSS or style change that appears to have done nothing (a colour or class that won't show), a focus ring or outline that paints on every page landing or load, or an app still grey after a design port every instrument called green |
+| `skills/learned-detection-gaps.md` | Before trusting a green check/exec/DESCRIBE result as proof, or when a runtime symptom appears over a fully green model |
 | `skills/learned-dg2-patterns.md` | Building or altering any data grid |
 | `skills/learned-file-upload-widget.md` | Putting any file upload / attachment / document field on a page, an uploader page failing mx check with CE0463, or an uploader DESCRIBE that will not re-execute |
+| `skills/security-is-not-a-later-script.md` | Creating any entity, or calling a module security-ready |
 | `skills/scriptable-sp-verification.md` | Needing Studio Pro load evidence without a human at the GUI |
 | `skills/learned-local-db-confusion.md` | A runtime test or seed reads/writes data that then is not there (the test wrote a row, the DB query shows nothing), or vice versa |
 | `skills/walking-skeleton.md` | Stage 5 start, before the first module of any entry mode |
 | `skills/platform-link.md` | At project birth (before the first build script) and any time a model needs a platform home: creating the Team Server app, adopting an existing GitHub-born model into it without rewriting history, or deploying; also when the Platform SDK returns 403, git rejects the PAT, a deploy cannot be triggered from a PAT, or the app turns out to be a Free App |
 | `skills/teamserver-alignment.md` | Any session that will push a model to Mendix Team Server, and BEFORE telling the user a Team Server push is blocked |
+| `skills/retesting-learned-rules.md` | Before obeying any learned-* STOP or workaround that costs a detour |
 | `skills/deploy-to-sandbox.md` | Promoting an app to a deployed sandbox or cloud node, or before a customer tests a deployment |
 | `skills/learned-constants-and-secrets.md` | Adding a constant, installing a marketplace module, deploying to a new environment, or needing a Mendix PAT |
 | `project-bin/constants-audit.sh` | Before any first deploy to a new environment, and after installing or updating any marketplace module |
@@ -200,6 +201,13 @@ treat it as full-discipline.
 2. **Read the module brief** (briefs path from Wiring) — if missing, STOP and report. It is the task context.
 3. Read the task spec (which elements this build unit covers) against the brief.
 4. Read the necessary skill file(s) and existing MDL for exact names (the brief points to them).
+4a. **Load the MDL rules for the statement kinds this script writes — before the first MDL line.**
+    Run `<toolkit>/bin/mdl-rules.sh <kinds>` (page, microflow, access, workflow, entity; a harness
+    that cannot run it reads `<toolkit>/skills/generated/rules-<kind>.md`) and read ALL of its output:
+    it is the STOP table, the gotchas and the page/microflow preflights, filtered to your kinds. After
+    drafting, run `<toolkit>/bin/mdl-rules.sh --for <draft>`; a kind it lists that you did not load → read it and
+    re-check. Your PREFLIGHT ends with `STOP rows for kinds <K>: n/n checked` — n/n from the closing line
+    of that output; fewer checked than listed is an unfinished preflight, not a pass.
 5. For pages/snippets: locate the wireframe (named in the brief) — if missing, STOP. Then complete `ui-preflight-pages.md` in full.
 6. For complex microflows: confirm alignment against the brief + architecture blueprint.
 6a. **For any `CREATE WORKFLOW` / `ALTER WORKFLOW`: read `skills/workflow-structure-rules.md` in full before the first line of the body** — both files, not one: `learned-workflow-patterns.md` is the syntax, `workflow-structure-rules.md` is the shape the model must have, and `mxcli check` sees neither. Then, in the same step: check every construct the brief's diagram asks for against its §11 table, write the ones marked *proven*, and report the ones marked *hand-add in Studio Pro* as named rows in your report-back — never quietly flatten a construct to the happy path because MDL would not take it. Run §12 over the finished body and put the counts in your report.
@@ -216,5 +224,6 @@ treat it as full-discipline.
 
 ## Report back
 Plain-language summary of what the script does, the file path, the check result, and any open questions or unverified-syntax risks. Also include:
+- **STOP rows for kinds `<K>`: n/n checked** — the denominator from `<toolkit>/bin/mdl-rules.sh --for <script>` (step 4a).
 - **Write mode per operation** — CLI (the default) or Studio Pro by hand, and why (from `learned-mdl-preflight.md` Step 0). If the whole task is one CLI exec, say so; if any operation needs SP open, flag it so the main session sequences the handoff.
 - **Folder per created document** — the `<Feature>/<Type>` path each one landed in, and any document whose feature group you could not determine from the brief (that is a question for the architect, not a guess for you).

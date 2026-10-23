@@ -35,7 +35,7 @@
 #   empty      0|1  empty-state text 'No orders yet' present in the MDL
 #   uixref     0|1  'UI cross-reference' block with its Shell check + Fidelity rows
 # mf only:
-#   mfpre      0|1  microflow-preflight checklist line with a tier
+#   mfpre      0|1  microflow-preflight checklist line (`:`, `—` or `-` after the name) with a tier
 #   cinloop!   n    commit/delete statements inside a loop body
 #   rinloop!   n    retrieve statements inside a loop body
 #   pos!       n    @position annotations
@@ -188,7 +188,8 @@ elif [ "$TASK" = "mf" ]; then
     grep -q 'sub_purgeolddrafts' "$L" && grep -q 'sub_recalctotals' "$L" || kept=0
   fi
   planted=0; [ "$flag" -eq 1 ] && [ "$kept" -eq 1 ] && planted=1
-  mfpre=0; grep -q -i -E 'microflow-preflight:.*tier' "$OUT" && mfpre=1
+  # the checklist line: `microflow-preflight` then `:`, `—` or `-` (agents write all three), then a tier
+  mfpre=0; grep -q -i -E 'microflow-preflight[[:space:]]*(:|—|–|-[[:space:]]).*tier' "$OUT" && mfpre=1
   # statements inside loop bodies (depth counted on loop … end loop)
   read -r cin rin <<EOF
 $(awk '

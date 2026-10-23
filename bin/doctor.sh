@@ -195,9 +195,9 @@ probe_runs() {
 # The result is recorded in <project>/.claude/.property-sets-receipt (machine-local, like the
 # doctor receipt): line 1 "<date> <time> <result> <detail>", line 2 "mxcli: <--version line>".
 # Line 2 is what --if-stale and --quick compare: the check is owed again when mxcli changes.
-# Only a settled answer is recorded — clean, needs, failed, or unsupported (the support probe
+# Only a settled answer is recorded — clean, unproven, needs, failed, or unsupported (the support probe
 # ran and the subcommand is absent). An error or a timeout is never written, and --if-stale
-# skips the run only on a recorded clean/unsupported, so a one-off failure (locked model,
+# skips the run only on a recorded clean/unproven/unsupported, so a one-off failure (locked model,
 # unreadable version, a probe that crashed) is re-checked on the next sync instead of being
 # repeated from the receipt until mxcli changes.
 #
@@ -254,8 +254,28 @@ ps_classify() {
     PS_DETAIL="exit $1: $(printf '%s\n' "$2" | grep -v -e '^[[:space:]]*$' -e '^WARNING: This is a' | head -1)"
   fi
 }
+# ps_below_floor <version> — 0 when the Mendix version is older than 10.24.24, where mxcli's
+# property table starts (mendixlabs/mxcli#1595), so a clean dry-run there proves nothing. 1 when
+# it is not older, or the version is not a plain a.b.c[.d].
+# Deliberately not gated on the mxcli version: a later release that still has the defect must not
+# go silently green. Retire this check (and the warning) when mendixlabs/mxcli#1595 is fixed.
+ps_below_floor() {
+  case "$1" in [0-9]*.[0-9]*.[0-9]*) ;; *) return 1 ;; esac
+  _pf_a="${1%%.*}"; _pf_r="${1#*.}"; _pf_b="${_pf_r%%.*}"; _pf_r="${_pf_r#*.}"; _pf_c="${_pf_r%%.*}"
+  case "$_pf_a$_pf_b$_pf_c" in *[!0-9]*) return 1 ;; esac
+  [ "$_pf_a" -lt 10 ] && return 0
+  [ "$_pf_a" -gt 10 ] && return 1
+  [ "$_pf_b" -lt 24 ] && return 0
+  [ "$_pf_b" -gt 24 ] && return 1
+  [ "$_pf_c" -lt 24 ]
+}
+# ps_unproven_warn <detail> <version> — the warning for a clean dry-run below the floor.
+ps_unproven_warn() {
+  warn "property sets: $1 — NOT PROOF: this model (Mendix ${2:-?}) is below 10.24.24, where mxcli's property table starts, so units mxcli writes can still lack keys (mendixlabs/mxcli#1595)"
+  note "the proof is Mendix's own: mx diff <base>.mpr <mine>.mpr out.json with this version's mx; exit 0 is clean."
+}
 ps_write_receipt() {
-  case "$PS_RESULT" in clean|needs|failed|unsupported) ;; *) return 0 ;; esac
+  case "$PS_RESULT" in clean|unproven|needs|failed|unsupported) ;; *) return 0 ;; esac
   [ -n "$PS_VER" ] || return 0
   [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ] || return 0
   mkdir -p "$PROJECT_DIR/.claude" 2>/dev/null || return 0
@@ -300,7 +320,13 @@ ps_check() {
   fi
   ps_classify "$_psk_rc" "$PS_OUT"
   case "$PS_RESULT" in
-    clean) ok "property sets: $PS_DETAIL — every unit has the property names Studio Pro writes" ;;
+    clean)
+      _psk_mv="$(mxtk_model_version "$MPR" 2>/dev/null || true)"
+      if ps_below_floor "$_psk_mv"; then
+        PS_RESULT=unproven; ps_unproven_warn "$PS_DETAIL" "$_psk_mv"
+      else
+        ok "property sets: $PS_DETAIL — every unit has the property names Studio Pro writes"
+      fi ;;
     needs|failed)
       warn "property sets: $PS_DETAIL — Studio Pro's merge/diff can throw on these"
       printf '%s\n' "$PS_OUT" | grep -E '^  (NEEDS|FAILED) ' | head -10 | while IFS= read -r l; do note "$l"; done
@@ -335,7 +361,7 @@ ps_apply() {
   ps_check
 }
 ps_exit_code() {
-  case "$PS_RESULT" in clean) echo 0 ;; not-run) echo 2 ;; unsupported) echo 3 ;; needs|failed) echo 1 ;; *) echo 4 ;; esac
+  case "$PS_RESULT" in clean|unproven) echo 0 ;; not-run) echo 2 ;; unsupported) echo 3 ;; needs|failed) echo 1 ;; *) echo 4 ;; esac
 }
 
 # --property-sets / --fix-property-sets: only this check, then exit. Stands alone so
@@ -373,6 +399,9 @@ if [ -n "$PS_MODE" ]; then
       case "$PS_RESULT" in
         clean|unsupported)
           ok "already checked for $PS_VER: $(sed -n 1p "$(ps_receipt)")"
+          exit "$(ps_exit_code)" ;;
+        unproven)
+          ps_unproven_warn "already checked for $PS_VER: $(sed -n 1p "$(ps_receipt)")" "$(mxtk_model_version "$MPR" 2>/dev/null || true)"
           exit "$(ps_exit_code)" ;;
       esac
     fi
@@ -1302,6 +1331,8 @@ if [ -n "$PROJECT_DIR" ]; then
         _psq="$(sed -n 1p "$(ps_receipt)")"
         case "$_psq" in
           *" clean "*|*" clean") ok "property sets: last check for this mxcli was clean ($_psq)" ;;
+          *" unproven "*) warn "property sets: last check for this mxcli was clean, but the model is below Mendix 10.24.24, so that proves nothing (mendixlabs/mxcli#1595)"
+                          note "run: mx diff <base>.mpr <mine>.mpr out.json; exit 0 is clean" ;;
           *" unsupported "*) note "property sets: this mxcli cannot check them (v0.26.0+ needed)" ;;
           *) warn "property sets: last check for this mxcli: $_psq"
              note "repair: bin/doctor.sh --fix-property-sets $PROJECT_DIR" ;;

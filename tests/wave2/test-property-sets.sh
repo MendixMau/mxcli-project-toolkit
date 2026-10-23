@@ -118,6 +118,37 @@ grep -qx '/.claude/.property-sets-receipt' "$P/.gitignore" 2>/dev/null && ok "re
 printf '%s' "$OUT" | grep -q "added /.claude/.property-sets-receipt to the project's .gitignore" && ok "the .gitignore append is announced" || bad "silent .gitignore append" "$OUT"
 grep -q -- 'property-sets -p .*/App.mpr --dry-run' "$P/.stub-log" && ok "the check is the --dry-run" || bad "dry-run not used" "$(cat "$P/.stub-log")"
 
+echo "== P2b a clean dry-run below Mendix 10.24.24 is not proof (mendixlabs/mxcli#1595) =="
+. "$TK/bin/lib/portable.sh"; require_py
+setver() {   # <project> <version> — give the stub project's .mpr a readable _ProductVersion
+  rm -f "$1/App.mpr"
+  "$PY" -c 'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.execute("create table _MetaData (_ProductVersion text)"); c.execute("insert into _MetaData values (?)",(sys.argv[2],)); c.commit()' "$1/App.mpr" "$2"
+}
+P="$(mkproj below)"; echo clean > "$P/.stub-state"; setver "$P" 10.24.18.103793
+OUT="$("$DOCTOR" --property-sets "$P" 2>&1)"; RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q "WARN  property sets:.*NOT PROOF.*Mendix 10.24.18.103793.*mxcli#1595" \
+  && ok "10.24.18 clean: exit 0 but a WARN saying it proves nothing" || bad "10.24.18 clean: rc=$RC" "$OUT"
+printf '%s' "$OUT" | grep -q "every unit has the property names Studio Pro writes" && bad "10.24.18 still prints the false green" "$OUT" || ok "10.24.18: no 'every unit has the property names' line"
+printf '%s' "$OUT" | grep -q "mx diff <base>.mpr <mine>.mpr" && ok "names mx diff as the proof" || bad "no mx diff pointer" "$OUT"
+sed -n 1p "$P/.claude/.property-sets-receipt" | grep -q " unproven " && ok "receipt records unproven, not clean" || bad "receipt" "$(cat "$P/.claude/.property-sets-receipt" 2>&1)"
+n1="$(grep -c -- '--dry-run' "$P/.stub-log")"
+OUT="$("$DOCTOR" --property-sets --if-stale "$P" 2>&1)"; n2="$(grep -c -- '--dry-run' "$P/.stub-log")"
+[ "$n1" -eq "$n2" ] && printf '%s' "$OUT" | grep -q "WARN  property sets: already checked.*NOT PROOF" && ! printf '%s' "$OUT" | grep -q "ok    already checked" \
+  && ok "--if-stale: not re-run, and still a WARN, never an ok" || bad "--if-stale unproven ($n1 -> $n2)" "$OUT"
+OUT="$("$DOCTOR" --quick "$P" 2>&1)"
+printf '%s' "$OUT" | grep -q "WARN  property sets: last check for this mxcli was clean, but the model is below Mendix 10.24.24" && ok "--quick: WARN, not the ok line" || bad "--quick unproven" "$(printf '%s' "$OUT" | grep -i -A2 'property')"
+for v in 10.24.23 9.24.2; do
+  P="$(mkproj below-$v)"; echo clean > "$P/.stub-state"; setver "$P" "$v"
+  OUT="$("$DOCTOR" --property-sets "$P" 2>&1)"
+  printf '%s' "$OUT" | grep -q "NOT PROOF" && ok "$v: below the floor, warned" || bad "$v not warned" "$OUT"
+done
+for v in 10.24.24 10.25.1 11.12.1; do
+  P="$(mkproj at-$v)"; echo clean > "$P/.stub-state"; setver "$P" "$v"
+  OUT="$("$DOCTOR" --property-sets "$P" 2>&1)"
+  printf '%s' "$OUT" | grep -q "ok    property sets: Checked 3 unit(s).*every unit has the property names" && ! printf '%s' "$OUT" | grep -q "NOT PROOF" \
+    && ok "$v: at or above the floor, still ok" || bad "$v wrongly warned" "$OUT"
+done
+
 echo "== P3 units need completing =="
 P="$(mkproj needs)"
 OUT="$("$DOCTOR" --property-sets "$P" 2>&1)"; RC=$?

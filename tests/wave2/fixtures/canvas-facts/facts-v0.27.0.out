@@ -1,0 +1,20 @@
+# MyFirstModule.ACT_Approval_Notify  (0)
+# MyFirstModule.ACT_Approval_Review  (0)
+# MyFirstModule.ACT_Customer_Check  (1)
+  SENSE     Split@360,200 "Customer found?" asks the positive question; its true branch is $Customer = empty
+# MyFirstModule.ACT_Customer_Merge  (1)
+  OVERLAP   label "PrimaryCustomerRecord" of MicroflowP@200,53  x  label "SecondaryCustomerRecord" of MicroflowP@300,53
+# MyFirstModule.ACT_Customer_MergeColumn  (0)
+# MyFirstModule.ACT_Customer_Rename  (2)
+  LINE      note line Annotation@360,100 -> Action@360,200 crosses Annotation@360,100
+  NOTE-SIDE note line Annotation@360,100 -> Action@360,200 leaves the note left, away from Action@360,200
+# MyFirstModule.MyFirstLogic  (0)
+# MyFirstModule.Nanoflow  (0)
+# MyFirstModule.RetrieveExamples  (0)
+# MyFirstModule.SE_Cleanup  (0)
+# MyFirstModule.ZzMxcliProbe_Boolean  (0)
+# MyFirstModule.ZzMxcliProbe_Entity  (0)
+# MyFirstModule.ZzMxcliProbe_List  (0)
+# MyFirstModule.ZzMxcliProbe_LoopSplit  (0)
+# MyFirstModule.ZzMxcliProbe_Trivial  (0)
+# facts: 15 flows, OVERLAP 1, LINE 1, NOTE-SIDE 1, LEFTWARD 0, TURN 0, CAPTION 0, SENSE 1

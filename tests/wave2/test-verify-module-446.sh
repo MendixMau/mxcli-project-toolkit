@@ -18,6 +18,10 @@
 #   V6  the summary's last row is `verdict` (a run cut short has none)
 #   V7  JOURNEY_RUNNER set: its own folder is probed; axe-core alone missing faults only the
 #       rendered design audit (journeys and monkey run)
+#   V8  the canvas-facts rung (1c, 14-canvas-facts.log) is an INFO row when mf-canvas-facts.py is
+#       installed; when it is missing (as with no Python on Git Bash) or exits 2 (a flow it
+#       could not decode) the row is still INFO, says NOT MEASURED, and the module verdict is
+#       the same as the installed run's -- the rung is never a gate
 set -uo pipefail
 TK="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SUT="${1:-$TK/project-bin/verify-module.sh}"
@@ -50,6 +54,8 @@ fake_mod() {  # $1 node_modules dir, $2 package name: a resolvable stand-in pack
   printf 'module.exports = {};\n' > "$1/$2/index.js"
 }
 fake_mod "$P/node_modules" playwright; fake_mod "$P/node_modules" axe-core
+# The canvas-facts rung runs the instrument with python3 -I: a stub that prints its summary line.
+printf 'print("# facts: 0 flows, OVERLAP 0")\n' > "$P/bin/mf-canvas-facts.py"; chmod +x "$P/bin/mf-canvas-facts.py"
 
 # Sleeping processes left behind with their cwd in the project (Linux /proc only; else "skip").
 leftover() {
@@ -116,6 +122,26 @@ JOURNEY_RUNNER="$WORK/alt/journey-runner.js" vm MyFirstModule
     && row '^monkey' | grep -q '^INFO' && printf '%s' "$sum" | grep -q '^design audit.*static-only'; } \
   && ok "V7: JOURNEY_RUNNER's own folder is probed; axe-core missing faults the rendered audit only" \
   || bad "V7: JOURNEY_RUNNER / axe-core probe" "$sum"
+
+# V8: the canvas-facts rung, installed and then missing.
+vm MyFirstModule
+{ row '^canvas facts' | grep -q '^INFO	.claude/loop/verify/MyFirstModule/14-canvas-facts.log$' \
+    && grep -q '^# facts: 0 flows' "$P/.claude/loop/verify/MyFirstModule/14-canvas-facts.log"; } \
+  && ok "V8: mf-canvas-facts installed: an INFO row, log 14-canvas-facts.log" || bad "V8: canvas facts row" "$(row '^canvas facts')"
+_v8_verdict="$(row '^verdict')"; _v8_rc=$rc
+mv "$P/bin/mf-canvas-facts.py" "$WORK/stub/mf-canvas-facts.py"
+vm MyFirstModule
+{ row '^canvas facts' | grep -q '^INFO	(NOT MEASURED: ' && printf '%s' "$out" | grep -q 'bin/sync-project.sh to install the scripts' \
+    && [ "$(row '^verdict')" = "$_v8_verdict" ] && [ "$rc" = "$_v8_rc" ]; } \
+  && ok "V8: mf-canvas-facts not installed: INFO NOT MEASURED row, verdict and exit unchanged" \
+  || bad "V8: missing instrument must not gate" "$(row '^canvas facts') / $(row '^verdict') rc=$rc (was $_v8_verdict rc=$_v8_rc)"
+printf 'import sys\nprint("cannot decode flow")\nsys.exit(2)\n' > "$P/bin/mf-canvas-facts.py"; chmod +x "$P/bin/mf-canvas-facts.py"
+vm MyFirstModule
+{ row '^canvas facts' | grep -q '^INFO	' && grep -q 'NOT MEASURED (exit 2)' "$P/.claude/loop/verify/MyFirstModule/14-canvas-facts.log" \
+    && [ "$(row '^verdict')" = "$_v8_verdict" ] && [ "$rc" = "$_v8_rc" ]; } \
+  && ok "V8: mf-canvas-facts exit 2 (undecodable flow): INFO row, verdict and exit unchanged" \
+  || bad "V8: undecodable flow must not gate" "$(row '^canvas facts') / $(row '^verdict') rc=$rc (was $_v8_verdict rc=$_v8_rc)"
+mv "$WORK/stub/mf-canvas-facts.py" "$P/bin/mf-canvas-facts.py"
 
 # Golden summaries for test-progress-harness-verify.sh, written by this subject (CAPTURE=<dir>).
 if [ -n "${CAPTURE:-}" ]; then

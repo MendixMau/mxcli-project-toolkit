@@ -67,6 +67,7 @@ Re-probed on mxcli v0.24.0 / Mendix 11.13.0 (2026-09-30); rules that now work or
 | 30 | Put a `dynamicimage` on a React-client page | **Use the pluggable `image` widget.** | `check` passes; mxbuild CE0582; lint MPR012 flags it. #445 |
 | 31 | Bind a data-view widget's attribute across 2+ associations | **One hop per step: nest a data view.** | `check` passes; mxbuild CE1613. A database-sourced Gallery allows it: `learned-page-patterns.md` §ContentParams Multi-Hop. #445 |
 | 32 | Give a widget's `show page` any argument outside a data view/list/grid row, or besides its context object | **Call a microflow that shows the page.** | v0.26.0 `check` refuses: MDL-PAGEARG01. BUG-70/95. #445 |
+| 33 | Change a flow's return type, update callers in a **later** script | **STOP → one script: the change and every caller update.** Find callers: `SHOW CALLERS OF Mod.TheFlow`. | v0.27.0, none→Boolean via `create or modify`: `mx check` CE0112 at a Studio Pro-authored caller after script 1 (mxcli-written: none); `check`/`exec` silent. Workflows: `learned-workflow-patterns.md` §16 |
 
 **Default to the CLI for everything in the table above that is not a STOP row** (`./bin/exec.sh`, Studio Pro closed).
 

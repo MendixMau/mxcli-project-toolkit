@@ -7027,7 +7027,7 @@ end;
 
 ## BUG-DRAFT-qual004-dg2-datasource: QUAL004 reports a `DS_` microflow as "not called from anywhere" when its only caller is a Data grid 2 datasource, and the lint ratchet fails a correct script (2026-10-14)
 
-> **NOT YET FILED.** Upstream draft: `bug-logs/pending-github-issues/qual004-dg2-datasource-ref.md`.
+> **Filed:** [mendixlabs/mxcli#1513](https://github.com/mendixlabs/mxcli/issues/1513) (2026-10-16, open). Upstream draft: `bug-logs/pending-github-issues/qual004-dg2-datasource-ref.md`.
 
 **Discovered:** 2026-10-14, on an existing-app change project (a connector app). A build row created a page whose Data grid 2 is driven by a new `DS_<Entity>_<Verb>` microflow, in one script; the navigation entry came in a later script.
 **Reproducible:** seen twice on one model, not yet reduced to a blank app. **mxcli version:** v0.26.0. **Mendix:** 11.15.0. macOS.

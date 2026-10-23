@@ -1,0 +1,43 @@
+# Which build-step kind each learned-mdl-preflight.md STOP-table row applies to (experiment:
+# task-routed rules, process/task-routed-rules-proposal-2026-10-23.md). Read by
+# bin/lib/task-rules.sh, which inlines only the rows for the step's kind into a context pack.
+#
+# Format: TAB-separated. 1 row id as printed in the table's first cell (without the 🔎 marker)
+#                        2 kind: page | logic | domain | any | retired
+#   any      shown for every kind (security, script ownership, idempotency — every script)
+#   retired  the row says "retired YYYY-MM-DD"; omitted from packs, kept in the file
+# A row missing here is shown for every kind (fail open), so a new STOP row is never lost.
+1	page
+1b	page
+1c	retired
+2	retired
+3	retired
+4	page
+5	retired
+6	retired
+6b	retired
+7	retired
+8	retired
+9	retired
+10	retired
+11	retired
+12	page
+13	retired
+14	any
+15	retired
+16	any
+17	retired
+18	logic
+21	any
+22	any
+23	any
+24	page
+25	logic
+26	page
+27	retired
+28	logic
+29	logic
+30	page
+31	page
+32	page
+33	logic

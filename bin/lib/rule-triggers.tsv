@@ -1,0 +1,16 @@
+# Trigger-only rules: a rule section that reaches a helper only when its trigger appears in the
+# step (experiment: task-routed rules, process/task-routed-rules-proposal-2026-10-23.md).
+# Read by bin/rule-lookup.sh; inlined into context packs by bin/lib/task-rules.sh.
+#
+# A rule belongs here when its trigger is narrow and textual (one API, one widget, one error
+# text) — so a grep over the step's names, DESCRIBE output or drafted script finds it — and it is
+# NOT needed by steps that lack the trigger. A rule every step of a kind needs stays in the kind
+# files (bin/lib/task-kinds.tsv).
+#
+# Format: TAB-separated.
+#   1 id       stable id
+#   2 path     repo-relative file holding the rule
+#   3 heading  the exact heading line of the section to inline (through the next heading of the
+#              same or higher level)
+#   4 regex    POSIX ERE, matched case-insensitively against the text files
+runtime-separate-transaction	skills/learned-runtime-traps.md	## Saving in a separate transaction leaves the object "new" in your request	commitInSeparateDatabaseTransaction|illegally add an object to the state

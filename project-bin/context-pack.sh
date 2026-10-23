@@ -132,10 +132,52 @@ describe() {
   for kind in ENTITY ASSOCIATION ENUMERATION MICROFLOW NANOFLOW PAGE SNIPPET CONSTANT "JAVA ACTION" WORKFLOW; do
     if out="$(cd "$MODEL_DIR" && "$MXCLI" -p "$MPR_BASE" -c "DESCRIBE $kind $1" 2>/dev/null)"; then
       printf '### %s (%s)\n```\n%s\n```\n\n' "$1" "$(printf '%s' "$kind" | tr 'A-Z' 'a-z')" "$out"
+      printf '%s\n' "$out" >> "$TMP_TRIG"   # what rule-lookup matches triggers against (rules_section)
       return 0
     fi
   done
   return 1
+}
+
+# the rules a helper must apply, by step kind. Field run 2026-10-01: helpers given a pack
+# skipped the skill reads the pack did not mention, and one reported the preflight skill
+# "not available" although it was installed. A citation is not a read, so the rules are INLINED
+# (bin/lib/task-rules.sh, experiment: task-routed rules): the preflight's STOP table filtered to
+# the step's kind, the kind's rule files, and the trigger-only rules (bin/rule-lookup.sh) whose
+# trigger appears in this step's row or live DESCRIBE output ($TMP_TRIG). Printed last, so the
+# lookup sees every DESCRIBE above. A toolkit without the library gets the old reading list.
+rules_section() {
+  local kinds="" tk n
+  for n in $(names "$BUILDS"); do
+    case "$(folder_of "$n")" in
+      *Pages*|*Snippets*) kinds="$kinds page" ;;
+      "") kinds="$kinds domain" ;;
+      *) kinds="$kinds logic" ;;
+    esac
+  done
+  tk="$(find_toolkit_root 2>/dev/null || true)"
+  # mxcli's bundled skills: flat <name>.md in older versions, <name>/SKILL.md in newer ones
+  mxskill() {
+    if [ -f "$MODEL_DIR/.ai-context/skills/$1/SKILL.md" ]; then printf '.ai-context/skills/%s/SKILL.md' "$1"
+    else printf '.ai-context/skills/%s.md' "$1"; fi
+  }
+  if [ -n "$tk" ] && [ -f "$tk/bin/lib/task-rules.sh" ]; then
+    printf '%s\n' "$ROW" >> "$TMP_TRIG"
+    # shellcheck source=/dev/null
+    ( . "$tk/bin/lib/task-rules.sh" && task_rules_pack "$tk" "$kinds" "$TMP_TRIG" )
+    printf '\n'
+  else
+    [ -n "$tk" ] && tk="$tk/"
+    printf '## Rules — read these before drafting (the pack does not replace them)\n\n'
+    printf -- '- `%sskills/learned-mdl-preflight.md` — STOP table; check every planned operation\n' "$tk"
+    case "$kinds" in *logic*) printf -- '- `%sskills/learned-microflow-patterns.md` — microflow patterns\n' "$tk" ;; esac
+    case "$kinds" in *page*) printf -- '- `%sskills/ui-preflight-pages.md` — page pre-flight (wireframe, tokens, StyleGallery)\n' "$tk" ;; esac
+    printf '\n'
+  fi
+  case "$kinds" in *page*|*domain*) printf '## Syntax reference (mxcli bundled skills)\n\n' ;; esac
+  case "$kinds" in *page*) printf -- '- `%s` — widget syntax\n' "$(mxskill create-page)" ;; esac
+  case "$kinds" in *domain*) printf -- '- `%s` — entity, association, enumeration syntax\n' "$(mxskill generate-domain-model)" ;; esac
+  case "$kinds" in *page*|*domain*) printf '\n' ;; esac
 }
 
 pack() {
@@ -152,33 +194,6 @@ pack() {
     f="$(folder_of "$n")"
     printf '| %s | %s |\n' "$n" "${f:-not in the folder plan — fine for an entity, association or enumeration (domain model); any other document: escalate, do not invent a folder}"
   done
-  printf '\n'
-
-  # the rules a helper must apply, by step kind. Field run 2026-10-01: helpers given a pack
-  # skipped the skill reads the pack did not mention, and one reported the preflight skill
-  # "not available" although it was installed. A citation is not a read: name the files here.
-  local kinds="" tk
-  for n in $(names "$BUILDS"); do
-    case "$(folder_of "$n")" in
-      *Pages*|*Snippets*) kinds="$kinds page" ;;
-      "") kinds="$kinds domain" ;;
-      *) kinds="$kinds logic" ;;
-    esac
-  done
-  tk="$(find_toolkit_root 2>/dev/null || true)"; [ -n "$tk" ] && tk="$tk/"
-  # mxcli's bundled skills: flat <name>.md in older versions, <name>/SKILL.md in newer ones
-  mxskill() {
-    if [ -f "$MODEL_DIR/.ai-context/skills/$1/SKILL.md" ]; then printf '.ai-context/skills/%s/SKILL.md' "$1"
-    else printf '.ai-context/skills/%s.md' "$1"; fi
-  }
-  printf '## Rules — read these before drafting (the pack does not replace them)\n\n'
-  printf -- '- `%sskills/learned-mdl-preflight.md` — STOP table; check every planned operation\n' "$tk"
-  case "$kinds" in *logic*) printf -- '- `%sskills/learned-microflow-patterns.md` — microflow patterns\n' "$tk" ;; esac
-  case "$kinds" in *page*)
-    printf -- '- `%sskills/ui-preflight-pages.md` — page pre-flight (wireframe, tokens, StyleGallery)\n' "$tk"
-    printf -- '- `%s` — widget syntax\n' "$(mxskill create-page)" ;;
-  esac
-  case "$kinds" in *domain*) printf -- '- `%s` — entity, association, enumeration syntax\n' "$(mxskill generate-domain-model)" ;; esac
   printf '\n'
 
   printf '## Why (mxcli brain brief)\n\n'
@@ -246,6 +261,8 @@ pack() {
     printf 'TEXTBOX takes String and number attributes only. These fail mx check with CE2421 (`mxcli check` passes them): read-only → DYNAMICTEXT with ContentParams; editable → DATEPICKER, CHECKBOX, or RADIOBUTTONS for an enum.\n\n%s\n' "$watch"
   fi
 
+  rules_section
+
   if [ -n "$MISSING" ]; then
     printf '## Not found in the model\n\n'
     for n in $MISSING; do printf -- '- %s — typo in the brief, or not built yet. Ask; do not guess its shape.\n' "$n"; done
@@ -256,7 +273,8 @@ pack() {
 }
 
 TMP_MISSING="$(mktemp "${TMPDIR:-/tmp}/ctxpack.XXXXXX")" || exit 2
-trap 'rm -f "$TMP_MISSING"' EXIT
+TMP_TRIG="$(mktemp "${TMPDIR:-/tmp}/ctxpack-trig.XXXXXX")" || exit 2
+trap 'rm -f "$TMP_MISSING" "$TMP_TRIG"' EXIT
 if [ -n "$OUT" ]; then
   mkdir -p "$(dirname "$OUT")" || exit 2
   pack > "$OUT" || exit 2

@@ -40,15 +40,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/query-the-model.md` | Any question before asking the user or writing anything — query the model, then read the source, then ask the human, in that order |
 | `skills/degrade-to-judgement.md` | Any pass whose input is missing, stale or unresolvable — before recording UNMEASURED, N/A or a silent skip: name what was missing, say what you assessed against instead, still deliver a verdict |
 | `skills/module-brief.md` | Building any module — before the first script. The mdl-agent's single per-module input |
-| `skills/learned-mdl-preflight.md` | Writing ANY MDL script — before the first line. Step 0 picks the write mode, then the STOP table overrides it for corrupting operations |
 | `skills/module-folder-convention.md` | Placing any document in a module — before the first `create`. Feature group, then Pages/Microflows/Services/Resources; the path comes from the brief's folder plan, and the table says which types mxcli can actually place |
-| `skills/learned-microflow-patterns.md` | Writing or fixing any microflow — MDL gotchas plus annotation discipline |
-| `skills/microflow-preflight.md` | Writing a microflow with any loop, a retrieve/commit/call inside a loop, nested or multiple loops, >20 activities counting loop bodies, or a list built from a list — post the checklist before the first MDL line |
-| `skills/ui-preflight-pages.md` | Building any page or snippet — before the first widget. Wireframe, tokens, gallery reuse, cross-check; no wireframe means STOP |
-| `skills/design-spacing.md` | Writing or reviewing any page or snippet — the spacing scale (8/16/24/32/48), section rhythm, and the page-header scaffold every full page starts with; sections at 0px apart and pages with no H1 are the defects it retires |
-| `project-bin/check-design-reaches-app.sh` | After the FIRST build that follows any design-system port, and before any page is built on it — reads the BUILT stylesheet and reports how many framework knobs point at a design token, how many tokens arrived, how many component classes arrived, each with its denominator. Measured on a real run: 55 tokens ported correctly into the right file, 0 of 35 knobs bound and 0 of 20 classes present, two build phases shipped in the framework's default blue with mx check, mxcli lint, the MDL suite and two e2e journeys all green |
-| `project-bin/check-page-shell.sh` | Before exec'ing ANY page script — compares the drafted MDL's shell against the wireframe's: page column, layout/nav shell, one H1. Measured 0/10 pages on a real first build, repaired wholesale 47 scripts later |
-| `project-bin/page-fidelity.js` | After drafting and again after exec'ing any page script — scores the page MDL (or `mxcli describe` output on stdin) against its wireframe: headings/actions/content/classes, weighted. The scored companion to check-page-shell's binary gate; 32% median measured without it, 90% first-draft with it. Every run is appended to the project's docs/PAGE-FIDELITY.tsv — first non-stub row per page = first-build score of record vs the ≥80% target (forward-reference stubs score with --stub, exempt) |
 | `bin/exec-approval.sh` | Before any mxcli exec / exec.sh / --mcp write — ask or run? the knob decides |
 | `project-bin/verify-module.sh` | Finishing any module — before calling it done. One command that runs every instrument and keeps "instrument faulted" apart from "feature failed"; in a wired project run the installed copy at bin/verify-module.sh |
 | `skills/tool-output-is-not-ground-truth.md` | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude |
@@ -61,10 +53,19 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/skills-over-scripts.md` | Script or skill? Before writing any .js or bash/.sh for a check, checker, linter, gate or report, or adding a rule or regex to an existing one |
 | `skills/checkpoints/checkpoint-build.md` | CAC-5, after design sign-off and before the build plan |
 | `skills/image-transcription.md` | Images to read listed by images-to-md or the documents index |
+| `skills/learned-mdl-preflight.md` | Writing ANY MDL script |
+| `skills/learned-microflow-patterns.md` | Writing or fixing any microflow |
+| `skills/learned-runtime-traps.md` | A runtime-only failure over a green model |
+| `skills/microflow-preflight.md` | Writing a microflow with any loop, a retrieve/commit/call inside a loop, nested or multiple loops, >20 activities counting loop bodies, or a list built from a list |
 | `skills/mendix-best-practices-index.md` | Asked "is there a Mendix best practice for this", or mapping a lint rule that rose in the ratchet back to the practice and the skill that prevents it |
+| `skills/ui-preflight-pages.md` | Building any page or snippet |
+| `skills/design-spacing.md` | Writing or reviewing any page or snippet |
 | `skills/learned-stylegallery.md` | Building or using the in-app design gallery |
 | `skills/ui-loop.md` | After every page-building script, and any time the UI looks wrong |
 | `project-bin/check-design-portability.sh` | Before porting ds.css into SCSS, and at the Stage-3 gate |
+| `project-bin/check-design-reaches-app.sh` | After the FIRST build that follows any design-system port, and before any page is built on it |
+| `project-bin/check-page-shell.sh` | Before exec'ing ANY page script |
+| `project-bin/page-fidelity.js` | After drafting and again after exec'ing any page script |
 | `skills/module-review.md` | Is the module done? Reviewing any module before calling it done |
 | `project-bin/context-pack.sh` | Dispatching a build step to a helper |
 | `bug-logs/mxcli-bugs.md` | Reading a whole class of tool defects (a retest, a new mxcli release, an audit) |

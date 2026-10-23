@@ -55,6 +55,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/retesting-learned-rules.md` | Before obeying any learned-* STOP or workaround that costs a detour — probe the binary you actually have, then stamp the verdict back into the rule |
 | `skills/skills-over-scripts.md` | Script or skill? Before writing any .js or bash/.sh for a check, checker, linter, gate or report, or adding a rule or regex to an existing one |
 | `skills/image-transcription.md` | Images to read listed by images-to-md or the documents index |
+| `skills/learned-runtime-traps.md` | A runtime-only failure over a green model |
 | `skills/mendix-best-practices-index.md` | Asked "is there a Mendix best practice for this", or mapping a lint rule that rose in the ratchet back to the practice and the skill that prevents it |
 | `project-bin/assemble-prototype.js` | After every wireframe edit: assembles design/wireframes/*.html into design/prototype.html, one hash-routed page a stakeholder can click through instead of twenty separate files. Generated, never edited (design-artifacts.md Step 3) |
 | `project-bin/check-prototype-links.js` | Before wireframes pass to the build loop, and with --brd before a BRD is signed off: dead #/route links, orphan screens, controls with no data-bind and no data-cut, BRD routes no screen has, screens no use case walks (design-artifacts.md Step 3c, brd-validation.md check 8) |

@@ -44,6 +44,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/retesting-learned-rules.md` | Before obeying any learned-* STOP or workaround that costs a detour — probe the binary you actually have, then stamp the verdict back into the rule |
 | `skills/checkpoints/checkpoint-cutover.md` | Going live / cutover: CAC-6, after Stage 6 passes and before any cutover or old-data migration step |
 | `skills/image-transcription.md` | Images to read listed by images-to-md or the documents index |
+| `skills/learned-runtime-traps.md` | A runtime-only failure over a green model |
 | `skills/mendix-best-practices-index.md` | Asked "is there a Mendix best practice for this", or mapping a lint rule that rose in the ratchet back to the practice and the skill that prevents it |
 | `skills/cloud-dev-environment.md` | Setting up or resuming an mxcli project in a cloud/ephemeral container |
 | `skills/existing-app-assurance.md` | Auditing or regression/e2e-testing an EXISTING app |

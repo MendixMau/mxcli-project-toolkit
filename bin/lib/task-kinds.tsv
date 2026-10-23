@@ -1,0 +1,14 @@
+# Kind-specific rule files a context pack inlines, per build-step kind (experiment: task-routed
+# rules, process/task-routed-rules-proposal-2026-10-23.md). Read by bin/lib/task-rules.sh.
+# These rows are on demand for the mdl role in bin/lib/skill-routing.tsv ("mdl?"), so the pack
+# is how they reach a helper; learned-mdl-preflight.md is always inlined, filtered by
+# bin/lib/stop-row-kinds.tsv.
+#
+# Format: TAB-separated. 1 kind: page | logic | domain   2 repo-relative path
+page	skills/ui-preflight-pages.md
+page	skills/design-spacing.md
+page	project-bin/check-page-shell.sh
+page	project-bin/page-fidelity.js
+page	project-bin/check-design-reaches-app.sh
+logic	skills/learned-microflow-patterns.md
+logic	skills/microflow-preflight.md

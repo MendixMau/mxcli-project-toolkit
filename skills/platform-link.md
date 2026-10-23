@@ -498,7 +498,11 @@ runtime all pass. Studio Pro's merge and diff then throw — *"Objects with ID �
 same properties"* — once Studio Pro has saved such a document, and the Version Control panel
 fails. Field case: 78 changed units written with v0.24 on a production app, with no gate able to
 see them. mxcli v0.26.0 completes the set on every unit it writes, but only on units it rewrites,
-so a project upgraded mid-flight still carries the old ones until the repair runs.
+so a project upgraded mid-flight still carries the old ones until the repair runs. **Not on
+Mendix 10.24 below 10.24.24, through mxcli v0.27.0:** its property table starts at 10.24.24, so on
+10.24.18 a unit it writes can still lack keys, and `fix property-sets --dry-run` (hence
+`doctor --property-sets`) calls every unit complete (mendixlabs/mxcli#1595). There, the proof is
+Mendix's own `mx diff <base>.mpr <mine>.mpr out.json` against the base branch: exit 0 is clean.
 `sync-project.sh` runs the read-only check after every toolkit pull until it comes back clean
 for the installed mxcli. After that it runs again only when mxcli changes. Errors and timeouts
 are never recorded, so the next run re-checks. `doctor --quick`, which exec.sh runs when the mxcli

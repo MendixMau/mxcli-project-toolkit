@@ -407,7 +407,7 @@ Before running exec.sh after any MCP session:
 
 ```
 1. Cmd+S in Studio Pro (or run save-sp.sh)
-2. git add MyProject.mpr mprcontents/ && git commit -m "MCP: <what changed>"
+2. git add MyProject.mpr mprcontents/ javasource/ javascriptsource/ && git commit -m "MCP: <what changed>"
 3. Close the project in Studio Pro
 4. ./bin/exec.sh mdlsource/my-script.mdl
 ```
@@ -430,12 +430,15 @@ Resolve it by enumerating first, then naming:
 ```
 mxcli exec mdlsource/my-script.mdl -p App.mpr
 git status --short                      # <- the list of what exec actually wrote
-git add App.mpr mprcontents/ mdlsource/my-script.mdl
+git add App.mpr mprcontents/ javasource/ javascriptsource/ mdlsource/my-script.mdl
 git commit -m "..."
 ```
 
 `mprcontents/` as a directory pathspec is the right grain: it catches every unit the exec
-rewrote without reaching outside the model. This is still not `add -A` — every path is named.
+rewrote. `javasource/` and `javascriptsource/` catch the action bodies exec writes beside the
+model (`create java action ... as $$`): left out, the app builds here and not in a clone.
+Drop one the app does not have: git refuses the whole add on a missing pathspec.
+This is still not `add -A` — every path is named.
 
 **Why this is written down (2026-09-16, a MOC/PSSR app replacement).** A commit named
 `App.mpr` and the script, and left the exploded navigation unit behind. Git reported

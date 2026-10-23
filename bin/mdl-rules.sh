@@ -62,7 +62,9 @@ _extract() {
         L[f, ++n] = l
         if (l ~ /^[ \t]*(```|~~~)/) { infence = !infence; FE[f, n] = 1 } else FE[f, n] = infence
       }
-      close(p); N[f] = n; infence = 0
+      close(p); N[f] = n
+      if (infence) err("unclosed code fence in " f " (an odd number of ``` / ~~~ lines hides every heading after it)")
+      infence = 0
       if (n == 0) err("cannot read " f)
       return n > 0
     }
@@ -331,6 +333,7 @@ coverage() {
           match(l, /^#+/); lv[n] = RLENGTH; x = l; sub(/^#+[ \t]+/, "", x); tx[n] = x
         }
         close(p)
+        if (fe) print "  " f ": unclosed code fence (an odd number of ``` / ~~~ lines hides every ## after it)"
         for (i = 1; i <= ns; i++) {
           if (sf[i] != f || !(s = first(sh[i], n))) continue   # a missing heading is the lookup error
           cov[s] = 1

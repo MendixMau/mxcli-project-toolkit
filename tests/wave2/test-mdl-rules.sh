@@ -19,6 +19,7 @@
 #   T9  a new `##` section no kind selects, or an exclusion naming a gone heading: --check fails (F3)
 #   T10 --for maps exec.sh's `action` and `mapping` subjects to microflow, a demo user to access
 #   T11 a `# comment` inside a code fence does not end a section; a repeated kind is labelled once
+#   T12 an unclosed code fence fails --check and the lookup, never hides the sections after it
 set -uo pipefail
 
 SUT="${1:?usage: test-mdl-rules.sh /path/to/bin/mdl-rules.sh}"
@@ -219,6 +220,16 @@ O="$(bash "$SUT" page page 2>&1)"; RC=$?
 [ "$RC" -eq 0 ] && [ "$(printf '%s\n' "$O" | head -1)" = "# MDL rules for kinds: any, page" ] \
   && [ "$(printf '%s\n' "$O" | tail -1)" = "$(tail -1 "$TK/skills/generated/rules-page.md")" ] \
   && ok "'page page': labelled 'any, page', same closing line as 'page'" || bad "page page: rc=$RC" "$(printf '%s\n' "$O" | sed -n '1p;$p')"
+
+echo "== T12: an unclosed code fence fails loudly, never hides the sections after it =="
+C12="$WORK/tk12"; mkcopy "$C12"
+printf '\n```\n## 5. A new page rule\nNEW-RULE-BODY\n' >> "$C12/skills/design-spacing.md"
+O="$(bash "$C12/bin/mdl-rules.sh" --check 2>&1)"; RC=$?
+[ "$RC" -ne 0 ] && has "$O" "unclosed code fence" \
+  && ok "--check: unclosed fence in design-spacing.md fails (rc=$RC)" || bad "--check passed an unclosed fence: rc=$RC" "$(printf '%s\n' "$O" | tail -3)"
+O="$(bash "$C12/bin/mdl-rules.sh" page 2>/dev/null)"; RC=$?
+[ "$RC" -ne 0 ] && [ -z "$O" ] \
+  && ok "page lookup: unclosed fence → exit $RC, empty stdout" || bad "page lookup printed with an unclosed fence: rc=$RC, $(printf '%s' "$O" | wc -c) chars"
 
 echo ""
 echo "test-mdl-rules: $PASS passed, $FAIL failed"

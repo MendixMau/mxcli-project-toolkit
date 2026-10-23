@@ -12,3 +12,7 @@ Each <name>.cmd holds the exact command, binary version + sha256 and model sha25
                                      (CONV020: enabled: false): switches BOTH off.
   lint-list-rules-v0.28.0.out        v0.28.0 lint -l: CONV020 listed twice
                                      (CreatedObjectNeverPersisted, ActionUserFeedback).
+  lint-config-variants-v0.28.0.out   v0.28.0, one run per lint-config spelling and location (enabled:
+                                     False/no/off/'no'/"false"/0, quoted keys, flow map, nested options,
+                                     root and .lint-config.yaml fallbacks): the violations' ruleIds per
+                                     run, tabulated by a script; its header says how. T1c's verdicts.

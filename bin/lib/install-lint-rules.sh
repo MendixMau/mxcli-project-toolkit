@@ -198,21 +198,63 @@ _mxtk_lint_receipt_finalize() {
   [ -z "$_pruned" ] || echo "Lint receipt: dropped row(s) for rules no longer shipped or disabled here:$_pruned"
 }
 
-# _mxtk_lint_cfg_disabled <lint-config.yaml> <RULE_ID>: 0 when the file sets `enabled: false` for
-# that rule. The scoped read lint-gate.sh's SEC014 notice uses (a key belongs to the rule while its
-# indent is deeper than the rule's own line), narrowed to `enabled: false`.
+# _mxtk_lint_cfg_file <project>: the lint config mxcli reads, in its own order
+# (mdl/linter/config.go FindConfigFile): .claude/lint-config.yaml, lint-config.yaml,
+# .lint-config.yaml. The first that exists wins; the others are not read. Prints nothing if none.
+_mxtk_lint_cfg_file() {
+  for _cf in "$1/.claude/lint-config.yaml" "$1/lint-config.yaml" "$1/.lint-config.yaml"; do
+    [ -f "$_cf" ] && { printf '%s\n' "$_cf"; return 0; }
+  done
+  return 1
+}
+
+# _mxtk_lint_cfg_disabled <lint-config.yaml> <RULE_ID>: 0 when the file switches that rule off.
+# Same reading as mxcli v0.28.0 (RuleConfigYAML.Enabled *bool, gopkg.in/yaml.v3 v3.0.1): false is
+# a plain false|False|FALSE (YAML 1.2 core; a quoted "false" is a string, the config fails to load
+# and every rule runs) or n|N|no|No|NO|off|Off|OFF, plain or quoted (yaml.v3's YAML 1.1 fallback
+# for a typed bool, decode.go). Other spellings (fAlse, nO, 0) are not false. The rule key may be
+# bare, 'single' or "double" quoted; `enabled` counts only as its DIRECT child: the first indent
+# level under it, or a top-level key of a flow map on the key's own line. Verified per spelling
+# on mxcli v0.28.0 (tests/wave2/test-lint-rule-rename.sh T1b).
 _mxtk_lint_cfg_disabled() {
   [ -f "$1" ] || return 1
-  awk -v id="$2" '
-    /^[[:space:]]*#/ { next }
+  awk -v id="$2" -v sq="'" '
+    function isoff(v,   q) {
+      sub(/^[ \t]+/, "", v); sub(/[ \t]*(#.*)?$/, "", v)
+      if (v ~ /^(false|False|FALSE)$/) return 1
+      q = substr(v, 1, 1)
+      if ((q == "\"" || q == sq) && length(v) > 1 && substr(v, length(v)) == q) v = substr(v, 2, length(v) - 2)
+      return v ~ /^(n|N|no|No|NO|off|Off|OFF)$/
+    }
+    function enabledkv(kv) {   # "enabled: <v>" (key optionally quoted) -> isoff(v); else 0
+      if (!match(kv, "^[ \t]*(\"enabled\"|" sq "enabled" sq "|enabled)[ \t]*:")) return 0
+      return isoff(substr(kv, RLENGTH + 1))
+    }
+    function flow(s,   i, c, d, piece) {   # top-level pairs of the flow map that opens s
+      i = index(s, "{"); if (!i) return 0
+      d = 1; piece = ""
+      for (i++; i <= length(s); i++) {
+        c = substr(s, i, 1)
+        if (c == "{" || c == "[") d++
+        else if (c == "}" || c == "]") { d--; if (d == 0) break }
+        if (d == 1 && c == ",") { if (enabledkv(piece)) return 1; piece = ""; continue }
+        piece = piece c
+      }
+      return enabledkv(piece)
+    }
+    /^[[:space:]]*(#|$)/ { next }
     { match($0, /^ */); ind = RLENGTH }
-    insec && NF && ind <= secind { insec = 0 }
-    $0 ~ "^[[:space:]]*\"?" id "\"?[[:space:]]*:" {
-      insec = 1; secind = ind
-      if ($0 ~ /enabled[[:space:]]*:[[:space:]]*false/) found = 1
+    insec && ind <= secind { insec = 0 }
+    insec {
+      if (childind < 0) childind = ind
+      if (ind == childind && enabledkv($0)) found = 1
       next
     }
-    insec && /^[[:space:]]*enabled[[:space:]]*:[[:space:]]*false/ { found = 1 }
+    match($0, "^[ \t]*(\"" id "\"|" sq id sq "|" id ")[ \t]*:") {
+      rest = substr($0, RLENGTH + 1)
+      if (rest ~ /^[ \t]*\{/) { if (flow(rest)) found = 1 }
+      else { insec = 1; secind = ind; childind = -1 }
+    }
     END { exit found ? 0 : 1 }' "$1"
 }
 
@@ -221,11 +263,13 @@ _mxtk_lint_cfg_disabled() {
 #   1. lint-rules-disabled.txt naming the old FILE -> rewritten to the new file (a file name is
 #      unambiguous, and leaving it would install the new rule over the user's opt-out).
 #   2. the old file: an unedited copy (md5, CR-insensitive, equals a shipped version or the
-#      receipt row) is deleted; the loop below then installs the new one, unless lint-config.yaml
-#      switched the old id off (`enabled: false`): that opt-out is written to lint-rules-disabled.txt
-#      under the new file, so the rule stays off (the lint-config key is left as it is). An edited
-#      copy is left alone with a warning, and the new file is held back (MXTK_LINT_RENAME_HOLD),
-#      since installing it beside the edited one would run the rule twice.
+#      receipt row) is deleted; the loop below then installs the new one, unless the lint config
+#      mxcli reads (_mxtk_lint_cfg_file) switched the old id off (_mxtk_lint_cfg_disabled): that
+#      opt-out is written to lint-rules-disabled.txt under the new file, so the rule stays off (the
+#      config key is left as it is). An edited copy is left alone with a warning (saying how to keep
+#      such an opt-out), and the new file is held back (MXTK_LINT_RENAME_HOLD), since installing it
+#      beside the edited one would run the rule twice. A dry run lists a carried-over rule in
+#      MXTK_LINT_RENAME_DRYOFF so the loop does not also say it would install it.
 #   3. lint-baseline.json, once no old copy remains: findings whose message matches the toolkit
 #      rule's are rekeyed to the new id and the counts moved with them. A finding with another
 #      message stays (mxcli's built-in). A counts-only baseline (pre-#239) cannot be split: NOTE,
@@ -236,12 +280,14 @@ _mxtk_lint_cfg_disabled() {
 #      Neither file is rewritten: their text cannot say which rule it meant. A second run finds nothing to do and prints nothing.
 _mxtk_lint_migrate_renames() {
   _rn_proj="$1"; _rn_dry="$2"; _rn_src_dir="$3"
-  MXTK_LINT_RENAME_HOLD=""
+  MXTK_LINT_RENAME_HOLD=""; MXTK_LINT_RENAME_DRYOFF=""
   [ -n "${MXTK_LINT_RENAMES:-}" ] || return 0
   _rn_dir="$_rn_proj/.claude/lint-rules"
   _rn_dis="$_rn_proj/.claude/lint-rules-disabled.txt"
   _rn_base="$_rn_proj/.claude/lint-baseline.json"
-  _rn_cfg="$_rn_proj/.claude/lint-config.yaml"
+  _rn_cfg="$(_mxtk_lint_cfg_file "$_rn_proj" || true)"; _rn_cfgrel="${_rn_cfg#"$_rn_proj"/}"
+  # Committed on purpose, team-shared like .mxtk-lint-receipt: it records a NOTE about the committed
+  # lint-baseline.json as said, so one teammate re-baselining settles it for all.
   _rn_notes="$_rn_proj/.claude/.mxtk-lint-notes"
   while read -r _rn_old _rn_oid _rn_new _rn_nid _rn_md5s _rn_re; do
     [ -n "$_rn_old" ] && [ -n "$_rn_re" ] || continue
@@ -251,6 +297,7 @@ _mxtk_lint_migrate_renames() {
     if [ -f "$_rn_dis" ] && awk -v o="$_rn_old" '$1 == o { f = 1 } END { exit f ? 0 : 1 }' "$_rn_dis"; then
       if [ "$_rn_dry" -eq 1 ]; then
         echo "Would carry over: .claude/lint-rules-disabled.txt $_rn_old -> $_rn_new"
+        MXTK_LINT_RENAME_DRYOFF="$MXTK_LINT_RENAME_DRYOFF $_rn_new"
       else
         awk -v o="$_rn_old" -v n="$_rn_new" '
           $1 == o { i = index($0, o); $0 = substr($0, 1, i - 1) n substr($0, i + length(o)) } { print }' \
@@ -288,12 +335,13 @@ _mxtk_lint_migrate_renames() {
         if _mxtk_lint_cfg_disabled "$_rn_cfg" "$_rn_oid" && ! _mxtk_lint_is_disabled "$_rn_dis" "$_rn_new"; then
           _rn_cfgoff=1
           if [ "$_rn_dry" -eq 1 ]; then
-            echo "Would carry over: lint-config.yaml $_rn_oid enabled: false -> .claude/lint-rules-disabled.txt $_rn_new"
+            echo "Would carry over: $_rn_cfgrel $_rn_oid enabled: false -> .claude/lint-rules-disabled.txt $_rn_new"
+            MXTK_LINT_RENAME_DRYOFF="$MXTK_LINT_RENAME_DRYOFF $_rn_new"
           else
             [ -s "$_rn_dis" ] && [ -n "$(tail -c 1 "$_rn_dis")" ] && echo >> "$_rn_dis"
-            printf '%s  # reason: carried over from lint-config.yaml %s: enabled: false (%s)\n' \
-              "$_rn_new" "$_rn_oid" "$(date +%Y-%m-%d)" >> "$_rn_dis"
-            echo "Lint opt-out carried over: lint-config.yaml has $_rn_oid enabled: false, so"
+            printf '%s  # reason: carried over from %s %s: enabled: false (%s)\n' \
+              "$_rn_new" "${_rn_cfg##*/}" "$_rn_oid" "$(date +%Y-%m-%d)" >> "$_rn_dis"
+            echo "Lint opt-out carried over: $_rn_cfgrel has $_rn_oid enabled: false, so"
             echo "   .claude/lint-rules-disabled.txt now names $_rn_new and it is not installed."
           fi
         fi
@@ -308,6 +356,14 @@ _mxtk_lint_migrate_renames() {
           "  1. cp $_rn_src_dir/$_rn_new $_rn_dir/" \
           "  2. copy your settings (PROJECT_MODULES, ACTION_PREFIX, any other edit) from $_rn_old into it" \
           "  3. delete $_rn_old, then re-run sync-project.sh: it rekeys lint-baseline.json"
+        if _mxtk_lint_cfg_disabled "$_rn_cfg" "$_rn_oid" && ! _mxtk_lint_is_disabled "$_rn_dis" "$_rn_new"; then
+          _mxtk_lint_warn \
+            "$_rn_cfgrel switches $_rn_oid off; on mxcli v0.28.0 that key no longer reaches $_rn_new." \
+            "To keep that opt-out, skip 1-2: add the line" \
+            "  $_rn_new  # reason: <why>" \
+            "to .claude/lint-rules-disabled.txt (a listed rule is not installed; a copy left in" \
+            ".claude/lint-rules/ would still run), then do 3."
+        fi
       fi
     fi
 
@@ -395,14 +451,18 @@ RNEOF
 
     # 4. one-time notices
     if [ "$_rn_did" -eq 1 ]; then
-      if [ -f "$_rn_proj/.claude/lint-config.yaml" ] &&
-         grep -qE "^[[:space:]]*\"?$_rn_oid\"?[[:space:]]*:" "$_rn_proj/.claude/lint-config.yaml"; then
-        echo "NOTE: .claude/lint-config.yaml has settings under $_rn_oid. On mxcli v0.28.0+ they reach mxcli's"
+      if [ -n "$_rn_cfg" ] &&
+         grep -qE "^[[:space:]]*(\"$_rn_oid\"|'$_rn_oid'|$_rn_oid)[[:space:]]*:" "$_rn_cfg"; then
+        echo "NOTE: $_rn_cfgrel has settings under $_rn_oid. On mxcli v0.28.0+ they reach mxcli's"
         if [ "$_rn_cfgoff" -eq 1 ]; then
           echo "      built-in $_rn_oid, not the toolkit rule. Its enabled: false was carried over: the"
           echo "      toolkit rule stays off through .claude/lint-rules-disabled.txt ($_rn_new)."
           echo "      The key now switches off only the built-in. Not changed: keep it, or remove it to run"
           echo "      the built-in."
+        elif _mxtk_lint_is_disabled "$_rn_dis" "$_rn_new" ||
+             case " $MXTK_LINT_RENAME_DRYOFF " in *" $_rn_new "*) true ;; *) false ;; esac; then
+          echo "      built-in $_rn_oid, not the toolkit rule, which is off here through"
+          echo "      .claude/lint-rules-disabled.txt ($_rn_new). Not changed automatically."
         else
           echo "      built-in $_rn_oid, not the toolkit rule. If they were meant for the toolkit rule, move them"
           echo "      under $_rn_nid. Not changed automatically."
@@ -467,6 +527,7 @@ mxtk_install_lint_rules() {
       _src="$_src_dir/$_f"; _dst="$_dst_dir/$_f"
       [ -f "$_src" ] || continue
       _mxtk_lint_is_disabled "$_disabled" "$_f" && continue
+      case " ${MXTK_LINT_RENAME_DRYOFF:-} " in *" $_f "*) continue ;; esac
       # An edited copy under a renamed rule's old file name is still in place: do not run it twice.
       case " ${MXTK_LINT_RENAME_HOLD:-} " in *" $_f "*) [ -f "$_dst" ] || continue ;; esac
       _srcmd5="$(portable_md5 "$_src")" || continue

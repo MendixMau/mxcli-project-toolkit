@@ -18,7 +18,8 @@
 # toolkit finding's ruleId changed. T1b's baseline is the capture taken WITH the opt-out
 # (lint-conv020-disabled-v0.28.0.out); its post-sync output adds the toolkit finding as MXTK-UX003
 # only when the project would run that rule (installed and not disabled), since a CONV020 key no
-# longer reaches it. Projects are scaffolded by
+# longer reaches it. T1c's other spellings and config locations take their verdicts from
+# lint-config-variants-v0.28.0.out (mxcli v0.28.0 run once per config). Projects are scaffolded by
 # the REAL bin/init-project.sh and migrated by the REAL sync-project.sh, on both layouts
 # (.mpr at the root, and under app/). doctor.sh runs --quick against a stub mxcli.
 set -uo pipefail
@@ -184,6 +185,67 @@ json.dump(d, open(sys.argv[4], "w"), indent=2)
   { [ "$(lintstate "$P")" = "$before" ] && ! printf '%s' "$out" | grep -qE "renamed|carried over|CONV020"; } \
     && ok "[$L] second sync: no change, silent" || bad "[$L] second sync not a no-op" "$out"
 
+  echo "T1c [$L] other spellings of the opt-out, and where mxcli reads the config: carried over exactly when mxcli v0.28.0 switches CONV020 off"
+  # Expected verdicts are mxcli v0.28.0's own: each case's name is a line of the capture
+  # lint-config-variants-v0.28.0.out (that config on the pedapp capture model), and the fixture
+  # stops if the column below disagrees with it: SEC001 only = both CONV020 off.
+  # id | capture label | file(s) under the project, first gets the text | config text | 1 = mxcli switched CONV020 off
+  while IFS='|' read -r cid cn cf ct coff <&3; do
+    [ -n "$cid" ] || continue
+    capids="$(awk -v l="$cn" '{ k = substr($0, 1, 35); sub(/ +$/, "", k) } k == l { sub(/^[^]]*][ ]*/, ""); print; exit }' "$CAP/lint-config-variants-v0.28.0.out")"
+    case "$coff:$capids" in 1:SEC001|0:*"CONV020 CONV020 SEC001") ;;
+      *) bad "[$L] $cn: expected verdict $coff disagrees with the v0.28.0 capture ('$capids')"; continue ;; esac
+    P="$(mk "t1c-$cid-$L")"; put_old "$P" "$LAST"; rm -f "$P/.claude/lint-config.yaml"
+    for x in $cf; do printf "$ct" > "$P/$x"; ct='rules: {}\n'; done
+    if [ "$coff" = 1 ]; then baseline_with "$P" "$CAP/lint-conv020-disabled-v0.28.0.out"; else baseline_with "$P" "$WORK/before.json"; fi
+    out="$("$SYNC" "$P" 2>&1)"
+    if [ "$coff" = 1 ]; then
+      { [ ! -e "$P/.claude/lint-rules/$NEW" ] && grep -q "^$NEW  # reason: carried over from " "$P/.claude/lint-rules-disabled.txt" 2>/dev/null; } \
+        && ok "[$L] $cn: carried over, $NEW not installed" || bad "[$L] $cn: opt-out lost" "$out"
+    else
+      { [ -f "$P/.claude/lint-rules/$NEW" ] && ! grep -q "^$NEW " "$P/.claude/lint-rules-disabled.txt" 2>/dev/null; } \
+        && ok "[$L] $cn: mxcli runs CONV020, so no carry-over; $NEW installed" || bad "[$L] $cn: carried over an opt-out mxcli ignores" "$out"
+    fi
+    # What mxcli v0.28.0 prints on the synced project: the built-in CONV020 as the config leaves it,
+    # plus the toolkit finding as MXTK-UX003 whenever the project would run that rule.
+    "$PY" -c '
+import json, os, sys
+cap, off, p = json.load(open(sys.argv[1])), sys.argv[2] == "1", sys.argv[3]
+dis = p + "/.claude/lint-rules-disabled.txt"
+run = os.path.isfile(p + "/.claude/lint-rules/mxtk_ux003_action_user_feedback.star") and not any(
+    l.split()[:1] == ["mxtk_ux003_action_user_feedback.star"] and "reason:" in l
+    for l in (open(dis) if os.path.isfile(dis) else []))
+out = []
+for v in cap["violations"]:
+    if v["document"] == "Shop.ACT_SaveItem":
+        if run: v["ruleId"] = "MXTK-UX003"; out.append(v)
+    elif not (off and v["ruleId"] == "CONV020"):
+        out.append(v)
+cap["violations"] = out
+json.dump(cap, open(sys.argv[4], "w"), indent=2)
+' "$CAP/lint-conv020-v0.28.0.out" "$coff" "$P" "$WORK/t1c.json"
+    o2="$(cd "$P" && LINT_JSON="$WORK/t1c.json" bash bin/lint-gate.sh 2>&1)"; rc=$?
+    [ "$rc" -eq 0 ] && ok "[$L] $cn: lint-gate PASS after sync" || bad "[$L] $cn: lint-gate rc $rc after sync" "$o2"
+  done 3<<'CASES'
+False|enabled: False|.claude/lint-config.yaml|rules:\n  CONV020:\n    enabled: False\n|1
+no|severity+enabled: no|.claude/lint-config.yaml|rules:\n  CONV020:\n    severity: info\n    enabled: no\n|1
+sqkey|single-quoted key|.claude/lint-config.yaml|rules:\n  'CONV020':\n    enabled: false\n|1
+flow|flow { enabled: False, severity }|.claude/lint-config.yaml|rules:\n  CONV020: { enabled: False, severity: info }\n|1
+nested|options: enabled: false (nested)|.claude/lint-config.yaml|rules:\n  CONV020:\n    options:\n      enabled: false\n|0
+qfalse|enabled: "false"|.claude/lint-config.yaml|rules:\n  CONV020:\n    enabled: "false"\n|0
+root|root lint-config.yaml|lint-config.yaml|rules:\n  CONV020:\n    enabled: false\n|1
+precedence|.claude empty, root off|lint-config.yaml .claude/lint-config.yaml|rules:\n  CONV020:\n    enabled: false\n|0
+CASES
+
+  echo "T1d [$L] dry run with the opt-out: says it would carry over, not that it would install $NEW"
+  P="$(mk "t1d-$L")"; put_old "$P" "$LAST"
+  printf 'rules:\n  CONV020:\n    enabled: false\n' > "$P/.claude/lint-config.yaml"
+  out="$("$SYNC" "$P" --dry-run 2>&1)"
+  { printf '%s' "$out" | grep -q "Would carry over: .claude/lint-config.yaml CONV020 enabled: false" \
+    && ! printf '%s' "$out" | grep -q "Would install: .claude/lint-rules/$NEW"; } \
+    && ok "[$L] dry run: carry-over only" || bad "[$L] dry run also announces installing $NEW" "$out"
+  printf '%s' "$out" | grep -q "move them" && bad "[$L] NOTE still says to move the key under MXTK-UX003" "$out" || ok "[$L] no move-the-key advice when the rule stays off"
+
   echo "T2b [$L] baseline taken on v0.27.0: rename maps it; the v0.28 upgrade then rises in CONV020 only"
   P="$(mk "t2b-$L")"; put_old "$P" "$LAST"
   baseline_with "$P" "$CAP/lint-conv020-v0.27.0.out"
@@ -212,10 +274,25 @@ json.dump(d, open(sys.argv[4], "w"), indent=2)
   [ "$(count "$P" MXTK-UX003)" = 1 ] && grep -q 'PROJECT_MODULES = ("Orders",)' "$P/.claude/lint-rules/$NEW" \
     && ok "[$L] after the manual steps: baseline rekeyed, configured copy kept" || bad "[$L] manual path not completed" "$out"
 
+  echo "T3b [$L] edited old copy + lint-config opt-out: the warning says how to keep it, and following it works"
+  P="$(mk "t3b-$L")"; put_old "$P" "$LAST"
+  sed 's/^PROJECT_MODULES = "\*"$/PROJECT_MODULES = ("Orders",)/' "$LAST" > "$P/.claude/lint-rules/$OLD"
+  printf 'rules:\n  CONV020:\n    enabled: false\n' > "$P/.claude/lint-config.yaml"
+  out="$("$SYNC" "$P" 2>&1)"
+  { printf '%s' "$out" | grep -q "To keep that opt-out" && printf '%s' "$out" | grep -qF "$NEW  # reason: <why>"; } \
+    && ok "[$L] hold warning names the lint-rules-disabled.txt line" || bad "[$L] hold warning silent about the opt-out" "$out"
+  printf '%s  # reason: no ACT_ convention\n' "$NEW" >> "$P/.claude/lint-rules-disabled.txt"; rm -f "$P/.claude/lint-rules/$OLD"
+  out="$("$SYNC" "$P" 2>&1)"
+  [ ! -e "$P/.claude/lint-rules/$NEW" ] && ok "[$L] after the steps: $NEW stays uninstalled" || bad "[$L] $NEW installed despite the opt-out" "$out"
+
   echo "T4 [$L] opt-out line names the old file: carried over, rule stays uninstalled"
   P="$(mk "t4-$L")"; rm -f "$P/.claude/lint-rules/$NEW"
   printf '%s  # reason: no ACT_ convention (PROJECT.md D-9)\n' "$OLD" > "$P/.claude/lint-rules-disabled.txt"
+  printf 'rules:\n  "CONV020":\n    severity: error\n' > "$P/.claude/lint-config.yaml"
   out="$("$SYNC" "$P" 2>&1)"
+  { printf '%s' "$out" | grep -q 'lint-config.yaml has settings under CONV020' && printf '%s' "$out" | grep -q 'which is off here through' \
+    && ! printf '%s' "$out" | grep -q 'move them'; } \
+    && ok "[$L] NOTE (double-quoted key) says the rule is off, no move-the-key advice" || bad "[$L] NOTE wrong for an opted-out rule" "$out"
   grep -q "^$NEW  # reason: no ACT_ convention (PROJECT.md D-9)$" "$P/.claude/lint-rules-disabled.txt" && ok "[$L] disabled line rewritten, reason kept" || bad "[$L] disabled line" "$(cat "$P/.claude/lint-rules-disabled.txt")"
   [ ! -e "$P/.claude/lint-rules/$NEW" ] && ok "[$L] opted-out rule not installed under its new name" || bad "[$L] opt-out lost: $NEW installed" "$out"
 

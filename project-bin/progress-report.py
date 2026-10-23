@@ -781,7 +781,8 @@ def script_phases(runs, phases):
         direct[sc] = phase_for_script(sc, phases)
         m = re.match(r"0*(\d+)", os.path.splitext(os.path.basename(sc.strip().split()[-1]) if sc.strip() else "")[0])
         num[sc] = int(m.group(1)) if m else None
-    known = sorted((num[k], direct[k]) for k in direct if direct[k] and num[k] is not None)
+    # sort on (number, script name) only: two scripts can share a leading number (10-a, 10b-b) and dicts do not compare (#513)
+    known = [(n_, pp) for n_, _k, pp in sorted(((num[k], k, direct[k]) for k in direct if direct[k] and num[k] is not None), key=lambda t: (t[0], t[1]))]
     out = {}
     for k, p in direct.items():
         if not p and num[k] is not None:

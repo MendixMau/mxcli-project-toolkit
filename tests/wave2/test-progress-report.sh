@@ -20,6 +20,8 @@
 #   T13 context windows are 200k or 1M only; "window reached" only at 98% of the real window.
 #   T14 --session-log overrides discovery and is recorded in the footer; --help lists it and the rates file.
 #   T15 --open matches this project's exact file URL (osascript stubbed); a generator crash leaves one WARN.
+#   T17 two scripts sharing a leading number (10-data.mdl, 10b-data-flows.mdl), each matched to a phase:
+#       the page is still written, no TypeError (#513); the unmatched 11- script takes the later 10 phase.
 #
 # Usage: bash tests/wave2/test-progress-report.sh /path/to/build-plan-status.sh
 
@@ -313,6 +315,42 @@ touch "$P5/architecture/build-plan.md"
 CLAUDE_CONFIG_DIR="$CFG2" bash "$SCRIPT" "$P5" --html >/dev/null 2>&1
 has "$P5/architecture/progress-report.html" "location.reload" "reload script present while active"
 hasnt "$R2" "location.reload" "no reload script when idle"
+
+echo "T17 scripts sharing a leading number (#513)"
+# BUILD-LOG rows: the exec.sh row captured in fixtures/verify-446/BUILD-LOG.captured.md, time and script replaced.
+CAP="$ROOT/tests/wave2/fixtures/verify-446/BUILD-LOG.captured.md"
+P6="$WORK/p6"; mkdir -p "$P6/architecture" "$P6/docs"
+cat > "$P6/architecture/build-plan.md" <<'MD'
+# Build plan
+
+### Phase 1 - Data
+
+| # | Kind | Step | Produces / Proves | Depends on | Skills | State |
+|---|---|---|---|---|---|---|
+| 1 | DATA | Create entities: `mdlsource/10-data.mdl` | Order | none | none | built |
+
+### Phase 2 - Flows
+
+| # | Kind | Step | Produces / Proves | Depends on | Skills | State |
+|---|---|---|---|---|---|---|
+| 2 | LOGIC | Create flows: `mdlsource/10b-data-flows.mdl` | ACT_Order | 1 | none | built |
+MD
+{ sed -n '1,/^|---|/p' "$CAP"
+  for x in "2026-10-19T09:00:00+0000 10-data.mdl" "2026-10-19T10:00:00+0000 10b-data-flows.mdl" "2026-10-19T11:00:00+0000 11-misc.mdl"; do
+    set -- $x; grep '^| 20' "$CAP" | head -1 | sed -e "s/^| [^|]* | \`[^\`]*\` |/| $1 | \`$2\` |/"
+  done; } > "$P6/docs/BUILD-LOG.md"
+out6="$(CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$P6" --html 2>&1)"
+printf '%s' "$out6" | grep -q "generator failed\|not updated\|TypeError" && bad "generator does not fail on a shared leading number" || ok "generator does not fail on a shared leading number"
+printf '%s' "$out6" | grep -q "wrote architecture/progress-report.html" && ok "page written with two scripts numbered 10" || bad "page written with two scripts numbered 10"
+IFS= read -r -d '' SP_PY <<'PYEOF' || true
+import sys, importlib.util
+spec = importlib.util.spec_from_file_location("pr", sys.argv[1] + "/progress-report.py"); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+ph = [{"id": "1", "name": "Data", "steps": [{"step": "mdlsource/10-data.mdl"}]}, {"id": "2", "name": "Flows", "steps": [{"step": "mdlsource/10b-data-flows.mdl"}]}]
+runs = [{"script": s} for s in ("10b-data-flows.mdl", "10-data.mdl", "11-misc.mdl")]
+print(m.script_phases(runs, ph)["11-misc.mdl"]["name"])
+PYEOF
+SP="$("$PY" -c "$SP_PY" "$ROOT/project-bin" "$P6")"
+[ "$SP" = "Flows" ] && ok "11- script takes the phase of the later-named 10 script (order by number, then name)" || bad "11- script takes the phase of the later-named 10 script (got: $SP)"
 
 echo "T16 narrow-width CSS (phone)"
 GEN="$ROOT/project-bin/progress-report.py"

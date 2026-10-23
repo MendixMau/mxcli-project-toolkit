@@ -242,6 +242,7 @@ _mxtk_lint_cfg_disabled() {
       }
       return enabledkv(piece)
     }
+    { sub(/\r$/, "") }   # a CRLF file (Git Bash, core.autocrlf): mxcli reads it, so must we
     /^[[:space:]]*(#|$)/ { next }
     { match($0, /^ */); ind = RLENGTH }
     insec && ind <= secind { insec = 0 }

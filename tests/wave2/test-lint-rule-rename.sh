@@ -235,6 +235,7 @@ nested|options: enabled: false (nested)|.claude/lint-config.yaml|rules:\n  CONV0
 qfalse|enabled: "false"|.claude/lint-config.yaml|rules:\n  CONV020:\n    enabled: "false"\n|0
 root|root lint-config.yaml|lint-config.yaml|rules:\n  CONV020:\n    enabled: false\n|1
 precedence|.claude empty, root off|lint-config.yaml .claude/lint-config.yaml|rules:\n  CONV020:\n    enabled: false\n|0
+crlf|enabled: false|.claude/lint-config.yaml|rules:\r\n  CONV020:\r\n    enabled: false\r\n|1
 CASES
 
   echo "T1d [$L] dry run with the opt-out: says it would carry over, not that it would install $NEW"

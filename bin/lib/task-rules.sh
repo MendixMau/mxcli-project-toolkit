@@ -80,6 +80,7 @@ task_rules_pack() {
   done
   if [ $# -gt 0 ] && [ -x "$root/bin/rule-lookup.sh" ]; then
     local hits; hits="$("$root/bin/rule-lookup.sh" --root "$root" "$@" 2>/dev/null || true)"
-    [ -n "$hits" ] && printf '\n### Triggered rules (bin/rule-lookup.sh matched this step)\n\n%s\n' "$hits"
+    if [ -n "$hits" ]; then printf '\n### Triggered rules (bin/rule-lookup.sh matched this step)\n\n%s\n' "$hits"; fi
   fi
+  return 0   # callers run under set -e (tests/behaviour/build-packs.sh); "no hits" is not a failure
 }

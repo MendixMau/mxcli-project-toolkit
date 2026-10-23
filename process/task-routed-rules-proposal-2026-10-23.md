@@ -94,6 +94,12 @@ RUNBOOK.md: 5 × page and 5 × mf per arm, one fixed model, fresh agents, interl
 (page: STOP 4; mf: STOP 21) refused, mdl-scan hits, structure metrics — with fewer start tokens.
 Later arms: +B on a task with a planted trigger; +C with 5 hand-picked examples.
 
+**Result, 2026-10-23 (`tests/behaviour/results/2026-10-23-task-routed-rules.tsv`, 20 reps):**
+T no worse than M on every scored metric, for both tasks — planted STOP request refused 5/5 in
+every cell, 0 mdl-scan hits, structure metrics equal. Tokens per rep: page −4.7%, mf −10.0%.
+0 partial reads. Limits: n = 5 per cell; no `mxcli check` here; every rep inherited the toolkit
+CLAUDE.md (both arms alike); B was not exercised (neither task carries a trigger).
+
 ## 6. Risks
 
 | Risk | Guard |
@@ -105,6 +111,6 @@ Later arms: +B on a task with a planted trigger; +C with 5 hand-picked examples.
 
 ## 7. Order of work
 
-1. ✅ A + B built on the branch (this commit). 2. Scoped fixture `test-context-pack.sh` + the A/B
-run (needs the maintainer's go: about 20 agent reps). 3. If T passes: field run on a real project,
+1. ✅ A + B built on the branch. 2. ✅ `test-context-pack.sh` 55/55 (with and without `MXTK_ROOT`)
+and the A/B above: pass. 3. If T passes: field run on a real project,
 then a PR with the independent review. 4. C: reference projects, then the +C arm.

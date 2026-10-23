@@ -20,3 +20,4 @@ skills/checkpoints/	reached via the checkpoint mechanism (conversion-runbook sta
 skills/journey-map.md	tombstone — falsification trial failed 2026-08-22, row removed then; file kept so old links resolve
 skills/ui-review-loop.md	merge tombstone — content lives in skills/module-review.md (routed)
 skills/module-completion-loop.md	merge tombstone — content lives in skills/module-review.md (routed)
+skills/generated/	rendered output of bin/mdl-rules.sh (rules-<kind>.md, drift-checked by bin/mdl-rules.sh --check) — the plain-read twin of that script's output, reached through bin/mdl-rules.sh's own routing row, never routed one by one

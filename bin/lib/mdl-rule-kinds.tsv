@@ -1,0 +1,67 @@
+# mdl-rule-kinds.tsv — which MDL rules a script needs, by the kind of statement it writes.
+# Read by bin/mdl-rules.sh (and nothing else); rendered to skills/generated/rules-<kind>.md.
+#
+# WHY (lazy-load PR 2, 2026-10-23). The mdl helper preloaded every kind-specific skill at Stage 5
+# (29,388 words), though a page script needs none of the microflow rules and a microflow script
+# none of the page rules. This table says which sections each statement kind needs, so the helper
+# loads them per script instead. The skills keep every word; only who preloads them changes.
+#
+# Sections are located by FILE plus HEADING TEXT, never by line number (the bin/lib/runbook-span.sh
+# precedent): a heading matches when its text, after the leading #s, starts with the heading cell.
+# A heading that no longer exists makes bin/mdl-rules.sh fail loudly — it never prints empty.
+#
+# Format: TAB-separated, four columns. Blank lines and #-comments ignored.
+#   1 kind      page | microflow | access | workflow | entity | any   (any = every script)
+#   2 file      repo-relative path
+#   3 selector  file     the whole file
+#               top      everything above the file's first "## " heading
+#               section  the heading and everything under it, down to the next heading of its level
+#               stop     the STOP table under that heading, rows filtered by their Kind column
+#                        (the kinds asked for, plus `any`; the retired-numbers row always)
+#               bullet   one bullet under that heading: arg is "<heading>::<bullet lead text>"
+#               rows     the table rows under that heading whose FIRST cell matches an ERE
+#                        (case-insensitive): arg is "<heading>::<ERE>"
+#   4 arg       heading text, or heading::lead / heading::ERE as above; "-" for file and top
+#
+# Denominators (bin/mdl-rules.sh --check): every STOP row carries a known Kind, every bullet under
+# a `bullet` heading is selected by some row here, every table row under a `rows` heading is matched
+# by some ERE here, and every generated file equals a fresh render. A new gotcha or register row
+# that no kind selects fails --check, so it cannot silently stop reaching the mdl helper.
+#
+# kind	file	selector	arg
+any	skills/learned-mdl-preflight.md	top	-
+any	skills/learned-mdl-preflight.md	section	Step 0 — choose the write mode
+any	skills/learned-mdl-preflight.md	stop	The checklist — run before writing a single line of MDL
+any	skills/learned-mdl-preflight.md	bullet	MDL gotchas::**Quote / unquote retry rule:**
+any	skills/learned-mdl-preflight.md	bullet	MDL gotchas::**Grants are co-located
+any	skills/learned-mdl-preflight.md	bullet	MDL gotchas::**`mxcli check` does not catch corruption.**
+any	skills/learned-mdl-preflight.md	bullet	MDL gotchas::**mxcli v0.25 — keep the skills' spellings
+any	skills/learned-mdl-preflight.md	bullet	MDL gotchas::**`exec` is not `check`.**
+page	skills/learned-mdl-preflight.md	bullet	MDL gotchas::**Cross-module association paths
+microflow	skills/learned-mdl-preflight.md	bullet	MDL gotchas::**Cross-module association paths
+page	skills/learned-mdl-preflight.md	bullet	MDL gotchas::**Changing an existing DataGrid 2 column
+page	skills/learned-mdl-preflight.md	bullet	MDL gotchas::**No `elseif` in page/widget expressions**
+entity	skills/learned-mdl-preflight.md	bullet	MDL gotchas::**Enumeration values named with reserved words**
+access	skills/learned-mdl-preflight.md	bullet	MDL gotchas::**Demo users:**
+any	skills/learned-mdl-preflight.md	section	Final self-check
+page	skills/ui-preflight-pages.md	file	-
+page	skills/design-spacing.md	top	-
+page	skills/design-spacing.md	section	1. The scale
+page	skills/design-spacing.md	section	2. The rhythm hierarchy
+page	skills/design-spacing.md	section	3. The page scaffold
+microflow	skills/learned-microflow-patterns.md	file	-
+microflow	skills/microflow-preflight.md	file	-
+access	skills/learned-microflow-patterns.md	section	Current User — Two Separate Mechanisms
+entity	skills/learned-microflow-patterns.md	section	Association Direction — Reading SHOW ASSOCIATIONS Correctly
+access	skills/security-is-not-a-later-script.md	file	-
+entity	skills/security-is-not-a-later-script.md	file	-
+any	skills/learned-detection-gaps.md	top	-
+any	skills/learned-detection-gaps.md	section	The ladder
+any	skills/learned-detection-gaps.md	rows	The register::non-idempotent|mxcli < v0\.26
+page	skills/learned-detection-gaps.md	rows	The register::page|widget|datagrid|dg2|dropdownfilter|navigation|dynamictext|contentparams|elseif|bindings|combo box|snippetcall
+microflow	skills/learned-detection-gaps.md	rows	The register::java action|getvalue|commit|microflow|on error|create entity|xpath|currentuser|import mapping|get workflows|loop
+entity	skills/learned-detection-gaps.md	rows	The register::entity|attribute|enumeration|reserved|calculated by|autocreated
+workflow	skills/learned-detection-gaps.md	rows	The register::workflow|parallel split
+access	skills/learned-detection-gaps.md	rows	The register::access|currentuser|role
+any	skills/learned-detection-gaps.md	section	Operating rules that fall out of this table
+any	skills/retesting-learned-rules.md	file	-

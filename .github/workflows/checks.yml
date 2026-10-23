@@ -33,6 +33,9 @@ jobs:
       - name: Routing tables in sync with skill-routing.tsv (render-routing.sh --check)
         run: bin/render-routing.sh --check
 
+      - name: MDL rules by kind cover every rule and match skills/generated (mdl-rules.sh --check)
+        run: bin/mdl-rules.sh --check
+
       - name: No macOS-only assumptions reintroduced (check-portability.sh)
         run: bin/check-portability.sh
 

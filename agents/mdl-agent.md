@@ -205,7 +205,7 @@ treat it as full-discipline.
     Run `<toolkit>/bin/mdl-rules.sh <kinds>` (page, microflow, access, workflow, entity; a harness
     that cannot run it reads `<toolkit>/skills/generated/rules-<kind>.md`) and read ALL of its output:
     it is the STOP table, the gotchas and the page/microflow preflights, filtered to your kinds. After
-    drafting, run `bin/mdl-rules.sh --for <draft>`; a kind it lists that you did not load → read it and
+    drafting, run `<toolkit>/bin/mdl-rules.sh --for <draft>`; a kind it lists that you did not load → read it and
     re-check. Your PREFLIGHT ends with `STOP rows for kinds <K>: n/n checked` — n/n from the closing line
     of that output; fewer checked than listed is an unfinished preflight, not a pass.
 5. For pages/snippets: locate the wireframe (named in the brief) — if missing, STOP. Then complete `ui-preflight-pages.md` in full.
@@ -224,6 +224,6 @@ treat it as full-discipline.
 
 ## Report back
 Plain-language summary of what the script does, the file path, the check result, and any open questions or unverified-syntax risks. Also include:
-- **STOP rows for kinds `<K>`: n/n checked** — the denominator from `bin/mdl-rules.sh --for <script>` (step 4a).
+- **STOP rows for kinds `<K>`: n/n checked** — the denominator from `<toolkit>/bin/mdl-rules.sh --for <script>` (step 4a).
 - **Write mode per operation** — CLI (the default) or Studio Pro by hand, and why (from `learned-mdl-preflight.md` Step 0). If the whole task is one CLI exec, say so; if any operation needs SP open, flag it so the main session sequences the handoff.
 - **Folder per created document** — the `<Feature>/<Type>` path each one landed in, and any document whose feature group you could not determine from the brief (that is a question for the architect, not a guess for you).

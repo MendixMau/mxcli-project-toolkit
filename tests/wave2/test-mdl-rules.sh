@@ -14,7 +14,13 @@
 #   T4  unknown kind / missing --for file: exit 2, nothing on stdout
 #   T5  a heading the table names that is gone: exit 1, loud on stderr, NOTHING on stdout
 #   T6  --check: clean on the tree; DRIFTED after a skill edit; COVERAGE after a new unmapped gotcha
-#   T7  build-ready item 2 (UI-quality routing) does not flip to FAIL after sync renders the new
+#   T7  --for whose classifier fails (no project-bin/exec.sh): exit 1, NOTHING on stdout   (review F1)
+#   T8  a register ERE that matches no row: --check and the kind lookup both fail          (review F2)
+#   T9  a new `##` section no kind selects, or an exclusion naming a gone heading: --check fails (F3)
+#   T10 --for maps exec.sh's `action` and `mapping` subjects to microflow, a demo user to access
+#   T11 a `# comment` inside a code fence does not end a section; a repeated kind is labelled once
+#   T12 an unclosed code fence fails --check and the lookup, never hides the sections after it
+#   T13 build-ready item 2 (UI-quality routing) does not flip to FAIL after sync renders the new
 #       baseline block, on a single-tree and a two-tree (.mpr under app/) layout; an old table that
 #       still names ui-preflight-pages passes; a CLAUDE.local.md with neither still fails
 set -uo pipefail
@@ -124,12 +130,18 @@ O="$(MXTK_MDL_RULES_TSV="$WORK/bad2.tsv" bash "$SUT" access 2>"$WORK/err")"; RC=
 echo "== T6: --check — clean, then drift, then a coverage gap (on a copy) =="
 O="$(bash "$SUT" --check 2>&1)"; RC=$?
 [ "$RC" -eq 0 ] && ok "--check on the tree: clean" || bad "--check on the tree: rc=$RC" "$O"
-C="$WORK/tk"; mkdir -p "$C/bin/lib" "$C/project-bin" "$C/skills/generated"
-cp "$TK/bin/mdl-rules.sh" "$C/bin/"; cp "$TK/bin/lib/mdl-rule-kinds.tsv" "$C/bin/lib/"; cp "$TK/project-bin/exec.sh" "$C/project-bin/"
-for f in $(awk -F'\t' '!/^#/ && NF >= 4 { print $2 }' "$TK/bin/lib/mdl-rule-kinds.tsv" | sort -u); do
-  mkdir -p "$C/$(dirname "$f")"; cp "$TK/$f" "$C/$f"
-done
-cp "$TK"/skills/generated/rules-*.md "$C/skills/generated/"
+# mkcopy <dir> — a minimal copy of the tree mdl-rules.sh reads: the script, its table, exec.sh,
+# every skill the table names, and the generated files.
+mkcopy() {
+  local c="$1" f
+  mkdir -p "$c/bin/lib" "$c/project-bin" "$c/skills/generated"
+  cp "$TK/bin/mdl-rules.sh" "$c/bin/"; cp "$TK/bin/lib/mdl-rule-kinds.tsv" "$c/bin/lib/"; cp "$TK/project-bin/exec.sh" "$c/project-bin/"
+  for f in $(awk -F'\t' '!/^#/ && NF >= 4 { print $2 }' "$TK/bin/lib/mdl-rule-kinds.tsv" | sort -u); do
+    mkdir -p "$c/$(dirname "$f")"; cp "$TK/$f" "$c/$f"
+  done
+  cp "$TK"/skills/generated/rules-*.md "$c/skills/generated/"
+}
+C="$WORK/tk"; mkcopy "$C"
 bash "$C/bin/mdl-rules.sh" --check >/dev/null 2>&1 && ok "the copy starts clean" || bad "the copy is not clean"
 awk '{print} /^## 3\. The page scaffold/{print "A new line under the scaffold heading."}' "$C/skills/design-spacing.md" > "$C/x" && mv "$C/x" "$C/skills/design-spacing.md"
 O="$(bash "$C/bin/mdl-rules.sh" --check 2>&1)"; RC=$?
@@ -150,7 +162,79 @@ awk '{ if ($0 ~ /^\| 29 \|/) sub(/\| microflow \|$/, "| nanoflow |"); print }' "
 O="$(bash "$C/bin/mdl-rules.sh" --check 2>&1)"
 has "$O" 'STOP row 29: Kind "nanoflow"' && ok "a STOP row with an unknown Kind is named" || bad "stop-kind coverage" "$O"
 
-echo "== T7: build-ready item 2 after sync, both layouts; old table passes; neither fails =="
+echo "== T7: --for with a failing classifier fails loudly and never prints the core alone (review F1) =="
+C7="$WORK/tk7"; mkcopy "$C7"; rm -f "$C7/project-bin/exec.sh"
+O="$(bash "$C7/bin/mdl-rules.sh" --for "$TK/skills/build/workflow-example.mdl" 2>"$WORK/err")"; RC=$?
+[ "$RC" -eq 1 ] && [ -z "$O" ] && grep -q 'classifier failed' "$WORK/err" \
+  && ok "no exec.sh: exit 1, stdout empty, stderr names the classifier" || bad "failing classifier: rc=$RC stdout=${#O} chars" "$(cat "$WORK/err")"
+
+echo "== T8: a register ERE that matches no row fails, though its kind's other EREs match (review F2) =="
+C8="$WORK/tk8"; mkcopy "$C8"
+printf 'workflow\tskills/learned-detection-gaps.md\trows\tThe register::zzznomatch\n' >> "$C8/bin/lib/mdl-rule-kinds.tsv"
+O="$(bash "$C8/bin/mdl-rules.sh" --check 2>&1)"; RC=$?
+[ "$RC" -eq 1 ] && has "$O" "zzznomatch" && ok "--check: exit 1, names the dead ERE" || bad "dead ERE --check: rc=$RC" "$O"
+O="$(bash "$C8/bin/mdl-rules.sh" workflow 2>"$WORK/err")"; RC=$?
+[ "$RC" -eq 1 ] && [ -z "$O" ] && grep -q 'zzznomatch' "$WORK/err" \
+  && ok "'workflow': exit 1, stdout empty, stderr names the dead ERE" || bad "dead ERE lookup: rc=$RC stdout=${#O} chars" "$(cat "$WORK/err")"
+
+echo "== T9: every ## section is selected by some kind or excluded with a reason (review F3) =="
+C9="$WORK/tk9"; mkcopy "$C9"
+printf '\n## 5. A brand-new rule section\n\nA rule nobody mapped to a kind.\n' >> "$C9/skills/learned-mdl-preflight.md"
+bash "$C9/bin/mdl-rules.sh" --render >/dev/null 2>&1
+O="$(bash "$C9/bin/mdl-rules.sh" --check 2>&1)"; RC=$?
+[ "$RC" -eq 1 ] && has "$O" "5. A brand-new rule section" && ! has "$O" "DRIFTED" \
+  && ok "an unselected new section: exit 1, COVERAGE names it" || bad "new section: rc=$RC" "$O"
+C9b="$WORK/tk9b"; mkcopy "$C9b"
+sed 's/^## Related$/## See also/' "$C9b/skills/design-spacing.md" > "$C9b/x" && mv "$C9b/x" "$C9b/skills/design-spacing.md"
+grep -q '^## See also$' "$C9b/skills/design-spacing.md" || bad "fixture setup: design-spacing.md has no '## Related' to rename"
+O="$(bash "$C9b/bin/mdl-rules.sh" --check 2>&1)"; RC=$?
+[ "$RC" -eq 1 ] && has "$O" "Related" && has "$O" "See also" \
+  && ok "a renamed excluded heading: exit 1, names the stale exclusion and the unselected heading" || bad "stale exclusion: rc=$RC" "$O"
+
+echo "== T10: --for maps action and mapping to microflow, a demo user to access =="
+MAP="$TK/fixtures/import-mapping-range-repro/maptest.mdl"   # a real repro: module, entities, JSON structure, import mapping
+O="$(bash "$SUT" --for "$MAP" 2>&1)"; RC=$?
+[ "$RC" -eq 0 ] && [ "$(printf '%s\n' "$O" | head -1)" = "# MDL rules for kinds: any, entity, microflow" ] \
+  && has "$O" "Also: module structure (core rules only)." \
+  && ok "$(basename "$MAP"): import mapping → microflow, beside entity" || bad "mapping: rc=$RC" "$(printf '%s\n' "$O" | sed -n '1p;4p')"
+# No .mdl file in the repo writes a Java action or a demo user, so these are minimal one-statement
+# scripts, in the spellings the skills document (learned-mdl-preflight.md, manage-security.md).
+printf 'create java action Test.JA_DoIt () returns boolean;\n' > "$WORK/ja.mdl"
+printf "create demo user 'demo.user' password 'Throwaway-Pass-1!' (User);\n" > "$WORK/du.mdl"
+printf "create demo user 'n' password 'P1!' entity Administration.Account (Role);\n" > "$WORK/du2.mdl"
+for spec in "ja.mdl|# MDL rules for kinds: any, microflow" \
+            "du.mdl|# MDL rules for kinds: any, access" \
+            "du2.mdl|# MDL rules for kinds: any, access"; do
+  f="${spec%%|*}"; want="${spec#*|}"
+  O="$(bash "$SUT" --for "$WORK/$f" 2>&1)"; RC=$?
+  H="$(printf '%s\n' "$O" | head -1)"
+  [ "$RC" -eq 0 ] && [ "$H" = "$want" ] && ! has "$O" "(core rules only)" \
+    && ok "$f ($(cut -c1-40 "$WORK/$f")…) → $H" || bad "$f: rc=$RC got '$H', want '$want'" "$(printf '%s\n' "$O" | sed -n '4p')"
+done
+
+echo "== T11: a # line inside a code fence does not end a section; a repeated kind is labelled once =="
+C11="$WORK/tk11"; mkcopy "$C11"
+awk '{print} /^## 3\. The page scaffold/{print ""; print "```"; print "# a shell comment in a fence"; print "```"; print "LINE-AFTER-THE-FENCE"}' \
+  "$C11/skills/design-spacing.md" > "$C11/x" && mv "$C11/x" "$C11/skills/design-spacing.md"
+O="$(bash "$C11/bin/mdl-rules.sh" page 2>&1)"; RC=$?
+[ "$RC" -eq 0 ] && has "$O" "LINE-AFTER-THE-FENCE" && has "$O" "building the body without the header is the escape" \
+  && ok "fenced # comment: the section runs on past it" || bad "fenced comment truncated the section: rc=$RC"
+O="$(bash "$SUT" page page 2>&1)"; RC=$?
+[ "$RC" -eq 0 ] && [ "$(printf '%s\n' "$O" | head -1)" = "# MDL rules for kinds: any, page" ] \
+  && [ "$(printf '%s\n' "$O" | tail -1)" = "$(tail -1 "$TK/skills/generated/rules-page.md")" ] \
+  && ok "'page page': labelled 'any, page', same closing line as 'page'" || bad "page page: rc=$RC" "$(printf '%s\n' "$O" | sed -n '1p;$p')"
+
+echo "== T12: an unclosed code fence fails loudly, never hides the sections after it =="
+C12="$WORK/tk12"; mkcopy "$C12"
+printf '\n```\n## 5. A new page rule\nNEW-RULE-BODY\n' >> "$C12/skills/design-spacing.md"
+O="$(bash "$C12/bin/mdl-rules.sh" --check 2>&1)"; RC=$?
+[ "$RC" -ne 0 ] && has "$O" "unclosed code fence" \
+  && ok "--check: unclosed fence in design-spacing.md fails (rc=$RC)" || bad "--check passed an unclosed fence: rc=$RC" "$(printf '%s\n' "$O" | tail -3)"
+O="$(bash "$C12/bin/mdl-rules.sh" page 2>/dev/null)"; RC=$?
+[ "$RC" -ne 0 ] && [ -z "$O" ] \
+  && ok "page lookup: unclosed fence → exit $RC, empty stdout" || bad "page lookup printed with an unclosed fence: rc=$RC, $(printf '%s' "$O" | wc -c) chars"
+
+echo "== T13: build-ready item 2 after sync, both layouts; old table passes; neither fails =="
 GATE="$TK/bin/gate-check.sh"; SYNC="$TK/bin/sync-project.sh"
 item2() { bash "$GATE" --no-html "$1" build-ready 2>&1 | grep -E 'baseline routing (references the UI-quality|missing UI-quality)' | head -1; }
 for layout in single two; do

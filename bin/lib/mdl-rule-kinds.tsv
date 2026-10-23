@@ -21,12 +21,17 @@
 #               bullet   one bullet under that heading: arg is "<heading>::<bullet lead text>"
 #               rows     the table rows under that heading whose FIRST cell matches an ERE
 #                        (case-insensitive): arg is "<heading>::<ERE>"
-#   4 arg       heading text, or heading::lead / heading::ERE as above; "-" for file and top
+#               exclude  kind "-": a `##` section deliberately reaching no kind (it is not a rule
+#                        for writing MDL); arg is "<heading>::<one-line reason>"
+#   4 arg       heading text, or heading::lead / heading::ERE / heading::reason as above; "-" for
+#               file and top
 #
 # Denominators (bin/mdl-rules.sh --check): every STOP row carries a known Kind, every bullet under
 # a `bullet` heading is selected by some row here, every table row under a `rows` heading is matched
-# by some ERE here, and every generated file equals a fresh render. A new gotcha or register row
-# that no kind selects fails --check, so it cannot silently stop reaching the mdl helper.
+# by some ERE here and every ERE matches some row on its own, every `##` section of a file read in
+# parts (no `file` row) is selected or excluded below, and every generated file equals a fresh
+# render. A new gotcha, register row or section that no kind selects fails --check, so it cannot
+# silently stop reaching the mdl helper. Headings inside code fences are not headings.
 #
 # kind	file	selector	arg
 any	skills/learned-mdl-preflight.md	top	-
@@ -49,6 +54,8 @@ page	skills/design-spacing.md	top	-
 page	skills/design-spacing.md	section	1. The scale
 page	skills/design-spacing.md	section	2. The rhythm hierarchy
 page	skills/design-spacing.md	section	3. The page scaffold
+-	skills/design-spacing.md	exclude	4. Review-side::judging a screenshot at module review (module-review.md 4d), not writing MDL
+-	skills/design-spacing.md	exclude	Related::cross-references to other skills, no rule of its own
 microflow	skills/learned-microflow-patterns.md	file	-
 microflow	skills/microflow-preflight.md	file	-
 access	skills/learned-microflow-patterns.md	section	Current User — Two Separate Mechanisms

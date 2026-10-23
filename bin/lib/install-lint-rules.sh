@@ -17,7 +17,7 @@
 # The gate keeps saying PASS over a rule that inspected nothing.
 #
 # The naive repair — "overwrite anything that lacks our marker" — destroys work: a project
-# may have deliberately tuned a rule, and conv020 REQUIRES editing before it runs at all.
+# may have deliberately tuned a rule, and mxtk_ux003 (MXTK-UX003) is configured per project by design.
 # So every file is classified before anything is written:
 #
 #   missing                    -> install
@@ -198,6 +198,170 @@ _mxtk_lint_receipt_finalize() {
   [ -z "$_pruned" ] || echo "Lint receipt: dropped row(s) for rules no longer shipped or disabled here:$_pruned"
 }
 
+# RENAMED RULES (MXTK_LINT_RENAMES in install-manifest.sh). First case: CONV020 -> MXTK-UX003,
+# because mxcli v0.28.0 ships a built-in CONV020 and runs both rules under that one id. Per rename:
+#   1. lint-rules-disabled.txt naming the old FILE -> rewritten to the new file (a file name is
+#      unambiguous, and leaving it would install the new rule over the user's opt-out).
+#   2. the old file: an unedited copy (md5, CR-insensitive, equals a shipped version or the
+#      receipt row) is deleted; the loop below then installs the new one. An edited copy is left
+#      alone with a warning, and the new file is held back (MXTK_LINT_RENAME_HOLD), since installing
+#      it beside the edited one would run the rule twice.
+#   3. lint-baseline.json, once no old copy remains: findings whose message matches the toolkit
+#      rule's are rekeyed to the new id and the counts moved with them. A finding with another
+#      message stays (mxcli's built-in). A counts-only baseline (pre-#239) cannot be split: NOTE.
+#   4. On a run that changed something: a NOTE for lint-config.yaml settings under the old id and
+#      for PROJECT.md lines naming it. Neither file is rewritten: their text cannot say which rule
+#      it meant. A second run finds nothing to do and prints nothing.
+_mxtk_lint_migrate_renames() {
+  _rn_proj="$1"; _rn_dry="$2"; _rn_src_dir="$3"
+  MXTK_LINT_RENAME_HOLD=""
+  [ -n "${MXTK_LINT_RENAMES:-}" ] || return 0
+  _rn_dir="$_rn_proj/.claude/lint-rules"
+  _rn_dis="$_rn_proj/.claude/lint-rules-disabled.txt"
+  _rn_base="$_rn_proj/.claude/lint-baseline.json"
+  while read -r _rn_old _rn_oid _rn_new _rn_nid _rn_md5s _rn_re; do
+    [ -n "$_rn_old" ] && [ -n "$_rn_re" ] || continue
+    _rn_did=0; _rn_hold=0
+
+    # 1. opt-out line
+    if [ -f "$_rn_dis" ] && awk -v o="$_rn_old" '$1 == o { f = 1 } END { exit f ? 0 : 1 }' "$_rn_dis"; then
+      if [ "$_rn_dry" -eq 1 ]; then
+        echo "Would carry over: .claude/lint-rules-disabled.txt $_rn_old -> $_rn_new"
+      else
+        awk -v o="$_rn_old" -v n="$_rn_new" '
+          $1 == o { i = index($0, o); $0 = substr($0, 1, i - 1) n substr($0, i + length(o)) } { print }' \
+          "$_rn_dis" > "$_rn_dis.tmp.$$" && mv "$_rn_dis.tmp.$$" "$_rn_dis"
+        echo "Lint opt-out carried over: .claude/lint-rules-disabled.txt now names $_rn_new (was $_rn_old)"
+      fi
+      _rn_did=1; MXTK_LINT_CHANGES=$((MXTK_LINT_CHANGES + 1))
+    fi
+
+    # 2. the old file
+    _rn_f="$_rn_dir/$_rn_old"
+    if [ -f "$_rn_f" ]; then
+      _rn_m="$(portable_md5 "$_rn_f")"
+      tr -d '\r' < "$_rn_f" > "$_rn_f.lf.$$"; _rn_ml="$(portable_md5 "$_rn_f.lf.$$")"; rm -f "$_rn_f.lf.$$"
+      _rn_rec="$(_mxtk_lint_receipt_get "$_rn_proj/.claude/.mxtk-lint-receipt" "$_rn_old" 2>/dev/null || true)"
+      _rn_clean=0
+      case ",$_rn_md5s," in *",$_rn_m,"*|*",$_rn_ml,"*) _rn_clean=1 ;; esac
+      [ -n "$_rn_rec" ] && [ "$_rn_rec" = "$_rn_m" ] && _rn_clean=1
+      if [ "$_rn_clean" -eq 1 ]; then
+        if [ "$_rn_dry" -eq 1 ]; then
+          echo "Would rename: .claude/lint-rules/$_rn_old -> $_rn_new ($_rn_oid -> $_rn_nid; your copy is an unedited toolkit version)"
+        else
+          echo "Lint rule renamed: .claude/lint-rules/$_rn_old -> $_rn_new (RULE_ID $_rn_oid -> $_rn_nid)."
+          echo "   mxcli v0.28.0 ships a built-in $_rn_oid. Your copy was an unedited toolkit version, so the"
+          echo "   current template replaces it."
+          if grep -q '^PROJECT_MODULES = ()' "$_rn_f"; then
+            echo "   It was the old template with PROJECT_MODULES empty, so it inspected nothing. The new one"
+            echo "   defaults to \"*\" and will report: review its findings, then"
+            echo "   bin/lint-gate.sh --update-baseline --reason \"$_rn_nid now configured\""
+          fi
+          rm -f "$_rn_f"
+        fi
+        _rn_did=1; MXTK_LINT_CHANGES=$((MXTK_LINT_CHANGES + 1))
+      else
+        _rn_hold=1; MXTK_LINT_RENAME_HOLD="$MXTK_LINT_RENAME_HOLD $_rn_new"
+        _mxtk_lint_warn \
+          ".claude/lint-rules/$_rn_old is edited here, so it was NOT renamed to $_rn_new ($_rn_nid)." \
+          "It still reports as $_rn_oid, the id mxcli v0.28.0 also gives a built-in rule. On that mxcli" \
+          "both run under one id: one lint-config entry switches both, -r $_rn_oid runs both, lint-gate" \
+          "sums them. $_rn_new was not installed beside it (the rule would run twice). By hand:" \
+          "  1. cp $_rn_src_dir/$_rn_new $_rn_dir/" \
+          "  2. copy your settings (PROJECT_MODULES, ACTION_PREFIX, any other edit) from $_rn_old into it" \
+          "  3. delete $_rn_old, then re-run sync-project.sh: it rekeys lint-baseline.json"
+      fi
+    fi
+
+    # 3. the baseline
+    if [ "$_rn_hold" -eq 0 ] && [ -f "$_rn_base" ] && grep -q "\"$_rn_oid[|\"]" "$_rn_base"; then
+      if ! _rn_py="$(resolve_py 2>/dev/null)"; then
+        _mxtk_lint_warn "lint-baseline.json still keys findings as $_rn_oid and Python 3 was not found to" \
+                        "rekey the toolkit rule's to $_rn_nid. Install Python 3 and re-run sync-project.sh."
+      else
+        IFS= read -r -d '' _rn_pysrc <<'PY' || true
+import json, os, re, sys
+p, old, new = os.environ["RN_BASE"], os.environ["RN_OLD"], os.environ["RN_NEW"]
+pat = re.compile(os.environ["RN_RE"])
+try:
+    d = json.load(open(p, encoding="utf-8"))
+    counts = d.get("counts") or {}
+except (ValueError, OSError, AttributeError) as e:
+    print("ERR %s" % e); sys.exit(0)
+f = d.get("findings")
+if f is None:
+    print("NOFINDINGS %d" % counts.get(old, 0)); sys.exit(0)
+moved = other = 0
+nf = {}
+for k, n in f.items():
+    if k.startswith(old + "|"):
+        parts = k.split("|", 3)
+        if len(parts) == 4 and pat.search(parts[3]):
+            k = new + k[len(old):]
+            moved += n
+        else:
+            other += n
+    nf[k] = nf.get(k, 0) + n
+if moved and os.environ.get("RN_DRY") != "1":
+    left = counts.get(old, 0) - moved
+    counts.pop(old, None)
+    if left > 0:
+        counts[old] = left
+    counts[new] = counts.get(new, 0) + moved
+    d["counts"] = dict(sorted(counts.items()))
+    d["findings"] = dict(sorted(nf.items()))
+    with open(p, "w", encoding="utf-8") as fh:
+        json.dump(d, fh, indent=2)
+        fh.write("\n")
+print("MOVED %d %d" % (moved, other))
+PY
+        _rn_out="$(RN_BASE="$(native_path "$_rn_base")" RN_OLD="$_rn_oid" RN_NEW="$_rn_nid" RN_RE="$_rn_re" \
+                   RN_DRY="$_rn_dry" "$_rn_py" -c "$_rn_pysrc" 2>&1)"
+        read -r _rn_k _rn_a _rn_b _rn_rest <<RNEOF
+$_rn_out
+RNEOF
+        case "$_rn_k" in
+          MOVED)
+            if [ "${_rn_a:-0}" -gt 0 ]; then
+              if [ "$_rn_dry" -eq 1 ]; then
+                echo "Would rekey: $_rn_a $_rn_oid finding(s) in .claude/lint-baseline.json -> $_rn_nid"
+              else
+                echo "Lint baseline: $_rn_a $_rn_oid finding(s) of the toolkit rule rekeyed to $_rn_nid (.claude/lint-baseline.json; commit it)."
+              fi
+              [ "${_rn_b:-0}" -gt 0 ] && echo "   $_rn_b $_rn_oid finding(s) kept: their message is not the toolkit rule's (mxcli's built-in $_rn_oid)."
+              _rn_did=1; MXTK_LINT_CHANGES=$((MXTK_LINT_CHANGES + 1))
+            fi ;;
+          NOFINDINGS)
+            if [ "${_rn_a:-0}" -gt 0 ]; then
+              echo "NOTE: .claude/lint-baseline.json holds $_rn_oid as a count only ($_rn_a; written before findings were"
+              echo "      recorded), so the toolkit rule's findings cannot be told from mxcli's built-in $_rn_oid. Not"
+              echo "      changed. Re-baseline: bin/lint-gate.sh --update-baseline --reason \"$_rn_oid renamed $_rn_nid\""
+            fi ;;
+          *) _mxtk_lint_warn "could not rekey $_rn_oid in .claude/lint-baseline.json: ${_rn_out:-no output}" ;;
+        esac
+      fi
+    fi
+
+    # 4. one-time notices
+    if [ "$_rn_did" -eq 1 ]; then
+      if [ -f "$_rn_proj/.claude/lint-config.yaml" ] &&
+         grep -qE "^[[:space:]]*\"?$_rn_oid\"?[[:space:]]*:" "$_rn_proj/.claude/lint-config.yaml"; then
+        echo "NOTE: .claude/lint-config.yaml has settings under $_rn_oid. On mxcli v0.28.0+ they reach mxcli's"
+        echo "      built-in $_rn_oid, not the toolkit rule. If they were meant for the toolkit rule (an opt-out:"
+        echo "      enabled: false), move them under $_rn_nid. Not changed automatically."
+      fi
+      if [ -f "$_rn_proj/PROJECT.md" ] && grep -q "$_rn_oid" "$_rn_proj/PROJECT.md"; then
+        echo "NOTE: PROJECT.md names $_rn_oid on line(s) $(grep -n "$_rn_oid" "$_rn_proj/PROJECT.md" | cut -d: -f1 | head -8 | paste -sd, -)."
+        echo "      A decision about the toolkit's user-feedback rule now refers to $_rn_nid; one about"
+        echo "      \"created object never persisted\" is mxcli's built-in. Not changed: the register is yours."
+      fi
+    fi
+  done <<EOF
+$MXTK_LINT_RENAMES
+EOF
+  return 0
+}
+
 mxtk_install_lint_rules() {
   _tk="$1"; _proj="$2"; _dry="${3:-0}"; _upg="${4:-}"
 
@@ -236,6 +400,7 @@ mxtk_install_lint_rules() {
     fi
   fi
 
+  _mxtk_lint_migrate_renames "$_proj" "$_dry" "$_src_dir"
   _mxtk_lint_disabled_audit "$_disabled"
   _drifted=""
   for _kind in managed configurable; do
@@ -244,6 +409,8 @@ mxtk_install_lint_rules() {
       _src="$_src_dir/$_f"; _dst="$_dst_dir/$_f"
       [ -f "$_src" ] || continue
       _mxtk_lint_is_disabled "$_disabled" "$_f" && continue
+      # An edited copy under a renamed rule's old file name is still in place: do not run it twice.
+      case " ${MXTK_LINT_RENAME_HOLD:-} " in *" $_f "*) [ -f "$_dst" ] || continue ;; esac
       _srcmd5="$(portable_md5 "$_src")" || continue
       _rec="$(_mxtk_lint_receipt_get "$_receipt" "$_f" 2>/dev/null || true)"
 
@@ -355,7 +522,7 @@ mxtk_install_lint_rules() {
       fi
 
       # ---- configurable and edited: this is the EXPECTED state, not drift ------------
-      # conv020 ships with PROJECT_MODULES empty and refuses to run until it is filled in.
+      # mxtk_ux003 (MXTK-UX003) is configured per project (PROJECT_MODULES, ACTION_PREFIX).
       # Refreshing it would silently un-configure the rule and send it back to inspecting
       # nothing. Stay quiet unless the TEMPLATE moved, which is the only case where the
       # project has a decision to make.

@@ -1,0 +1,14 @@
+Golden captures for tests/wave2/test-lint-rule-rename.sh. Verbatim mxcli output; only this note is
+hand-written. Captured 2026-10-23 on Linux x86-64 by the toolkit's mxcli v0.28.0 test pass
+(decision #13), against a fresh copy of the public model mendixlabs/mxcli testdata/pedapp @ 37855fe3
+(v0.28.0 tag; Mendix 11.13.0) with the toolkit's CONV020 user-feedback rule installed in
+.claude/lint-rules/ and the scratch additions in conv020-setup.mdl (hand-written input, exec'd by the same binary).
+Each <name>.cmd holds the exact command, binary version + sha256 and model sha256 at capture.
+
+  lint-conv020-v0.27.0.out           v0.27.0: one CONV020 finding, the toolkit rule's.
+  lint-conv020-v0.28.0.out           v0.28.0: two CONV020 findings, one per rule (the collision).
+  lint-conv020-only-v0.28.0.out      v0.28.0 -r CONV020: runs both rules.
+  lint-conv020-disabled-v0.28.0.out  v0.28.0 with lint-conv020-disabled.lint-config.yaml
+                                     (CONV020: enabled: false): switches BOTH off.
+  lint-list-rules-v0.28.0.out        v0.28.0 lint -l: CONV020 listed twice
+                                     (CreatedObjectNeverPersisted, ActionUserFeedback).

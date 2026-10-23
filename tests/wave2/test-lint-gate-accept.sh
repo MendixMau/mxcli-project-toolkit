@@ -95,14 +95,14 @@ mk "$(v CONV009 info 1)$(v MDL-FLOW01 info 3)$(v SEC003 warning 2)$(v CONV006 wa
 "$PY" - "$WORK/lint.json" <<'PY'
 import json,sys
 d=json.load(open(sys.argv[1]))
-d["violations"].append({"ruleId":"CONV020","severity":"warning","module":"_rule","document":"","documentType":"",
-  "documentId":"","message":"CONV020 is unconfigured: PROJECT_MODULES is empty, so this rule inspected NOTHING.","suggestion":"s"})
+d["violations"].append({"ruleId":"MXTK-UX003","severity":"warning","module":"_rule","document":"","documentType":"",
+  "documentId":"","message":"MXTK-UX003 is unconfigured: PROJECT_MODULES is empty, so this rule inspected NOTHING.","suggestion":"s"})
 json.dump(d,open(sys.argv[1],"w"))
 PY
 out=$(gate 2>&1); grc=$?
 [ "$grc" -eq 1 ] && ok "lint-gate still exits 1 for PASS-BLIND" || bad "gate rc=$grc" "$out"
 detail=$(cd "$P" && PROJECT_ROOT="$P" LINT_JSON="$WORK/lint.json" bash -c ". '$fn'; LINT_RC=0; run_lint_gate >/dev/null; echo \"\$LINT_RC|\$LINT_DETAIL\"")
-case "$detail" in "3|lint BLIND: CONV020"*) ok "exec detail: ${detail#*|}" ;; *) bad "blind run not told apart from a rise" "$detail" ;; esac
+case "$detail" in "3|lint BLIND: MXTK-UX003"*) ok "exec detail: ${detail#*|}" ;; *) bad "blind run not told apart from a rise" "$detail" ;; esac
 
 echo "T9 the metrics ledger does not class a blind run as a clean apply"
 ML="$TK/project-bin/metrics-ledger.sh"

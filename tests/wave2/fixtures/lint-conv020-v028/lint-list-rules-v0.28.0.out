@@ -1,0 +1,83 @@
+Connected to: PedApp.mpr (Mendix 11.13.0)
+Loading cached catalog (built 21s ago, full mode)...
+✓ Catalog ready (from cache)
+Available lint rules:
+
+  MPR001 (NamingConvention) - Checks that entities, microflows, pages, and enumerations follow naming conventions
+      Category: style, Severity: warning
+
+  MPR002 (EmptyMicroflow) - Checks for microflows, nanoflows and rules that have no activities
+      Category: quality, Severity: warning
+
+  MPR003 (DomainModelSize) - Checks that modules have no more than 15 persistent entities
+      Category: design, Severity: warning
+
+  MPR004 (EmptyValidationFeedback) - Checks for validation feedback actions with empty message templates (CE0091)
+      Category: correctness, Severity: warning
+
+  MPR005 (UnconfiguredImage) - Checks for IMAGE widgets with no source configured (crashes at runtime)
+      Category: correctness, Severity: warning
+
+  MPR012 (LegacyImageWidget) - Checks for the legacy static/dynamic image widgets, which the React client does not support (CE0582)
+      Category: correctness, Severity: warning
+
+  MPR013 (SnippetCallAppearance) - Checks for snippet calls with Class, Style, DynamicClasses or design properties, which never reach the page (a snippet call renders no element)
+      Category: correctness, Severity: warning
+
+  MPR006 (EmptyContainer) - Checks for CONTAINER widgets with no children (valid and renders, but usually a leftover)
+      Category: quality, Severity: info
+
+  MPR009 (GallerySelectionListener) - Gallery referenced by DataView's `DataSource: selection X` must set ItemSelectionMode: toggle (Studio Pro CE3637)
+      Category: correctness, Severity: error
+
+  MPR010 (DataViewLayoutGrid) - A DataView containing input widgets (a form) should be wrapped in a layout grid so label and input widths render correctly
+      Category: design, Severity: warning
+
+  QUAL006 (RequiredCaptionMissingDefaultLanguage) - Checks that every caption mxbuild requires (a tab page caption) has text in the project's default language (CE4899)
+      Category: quality, Severity: error
+
+  MPR007 (PageNavigationSecurity) - Checks that pages used in navigation have at least one allowed role (CE0557), and that every user role can open its home page (at Production security, else CE2729 per widget)
+      Category: security, Severity: warning
+
+  SEC001 (NoEntityAccessRules) - Checks that persistent entities have at least one access rule
+      Category: security, Severity: warning
+
+  SEC002 (WeakPasswordPolicy) - Checks that the password policy requires at least 8 characters
+      Category: security, Severity: warning
+
+  SEC003 (DemoUsersActive) - Checks that demo users are disabled when security level is Production
+      Category: security, Severity: warning
+
+  SEC010 (PageEntityNotReadable) - Checks that the roles allowed on a page may read the entity each of its data widgets lists (at Production security it renders empty for them, silently)
+      Category: security, Severity: warning
+
+  MPR008 (OverlappingActivities) - Microflow activities whose canvas positions overlap, typically caused by missing @position annotations in MDL
+      Category: correctness, Severity: warning
+
+  MPR011 (LoopChildContainment) - Microflow activities positioned outside the loop container that holds them, which renders wrong in Studio Pro but passes mx check
+      Category: correctness, Severity: warning
+
+  CONV011 (NoCommitInLoop) - Commits should not be inside loops, whether a commit action or a create/change with commit (N+1 performance issue)
+      Category: performance, Severity: warning
+
+  CONV012 (ExclusiveSplitCaption) - Exclusive splits should have a meaningful caption describing the decision
+      Category: quality, Severity: info
+
+  CONV013 (ErrorHandlingOnCalls) - External service calls (REST, web service, Java action) should have custom error handling
+      Category: quality, Severity: warning
+
+  CONV014 (NoContinueErrorHandling) - Activities should not use 'Continue' error handling which silently swallows errors
+      Category: quality, Severity: warning
+
+  CONV020 (CreatedObjectNeverPersisted) - A microflow creates an object of a persistent entity without committing it, and never commits, returns, passes on, stores or deletes it
+      Category: quality, Severity: warning
+
+  MDL-FLOW01 (IrreducibleFlowGraph) - Microflow branch structure cannot be described faithfully as nested if/then/else
+      Category: quality, Severity: info
+
+  MDL-MAP04 (ImportRangeOnObjectMapping) - Import activity stores a First range over an object-rooted mapping (throws at runtime)
+      Category: correctness, Severity: error
+
+  CONV020 (ActionUserFeedback) - Page-triggered microflows that commit, import or delete should show the user a message
+      Category: quality, Severity: warning
+

@@ -96,7 +96,7 @@ ARCH002 went 0 → 38 on the casing fix. That looked like a repair. All 38 were 
 the rule had never skipped the platform modules its sibling ARCH003 always skipped, which was
 invisible while it was dead. With the same `SKIP_MODULES`, the same project measures **0**.
 
-CONV010/CONV020 identify a page action only by an `ACT_` name prefix (`refs_to()` reports the same
+CONV010/MXTK-UX003 identify a page action only by an `ACT_` name prefix (`refs_to()` reports the same
 `ref_kind` for a button click and a datasource, so the name is the only signal). That prefix is
 Mendix's Development Best Practices convention, but it is a convention: on a project naming things
 differently, both rules matched nothing and reported clean.
@@ -130,6 +130,12 @@ Confirmed workable everywhere: post-filter totals were 302 / 499 / 611 / 614 acr
 all the same order of magnitude, and no project produced a single real error-severity finding — so
 the ratchet is the *only* mechanism available. `project-bin/lint-gate.sh` implements it
 (`--update-baseline` to accept current counts).
+
+**After upgrading mxcli, re-baseline.** A new mxcli adds built-in rules, so the next exec reports a
+rise that no change of yours caused (v0.28.0 added a built-in CONV020, "Created object never persisted").
+Look at the new findings, then run
+`bin/lint-gate.sh --update-baseline --reason 'mxcli vX built-in rules'`. The baseline records
+`mxcli_version`, and `bin/doctor.sh` prints this hint when the installed mxcli differs from it.
 
 **Accepting a rise is a recorded decision, not a reflex.** Three apps built in four days
 re-baselined 61 times, every time by the agent whose script caused the rise; baselines grew

@@ -157,7 +157,7 @@ def check():
     # SELF-CHECK. activities_for() is a stub returning [] in some mxcli builds (the
     # microflow adapter no longer emits Activity nodes). A rule that reads no
     # activities reports zero violations and looks CLEAN -- a silent false pass.
-    # Fail loudly instead. Same guard as CONV020.
+    # Fail loudly instead. Same guard as MXTK-UX003.
     # SELF-CHECK 2: the naming convention does not match this project.
     # The guard below only fires once at least one microflow matched the prefix. A project
     # that does not use ACT_ at all inspects ZERO, skips that guard, and gets a clean pass

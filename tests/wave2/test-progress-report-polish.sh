@@ -20,6 +20,14 @@
 #       sticky and phone-safe; every #stage-N card anchor stays; the header states the current stage; exactly one
 #       id=stamp, every other volatile line marked data-stamp, every id on the page unique; the autoreload's
 #       live controls sit on the id=stamp line; no "replaces the former build-plan.html" in the header.
+#   P8  tabs: six sections (Overview, Build, Changes, Performance, Pages, Notes) and a tab bar beside the section
+#       links; without JavaScript every section shows and the section links stay. The Changes tab reads the PROJECT.md
+#       Change log, counts waiting rows, leads a split sentence with its "(part: ...)" and counts plan rows that name the CR.
+#   P9  bugs in the Notes tab: docs/bugs.jsonl rows; an open bug gets "File to ..." buttons that copy its file-bugs.sh
+#       command (gh in the terminal, y/N), one per repo, and no browser new-issue link; a filed bug links its issue(s);
+#       without a deny list there is no button and the tab says why.
+#   P10 Build tab: the phase being built (open) and the three unfinished phases with the latest built date as
+#       cards; other unfinished and completed phases fold into two groups.
 #   P3  no session log: one calm line (not the orange box), the regenerate hint inside "How this was measured";
 #       with --no-log the page never claims it looked in folders or logs.
 #
@@ -83,7 +91,7 @@ has "$R" "<h2>A\\. Script folders" "view A stays"
 has "$R" "<h2>B\\. Modules" "view B stays"
 has "$R" "href='#plan-tables'" "the jump link still points at views A and B"
 has "$R" "addEventListener(.\\?'toggle" "accordion toggle handler present in the script"
-[ "$(grep -o "addEventListener(.\\?'toggle" "$R" | wc -l)" = 1 ] && ok "accordion handler is not duplicated" || bad "accordion handler is not duplicated"
+[ "$(grep -o "addEventListener(.\\?'toggle" "$R" | wc -l | tr -d ' ')" = 1 ] && ok "accordion handler is not duplicated" || bad "accordion handler is not duplicated"
 
 echo "P6b an older progress-report.py without --phase-detail still renders the page, with the short row tables"
 OLD="$WORK/oldbin"; mkdir -p "$OLD"
@@ -117,7 +125,8 @@ const h = fs.readFileSync(process.argv[2], "utf8");
 const main = h.match(/<script>([\s\S]*?)<\/script>/)[1];
 const reload = h.match(/<script id=autoreload>([\s\S]*?)<\/script>/)[1];
 const cards = [...h.matchAll(/<details class='card ph[^']*' id='(phase-[^']+)'( open)?>/g)].map(m => [m[1], !!m[2]]);
-assert.deepStrictEqual(cards.map(c => c[0]), ["phase-1", "phase-2", "phase-3"]);
+// the Build tab orders cards by focus (P10 pins that order); here only the set matters
+assert.deepStrictEqual(cards.map(c => c[0]).sort(), ["phase-1", "phase-2", "phase-3"]);
 // One page load: details elements whose open setter queues a coalesced 'toggle' (as browsers do, also for the
 // open attribute at parse time), the page's two scripts run in order, then the queued toggles are dispatched.
 function load(hash, store) {
@@ -163,8 +172,10 @@ R7="$P7/architecture/progress-report.html"
 import re, sys, collections
 h = open(sys.argv[1], encoding="utf-8").read(); gen = open(sys.argv[2], encoding="utf-8").read()
 nav = re.search(r"<nav class=snav[^>]*>(.*?)</nav>", h).group(1)
-links = re.findall(r"<a href='([^']+)'[^>]*>([^<]+)</a>", nav)
+tabbar = re.search(r"<span class=tabbar[^>]*>(.*?)</span>", nav).group(1)   # with JavaScript the tab bar replaces the links
+links = re.findall(r"<a href='([^']+)'[^>]*>([^<]+)</a>", nav.replace(tabbar, ""))
 assert [t for _, t in links] == ["Stages", "Build", "Pages"], links            # no Tips without a session log
+assert [t for _, t in re.findall(r"data-tab='([^']+)'[^>]*>([^<]+)</a>", tabbar)] == ["Overview", "Build", "Changes", "Performance", "Pages", "Notes, tips and bugs"], tabbar
 assert not re.search(r"href='#stage-", nav) and "<b>" not in nav, nav           # the chip group is gone
 assert "id=stages" in h and h.index("id=stages") < h.index("id='stage-P'"), "Stages target sits above the stage cards"
 for s_ in ["P", "0", "1", "2", "3", "4", "5", "6"]: assert "id='stage-%s'" % s_ in h, s_
@@ -192,6 +203,83 @@ has "$P7u/architecture/progress-report.html" "<span class=nowstage>Current stage
 SUM7="$(cksum < "$R7")"; sleep 1
 CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$P7" --refresh >/dev/null 2>&1
 [ "$(cksum < "$R7")" = "$SUM7" ] && ok "--refresh leaves the page byte-identical when only stamp lines would change" || bad "--refresh rewrote an unchanged page"
+
+echo "P8 tabs and the Changes tab"
+P8="$WORK/p8"; mkproj "$P8" "**Stage 5 - Build**, in progress - gates passed: P, 0, 1, 2, 3, 4"
+cat >> "$P8/PROJECT.md" <<'MD'
+
+## Change log
+
+| CR | Date | Source | Verbatim ask | Class | Size | Entry artifact | Status | Closed-by |
+|---|---|---|---|---|---|---|---|---|
+| CR-01 | 2026-10-16 | user | "Make the hub the landing page, with tasks" (part: tasks) | requirement | L | F001 | agreed 2026-10-16 | |
+| CR-02 | 2026-10-16 | user | Blue button | visual | S | wireframe | proven | abc123, journey home |
+MD
+cat > "$P8/architecture/build-plan.md" <<'MD'
+# Build plan
+
+## Phase 1 - Change round
+
+| # | Kind | Step | Script | Depends | State |
+|---|---|---|---|---|---|
+| 10 | BUILD | CR-01 task feed | 10-feed.mdl | | done 2026-10-17 |
+| 11 | BUILD | CR-01 hub home | 11-home.mdl | 10 | planned |
+MD
+CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$P8" --html >/dev/null 2>&1
+R="$P8/architecture/progress-report.html"
+for t in overview build changes performance pages notes; do has "$R" "<section class=tab id=tab-$t>" "section tab-$t present"; done
+has "$R" "data-tab='tab-changes'" "tab bar links the Changes tab"
+has "$R" "body.tabbed:not(.all) section.tab:not(.on){display:none}" "sections hide only once the script marks the body tabbed"
+has "$R" "<div class=v>1 of 2</div><div class=l>Changes waiting</div>" "Overview counts 1 of 2 changes waiting"
+has "$R" "2 change request(s): 1 waiting, 0 built, 1 proven" "Changes tab sums the statuses"
+has "$R" "Part: tasks. Make the hub the landing page" "a split sentence leads with its part"
+has "$R" "<td class=n>1 of 2</td>" "CR-01 plan rows: 1 of 2 built"
+
+echo "P9 Bugs tab"
+P9="$WORK/p9"; mkproj "$P9" "**Stage 5 - Build**, in progress - gates passed: P, 0, 1, 2, 3, 4"; mkdir -p "$P9/docs"
+cat > "$P9/docs/bugs.jsonl" <<'JL'
+{"id": "PBUG-01", "date": "2026-10-17", "target": "toolkit", "title": "Report rolls back a stage", "repro": "run it", "expected": "stays", "actual": "rolls back", "versions": {}, "status": "open", "issue_url": ""}
+{"id": "PBUG-02", "date": "2026-10-16", "target": "mxcli", "title": "Old one", "repro": "r", "expected": "e", "actual": "a", "versions": {}, "status": "filed", "issue_url": "https://github.com/mendixlabs/mxcli/issues/1", "also": {"toolkit": "https://github.com/MendixMau/mxcli-project-toolkit/issues/9"}}
+JL
+LEAKGUARD_DENY='Acmebank' CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$P9" --html >/dev/null 2>&1
+R="$P9/architecture/progress-report.html"
+has "$R" "<h2 id=bugs>Encountered bugs or limitations</h2>" "bugs sit in the notes tab as Encountered bugs or limitations"
+hasnt "$R" "id=tab-bugs" "no separate Bugs tab"
+has "$R" "Nothing breaks: the bug stays here" "the tab says what happens without gh or a GitHub account"
+has "$R" "2 bug(s): 1 open, 1 filed, 0 fixed" "Bugs tab counts open and filed"
+has "$R" "class='filebtn' data-cmd='[^']*file-bugs.sh --project [^']* --file PBUG-01'" "open bug gets a button that copies its file-bugs.sh command"
+has "$R" ">File to the toolkit</button>" "button names the target"
+has "$R" "class='filebtn alt' data-cmd='[^']*--file PBUG-01 --to mxcli'" "second button files the same bug to the other repo"
+has "$R" "button\[data-cmd\]" "the page carries the copy handler"
+hasnt "$R" "issues/new" "no browser new-issue link on the page"
+has "$R" "href='https://github.com/MendixMau/mxcli-project-toolkit/issues/9'" "a second submission is linked too"
+has "$R" "href='https://github.com/mendixlabs/mxcli/issues/1'" "filed bug links its issue"
+CLAUDE_CONFIG_DIR="$EMPTY" LEAKGUARD_DENY= bash "$SCRIPT" "$P9" --html >/dev/null 2>&1
+has "$R" "No file buttons:" "without a deny list the tab says why there is no button"
+hasnt "$R" "data-cmd=" "and shows no button"
+
+echo "P10 Build tab: building now and three more, the rest folded"
+P10="$WORK/p10"; mkproj "$P10" "**Stage 5 - Build**, in progress - gates passed: P, 0, 1, 2, 3, 4"
+{ echo "# Build plan"; echo
+  ph() { echo "## Phase $1 - Ph$1"; echo; echo "| # | Kind | Step | Script | Depends | State |"; echo "|---|---|---|---|---|---|"; shift; n=0; for st in "$@"; do n=$((n+1)); echo "| $n | BUILD | step $n | s.mdl | | $st |"; done; echo; }
+  ph 1 "done 2026-09-01" "done 2026-09-02"
+  ph 2 "done 2026-09-03"
+  ph 3 "done 2026-10-01" "planned"
+  ph 4 "done 2026-10-10" "planned"
+  ph 5 "planned"
+  ph 6 "planned"
+  ph 7 "done 2026-10-12" "planned"; } > "$P10/architecture/build-plan.md"
+CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$P10" --html >/dev/null 2>&1
+R="$P10/architecture/progress-report.html"
+B="$WORK/p10.build"; python3 -c 'import sys;h=open(sys.argv[1]).read();print(h[h.index("id=tab-build"):h.index("id=tab-changes")])' "$R" > "$B"
+has "$B" "class='card ph now' id='phase-7' open>" "the phase being built is first and open"
+has "$B" "Building now and next" "focus heading"
+ord() { python3 -c 'import re,sys;print(" ".join(re.findall(r"id=.phase-(\w+)", open(sys.argv[1]).read())))' "$B"; }
+chk_ord="$(ord)"; [ "$chk_ord" = "7 4 3 5 6 1 2" ] && ok "order: now 7, then by latest built date 4 3, then 5; rest folded" || bad "order is '$chk_ord'"
+has "$B" "<b>Other unfinished phases (1)</b>" "the fifth unfinished phase is folded"
+has "$B" "<b>Completed phases (2)</b>" "fully built phases are folded"
+hasnt "$B" "id='phase-4' open" "only the current phase starts open"
+has "$R" "d=d.parentElement&&d.parentElement.closest" "a link to a phase opens its folded group too"
 
 echo "P2 placeholder failure on a later stage is pending"
 P2="$WORK/p2"; mkproj "$P2" "**Stage P - Kickoff**, in progress - gates passed: none"

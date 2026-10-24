@@ -56,8 +56,9 @@ echo "$*" >> "$GHLOG"
 case "$1 $2" in
   "issue list") echo '[{"number":77,"title":"Similar widget crash","state":"OPEN","url":"https://github.com/mendixlabs/mxcli/issues/77"}]' ;;
   "issue create")
-    for a in "$@"; do case "$a" in --body-file=*) cp "${a#--body-file=}" "$GHLOG.body" ;; esac; done
-    echo "https://github.com/mendixlabs/mxcli/issues/4242" ;;
+    r=mendixlabs/mxcli
+    for a in "$@"; do case "$a" in --body-file=*) cp "${a#--body-file=}" "$GHLOG.body" ;; --repo=*) r="${a#--repo=}" ;; esac; done
+    echo "https://github.com/$r/issues/4242" ;;
   "--version "*) echo "gh version stub" ;;
 esac
 exit 0
@@ -340,6 +341,27 @@ echo "M. dotted users, attribute boundaries"
 G="$(USER=maurits.visser bodyof 'by maurits.visser, maurits and visser; Kundennummer2 and kundennummerold and Kundennummer_x')"
 chk "first.last redacts whole and each part" '! echo "$G" | grep -qi "maurits\|visser"'
 chk "attribute followed by digits or letters is redacted" '! echo "$G" | grep -qi "kundennummer"'
+
+echo "N. --to: the same bug filed to the other repo too"
+: > "$GHLOG"; cp "$P/docs/bugs.jsonl" "$W/before"
+chk "--to toolkit offers a filed mxcli bug for the toolkit repo" 'run --to toolkit --json </dev/null | "$PY" -I -c "import json,sys;x=[i for i in json.load(sys.stdin) if i[\"id\"]==\"PBUG-01\"];sys.exit(not(x and \"MendixMau/mxcli-project-toolkit\" in json.dumps(x)))"'
+ANS=y prun --file PBUG-01 --to toolkit >/dev/null 2>&1
+chk "--to toolkit creates the issue in the toolkit repo" '[ "$(grep -c "issue create" "$GHLOG")" = 1 ] && grep -q "issue create --repo=MendixMau/mxcli-project-toolkit " "$GHLOG"'
+chk "the row keeps its target, status and first url; the second url goes in also" 'grep "\"PBUG-01\"" "$P/docs/bugs.jsonl" | grep "\"target\": *\"mxcli\"" | grep "\"status\": \"filed\"" | grep -q "\"issue_url\": \"https://github.com/mendixlabs/mxcli/issues/4242\", \"also\": {\"toolkit\": \"https://github.com/MendixMau/mxcli-project-toolkit/issues/4242\"}"'
+chk "other rows byte-identical after --to" 'diff <(grep -v PBUG-01 "$W/before") <(grep -v PBUG-01 "$P/docs/bugs.jsonl") >/dev/null'
+chk "a bug already filed to that repo is not offered again" '! run --to toolkit </dev/null | grep -q "^PBUG-01"'
+chk "without --to a filed bug is still not offered" '! run </dev/null | grep -q "^PBUG-01"'
+
+echo "O. no gh on PATH: nothing breaks"
+NOGH="$W/nogh"; mkdir -p "$NOGH"; # every tool from the normal PATH except gh, so only "gh missing" differs
+IFS=: read -ra DIRS <<< "$PATH"; for d in "${DIRS[@]}"; do [ "$d" = "$BIN" ] && continue; for c in "$d"/*; do n="${c##*/}"; [ "$n" = gh ] || [ -e "$NOGH/$n" ] || ln -s "$c" "$NOGH/$n" 2>/dev/null; done; done
+cp "$P/docs/bugs.jsonl" "$W/before"; NC="$(grep -c "" "$GHLOG")"
+OUT="$(PATH="$NOGH" ANS=y "$PY" "$W/ptyrun.py" tty "$SUBJ" --project "$P" --file PBUG-03 2>&1)"; RC=$?
+chk "the stripped PATH really has no gh" '! PATH="$NOGH" command -v gh >/dev/null'
+chk "without gh, --file exits 0" '[ "$RC" = 0 ]'
+chk "without gh nothing is posted and the stub was never reached" '[ "$(grep -c "" "$GHLOG")" = "$NC" ] && echo "$OUT" | grep -q "Not posting"'
+chk "without gh the log is unchanged" 'cmp -s "$P/docs/bugs.jsonl" "$W/before"'
+chk "without gh it names the way out (gh auth login, or --links)" 'echo "$OUT" | grep -q "Nothing breaks" && echo "$OUT" | grep -q "file-bugs.sh --links PBUG-03"'
 
 echo "Z. no real issue was ever created"
 chk "every gh call went through the stub (log exists, no network tool used)" '[ -s "$GHLOG" ]'

@@ -242,8 +242,10 @@ into projects; copy by hand) to `tests/e2e/fixtures/<name>.sh` and fill every `F
    the harness never runs `set` — the rule at the top of this file. `set` is a run-sheet
    precondition step, run by a human or the main session **with approval** (§4).
 6. **`dry-run` before the first live `set`** — the full transaction, guards included, rolled back.
-7. **Local test database only.** The template refuses a non-local `PGHOST` unless
-   `FIXTURE_ALLOW_HOST` names it, never prints credentials, and makes no model change.
+7. **Local test database only.** The template refuses a non-local `PGHOST` or `PGHOSTADDR`,
+   and a server address that is not a socket or loopback after connecting (a `PGSERVICE` entry),
+   unless `FIXTURE_ALLOW_HOST` names it; never prints credentials; makes no model change. A NULL
+   current value is refused before the write: it could not be saved for revert.
 
 Wrong shape this prevents: `UPDATE "scenario$scenarioclock" SET currentmoment = '13:08' WHERE id =
 281474976710657;` — the id is gone after the next base-data reload, nothing checked the clock was

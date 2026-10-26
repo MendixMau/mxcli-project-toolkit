@@ -57,8 +57,9 @@ if [ -n "$PGBIN" ] && [ "$(id -u)" != 0 ]; then
   CLEANUP="\"$PGBIN/pg_ctl\" -D \"$W/data\" -m immediate stop >/dev/null 2>&1"
   export PGHOST=localhost PGPORT="$PORT" PGUSER=fx PGPASSWORD="$PW" PGDATABASE=postgres
 elif [ -n "${FIXTURE_TEST_PGHOST:-}" ]; then
+  _fxpw=${FIXTURE_TEST_PGPASSWORD:-}
   export PGHOST="$FIXTURE_TEST_PGHOST" PGPORT="${FIXTURE_TEST_PGPORT:-5432}" \
-         PGUSER="${FIXTURE_TEST_PGUSER:-postgres}" PGPASSWORD="${FIXTURE_TEST_PGPASSWORD:-}" PGDATABASE=postgres
+         PGUSER="${FIXTURE_TEST_PGUSER:-postgres}" PGPASSWORD=$_fxpw PGDATABASE=postgres
   PW="$PGPASSWORD"
 else
   echo "  SKIP no initdb usable (absent, or running as root) and no FIXTURE_TEST_PGHOST — 15 cases not run"

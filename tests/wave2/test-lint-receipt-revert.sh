@@ -237,7 +237,7 @@ EX="$P15/.claude/lint-rules/example_microflow.star"
 cp "$STOCKEX" "$EX"; printf '# project tweak: our prefixes\n' >> "$EX"; em=$(portable_md5 "$EX")
 cp "$STOCKEX" "$P15/.claude/lint-rules/example_unedited.star"   # a stock copy under another name: still not stock-listed
 g15() { (cd "$P15" && MXTK_LINT_STOCK_LIST="$SL" LINT_JSON="$WORK/lint.json" bash bin/lint-gate.sh "$@"); }
-git15() { git -C "$P15" -c user.name=t -c user.email=t@example.invalid "$@" >/dev/null 2>&1; }
+git15() { git -C "$P15" -c user.name=t -c user.email=t@t "$@" >/dev/null 2>&1; }
 git15 init -q; git15 add -A; git15 commit -qm base
 mk "$(v CUSTOM002 warning 3)"
 out=$(g15 --update-baseline 2>&1); rc=$?
@@ -284,7 +284,7 @@ mk16() {   # $1 dir, $2 the version the mxcli stub reports
   ( . "$TK/bin/lib/install-lint-rules.sh"; mxtk_install_lint_rules "$TK" "$1" 0 "" ) >/dev/null 2>&1
 }
 g16() { local d="$1"; shift; (cd "$d" && MXTK_LINT_STOCK_LIST="$SL" LINT_JSON="$WORK/lint.json" bash bin/lint-gate.sh "$@"); }
-git16() { local d="$1"; shift; git -C "$d" -c user.name=t -c user.email=t@example.invalid "$@" >/dev/null 2>&1; }
+git16() { local d="$1"; shift; git -C "$d" -c user.name=t -c user.email=t@t "$@" >/dev/null 2>&1; }
 # (a) Git Bash with core.autocrlf: the unedited stock rule is checked out with CRLF line ends.
 P16="$WORK/p16a"; mk16 "$P16" v0.27.0
 sed 's/$/\r/' "$STOCKEX" > "$P16/.claude/lint-rules/example_microflow.star"

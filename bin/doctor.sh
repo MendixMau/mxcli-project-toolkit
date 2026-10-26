@@ -948,6 +948,31 @@ if [ -n "$JAVA_EXE" ] && [ -x "$JAVA_EXE" ]; then
   if [ -n "$JV" ]; then
     ok "java runs: $JV  ($JAVA_EXE)"
     [ -z "${_jnote:-}" ] || warn "$_jnote"
+    # The JDK major must match the model (#576): 11.14+ builds need JDK 25, 11.13 and below
+    # JDK 21 (the same rule as find_java's _mxtk_java_want, read off the model doctor resolved). A JAVA_HOME exported in the shell
+    # profile wins over that rule AND over toolkit.env, and the mismatch then surfaces only as
+    # mxbuild stopping before it checks anything. Mendix 11 only — the rule is documented
+    # there; Studio Pro's bundled runtime is paired with its mxbuild and never flagged.
+    JAVA_WANT=""
+    _mver="$(mxtk_model_version "${MPR:-}" 2>/dev/null || true)"
+    case "$_mver" in
+      11.*)
+        _mmin="${_mver#11.}"; _mmin="${_mmin%%.*}"
+        JAVA_WANT=21; [ "$_mmin" -ge 14 ] 2>/dev/null && JAVA_WANT=25
+        _jmaj="$(printf '%s\n' "$JV" | sed -n 's/.*version "\(1\.\)\{0,1\}\([0-9][0-9]*\).*/\2/p' | head -1)"
+        case "$JAVA_HOME_FOUND" in
+          "${SP_APP:-<none>}"/*) ;;
+          *) if [ -n "$_jmaj" ] && [ "$_jmaj" != "$JAVA_WANT" ]; then
+               warn "Java $_jmaj, but this model (Mendix $_mver) builds with JDK $JAVA_WANT — mxbuild will stop before checking the model"
+               if [ -n "${JAVA_HOME:-}" ]; then
+                 note "JAVA_HOME is set in your environment, which wins over the toolkit's per-model JDK choice and over toolkit.env."
+                 note "Point it at JDK $JAVA_WANT (macOS: export JAVA_HOME=\$(/usr/libexec/java_home -v $JAVA_WANT)) or unset it in your shell profile."
+               else
+                 note "Install JDK $JAVA_WANT, or set JAVA_HOME=<a JDK $JAVA_WANT folder> in .claude/toolkit.env."
+               fi
+             fi ;;
+        esac ;;
+    esac
     # mxbuild compiles the model's Java actions, which takes javac — a JRE has none. Studio
     # Pro's bundled runtime is a JRE that mxbuild is paired with, so only flag a system Java.
     case "$JAVA_HOME_FOUND" in
@@ -1291,13 +1316,22 @@ if [ -n "$PROJECT_DIR" ]; then
     grep -qF 'bin/session-check.sh' "$PSET" 2>/dev/null || HOOK_GAP="session-check (SessionStart)"
     grep -qF 'bin/look-ledger.sh seen' "$PSET" 2>/dev/null || HOOK_GAP="${HOOK_GAP:+$HOOK_GAP and }look-ledger seen (PostToolUse Read)"
     # #446: the pre-2026-10-21 relative form records nothing from any cwd but the project root.
-    # Any look hook not in the root-resolving form (one JSON string per line, so per-line is exact).
-    grep -F 'look-ledger.sh seen' "$PSET" 2>/dev/null | grep -vqF 'CLAUDE_PROJECT_DIR' && HOOK_GAP="${HOOK_GAP:+$HOOK_GAP and }look-ledger seen run from the project root (a look hook that does not cd to \$CLAUDE_PROJECT_DIR first records nothing from any other cwd)"
+    # Any look hook not in the root-resolving form. Each "command" string is split onto its own
+    # line first, so a single-line settings.json holding both forms is still caught (#502).
+    grep -F 'look-ledger.sh seen' "$PSET" 2>/dev/null | awk '{gsub(/"command"/, "\n\"command\""); print}' | grep -F 'look-ledger.sh seen' | grep -vqF 'CLAUDE_PROJECT_DIR' && HOOK_GAP="${HOOK_GAP:+$HOOK_GAP and }look-ledger seen run from the project root (a look hook that does not cd to \$CLAUDE_PROJECT_DIR first records nothing from any other cwd)"
+    # The installer rewrites only its own old form (`bash bin/look-ledger.sh seen || true`); a
+    # hand-written variant it leaves alone, so naming --hooks-only for it would be a dead end.
+    LOOK_CUSTOM=0
+    case "$HOOK_GAP" in *"project root"*)
+      grep -F 'look-ledger.sh seen' "$PSET" 2>/dev/null | awk '{gsub(/"command"/, "\n\"command\""); print}' \
+        | grep -F 'look-ledger.sh seen' | grep -vF 'CLAUDE_PROJECT_DIR' | grep -vqF '"bash bin/look-ledger.sh seen || true"' && LOOK_CUSTOM=1 ;;
+    esac
     if [ -n "$HOOK_GAP" ] && [ -f "$PROJECT_DIR/.mxtk/no-hook-repair" ]; then
       ok "hook gap ($HOOK_GAP) accepted: .mxtk/no-hook-repair is set"
     elif [ -n "$HOOK_GAP" ]; then
       warn "the project's .claude/settings.json has no hook for $HOOK_GAP, so the look ledger will read 0 seen however many screenshots were opened"
       note "fix: $TOOLKIT_ROOT/bin/install-claude-permissions.sh $PROJECT_DIR --hooks-only   (or bin/sync-project.sh $PROJECT_DIR)"
+      [ "$LOOK_CUSTOM" = 1 ] && note "the look hook is a hand-written variant the installer will not rewrite: edit it by hand in .claude/settings.json to cd to \$CLAUDE_PROJECT_DIR first (the installed form is in bin/install-claude-permissions.sh, LOOK_HOOK)"
     else
       ok "session-check and look-ledger hooks are in .claude/settings.json"
     fi
@@ -1403,9 +1437,18 @@ if [ "$QUICK" != 1 ] || [ "$GATE_SELFTEST" = 1 ]; then
 
 head_ "Gate self-test (can the mxbuild gate actually see an error?)"
 
+# A JDK/model mismatch is the commonest reason mxbuild stops before checking (#576): name the
+# fix next to mxbuild's own words.
+gate_selftest_java_hint() {
+  case "$1" in
+    *"release version"*"not supported"*|*"Unsupported class file major version"*)
+      note "the model needs JDK ${JAVA_WANT:-?}; this run used ${JAVA_HOME_FOUND:-?} — see the Java line under 'Build toolchain'" ;;
+  esac
+}
+
 gate_selftest() {
   local scratch scratch_mpr t0 t1 elapsed mdl model_dir base_count bad_count rc timeout_s
-  local copy_excl copy_ok entry entry_name x copy_size
+  local copy_excl copy_ok entry entry_name x copy_size why
   timeout_s="${DOCTOR_GATE_TIMEOUT:-300}"
   t0=$(date +%s)
 
@@ -1450,6 +1493,10 @@ gate_selftest() {
     for x in $copy_excl; do
       [ "$entry_name" = "$x" ] && continue 2
     done
+    # Studio Pro's lock file: copied along, it makes mxcli refuse the known-bad injection
+    # into the throwaway copy ("Studio Pro has this project open"), the normal case during
+    # setup (#577). The lock belongs to the real model, never to the scratch copy.
+    case "$entry_name" in *.mpr.lock) continue ;; esac
     cp -R "$entry" "$scratch/" 2>/dev/null || copy_ok=0
   done
   scratch_mpr="$scratch/$(basename "$MPR")"
@@ -1459,11 +1506,14 @@ gate_selftest() {
     return 0
   fi
   copy_size="$(du -sh "$scratch" 2>/dev/null | awk '{print $1}')"
-  note "copied ${copy_size:-?} of project resources into the scratch dir (excluding .git, deployment/, node_modules/, .mpr-snapshots/)"
+  note "copied ${copy_size:-?} of project resources into the scratch dir (excluding .git, deployment/, node_modules/, .mpr-snapshots/, *.mpr.lock)"
 
   # (a) Baseline: the gate must resolve SOME integer off this model, clean or not — "?" here
   # means the gate cannot read mxbuild's own output, which is the original F-042-class defect.
-  base_count=$(mxtk_mxbuild_error_count "$scratch_mpr" "$timeout_s")
+  # The errors file is kept so a "?" can say WHY: the count runs in a $(...) subshell, so
+  # MXTK_MXBUILD_WHY never reaches this function (#576 — "cannot read mxbuild's error file"
+  # when mxbuild had in fact said "release version 25 not supported").
+  base_count=$(mxtk_mxbuild_error_count "$scratch_mpr" "$timeout_s" "$scratch/errors-base.json")
   rc=$?
   if [ "$rc" -eq 3 ]; then
     bad "gate self-test: mxbuild did not return within ${timeout_s}s (baseline run)"
@@ -1471,6 +1521,13 @@ gate_selftest() {
     return 0
   fi
   if [ "$base_count" = "?" ]; then
+    why=$(mxtk_mxbuild_why "$scratch/errors-base.json")
+    if [ -n "$why" ]; then
+      bad "gate self-test: mxbuild stopped before checking the model (baseline run): $why"
+      gate_selftest_java_hint "$why"
+      GATE_SELFTEST_LINE="fail (mxbuild did not check: ${why:0:80})"
+      return 0
+    fi
     bad "gate self-test: gate cannot read mxbuild's error file (baseline run) — a real error would go unseen"
     GATE_SELFTEST_LINE="fail (unreadable error file)"
     return 0
@@ -1508,7 +1565,7 @@ MDL
     return 0
   fi
 
-  bad_count=$(mxtk_mxbuild_error_count "$scratch_mpr" "$timeout_s")
+  bad_count=$(mxtk_mxbuild_error_count "$scratch_mpr" "$timeout_s" "$scratch/errors-bad.json")
   rc=$?
   if [ "$rc" -eq 3 ]; then
     bad "gate self-test: mxbuild did not return within ${timeout_s}s (known-bad run)"
@@ -1516,6 +1573,12 @@ MDL
     return 0
   fi
   if [ "$bad_count" = "?" ]; then
+    why=$(mxtk_mxbuild_why "$scratch/errors-bad.json")
+    if [ -n "$why" ]; then
+      bad "gate self-test: mxbuild stopped before checking the model (known-bad run): $why"
+      GATE_SELFTEST_LINE="fail (mxbuild did not check: ${why:0:80})"
+      return 0
+    fi
     bad "gate self-test: gate cannot read mxbuild's error file (known-bad run) — a real error would go unseen"
     GATE_SELFTEST_LINE="fail (unreadable error file)"
     return 0

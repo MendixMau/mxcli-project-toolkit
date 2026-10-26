@@ -434,9 +434,13 @@ async function checkA11y(page, axeSource) {
     testedRules: (res.passes || []).length + (res.violations || []).length + (res.incomplete || []).length,
     items: bad.map((v) => ({
       id: v.id, impact: v.impact, nodes: v.nodes.length, help: v.help, helpUrl: v.helpUrl,
-      targets: v.nodes.slice(0, 5).map((n) => ({
-        target: [].concat(n.target || []).join(' '), html: String(n.html || '').slice(0, 120),
-      })),
+      targets: v.nodes.slice(0, 5).map((n) => {
+        const target = [].concat(n.target || []).join(' '), html = String(n.html || '');
+        // The widget name is read from the FULL tag: Mendix puts mx-name-* last in a long class
+        // list, past the 120 characters kept for display (#561 review: a delete button's tag was
+        // 267 chars with mx-name at 183).
+        return { target, html: html.slice(0, 120), widget: (`${html} ${target}`.match(/\bmx-name-[\w-]+/) || [])[0] || null };
+      }),
     })),
   };
 }
@@ -449,7 +453,7 @@ function a11yEvidence(items) {
   const out = [];
   for (const v of items || []) {
     for (const t of v.targets || []) {
-      const mx = (`${t.html} ${t.target}`.match(/\bmx-name-[\w-]+/) || [])[0] || null;
+      const mx = t.widget !== undefined ? t.widget : ((`${t.html} ${t.target}`.match(/\bmx-name-[\w-]+/) || [])[0] || null);
       out.push({ type: 'selector', rule: v.id, impact: v.impact, widget: mx, target: t.target, html: t.html,
                  help: v.help, helpUrl: v.helpUrl });
     }

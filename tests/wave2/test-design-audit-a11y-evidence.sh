@@ -23,6 +23,11 @@ command -v node >/dev/null 2>&1 || { echo "SKIP: node not installed"; exit 0; }
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GOLDEN="$HERE/fixtures/design-audit-a11y/axe-run-4.10.2.json"
 [ -f "$GOLDEN" ] || { echo "FAIL — golden capture missing: $GOLDEN"; exit 1; }
+# Second capture (review follow-up): a Mendix button whose opening tag is 267 chars with its
+# mx-name class at offset 183, past the 120 kept for display. Both are recaptured by
+# fixtures/design-audit-a11y/capture.js from the page-*.html beside them.
+GOLDEN2="$HERE/fixtures/design-audit-a11y/axe-run-4.10.2-long-tag.json"
+[ -f "$GOLDEN2" ] || { echo "FAIL — golden capture missing: $GOLDEN2"; exit 1; }
 RENDER="$(dirname "$SUT")/report-render.js"
 
 PASS=0; FAIL=0
@@ -32,7 +37,7 @@ bad() { FAIL=$((FAIL+1)); echo "  FAIL — $1"; [ -n "${2:-}" ] && echo "       
 # design-audit.js runs on load, so lift the functions out of its text instead of requiring it.
 IFS= read -r -d '' JS <<'JSEOF' || true
 const fs = require('fs');
-const [sut, golden] = process.argv.slice(2);
+const [sut, golden, golden2] = process.argv.slice(2);
 const js = fs.readFileSync(sut, 'utf8');
 const lift = (name) => {
   const i = js.indexOf(`function ${name}(`);
@@ -54,9 +59,14 @@ const page = { evaluate: async () => (++calls === 1 ? undefined : cap) };   // 1
   console.log('SUM ' + JSON.stringify({ serious: a.seriousOrCritical, tested: a.testedRules }));
   for (const e of ev) console.log('EV ' + JSON.stringify(e));
   console.log('EMPTY ' + JSON.stringify(a11yEvidence([])));
+  const cap2 = JSON.parse(fs.readFileSync(golden2, 'utf8'));
+  let c2 = 0;
+  const a2 = await checkA11y({ evaluate: async () => (++c2 === 1 ? undefined : cap2) }, '/* axe */');
+  const e2 = a11yEvidence(a2.items)[0] || {};
+  console.log('LONG ' + JSON.stringify({ widget: e2.widget, htmlLen: (e2.html || '').length, target: e2.target }));
 })();
 JSEOF
-OUT="$(printf '%s' "$JS" | timeout 30 node - "$SUT" "$GOLDEN" 2>&1)"
+OUT="$(printf '%s' "$JS" | timeout 30 node - "$SUT" "$GOLDEN" "$GOLDEN2" 2>&1)"
 if printf '%s\n' "$OUT" | grep -q '^LIFT-FAIL'; then bad "checkA11y not found in $SUT" "$OUT"; echo "PASS=$PASS FAIL=$FAIL"; exit 1; fi
 if printf '%s\n' "$OUT" | grep -qx NOFN; then
   bad "#561 no a11yEvidence(): the a11y row carries no element evidence"; echo ""; echo "PASS=$PASS FAIL=$FAIL"; exit 1
@@ -73,6 +83,9 @@ q() { ev | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{cons
 [ "$(q 'r.map(e=>e.target).join("|")')" = ".mx-button|.btn-primary|img" ] && ok "axe's selector is carried for every node" || bad "selectors lost" "$(ev)"
 [ "$(q 'r.every(e=>e.type==="selector" && e.help && /^https:/.test(e.helpUrl) && e.html.length<=120)')" = true ] \
   && ok "each entry is type selector with help text, help URL and the opening tag cut to 120 chars" || bad "entry shape" "$(ev)"
+[ "$(printf '%s\n' "$OUT" | sed -n 's/^LONG //p')" = '{"widget":"mx-name-actionButtonDelete","htmlLen":120,"target":"button"}' ] \
+  && ok "a 267-char tag with mx-name at offset 183: the widget is lifted from the full tag, the shown tag is still cut to 120" \
+  || bad "mx-name past 120 chars is lost" "$(printf '%s\n' "$OUT" | sed -n 's/^LONG //p')"
 [ "$(printf '%s\n' "$OUT" | sed -n 's/^EMPTY //p')" = '[]' ] && ok "no violations → no evidence entries" || bad "empty case" "$OUT"
 awk '/id: `design-audit\/rung7\/a11y\//{r=1} r&&/evidence: a\.items\.length/{f=1} r&&/a11yEvidence\(a\.items\)/{g=1} END{exit !(f&&g)}' "$SUT" \
   && ok "the rung 7 a11y row uses a11yEvidence() (the tested function is the one that runs)" || bad "the a11y row does not carry a11yEvidence()"

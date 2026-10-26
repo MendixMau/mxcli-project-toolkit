@@ -39,7 +39,8 @@
 # DESCRIBE per document (absent → nothing to revert, e.g. a fresh model), at most 5 per check; the
 # rest print as UNCHECKED. No ./mxcli → REVERT. The ledger knows only exec.sh's writes: restore-mpr.sh
 # appends a RESTORE row and rows before the last one are ignored (DESCRIBE decides again). It cannot
-# see a Studio Pro edit, nor a `git pull` / `git checkout` that changes the .mpr.
+# see a Studio Pro edit. A `git pull` / `git checkout` that changes the .mpr appends a RESTORE row
+# through the post-merge / post-checkout hooks bin/install-project-hooks.sh installs (#504).
 #
 # LEDGER: <root>/.claude/loop/script-owners/written.tsv, epoch <tab> key <tab> KIND Module.Name
 # (key = root-relative path, done- removed), or epoch <tab> RESTORE <tab> <snapshot>. MACHINE-LOCAL,

@@ -382,6 +382,15 @@ unverified write. If gate time dominates, reduce the number of applies at the gr
 (see "Iterative Granularity": layer scripts rather than per-page ones where partial recovery is
 unlikely, fewer stub-then-fill passes) — never by drafting less in parallel.
 
+Why there is no check-only gate yet (#444, probe 2026-10-26, Mendix 11.13.0 / mxcli v0.28.0, a
+blank `mxcli new` app plus one entity and microflow, 4 cores, 3 runs each): `mx check` took
+11–14 s where `mxbuild --target=deploy` took 24–33 s, and both reported the same model error
+(CE0117 after a dropped attribute). But with the model clean and one broken file under
+`javasource/`, `mx check` said **0 errors, exit 0**, while the deploy build failed in
+"compiling Java actions" with an **empty** `problems[]` list. A check-only gate would have
+passed a Java compile error. So a check-only gate needs a full deploy whenever `javasource/` or
+`theme/` changed and at module close — a gate redesign, parked on #444.
+
 **Draft the ready set in parallel, apply serially.** The unit is the build-plan row. The ready
 set is every `BUILD` row whose "Depends on" rows are all applied, minus overlapping writers: two
 rows whose scripts `create or replace`, `alter` or drop+create the same document (the row's

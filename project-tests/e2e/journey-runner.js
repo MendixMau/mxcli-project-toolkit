@@ -973,6 +973,25 @@ function outcomeCheckName(j) {
 // FAILs plus the INVALID a broken landing leaves downstream, so verify-module graded the
 // rung FINDING and the module INCOMPLETE on every run — a control rung that could not go
 // green, and so told the reader nothing when it went red.
+// One mutant's control row, from the rows its walk produced (#560). Caught on the targeted check
+// → PASS. Failed elsewhere → FAIL, still unproven. Nothing failed but something was INVALID (a
+// seed the previous mutant consumed, a guard that stopped the walk) → the mutant never reached
+// its check: INVALID "mutant not run". Reading that as "BROKEN PRECONDITION WENT GREEN" sent the
+// reader looking for a vacuous assertion in a journey that was fine. Only an all-green walk is
+// "went green". The exit code is unchanged: a control passes only when every row is PASS.
+function judgeMutant(produced, expectFail) {
+  const hit = produced.find(r => r.verdict === 'FAIL' && expectFail(r));
+  if (hit) return { verdict: 'PASS', proven: true, detail: `caught by "${hit.name}"` };
+  if (produced.some(r => r.verdict === 'FAIL'))
+    return { verdict: 'FAIL', proven: false, detail: 'the run failed, but NOT on the targeted check — this rung is still unproven' };
+  const stop = produced.find(r => r.verdict === 'INVALID');
+  if (stop)
+    return { verdict: 'INVALID', proven: false,
+             detail: `mutant not run: "${stop.name}" = INVALID before the targeted check — this rung is NOT tried, ` +
+                     'not proven and not green (a consuming journey needs fresh data per mutant)' };
+  return { verdict: 'FAIL', proven: false, detail: 'BROKEN PRECONDITION WENT GREEN — this rung proves nothing' };
+}
+
 function runExitCode(positiveControl, results, mutants) {
   if (!positiveControl) return results.some(r => r.verdict === 'FAIL' || r.verdict === 'INVALID') ? 1 : 0;
   const ctl = results.filter(r => r.rung === 'control');
@@ -1350,14 +1369,14 @@ function flagAppDown(rows, detail) {
 // ── Exports for the rung-4 scope unit test ──────────────────────────────────
 // The SQL builders are pure and exported so their behaviour can be proven against
 // fixture rows without a running app. See tests/e2e/journey-rung4-scope.test.js.
-// runExitCode is exported for tests/wave2/test-journey-control-exit.sh, personaMismatch
+// runExitCode/judgeMutant are exported for tests/wave2/test-journey-control-exit.sh, personaMismatch
 // for tests/wave2/test-journey-persona.sh, the preflight/ordering set for
 // tests/wave2/test-journey-preflight.sh, namedControlGaps/findControls/outcomeCheckName for
 // tests/wave2/test-named-controls.sh.
 module.exports = {
   sqlRowCount, sqlWatermark, whereScoped, scopeLiteral,
   sqlAssocTotal, sqlAssocLinked, sqlMustPointAt, captureScope, scopeEvidence,
-  runExitCode, personaMismatch, namedControlGaps, findControls, outcomeCheckName,
+  runExitCode, judgeMutant, personaMismatch, namedControlGaps, findControls, outcomeCheckName,
   classifyAdminProbe, journeyNeedsAdmin, missingEnv, preflight, orderJourneys, stateTracker,
   judgeLanding, journeyIdProblems,
   traceRung, controlMutants, forbiddenSample, probeApp, appGate, flagAppDown, LIVENESS_SKEW_MS,
@@ -1595,6 +1614,11 @@ function journeyIdProblems(loaded, files) {
         // not merely that something did. Accepting any FAIL would let a mutant that
         // breaks by accident vouch for a rung it never reached, which is the same
         // vacuity bug one level up.
+        // Mutants share one data set: nothing resets the data between them (#560).
+        if ((j.consumes || []).length) {
+          console.log(`  WARN   ${j.id} consumes ${j.consumes.join(', ')}: a mutant that walks past the action ` +
+                      'uses that state up, so later mutants can stop INVALID ("mutant not run") — reset the data and re-run them');
+        }
         for (const m of controlMutants(j)) {
           if (!m.supported) {
             // Unproven, and it must say so. INVALID is the verdict for "the
@@ -1609,16 +1633,9 @@ function journeyIdProblems(loaded, files) {
           const before = results.length;
           await resetToStart(page);
           await runJourney(page, m.journey);
-          const produced = results.slice(before);
-          const hit = produced.find(r => r.verdict === 'FAIL' && m.expectFail(r));
-          const anyFail = produced.some(r => r.verdict === 'FAIL');
-          mutantLedger.push({ journey: j.id, rung: m.rung, supported: true, proven: !!hit });
-          record('control', `${j.id} · ${m.rung}: ${m.what}`,
-                 hit ? 'PASS' : 'FAIL',
-                 hit ? `caught by "${hit.name}"`
-                     : anyFail
-                       ? 'the run failed, but NOT on the targeted check — this rung is still unproven'
-                       : 'BROKEN PRECONDITION WENT GREEN — this rung proves nothing');
+          const v = judgeMutant(results.slice(before), m.expectFail);
+          mutantLedger.push({ journey: j.id, rung: m.rung, supported: true, proven: v.proven });
+          record('control', `${j.id} · ${m.rung}: ${m.what}`, v.verdict, v.detail);
         }
       } else {
         const before = results.length;

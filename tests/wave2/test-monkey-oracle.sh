@@ -10,6 +10,9 @@
 #         capped box, filed crash-class, though no user can reach it.
 #   #562  a spinner still up after 8 s goes in `slow`, not crash-class: it is none of the four
 #         crash signals monkey-test.md defines. A ~10 s batch job that then succeeded failed a run.
+#   #563  land() reports a target whose menu item navTo cannot find as not reached. It swallowed
+#         the throw and asked only "is some .mx-page visible?" — the previous target's page always
+#         was, so a target not in the app was fuzzed on another page, findings under its name.
 
 set -uo pipefail
 
@@ -71,6 +74,19 @@ const out = (k, v) => console.log(`${k} ${JSON.stringify(v)}`);
     out('OR', { spinHits: spin.hits, spinSlow: spin.slow, s5Hits: spin5.hits.length, s5Slow: spin5.slow.length,
                 cleanHits: clean.hits.length, cleanSlow: (clean.slow || []).length, blankHits: blank.hits });
   }
+  // #563 — navTo throws for an absent menu item (helpers.js, #412); the previous page stays open.
+  if (typeof M.land !== 'function') out('LD', 'NOFN');
+  else {
+    const H = require('./helpers.js');
+    const open = { url: () => 'http://localhost:1/p/real', goto: async () => {}, waitForTimeout: async () => {},
+                   locator: () => ({ first: () => ({ isVisible: async () => true }) }) };
+    H.navTo = async () => { throw new Error('navigation item "Ghost" not found for demo_user; visible: Real\n  at navTo'); };
+    const ghost = await M.land(open, 'Group', 'Ghost');
+    H.navTo = async () => {};
+    const real = await M.land(open, null, 'Real');
+    const gone = await M.land({ ...open, locator: () => ({ first: () => ({ isVisible: async () => false }) }) }, null, 'Real');
+    out('LD', { ghost, real, gone });
+  }
   process.exit(0);
 })();
 JSEOF
@@ -104,6 +120,19 @@ fi
 grep -q "finding('slow'" "$SUT" && awk '/process\.exit\(crashes\.length/ {f=1} END{exit !f}' "$SUT" \
   && ok "#562 round() files slow as its own severity; the exit code counts crash-class only" \
   || bad "#562 round() does not file slow, or the exit code changed"
+
+if [ -z "$(get LD)" ] || [ "$(get LD)" = '"NOFN"' ]; then
+  bad "monkey.js exports no land (#563)" "$(printf '%s\n' "$OUT" | tail -3)"
+else
+  [ "$(j LD ghost)" = 'navigation item "Ghost" not found for demo_user; visible: Real' ] \
+    && ok "#563 a target navTo cannot find is not reached, with navTo's reason (first line), though another page is open" \
+    || bad "#563 a missing menu item counts as reached — fuzzed on the previous target's page" "$(get LD)"
+  [ "$(j LD real)" = "" ] && ok "#563 a target that lands returns no reason" || bad "#563 a landed target reads as missed" "$(get LD)"
+  [ "$(j LD gone)" = "no .mx-page visible after navigation" ] && ok "#563 no page after a clean navTo is still not reached" || bad "#563 no-page case" "$(get LD)"
+fi
+grep -q 'const miss = await land(' "$SUT" && grep -q '&& (await land(page, group, item))) {' "$SUT" && grep -q 'reached ${targets.length - unreached.length} of ${targets.length}' "$SUT" \
+  && ok "#563 main and the re-land read land()'s reason; the summary prints reached r of t" \
+  || bad "#563 a caller still reads land() as a boolean, or the summary has no reached count"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"

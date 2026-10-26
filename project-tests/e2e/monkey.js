@@ -216,12 +216,17 @@ function leftApp(url, baseUrl) {
   return /\/login\.html(?:[?#]|$)/.test(url);
 }
 
-// Open a NAV target, from outside the app if a round left it.
+// Open a NAV target, from outside the app if a round left it. Returns '' when the page landed,
+// else the reason. A navTo throw (menu item absent for this user) is a miss (#563): swallowing it
+// left the previous target's page open, which "some .mx-page is visible" then counted as reached,
+// so a target not in the app was fuzzed on another page and the findings filed under its name.
 async function land(page, group, item) {
   if (leftApp(page.url(), cfg.baseUrl)) await page.goto(cfg.baseUrl + '/', { timeout: 20000 }).catch(() => {});
-  await H.navTo(page, group, item).catch(() => {});
+  let navErr = '';
+  await H.navTo(page, group, item).catch(e => { navErr = String((e && e.message) || e).split('\n')[0]; });
+  if (navErr) return navErr;
   await page.waitForTimeout(2000);
-  return page.locator('.mx-page').first().isVisible({ timeout: 8000 }).catch(() => false);
+  return (await page.locator('.mx-page').first().isVisible({ timeout: 8000 }).catch(() => false)) ? '' : 'no .mx-page visible after navigation';
 }
 
 // ── one round ───────────────────────────────────────────────────────────────
@@ -285,7 +290,7 @@ async function round(page, target, bucket) {
 }
 
 // leftApp is exported for tests/wave2/test-monkey-left-app.sh; requiring this file runs nothing.
-module.exports = { leftApp, SIGN_OUT, SIGN_OUT_DEFAULT, signOutPattern, isSignOutLabel, typeSafely, oracle };
+module.exports = { leftApp, SIGN_OUT, SIGN_OUT_DEFAULT, signOutPattern, isSignOutLabel, typeSafely, oracle, land };
 
 // ── main ────────────────────────────────────────────────────────────────────
 if (require.main === module) (async () => {
@@ -309,20 +314,22 @@ if (require.main === module) (async () => {
   if (ONLY && !targets.length) { console.error(`no NAV target "${ONLY}" — have: ${Object.keys(NAV).join(', ')}`); process.exit(3); }
 
   let anyTrace = false;
+  const unreached = [];
   for (const key of targets) {
     // NAV entries are ['Item'] for top-level or ['Group', 'Item'] for nested —
     // navTo takes (page, parentTitle|null, childTitle).
     const nav = NAV[key];
     const [group, item] = nav.length === 1 ? [null, nav[0]] : nav;
     console.log(`\n=== ${key}`);
-    if (!(await land(page, group, item))) { finding('info', key, 'not reached', 'nav did not land — target skipped, NOT fuzzed'); continue; }
+    const miss = await land(page, group, item);
+    if (miss) { finding('info', key, 'not reached', `${miss} — target skipped, NOT fuzzed`); unreached.push(key); continue; }
     const n = Math.ceil(ROUNDS / targets.length);
     for (let i = 0; i < n; i++) {
       anyTrace = (await round(page, key, bucket)) || anyTrace;
       // A round that leaves no page behind would have every later round re-score the same
       // screen. Re-land; if that fails, say how much of the target went unfuzzed.
       if (!(await page.locator('.mx-page').first().isVisible({ timeout: 3000 }).catch(() => false))
-          && !(await land(page, group, item))) {
+          && (await land(page, group, item))) {
         finding('info', key, 'lost', `no page after round ${i + 1} (at ${page.url()}) and re-landing failed — the remaining ${n - i - 1} round(s) NOT fuzzed`);
         break;
       }
@@ -335,6 +342,7 @@ if (require.main === module) (async () => {
   const slowN = findings.filter(f => f.severity === 'slow').length;
   console.log('\n=== MONKEY SUMMARY ===');
   console.log(`  seed ${SEED} · ${findings.length} observations · ${crashes.length} crash-class · ${slowN} slow`);
+  console.log(`  reached ${targets.length - unreached.length} of ${targets.length} target(s)${unreached.length ? ' — NOT reached: ' + unreached.join(', ') : ''}`);
   if (!anyTrace) {
     console.log('  ⚠ No spans were captured in ANY round. The OTel arm of the crash oracle');
     console.log('    never ran, so swallowed-error crashes could not have been detected.');

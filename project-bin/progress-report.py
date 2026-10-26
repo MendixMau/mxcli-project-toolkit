@@ -17,13 +17,15 @@ Privacy: the logs are read for numbers (token counters, timestamps, tool names) 
 short descriptions. No prompt or message text is copied into the page.
 Every tunable lives in the CONFIG block below so the page is easy to change.
 """
-import sys, os, re, json, glob, html, fnmatch, calendar, collections, datetime, pathlib, argparse, time, urllib.parse
+import sys, os, re, json, glob, html, fnmatch, calendar, collections, datetime, pathlib, argparse, time, urllib.parse, shlex
 
 # ----------------------------------------------------------------- CONFIG
 STAGES = ["P", "0", "1", "2", "3", "4", "5", "6"]
 STAGE_NAME = {"P": "Kickoff", "0": "Triage", "1": "Analysis", "2": "Requirements",
               "3": "Architecture and design", "4": "Build plan", "5": "Build and improve",
               "6": "Verify and report"}
+TABS = [("tab-overview", "Overview"), ("tab-build", "Build"), ("tab-changes", "Changes"), ("tab-performance", "Performance"), ("tab-pages", "Pages"), ("tab-notes", "Notes, tips and bugs")]
+BUG_REPO = {"mxcli": ("mxcli", "https://github.com/mendixlabs/mxcli"), "toolkit": ("the toolkit", "https://github.com/MendixMau/mxcli-project-toolkit")}
 REPORT_FILE = "progress-report.html"   # the one place the page name lives here (build-plan-status.sh asks for it with --print-name)
 IDLE_GAP_S = 600          # a gap longer than this between two events counts as waiting for the user
 CACHE_TTL_S = 300         # prompt cache time to live assumed for the cache rewrite observation
@@ -183,6 +185,14 @@ def load_project(proj):
                     t = decision_time(" ".join(c[2:]) or c[1]) or decision_time(c[1])
                     sm = re.search(r"Stage\s*(\w)\b", c[1]); sg = c[0] if c[0] in STAGES else (sm.group(1) if sm else None)
                     if sg in STAGES and (sg not in info["signoff"] or (t and t < info["signoff"][sg][0])): info["signoff"][sg] = (t, c[1][:80], bool(re.search(r"20\d\d-\d\d-\d\d[ T]\d\d:\d\d", " ".join(c[2:]) + " " + c[1])))
+    info["changes"] = []   # PROJECT.md ## Change log rows (skills/change-intake.md), shown on the Changes tab
+    sec = re.search(r"^## Change log\s*\n(.*?)(?=^## |\Z)", md, re.M | re.S)
+    if sec:
+        for line in sec.group(1).splitlines():
+            c = [x.strip().replace("\\|", "|") for x in re.split(r"(?<!\\)\|", line.strip().strip("|"))]
+            if len(c) >= 8 and re.match(r"CR-\d+$", c[0]):
+                st = re.match(r"[A-Za-z]+", c[7]); info["changes"].append({"cr": c[0], "date": c[1], "ask": c[3], "cls": c[4], "size": c[5],
+                    "status": st.group(0).lower() if st else "unknown", "status_txt": c[7], "closed": c[8] if len(c) > 8 else ""})
     m = re.search(r"Entry mode:\s*\**\s*(\w[\w-]*)", md)
     em = (m.group(1).lower() if m else "migration")
     info["entry_mode"] = "requirements" if em.startswith("requirements") else "existing-app-change" if em.startswith("existing") else em
@@ -191,6 +201,97 @@ def load_project(proj):
     info["setting"] = m.group(1).lower() if m else "ask"
     info["md_mtime"] = mt
     return info
+
+CR_STATE = {"open": ("waiting", "open"), "refined": ("waiting", "refined"), "agreed": ("waiting", "agreed"), "applied": ("built", "applied"),
+            "proven": ("proven", "proven"), "rejected": ("closed", "rejected")}
+
+def render_changes(w, chg, bp):
+    """Changes tab: the PROJECT.md Change log as a backlog, with the plan rows that carry each CR tag."""
+    w("<section class=tab id=tab-changes><h2 id=changes>Changes: requests logged after the plan</h2><div class=sub>From the PROJECT.md Change log (skills/change-intake.md). "
+      "Open, refined and agreed rows are waiting; applied rows are built; proven rows have evidence. Plan rows are the build-plan.md rows whose text names the CR.</div>")
+    if not chg:
+        w("<div class=card>No change requests logged. A change made with no row is invisible here, so log every ask first.</div></section>"); return
+    tagged = collections.defaultdict(lambda: [0, 0])
+    for p in (bp or {}).get("phases", []):
+        for x in p.get("steps", []):
+            for cr in set(re.findall(r"CR-\d+", x.get("step", ""))):
+                tagged[cr][1] += 1; tagged[cr][0] += x.get("cls") == "built"
+    groups = collections.Counter(CR_STATE.get(c["status"], ("waiting", ""))[0] for c in chg)
+    col = {"waiting": "var(--warn)", "built": "var(--accent)", "proven": "var(--ok)", "closed": "var(--idle)"}
+    w("<div class=card><div class=hd><b>%d change request(s): %d waiting, %d built, %d proven%s</b></div>" % (len(chg), groups["waiting"], groups["built"], groups["proven"], (", %d rejected" % groups["closed"]) if groups["closed"] else ""))
+    w("<div class=stack>" + "".join("<i title='%s %d' style='width:%.1f%%;background:%s'></i>" % (k, groups[k], pct(groups[k], len(chg)), col[k]) for k in col if groups[k]) + "</div>")
+    w("<div class=legend>" + "".join("<span><b style='background:%s'></b>%s %d</span>" % (col[k], k, groups[k]) for k in col if groups[k]) + "</div></div>")
+    w("<div class='card' style='margin-top:10px'><div class=tw><table class=crs><tr><th>CR</th><th>Ask</th><th>Class</th><th>Size</th><th>Status</th><th class=n>Plan rows built</th><th>Closed by</th></tr>")
+    for c in chg:
+        g, _ = CR_STATE.get(c["status"], ("waiting", c["status"])); t = tagged.get(c["cr"])
+        ask = c["ask"].strip('"'); pm = re.search(r"\(part:\s*([^)]*)\)\s*$", ask)   # one sentence split over several CRs: lead with the part
+        if pm: ask = "Part: %s. %s" % (pm.group(1).strip(), ask[:pm.start()].strip().strip('"'))
+        w("<tr><td><b>%s</b><div class=sub>%s</div></td><td title='%s'>%s</td><td>%s</td><td>%s</td><td><span class='crst cr-%s' title='%s'>%s</span></td><td class=n>%s</td><td>%s</td></tr>" % (
+            esc(c["cr"]), esc(c["date"]), esc(ask), esc(ask[:140] + ("..." if len(ask) > 140 else "")), esc(c["cls"]), esc(c["size"]), g, esc(c["status_txt"]), esc(c["status"]),
+            ("%d of %d" % (t[0], t[1])) if t else "<span class=sub>none tagged</span>", esc(c["closed"][:60]) or "<span class=sub>none yet</span>"))
+    w("</table></div></div></section>")
+
+def load_bugs(proj, tk):
+    """docs/bugs.jsonl (bin/file-bugs.sh) for the Bugs tab. The rows are shown as logged; the file buttons come only from
+    file-bugs.py --json, which redacts each bug and refuses without a deny list, so this page never builds a public URL
+    itself and never posts anything. The --json run makes no network call."""
+    path = os.path.join(proj, "docs", "bugs.jsonl"); out = {"rows": [], "links": {}, "note": "", "path": path, "proj": proj, "cmd": ""}
+    for line in read(path).splitlines():
+        try: d = json.loads(line)
+        except ValueError: continue
+        if isinstance(d, dict) and d.get("id"): out["rows"].append(d)
+    if not any(r.get("status", "open") == "open" for r in out["rows"]): return out
+    dirs = [tk, os.environ.get("MXTK_TOOLKIT_DIR", "")]   # file-bugs.py ships in the toolkit only, never in a project's bin/
+    for f in (os.path.join(proj, ".claude", "toolkit.env"), os.path.join(os.path.expanduser("~"), ".mxcli-toolkit.env")):
+        m = re.search(r"^\s*(?:export\s+)?(?:MXTK_TOOLKIT_DIR|TOOLKIT_DIR|MXCLI_TOOLKIT)\s*=\s*[\"']?([^\"'\n]+)", read(f), re.M)
+        if m: dirs.append(os.path.expanduser(m.group(1).strip()))
+    fb = next((x for x in (os.path.join(d, "bin", "lib", "file-bugs.py") for d in dirs if d) if os.path.isfile(x)), "")
+    if not fb:
+        out["note"] = "File buttons need the toolkit's bin/lib/file-bugs.py. Point to the toolkit clone with MXTK_TOOLKIT_DIR=<path> in ~/.mxcli-toolkit.env or pass --toolkit."; return out
+    out["cmd"] = os.path.join(os.path.dirname(os.path.dirname(fb)), "file-bugs.sh")
+    try:
+        import subprocess
+        p = subprocess.run([sys.executable, "-I", fb, "--project", proj, "--json"], capture_output=True, text=True, timeout=30)
+        if p.returncode == 0:
+            for it in json.loads(p.stdout or "[]"): out["links"][it.get("id")] = it
+        else: out["note"] = (p.stderr or p.stdout).strip().replace("file-bugs: ", "")[:400]
+    except Exception as e:
+        out["note"] = "file-bugs.py --json did not run (%s)." % type(e).__name__
+    return out
+
+def render_bugs(w, bugs):
+    """Bugs tab: the project's tool bugs (mxcli or toolkit). An open bug gets buttons that copy its file-bugs.sh
+    command (one per repo); the person runs it, which files through gh after a y/N."""
+    rows = bugs["rows"]
+    w("<div id=bugs-part><h2 id=bugs>Encountered bugs or limitations</h2><div class=sub>Problems in mxcli or the toolkit hit in this project, from docs/bugs.jsonl. Add one with "
+      "<code>bin/file-bugs.sh --add --target mxcli|toolkit --title T --repro R --expected E --actual A</code>. A button copies the filing command. Run it in your "
+      "terminal (or in Claude Code after <code>!</code>): it removes project names, paths and secrets, shows the text and likely duplicates, asks y/N, "
+      "then files with <code>gh issue create</code>. Nothing is posted from this page. No GitHub CLI or account (for example on "
+      "Team Server only)? Nothing breaks: the bug stays here, open, with its workaround, and <code>--links</code> prints a pre-filled link to "
+      "hand to someone who has an account.</div>")
+    if not rows:
+        w("<div class=card>No bugs logged in this project. When a session hits or works around a bug in mxcli or the toolkit, log it first, then file it from here.</div></div>"); return
+    n = collections.Counter(r.get("status", "open") for r in rows)
+    w("<div class=card><div class=hd><b>%d bug(s): %d open, %d filed, %d fixed</b></div>" % (len(rows), n["open"], n["filed"], n["fixed"]))
+    if bugs["note"]: w("<p class='note stale'>No file buttons: %s</p>" % esc(bugs["note"]))
+    w("</div><div class='card' style='margin-top:10px'><div class=tw><table class=crs><tr><th>Bug</th><th>For</th><th>Title</th><th>Status</th><th>Action</th></tr>")
+    for r in rows:
+        tgt = r.get("target", ""); label = BUG_REPO.get(tgt, (tgt or "unknown", ""))[0]; st = r.get("status", "open"); it = bugs["links"].get(r.get("id"), {})
+        if st == "filed" and r.get("issue_url"): act = " ".join("<a href='%s'>%s</a>" % (esc(u), esc(re.sub(r"^https://github\.com/", "", u))) for u in [r["issue_url"]] + list((r.get("also") or {}).values()))
+        elif st == "fixed": act = "<span class=sub>fixed</span>"
+        elif it.get("refused"): act = "<span class=sub title='%s'>held back: redaction found something that looks private; fix the row</span>" % esc(it.get("note", ""))
+        elif it.get("title") and bugs.get("cmd"):   # filing runs gh in the person's terminal: redact, duplicate search, y/N, gh issue create
+            home = os.path.expanduser("~")   # pasted into bash (Git Bash too): forward slashes, each path quoted, ~/ kept outside the quotes
+            q = lambda x: ("~/" + shlex.quote(x[len(home) + 1:].replace(os.sep, "/"))) if x.startswith(home + os.sep) else shlex.quote(x.replace(os.sep, "/"))
+            base = "%s --project %s --file %s" % (q(bugs["cmd"]), q(bugs["proj"]), r.get("id"))
+            # a finding that is really both is two submissions, one per repo (skills/upstream-feedback.md section 1)
+            cmds = [(base, "File to " + label, "")] + [(base + " --to " + k, "also to " + BUG_REPO[k][0], " alt") for k in BUG_REPO if k != tgt and tgt in BUG_REPO]
+            act = "".join("<button type=button class='filebtn%s' data-cmd='%s' title='Copies the command; paste it in your terminal, or in Claude Code after !'>%s</button> " % (c_, esc(cmd), esc(lab_)) for cmd, lab_, c_ in cmds)
+            act += "<div class=sub><code>%s</code></div>" % esc(base)
+        else: act = "<span class=sub>no button (see note above)</span>"
+        w("<tr><td><b>%s</b><div class=sub>%s</div></td><td>%s</td><td>%s</td><td><span class='crst cr-%s'>%s</span></td><td>%s</td></tr>" % (
+            esc(r.get("id", "")), esc(r.get("date", "")), esc(label), esc(r.get("title", "")), {"open": "waiting", "filed": "built", "fixed": "proven"}.get(st, "closed"), esc(st), act))
+    w("</table></div></div></div>")
 
 def decision_time(txt):
     """Epoch of the first date (and time when given) in a decision row cell; local time; None without a date."""
@@ -1543,7 +1644,18 @@ def advisory(info, an, main, agents, rates, tot, peak):
     health = run_health(cs)
     return fired[:ADV["max_items"]], quiet + fired[ADV["max_items"]:], health, cs, hidden[0]
 
-JS = "<script>\n" + 'function openTarget(){var h=location.hash.slice(1);if(!h)return;var e=document.getElementById(h);if(!e)return;\n if(e.tagName===\'DETAILS\')e.open=true;var d=e.closest&&e.closest(\'details\');if(d)d.open=true;var ph=d||e;if(ph.classList&&ph.classList.contains(\'ph\'))[].forEach.call(document.querySelectorAll(\'details.ph[open]\'),function(o){if(o!==ph)o.open=false});}\nwindow.addEventListener(\'hashchange\',openTarget);openTarget();\ndocument.addEventListener(\'toggle\',function(ev){var t=ev.target;if(!t.open||!t.classList||!t.classList.contains(\'ph\'))return;[].forEach.call(document.querySelectorAll(\'details.ph[open]\'),function(o){if(o!==t)o.open=false})},true);\n' + "</script>"
+# tabs: without JavaScript every section shows, one page as before; the chosen tab survives the 30 s reload
+TABS_JS = ("(function(){var b=document.body,tabs=[].slice.call(document.querySelectorAll('section.tab')),links=[].slice.call(document.querySelectorAll('.tabbar a[data-tab]'));if(!tabs.length)return;\n"
+  "var K='pr-tab:'+location.pathname;function get(){try{return sessionStorage.getItem(K)}catch(e){return null}}\n"
+  "function show(id){tabs.forEach(function(t){t.classList.toggle('on',t.id===id)});links.forEach(function(l){l.classList.toggle('on',l.getAttribute('data-tab')===id)});try{sessionStorage.setItem(K,id)}catch(e){}}\n"
+  "window.__prShow=show;b.classList.add('tabbed');var s=get();show(s&&document.getElementById(s)?s:tabs[0].id);\n"
+  "links.forEach(function(l){l.addEventListener('click',function(e){e.preventDefault();b.classList.remove('all');show(l.getAttribute('data-tab'));window.scrollTo(0,0)})});\n"
+  "document.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('button[data-cmd]');if(!t)return;var c=t.getAttribute('data-cmd'),l=t.textContent;\n"
+  " function fb(){try{var x=document.createElement('textarea');x.value=c;document.body.appendChild(x);x.select();var ok=document.execCommand('copy');x.remove();return ok}catch(_){return false}}\n"
+  " function done(ok){t.textContent=ok?'Copied: paste in your terminal':'Copy failed: use the command below';setTimeout(function(){t.textContent=l},2000)}\n"
+  " if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(c).then(function(){done(true)},function(){done(fb())});else done(fb())});\n"
+  "var a=document.getElementById('showall');if(a)a.addEventListener('click',function(e){e.preventDefault();b.classList.toggle('all');a.textContent=b.classList.contains('all')?'Tabs':'Show all'});})();\n")
+JS = "<script>\n" + TABS_JS + 'function openTarget(){var h=location.hash.slice(1);if(!h)return;var e=document.getElementById(h);if(!e)return;\n var t=e.closest&&e.closest(\'section.tab\');if(t&&window.__prShow){window.__prShow(t.id);if(t!==e)setTimeout(function(){e.scrollIntoView()},0);}\n var ph=null;for(var d=e;d;d=d.parentElement&&d.parentElement.closest(\'details\'))if(d.tagName===\'DETAILS\'){d.open=true;if(!ph&&d.classList&&d.classList.contains(\'ph\'))ph=d}\n if(ph)[].forEach.call(document.querySelectorAll(\'details.ph[open]\'),function(o){if(o!==ph)o.open=false});}\nwindow.addEventListener(\'hashchange\',openTarget);openTarget();\ndocument.addEventListener(\'toggle\',function(ev){var t=ev.target;if(!t.open||!t.classList||!t.classList.contains(\'ph\'))return;[].forEach.call(document.querySelectorAll(\'details.ph[open]\'),function(o){if(o!==t)o.open=false})},true);\n' + "</script>"
 # ----------------------------------------------------------------- render
 CSS = """
 :root{--bg:#f6f7f9;--card:#fff;--ink:#1c2430;--mut:#667085;--line:#e3e7ee;--accent:#2f6fed;--ok:#1f9d63;--warn:#d98a0b;--bad:#c93c3c;--idle:#d9dde5;--main:#2f6fed;--sub:#8b5cf6;--soft:#eef2fb;--shadow:0 1px 2px rgba(20,30,50,.06)}
@@ -1589,6 +1701,9 @@ html{scroll-behavior:smooth}[id^=stage-],[id^=agents-],[id^=phase-],#stages,#bui
 .snav a{min-width:34px;text-align:center;padding:4px 10px;border-radius:8px;background:var(--card);border:1px solid var(--line);font-weight:650;font-size:13px;color:var(--ink)}
 .snav a:hover{text-decoration:none;border-color:var(--accent)}
 .hd h3 a{color:inherit}.updated{display:inline-block;margin-top:6px;padding:3px 10px;border-radius:8px;background:var(--soft);font-size:13px;font-weight:600}
+.tabbar{display:none;margin-left:auto;gap:4px;flex-wrap:wrap}body.tabbed .tabbar{display:flex}body.tabbed .snav>a{display:none}.tabbar a{padding:3px 10px;border-radius:999px;text-decoration:none;color:var(--ink);border:1px solid var(--line)}.tabbar a.on{background:var(--accent);border-color:var(--accent);color:#fff}#showall{color:var(--mut);border-style:dashed}
+body.tabbed:not(.all) section.tab:not(.on){display:none}body.all section.tab{border-top:1px solid var(--line);margin-top:24px}section.tab .side{position:static;max-height:none;margin-top:24px}
+button.filebtn{font:inherit;font-size:13px;cursor:pointer;border:1px solid var(--accent)}.filebtn{display:inline-block;padding:3px 10px;border-radius:6px;background:var(--accent);color:#fff;text-decoration:none;white-space:nowrap;margin:2px 0}.filebtn.alt{background:transparent;color:var(--accent);border:1px solid var(--accent)}.crs td{vertical-align:top}.crst{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;border:1px solid currentColor}.cr-waiting{color:var(--warn)}.cr-built{color:var(--accent)}.cr-proven{color:var(--ok)}.cr-closed{color:var(--mut)}
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}.layout.solo{display:block}.content{min-width:0}.side{position:sticky;top:52px;max-height:calc(100vh - 64px);overflow:auto;padding-right:2px}.side h2{margin-top:0}.health{margin-top:8px}.health .hi{font-size:13px;margin-top:3px}.grp{margin-top:8px;border:1px solid var(--line);border-radius:10px;background:var(--card)}.grp>summary{cursor:pointer;padding:9px 12px;font-size:14px}.grp .speed,.grp>.split,.grp>div,.grp .tip{padding:0 12px 10px}.tip{border-top:1px solid var(--line);padding-top:10px}.tip h3{font-size:13px;margin:0 0 4px}.tip p{margin:0 0 4px;font-size:12.5px}.p-info{background:#8793a6;color:#fff}@media(max-width:1000px){.layout{grid-template-columns:minmax(0,1fr)}.side{position:static;max-height:none}}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px}.p-green{background:#2e9e5b;color:#fff}.p-amber{background:#e0a100;color:#fff}.p-red{background:#d1383d;color:#fff}.pill{padding:1px 9px;margin-left:6px;border-radius:99px;font-size:12px}.speed{margin-top:8px;font-size:13px}.split{display:flex;gap:2px;margin:6px 0}.seg{background:var(--accent);color:#fff;font-size:11px;padding:3px 6px;border-radius:4px;white-space:nowrap;overflow:hidden}.seg:nth-child(2){opacity:.75}.seg:nth-child(3){background:var(--idle);color:var(--ink)}.seg:nth-child(4){opacity:.55}.muted{color:var(--mut);font-size:12px}\n.advl{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:10px;margin-top:8px}
 .advi{border-left:4px solid var(--warn)}.advi.hi{border-left-color:var(--bad)}.advi .rk{font-size:12px;color:var(--mut)}.advi h3{margin:2px 0 6px}.advi p{margin:4px 0;font-size:13px}.advi .why{color:var(--mut);font-size:12px}
 details.ph>summary{list-style:none;cursor:pointer;color:var(--ink)}details.ph>summary::-webkit-details-marker{display:none}
@@ -1698,9 +1813,10 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
     w("<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'>")
     w("<!-- generated-by: mxcli-project-toolkit/project-bin/build-plan-status.sh (progress-report.py) -->")
     w("<title>Progress report: %s</title><style>%s</style></head><body>" % (esc(info["name"]), CSS))
-    # One group of section links (issue #479). The stage list is one link away; the current stage is in the
-    # header line below, and the #stage-N card anchors stay for links from other pages.
-    w("<nav class=snav aria-label='Page sections'><a href='#stages'>Stages</a><a href='#build-detail'>Build</a><a href='#pages'>Pages</a>" + ("<a href='#tips'>Tips</a>" if L else "") + "</nav><main><div class='layout%s'><div class=content>" % ("" if L else " solo"))
+    # One group of section links (issue #479): the bar without JavaScript. With JavaScript the tab bar replaces them
+    # (body.tabbed hides the plain links). The current stage is in the header line below, and the #stage-N card
+    # anchors stay for links from other pages; a link into a hidden tab switches to that tab first.
+    w("<nav class=snav aria-label='Page sections'><a href='#stages'>Stages</a><a href='#build-detail'>Build</a><a href='#pages'>Pages</a>" + ("<a href='#tips'>Tips</a>" if L else "") + "<span class=tabbar role=tablist>" + "".join("<a href='#%s' data-tab='%s' role=tab>%s</a>" % (t_, t_, n_) for t_, n_ in TABS) + "<a href='#' id=showall title='Every tab on one page, for searching and printing'>Show all</a></span></nav><main><div class='layout solo'><div class=content>")
     last_ev = datetime.datetime.fromtimestamp(an["t1"]).strftime("%Y-%m-%d %H:%M") if L else "no session log"
     w("<header><h1>Progress report: %s</h1>" % esc(info["name"]))
     w("<span class=updated id=stamp data-stamp>Last updated %s %s</span> <span class=sub id=lastevent data-stamp>session log last event %s</span>%s<br>" % (gen, datetime.datetime.now().astimezone().strftime("%Z"), last_ev,
@@ -1724,7 +1840,9 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
     if how_parts: w("<details class=how id=how><summary>How this was measured</summary>%s</details>" % "".join(how_parts))
     if not L:
         w("<p class=nolog>%s Time, token and cost figures are not shown; everything else is (details in How this was measured).</p>" % esc(args.log_note))
-        if args.ledgers and args.ledgers["phases"]: render_ledgers(w, args.ledgers)
+    PERF = []
+    if not L and args.ledgers and args.ledgers["phases"]: render_ledgers(PERF.append, args.ledgers)
+    w("<section class=tab id=tab-overview>")
     w("<div class='card' style='margin-top:14px'><div class=hd><h3><a href='#stage-%s'>%s</a></h3><span class=sub>%d of 8 gates passed%s</span></div>" % (info["current"] or "P", esc(info["current_line"] or "Current stage unknown"), npass, (", %d waived" % sum(1 for s_ in STAGES if states[s_] == "waived")) if "waived" in states.values() else ""))
     w("<div class='bar big ok' style='margin:8px 0' title='mean of the eight stage bars'><i style='width:%.0f%%'></i></div>" % overall)
     w("<div class=sub>Overall progress %.0f%%: mean of the stage bars below (passed or waived stage = 100, current stage = promised artifacts present, Stage 5 = plan rows built).</div></div>" % overall)
@@ -1737,13 +1855,18 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
     cwin, cnote = context_window(main["msgs"], main["compacts"], main.get("flag_1m", False))
     pw = lambda a_: ctx_pct_txt(a_, cwin)
     nart = sum(len(arts[s_]["files"]) for s_ in STAGES); ndec = len(info["decisions"])
-    kp = [("Gates passed", "%d of 8" % npass, "stages P to 6, from PROJECT.md"), ("Plan rows built", ("%d of %d" % (bp["built"], bp["total"])) if bp and bp["total"] else "none yet", "from architecture/build-plan.md" + signoff_suffix(bp)),
-          ("Artifacts present", "%d" % nart, "files found for the eight stages"), ("Decisions", "%d" % ndec, "rows in the PROJECT.md register")] if not L else [("Wall time", fmt_dur(wall), "first to last event in the session"), ("Waiting for you", fmt_dur(idle_s), "gaps over %d min" % (IDLE_GAP_S // 60)),
+    chg = info.get("changes", []); waiting = [c for c in chg if c["status"] in ("open", "refined", "agreed")]
+    kp0 = [("Gates passed", "%d of 8" % npass, "stages P to 6, from PROJECT.md"), ("Plan rows built", ("%d of %d" % (bp["built"], bp["total"])) if bp and bp["total"] else "none yet", "from architecture/build-plan.md" + signoff_suffix(bp)),
+           ("Changes waiting", ("%d of %d" % (len(waiting), len(chg))) if chg else "none logged", "open, refined or agreed in the Change log"),
+           ("Artifacts present", "%d" % nart, "files found for the eight stages"), ("Decisions", "%d" % ndec, "rows in the PROJECT.md register")]
+    kp = [] if not L else [("Wall time", fmt_dur(wall), "first to last event in the session"), ("Waiting for you", fmt_dur(idle_s), "gaps over %d min" % (IDLE_GAP_S // 60)),
           ("New tokens", fmt_tok(head(tot)), "input + output + cache write"), ("Cache reads", fmt_tok(tot["cr"]), "billed at a fraction"),
           ("Est. cost", money(cost_all), cost_note), ("Sub-agents", "%d" % nsub, "%d of them in %d workflow run(s)" % (nwf, len({a["wf_id"] for a in agents if a["wf"]}))),
           ("Context avg / peak", "%s / %s" % (fmt_tok(ctx_avg), fmt_tok(peak)), "per main request, " + (("window %s" % fmt_tok(cwin) + (" (%s)" % cnote if cnote else "")) if cwin else "window unknown")), ("Compactions", "%d" % len(main["compacts"]), "automatic context summaries"),
           ("Your prompts", "%d" % main["prompts"], "typed messages, text not read into this page")]
-    w("<div class=kpis>" + "".join("<div class='card kpi'><div class=v>%s</div><div class=l>%s</div><div class='l'>%s</div></div>" % (esc(v), esc(l), esc(n)) for l, v, n in kp) + "</div>")
+    kpis = lambda k_: "<div class=kpis>" + "".join("<div class='card kpi'><div class=v>%s</div><div class=l>%s</div><div class='l'>%s</div></div>" % (esc(v), esc(l), esc(n)) for l, v, n in k_) + "</div>"
+    w(kpis(kp0))
+    if kp: PERF.append("<h2>Session totals</h2>" + kpis(kp))
     # tips and tricks: a narrow side column, one collapsed box per theme, calm severity, actionable tips only
     aside = ""
     if L:
@@ -1831,6 +1954,8 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
                    "".join("<span class='chip miss'>%s</span>" % esc(m) for m in miss)))
         w("</div>")
     w("</div>")
+    w("</section>")
+    w_main = w; w = PERF.append
     if L:
         # where time went
         w("<h2>Where time went: wall clock by stage, activity and tokens</h2><div class=sub>Top band: stage (approximate). Middle: who was working. Bottom: new tokens per 10 minutes. Hours are local time.</div>")
@@ -1919,7 +2044,9 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
         for t, p in adv: w("<div class=card><h3>%s</h3><p>%s</p></div>" % (esc(t), p if "&" in p else esc(p)))
         top5 = sorted(agents, key=lambda a: -a["tok"]["cost"])[:5]
         w("<div class=card><h3>Five most expensive sub-agents</h3><table>" + "".join("<tr><td>%s</td><td class=n>%s</td><td class=n>%s</td></tr>" % (esc(a["desc"]), esc(a["model"].replace("claude-", "")), money(a["tok"]["cost"])) for a in top5) + "</table></div></div>")
+    w = w_main
     # build progress (Stage 5): the plan's own phases, stacked built / partial / not built
+    w("<section class=tab id=tab-build>")
     w("<h2 id=build-detail>Build progress: Stage 5 plan, scripts and proof</h2>")
     if bp:
         kinds = bp["kinds"]; tr = ""
@@ -1935,8 +2062,7 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
         if facts and facts["score"]: w("<div class=note id=modelscore data-stamp>Latest model score %.1f (%s).</div>" % (facts["score"]["score"], esc(facts["score"]["script"][:40])))
         if bp.get("note"): w("<div class='note stale'>%s.</div>" % esc(bp["note"]))
         w("<div class=note id=planread data-stamp>Kinds are the plan's own Kind column; row state is the plan's State column read by prefix (built or done = built, partial or in progress = partial, anything else = not built); HARNESS rows are not build rows and are not counted. A HARNESS row running verify-module.sh &lt;Module&gt; is that module's sign-off and shows on its phase card as one status, read from the module's verify summary and LOOK report: verified only when the summary is clean and newer than the scripts it depends on and the LOOK is N of N. The gate's own record of the look is the look obligation, in the obligations table of <code>gate-check.sh &lt;project&gt; 5</code> (index.html). Plan read %s from %s.</div>%s</div>" % (esc(bp.get("generated") or "unknown"), "architecture/build-plan.md" if bp.get("source") == "md" else "architecture/build-plan.json", signoff_rollup(bp)))
-        w("<div class=phases style='margin-top:10px'>")
-        for p in bp["phases"]:
+        def card(p):
             now = p is cur
             w("<details class='card ph%s' id='phase-%s'%s><summary><b>Phase %s: %s</b>%s%s<div class=k>%s</div><div class=k>module files: %s</div>%s<div class=k>Click to show or hide the rows</div></summary>" %
               (" now" if now else "", esc(p["id"]), " open" if now else "", esc(p["id"]), esc(p["name"]), " <span class=nowtag>building now</span>" if now else "", phase_bar(p, runs_by.get(str(p["id"]))), esc(" ".join("%s %d" % kv for kv in p["kinds"].items())),
@@ -1944,15 +2070,40 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
             if str(p["id"]) in phase_detail: w(phase_detail[str(p["id"])])
             else: w("<div class=tw><table class=steps><tr><th>#</th><th>Kind</th><th>Row</th><th>State</th></tr>" + "".join("<tr class='r-%s'><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>" % (x["cls"], esc(x["n"]), esc(x["kind"]) + (" <span class=mut>(not counted)</span>" if x["cls"] == "harness" else ""), esc(x["step"]), esc(x["state"][:90])) for x in p["steps"]) + "</table></div>" if p["steps"] else "")
             w("</details>")
-        w("</div>")
+        # focus: the phase being built plus the three unfinished ones with the latest built date; the rest fold
+        last = lambda p: max([m for x in p["steps"] for m in re.findall(r"20\d\d-\d\d-\d\d", x.get("state", ""))] or [""])
+        done = [p for p in bp["phases"] if p["n"] and p["built"] == p["n"]]
+        left = [p for p in bp["phases"] if p not in done]
+        cl = any(p is cur for p in left)
+        focus = ([cur] if cl else []) + sorted([p for p in left if p is not cur], key=last, reverse=True)[:4 - cl]
+        rest = [p for p in left if not any(p is f for f in focus)]
+        def fold(fid, title, sub, ps):
+            w("<details class='card grp-ph' id='%s' style='margin-top:10px'><summary><b>%s (%d)</b><div class=sub>%s</div></summary><div class=phases>" % (fid, title, len(ps), sub))
+            for p in ps: card(p)
+            w("</div></details>")
+        if focus:
+            w("<h3 style='margin:14px 0 4px'>Building now and next</h3><div class=sub>The phase being built, then the unfinished phases with the most recent built rows.</div><div class=phases style='margin-top:6px'>")
+            for p in focus: card(p)
+            w("</div>")
+        if rest: fold("fold-rest", "Other unfinished phases", "Not started yet, or a few rows left: %s" % esc(", ".join("Phase %s %d of %d" % (p["id"], p["built"], p["n"]) for p in rest)), rest)
+        if done: fold("fold-done", "Completed phases", "Every row built: %s" % esc(", ".join("Phase %s" % p["id"] for p in done)), done)
     else: w("<div class=card>No plan to summarise yet: %s</div>" % esc(args.plan_msg or "architecture/build-plan.md was not read."))
     if args.fragment:   # plan tally, views A (script folders) and B (module proof); the per-phase rows live in the cards above
         w("<section id=plan-tables class='card frag'>")
         w(args.fragment)
         w("</section>")
+    w("</section>")
+    render_changes(w, chg, bp)
+    w("<section class=tab id=tab-performance>")
+    if not L: w("<h2>Performance</h2><p class=nolog>%s Time, token and cost figures need a Claude Code session log of this project (see How this was measured at the top).</p>" % esc(args.log_note))
+    H.extend(PERF)
+    w("</section><section class=tab id=tab-pages>")
     w(render_pages(proj, args.outdir, [SELF_OUT]))
+    w("</section><section class=tab id=tab-notes>")
+    w(aside)   # tips first, then the bugs met here; the method notes below are reference, folded
+    render_bugs(w, args.bugs)
     # footer
-    w("<footer><h2>How these numbers are derived</h2><ul>")
+    w("<footer><details class=card id=derived><summary><b>How these numbers are derived</b><div class=sub>Sources, cost, stage windows, attribution, time, gate state, known gaps and the exact inputs of this page.</div></summary><ul>")
     if L:
         sg = an["sig"]
         w("<li><b>Source.</b> The Claude Code session logs of this project on this machine (%d session file(s), %d sub-agent log(s)). Usage is counted once per message id, taking the maximum of each counter, because the log writes one record per streamed block (same method as the toolkit's token-burn.sh). Synthetic records are skipped. New tokens = input + output + cache write; cache reads are shown apart. Only numbers, timestamps, tool names and sub-agent short descriptions are used; no prompt or message text is copied into this page.</li>" % (args.n_sessions, len(agents)))
@@ -1972,7 +2123,7 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
     direct = "progress-report.py &lt;project&gt; " + (" ".join("--session-log <code>%s</code>" % esc(x) for x in args.session_log) if args.session_log else "--logs-dir &lt;dir&gt;")
     w("<li><b>Inputs.</b> Project folder: <code>%s</code>. Session log(s) (%s): %s. Rates file: %s. To regenerate with the same inputs: <code>%s</code>, or <code>%s</code>.</li>" % (esc(proj), how, logs_txt, rates_txt, regen, direct))
     w("</ul>")
-    w("<div class=note id=rebuildnote data-stamp>Rebuild: project-bin/build-plan-status.sh --html. Setting in PROJECT.md: Progress report: off, ask or auto (now %s). Generated %s.</div></footer></div>%s</div></main>" % (esc(info["setting"]), gen, aside))
+    w("<div class=note id=rebuildnote data-stamp>Rebuild: project-bin/build-plan-status.sh --html. Setting in PROJECT.md: Progress report: off, ask or auto (now %s). Generated %s.</div></details></footer></section></div></div></main>" % (esc(info["setting"]), gen))
     w(JS)
     if args.reload:
         w("<script id=autoreload>%s</script>" % ("(function(){\nvar VK='pr-view:'+location.pathname,PK='pr-paused',IDLE=20000,EVERY=30000,last=%d,active=%d,lastInput=0,de=document.documentElement;\nfunction get(k){try{return sessionStorage.getItem(k)}catch(e){return null}}\nfunction put(k,v){try{if(v===null)sessionStorage.removeItem(k);else sessionStorage.setItem(k,v)}catch(e){}}\ntry{history.scrollRestoration='manual'}catch(e){}\nfunction restore(){try{var st=JSON.parse(get(VK)||'null');if(!st)return;\n var d=st.d||{};for(var id in d){var e=document.getElementById(id);if(e&&e.tagName==='DETAILS')e.open=!!d[id]}\n var sb=de.style.scrollBehavior;de.style.scrollBehavior='auto';window.scrollTo(0,st.y||0);de.style.scrollBehavior=sb;\n }catch(e){}}\nrestore();window.addEventListener('load',function(){restore();put(VK,null)});\nfunction save(){var d={};var all=document.querySelectorAll('details[id]');for(var i=0;i<all.length;i++)d[all[i].id]=all[i].open;put(VK,JSON.stringify({y:window.pageYOffset||de.scrollTop||0,d:d}))}\nfunction reloadNow(){save();location.reload()}\nwindow.__prReload=reloadNow;\n['scroll','click','keydown','wheel','touchstart','mouseup'].forEach(function(n){window.addEventListener(n,function(){lastInput=Date.now()},{passive:true})});\ndocument.addEventListener('selectionchange',function(){lastInput=Date.now()});\nvar live=document.getElementById('live'),btn=document.getElementById('livebtn'),txt=document.getElementById('livetxt');\nfunction paint(){var p=get(PK)==='1';if(txt)txt.textContent=p?'Paused':'Live · refreshes every 30 s';if(btn)btn.textContent=p?'Resume':'Pause'}\nif(btn)btn.addEventListener('click',function(ev){ev.preventDefault();put(PK,get(PK)==='1'?null:'1');paint()});\npaint();\nfunction tick(){if(get(PK)==='1'||Date.now()-lastInput<IDLE){setTimeout(tick,EVERY);return}reloadNow()}\nif(Date.now()/1000-last<active)setTimeout(tick,EVERY);\n})();" % (int(args.last_act), ACTIVE_S)))
@@ -2031,6 +2182,7 @@ def main_():
     a.rates_used = rf if os.path.isfile(rf) else ""; a.rates_default = rf
     bp = load_build_plan(a.plan_json or os.path.join(proj, "architecture", "build-plan.json"), proj)
     a.fragment = read(a.fragment) if a.fragment else ""; a.phase_detail = {m.group(1): m.group(2) for m in re.finditer(r"<!--phase:(.*?)-->(.*?)<!--/phase-->", read(a.phase_detail) if a.phase_detail else "", re.S)}; a.plan_msg = a.plan_msg
+    a.bugs = load_bugs(proj, tk)
     if a.session_log and not a.no_log:
         sessions, base = explicit_sessions(a.session_log), ""
     else: sessions, base = ([], "") if a.no_log else find_sessions(proj, a.logs_dir, a.session_cache)

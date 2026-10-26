@@ -4,6 +4,7 @@
 #   bin/file-bugs.sh [--project DIR]                  # dry run: redacted title + body, duplicates
 #   bin/file-bugs.sh --file PBUG-02 [--file ...]       # file that bug, after a y/N per bug
 #   bin/file-bugs.sh --all                            # every open bug, still a y/N per bug
+#   bin/file-bugs.sh --file PBUG-02 --to mxcli         # file it to the other repo as well (row keeps its target)
 #   bin/file-bugs.sh --links                          # prefilled github new-issue URL per open bug
 #   bin/file-bugs.sh --json                           # redacted bugs + URLs as JSON (for the report)
 #   bin/file-bugs.sh --add --target mxcli|toolkit --title T --repro R --expected E --actual A \

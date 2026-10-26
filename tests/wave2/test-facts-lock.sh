@@ -146,6 +146,25 @@ case "$NC" in
   *) bad "check with no lock built did not say run build first"; echo "        $NC" | head -2 ;;
 esac
 
+# --- name-keyed identifiers are read WARN-only (#519) -----------------------------------------------
+# The issue's repro: domainEntities[].name respelled across two BRDs. Named in a WARN line, never
+# frozen, exit code unchanged (0) for build and check.
+NK="$WORK/namekeyed"; mkdir -p "$NK/analysis/x/knowledge-base/brd"
+echo '{"id":"F001","domainEntities":[{"name":"PaymentPlan"}],"pages":[{"name":"PaymentPlan_Overview"}]}' > "$NK/analysis/x/knowledge-base/brd/F001-a.brd.json"
+echo '{"id":"F002","domainEntities":[{"name":"Paymentplan"}],"pages":[{"name":"PaymentPlan_Overview"}]}' > "$NK/analysis/x/knowledge-base/brd/F002-b.brd.json"
+NB=$(bash "$SUBJECT" "$NK" build 2>&1); NBRC=$?
+case "$NB" in
+  *"WARN  name-keyed entities/paymentplan"*"PaymentPlan (F001-a.brd.json)"*"Paymentplan (F002-b.brd.json)"*)
+    ok "a name-keyed respelling is named in a WARN line" ;;
+  *) bad "name-keyed respelling not reported"; echo "        $NB" | head -4 ;;
+esac
+[ "$NBRC" -eq 0 ] && ok "build exit unchanged (0): WARN only" || bad "build exit $NBRC on a name-keyed WARN"
+grep -q '"facts": {}' "$NK/analysis/facts.lock.json" && ok "nothing name-keyed is frozen" || bad "name-keyed spelling was frozen"
+NCK=$(bash "$SUBJECT" "$NK" check 2>&1); NCKRC=$?
+case "$NCK" in *"WARN  name-keyed entities/paymentplan"*) [ "$NCKRC" -eq 0 ] && ok "check names it too, exit 0" || bad "check exit $NCKRC" ;;
+  *) bad "check did not report the name-keyed respelling" ;; esac
+case "$NCK" in *"agree with all"*) bad "check reads as agreement" ;; *) ok "check still does not read as agreement" ;; esac
+
 # --- usage --------------------------------------------------------------------------------------------
 bash "$SUBJECT" 2>/dev/null; [ "$?" -eq 2 ] && ok "no argument exits 2" || bad "no argument did not exit 2"
 bash "$SUBJECT" "$P" nonsense 2>/dev/null; [ "$?" -eq 2 ] && ok "unknown subcommand exits 2" || bad "unknown subcommand accepted"

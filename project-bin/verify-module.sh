@@ -687,16 +687,28 @@ else
   fi
 
   JOURNEY="$JOURNEY_DIR/$MODULE.journey.json"
+  # One journey per file under journeys/<Module>/ is the folder form (#542): the runner takes
+  # several files, and a module with eight journeys there read FAULT "no journeys/<M>.journey.json".
+  # The single file wins when both exist (unchanged); else every journeys/<M>/*.journey.json is
+  # walked in one run. A journey whose persona is not TEST_USER reads INVALID with the remedy
+  # (the runner's own one-run-per-role rule) — loud, never skipped.
+  JOURNEY_FILES=()
+  if [ -f "$JOURNEY" ]; then
+    JOURNEY_FILES=("$JOURNEY")
+  elif [ -d "$JOURNEY_DIR/$MODULE" ]; then
+    for _jf in "$JOURNEY_DIR/$MODULE"/*.journey.json; do [ -f "$_jf" ] && JOURNEY_FILES+=("$_jf"); done
+    [ "${#JOURNEY_FILES[@]}" -gt 0 ] && JOURNEY="$JOURNEY_DIR/$MODULE/"
+  fi
   if [ "$SKIP_JOURNEYS" -eq 1 ]; then
     printf '\n\033[1m── journeys\033[0m\n'; c_warn "  · skipped by flag"; echo ""
     printf 'journeys\tSKIPPED\t0\t-\t(--skip-journeys)\n' >> "$SUMMARY"
-  elif [ ! -f "$JOURNEY" ] && [ "$MODULE_PAGES" = 0 ]; then
+  elif [ "${#JOURNEY_FILES[@]}" -eq 0 ] && [ "$MODULE_PAGES" = 0 ]; then
     # A module with no pages (a REST client, a mock service) cannot have a UI journey: the runner
     # knows UI steps only. Not applicable, so neither a fault nor a pass.
     printf '\n\033[1m── journeys\033[0m\n'; c_warn "  · not applicable"; echo " — $MODULE has 0 pages in the page scope"
     printf 'journeys\tSKIPPED\t0\t-\t(N/A: %s has 0 pages in .claude/loop/page-scope.json; its proof is its unit/trace suite, its journey is owed by the first page that calls it)\n' "$MODULE" >> "$SUMMARY"
-  elif [ ! -f "$JOURNEY" ]; then
-    fault "journeys" "no ${JOURNEY#$ROOT/}" \
+  elif [ "${#JOURNEY_FILES[@]}" -eq 0 ]; then
+    fault "journeys" "no ${JOURNEY#$ROOT/} (nor ${JOURNEY_DIR#$ROOT/}/$MODULE/*.journey.json)" \
           "The golden path for $MODULE is UNTESTED end-to-end. Page-stop specs, if any, check that pages render — not that the journey through them does what was specified.${OTHER_SHAPE:+ Tests exist in another shape, not walked by the runner:$OTHER_SHAPE}"
   elif [ ! -f "$JOURNEY_RUNNER" ]; then
     fault "journeys" "no journey runner at ${JOURNEY_RUNNER#$ROOT/}" \
@@ -704,13 +716,14 @@ else
   elif [ "$PW_OK" -eq 0 ]; then
     printf 'journeys\tSKIPPED\t0\t-\t(not run: needs playwright, see the e2e harness dependency row)\n' >> "$SUMMARY"
   else
+    [ "${#JOURNEY_FILES[@]}" -gt 1 ] && echo "  journeys: ${#JOURNEY_FILES[@]} file(s) in ${JOURNEY#$ROOT/}"
     _exec "journeys (UI + ordered spans + data effects)" "$OUTDIR/20-journeys.log" gate "${VM_TMO_JOURNEYS:-900}" -- \
-      node "$JOURNEY_RUNNER" "$JOURNEY"
+      node "$JOURNEY_RUNNER" "${JOURNEY_FILES[@]}"
     # Non-vacuity: a journey that cannot fail is not evidence. Skipped under --quick because it
     # re-walks every step.
     [ "$QUICK" -eq 1 ] || _exec "journeys (positive control — MUST detect a broken precondition)" \
       "$OUTDIR/21-journeys-control.log" gate "${VM_TMO_JOURNEYS:-900}" -- \
-      node "$JOURNEY_RUNNER" "$JOURNEY" --positive-control
+      node "$JOURNEY_RUNNER" "${JOURNEY_FILES[@]}" --positive-control
   fi
 
   if [ "$SKIP_MONKEY" -eq 1 ]; then

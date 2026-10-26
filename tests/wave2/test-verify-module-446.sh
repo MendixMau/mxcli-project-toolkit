@@ -24,6 +24,8 @@
 #       the same as the installed run's -- the rung is never a gate
 #   V9  the page-scope rung's budget is VM_TMO_PAGESCOPE (default 900); on timeout the watchdog
 #       kills the instrument's forked child too, so nothing writes a scope after the FAULT (#541)
+#   V10 the folder form journeys/<Module>/*.journey.json is walked (both files, one run) when
+#       journeys/<Module>.journey.json is absent; the single file still wins when both exist (#542)
 set -uo pipefail
 TK="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SUT="${1:-$TK/project-bin/verify-module.sh}"
@@ -158,6 +160,24 @@ sleep 5
 reap
 cp "$WORK/stub/page-scope.sh.keep" "$P/bin/page-scope.sh"; chmod +x "$P/bin/page-scope.sh"
 grep -q 'VM_TMO_PAGESCOPE:-900' "$SUT" && ok "V9: page-scope default budget is 900 s" || bad "V9: page-scope budget not VM_TMO_PAGESCOPE:-900"
+
+# V10: folder form, then both forms.
+fake_mod "$P/node_modules" playwright; fake_mod "$P/node_modules" axe-core
+rm -f "$P/journeys/MyFirstModule.journey.json"; mkdir -p "$P/journeys/MyFirstModule/controls"
+printf '{"id":"J-01"}\n' > "$P/journeys/MyFirstModule/J-01.journey.json"
+printf '{"id":"J-02"}\n' > "$P/journeys/MyFirstModule/J-02.journey.json"
+printf '{}\n' > "$P/journeys/MyFirstModule/controls/J-01.control.json"
+vm MyFirstModule
+_jl="$P/.claude/loop/verify/MyFirstModule/20-journeys.log"
+{ row '^journeys [(]UI' | grep -q '^PASS' && grep -q 'J-01.journey.json' "$_jl" && grep -q 'J-02.journey.json' "$_jl" \
+    && ! grep -q 'control.json' "$_jl" && ! printf '%s' "$sum" | grep -q '^journeys	FAULT'; } \
+  && ok "V10: journeys/<Module>/*.journey.json walked (2 files, one run), controls/ not passed as journeys" \
+  || bad "V10: folder form" "$(row '^journeys') / $(cat "$_jl" 2>/dev/null)"
+printf '{"name":"golden"}\n' > "$P/journeys/MyFirstModule.journey.json"
+vm MyFirstModule
+{ grep -q 'journeys/MyFirstModule.journey.json' "$_jl" && ! grep -q 'J-01.journey.json' "$_jl"; } \
+  && ok "V10: the single file still wins when both forms exist" || bad "V10: precedence" "$(cat "$_jl" 2>/dev/null)"
+rm -rf "$P/journeys/MyFirstModule"
 
 # Golden summaries for test-progress-harness-verify.sh, written by this subject (CAPTURE=<dir>).
 if [ -n "${CAPTURE:-}" ]; then

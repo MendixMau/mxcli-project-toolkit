@@ -25,7 +25,7 @@
 #
 # Usage:
 #   bin/test-stack-up.sh --check     # report only, change nothing. Exit 0 iff required deps are up.
-#   bin/test-stack-up.sh             # report, then bring up what is missing (may run a Docker build)
+#   bin/test-stack-up.sh             # report, then bring up what is missing (a container build, or the local lane when no runtime answers)
 #   bin/test-stack-up.sh --no-docker # bring up auxiliaries only; never build. "SP is already running it".
 #   bin/test-stack-up.sh --local     # app down: start it with `mxcli run --local --watch --detach`, never a container
 #   bin/test-stack-up.sh --restart   # skip the hot reload; rebuild and restart the container (old path)
@@ -215,10 +215,20 @@ mendix_at() {
     esac
     # A themed index.html can carry none of those words (field project, 2026-10-23: its custom page has
     # only a title and <div id="root">). The runtime's own client bundle cannot be themed away.
-    code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 4 "http://localhost:$p/mxclientsystem/mxui/mxui.js" 2>/dev/null)"
-    [ "$code" = 200 ] && return 0
+    # It must BE JavaScript: an SPA catch-all (Express static fallback, Vite dev server) answers 200
+    # with its index.html on every path, so a bare 200 was the Express false green above again
+    # (reproduced, PR #568 review). JS content type, and a body that does not open with `<`.
+    mxui_js_at "$p" && return 0
   done
   return 1
+}
+# mendix_at fallback: the runtime client bundle, served as JavaScript.
+mxui_js_at() {
+  local u="http://localhost:$1/mxclientsystem/mxui/mxui.js" meta first
+  meta="$(curl -s -o /dev/null -w '%{http_code} %{content_type}' --max-time 4 "$u" 2>/dev/null)"
+  case "$meta" in 200\ *[Jj]ava[Ss]cript*|200\ *[Ee]cma[Ss]cript*) ;; *) return 1 ;; esac
+  first="$(curl -s --max-time 4 "$u" 2>/dev/null | head -c 512 | tr -d ' \t\r\n' | cut -c1)"
+  [ -n "$first" ] && [ "$first" != "<" ]
 }
 
 # Ask Docker which port OUR container publishes, instead of scanning a guessed list.
@@ -822,13 +832,12 @@ if [ $APP_FOUND -ne 0 ]; then
       bad "mxcli run --local returned, but no Mendix of this project answers over HTTP — see $LOCAL_LOG"; exit 1
     fi
   elif [ "$_DK" != 0 ]; then
+    # Reached only with no mxcli: with one, the local lane above ran.
     check_run_local_ports || { bad "App not serving yet — this project's own runtime holds its port. Re-run --check when it answers."; exit 1; }
-    bad "App down and no Docker/Podman reachable, so this script cannot build the app container."
-    echo "  Normal in a cloud container, and fine on a desktop without one. Run the app without it:"
-    echo "    Studio Pro: Run Locally.  No Studio Pro:"
-    echo "    ./mxcli run --local --watch -p $(basename "$MPR")   # flags: skills/cloud-dev-environment.md"
-    echo "  This script then sees it as yours (verified) and --watch keeps it current."
-    echo "  Snapshot first — mxcli run --local consolidates a split-model .mpr. Then re-run with --check."
+    if [ "$_DK" = 3 ]; then bad "App down, local lane asked for, and no mxcli found (neither ./mxcli nor on PATH) — cannot start it."
+    else bad "App down, no container runtime answers, and no mxcli found (neither ./mxcli nor on PATH) — cannot start it."; fi
+    echo "  Put mxcli in the project root (./mxcli) or on PATH and re-run; it starts the app without a container."
+    echo "  Or run it yourself — Studio Pro: Run Locally — then re-run with --check; this script sees it as yours."
     exit 1
   fi
 fi

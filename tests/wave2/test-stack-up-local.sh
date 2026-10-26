@@ -23,6 +23,10 @@
 # loop (here the fake app itself, behind a dead handshake — Studio Pro's runtime in the field) →
 # exit 4, "INSTRUMENT BLOCKED", the holder named with its pid, and it is still alive afterwards.
 #
+# T17-T19 (PR #568 review): the mxui.js fallback rejects an SPA catch-all (200 HTML on every path)
+# and keeps a themed Mendix index; --local with a stubbed mxcli passes --serve-port and is proven by
+# its handshake; --local with no mxcli names the missing mxcli.
+#
 # usage: test-stack-up-local.sh /path/to/test-stack-up.sh
 # No pipefail: every assertion is `printf '%s' "$OUT" | grep -q …`, and grep -q exits on the first match —
 # with pipefail the printf's SIGPIPE on a long $OUT then failed a passing assertion (seen on T2).
@@ -344,6 +348,71 @@ kill -0 "$YOUNG" 2>/dev/null && ok "young tracked pid untouched" || bad "young p
 kill -0 "$REUSED" 2>/dev/null && ok "reused pid (start time mismatch) untouched" || bad "reused pid killed"
 kill -0 "$DECOY14" 2>/dev/null && ok "untracked look-alike untouched" || bad "untracked process killed"
 [ "$(cut -f1 "$BG" | tr '\n' ' ')" = "$YOUNG " ] && ok "record pruned to the live entry" || bad "record not pruned" "$(cat "$BG")"
+
+# srv_any <portvar> <pidvar> <mode> <dir>: spa = every path answers 200 text/html (an Express/Vite
+# catch-all); files = a plain static server over <dir>.
+srv_any() {
+  local pf="$WORK/$1.port"
+  "$PY" -I - "$3" "$4" "$pf" >/dev/null 2>&1 <<'EOF2' &
+import functools, http.server, sys
+mode, root, pf = sys.argv[1:4]
+class Spa(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        b = b'<!doctype html><html><head><title>Shop</title></head><body><div id="root"></div></body></html>'
+        self.send_response(200); self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
+    def log_message(self, *a): pass
+H = Spa if mode == "spa" else functools.partial(http.server.SimpleHTTPRequestHandler, directory=root)
+s = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+open(pf, "w").write(str(s.server_address[1]))
+s.serve_forever()
+EOF2
+  PIDS="$PIDS $!"; printf -v "$2" '%s' "$!"
+  for _ in $(seq 1 50); do [ -s "$pf" ] && break; sleep 0.1; done
+  printf -v "$1" '%s' "$(cat "$pf" 2>/dev/null)"
+}
+
+echo "== T17 (PR #568 review): mxui.js fallback — an SPA catch-all is NOT Mendix; a themed Mendix index still is =="
+srv_any SPA SPAPID spa "$WORK"
+P="$(mkproj t17 root)"; printf 'APP_PORTS="%s"\n' "$SPA" >> "$P/.claude/loop/stack.conf"
+OUT="$(run "$P")"; RC=$?
+[ "$(envv "$P" APP_PORT)" != "$SPA" ] && ! printf '%s' "$OUT" | grep -q ":$SPA matched by scan" \
+  && ok "SPA catch-all (200 text/html on every path) not identified as Mendix" || bad "SPA catch-all identified as Mendix (rc=$RC)" "$OUT"
+mkdir -p "$WORK/themed/mxclientsystem/mxui"
+printf '<html><head><title>Shop</title></head><body><div id="root"></div></body></html>\n' > "$WORK/themed/index.html"
+printf '\n  (function(){window.mx=window.mx||{};})();\n' > "$WORK/themed/mxclientsystem/mxui/mxui.js"
+srv_any THM THMPID files "$WORK/themed"
+P="$(mkproj t17b root)"; printf 'APP_PORTS="%s"\n' "$THM" >> "$P/.claude/loop/stack.conf"
+OUT="$(run "$P")"; RC=$?
+[ "$(envv "$P" APP_PORT)" = "$THM" ] && [ "$(envv "$P" APP_OWNERSHIP)" = unverified ] \
+  && ok "themed index.html + mxui.js served as JavaScript -> found (scan, unverified)" || bad "themed Mendix not found (rc=$RC)" "$OUT"
+
+echo "== T18 (PR #568 review): --local, stubbed mxcli -> starts with --serve-port, found by its handshake =="
+P="$(mkproj t18 root)"
+cat > "$P/mxcli" <<EOF2
+#!/usr/bin/env bash
+printf '%s\n' "\$*" > "$P/mxcli.args"
+mpr=""; while [ \$# -gt 0 ]; do [ "\$1" = -p ] && { mpr="\$2"; shift; }; shift; done
+d="\$(cd "\$(dirname "\$mpr")" && pwd)"; mkdir -p "\$d/.mxcli"
+sed -e 's/^  "pid": [0-9]*/  "pid": $WATCH_PID/' -e 's/^  "appPort": [0-9]*/  "appPort": $APP/' \
+    -e 's/^  "adminPass": "[^"]*"/  "adminPass": "$ADMIN_MARK"/' "$GOLDEN" > "\$d/.mxcli/run-local.json"
+EOF2
+chmod +x "$P/mxcli"
+OUT="$( (cd "$P" && LOGDIR="$WORK" bash bin/test-stack-up.sh --local 2>&1) )"; RC=$?
+ARGS="$(cat "$P/mxcli.args" 2>/dev/null)"
+case "$ARGS" in "run --local --watch --detach -p "*"--serve-port 65"[4-9][0-9]*) ok "mxcli run --local --watch --detach … --serve-port given" ;; *) bad "mxcli not started as expected: '$ARGS'" "$OUT" ;; esac
+printf '%s' "$OUT" | grep -q "App serving on :$APP .*ownership verified, run-local" && ok "app proven on :$APP via the run-local handshake" || bad "app not proven via handshake (rc=$RC)" "$OUT"
+[ "$(envv "$P" APP_SOURCE)" = run-local ] && [ "$(envv "$P" APP_OWNERSHIP)" = verified ] && ok "stack.env: verified run-local" || bad "stack.env wrong" "$(cat "$P/.claude/loop/stack.env" 2>&1)"
+
+echo "== T19 (PR #568 review): --local with no mxcli -> says no mxcli, not 'no Docker' =="
+if command -v mxcli >/dev/null 2>&1; then
+  echo "  [skip] T19: an mxcli is on PATH here"
+else
+  P="$(mkproj t19 root)"
+  OUT="$( (cd "$P" && LOGDIR="$WORK" bash bin/test-stack-up.sh --local 2>&1) )"; RC=$?
+  [ "$RC" -ne 0 ] && printf '%s' "$OUT" | grep -q "no mxcli found" && ! printf '%s' "$OUT" | grep -q "Docker/Podman" \
+    && ok "exit $RC, names the missing mxcli" || bad "wrong no-mxcli message (rc=$RC)" "$OUT"
+fi
 
 echo
 echo "stack-up-local: $PASS passed, $FAIL failed"

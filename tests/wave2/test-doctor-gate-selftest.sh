@@ -100,6 +100,11 @@ case "${MODE_GATE_STUB:-healthy}" in
   constant-nonzero)
     [ -n "$OUT" ] && printf '{"problems":[{"severity":"Error","errorCode":"CE0117","message":"type mismatch"}]}' > "$OUT"
     exit 0 ;;
+  jdk-mismatch)
+    # Verbatim shape from #576 (JDK 21 on a Mendix 11.15 model): exit 3, reason in errors[]
+    # with the compiler line in details, problems[] empty.
+    [ -n "$OUT" ] && printf '%s' '{"errors":[{"message":"An error occurred while compiling Java actions","details":"Java compilation initialization error\n    error: release version 25 not supported\n"}],"problems":[]}' > "$OUT"
+    exit 3 ;;
   slow)
     sleep "${MODE_GATE_STUB_SLEEP:-6}"
     [ -n "$OUT" ] && printf '{"problems":[]}' > "$OUT"
@@ -232,6 +237,32 @@ assert_contains "$T/out.lock" "known-bad control: gate read" "lock: known-bad co
 assert_contains "$P/.claude/.doctor-receipt" "gate-selftest: pass" "lock: receipt records pass"
 [ -e "$P/Fixture.mpr.lock" ] && ok "lock: the real model's lock file is untouched" || fail "lock: real lock file removed"
 rm -f "$P/Fixture.mpr.lock" "$P/.gate-selftest-bad-applied"
+
+# ── 12: mxbuild stops before checking (JDK 21 on 11.15) -> FAIL names mxbuild's reason ────
+# #576: the FAIL said "cannot read mxbuild's error file" while mxbuild had said exactly why.
+echo "== 12: mxbuild exits 3 with errors[] (JDK mismatch) -> FAIL quotes mxbuild's reason =="
+MXBUILD_PATH="$T/mxbuild" MODE_GATE_STUB=jdk-mismatch \
+  bash "$DOCTOR" --quick --gate-selftest --no-docker "$P" > "$T/out.jdk" 2>&1
+assert_contains "$T/out.jdk" "mxbuild stopped before checking the model (baseline run)" "jdk: FAIL says mxbuild did not check"
+assert_contains "$T/out.jdk" "release version 25 not supported" "jdk: FAIL carries the compiler's own line"
+assert_missing  "$T/out.jdk" "cannot read mxbuild's error file" "jdk: no misleading 'cannot read' line"
+assert_contains "$P/.claude/.doctor-receipt" "gate-selftest: fail (mxbuild did not check" "jdk: receipt records the reason"
+
+# ── 13: JAVA_HOME is JDK 21 but the model is Mendix 11.15 -> Build toolchain WARN ───────────
+# A JAVA_HOME exported in the shell profile beats find_java's per-model rule (#576). The model
+# version is read from a minimal _MetaData table; java is a stub that prints a JDK 21 banner.
+echo "== 13: JAVA_HOME JDK 21 vs an 11.15 model -> WARN with the fix =="
+P3="$T/proj-1115"; mkdir -p "$P3/mprcontents" "$T/jdk21/bin"
+python3 -c "import sqlite3,sys;c=sqlite3.connect(sys.argv[1]);c.execute('create table _MetaData(_ProductVersion text)');c.execute(\"insert into _MetaData values('11.15.0')\");c.commit()" "$P3/App.mpr"
+cp "$P/mxcli" "$P3/mxcli"
+printf '#!/bin/sh\necho %s >&2\n' "'openjdk version \"21.0.11\" 2026-04-21'" > "$T/jdk21/bin/java"; chmod +x "$T/jdk21/bin/java"
+JAVA_HOME="$T/jdk21" MXBUILD_PATH="$T/mxbuild" \
+  bash "$DOCTOR" --quick --no-docker "$P3" > "$T/out.jdkwarn" 2>&1
+assert_contains "$T/out.jdkwarn" "Java 21, but this model (Mendix 11.15.0) builds with JDK 25" "jdk-warn: mismatch named"
+assert_contains "$T/out.jdkwarn" "java_home -v 25" "jdk-warn: fix names JDK 25"
+JAVA_HOME="$T/jdk21" MXBUILD_PATH="$T/mxbuild" \
+  bash "$DOCTOR" --quick --no-docker "$P" > "$T/out.jdkunk" 2>&1
+assert_missing  "$T/out.jdkunk" "builds with JDK" "jdk-warn: no warning when the model version is unreadable"
 
 echo; echo "$PASS passed, $FAIL failed   ($T)"
 [ "$FAIL" -eq 0 ]

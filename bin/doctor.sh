@@ -948,6 +948,31 @@ if [ -n "$JAVA_EXE" ] && [ -x "$JAVA_EXE" ]; then
   if [ -n "$JV" ]; then
     ok "java runs: $JV  ($JAVA_EXE)"
     [ -z "${_jnote:-}" ] || warn "$_jnote"
+    # The JDK major must match the model (#576): 11.14+ builds need JDK 25, 11.13 and below
+    # JDK 21 (the same rule as find_java's _mxtk_java_want, read off the model doctor resolved). A JAVA_HOME exported in the shell
+    # profile wins over that rule AND over toolkit.env, and the mismatch then surfaces only as
+    # mxbuild stopping before it checks anything. Mendix 11 only — the rule is documented
+    # there; Studio Pro's bundled runtime is paired with its mxbuild and never flagged.
+    JAVA_WANT=""
+    _mver="$(mxtk_model_version "${MPR:-}" 2>/dev/null || true)"
+    case "$_mver" in
+      11.*)
+        _mmin="${_mver#11.}"; _mmin="${_mmin%%.*}"
+        JAVA_WANT=21; [ "$_mmin" -ge 14 ] 2>/dev/null && JAVA_WANT=25
+        _jmaj="$(printf '%s\n' "$JV" | sed -n 's/.*version "\(1\.\)\{0,1\}\([0-9][0-9]*\).*/\2/p' | head -1)"
+        case "$JAVA_HOME_FOUND" in
+          "${SP_APP:-<none>}"/*) ;;
+          *) if [ -n "$_jmaj" ] && [ "$_jmaj" != "$JAVA_WANT" ]; then
+               warn "Java $_jmaj, but this model (Mendix $_mver) builds with JDK $JAVA_WANT — mxbuild will stop before checking the model"
+               if [ -n "${JAVA_HOME:-}" ]; then
+                 note "JAVA_HOME is set in your environment, which wins over the toolkit's per-model JDK choice and over toolkit.env."
+                 note "Point it at JDK $JAVA_WANT (macOS: export JAVA_HOME=\$(/usr/libexec/java_home -v $JAVA_WANT)) or unset it in your shell profile."
+               else
+                 note "Install JDK $JAVA_WANT, or set JAVA_HOME=<a JDK $JAVA_WANT folder> in .claude/toolkit.env."
+               fi
+             fi ;;
+        esac ;;
+    esac
     # mxbuild compiles the model's Java actions, which takes javac — a JRE has none. Studio
     # Pro's bundled runtime is a JRE that mxbuild is paired with, so only flag a system Java.
     case "$JAVA_HOME_FOUND" in
@@ -1403,9 +1428,18 @@ if [ "$QUICK" != 1 ] || [ "$GATE_SELFTEST" = 1 ]; then
 
 head_ "Gate self-test (can the mxbuild gate actually see an error?)"
 
+# A JDK/model mismatch is the commonest reason mxbuild stops before checking (#576): name the
+# fix next to mxbuild's own words.
+gate_selftest_java_hint() {
+  case "$1" in
+    *"release version"*"not supported"*|*"Unsupported class file major version"*)
+      note "the model needs JDK ${JAVA_WANT:-?}; this run used ${JAVA_HOME_FOUND:-?} — see the Java line under 'Build toolchain'" ;;
+  esac
+}
+
 gate_selftest() {
   local scratch scratch_mpr t0 t1 elapsed mdl model_dir base_count bad_count rc timeout_s
-  local copy_excl copy_ok entry entry_name x copy_size
+  local copy_excl copy_ok entry entry_name x copy_size why
   timeout_s="${DOCTOR_GATE_TIMEOUT:-300}"
   t0=$(date +%s)
 
@@ -1467,7 +1501,10 @@ gate_selftest() {
 
   # (a) Baseline: the gate must resolve SOME integer off this model, clean or not — "?" here
   # means the gate cannot read mxbuild's own output, which is the original F-042-class defect.
-  base_count=$(mxtk_mxbuild_error_count "$scratch_mpr" "$timeout_s")
+  # The errors file is kept so a "?" can say WHY: the count runs in a $(...) subshell, so
+  # MXTK_MXBUILD_WHY never reaches this function (#576 — "cannot read mxbuild's error file"
+  # when mxbuild had in fact said "release version 25 not supported").
+  base_count=$(mxtk_mxbuild_error_count "$scratch_mpr" "$timeout_s" "$scratch/errors-base.json")
   rc=$?
   if [ "$rc" -eq 3 ]; then
     bad "gate self-test: mxbuild did not return within ${timeout_s}s (baseline run)"
@@ -1475,6 +1512,13 @@ gate_selftest() {
     return 0
   fi
   if [ "$base_count" = "?" ]; then
+    why=$(mxtk_mxbuild_why "$scratch/errors-base.json")
+    if [ -n "$why" ]; then
+      bad "gate self-test: mxbuild stopped before checking the model (baseline run): $why"
+      gate_selftest_java_hint "$why"
+      GATE_SELFTEST_LINE="fail (mxbuild did not check: ${why:0:80})"
+      return 0
+    fi
     bad "gate self-test: gate cannot read mxbuild's error file (baseline run) — a real error would go unseen"
     GATE_SELFTEST_LINE="fail (unreadable error file)"
     return 0
@@ -1512,7 +1556,7 @@ MDL
     return 0
   fi
 
-  bad_count=$(mxtk_mxbuild_error_count "$scratch_mpr" "$timeout_s")
+  bad_count=$(mxtk_mxbuild_error_count "$scratch_mpr" "$timeout_s" "$scratch/errors-bad.json")
   rc=$?
   if [ "$rc" -eq 3 ]; then
     bad "gate self-test: mxbuild did not return within ${timeout_s}s (known-bad run)"
@@ -1520,6 +1564,12 @@ MDL
     return 0
   fi
   if [ "$bad_count" = "?" ]; then
+    why=$(mxtk_mxbuild_why "$scratch/errors-bad.json")
+    if [ -n "$why" ]; then
+      bad "gate self-test: mxbuild stopped before checking the model (known-bad run): $why"
+      GATE_SELFTEST_LINE="fail (mxbuild did not check: ${why:0:80})"
+      return 0
+    fi
     bad "gate self-test: gate cannot read mxbuild's error file (known-bad run) — a real error would go unseen"
     GATE_SELFTEST_LINE="fail (unreadable error file)"
     return 0

@@ -951,7 +951,9 @@ mxtk_mxbuild_error_count() {
 }
 
 # mxtk_mxbuild_why <errors-file> [python] — mxbuild's own errors[] messages, joined and
-# capped at 300 chars, or nothing. errors[] is where mxbuild says why it did NOT check the
+# capped at 300 chars, or nothing. A message whose details carry a compiler "error: ..." line
+# gets that line appended: "An error occurred while compiling Java actions" alone does not say
+# "release version 25 not supported" (JDK 21 on an 11.15 model, #576). errors[] is where mxbuild says why it did NOT check the
 # model; problems[] is only the model's findings. Verbatim errors[] captured on
 # A field project (2026-09-26, mxbuild 11.14.0 vs an 11.12.2 model, exit 3):
 #   {"errors":[{"message":"The MPR file located at …/Marketplace.mpr could not be opened:
@@ -960,7 +962,13 @@ mxtk_mxbuild_error_count() {
 mxtk_mxbuild_why() {
   local _py="${2:-${PY:-$(resolve_py 2>/dev/null || true)}}"
   [ -s "$1" ] && [ -n "$_py" ] || return 0
-  "$_py" -c "import json;d=json.load(open('$(native_path "$1")'));print('; '.join((e.get('message','') if isinstance(e,dict) else str(e)) for e in d.get('errors',[]) or [])[:300])" 2>/dev/null || true
+  "$_py" -c "import json,re
+d=json.load(open('$(native_path "$1")'))
+def one(e):
+  if not isinstance(e,dict): return str(e)
+  m=re.search(r'error: ([^\\n]+)',e.get('details','') or '')
+  return e.get('message','')+(' ('+m.group(1).strip()+')' if m else '')
+print('; '.join(one(e) for e in d.get('errors',[]) or [])[:300])" 2>/dev/null || true
 }
 
 # project_name — the .mpr basename without extension, for user-facing messages.

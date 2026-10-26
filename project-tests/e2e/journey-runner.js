@@ -1133,7 +1133,7 @@ async function runJourney(page, j) {
     }
 
     for (const c of (step.ui && step.ui.checks) || []) {
-      const seen = await page.locator(`.mx-name-${c}`).first().isVisible({ timeout: 4000 }).catch(() => false);
+      const seen = await H.visibleWithin(page.locator(`.mx-name-${c}`).first(), 4000);   // waits up to 4 s (#536)
       record('ui', `${step.name}: widget ${c}`, seen ? 'PASS' : 'FAIL', '', req);
     }
 

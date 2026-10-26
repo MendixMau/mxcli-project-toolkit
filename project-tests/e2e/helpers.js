@@ -608,7 +608,7 @@ function visibleWithin(loc, ms) {
 async function gotoTarget(page, target) {
   if (target.nav) {
     const nav = page.locator(target.nav).first();
-    if (await nav.isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (await visibleWithin(nav, 3000)) {
       await humanClick(page, nav);
       await page.waitForTimeout(1500);
     }

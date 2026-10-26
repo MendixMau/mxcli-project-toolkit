@@ -88,6 +88,22 @@ if [ -f "$RUNNER" ]; then
     && ok "#536 journey-runner click / fill / combobox wait with visibleWithin() ($n sites, no isVisible({timeout}) left on them)" \
     || bad "#536 a journey-runner action still uses isVisible({timeout})" "$n sites; $(grep -nE '(el|box)\.isVisible\(\{ timeout' "$RUNNER" | head -3)"
 fi
+# The remaining sites that mean "wait" (#536, review follow-up): journey-runner's ui.checks loop
+# (journey-examples.md says "4 s each"), monkey.js land() / the blank-page oracle / the re-land
+# check, full-app-walkthrough.js vis() / expectAbsent / fill / widget checks, gotoTarget()'s nav.
+# Instant probes (the spinner checks, the login helpers) stay instant on purpose.
+if [ -f "$RUNNER" ]; then
+  grep -qF 'const seen = await H.visibleWithin(page.locator(`.mx-name-${c}`).first(), 4000);' "$RUNNER"     && ok "#536 journey-runner ui.checks waits up to 4 s per widget" || bad "#536 ui.checks still answers at once"
+fi
+MONKEY="$E2E/monkey.js"; WALK="$E2E/full-app-walkthrough.js"
+if [ -f "$MONKEY" ]; then
+  n="$(grep -c "H.visibleWithin(page.locator('.mx-page" "$MONKEY")"
+  [ "$n" -ge 2 ] && grep -qF "H.visibleWithin(page.locator('.mx-page, .mx-navigationtree').first(), 3000)" "$MONKEY"     && ok "#536 monkey.js land(), the re-land check and the blank-page oracle wait ($((n+1)) sites)"     || bad "#536 monkey.js still reads .mx-page with isVisible({timeout})" "$(grep -n "mx-page').first().isVisible" "$MONKEY" | head -3)"
+fi
+if [ -f "$WALK" ]; then
+  ! grep -qE 'isVisible\(\{ timeout' "$WALK" && grep -qF 'const vis = (n, ms = 6000) => H.visibleWithin(w(n), ms);' "$WALK"     && ok "#536 full-app-walkthrough.js has no isVisible({timeout}) left; vis() waits"     || bad "#536 full-app-walkthrough.js still uses isVisible({timeout})" "$(grep -nE 'isVisible\(\{ timeout' "$WALK" | head -3)"
+fi
+grep -qF "if (await visibleWithin(nav, 3000)) {" "$SUT" && ok "#536 gotoTarget() waits for its nav anchor" || bad "#536 gotoTarget() nav still answers at once"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"

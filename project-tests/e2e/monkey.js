@@ -109,8 +109,9 @@ async function oracle(page, t0, bucket) {
   if (bucket.http5xx.length) hits.push(`HTTP 5xx: ${bucket.http5xx[0]}`);
 
   // Blank page: the client rendered nothing at all.
-  const alive = await page.locator('.mx-page, .mx-navigationtree').first()
-                          .isVisible({ timeout: 3000 }).catch(() => false);
+  // Waits up to 3 s (#536): isVisible ignores a timeout and answered at once, so a page still rendering
+  // after the action read as a blank-page crash.
+  const alive = await H.visibleWithin(page.locator('.mx-page, .mx-navigationtree').first(), 3000);
   if (!alive) hits.push('blank page — no .mx-page or nav tree');
 
   // Stuck spinner: Mendix never resolved the request.
@@ -226,7 +227,7 @@ async function land(page, group, item) {
   await H.navTo(page, group, item).catch(e => { navErr = String((e && e.message) || e).split('\n')[0]; });
   if (navErr) return navErr;
   await page.waitForTimeout(2000);
-  return (await page.locator('.mx-page').first().isVisible({ timeout: 8000 }).catch(() => false)) ? '' : 'no .mx-page visible after navigation';
+  return (await H.visibleWithin(page.locator('.mx-page').first(), 8000)) ? '' : 'no .mx-page visible after navigation';
 }
 
 // ── one round ───────────────────────────────────────────────────────────────
@@ -328,7 +329,7 @@ if (require.main === module) (async () => {
       anyTrace = (await round(page, key, bucket)) || anyTrace;
       // A round that leaves no page behind would have every later round re-score the same
       // screen. Re-land; if that fails, say how much of the target went unfuzzed.
-      if (!(await page.locator('.mx-page').first().isVisible({ timeout: 3000 }).catch(() => false))
+      if (!(await H.visibleWithin(page.locator('.mx-page').first(), 3000))
           && (await land(page, group, item))) {
         finding('info', key, 'lost', `no page after round ${i + 1} (at ${page.url()}) and re-landing failed — the remaining ${n - i - 1} round(s) NOT fuzzed`);
         break;

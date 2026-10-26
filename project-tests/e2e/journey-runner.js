@@ -181,7 +181,7 @@ async function act(page, a, vars, note) {
       const el = w(a.widget);
       await el.waitFor({ state: 'attached', timeout: 8000 }).catch(() => {});
       await el.scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {});
-      if (!(await el.isVisible({ timeout: 6000 }).catch(() => false)))
+      if (!(await H.visibleWithin(el, 6000)))
         throw new Error(`.mx-name-${a.widget} not visible`);
       // Hit-test before the forced click. `force` skips Playwright's actionability check, so a
       // click lands on whatever sits on top: a toast over the page's header actions swallowed
@@ -207,7 +207,7 @@ async function act(page, a, vars, note) {
     }
     case 'fill': {
       const el = page.locator(`.mx-name-${a.widget} input, .mx-name-${a.widget} textarea`).first();
-      if (!(await el.isVisible({ timeout: 6000 }).catch(() => false)))
+      if (!(await H.visibleWithin(el, 6000)))
         throw new Error(`.mx-name-${a.widget} input not visible`);
       await el.fill(String(subst(a.value, vars)));
       break;
@@ -219,7 +219,7 @@ async function act(page, a, vars, note) {
       // selection. Toggle, then keyboard-select — the technique proven in
       // spec-fieldscan-otel.js.
       const box = w(a.widget);
-      if (!(await box.isVisible({ timeout: 6000 }).catch(() => false)))
+      if (!(await H.visibleWithin(box, 6000)))
         throw new Error(`.mx-name-${a.widget} not visible`);
       await box.scrollIntoViewIfNeeded().catch(() => {});
       if (FIXED) await PAUSE(400); else await frames(page);

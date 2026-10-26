@@ -594,6 +594,14 @@ async function approveConfirmCard(page, { maxMs = 12000 } = {}) {
   return false;
 }
 
+// Wait up to `ms` for a locator to become visible. Playwright's locator.isVisible() ignores its
+// `timeout` and answers at once (#536), so `isVisible({ timeout: 6000 })` read an element that
+// was attached but still fading in as "not visible" in 0 ms. Use this wherever a wait is meant;
+// an instant probe calls isVisible() with no timeout.
+function visibleWithin(loc, ms) {
+  return loc.waitFor({ state: 'visible', timeout: ms }).then(() => true, () => false);
+}
+
 async function gotoTarget(page, target) {
   if (target.nav) {
     const nav = page.locator(target.nav).first();
@@ -603,7 +611,7 @@ async function gotoTarget(page, target) {
     }
   }
   if (target.ready) {
-    await page.locator(target.ready).first().isVisible({ timeout: 6000 }).catch(() => false);
+    await visibleWithin(page.locator(target.ready).first(), 6000);
   }
 }
 
@@ -837,7 +845,7 @@ module.exports = {
   launchBrowser, launchBrowserAt, injectCursor, injectOqlOverlay, showOqlResult,
   humanMove, humanClick, humanType, humanTypeKeys, humanScroll,
   navTo, ensureSidebar, copilotText, askCopilot, approveConfirmCard,
-  login, logout, assertIdentity, dismissModal, gotoTarget,
+  login, logout, assertIdentity, dismissModal, gotoTarget, visibleWithin,
   screenshotEl, fullPageShot, computedStyles, oql, oqlRows, oqlScalar, oqlAliases, parseOqlOutput, scalarOf, mxcliBin, makeReporter,
   ensureDirs, parseTokens, path, fs,
 };

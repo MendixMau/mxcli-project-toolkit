@@ -201,7 +201,7 @@ for f in $TARGETS; do
     fi
     # A placeholder (`if not exists`) that the same file declares again for real is not the
     # page that ships: the later create/modify/replace is, and that one is checked.
-    if printf '%s' "$txt" | grep -qiE 'PAGE[[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS' \
+    if grep -qiE -- 'PAGE[[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS' <<<"$txt" \
        && grep -viE 'IF[[:space:]]+NOT[[:space:]]+EXISTS' "$f" \
           | grep -iE "^[[:space:]]*CREATE([[:space:]]+OR[[:space:]]+(MODIFY|REPLACE))?[[:space:]]+PAGE[[:space:]]+\"?[A-Za-z0-9_]+\"?\.\"?$page\"?([^A-Za-z0-9_]|\$)" >/dev/null; then
       continue

@@ -62,6 +62,9 @@ out('F:never', [...R.failedJourneyIds({ results: [{ rung: 'setup', name: 'J-X: a
   { rung: 'ui', name: 'J-Y: persona', verdict: 'INVALID' }, { rung: 'ui', name: 'step one: reached', verdict: 'FAIL' }], walks: [] }).ids]);
 out('F:outcome', [...R.failedJourneyIds({ results: [{ rung: 'outcome', name: 'J-A end state: paid', verdict: 'FAIL' }],
                                           walks: [{ journey: 'J-A', steps: [] }] }).ids]);
+out('F:dataword', [...R.failedJourneyIds({ results: [{ rung: 'data', name: 'Submit: Order +1', verdict: 'FAIL' },
+  { rung: 'setup', name: 'Locate: geolocation', verdict: 'INVALID' }, { rung: 'setup', name: 'J-Z: precondition', verdict: 'INVALID' }],
+  walks: [{ journey: 'J-W', steps: [] }] }).ids]);
 out('F:aborted', !!R.failedJourneyIds({ aborted: 'preflight', results: [], walks: [] }).error);
 const js = [{ id: 'J-MAKE', leaves: ['order-open'] }, { id: 'J-SHIP', requires: ['order-open'], leaves: ['shipped'] },
             { id: 'J-INVOICE', requires: ['shipped'] }, { id: 'J-LIST' }];
@@ -78,6 +81,7 @@ else
   [ "$(get F:ids)" = '["J-SHIP"]' ] && ok "a journey with a non-PASS step check is the one to rerun; clean ones are not" || bad "failed ids" "$(get F:ids)"
   [ "$(get F:never)" = '["J-X","J-Y"]' ] && ok "journeys never walked (APP-DOWN setup row, persona refusal) are rerun too; a step row is not read as a journey" || bad "never-walked journey" "$(get F:never)"
   [ "$(get F:outcome)" = '["J-A"]' ] && ok "a failed outcome row reruns its journey" || bad "outcome row" "$(get F:outcome)"
+  [ "$(get F:dataword)" = '["J-Z"]' ] && ok "a non-PASS data/setup row whose step name is one word (Submit:, Locate:) is not read as a journey id" || bad "single-word step name read as a journey" "$(get F:dataword)"
   [ "$(get F:aborted)" = true ] && ok "an aborted findings file is refused — nothing to rerun from" || bad "aborted file accepted" "$(get F:aborted)"
   [ "$(get S:closure)" = '[["J-MAKE","J-SHIP","J-INVOICE"],["J-SHIP","J-MAKE"]]' ] && ok "the journeys that leave what a chosen one requires are walked too, transitively, in run order" || bad "requires closure" "$(get S:closure)"
   [ "$(get S:unknown)" = '["J-NOPE"]' ] && ok "an unknown id is named, never dropped" || bad "unknown id" "$(get S:unknown)"
@@ -95,6 +99,13 @@ O2="$(run --only=J-LIST)"
 printf '%s\n' "$O2" | grep -q 'PARTIAL RUN (--only): 1 of 3 journeys — J-LIST$' && ok "--only=J-LIST walks just that journey" || bad "--only selection" "$(printf '%s\n' "$O2" | head -5)"
 O3="$(run --only=J-NOPE)"; R3=$?
 [ "$R3" -eq 2 ] && printf '%s\n' "$O3" | grep -q 'no journey with id J-NOPE' && ok "--only with an unknown id exits 2 naming it" || bad "unknown --only id" "exit $R3: $(printf '%s\n' "$O3" | head -3)"
+# A data-rung row with a one-word step name must not stop the rerun with "no journey with id".
+cp "$WORK/tests/e2e/artifacts/journey-findings.json" "$WORK/full.keep"
+node -e 'const fs=require("fs"),p=process.argv[1],f=JSON.parse(fs.readFileSync(p,"utf8"));f.results.push({rung:"data",name:"Submit: Order +1",verdict:"FAIL"});fs.writeFileSync(p,JSON.stringify(f))' "$WORK/tests/e2e/artifacts/journey-findings.json"
+O6="$(run --rerun-failed)"; R6=$?
+{ [ "$R6" -ne 2 ] || ! printf '%s\n' "$O6" | grep -q 'no journey with id'; } && printf '%s\n' "$O6" | grep -q 'PARTIAL RUN (--rerun-failed): 2 of 3 journeys' \
+  && ok "--rerun-failed ignores a data row named 'Submit: …' and reruns the failed journey" || bad "data-rung row stopped the rerun" "exit $R6: $(printf '%s\n' "$O6" | head -3)"
+cp "$WORK/full.keep" "$WORK/tests/e2e/artifacts/journey-findings.json"
 rm -f "$WORK/tests/e2e/artifacts/journey-findings.json"
 O4="$(run --rerun-failed)"; R4=$?
 [ "$R4" -eq 2 ] && printf '%s\n' "$O4" | grep -q 'run the journeys in full first' && ok "--rerun-failed with no last findings exits 2 and says to run in full" || bad "missing findings" "exit $R4: $(printf '%s\n' "$O4" | head -3)"

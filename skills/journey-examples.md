@@ -145,7 +145,7 @@ row means "the walk did not get there", never "not applicable".
 | `do` | Fields read | Notes |
 |---|---|---|
 | `nav` | `group`, `item` | Anchor `title` attributes, clicked as a user would. Nav groups toggle — journeys must start from a reset state. **See `testing-shape.md` §4a rule 4 for the canonical statement of this trap.** |
-| `click` | `widget`, `row`?, `in`? | Waits for attached, scrolls into view, requires visible, then `click({force:true})`. Not visible → throws → step `FAIL`. A grid repeats one widget name per row, and the bare name clicks whichever row rendered first: `row` (substituted) picks the innermost row (`tr`, `[role=row]`, list/template-grid item) whose text contains it, `in` scopes to one container widget by bare name. No row says it → throws → step `FAIL`. |
+| `click` | `widget`, `row`?, `in`? | Waits for attached, scrolls into view, requires visible, then `click({force:true})`. Not visible → throws → step `FAIL`. A grid repeats one widget name per row, and the bare name clicks whichever row rendered first: `row` (substituted) picks the one innermost row (`tr`, `[role=row]`, list/template-grid item) that shows it as whole words (`Order 1` never matches `Order 10`), `in` scopes to one container widget by bare name. No row says it, or two rows do (`ambiguous`) → throws → step `FAIL`. |
 | `fill` | `widget`, `value` | Targets `input`/`textarea` inside the widget. `value` is substituted. |
 | `combobox` | `widget`, `match` | The heavy one — see below. |
 | `dismissModal` | — | Clicks up to three modal-footer buttons. |

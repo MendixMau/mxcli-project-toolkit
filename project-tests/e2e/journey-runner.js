@@ -362,8 +362,10 @@ async function act(page, a, vars, note) {
 }
 
 // A grid repeats one widget name per row, so `.mx-name-<w>` first-match clicks whichever row
-// rendered first (#148). `in` scopes to one container widget; `row` (substituted) picks the
-// innermost row whose text contains it — the last match, since an outer row also contains it.
+// rendered first (#148). `in` scopes to one container widget; `row` (substituted) picks the one
+// innermost row that shows the text as a whole word run: "Order 1" never matches "Order 10". The
+// row's own text and each element in it are tested, so cells rendered with no whitespace between
+// them (React grids) still match. No row → throw; two or more → throw "ambiguous", never a pick.
 // Neither field → the old first-match locator, unchanged.
 const ROW_SEL = ':is(tr, [role="row"], .mx-listview-item, .mx-templategrid-item)';
 async function scopedWidget(page, a, vars = {}) {
@@ -371,10 +373,19 @@ async function scopedWidget(page, a, vars = {}) {
   if (a.in) base = page.locator(`.mx-name-${a.in}`).first();
   if (a.row !== undefined) {
     const text = String(subst(a.row, vars));
-    const rows = base.locator(ROW_SEL).filter({ hasText: text });
-    if (!(await rows.count().catch(() => 0)))
-      throw new Error(`no row${a.in ? ` in .mx-name-${a.in}` : ''} says "${text}"`);
-    base = rows.last();
+    const rows = base.locator(ROW_SEL);
+    const hits = await rows.evaluateAll((els, t) => {
+      const esc = t.replace(/\s+/g, ' ').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp(`(?:^|[^\\p{L}\\p{N}])${esc}(?:[^\\p{L}\\p{N}]|$)`, 'u');
+      const says = e => [e, ...e.querySelectorAll('*')]
+        .some(n => re.test(String(n.innerText != null && n.innerText !== '' ? n.innerText : n.textContent || '').replace(/\s+/g, ' ').trim()));
+      const m = els.filter(says);
+      return els.map((e, i) => (m.includes(e) && !m.some(o => o !== e && e.contains(o))) ? i : -1).filter(i => i >= 0);
+    }, text).catch(() => []);
+    const where = a.in ? ` in .mx-name-${a.in}` : '';
+    if (!hits.length) throw new Error(`no row${where} says "${text}"`);
+    if (hits.length > 1) throw new Error(`ambiguous: ${hits.length} rows${where} say "${text}"`);
+    base = rows.nth(hits[0]);
   }
   return base === page ? page.locator(`.mx-name-${a.widget}`).first() : base.locator(`.mx-name-${a.widget}`).first();
 }
@@ -1703,8 +1714,12 @@ module.exports = {
 // ── Fix-loop reruns (#492) ───────────────────────────────────────────────────
 // The journeys a findings file shows as not clean: a step check, or a journey-level row
 // (`<id>: …` / `<id> end state…`, setup and outcome rows), that is not PASS. An aborted run
-// measured nothing usable and is refused.
-function failedJourneyIds(findings) {
+// measured nothing usable and is refused. A journey that was never walked is recognised only by
+// the row shapes the runner writes for one (app up, precondition, persona, seeds resolved, a
+// control row, an end state), so a data or setup step named "Submit: …" is never read as an id.
+// With `loadedIds`, ids the journeys given do not have are dropped (a renamed or removed journey).
+const NEVER_WALKED = /^(\S+?)(?:: (?:app up|precondition|persona|seeds resolved|back online at the end)$| · | end state)/;
+function failedJourneyIds(findings, loadedIds) {
   if (!findings || findings.aborted) return { error: `the findings file is an aborted run (${findings && findings.aborted}) — nothing to rerun from; run the journeys in full` };
   const ids = new Set();
   const walked = (findings.walks || []).map(w => w.journey);
@@ -1714,9 +1729,10 @@ function failedJourneyIds(findings) {
   for (const r of findings.results || []) {
     if (r.verdict === 'PASS') continue;
     for (const id of known) if (r.name === id || r.name.startsWith(id + ':') || r.name.startsWith(id + ' ')) ids.add(id);
-    const m = /^([^:\s]+)(?::| ·| end state)/.exec(r.name);   // journeys never walked (preflight, APP-DOWN, persona)
-    if (m && (r.rung !== 'ui' || / persona$/.test(r.name)) && !known.has(m[1])) ids.add(m[1]);
+    const m = NEVER_WALKED.exec(r.name);   // journeys never walked (preflight, APP-DOWN, persona)
+    if (m && !known.has(m[1])) ids.add(m[1]);
   }
+  if (loadedIds) for (const id of [...ids]) if (!loadedIds.has(id)) ids.delete(id);
   return { ids };
 }
 // The chosen journeys plus every journey that leaves a token one of them requires (transitively),
@@ -1864,7 +1880,7 @@ function journeyIdProblems(loaded, files) {
       let f = null;
       try { f = JSON.parse(fs.readFileSync(src, 'utf8')); }
       catch (e) { console.error(`ERROR --rerun-failed: cannot read ${src} (${e.code || e.message}) — run the journeys in full first`); process.exit(2); }
-      const r = failedJourneyIds(f);
+      const r = failedJourneyIds(f, new Set(allJourneys.map(j => j.id)));
       if (r.error) { console.error(`ERROR --rerun-failed: ${r.error}`); process.exit(2); }
       wanted = r.ids;
       if (!wanted.size) { console.log(`  --rerun-failed: nothing failed in ${path.relative(cfg.root, src)} — nothing to rerun`); process.exit(0); }

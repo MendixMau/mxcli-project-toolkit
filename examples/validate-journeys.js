@@ -36,10 +36,15 @@ const STEP_KEYS = ['name', 'requirement', 'actions', 'ui', 'spans', 'data', 'geo
 function editDistance(a, b) {
   const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
   for (let j = 1; j <= b.length; j++) d[0][j] = j;
-  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++)
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) {
     d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+  }
   return d[a.length][b.length];
 }
+// A swapped pair counts as one edit. Short keys allow one edit, longer ones two: at distance 2
+// every 2-letter key is "near" `ui`, and ordinary note keys (`note`, `node`, `url`) were flagged.
+const typoOf = k => STEP_KEYS.find(x => editDistance(k.toLowerCase(), x.toLowerCase()) <= (Math.min(k.length, x.length) < 5 ? 1 : 2));
 // A GPS fix as the runner reads it (#521): literal numbers are range-checked here; a {{seed}} is
 // checked by the placeholder rule and resolved by the runner.
 function checkGeolocation(g, where, add) {
@@ -115,7 +120,7 @@ function validate(j, brds) {
     if (!st.name) add(at, 'no `name` — every finding for this step is labelled "undefined:"');
     for (const k of Object.keys(st)) {
       if (k.startsWith('_') || STEP_KEYS.includes(k)) continue;
-      const near = STEP_KEYS.find(x => editDistance(k.toLowerCase(), x.toLowerCase()) <= 2);
+      const near = typoOf(k);
       if (near) add(at, `unknown key \`${k}\` — likely a typo for \`${near}\`; the runner ignores it and walks the step without it`);
     }
     if (st.geolocation !== undefined) checkGeolocation(st.geolocation, `${at}.geolocation`, add);
@@ -297,6 +302,8 @@ function selftest() {
     ['row on a fill', j => { j.steps[0].actions.push({ do: 'fill', widget: 'tb', value: 'x', row: 'A' }); return j; }, 'read only by click'],
     ['in given a selector', j => { j.steps[0].actions[0].in = '.mx-name-grid'; return j; }, 'bare Mendix widget name'],
     ['misspelt step key', j => { j.steps[0].spams = j.steps[0].spans; delete j.steps[0].spans; return j; }, 'likely a typo for `spans`'],
+    ['short note keys (note, node, url) are not typos', j => { Object.assign(j.steps[0], { note: 'x', node: 'y', url: 'z' }); return j; }, null],
+    ['transposed short key', j => { j.steps[0].nmae = j.steps[0].name; delete j.steps[0].name; return j; }, 'likely a typo for `name`'],
     ['back timeout not a number', j => { j.steps[0].actions.push({ do: 'back', timeout: '15s' }); return j; }, 'must be a positive number'],
     ['ui.no5xx true is accepted', j => { j.steps[0].ui.no5xx = true; return j; }, null],
     ['ui.no5xx not a boolean', j => { j.steps[0].ui.no5xx = 'yes'; return j; }, 'must be true or false'],

@@ -26,6 +26,9 @@
 #   T10 a quote in the target               -> refused by the cast, the table still there
 #   T11 a remote PGHOST                     -> refused before any connection (exit 3)
 #   T12 the password never appears in any output
+#   T13 a NULL current value                -> refused before the write (exit 4), row and saved state unchanged
+#   T14 PGHOSTADDR at a remote address, PGHOST empty -> refused before any connection (exit 3)
+#   T15 a saved value carrying `$fx$`       -> revert refuses as "changed since set", no SQL syntax error
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 SUT="$HERE/../../project-tests/e2e/fixtures/state-fixture.template.sh"
@@ -58,7 +61,7 @@ elif [ -n "${FIXTURE_TEST_PGHOST:-}" ]; then
          PGUSER="${FIXTURE_TEST_PGUSER:-postgres}" PGPASSWORD="${FIXTURE_TEST_PGPASSWORD:-}" PGDATABASE=postgres
   PW="$PGPASSWORD"
 else
-  echo "  SKIP no initdb usable (absent, or running as root) and no FIXTURE_TEST_PGHOST — 12 cases not run"
+  echo "  SKIP no initdb usable (absent, or running as root) and no FIXTURE_TEST_PGHOST — 15 cases not run"
   rm -rf "$W"; exit 0
 fi
 DB="statefx_$$"
@@ -136,6 +139,26 @@ run set "2026-10-23 13:45'; DROP TABLE \"scenario\$scenarioclock\"; --"
 echo "== T11 remote host =="
 out="$(PGHOST=db.example.invalid bash "$W/clock.sh" check 2>&1)"; rc=$?; printf '%s\n' "$out" >> "$ALL_OUT"
 [ "$rc" = 3 ] && case "$out" in *"local test database only"*) ok "T11 remote host refused" ;; *) bad "T11 message" "$out" ;; esac || bad "T11 rc=$rc" "$out"
+
+echo "== T13 NULL current value =="
+cp "$W/state/scenario-clock.saved" "$W/saved.t13"
+q 'UPDATE "scenario$scenarioclock" SET currentmoment = NULL' >/dev/null
+run set "2026-10-23 13:50"
+_v13="$(q 'SELECT coalesce(currentmoment::text, '"'"'NULL'"'"') FROM "scenario$scenarioclock"')"
+[ "$rc" = 4 ] && [ "$_v13" = NULL ] && case "$out" in *"FIXTURE REFUSED"*NULL*) ok "T13 NULL refused before the write, row still NULL" ;; *) bad "T13 message" "$out" ;; esac \
+  || bad "T13 rc=$rc value=$_v13 (a committed write here cannot be reverted)" "$out"
+cmp -s "$W/saved.t13" "$W/state/scenario-clock.saved" && ok "T13 saved state untouched" || bad "T13 saved state changed or lost"
+q "UPDATE \"scenario\$scenarioclock\" SET currentmoment = '2026-10-23 13:30'" >/dev/null
+
+echo "== T14 remote PGHOSTADDR with no PGHOST =="
+out="$(PGHOST= PGHOSTADDR=192.0.2.1 PGCONNECT_TIMEOUT=2 bash "$W/clock.sh" check 2>&1)"; rc=$?; printf '%s\n' "$out" >> "$ALL_OUT"
+[ "$rc" = 3 ] && case "$out" in *"local test database only"*) ok "T14 remote PGHOSTADDR refused" ;; *) bad "T14 message" "$out" ;; esac || bad "T14 rc=$rc" "$out"
+
+echo "== T15 saved value carrying \$fx\$ =="
+printf 'old=2026-10-23 13:00:00\nnew=x$fx$; DROP TABLE t; $fx$\nat=now\nused=0\n' > "$W/state/scenario-clock.saved"
+run revert
+[ "$rc" = 4 ] && [ "$(val)" = "2026-10-23 13:30:00" ] && case "$out" in *"changed since set"*) ok "T15 revert refused as changed since set, no syntax error" ;; *) bad "T15 message" "$out" ;; esac \
+  || bad "T15 rc=$rc val=$(val)" "$out"
 
 echo "== T12 no password in output =="
 if [ -n "${PW:-}" ] && grep -qF "$PW" "$ALL_OUT"; then bad "T12 the password appeared in output"; else ok "T12 password never printed"; fi

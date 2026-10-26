@@ -90,6 +90,8 @@ function validate(j, brds) {
       if (a.do === 'fill' && a.value === undefined) add(aat, 'fill needs `value`');
       if (a.do === 'combobox' && a.match === undefined) add(aat, 'combobox needs `match`');
       if (a.do === 'nav' && !a.item) add(aat, 'nav needs `item` (the destination anchor title)');
+      if (a.do === 'back' && a.timeout !== undefined && !(typeof a.timeout === 'number' && a.timeout > 0))
+        add(aat, `back \`timeout\` must be a positive number of ms (got ${JSON.stringify(a.timeout)})`);
       if (a.do === 'wait' && a.settleMs !== undefined && a.ms === undefined)
         add(aat, 'wait reads `ms`, not `settleMs`');
       if (a.widget && a.widget.startsWith('.'))
@@ -242,6 +244,7 @@ function selftest() {
     ['unqualified ordered span', j => { j.steps[0].spans.ordered = ['ACT_Go']; return j; }, 'is unqualified'],
     ['unknown action', j => { j.steps[0].actions[0].do = 'swipe'; return j; }, 'unknown action'],
     ['browser back is a known action', j => { j.steps[0].actions.push({ do: 'back' }); return j; }, null],
+    ['back timeout not a number', j => { j.steps[0].actions.push({ do: 'back', timeout: '15s' }); return j; }, 'must be a positive number'],
     ['ui.no5xx true is accepted', j => { j.steps[0].ui.no5xx = true; return j; }, null],
     ['ui.no5xx not a boolean', j => { j.steps[0].ui.no5xx = 'yes'; return j; }, 'must be true or false'],
     ['wait using settleMs', j => { j.steps[0].actions = [{ do: 'wait', settleMs: 500 }]; return j; }, 'reads `ms`'],

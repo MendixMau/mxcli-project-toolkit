@@ -8,8 +8,10 @@
 # `git checkout -- <file>`, instead of charging the stock counts to the next script as a rise.
 #
 # Unlike STOCK-HASHES.txt (only the four rules the toolkit repairs), this lists all of them.
-# A version missing here makes its unedited rules look edited: one false BLIND after the next
-# mxcli upgrade, whose message names the re-baseline. Never installed into a project.
+# lint-gate writes `project` rows only when the running mxcli is a version captured here: on any
+# other, its unedited rules would look edited and the next upgrade would read them as reverted.
+# A new mxcli release therefore needs its column added before #524 protects it. md5s are of the
+# file with CRs stripped (a Git Bash autocrlf checkout hashes the same). Never installed into a project.
 #
 # Adding a version: `mxcli init` into an EMPTY directory and md5 every seeded .star. Never
 # harvest a hash from a real project. Captured 2026-10-26 from the official mendixlabs/mxcli

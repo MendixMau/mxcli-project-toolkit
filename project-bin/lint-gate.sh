@@ -49,7 +49,8 @@
 # lint-rules/STOCK-HASHES-BUNDLED.txt, found via MXTK_ROOT / CLAUDE.local.md). A later run where
 # that md5 moved prints BLIND — reverted with `git checkout -- <file>` when HEAD still holds the
 # receipted edit (an update is then refused; the checkout never is), or asks for a re-baseline when
-# the rule changed some other way. No receipt list in reach = no project rows, with a note.
+# the rule changed some other way. No receipt list in reach, or an mxcli version the list has not
+# captured = no project rows, with a note. md5s are taken with CRs stripped (Git Bash autocrlf).
 #
 # ACCEPTING DEBT IS RECORDED, NOT SILENT (2026-10-12). Three toolkit-built apps re-baselined
 # 61 times in four days — every acceptance made by the agent whose script caused the rise,
@@ -263,6 +264,8 @@ if sl and os.path.isfile(sl):
         w = line.split()
         if len(w) >= 2 and not w[0].startswith("#"):
             stock.add((w[0], w[1]))
+def lfmd5(data):
+    return hashlib.md5(data.replace(b"\r", b"")).hexdigest()   # CR-insensitive: Git Bash autocrlf
 def head_md5(name):
     import subprocess
     rel = os.path.relpath(os.path.join(d, name), os.environ["ROOT"]).replace(os.sep, "/")
@@ -271,7 +274,7 @@ def head_md5(name):
                            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=20)
     except (OSError, subprocess.SubprocessError):
         return ""
-    return hashlib.md5(r.stdout).hexdigest() if r.returncode == 0 else ""
+    return lfmd5(r.stdout) if r.returncode == 0 else ""
 for name, want, k in rows:
     if name in disabled:
         continue
@@ -280,7 +283,7 @@ for name, want, k in rows:
         if not os.path.isfile(path):
             print("%s\tgone (project-edited rule, receipted at the last baseline)\tproj-changed" % name)
             continue
-        got = hashlib.md5(open(path, "rb").read()).hexdigest()
+        got = lfmd5(open(path, "rb").read())
         if got == want or ((name, got) in stock and (name, want) in stock):
             continue
         cls = "proj-reverted" if head_md5(name) == want else "proj-changed"
@@ -691,7 +694,9 @@ PY
 _RC=$?
 
 # Receipt project-edited bundled rules (#524). After a baseline is written, every
-# .claude/lint-rules/*.star that has no receipt row and is not a known stock version gets a row
+# seeded .claude/lint-rules/*.star (a name in STOCK-HASHES-BUNDLED) that has no receipt row and is
+# not a known stock version (md5 with CRs stripped) gets a row; only when the running mxcli is a
+# captured version there
 # `<file> <md5> project`, so the check above can tell an overwrite from a rise next time. Toolkit
 # rows are the installer's and are left untouched; it keeps `project` rows on sync. No mxcli call.
 if [ "$UPDATE" -eq 1 ] && [ "$_RC" -eq 0 ] && [ -d "$ROOT/.claude/lint-rules" ]; then
@@ -699,13 +704,23 @@ if [ "$UPDATE" -eq 1 ] && [ "$_RC" -eq 0 ] && [ -d "$ROOT/.claude/lint-rules" ];
     echo "note: edited bundled lint rules not receipted — no STOCK-HASHES-BUNDLED.txt (set MXTK_ROOT to the toolkit clone)" >&2
   else
     IFS= read -r -d '' _RWR <<'PY' || true
-import hashlib, os
+import hashlib, os, sys
 rec, d, sl = os.environ["RECEIPT"], os.environ["RULES_DIR"], os.environ["STOCK_LIST"]
-stock = set()
+stock, seeded, versions = set(), set(), set()
 for line in open(sl, encoding="utf-8", errors="replace"):
     w = line.split()
     if len(w) >= 2 and not w[0].startswith("#"):
-        stock.add((w[0], w[1]))
+        stock.add((w[0], w[1])); seeded.add(w[0])
+        if len(w) >= 3:
+            versions.add(w[2].lstrip("v"))
+# Only on a captured mxcli version: on any other, that version's unedited stock rules would look
+# edited, and the next upgrade would read them as "reverted" and name the wrong remedy.
+ver = os.environ.get("MXCLI_VER", "").lstrip("v")
+if ver not in versions:
+    print("note: edited bundled lint rules not receipted — mxcli %s is not a captured version in "
+          "STOCK-HASHES-BUNDLED.txt (captured: %s)" % (ver or "(version unreadable)", ", ".join(sorted(versions))),
+          file=sys.stderr)
+    raise SystemExit(0)
 keep, owned = [], set()
 if os.path.isfile(rec):
     for line in open(rec, encoding="utf-8", errors="replace"):
@@ -718,9 +733,9 @@ if os.path.isfile(rec):
         owned.add(w[0])
 proj = []
 for name in sorted(os.listdir(d)):
-    if not name.endswith(".star") or name in owned:
-        continue
-    md5 = hashlib.md5(open(os.path.join(d, name), "rb").read()).hexdigest()
+    if not name.endswith(".star") or name in owned or name not in seeded:
+        continue  # a project's own rule is never overwritten by mxcli: nothing to receipt
+    md5 = hashlib.md5(open(os.path.join(d, name), "rb").read().replace(b"\r", b"")).hexdigest()
     if (name, md5) not in stock:
         proj.append("%s  %s  project" % (name, md5))
 if not keep and not proj and not os.path.isfile(rec):
@@ -735,7 +750,7 @@ os.replace(tmp, rec)
 for l in proj:
     print("==> receipted project-edited lint rule: %s" % l.split()[0])
 PY
-    RECEIPT="$RECEIPT" RULES_DIR="$ROOT/.claude/lint-rules" STOCK_LIST="$STOCK_LIST" "$PY" -c "$_RWR" ||
+    RECEIPT="$RECEIPT" RULES_DIR="$ROOT/.claude/lint-rules" STOCK_LIST="$STOCK_LIST" MXCLI_VER="$MXCLI_VER" "$PY" -c "$_RWR" ||
       echo "lint-gate: could not write project rows into $RECEIPT" >&2
   fi
 fi

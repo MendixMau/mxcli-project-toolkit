@@ -4,7 +4,7 @@
 #   ./bin/install-project-hooks.sh           # install/refresh the pre-commit + revision-note hooks
 #   ./bin/install-project-hooks.sh --check   # exit 1 if any is missing or stale
 #
-# Two jobs. (1) pre-commit: the mxbuild-gate backstop below. (2) post-commit + post-rewrite: the
+# Three jobs. (1) pre-commit: the mxbuild-gate backstop below. (2) post-commit + post-rewrite: the
 # Studio Pro revision note (2026-10-12, field project). Studio Pro's History pane lists a commit's
 # changed documents from refs/notes/mx_metadata "ModelChanges", which only Studio Pro filled; CLI
 # commits showed "Model changes 0". These hooks run bin/mx-metadata-note.py write HEAD after every
@@ -20,6 +20,15 @@
 # nobody knows whether Studio Pro's own push reads remote.<r>.push at all. So git and Studio Pro
 # push exactly as they do without this toolkit. The installer only fetches the remote's notes
 # (non-forced, creates the ref) and removes the exact pair that earlier revision wrote.
+#
+# (3) post-merge + post-checkout: the restatement-guard marker (#504). script-owners.sh's
+# last-writer ledger (.claude/loop/script-owners/written.tsv, machine-local) sees only exec.sh's
+# writes, so a `git pull` / `git checkout` that brought newer model work in left it saying "S wrote
+# last", and a replay of S over that work stayed quiet. When the operation changed the .mpr or
+# mprcontents/, the hook appends `<epoch> RESTORE git-<op>:<sha>` exactly as restore-mpr.sh does;
+# rows before it stop counting and the next replay check asks the model (DESCRIBE, at most 5).
+# A file checkout (`git checkout -- <paths>`) names no paths to the hook, so it always marks:
+# the cost is at most one capped DESCRIBE round. No ledger yet → nothing to mark. Never blocks.
 #
 # WHY (2026-09-17, field project). A model can change without the mxbuild gate ever running — a
 # bare `./mxcli exec`, an exec.sh run on a machine with no mxbuild, a Studio Pro save —
@@ -53,6 +62,7 @@ MARK="# mxtk-model-stamp hook v1"
 BIN_REL="$(git rev-parse --show-prefix)bin"
 
 NOTE_MARK="# mxtk-mx-metadata hook v1"
+RESTATE_MARK="# mxtk-restatement-mark hook v1"
 # Team Server remotes: the platform's git host, plus any remote named in MXTK_TS_REMOTES.
 # The configured URL, not `git remote -v`: that one shows the URL after url.*.insteadOf rewriting.
 ts_remotes() {
@@ -89,6 +99,10 @@ if [ "${1:-}" = "--check" ]; then
   for h in post-commit post-rewrite; do
     if [ -f "$HOOKS/$h" ] && grep -q "^$NOTE_MARK" "$HOOKS/$h"; then echo "  ✓ $h revision-note hook installed"
     else echo "  ✗ $h revision-note hook missing — run ./bin/install-project-hooks.sh"; rc=1; fi
+  done
+  for h in post-merge post-checkout; do
+    if [ -f "$HOOKS/$h" ] && grep -q "^$RESTATE_MARK" "$HOOKS/$h"; then echo "  ✓ $h restatement-ledger hook installed"
+    else echo "  ✗ $h restatement-ledger hook missing — run ./bin/install-project-hooks.sh"; rc=1; fi
   done
   for r in $(ts_remotes); do
     case "$(leftover "$r")" in
@@ -191,6 +205,39 @@ HOOKEOF
   chmod +x "$HF"
 done
 echo "  ✓ post-commit + post-rewrite revision-note hooks installed (Studio Pro History lists each commit's changed documents)"
+
+# --- restatement-guard ledger marker (post-merge + post-checkout), #504 --------------------------
+# post-merge: $1 = 1 for a squash merge (HEAD unmoved: always mark), else the range ORIG_HEAD..HEAD.
+# post-checkout: $1 prev, $2 new, $3 = 1 for a branch checkout, 0 for a file checkout (no paths
+# given to the hook: always mark).
+for h in post-merge post-checkout; do
+  HF="$HOOKS/$h"
+  if [ -f "$HF" ] && ! grep -q "^$RESTATE_MARK" "$HF"; then
+    mv "$HF" "$HF.pre-mxtk"
+    echo "  existing $h hook kept as $h.pre-mxtk and chained first"
+  fi
+  if [ "$h" = post-merge ]; then RANGE='ORIG_HEAD HEAD'; FILEMODE='[ "${1:-0}" = 1 ]'
+  else RANGE='"$1" "$2"'; FILEMODE='[ "${3:-1}" = 0 ]'; fi
+  cat > "$HF" <<HOOKEOF
+#!/usr/bin/env bash
+$RESTATE_MARK — written by bin/install-project-hooks.sh (mxcli-project-toolkit). Re-run it to refresh.
+# Marks the restatement guard's last-writer ledger when this $h changed the model (.mpr or
+# mprcontents/), so a replay of an older script asks the model again. Never fails the git operation.
+[ -x "\$(dirname "\$0")/$h.pre-mxtk" ] && "\$(dirname "\$0")/$h.pre-mxtk" "\$@"
+top="\$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+ledger="\$top/$BIN_REL/../.claude/loop/script-owners/written.tsv"
+[ -f "\$ledger" ] || exit 0
+if $FILEMODE; then why="unscoped"
+else
+  git diff --name-only $RANGE 2>/dev/null | grep -qE '(\.mpr\$|(^|/)mprcontents/)' || exit 0
+  why="\$(git rev-parse --short HEAD 2>/dev/null)"
+fi
+printf '%s\tRESTORE\tgit-$h:%s\n' "\$(date +%s)" "\$why" >> "\$ledger" 2>/dev/null || true
+exit 0
+HOOKEOF
+  chmod +x "$HF"
+done
+echo "  ✓ post-merge + post-checkout restatement-ledger hooks installed (a pull/checkout that changes the model resets the last-writer ledger)"
 
 for r in $(ts_remotes); do
   if ! has_notes && GIT_TERMINAL_PROMPT=0 git fetch -q "$r" refs/notes/mx_metadata:refs/notes/mx_metadata >/dev/null 2>&1; then

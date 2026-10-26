@@ -54,6 +54,14 @@ const files = process.argv.slice(2).filter(a => !a.startsWith('--'));
 // --out=<file.json>: write findings there instead of the default slot. named-controls.js uses it
 // so a named control never overwrites the real walk's (or the positive control's) findings (#159).
 const OUT_ARG = (process.argv.find(a => a.startsWith('--out=')) || '').slice(6);
+// Fix-loop reruns (#492): --only=<id,...> walks just those journeys; --rerun-failed[=<findings.json>]
+// walks the journeys with any non-PASS row in the last run's findings (default: this mode's slot).
+// Either way the journeys that `leave` what a chosen one `requires` are walked too, so declared
+// state is rebuilt, and the findings go to a separate *-rerun.json slot: a partial run never
+// replaces the full run's findings, and the full run is still owed where the test strategy names it.
+const ONLY_ARG = (process.argv.find(a => a.startsWith('--only=')) || '').slice(7);
+const RERUN_ARG = process.argv.find(a => a === '--rerun-failed' || a.startsWith('--rerun-failed='));
+const PARTIAL = !!(ONLY_ARG || RERUN_ARG);
 // `require.main === module` guard: tests/e2e/journey-rung4-scope.test.js requires this
 // file to exercise the rung-4 SQL builders directly. Without the guard, requiring it
 // would parse the TEST runner's argv, find no journey files and exit(3).
@@ -1635,6 +1643,42 @@ module.exports = {
   act, describeAct,
 };
 
+// ── Fix-loop reruns (#492) ───────────────────────────────────────────────────
+// The journeys a findings file shows as not clean: a step check, or a journey-level row
+// (`<id>: …` / `<id> end state…`, setup and outcome rows), that is not PASS. An aborted run
+// measured nothing usable and is refused.
+function failedJourneyIds(findings) {
+  if (!findings || findings.aborted) return { error: `the findings file is an aborted run (${findings && findings.aborted}) — nothing to rerun from; run the journeys in full` };
+  const ids = new Set();
+  const walked = (findings.walks || []).map(w => w.journey);
+  for (const w of findings.walks || [])
+    if ((w.steps || []).some(st => (st.checks || []).some(c => c.verdict !== 'PASS'))) ids.add(w.journey);
+  const known = new Set(walked);
+  for (const r of findings.results || []) {
+    if (r.verdict === 'PASS') continue;
+    for (const id of known) if (r.name === id || r.name.startsWith(id + ':') || r.name.startsWith(id + ' ')) ids.add(id);
+    const m = /^([^:\s]+)(?::| ·| end state)/.exec(r.name);   // journeys never walked (preflight, APP-DOWN, persona)
+    if (m && (r.rung !== 'ui' || / persona$/.test(r.name)) && !known.has(m[1])) ids.add(m[1]);
+  }
+  return { ids };
+}
+// The chosen journeys plus every journey that leaves a token one of them requires (transitively),
+// in the run's order. Unknown ids are named, never silently dropped.
+function selectJourneys(journeys, wanted) {
+  const byId = new Map(journeys.map(j => [j.id, j]));
+  const unknown = [...wanted].filter(id => !byId.has(id));
+  const pick = new Set([...wanted].filter(id => byId.has(id)));
+  const added = [];
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const id of [...pick]) for (const x of byId.get(id).requires || [])
+      for (const p of journeys) if ((p.leaves || []).includes(x) && !pick.has(p.id)) { pick.add(p.id); added.push(p.id); grew = true; }
+  }
+  return { selected: journeys.filter(j => pick.has(j.id)), added, unknown };
+}
+module.exports.failedJourneyIds = failedJourneyIds;
+module.exports.selectJourneys = selectJourneys;
+
 // ── Main ────────────────────────────────────────────────────────────────────
 if (require.main !== module) return;
 // Ends the server-side session exactly once, on every exit path: normal end, a thrown error
@@ -1679,8 +1723,10 @@ function armSignals() {
   }
 }
 
-const findingsFile = () => OUT_ARG ? path.resolve(OUT_ARG) : path.join(cfg.artifactsDir,
+const fullSlot = () => path.join(cfg.artifactsDir,
   POSITIVE_CONTROL ? 'journey-findings-control.json' : 'journey-findings.json');
+const findingsFile = () => OUT_ARG ? path.resolve(OUT_ARG)
+  : PARTIAL ? fullSlot().replace(/\.json$/, '-rerun.json') : fullSlot();
 
 // ── Named controls: every journey names its claim and ships a control (#159) ─
 // The positive control proves the harness can fail; it cannot prove the claim a journey exists
@@ -1751,9 +1797,31 @@ function journeyIdProblems(loaded, files) {
   for (const l of idWarnings) console.error(`WARN ${l}`);
   if (idProblems.length) { for (const l of idProblems) console.error(`ERROR ${l}`); process.exit(2); }
   // Declared order first (requires/leaves/consumes); without headers this is file order.
-  const { order: journeys, cycle } = orderJourneys(loaded);
-  if (journeys.some((j, i) => j !== loaded[i]))
-    console.log(`  order from requires/leaves/consumes: ${journeys.map(j => j.id).join(' → ')}`);
+  const { order: allJourneys, cycle } = orderJourneys(loaded);
+  let journeys = allJourneys, partial = null;
+  if (PARTIAL) {
+    let wanted;
+    if (ONLY_ARG) wanted = new Set(ONLY_ARG.split(',').map(x => x.trim()).filter(Boolean));
+    else {
+      const src = RERUN_ARG.includes('=') ? path.resolve(RERUN_ARG.slice(RERUN_ARG.indexOf('=') + 1)) : fullSlot();
+      let f = null;
+      try { f = JSON.parse(fs.readFileSync(src, 'utf8')); }
+      catch (e) { console.error(`ERROR --rerun-failed: cannot read ${src} (${e.code || e.message}) — run the journeys in full first`); process.exit(2); }
+      const r = failedJourneyIds(f);
+      if (r.error) { console.error(`ERROR --rerun-failed: ${r.error}`); process.exit(2); }
+      wanted = r.ids;
+      if (!wanted.size) { console.log(`  --rerun-failed: nothing failed in ${path.relative(cfg.root, src)} — nothing to rerun`); process.exit(0); }
+    }
+    const sel = selectJourneys(allJourneys, wanted);
+    if (sel.unknown.length) { console.error(`ERROR no journey with id ${sel.unknown.join(', ')} among the files given`); process.exit(2); }
+    journeys = sel.selected;
+    partial = { of: allJourneys.length, ran: journeys.map(j => j.id), chosen: [...wanted], addedForRequires: sel.added,
+                reason: ONLY_ARG ? '--only' : '--rerun-failed' };
+    console.log(`  PARTIAL RUN (${partial.reason}): ${journeys.length} of ${allJourneys.length} journeys — ${partial.ran.join(', ')}` +
+      (sel.added.length ? ` (added because a chosen journey requires what they leave: ${sel.added.join(', ')})` : ''));
+  }
+  if (allJourneys.some((j, i) => j !== loaded[i]))
+    console.log(`  order from requires/leaves/consumes: ${allJourneys.map(j => j.id).join(' → ')}`);
   if (cycle)
     console.log(`  ⚠ requires/leaves/consumes form a cycle among ${cycle.join(', ')} — those keep file order`);
 
@@ -1986,9 +2054,12 @@ function journeyIdProblems(loaded, files) {
     capturedAt: new Date().toISOString(),
     configuredUser: cfg.user, actualUser: li.user, usedFallback: !!li.usedFallback,
     baseUrl: cfg.baseUrl, device: DEVICE, positiveControl: POSITIVE_CONTROL, mutants, results, walks,
-    appDown, appDiedIn, namedControlGaps: CONTROL_GAPS,
+    appDown, appDiedIn, namedControlGaps: CONTROL_GAPS, partial,
   }, null, 2));
   console.log(`  findings → ${path.relative(cfg.root, out)}`);
+  if (partial)
+    console.log(`  PARTIAL RUN — ${partial.ran.length} of ${partial.of} journeys; the full findings slot is untouched. ` +
+                'A fix-loop result only: the full journey run is still owed at module done, build complete and before deploy.');
 
   // A control run's exit ignores non-control rows, so a journey the preflight held back
   // (its mutants never ran) must still keep the control verdict from reading clean.

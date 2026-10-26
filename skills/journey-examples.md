@@ -265,6 +265,17 @@ spells it `query` gets no rung 5 and no complaint.
 
 ---
 
+## Rerunning in a fix loop
+
+Inside a fix loop, rerun only what failed: `--rerun-failed` reads the last findings file for this
+mode (`journey-findings.json`, or the control slot under `--positive-control`; `--rerun-failed=<file>`
+names another) and walks every journey with a non-PASS row. `--only=<id,...>` names them instead. Either
+way the runner adds every journey that `leaves` a token a chosen one `requires`, transitively, so the
+declared state is rebuilt. It prints `PARTIAL RUN … N of M journeys` and writes
+`journey-findings-rerun.json`, so the full run's findings are never replaced. A partial run is not a
+result: run the whole suite at module done, build complete and before deploy. An aborted or missing
+findings file exits 2 ("run the journeys in full first"); an unknown `--only` id exits 2 naming it.
+
 ## Requirement pointers
 
 Format: `<BRD id>#<RFC 6901 JSON Pointer>`, e.g. `F101#/useCases/0/mainFlow/6`, resolving into

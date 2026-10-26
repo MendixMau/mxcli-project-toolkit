@@ -22,6 +22,8 @@
 #       installed; when it is missing (as with no Python on Git Bash) or exits 2 (a flow it
 #       could not decode) the row is still INFO, says NOT MEASURED, and the module verdict is
 #       the same as the installed run's -- the rung is never a gate
+#   V9  the page-scope rung's budget is VM_TMO_PAGESCOPE (default 900); on timeout the watchdog
+#       kills the instrument's forked child too, so nothing writes a scope after the FAULT (#541)
 set -uo pipefail
 TK="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SUT="${1:-$TK/project-bin/verify-module.sh}"
@@ -142,6 +144,20 @@ vm MyFirstModule
   && ok "V8: mf-canvas-facts exit 2 (undecodable flow): INFO row, verdict and exit unchanged" \
   || bad "V8: undecodable flow must not gate" "$(row '^canvas facts') / $(row '^verdict') rc=$rc (was $_v8_verdict rc=$_v8_rc)"
 mv "$WORK/stub/mf-canvas-facts.py" "$P/bin/mf-canvas-facts.py"
+
+# V9: a page-scope.sh whose work runs in a forked child (as the real one's Python heredoc does)
+# and outlives a 1 s budget. Before #541 the child survived the watchdog and wrote late.
+cp "$P/bin/page-scope.sh" "$WORK/stub/page-scope.sh.keep"
+printf '#!/usr/bin/env bash\n( sleep 4; mkdir -p "$PROJECT_ROOT/.claude/loop"; echo late > "$PROJECT_ROOT/.claude/loop/late-scope" ) &\nwait\n' > "$P/bin/page-scope.sh"
+chmod +x "$P/bin/page-scope.sh"; rm -f "$P/.claude/loop/late-scope"
+VM_TMO_PAGESCOPE=1 vm MyFirstModule
+sleep 5
+{ row '^page scope' | grep -q '^FAULT' && [ ! -e "$P/.claude/loop/late-scope" ]; } \
+  && ok "V9: page-scope timeout (VM_TMO_PAGESCOPE=1) is a FAULT and its forked child is killed with it" \
+  || bad "V9: orphaned page-scope child" "$(row '^page scope') / late-scope: $(cat "$P/.claude/loop/late-scope" 2>/dev/null || echo absent)"
+reap
+cp "$WORK/stub/page-scope.sh.keep" "$P/bin/page-scope.sh"; chmod +x "$P/bin/page-scope.sh"
+grep -q 'VM_TMO_PAGESCOPE:-900' "$SUT" && ok "V9: page-scope default budget is 900 s" || bad "V9: page-scope budget not VM_TMO_PAGESCOPE:-900"
 
 # Golden summaries for test-progress-harness-verify.sh, written by this subject (CAPTURE=<dir>).
 if [ -n "${CAPTURE:-}" ]; then

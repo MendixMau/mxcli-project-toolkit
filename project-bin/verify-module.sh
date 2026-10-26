@@ -197,10 +197,24 @@ fault() {
 # for the traps below), and a cancelled watchdog takes its sleep with it (#446): an orphaned
 # `sleep 1800` holding fd 3 kept `verify-module.sh | tee` and `$(verify-module.sh)` waiting for
 # up to 30 minutes after the verdict was printed.
+#
+# On timeout the watchdog kills the instrument's whole process tree, not just the PID it
+# started (#541): page-scope.sh does its work in a `"$PY" - <<'PY'` child, which survived a
+# kill of the bash parent, kept running, and wrote page-scope.json minutes after the rung was
+# scored FAULT and the design audit had already read the previous run's file. Descendants are
+# listed before anything is killed, so none is reparented out of reach. Where pgrep is absent
+# (Git Bash) only the started PID is killed, as before.
+_kill_tree() {
+  local p="$1" c
+  if command -v pgrep >/dev/null 2>&1; then
+    for c in $(pgrep -P "$p" 2>/dev/null); do _kill_tree "$c"; done
+  fi
+  kill -9 "$p" 2>/dev/null
+}
 with_timeout() {
   local secs="$1"; shift
   "$@" 3>&- 4>&- & local child=$!
-  ( trap 'kill "$s" 2>/dev/null; exit 0' TERM; sleep "$secs" & s=$!; wait "$s"; kill -9 "$child" 2>/dev/null ) 3>&- 4>&- & local watchdog=$!
+  ( trap 'kill "$s" 2>/dev/null; exit 0' TERM; sleep "$secs" & s=$!; wait "$s"; kill -STOP "$child" 2>/dev/null; _kill_tree "$child" ) 3>&- 4>&- & local watchdog=$!
   wait "$child" 2>/dev/null; local rc=$?
   kill "$watchdog" 2>/dev/null; wait "$watchdog" 2>/dev/null
   # 137 = SIGKILL from the watchdog. Remap to 2 so it lands in the FAULT bucket.
@@ -451,6 +465,7 @@ fi
 # this needs no opt-in flag.
 # Rung budgets in seconds, overridable for big plans or loaded machines (TK-008):
 #   VM_TMO_CONFORMANCE (1200)  VM_TMO_GRAPH (300)  VM_TMO_COVERAGE (1200)  VM_TMO_JOURNEYS (900)
+#   VM_TMO_PAGESCOPE (900) — was a fixed 300 until #541: ~90 pages at ~4.8 s each needed ~7.5 min
 # Coverage was 300 until #446: 12 BRDs on a loaded machine ran 48 s of measurement plus ~290 s
 # of phantom pass and timed out with a complete, clean log.
 if [ -x "$(_tool conformance-check.sh)" ]; then
@@ -587,7 +602,7 @@ fi
 # gate: a scope refresh that fails leaves the audit to report the missing/stale scope itself.
 PAGE_SCOPE_SH="${PAGE_SCOPE_SH:-$(_tool page-scope.sh)}"
 if [ -x "$PAGE_SCOPE_SH" ]; then
-  run "page scope (denominator for the design audit)" "$OUTDIR/39-page-scope.log" info 300 -- \
+  run "page scope (denominator for the design audit)" "$OUTDIR/39-page-scope.log" info "${VM_TMO_PAGESCOPE:-900}" -- \
     "$PAGE_SCOPE_SH"
 else
   fault "page scope (denominator for the design audit)" "not installed at ${PAGE_SCOPE_SH#$ROOT/}" \

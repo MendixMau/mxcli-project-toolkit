@@ -179,6 +179,26 @@ vm MyFirstModule
   && ok "V10: the single file still wins when both forms exist" || bad "V10: precedence" "$(cat "$_jl" 2>/dev/null)"
 rm -rf "$P/journeys/MyFirstModule"
 
+# V11 (#567): the harness-scan rung. A hand-written script that signs in and never signs out is
+# named in an INFO row's log; the module verdict and exit stay what they were. Skipped on a
+# subject that predates the rung.
+if grep -q 'harness-scan.sh' "$SUT" && [ -f "$SD/harness-scan.sh" ]; then
+  mkdir -p "$P/tests/acceptance"
+  printf "await page.goto(base + '/login.html');\nawait page.fill('#usernameInput', u);\n" > "$P/tests/acceptance/hand.js"
+  cp "$SD/harness-scan.sh" "$P/bin/"; chmod +x "$P/bin/harness-scan.sh"
+  vm MyFirstModule
+  { row '^harness scan' | grep -q '^INFO	.claude/loop/verify/MyFirstModule/15-harness-scan.log$' \
+      && grep -q '^no-sign-out	tests/acceptance/hand.js' "$P/.claude/loop/verify/MyFirstModule/15-harness-scan.log" \
+      && [ "$(row '^verdict')" = "$_v8_verdict" ] && [ "$rc" = "$_v8_rc" ]; } \
+    && ok "V11: harness scan names tests/acceptance/hand.js (no sign-out); INFO row, verdict and exit unchanged" \
+    || bad "V11: harness scan row" "$(row '^harness scan') / $(row '^verdict') rc=$rc (was $_v8_verdict rc=$_v8_rc)"
+  rm -f "$P/bin/harness-scan.sh" "$P/tests/acceptance/hand.js"
+  MXTK_ROOT=/nonexistent vm MyFirstModule
+  { row '^harness scan' | grep -q '^INFO	(NOT MEASURED: ' && [ "$(row '^verdict')" = "$_v8_verdict" ]; } \
+    && ok "V11: harness-scan.sh not installed: INFO NOT MEASURED row, verdict unchanged" \
+    || bad "V11: missing harness scan must not gate" "$(row '^harness scan') / $(row '^verdict')"
+fi
+
 # Golden summaries for test-progress-harness-verify.sh, written by this subject (CAPTURE=<dir>).
 if [ -n "${CAPTURE:-}" ]; then
   fake_mod "$P/node_modules" playwright; fake_mod "$P/node_modules" axe-core

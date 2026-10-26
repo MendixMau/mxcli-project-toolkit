@@ -257,9 +257,10 @@ has "$R" "href='https://github.com/mendixlabs/mxcli/issues/1'" "filed bug links 
 P9S="$WORK/p9 space/My Project"; mkproj "$P9S" "**Stage 5 - Build**, in progress - gates passed: P, 0, 1, 2, 3, 4"; mkdir -p "$P9S/docs"
 cp "$P9/docs/bugs.jsonl" "$P9S/docs/bugs.jsonl"
 LEAKGUARD_DENY='Acmebank' CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$P9S" --html >/dev/null 2>&1
-CMD="$(python3 -c 'import html,re,sys;m=re.search(r"class=.filebtn. data-cmd=.([^\x27]*).",open(sys.argv[1]).read());print(html.unescape(m.group(1)) if m else "")' "$P9S/architecture/progress-report.html")"
+CMD="$("$PY" -c 'import html,re,sys;m=re.search(r"class=.filebtn. data-cmd=.([^\x27]*).",open(sys.argv[1]).read());print(html.unescape(m.group(1)) if m else "")' "$P9S/architecture/progress-report.html")"
 # the copied command, run as pasted (dry run: --file dropped, so nothing is posted), must keep a path with a space whole
-if [ -n "$CMD" ] && LEAKGUARD_DENY='Acmebank' bash -c "${CMD% --file PBUG-01}" 2>&1 | grep -q "PBUG-01"; then
+GHSTUB="$WORK/p9.ghstub"; mkdir -p "$GHSTUB"; printf '#!/bin/sh\nexit 1\n' > "$GHSTUB/gh"; chmod +x "$GHSTUB/gh"
+if [ -n "$CMD" ] && PATH="$GHSTUB:$PATH" LEAKGUARD_DENY='Acmebank' bash -c "${CMD% --file PBUG-01}" 2>&1 | grep -q "PBUG-01"; then
   ok "the copied command runs as pasted for a project path with a space"
 else bad "the copied command breaks on a project path with a space: '$CMD'"; fi
 CLAUDE_CONFIG_DIR="$EMPTY" LEAKGUARD_DENY= bash "$SCRIPT" "$P9" --html >/dev/null 2>&1
@@ -279,10 +280,10 @@ P10="$WORK/p10"; mkproj "$P10" "**Stage 5 - Build**, in progress - gates passed:
   ph 7 "done 2026-10-12" "planned"; } > "$P10/architecture/build-plan.md"
 CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$P10" --html >/dev/null 2>&1
 R="$P10/architecture/progress-report.html"
-B="$WORK/p10.build"; python3 -c 'import sys;h=open(sys.argv[1]).read();print(h[h.index("id=tab-build"):h.index("id=tab-changes")])' "$R" > "$B"
+B="$WORK/p10.build"; "$PY" -c 'import sys;h=open(sys.argv[1]).read();print(h[h.index("id=tab-build"):h.index("id=tab-changes")])' "$R" > "$B"
 has "$B" "class='card ph now' id='phase-7' open>" "the phase being built is first and open"
 has "$B" "Building now and next" "focus heading"
-ord() { python3 -c 'import re,sys;print(" ".join(re.findall(r"id=.phase-(\w+)", open(sys.argv[1]).read())))' "$B"; }
+ord() { "$PY" -c 'import re,sys;print(" ".join(re.findall(r"id=.phase-(\w+)", open(sys.argv[1]).read())))' "$B"; }
 chk_ord="$(ord)"; [ "$chk_ord" = "7 4 3 5 6 1 2" ] && ok "order: now 7, then by latest built date 4 3, then 5; rest folded" || bad "order is '$chk_ord'"
 has "$B" "<b>Other unfinished phases (1)</b>" "the fifth unfinished phase is folded"
 has "$B" "<b>Completed phases (2)</b>" "fully built phases are folded"

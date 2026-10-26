@@ -964,8 +964,18 @@ if [ -n "$JAVA_EXE" ] && [ -x "$JAVA_EXE" ]; then
           "${SP_APP:-<none>}"/*) ;;
           *) if [ -n "$_jmaj" ] && [ "$_jmaj" != "$JAVA_WANT" ]; then
                warn "Java $_jmaj, but this model (Mendix $_mver) builds with JDK $JAVA_WANT — mxbuild will stop before checking the model"
+               # Which env file JAVA_HOME came from, in the loader's order (project file, then user
+               # file; the shell beats both). The first file that sets it decides: its value equal
+               # to JAVA_HOME means it was loaded from there; otherwise the shell had set it already.
                _jenv=""
-               for _ef in ${MXTK_ENV_LOADED:-}; do grep -q '^[[:space:]]*\(export[[:space:]]\{1,\}\)\{0,1\}JAVA_HOME=' "$_ef" 2>/dev/null && _jenv="$_ef"; done
+               for _ef in ${MXTK_ENV_LOADED:-}; do
+                 _jl="$(grep -E '^[[:space:]]*(export[[:space:]]+)?JAVA_HOME[[:space:]]*=' "$_ef" 2>/dev/null | head -1)"
+                 [ -n "$_jl" ] || continue
+                 _jv="$(printf '%s' "${_jl#*=}" | tr -d '\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//; s/^"\(.*\)"$/\1/; s/^'"'"'\(.*\)'"'"'$/\1/')"
+                 type mxtk_posix_path >/dev/null 2>&1 && _jv="$(mxtk_posix_path "$_jv")"
+                 [ "$_jv" = "${JAVA_HOME:-}" ] && _jenv="$_ef"
+                 break
+               done
                if [ -n "$_jenv" ]; then
                  note "JAVA_HOME comes from $_jenv: change it there to a JDK $JAVA_WANT folder."
                elif [ -n "${JAVA_HOME:-}" ]; then

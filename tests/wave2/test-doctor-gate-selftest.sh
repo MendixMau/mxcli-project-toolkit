@@ -265,5 +265,20 @@ JAVA_HOME="$T/jdk21" MXBUILD_PATH="$T/mxbuild" \
   bash "$DOCTOR" --quick --no-docker "$P" > "$T/out.jdkunk" 2>&1
 assert_missing  "$T/out.jdkunk" "builds with JDK" "jdk-warn: no warning when the model version is unreadable"
 
+# ── 14: where JAVA_HOME came from (review of #578) ──────────────────────────────────────────
+# Set only in the project's toolkit.env, written "KEY = value" (the loader accepts it): the note
+# names that file. Set in the shell AND (differently) in toolkit.env: the shell wins in the loader,
+# so the note must say the environment, not the file.
+echo "== 14: JAVA_HOME source: toolkit.env vs the shell =="
+mkdir -p "$P3/.claude" "$T/home" "$T/jdk17/bin"
+printf '#!/bin/sh\necho %s >&2\n' "'openjdk version \"17.0.9\" 2023-10-17'" > "$T/jdk17/bin/java"; chmod +x "$T/jdk17/bin/java"
+printf 'JAVA_HOME = %s\n' "$T/jdk21" > "$P3/.claude/toolkit.env"
+( unset JAVA_HOME; HOME="$T/home" MXBUILD_PATH="$T/mxbuild" bash "$DOCTOR" --quick --no-docker "$P3" ) > "$T/out.jenv" 2>&1
+assert_contains "$T/out.jenv" "JAVA_HOME comes from $P3/.claude/toolkit.env" "jdk-src: the env file that set it is named"
+HOME="$T/home" JAVA_HOME="$T/jdk17" MXBUILD_PATH="$T/mxbuild" bash "$DOCTOR" --quick --no-docker "$P3" > "$T/out.jshell" 2>&1
+assert_contains "$T/out.jshell" "JAVA_HOME is set in your environment" "jdk-src: shell value wins, the note says so"
+assert_missing  "$T/out.jshell" "JAVA_HOME comes from" "jdk-src: the env file is not blamed when the shell set it"
+rm -f "$P3/.claude/toolkit.env"
+
 echo; echo "$PASS passed, $FAIL failed   ($T)"
 [ "$FAIL" -eq 0 ]

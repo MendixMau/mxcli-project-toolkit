@@ -167,6 +167,7 @@ function describeAct(a, vars) {
     case 'fill':     return { verb: 'Type', target: `"${v(a.value)}" into ${a.label || a.widget}`, selector: `.mx-name-${a.widget}` };
     case 'combobox': return { verb: 'Select', target: `"${v(a.match)}" in ${a.label || a.widget}`, selector: `.mx-name-${a.widget}` };
     case 'wait':     return { verb: 'Wait', target: `${a.ms || 0}ms`, selector: null };
+    case 'back':     return { verb: 'Browser Back', target: '', selector: null };
     default:         return { verb: a.do, target: a.widget || '', selector: a.widget ? `.mx-name-${a.widget}` : null };
   }
 }
@@ -316,6 +317,20 @@ async function act(page, a, vars, note) {
     }
     case 'dismissModal': await H.dismissModal(page); break;
     case 'wait':         await page.waitForTimeout(a.ms || 1000); break;
+    case 'back': {
+      // Browser Back (#564): the Mendix client rebuilds the previous page from its own history and
+      // re-sends the client state it kept — a path no in-app click takes. A networkidle timeout is
+      // not a failure (a polling page never goes idle; the history move happened). Leaving the app
+      // is: every later check would measure the login page or another site.
+      const ms = a.timeout || 15000;
+      await page.goBack({ waitUntil: 'networkidle', timeout: ms }).catch(e => {
+        if (!/timeout/i.test(e.message)) throw e;
+        console.log(`    WARN back: networkidle not reached in ${ms} ms; settling as usual`);
+      });
+      if (backLeftApp(page.url(), cfg.baseUrl))
+        throw new Error(`Back left the app (now at ${page.url()}): the previous action pushed no history entry`);
+      break;
+    }
     default: throw new Error(`unknown action "${a.do}"`);
   }
   // An explicit settleMs is a fixed wait, as before. Otherwise wait for the page to
@@ -323,6 +338,22 @@ async function act(page, a, vars, note) {
   // restores the old 1200 ms for an A/B run.
   if (a.settleMs != null) await page.waitForTimeout(a.settleMs);
   else await settle(page, { timeout: 10000, stableMs: 300, networkIdleMs: 0, fallbackMs: 1200 });
+}
+
+// Outside the app after a Back: another origin, about:blank, or the login page (monkey.js leftApp).
+function backLeftApp(url, baseUrl) {
+  const base = String(baseUrl).replace(/\/+$/, '');
+  if (!url || (url !== base && !url.startsWith(base + '/'))) return true;
+  return /\/login\.html(?:[?#]|$)/.test(url);
+}
+
+// The opt-in `ui.no5xx` row (#564): every answer >= 500 between the step's first action and its
+// landing guard. Mendix can render a page's frame while every data source on it failed (HTTP 560
+// on /xas/), and the landing guard alone then reads PASS.
+function no5xxVerdict(hits) {
+  return hits.length
+    ? { verdict: 'FAIL', detail: `${hits.length} answer(s) >= 500: ${hits.slice(0, 5).join('; ')}${hits.length > 5 ? '; …' : ''}` }
+    : { verdict: 'PASS', detail: 'no answer >= 500' };
 }
 
 // ── RUNG 2: ordered spans, as a function (called from runJourney) ───────────
@@ -772,7 +803,22 @@ async function runJourney(page, j) {
     // early `return`s below, which is why it is a finaliser called at each exit and
     // not a line at the bottom of the loop. A step that bailed still has to show
     // what it managed, or the walk goes quiet exactly where it matters most.
+    // ui.no5xx (opt-in, #564): watch every response from the first action to the landing guard.
+    const watch5xx = !!(step.ui && step.ui.no5xx === true);
+    const hits5xx = [];
+    const on5xx = (r) => { if (r.status() >= 500) hits5xx.push(`${r.status()} ${r.request().method()} ${r.url().slice(0, 120)}`); };
+    let no5xxDone = !watch5xx;
+    // Recorded before any bail-out, so a 5xx that is WHY the page never landed shows beside it.
+    const record5xx = () => {
+      if (no5xxDone) return;
+      no5xxDone = true;
+      page.off('response', on5xx);
+      const v = no5xxVerdict(hits5xx);
+      record('ui', `${step.name}: no HTTP 5xx during the step`, v.verdict, v.detail, req);
+    };
+    if (watch5xx) page.on('response', on5xx);
     const seal = () => {
+      if (watch5xx) page.off('response', on5xx);
       leg.checks = results.slice(from).map(r =>
         ({ rung: r.rung, name: r.name, verdict: r.verdict, detail: r.detail }));
       leg.ms = Date.now() - t0;
@@ -803,6 +849,7 @@ async function runJourney(page, j) {
     } catch (e) {
       record('ui', `${step.name}: actions completed`, 'FAIL', e.message.split('\n')[0], req);
       leg.shot = await shoot(page, `${j.id}-step${i + 1}-ACTION-FAILED`);
+      record5xx();
       seal();
       return; // the journey's state is now unknown; later steps would measure noise
     }
@@ -824,6 +871,7 @@ async function runJourney(page, j) {
       }
       leg.reached = onPage;
     }
+    record5xx();
 
     // The success shot, taken HERE: after the actions and the landing guard, before
     // the text/trace/data rungs. That ordering is the whole point — this image is the
@@ -1376,7 +1424,7 @@ function flagAppDown(rows, detail) {
 module.exports = {
   sqlRowCount, sqlWatermark, whereScoped, scopeLiteral,
   sqlAssocTotal, sqlAssocLinked, sqlMustPointAt, captureScope, scopeEvidence,
-  runExitCode, judgeMutant, personaMismatch, namedControlGaps, findControls, outcomeCheckName,
+  runExitCode, judgeMutant, backLeftApp, no5xxVerdict, personaMismatch, namedControlGaps, findControls, outcomeCheckName,
   classifyAdminProbe, journeyNeedsAdmin, missingEnv, preflight, orderJourneys, stateTracker,
   judgeLanding, journeyIdProblems,
   traceRung, controlMutants, forbiddenSample, probeApp, appGate, flagAppDown, LIVENESS_SKEW_MS,

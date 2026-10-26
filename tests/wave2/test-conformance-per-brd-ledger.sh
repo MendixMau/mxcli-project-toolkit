@@ -166,6 +166,25 @@ for layout in single two; do
     || bad "[$layout] missing LEDGER_FILE silently fell back" "rc=$rc $(out)"
 done
 
+# --- 10. a single-file multi-BRD ledger as brd-to-build-plan.md writes it (#515) --------------
+# BRD-prefixed pointers, statuses `not built` and `blocked (<reason>)`. Before: "an index, not a
+# ledger" (rc 2), and the two statuses would read UNKNOWN-STATUS.
+mkdir -p "$P/architecture/modules/Catalog"
+cat > "$P/architecture/modules/Catalog/coverage-ledger.md" <<'EOF'
+# Coverage ledger — Catalog
+
+| Pointer | Kind | Name | Row | Proof | Acceptance | Status |
+|---|---|---|---|---|---|---|
+| `F002/domainEntities/0` | entity | Item | 1.1 | exec.sh | `DESCRIBE ENTITY Catalog.Item` | built |
+| `F002/microflows/0` | microflow | ACT_Item_Price | 1.2 | exec.sh | `DESCRIBE MICROFLOW Catalog.ACT_Item_Price` | not built |
+| `F004/microflows/1` | microflow | ACT_Item_Sync | 1.3 | exec.sh | `DESCRIBE MICROFLOW Catalog.ACT_Item_Sync` | blocked (PD-04) |
+EOF
+printf 'Catalog.Item\n' >> "$P/PRESENT"
+rc="$(run --module Catalog)"
+[ "$rc" = 0 ] && grep -q "measured 3 " "$WORK/out" && ! grep -q "is an index" "$WORK/out" && ! grep -q "UNKNOWN-STATUS" "$WORK/out" \
+  && ok "prefixed pointers + 'not built' / 'blocked (..)' statuses measured (3 rows, rc 0)" \
+  || bad "brd-to-build-plan ledger format not measured" "rc=$rc $(out)"
+
 # --- 8. LEDGER_FILE is in the usage text --------------------------------------------------------
 ( cd "$P" && PROJECT_ROOT="$P" bash "$SUT" --help ) 2>/dev/null | grep -q "LEDGER_FILE" && ok "--help documents LEDGER_FILE" \
   || bad "--help does not mention LEDGER_FILE"

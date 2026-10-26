@@ -78,6 +78,7 @@ for role in mdl gate test review; do
   SUM=0
   for p in $PATHS; do
     if [ "$p" = "bin/runbook-slice.sh" ]; then n="$(bash "$SUT" 5 | LC_ALL=C wc -w | tr -d ' ')"
+    elif [ "$p" = "bin/mdl-rules.sh" ]; then n="$(bash "$TK/$p" any | LC_ALL=C wc -w | tr -d ' ')"   # its core output (lazy-load PR 2)
     else n="$(LC_ALL=C wc -w < "$TK/$p" | tr -d ' ')"; fi
     SUM=$((SUM + n))
   done

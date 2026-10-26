@@ -1546,6 +1546,32 @@ fi
 
 # --- verdict ---------------------------------------------------------------------------------
 
+# Line 2 of the receipt below: the installed mxcli's --version line. Read here, once (it was read
+# inside the receipt block before), so the lint-baseline hint below needs no extra mxcli call.
+FP_MXCLI="none"
+[ -n "$PROJECT_DIR" ] && [ -x "$PROJECT_DIR/mxcli" ] && FP_MXCLI="$("$PROJECT_DIR/mxcli" --version 2>/dev/null | head -1)"
+
+# Lint baseline vs this mxcli. A new mxcli can add built-in rules (v0.28.0: CONV020) that raise
+# lint on the next exec with no model change. lint-gate.sh --update-baseline records
+# mxcli_version. Notes only: the exit code does not change, the gate's behaviour does not either.
+_lb="${PROJECT_DIR:-.}/.claude/lint-baseline.json"
+_lb_now="$(printf '%s\n' "$FP_MXCLI" | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+if [ -n "$PROJECT_DIR" ] && [ -f "$_lb" ] && [ -n "$_lb_now" ]; then
+  _lb_was="$(sed -n 's/.*"mxcli_version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$_lb" | head -1)"
+  if [ "$_lb_was" != "$_lb_now" ]; then
+    head_ "Lint baseline: $PROJECT_DIR"
+    # No recorded version is no evidence of a rise: name no command (a reflex re-baseline is what
+    # skills/lint-that-actually-runs.md warns against). A recorded, different one is evidence.
+    if [ -z "$_lb_was" ]; then
+      note "lint baseline records no mxcli version; if mxcli was upgraded since it was taken, new built-in rules can raise lint."
+      note "  the next bin/lint-gate.sh --update-baseline records it; nothing to do until lint actually rises."
+    else
+      note "lint baseline was taken with mxcli $_lb_was; this is $_lb_now. New built-in rules can raise lint."
+      note "  after reviewing the new findings: bin/lint-gate.sh --update-baseline --reason \"mxcli $_lb_now built-in rules\""
+    fi
+  fi
+fi
+
 head_ "Verdict"
 
 # Leave a dated receipt in the project so gate-check can tell "doctor ran and passed" from
@@ -1558,7 +1584,6 @@ if [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ]; then
   mkdir -p "$PROJECT_DIR/.claude" 2>/dev/null || true
   # Line 2 is the environment fingerprint: mxcli version, mxbuild path, arch. exec.sh re-runs
   # `doctor.sh --quick` when it changes or the receipt is over a day old (warn-only).
-  FP_MXCLI="$( [ -x "$PROJECT_DIR/mxcli" ] && "$PROJECT_DIR/mxcli" --version 2>/dev/null | head -1 || echo none)"
   { printf '%s %s fail=%s warn=%s%s\n' "$(date '+%Y-%m-%d %H:%M')" "$RECEIPT_VERDICT" "$FAIL" "$WARN" "$( [ "$QUICK" = 1 ] && echo ' quick')"
     printf 'fingerprint: %s | %s | %s\n' "$FP_MXCLI" "${MXBUILD:-no-mxbuild}" "$(uname -sm)"
     [ -n "$GATE_SELFTEST_LINE" ] && printf 'gate-selftest: %s\n' "$GATE_SELFTEST_LINE"

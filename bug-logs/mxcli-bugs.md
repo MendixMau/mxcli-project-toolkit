@@ -2206,7 +2206,7 @@ sqlite3 .mxcli/catalog.db "SELECT DISTINCT ActionType FROM activities;"
 sqlite3 .mxcli/catalog.db "SELECT DISTINCT SourceType FROM refs;"
 ```
 
-Corrected `CONV010` and a `CONV020` written against probed values are in this repo under
+Corrected `CONV010` and a `CONV020` (now MXTK-UX003) written against probed values are in this repo under
 [`lint-rules/`](../lint-rules/), with the trap and the fail-loudly self-check pattern
 documented in [`lint-rules/README.md`](../lint-rules/README.md).
 

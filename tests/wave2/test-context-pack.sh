@@ -7,7 +7,8 @@
 #
 #   1. A CHANGE STEP: every Reads element described with its real kind, the built document shown
 #      as "already in the model" with its impact table, the example included, the folder taken
-#      from the folder plan, and the microflow rules named. Exit 0.
+#      from the folder plan, and the microflow rules named — including `bin/mdl-rules.sh microflow`
+#      (a page step: `bin/mdl-rules.sh page`), the only route some rules have to a pack-fed helper. Exit 0.
 #   2. A PAGE STEP: the DateTime/Boolean/Enumeration watch-out names the real Boolean attribute.
 #   3. A TYPO in Reads: the pack is still written, the name is listed under "Not found", exit 1.
 #   4. NO ROW for the step: exit 2.
@@ -62,6 +63,7 @@ for layout in root app; do
   has "5.1 example included"                    "### Sales.ACT_ApprovalStep_Reject (microflow)" "$P/pack.md"
   has "5.1 folder from the folder plan"         "| Sales.ACT_ApprovalStep_Approve | SalesOrder/Microflows |" "$P/pack.md"
   has "5.1 microflow rules named"               "learned-microflow-patterns.md" "$P/pack.md"
+  has "5.1 mdl-rules named with logic kinds"    "bin/mdl-rules.sh microflow\`" "$P/pack.md"
   has "5.1 arch constraints carried"            "audit row in the same transaction" "$P/pack.md"
   has "5.1 no brain dir → says so"              "No docs/brain/ yet" "$P/pack.md"
 
@@ -69,6 +71,7 @@ for layout in root app; do
   has "5.2 widget watch-out present"            "Widget watch-out" "$P/pack.md"
   has "5.2 watch-out names the Boolean attr"    "Sales.Product: Active" "$P/pack.md"
   has "5.2 page rules named"                    "ui-preflight-pages.md" "$P/pack.md"
+  has "5.2 mdl-rules named with page kinds"     "bin/mdl-rules.sh page\`" "$P/pack.md"
 
   check "5.3 typo in Reads exits 1" "$(run "$P" 5.3)" "1"
   has "5.3 typo listed under Not found"         "- Sales.ApprovalStepp" "$P/pack.md"

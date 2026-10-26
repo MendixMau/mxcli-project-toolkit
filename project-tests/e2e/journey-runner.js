@@ -54,6 +54,14 @@ const files = process.argv.slice(2).filter(a => !a.startsWith('--'));
 // --out=<file.json>: write findings there instead of the default slot. named-controls.js uses it
 // so a named control never overwrites the real walk's (or the positive control's) findings (#159).
 const OUT_ARG = (process.argv.find(a => a.startsWith('--out=')) || '').slice(6);
+// Fix-loop reruns (#492): --only=<id,...> walks just those journeys; --rerun-failed[=<findings.json>]
+// walks the journeys with any non-PASS row in the last run's findings (default: this mode's slot).
+// Either way the journeys that `leave` what a chosen one `requires` are walked too, so declared
+// state is rebuilt, and the findings go to a separate *-rerun.json slot: a partial run never
+// replaces the full run's findings, and the full run is still owed where the test strategy names it.
+const ONLY_ARG = (process.argv.find(a => a.startsWith('--only=')) || '').slice(7);
+const RERUN_ARG = process.argv.find(a => a === '--rerun-failed' || a.startsWith('--rerun-failed='));
+const PARTIAL = !!(ONLY_ARG || RERUN_ARG);
 // `require.main === module` guard: tests/e2e/journey-rung4-scope.test.js requires this
 // file to exercise the rung-4 SQL builders directly. Without the guard, requiring it
 // would parse the TEST runner's argv, find no journey files and exit(3).
@@ -67,6 +75,8 @@ if (require.main === module && !files.length) {
 // feature is broken" send you to different places, and blending them is how a
 // week gets spent debugging a page that was never reached.
 const results = [];
+// The run's device (#521), written to the findings and to every walk.
+let DEVICE = 'desktop (default 1440x900 window)';
 
 // ── The walk ────────────────────────────────────────────────────────────────
 // The assertions above answer "did it work". The walk answers "what did it DO" —
@@ -163,25 +173,37 @@ function describeAct(a, vars) {
   const v = x => String(subst(x, vars));
   switch (a.do) {
     case 'nav':      return { verb: 'Navigate', target: [a.group, a.item].filter(Boolean).join(' › '), selector: null };
-    case 'click':    return { verb: 'Click', target: a.label || a.widget, selector: `.mx-name-${a.widget}` };
+    case 'click':    return { verb: 'Click', target: (a.label || a.widget) + (a.row !== undefined ? ` in the row "${v(a.row)}"` : ''), selector: `.mx-name-${a.widget}` };
     case 'fill':     return { verb: 'Type', target: `"${v(a.value)}" into ${a.label || a.widget}`, selector: `.mx-name-${a.widget}` };
     case 'combobox': return { verb: 'Select', target: `"${v(a.match)}" in ${a.label || a.widget}`, selector: `.mx-name-${a.widget}` };
     case 'wait':     return { verb: 'Wait', target: `${a.ms || 0}ms`, selector: null };
+    case 'back':     return { verb: 'Browser Back', target: '', selector: null };
+    case 'offline':  return { verb: 'Go offline', target: 'browser network', selector: null };
+    case 'online':   return { verb: 'Go online', target: 'browser network', selector: null };
     default:         return { verb: a.do, target: a.widget || '', selector: a.widget ? `.mx-name-${a.widget}` : null };
   }
 }
 
 async function act(page, a, vars, note) {
   const w = n => page.locator(`.mx-name-${n}`).first();
+  // offline / online (#521) touch the browser context, never the page, and do not settle: a
+  // settle waits on the network the step just cut.
+  const net = networkVerb(a);
+  if (net !== null) {
+    if (a.do === 'wait')
+      console.log(`    WARN legacy offline placeholder ("${a.label}") honoured — rewrite it as { "do": "${net ? 'offline' : 'online'}" }`);
+    await setNetwork(page, net);
+    return;
+  }
   switch (a.do) {
     case 'nav':
       await H.navTo(page, a.group || null, a.item);
       break;
     case 'click': {
-      const el = w(a.widget);
+      const el = await scopedWidget(page, a, vars);
       await el.waitFor({ state: 'attached', timeout: 8000 }).catch(() => {});
       await el.scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {});
-      if (!(await el.isVisible({ timeout: 6000 }).catch(() => false)))
+      if (!(await H.visibleWithin(el, 6000)))
         throw new Error(`.mx-name-${a.widget} not visible`);
       // Hit-test before the forced click. `force` skips Playwright's actionability check, so a
       // click lands on whatever sits on top: a toast over the page's header actions swallowed
@@ -207,7 +229,7 @@ async function act(page, a, vars, note) {
     }
     case 'fill': {
       const el = page.locator(`.mx-name-${a.widget} input, .mx-name-${a.widget} textarea`).first();
-      if (!(await el.isVisible({ timeout: 6000 }).catch(() => false)))
+      if (!(await H.visibleWithin(el, 6000)))
         throw new Error(`.mx-name-${a.widget} input not visible`);
       await el.fill(String(subst(a.value, vars)));
       break;
@@ -219,7 +241,7 @@ async function act(page, a, vars, note) {
       // selection. Toggle, then keyboard-select — the technique proven in
       // spec-fieldscan-otel.js.
       const box = w(a.widget);
-      if (!(await box.isVisible({ timeout: 6000 }).catch(() => false)))
+      if (!(await H.visibleWithin(box, 6000)))
         throw new Error(`.mx-name-${a.widget} not visible`);
       await box.scrollIntoViewIfNeeded().catch(() => {});
       if (FIXED) await PAUSE(400); else await frames(page);
@@ -316,6 +338,20 @@ async function act(page, a, vars, note) {
     }
     case 'dismissModal': await H.dismissModal(page); break;
     case 'wait':         await page.waitForTimeout(a.ms || 1000); break;
+    case 'back': {
+      // Browser Back (#564): the Mendix client rebuilds the previous page from its own history and
+      // re-sends the client state it kept — a path no in-app click takes. A networkidle timeout is
+      // not a failure (a polling page never goes idle; the history move happened). Leaving the app
+      // is: every later check would measure the login page or another site.
+      const ms = a.timeout || 15000;
+      await page.goBack({ waitUntil: 'networkidle', timeout: ms }).catch(e => {
+        if (!/timeout/i.test(e.message)) throw e;
+        console.log(`    WARN back: networkidle not reached in ${ms} ms; settling as usual`);
+      });
+      if (backLeftApp(page.url(), cfg.baseUrl))
+        throw new Error(`Back left the app (now at ${page.url()}): the previous action pushed no history entry`);
+      break;
+    }
     default: throw new Error(`unknown action "${a.do}"`);
   }
   // An explicit settleMs is a fixed wait, as before. Otherwise wait for the page to
@@ -323,6 +359,243 @@ async function act(page, a, vars, note) {
   // restores the old 1200 ms for an A/B run.
   if (a.settleMs != null) await page.waitForTimeout(a.settleMs);
   else await settle(page, { timeout: 10000, stableMs: 300, networkIdleMs: 0, fallbackMs: 1200 });
+}
+
+// A grid repeats one widget name per row, so `.mx-name-<w>` first-match clicks whichever row
+// rendered first (#148). `in` scopes to one container widget; `row` (substituted) picks the one
+// innermost row that shows the text as a whole word run: "Order 1" never matches "Order 10". The
+// row's own text and each element in it are tested, so cells rendered with no whitespace between
+// them (React grids) still match. No row → throw; two or more → throw "ambiguous", never a pick.
+// Neither field → the old first-match locator, unchanged.
+const ROW_SEL = ':is(tr, [role="row"], .mx-listview-item, .mx-templategrid-item)';
+async function scopedWidget(page, a, vars = {}) {
+  let base = page;
+  if (a.in) base = page.locator(`.mx-name-${a.in}`).first();
+  if (a.row !== undefined) {
+    const text = String(subst(a.row, vars));
+    const rows = base.locator(ROW_SEL);
+    const hits = await rows.evaluateAll((els, t) => {
+      const esc = t.replace(/\s+/g, ' ').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp(`(?:^|[^\\p{L}\\p{N}])${esc}(?:[^\\p{L}\\p{N}]|$)`, 'u');
+      const says = e => [e, ...e.querySelectorAll('*')]
+        .some(n => re.test(String(n.innerText != null && n.innerText !== '' ? n.innerText : n.textContent || '').replace(/\s+/g, ' ').trim()));
+      const m = els.filter(says);
+      return els.map((e, i) => (m.includes(e) && !m.some(o => o !== e && e.contains(o))) ? i : -1).filter(i => i >= 0);
+    }, text).catch(() => []);
+    const where = a.in ? ` in .mx-name-${a.in}` : '';
+    if (!hits.length) throw new Error(`no row${where} says "${text}"`);
+    if (hits.length > 1) throw new Error(`ambiguous: ${hits.length} rows${where} say "${text}"`);
+    base = rows.nth(hits[0]);
+  }
+  return base === page ? page.locator(`.mx-name-${a.widget}`).first() : base.locator(`.mx-name-${a.widget}`).first();
+}
+
+// Outside the app after a Back: another origin, about:blank, or the login page (monkey.js leftApp).
+function backLeftApp(url, baseUrl) {
+  const base = String(baseUrl).replace(/\/+$/, '');
+  if (!url || (url !== base && !url.startsWith(base + '/'))) return true;
+  return /\/login\.html(?:[?#]|$)/.test(url);
+}
+
+// The opt-in `ui.no5xx` row (#564): every answer >= 500 between the step's first action and its
+// landing guard. Mendix can render a page's frame while every data source on it failed (HTTP 560
+// on /xas/), and the landing guard alone then reads PASS.
+function no5xxVerdict(hits) {
+  return hits.length
+    ? { verdict: 'FAIL', detail: `${hits.length} answer(s) >= 500: ${hits.slice(0, 5).join('; ')}${hits.length > 5 ? '; …' : ''}` }
+    : { verdict: 'PASS', detail: 'no answer >= 500' };
+}
+
+// ── Device, network and position (#521) ─────────────────────────────────────
+// Every journey used to open in one 1440x900 desktop window, so Mendix served the Responsive
+// profile and a phone journey failed at step 1 for a setup reason; an "offline" step was a
+// labelled `wait` that never left the network; a nanoflow reading the device position got
+// "permission denied". All three are opt-in journey fields; a journey with none of them goes
+// through H.launchBrowser() exactly as before.
+//
+// One run is one browser context and one sign-in, so one run is one device: a run whose
+// journeys need different devices exits 2 before the browser opens (one SETUP line per
+// device). JOURNEY_DEVICE=<Playwright name>|desktop applies one device to every journey.
+const DEFAULT_PHONE = 'iPhone 13';
+const validSize = v => v && Number.isInteger(v.width) && Number.isInteger(v.height) && v.width > 0 && v.height > 0;
+function editDistance(a, b) {
+  a = a.toLowerCase(); b = b.toLowerCase();
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++)
+    d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+// `profiles` is Playwright's `devices` map (H.deviceProfiles()); injected so the selftest needs
+// no browser. Returns { kind, key, options } or { error }. `options` null = the desktop default.
+function resolveDevice(j, { env = process.env, profiles = null } = {}) {
+  const id = j.id || '(journey)';
+  const named = (name, size, src) => {
+    if (!profiles) return { error: `${id}: ${src} "${name}" needs Playwright's device profiles, and Playwright did not load` };
+    const p = profiles[name];
+    if (!p) {
+      const near = Object.keys(profiles).sort((x, y) => editDistance(name, x) - editDistance(name, y)).slice(0, 3);
+      return { error: `${id}: unknown device "${name}" (${src}) — nearest known: ${near.join(', ')}. ` +
+        'The runner never swaps in a neighbouring profile.' };
+    }
+    if (size != null && !validSize(size)) return { error: `${id}: ${src} viewport must be { "width", "height" } in whole pixels` };
+    // The size: an explicit viewport, else the profile's screen (390x844 for iPhone 13) — its
+    // `viewport` is the browser chrome-reduced 390x664, not the size the app is laid out for.
+    const vp = size ? { width: size.width, height: size.height } : (p.screen || p.viewport);
+    return { kind: p.isMobile ? 'phone' : 'desktop', key: `${name} ${vp.width}x${vp.height}`, name,
+      options: { userAgent: p.userAgent, isMobile: !!p.isMobile, hasTouch: !!p.hasTouch,
+                 deviceScaleFactor: p.deviceScaleFactor || 1, viewport: vp } };
+  };
+  const over = env.JOURNEY_DEVICE;
+  if (over) return /^desktop$/i.test(over) ? { kind: 'desktop', key: 'desktop', options: null } : named(over, null, 'JOURNEY_DEVICE');
+  const d = j.device;
+  if (d !== undefined) {
+    if (typeof d === 'string') return named(d, null, 'device');
+    if (d && typeof d === 'object' && typeof d.name === 'string') return named(d.name, d.viewport, 'device');
+    return { error: `${id}: "device" must be a Playwright device name or { "name", "viewport": { "width", "height" } }` };
+  }
+  const v = j.viewport;
+  if (v !== undefined) {
+    if (!validSize(v)) return { error: `${id}: "viewport" must be { "width", "height" } in whole pixels` };
+    if (v.isMobile === true) {
+      const base = named(DEFAULT_PHONE, v, 'viewport (isMobile)');
+      return base.error ? base : { ...base, key: `phone ${v.width}x${v.height}` };
+    }
+    return { kind: 'desktop', key: `desktop ${v.width}x${v.height}`, options: { viewport: { width: v.width, height: v.height } } };
+  }
+  return { kind: 'desktop', key: 'desktop', options: null };
+}
+// One device for the whole run, or the SETUP problems that stop it before the browser opens.
+function runDevice(journeys, opts = {}) {
+  const problems = [], byKey = new Map();
+  let device = null;
+  for (const j of journeys) {
+    const r = resolveDevice(j, opts);
+    if (r.error) { problems.push(r.error); continue; }
+    if (!byKey.has(r.key)) byKey.set(r.key, []);
+    byKey.get(r.key).push(j.id);
+    device = device || r;
+  }
+  if (byKey.size > 1)
+    problems.push('one run is one browser context, so one device — these journeys need different ones: ' +
+      [...byKey].map(([k, ids]) => `${k}: ${ids.join(', ')}`).join('; ') + '. Run each group separately.');
+  return { device: device || { kind: 'desktop', key: 'desktop', options: null }, problems };
+}
+const contextOptions = dev => (dev && dev.options) || null;
+const deviceLabel = dev => (dev && dev.options ? dev.key : 'desktop (default 1440x900 window)');
+// The device as the page measures it on about:blank, judged against what was asked for. A
+// phone journey run in a desktop context measures the wrong app (Mendix picks its profile from
+// the user agent and size), so a mismatch stops the run before any sign-in.
+function judgeDevice(dev, m) {
+  const o = contextOptions(dev);
+  if (!o) return { ok: true, detail: '' };
+  const bad = [];
+  if (o.viewport && (m.width !== o.viewport.width || m.height !== o.viewport.height))
+    bad.push(`viewport ${m.width}x${m.height}, asked ${o.viewport.width}x${o.viewport.height}`);
+  if (o.userAgent && m.ua !== o.userAgent) bad.push(`user agent "${String(m.ua).slice(0, 60)}…" is not the profile's`);
+  if (o.hasTouch && !(m.touch > 0)) bad.push('no touch points on a touch device');
+  return bad.length ? { ok: false, detail: bad.join('; ') } : { ok: true, detail: '' };
+}
+async function measureDevice(page) {
+  const vp = page.viewportSize() || {};
+  const e = await page.evaluate(() => ({ ua: navigator.userAgent, touch: navigator.maxTouchPoints })).catch(() => ({}));
+  return { width: vp.width, height: vp.height, ua: e.ua, touch: e.touch };
+}
+
+// The ::before / ::after text of every rendered element (#276). `content` comes back as a CSS
+// string ('"No placements yet"'); quotes and escapes are undone. Hidden elements are skipped: a
+// pseudo-element on a display:none host is not on the screen.
+async function pseudoTexts(page) {
+  return page.evaluate(() => {
+    const out = [];
+    for (const el of document.querySelectorAll('body *')) {
+      if (!el.getClientRects().length) continue;
+      for (const pe of ['::before', '::after']) {
+        const c = getComputedStyle(el, pe).content;
+        if (!c || c === 'none' || c === 'normal') continue;
+        const m = /^"((?:[^"\\]|\\.)*)"$/.exec(c);
+        if (m) out.push(m[1].replace(/\\(.)/g, '$1'));
+      }
+    }
+    return out;
+  }).catch(() => null);
+}
+function pseudoVerdict(texts, want) {
+  if (texts === null) return { verdict: 'INVALID', detail: 'could not read pseudo-element content (page gone?)' };
+  return texts.some(t => t.includes(want))
+    ? { verdict: 'PASS', detail: '' }
+    : { verdict: 'FAIL', detail: `no rendered ::before/::after says it (${texts.length} with text${texts.length ? `: ${texts.slice(0, 3).map(t => JSON.stringify(t)).join(', ')}` : ''})` };
+}
+
+// offline / online. A `wait` whose label names context.setOffline(true|false) is the
+// placeholder projects wrote before the verbs existed; it is honoured, with a WARN.
+const NET = { offline: false };
+function networkVerb(a) {
+  if (!a) return null;
+  if (a.do === 'offline') return true;
+  if (a.do === 'online') return false;
+  if (a.do === 'wait' && typeof a.label === 'string') {
+    const m = /context\.setOffline\((true|false)\)/.exec(a.label);
+    if (m) return m[1] === 'true';
+  }
+  return null;
+}
+async function setNetwork(page, offline) { await page.context().setOffline(offline); NET.offline = offline; }
+const isOffline = () => NET.offline;
+// Back online, always: after every journey and before the sign-out (an offline logout never
+// reaches /xas/ and leaks a licence session). Returns whether it was offline.
+async function ensureOnline(page) {
+  if (!NET.offline) return false;
+  await setNetwork(page, false);
+  return true;
+}
+// A journey that walked every step and was still offline never declared its way back: the
+// runner restored it, and the contract is wrong. Not walked to the end → the bail-out is the finding.
+function networkEndRow(id, wasOffline, completed) {
+  if (!wasOffline || !completed) return null;
+  return { name: `${id}: back online at the end`, verdict: 'INVALID',
+    detail: 'walked every step still offline — no { "do": "online" } step; the runner put it back online. Add the step.' };
+}
+
+// A GPS fix: `geolocation` { latitude, longitude, accuracy? } on a step or on the journey (from
+// its first step on); {{seed}} placeholders allowed. `_geolocation` (files written before the
+// runner read the field) is used when `geolocation` is absent, with a WARN: the validator treats
+// `_` keys as comments and never checks their placeholders. A value that is not a number, out of
+// range, or still a {{placeholder}} is INVALID and stops the journey; it is never sent as 0,0.
+function resolveGeolocation(spec, vars = {}) {
+  if (!spec || typeof spec !== 'object') return { ok: false, why: 'must be { "latitude", "longitude", "accuracy"? }' };
+  const out = {};
+  for (const [k, lo, hi, req] of [['latitude', -90, 90, true], ['longitude', -180, 180, true], ['accuracy', 0, Infinity, false]]) {
+    let v = spec[k];
+    if (v === undefined) { if (req) return { ok: false, why: `no ${k}` }; continue; }
+    v = subst(v, vars);
+    if (typeof v === 'string' && /\{\{\w+\}\}/.test(v)) return { ok: false, why: `${k} "${v}" is an unresolved placeholder` };
+    if (typeof v === 'string' && !v.trim()) return { ok: false, why: `${k} is empty` };
+    const n = Number(v);
+    if (!Number.isFinite(n) || n < lo || n > hi) return { ok: false, why: `${k} ${JSON.stringify(v)} is not a number in [${lo}, ${hi}]` };
+    out[k] = n;
+  }
+  return { ok: true, value: out };
+}
+const GEO = { granted: false };
+async function applyGeolocation(page, value) {
+  if (!GEO.granted) { await page.context().grantPermissions(['geolocation']); GEO.granted = true; }
+  await page.context().setGeolocation(value);
+}
+// Between journeys: permission and position are cleared, so a fix never leaks into the next one.
+async function clearGeolocation(page) {
+  if (!GEO.granted) return;
+  await page.context().clearPermissions();
+  await page.context().setGeolocation(null).catch(() => {});
+  GEO.granted = false;
+}
+// The step's fix: its own, else (first step only) the journey's. Returns { spec, legacy } or null.
+function stepGeolocation(j, step, i) {
+  if (step.geolocation !== undefined) return { spec: step.geolocation, legacy: false };
+  if (step._geolocation !== undefined) return { spec: step._geolocation, legacy: true };
+  if (i === 0 && j.geolocation !== undefined) return { spec: j.geolocation, legacy: false };
+  if (i === 0 && j._geolocation !== undefined) return { spec: j._geolocation, legacy: true };
+  return null;
 }
 
 // ── RUNG 2: ordered spans, as a function (called from runJourney) ───────────
@@ -745,7 +1018,7 @@ async function runJourney(page, j) {
     }
   }
 
-  const walk = { journey: j.id, title: j.title || '', persona: j.persona || cfg.user,
+  const walk = { journey: j.id, title: j.title || '', persona: j.persona || cfg.user, device: DEVICE,
                  requirement: j.requirement || [], seeds: vars, steps: [] };
   walks.push(walk);
 
@@ -772,7 +1045,22 @@ async function runJourney(page, j) {
     // early `return`s below, which is why it is a finaliser called at each exit and
     // not a line at the bottom of the loop. A step that bailed still has to show
     // what it managed, or the walk goes quiet exactly where it matters most.
+    // ui.no5xx (opt-in, #564): watch every response from the first action to the landing guard.
+    const watch5xx = !!(step.ui && step.ui.no5xx === true);
+    const hits5xx = [];
+    const on5xx = (r) => { if (r.status() >= 500) hits5xx.push(`${r.status()} ${r.request().method()} ${r.url().slice(0, 120)}`); };
+    let no5xxDone = !watch5xx;
+    // Recorded before any bail-out, so a 5xx that is WHY the page never landed shows beside it.
+    const record5xx = () => {
+      if (no5xxDone) return;
+      no5xxDone = true;
+      page.off('response', on5xx);
+      const v = no5xxVerdict(hits5xx);
+      record('ui', `${step.name}: no HTTP 5xx during the step`, v.verdict, v.detail, req);
+    };
+    if (watch5xx) page.on('response', on5xx);
     const seal = () => {
+      if (watch5xx) page.off('response', on5xx);
       leg.checks = results.slice(from).map(r =>
         ({ rung: r.rung, name: r.name, verdict: r.verdict, detail: r.detail }));
       leg.ms = Date.now() - t0;
@@ -782,6 +1070,19 @@ async function runJourney(page, j) {
     // real measurement and belongs in the findings, not buried in a side effect.
     const note = (rung, name, verdict, detail) =>
       record(rung, `${step.name}: ${name}`, verdict, detail, req);
+
+    const geo = stepGeolocation(j, step, i);
+    if (geo) {
+      if (geo.legacy) console.log('    WARN _geolocation read as geolocation — rename the key; the validator does not check `_` keys');
+      const g = resolveGeolocation(geo.spec, vars);
+      if (!g.ok) {
+        record('setup', `${step.name}: geolocation`, 'INVALID', `${g.why} — journey stopped; a position is never sent as 0,0`, req);
+        seal();
+        return;
+      }
+      await applyGeolocation(page, g.value);
+      console.log(`    position: ${g.value.latitude}, ${g.value.longitude}${g.value.accuracy != null ? ` ±${g.value.accuracy} m` : ''}`);
+    }
 
     // ── Rung 4 watermarks, taken BEFORE the actions ──────────────────────────
     // This is the only moment they can be taken. A mark read after the click already
@@ -803,6 +1104,7 @@ async function runJourney(page, j) {
     } catch (e) {
       record('ui', `${step.name}: actions completed`, 'FAIL', e.message.split('\n')[0], req);
       leg.shot = await shoot(page, `${j.id}-step${i + 1}-ACTION-FAILED`);
+      record5xx();
       seal();
       return; // the journey's state is now unknown; later steps would measure noise
     }
@@ -824,6 +1126,7 @@ async function runJourney(page, j) {
       }
       leg.reached = onPage;
     }
+    record5xx();
 
     // The success shot, taken HERE: after the actions and the landing guard, before
     // the text/trace/data rungs. That ordering is the whole point — this image is the
@@ -841,7 +1144,7 @@ async function runJourney(page, j) {
     }
 
     for (const c of (step.ui && step.ui.checks) || []) {
-      const seen = await page.locator(`.mx-name-${c}`).first().isVisible({ timeout: 4000 }).catch(() => false);
+      const seen = await H.visibleWithin(page.locator(`.mx-name-${c}`).first(), 4000);   // waits up to 4 s (#536)
       record('ui', `${step.name}: widget ${c}`, seen ? 'PASS' : 'FAIL', '', req);
     }
 
@@ -864,6 +1167,18 @@ async function runJourney(page, j) {
       record('ui', `${step.name}: page does NOT say "${bad}"`,
              body.includes(bad) ? 'FAIL' : 'PASS',
              body.includes(bad) ? 'rendered — the screen contradicts the data' : '', req);
+    }
+
+    // CSS-authored text (#276): an empty-state sentence written as ::before / ::after content is
+    // on the screen and absent from innerText, so textPresent FAILs a correct page. `pseudoText`
+    // asserts it against the rendered pseudo-elements of visible elements instead.
+    if (step.ui && (step.ui.pseudoText || []).length) {
+      const texts = await pseudoTexts(page);
+      for (const t of step.ui.pseudoText) {
+        const want = String(subst(t, vars));
+        const v = pseudoVerdict(texts, want);
+        record('ui', `${step.name}: CSS content says "${want}"`, v.verdict, v.detail, req);
+      }
     }
 
     // ── RUNG 2: ordered spans ────────────────────────────────────────────────
@@ -949,8 +1264,26 @@ async function runJourney(page, j) {
   // ── RUNG 4: outcome ────────────────────────────────────────────────────────
   if (j.outcome && j.outcome.sql) {
     const c = checkOql(j.outcome, vars);
-    record('outcome', `${j.id} end state`, c.verdict, c.detail, (j.requirement || []).join(', '));
+    record('outcome', outcomeCheckName(j), c.verdict, c.detail, (j.requirement || []).join(', '));
   }
+  return true;   // walked every step (each early return above is a bail-out)
+}
+
+// After every journey (walk or mutant): back online, position cleared (#521).
+async function endJourneyEnv(page, j, completed) {
+  const wasOffline = await ensureOnline(page).catch(() => false);
+  await clearGeolocation(page).catch(() => {});
+  const row = networkEndRow(j.id, wasOffline, completed);
+  if (row) record('setup', row.name, row.verdict, row.detail, (j.requirement || []).join(', '));
+}
+
+// The outcome check's name carries `outcome.label` when one is set, as a `data.oql[]` check's
+// name carries its label (#538): a named control tagged in outcome.label otherwise matched no
+// check name and always read NOT PROVEN. `<id> end state` stays the prefix, so an existing
+// `mustFail: "end state"` still matches. report-normalize.js builds the same name.
+function outcomeCheckName(j) {
+  const label = j.outcome && typeof j.outcome.label === 'string' ? j.outcome.label.trim() : '';
+  return label ? `${j.id} end state: ${label}` : `${j.id} end state`;
 }
 
 // ── Exit code ───────────────────────────────────────────────────────────────
@@ -964,6 +1297,25 @@ async function runJourney(page, j) {
 // FAILs plus the INVALID a broken landing leaves downstream, so verify-module graded the
 // rung FINDING and the module INCOMPLETE on every run — a control rung that could not go
 // green, and so told the reader nothing when it went red.
+// One mutant's control row, from the rows its walk produced (#560). Caught on the targeted check
+// → PASS. Failed elsewhere → FAIL, still unproven. Nothing failed but something was INVALID (a
+// seed the previous mutant consumed, a guard that stopped the walk) → the mutant never reached
+// its check: INVALID "mutant not run". Reading that as "BROKEN PRECONDITION WENT GREEN" sent the
+// reader looking for a vacuous assertion in a journey that was fine. Only an all-green walk is
+// "went green". The exit code is unchanged: a control passes only when every row is PASS.
+function judgeMutant(produced, expectFail) {
+  const hit = produced.find(r => r.verdict === 'FAIL' && expectFail(r));
+  if (hit) return { verdict: 'PASS', proven: true, detail: `caught by "${hit.name}"` };
+  if (produced.some(r => r.verdict === 'FAIL'))
+    return { verdict: 'FAIL', proven: false, detail: 'the run failed, but NOT on the targeted check — this rung is still unproven' };
+  const stop = produced.find(r => r.verdict === 'INVALID');
+  if (stop)
+    return { verdict: 'INVALID', proven: false,
+             detail: `mutant not run: "${stop.name}" = INVALID before the targeted check — this rung is NOT tried, ` +
+                     'not proven and not green (a consuming journey needs fresh data per mutant)' };
+  return { verdict: 'FAIL', proven: false, detail: 'BROKEN PRECONDITION WENT GREEN — this rung proves nothing' };
+}
+
 function runExitCode(positiveControl, results, mutants) {
   if (!positiveControl) return results.some(r => r.verdict === 'FAIL' || r.verdict === 'INVALID') ? 1 : 0;
   const ctl = results.filter(r => r.rung === 'control');
@@ -1341,18 +1693,64 @@ function flagAppDown(rows, detail) {
 // ── Exports for the rung-4 scope unit test ──────────────────────────────────
 // The SQL builders are pure and exported so their behaviour can be proven against
 // fixture rows without a running app. See tests/e2e/journey-rung4-scope.test.js.
-// runExitCode is exported for tests/wave2/test-journey-control-exit.sh, personaMismatch
+// runExitCode/judgeMutant are exported for tests/wave2/test-journey-control-exit.sh, personaMismatch
 // for tests/wave2/test-journey-persona.sh, the preflight/ordering set for
-// tests/wave2/test-journey-preflight.sh, namedControlGaps/findControls for
+// tests/wave2/test-journey-preflight.sh, namedControlGaps/findControls/outcomeCheckName for
 // tests/wave2/test-named-controls.sh.
 module.exports = {
   sqlRowCount, sqlWatermark, whereScoped, scopeLiteral,
   sqlAssocTotal, sqlAssocLinked, sqlMustPointAt, captureScope, scopeEvidence,
-  runExitCode, personaMismatch, namedControlGaps, findControls,
+  runExitCode, judgeMutant, backLeftApp, no5xxVerdict, personaMismatch, namedControlGaps, findControls, outcomeCheckName,
   classifyAdminProbe, journeyNeedsAdmin, missingEnv, preflight, orderJourneys, stateTracker,
   judgeLanding, journeyIdProblems,
   traceRung, controlMutants, forbiddenSample, probeApp, appGate, flagAppDown, LIVENESS_SKEW_MS,
+  resolveDevice, runDevice, contextOptions, deviceLabel, judgeDevice, networkVerb, setNetwork, isOffline,
+  ensureOnline, networkEndRow, resolveGeolocation, applyGeolocation, clearGeolocation, stepGeolocation,
+  act, describeAct, pseudoTexts, pseudoVerdict, scopedWidget,
+  // For fixtures that walk a journey in a real browser against a stand-in page (#564).
+  runJourney, results,
 };
+
+// ── Fix-loop reruns (#492) ───────────────────────────────────────────────────
+// The journeys a findings file shows as not clean: a step check, or a journey-level row
+// (`<id>: …` / `<id> end state…`, setup and outcome rows), that is not PASS. An aborted run
+// measured nothing usable and is refused. A journey that was never walked is recognised only by
+// the row shapes the runner writes for one (app up, precondition, persona, seeds resolved, a
+// control row, an end state), so a data or setup step named "Submit: …" is never read as an id.
+// With `loadedIds`, ids the journeys given do not have are dropped (a renamed or removed journey).
+const NEVER_WALKED = /^(\S+?)(?:: (?:app up|precondition|persona|seeds resolved|back online at the end)$| · | end state)/;
+function failedJourneyIds(findings, loadedIds) {
+  if (!findings || findings.aborted) return { error: `the findings file is an aborted run (${findings && findings.aborted}) — nothing to rerun from; run the journeys in full` };
+  const ids = new Set();
+  const walked = (findings.walks || []).map(w => w.journey);
+  for (const w of findings.walks || [])
+    if ((w.steps || []).some(st => (st.checks || []).some(c => c.verdict !== 'PASS'))) ids.add(w.journey);
+  const known = new Set(walked);
+  for (const r of findings.results || []) {
+    if (r.verdict === 'PASS') continue;
+    for (const id of known) if (r.name === id || r.name.startsWith(id + ':') || r.name.startsWith(id + ' ')) ids.add(id);
+    const m = NEVER_WALKED.exec(r.name);   // journeys never walked (preflight, APP-DOWN, persona)
+    if (m && !known.has(m[1])) ids.add(m[1]);
+  }
+  if (loadedIds) for (const id of [...ids]) if (!loadedIds.has(id)) ids.delete(id);
+  return { ids };
+}
+// The chosen journeys plus every journey that leaves a token one of them requires (transitively),
+// in the run's order. Unknown ids are named, never silently dropped.
+function selectJourneys(journeys, wanted) {
+  const byId = new Map(journeys.map(j => [j.id, j]));
+  const unknown = [...wanted].filter(id => !byId.has(id));
+  const pick = new Set([...wanted].filter(id => byId.has(id)));
+  const added = [];
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const id of [...pick]) for (const x of byId.get(id).requires || [])
+      for (const p of journeys) if ((p.leaves || []).includes(x) && !pick.has(p.id)) { pick.add(p.id); added.push(p.id); grew = true; }
+  }
+  return { selected: journeys.filter(j => pick.has(j.id)), added, unknown };
+}
+module.exports.failedJourneyIds = failedJourneyIds;
+module.exports.selectJourneys = selectJourneys;
 
 // ── Main ────────────────────────────────────────────────────────────────────
 if (require.main !== module) return;
@@ -1367,6 +1765,7 @@ function armRelease(page, li) {
   RELEASE = async () => {
     if (done || !li.ok) return;
     done = true;
+    await ensureOnline(page).catch(() => {});   // an offline logout never reaches /xas/ (#521)
     const ok = await Promise.race([H.logout(page), PAUSE(5000).then(() => false)]);
     if (!ok) console.log('  ⚠ logout NOT confirmed — this run\'s session may still be open on the runtime ' +
                          '(trial licences cap live sessions; a restart clears them)');
@@ -1382,7 +1781,7 @@ function writeAbortedFindings(reason, extra = {}) {
     fs.writeFileSync(findingsFile(), JSON.stringify({
       capturedAt: new Date().toISOString(), aborted: reason,
       configuredUser: cfg.user, actualUser: extra.actualUser ?? null, usedFallback: !!extra.usedFallback,
-      baseUrl: cfg.baseUrl, positiveControl: POSITIVE_CONTROL, results, walks,
+      baseUrl: cfg.baseUrl, device: DEVICE, positiveControl: POSITIVE_CONTROL, results, walks,
     }, null, 2));
   } catch (e) { console.error(`  ⚠ could not write the aborted findings file: ${e.message}`); }
 }
@@ -1397,8 +1796,10 @@ function armSignals() {
   }
 }
 
-const findingsFile = () => OUT_ARG ? path.resolve(OUT_ARG) : path.join(cfg.artifactsDir,
+const fullSlot = () => path.join(cfg.artifactsDir,
   POSITIVE_CONTROL ? 'journey-findings-control.json' : 'journey-findings.json');
+const findingsFile = () => OUT_ARG ? path.resolve(OUT_ARG)
+  : PARTIAL ? fullSlot().replace(/\.json$/, '-rerun.json') : fullSlot();
 
 // ── Named controls: every journey names its claim and ships a control (#159) ─
 // The positive control proves the harness can fail; it cannot prove the claim a journey exists
@@ -1469,9 +1870,31 @@ function journeyIdProblems(loaded, files) {
   for (const l of idWarnings) console.error(`WARN ${l}`);
   if (idProblems.length) { for (const l of idProblems) console.error(`ERROR ${l}`); process.exit(2); }
   // Declared order first (requires/leaves/consumes); without headers this is file order.
-  const { order: journeys, cycle } = orderJourneys(loaded);
-  if (journeys.some((j, i) => j !== loaded[i]))
-    console.log(`  order from requires/leaves/consumes: ${journeys.map(j => j.id).join(' → ')}`);
+  const { order: allJourneys, cycle } = orderJourneys(loaded);
+  let journeys = allJourneys, partial = null;
+  if (PARTIAL) {
+    let wanted;
+    if (ONLY_ARG) wanted = new Set(ONLY_ARG.split(',').map(x => x.trim()).filter(Boolean));
+    else {
+      const src = RERUN_ARG.includes('=') ? path.resolve(RERUN_ARG.slice(RERUN_ARG.indexOf('=') + 1)) : fullSlot();
+      let f = null;
+      try { f = JSON.parse(fs.readFileSync(src, 'utf8')); }
+      catch (e) { console.error(`ERROR --rerun-failed: cannot read ${src} (${e.code || e.message}) — run the journeys in full first`); process.exit(2); }
+      const r = failedJourneyIds(f, new Set(allJourneys.map(j => j.id)));
+      if (r.error) { console.error(`ERROR --rerun-failed: ${r.error}`); process.exit(2); }
+      wanted = r.ids;
+      if (!wanted.size) { console.log(`  --rerun-failed: nothing failed in ${path.relative(cfg.root, src)} — nothing to rerun`); process.exit(0); }
+    }
+    const sel = selectJourneys(allJourneys, wanted);
+    if (sel.unknown.length) { console.error(`ERROR no journey with id ${sel.unknown.join(', ')} among the files given`); process.exit(2); }
+    journeys = sel.selected;
+    partial = { of: allJourneys.length, ran: journeys.map(j => j.id), chosen: [...wanted], addedForRequires: sel.added,
+                reason: ONLY_ARG ? '--only' : '--rerun-failed' };
+    console.log(`  PARTIAL RUN (${partial.reason}): ${journeys.length} of ${allJourneys.length} journeys — ${partial.ran.join(', ')}` +
+      (sel.added.length ? ` (added because a chosen journey requires what they leave: ${sel.added.join(', ')})` : ''));
+  }
+  if (allJourneys.some((j, i) => j !== loaded[i]))
+    console.log(`  order from requires/leaves/consumes: ${allJourneys.map(j => j.id).join(' → ')}`);
   if (cycle)
     console.log(`  ⚠ requires/leaves/consumes form a cycle among ${cycle.join(', ')} — those keep file order`);
 
@@ -1493,8 +1916,29 @@ function journeyIdProblems(loaded, files) {
     process.exit(pf.abort);
   }
 
+  // One device per run (#521): decided before the browser opens, measured right after it does.
+  const dev = runDevice(journeys, { profiles: H.deviceProfiles() });
+  if (dev.problems.length) {
+    for (const l of dev.problems) console.log(`  SETUP  device: ${l}`);
+    console.log('\n=== SUMMARY ===\n  ABORTED at preflight — device. Fix the SETUP line(s) above.');
+    writeAbortedFindings('device');
+    process.exit(2);
+  }
+  DEVICE = deviceLabel(dev.device);
+
   armSignals();
-  const { browser, page } = await H.launchBrowser();
+  const { browser, page } = await H.launchBrowser({ contextOptions: contextOptions(dev.device) });
+  if (contextOptions(dev.device)) {
+    const m = await measureDevice(page);
+    const jd = judgeDevice(dev.device, m);
+    console.log(`  device: ${DEVICE} — measured ${m.width}x${m.height}, touch points ${m.touch}`);
+    if (!jd.ok) {
+      console.log(`  SETUP  device mismatch: ${jd.detail} — not signing in; every result would measure the wrong profile`);
+      writeAbortedFindings('device mismatch');
+      await browser.close();
+      process.exit(2);
+    }
+  }
 
   const li = await H.login(page);
   armRelease(page, li);
@@ -1586,6 +2030,11 @@ function journeyIdProblems(loaded, files) {
         // not merely that something did. Accepting any FAIL would let a mutant that
         // breaks by accident vouch for a rung it never reached, which is the same
         // vacuity bug one level up.
+        // Mutants share one data set: nothing resets the data between them (#560).
+        if ((j.consumes || []).length) {
+          console.log(`  WARN   ${j.id} consumes ${j.consumes.join(', ')}: a mutant that walks past the action ` +
+                      'uses that state up, so later mutants can stop INVALID ("mutant not run") — reset the data and re-run them');
+        }
         for (const m of controlMutants(j)) {
           if (!m.supported) {
             // Unproven, and it must say so. INVALID is the verdict for "the
@@ -1599,22 +2048,15 @@ function journeyIdProblems(loaded, files) {
           }
           const before = results.length;
           await resetToStart(page);
-          await runJourney(page, m.journey);
-          const produced = results.slice(before);
-          const hit = produced.find(r => r.verdict === 'FAIL' && m.expectFail(r));
-          const anyFail = produced.some(r => r.verdict === 'FAIL');
-          mutantLedger.push({ journey: j.id, rung: m.rung, supported: true, proven: !!hit });
-          record('control', `${j.id} · ${m.rung}: ${m.what}`,
-                 hit ? 'PASS' : 'FAIL',
-                 hit ? `caught by "${hit.name}"`
-                     : anyFail
-                       ? 'the run failed, but NOT on the targeted check — this rung is still unproven'
-                       : 'BROKEN PRECONDITION WENT GREEN — this rung proves nothing');
+          await endJourneyEnv(page, m.journey, await runJourney(page, m.journey));
+          const v = judgeMutant(results.slice(before), m.expectFail);
+          mutantLedger.push({ journey: j.id, rung: m.rung, supported: true, proven: v.proven });
+          record('control', `${j.id} · ${m.rung}: ${m.what}`, v.verdict, v.detail);
         }
       } else {
         const before = results.length;
         await resetToStart(page);
-        await runJourney(page, j);
+        await endJourneyEnv(page, j, await runJourney(page, j));
         if (APP_PROBE) {
           const after = await probeApp(cfg.baseUrl);
           if (!after.up && flagAppDown(results.slice(before), after.detail)) appDiedIn.push(j.id);
@@ -1684,10 +2126,13 @@ function journeyIdProblems(loaded, files) {
   fs.writeFileSync(out, JSON.stringify({
     capturedAt: new Date().toISOString(),
     configuredUser: cfg.user, actualUser: li.user, usedFallback: !!li.usedFallback,
-    baseUrl: cfg.baseUrl, positiveControl: POSITIVE_CONTROL, mutants, results, walks,
-    appDown, appDiedIn, namedControlGaps: CONTROL_GAPS,
+    baseUrl: cfg.baseUrl, device: DEVICE, positiveControl: POSITIVE_CONTROL, mutants, results, walks,
+    appDown, appDiedIn, namedControlGaps: CONTROL_GAPS, partial,
   }, null, 2));
   console.log(`  findings → ${path.relative(cfg.root, out)}`);
+  if (partial)
+    console.log(`  PARTIAL RUN — ${partial.ran.length} of ${partial.of} journeys; the full findings slot is untouched. ` +
+                'A fix-loop result only: the full journey run is still owed at module done, build complete and before deploy.');
 
   // A control run's exit ignores non-control rows, so a journey the preflight held back
   // (its mutants never ran) must still keep the control verdict from reading clean.

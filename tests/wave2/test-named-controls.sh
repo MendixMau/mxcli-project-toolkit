@@ -68,6 +68,8 @@ case "$(line PROVEN)"   in 'PROVEN |'*) ok "exit 1 + named check FAIL + nothing 
 case "$(line EXIT0)"    in 'NOT PROVEN |'*'exited 0'*) ok "runner exit 0 (app satisfied the claim) → NOT PROVEN" ;; *) bad "exit 0 accepted" "$(line EXIT0)" ;; esac
 case "$(line EXIT2)"    in 'NOT PROVEN |'*'exited 2'*) ok "runner exit 2 (preflight abort) → NOT PROVEN" ;; *) bad "exit 2 accepted" "$(line EXIT2)" ;; esac
 case "$(line NOMATCH)"  in 'NOT PROVEN |'*'no check name contains'*) ok "mustFail matching no check → NOT PROVEN" ;; *) bad "zero named checks accepted" "$(line NOMATCH)" ;; esac
+LASTNAME="$(node -e 'const w=require(process.argv[1]); console.log(w.results[w.results.length-1].name)' "$FIX/walk-run.json")"
+case "$(line NOMATCH)"  in *"; FAIL checks: $LASTNAME") ok "#538 NOT PROVEN for no match lists the checks that did FAIL" ;; *) bad "#538 no-match verdict does not name the FAIL checks" "$(line NOMATCH)" ;; esac
 case "$(line NAMEDINV)" in 'NOT PROVEN |'*'INVALID'*) ok "named check INVALID, not FAIL → NOT PROVEN" ;; *) bad "INVALID named check accepted" "$(line NAMEDINV)" ;; esac
 case "$(line ELSEFAIL)" in 'NOT PROVEN |'*'red elsewhere'*) ok "rule 3: a FAIL elsewhere → NOT PROVEN" ;; *) bad "red elsewhere accepted" "$(line ELSEFAIL)" ;; esac
 case "$(line ELSEINV)"  in 'NOT PROVEN |'*'red elsewhere'*) ok "rule 3: an INVALID elsewhere → NOT PROVEN" ;; *) bad "INVALID elsewhere accepted" "$(line ELSEINV)" ;; esac
@@ -132,6 +134,11 @@ const g = R.namedControlGaps([
   { id: 'C-ok', control: { of: 'J-01', mustFail: 'x' } },
 ], R.findControls([dir + '/J-01.journey.json']));
 console.log('GAPS ' + JSON.stringify(g));
+if (typeof R.outcomeCheckName !== 'function') console.log('ONAME NOFN');
+else console.log('ONAME ' + JSON.stringify([
+  R.outcomeCheckName({ id: 'J-01', outcome: { sql: 'x', label: '[NAMED CONTROL X] inverted' } }),
+  R.outcomeCheckName({ id: 'J-01', outcome: { sql: 'x' } }),
+  R.outcomeCheckName({ id: 'J-01', outcome: { sql: 'x', label: '  ' } })]));
 EOF
 OUT="$(cd "$WORK/tests/e2e" && printf '%s' "$JS3" | APP_PORT=1 node - "$WORK/journeys" 2>&1)"
 if printf '%s\n' "$OUT" | grep -qx NOFN; then bad "journey-runner.js exports no namedControlGaps"; else
@@ -142,6 +149,20 @@ if printf '%s\n' "$OUT" | grep -qx NOFN; then bad "journey-runner.js exports no 
   case "$G" in *'C-ok'*) bad "a control file was itself checked" "$G" ;; *) ok "control files are not themselves checked" ;; esac
   case "$G" in *'J-02: no named control'*) ok "a control saved as *.journey.json does not count as one" ;; *) bad "misnamed *.journey.json control counted" "$G" ;; esac
   case "$G" in *'J-03: no named control'*) ok "a bare .json in controls/ does not count as one" ;; *) bad "bare .json in controls/ counted" "$G" ;; esac
+fi
+# #538: a tag in outcome.label must reach the outcome check's name, or mustFail never matches it.
+ON="$(line ONAME)"
+[ "$ON" = '["J-01 end state: [NAMED CONTROL X] inverted","J-01 end state","J-01 end state"]' ] \
+  && ok "#538 outcome.label reaches the outcome check name; no/blank label keeps '<id> end state'" \
+  || bad "#538 outcome.label does not reach a check name — a control tagged there reads NOT PROVEN" "$ON"
+grep -qF "record('outcome', outcomeCheckName(j)," "$E2E/journey-runner.js" \
+  && ok "#538 the runner records the outcome under outcomeCheckName() (the tested function is the one that runs)" \
+  || bad "#538 the runner does not use outcomeCheckName() for the outcome row"
+if [ -f "$E2E/report-normalize.js" ]; then
+  grep -qF 'const oName = oLabel ? `${j.id} end state: ${oLabel}` : `${j.id} end state`;' "$E2E/report-normalize.js" \
+    && grep -qF 'journeyCheckId(j.id, null, oName)' "$E2E/report-normalize.js" \
+    && ok "#538 report-normalize builds the same outcome name for a declared-but-not-run row" \
+    || bad "#538 report-normalize's outcome name differs from the runner's — ids would not agree"
 fi
 
 echo "== a *.control.json is NOT discovered as a real journey =="

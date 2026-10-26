@@ -1031,6 +1031,15 @@ run_lint_gate() {
          LINT_DETAIL="lint BLIND: rules reverted to stock (${_reverted:-see output}) — run sync-project.sh; delta not attributable"
          echo "  ✗ lint: toolkit rules reverted to stock (${_reverted:-see output}) — not linted, not a rise"
          sed -n '/^!! LINT RULES REVERTED TO STOCK/,/^BLIND/p' "$_lo" | head -16 | sed 's/^/    /'
+       elif grep -qE '^BLIND — (reverted: a project-edited|a lint rule changed since the baseline)' "$_lo"; then
+         # A rule the project edited moved since the baseline (#524): mxcli's session-start
+         # refresh re-seeded stock over it, or someone changed it. Not linted, not a rise.
+         _projrev=$(sed -n '/^!! PROJECT-EDITED LINT RULE/,/^$/p' "$_lo" \
+                     | grep -oE '^ +[A-Za-z0-9_.-]+\.star:' | tr -d ' :' | paste -sd, -)
+         LINT_RC=3
+         LINT_DETAIL="lint BLIND: project-edited rule(s) changed since the baseline (${_projrev:-see output}) — git checkout, or re-baseline; delta not attributable"
+         echo "  ✗ lint: project-edited lint rule(s) changed since the baseline (${_projrev:-see output}) — not linted, not a rise"
+         sed -n '/^!! PROJECT-EDITED LINT RULE/,/^BLIND/p' "$_lo" | head -16 | sed 's/^/    /'
        elif [ -z "$_rules" ] && grep -q '^PASS' "$_lo"; then
          # lint-gate exits 1 for PASS-BLIND too. Logging that as "ROSE: see output" made a rule
          # that inspected nothing look like a rise with no rule named — 20 such rows in two
@@ -1611,9 +1620,9 @@ fi
 #
 # This is the fix for a defect that fired three times before anyone traced it:
 # with a bare `./mxcli exec`, a mid-script failure aborted exec.sh instantly —
-# skipping the mxbuild gate, the restore, and the build-log entry. And mxcli is
-# NOT transactional across statements, so every statement before the failing one
-# was already applied. The result was live, ungated, unlogged model changes,
+# skipping the mxbuild gate, the restore, and the build-log entry. And mxcli
+# before v0.27 is NOT transactional across statements, so every statement before
+# the failing one was already applied (v0.27+ rolls the whole run back). The result was live, ungated, unlogged model changes,
 # arrived at by the guard chain exiting through the one path with no guards on
 # it. A failed exec is precisely when the gate matters most.
 step_done baseline
@@ -1736,9 +1745,11 @@ fi
 
 if [ "$EXEC_STATUS" -ne 0 ]; then
   echo ""
-  echo "  ✗ mxcli exec exited $EXEC_STATUS — PARTIAL APPLICATION LIKELY."
-  echo "    mxcli is not transactional across statements: everything before the"
-  echo "    failing statement is already in the model. Running the gate anyway."
+  echo "  ✗ mxcli exec exited $EXEC_STATUS."
+  echo "    If mxcli printed \"Nothing was written\" above (v0.27+), no statement of this"
+  echo "    script is in the model. Otherwise (older mxcli, or a rollback that itself"
+  echo "    failed) everything before the failing statement may already be in it."
+  echo "    Running the gate anyway."
 fi
 
 step_done exec
@@ -1800,7 +1811,9 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
         printf '%s\n' "$MXBUILD_OUT"
       fi > "$PROJECT_ROOT/$MXB_LOG_REL"; } 2>/dev/null; then
       MXB_LOG_NOTE="mxbuild log: $MXB_LOG_REL"
-      ls -t "$_MXB_LOG_DIR"/*.log 2>/dev/null | sed -n '31,$p' | while IFS= read -r _old; do rm -f "$_old"; done
+      # By NAME (the time stamp it starts with), not `ls -t`: logs written within one clock tick
+      # tie on mtime and `ls -t` then breaks the tie by name ascending, keeping the oldest (#505).
+      ls "$_MXB_LOG_DIR"/*.log 2>/dev/null | sort -r | sed -n '31,$p' | while IFS= read -r _old; do rm -f "$_old"; done
     else
       MXB_LOG_REL=""
     fi

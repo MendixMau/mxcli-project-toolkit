@@ -174,6 +174,7 @@ A regular textbox outside the gallery has no filter binding → CE0544 + CE7005.
 - Context datasource: `DataSource: $OrderDetail/OrderRegistration.OrderDetail_OrderCustomerBase`
 - Simpler, faster, no extra microflow needed.
 - Only use microflow datasource when retrieval requires filtering, aggregation, or multi-hop XPath logic.
+- **In a snippet**, a text or dynamic text at the snippet's top level has no context object. Wrap it in a DataView whose datasource is the snippet parameter (retro, 2026-10-12, #282).
 
 **mxcli limitation:** `ALTER PAGE` has no syntax for changing a DataView's datasource type. This must be done manually in Studio Pro: DataView properties → Data source → Type: Context → navigate association tree from page parameter.
 

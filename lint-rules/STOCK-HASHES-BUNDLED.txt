@@ -1,0 +1,204 @@
+# Known md5 checksums of EVERY stock .star rule `mxcli init` seeds into .claude/lint-rules/,
+# one line per (rule, version):   <rule-file>  <md5>  <mxcli version>
+#
+# Read by project-bin/lint-gate.sh (#524), from the toolkit clone, on --update-baseline: a
+# seeded rule whose md5 is NOT listed here was edited by the project, so it gets a `project`
+# row in .claude/.mxtk-lint-receipt. `mxcli init --sync-skills` overwrites such an edit at
+# every session start; with the row, the next lint run reads BLIND — reverted and names
+# `git checkout -- <file>`, instead of charging the stock counts to the next script as a rise.
+#
+# Unlike STOCK-HASHES.txt (only the four rules the toolkit repairs), this lists all of them.
+# lint-gate writes `project` rows only when the running mxcli is a version captured here: on any
+# other, its unedited rules would look edited and the next upgrade would read them as reverted.
+# A new mxcli release therefore needs its column added before #524 protects it. md5s are of the
+# file with CRs stripped (a Git Bash autocrlf checkout hashes the same). Never installed into a project.
+#
+# Adding a version: `mxcli init` into an EMPTY directory and md5 every seeded .star. Never
+# harvest a hash from a real project. Captured 2026-10-26 from the official mendixlabs/mxcli
+# release assets (mxcli-linux-amd64) v0.17.0, v0.24.0–v0.28.0; the four STOCK-HASHES.txt rules
+# reproduced every hash listed there.
+
+conv001_boolean_naming.star  860ce0654811159bb08a0def0cb1b445  v0.17.0
+conv002_no_default_values.star  c7c6c925011c3ed57bbad429f416dae1  v0.17.0
+conv003_page_naming_suffix.star  5f8afb9cc4ba56947151118d00541468  v0.17.0
+conv004_enumeration_prefix.star  62028765e0f3aea4d3fc5f2dd3324bca  v0.17.0
+conv005_snippet_prefix.star  661f318f2236ef843cb342794cc6e41a  v0.17.0
+conv006_no_create_delete_rights.star  c5bc887741979339539270c2f9620316  v0.17.0
+conv007_xpath_on_all_access.star  adbfd91301beab64039ddef3abe43370  v0.17.0
+conv008_module_role_mapping.star  cb1088010eea7205b2d0b17a75ef661b  v0.17.0
+conv009_max_microflow_objects.star  c1c398da8bf5033ab6884921232279c3  v0.17.0
+conv010_act_microflow_content.star  276df639edbd90d8010ee711a1e7c0fa  v0.17.0
+conv015_no_validation_rules.star  3029ba58e7b7240544f77a0065ee2f76  v0.17.0
+conv016_no_event_handlers.star  8ec0f93ee41c4641e41274f75af164ec  v0.17.0
+conv017_no_calculated_attributes.star  d41914084669a6f77259c251996b3333  v0.17.0
+cross_module_data.star  63355ea0aa6663e0c49fe5633f14a82d  v0.17.0
+data_change_microflows.star  a47e068e01895ce2938d39846a8d907d  v0.17.0
+entity_attributes.star  80c714660642387d3079fa1d858e3673  v0.17.0
+entity_business_key.star  956c7469e234033e22a9ac32844cb236  v0.17.0
+example_microflow.star  51ae7d27832f91c34c7b6e7578b971e9  v0.17.0
+example_naming.star  5c1ef5a448056ae86eb0c855220e83a1  v0.17.0
+long_microflows.star  48ce7912d2f996dd8410b31e5d9d3cc1  v0.17.0
+mccabe_complexity.star  c17bafdf2397d4ff672cc2421fdc3346  v0.17.0
+missing_documentation.star  f3acfc8be6dcaa86a79e3ba00fd45665  v0.17.0
+orphaned_elements.star  33932c15a7af0da91f07a88f6fa4c16f  v0.17.0
+sec_guest_access.star  fd4df00b1bc57101a21baeba6285f273  v0.17.0
+sec_missing_member_restriction.star  35ccd41c1025675fc54aa1cec1bec033  v0.17.0
+sec_pii_attributes.star  de5d773586f2421309cf7e6df3f7682c  v0.17.0
+sec_strict_mode.star  a8a6dc706ad3871a5b6c6dce0968de78  v0.17.0
+sec_unconstrained_anon_read.star  84611dda397107f5d9235bcf38c6cb80  v0.17.0
+sec_unconstrained_pii_read.star  c98b7046e2660934c5843299af55d9ae  v0.17.0
+conv001_boolean_naming.star  860ce0654811159bb08a0def0cb1b445  v0.24.0
+conv002_no_default_values.star  c7c6c925011c3ed57bbad429f416dae1  v0.24.0
+conv003_page_naming_suffix.star  5f8afb9cc4ba56947151118d00541468  v0.24.0
+conv004_enumeration_prefix.star  62028765e0f3aea4d3fc5f2dd3324bca  v0.24.0
+conv005_snippet_prefix.star  661f318f2236ef843cb342794cc6e41a  v0.24.0
+conv006_no_create_delete_rights.star  c5bc887741979339539270c2f9620316  v0.24.0
+conv007_xpath_on_all_access.star  adbfd91301beab64039ddef3abe43370  v0.24.0
+conv008_module_role_mapping.star  cb1088010eea7205b2d0b17a75ef661b  v0.24.0
+conv009_max_microflow_objects.star  c1c398da8bf5033ab6884921232279c3  v0.24.0
+conv010_act_microflow_content.star  24295842479e192c71c5176e91a24d39  v0.24.0
+conv015_no_validation_rules.star  3029ba58e7b7240544f77a0065ee2f76  v0.24.0
+conv016_no_event_handlers.star  8ec0f93ee41c4641e41274f75af164ec  v0.24.0
+conv017_no_calculated_attributes.star  d41914084669a6f77259c251996b3333  v0.24.0
+conv018_module_folder_organization.star  c01391ac9dcbed97d1b0ea54f82da814  v0.24.0
+conv019_navigation_page_url.star  ce5dc6827438f0f387bd2ce5f54ea349  v0.24.0
+cross_module_data.star  63355ea0aa6663e0c49fe5633f14a82d  v0.24.0
+data_change_microflows.star  4f8194a133da3f1961e87f5df684afed  v0.24.0
+entity_attributes.star  80c714660642387d3079fa1d858e3673  v0.24.0
+entity_business_key.star  d66528c958ad2259462bdf0456c13286  v0.24.0
+example_microflow.star  51ae7d27832f91c34c7b6e7578b971e9  v0.24.0
+example_naming.star  5c1ef5a448056ae86eb0c855220e83a1  v0.24.0
+long_microflows.star  48ce7912d2f996dd8410b31e5d9d3cc1  v0.24.0
+mccabe_complexity.star  c17bafdf2397d4ff672cc2421fdc3346  v0.24.0
+missing_documentation.star  2f4da2ccbf081e2f989ff377d009afae  v0.24.0
+orphaned_elements.star  98c66c5bc3222116e9032de0ec9c2f33  v0.24.0
+sec_guest_access.star  fd4df00b1bc57101a21baeba6285f273  v0.24.0
+sec_missing_member_restriction.star  35ccd41c1025675fc54aa1cec1bec033  v0.24.0
+sec_pii_attributes.star  de5d773586f2421309cf7e6df3f7682c  v0.24.0
+sec_strict_mode.star  88e030f06dbf303fcadae3d6d4e4094f  v0.24.0
+sec_unconstrained_anon_read.star  84611dda397107f5d9235bcf38c6cb80  v0.24.0
+sec_unconstrained_pii_read.star  c98b7046e2660934c5843299af55d9ae  v0.24.0
+conv001_boolean_naming.star  860ce0654811159bb08a0def0cb1b445  v0.25.0
+conv002_no_default_values.star  c7c6c925011c3ed57bbad429f416dae1  v0.25.0
+conv003_page_naming_suffix.star  5f8afb9cc4ba56947151118d00541468  v0.25.0
+conv004_enumeration_prefix.star  62028765e0f3aea4d3fc5f2dd3324bca  v0.25.0
+conv005_snippet_prefix.star  661f318f2236ef843cb342794cc6e41a  v0.25.0
+conv006_no_create_delete_rights.star  ffcde7cc3c8b7c578381a9eeb36d60e1  v0.25.0
+conv007_xpath_on_all_access.star  adbfd91301beab64039ddef3abe43370  v0.25.0
+conv008_module_role_mapping.star  cb1088010eea7205b2d0b17a75ef661b  v0.25.0
+conv009_max_microflow_objects.star  95f3d4fef197882e300fcfe4a7fae372  v0.25.0
+conv010_act_microflow_content.star  de7463c1eca28b9b3291adf2a03db2d7  v0.25.0
+conv015_no_validation_rules.star  3029ba58e7b7240544f77a0065ee2f76  v0.25.0
+conv016_no_event_handlers.star  8ec0f93ee41c4641e41274f75af164ec  v0.25.0
+conv017_no_calculated_attributes.star  d41914084669a6f77259c251996b3333  v0.25.0
+conv018_module_folder_organization.star  c01391ac9dcbed97d1b0ea54f82da814  v0.25.0
+conv019_navigation_page_url.star  ce5dc6827438f0f387bd2ce5f54ea349  v0.25.0
+cross_module_data.star  63355ea0aa6663e0c49fe5633f14a82d  v0.25.0
+data_change_microflows.star  4f8194a133da3f1961e87f5df684afed  v0.25.0
+entity_attributes.star  80c714660642387d3079fa1d858e3673  v0.25.0
+entity_business_key.star  d66528c958ad2259462bdf0456c13286  v0.25.0
+example_microflow.star  cec8b599e1a11849f648af919276f229  v0.25.0
+example_naming.star  5c1ef5a448056ae86eb0c855220e83a1  v0.25.0
+long_microflows.star  e3123dbbd05689582516d470cc3a095f  v0.25.0
+mccabe_complexity.star  7d32db6d08906f98302ad7c51b650644  v0.25.0
+missing_documentation.star  2f4da2ccbf081e2f989ff377d009afae  v0.25.0
+orphaned_elements.star  67910ac37441384bbbfb48017746d5c2  v0.25.0
+sec_guest_access.star  fd4df00b1bc57101a21baeba6285f273  v0.25.0
+sec_missing_member_restriction.star  35ccd41c1025675fc54aa1cec1bec033  v0.25.0
+sec_pii_attributes.star  de5d773586f2421309cf7e6df3f7682c  v0.25.0
+sec_strict_mode.star  88e030f06dbf303fcadae3d6d4e4094f  v0.25.0
+sec_unconstrained_anon_read.star  84611dda397107f5d9235bcf38c6cb80  v0.25.0
+sec_unconstrained_pii_read.star  f390c7ea1d2dfa84047f0d16b5d0f73f  v0.25.0
+conv001_boolean_naming.star  860ce0654811159bb08a0def0cb1b445  v0.26.0
+conv002_no_default_values.star  c7c6c925011c3ed57bbad429f416dae1  v0.26.0
+conv003_page_naming_suffix.star  5f8afb9cc4ba56947151118d00541468  v0.26.0
+conv004_enumeration_prefix.star  62028765e0f3aea4d3fc5f2dd3324bca  v0.26.0
+conv005_snippet_prefix.star  661f318f2236ef843cb342794cc6e41a  v0.26.0
+conv006_no_create_delete_rights.star  ffcde7cc3c8b7c578381a9eeb36d60e1  v0.26.0
+conv007_xpath_on_all_access.star  adbfd91301beab64039ddef3abe43370  v0.26.0
+conv008_module_role_mapping.star  cb1088010eea7205b2d0b17a75ef661b  v0.26.0
+conv009_max_microflow_objects.star  95f3d4fef197882e300fcfe4a7fae372  v0.26.0
+conv010_act_microflow_content.star  de7463c1eca28b9b3291adf2a03db2d7  v0.26.0
+conv015_no_validation_rules.star  3029ba58e7b7240544f77a0065ee2f76  v0.26.0
+conv016_no_event_handlers.star  8ec0f93ee41c4641e41274f75af164ec  v0.26.0
+conv017_no_calculated_attributes.star  d41914084669a6f77259c251996b3333  v0.26.0
+conv018_module_folder_organization.star  c01391ac9dcbed97d1b0ea54f82da814  v0.26.0
+conv019_navigation_page_url.star  ce5dc6827438f0f387bd2ce5f54ea349  v0.26.0
+cross_module_data.star  63355ea0aa6663e0c49fe5633f14a82d  v0.26.0
+data_change_microflows.star  4f8194a133da3f1961e87f5df684afed  v0.26.0
+entity_attributes.star  80c714660642387d3079fa1d858e3673  v0.26.0
+entity_business_key.star  d66528c958ad2259462bdf0456c13286  v0.26.0
+example_microflow.star  cec8b599e1a11849f648af919276f229  v0.26.0
+example_naming.star  5c1ef5a448056ae86eb0c855220e83a1  v0.26.0
+long_microflows.star  e3123dbbd05689582516d470cc3a095f  v0.26.0
+mccabe_complexity.star  7d32db6d08906f98302ad7c51b650644  v0.26.0
+missing_documentation.star  2f4da2ccbf081e2f989ff377d009afae  v0.26.0
+orphaned_elements.star  67910ac37441384bbbfb48017746d5c2  v0.26.0
+sec_guest_access.star  fd4df00b1bc57101a21baeba6285f273  v0.26.0
+sec_missing_member_restriction.star  35ccd41c1025675fc54aa1cec1bec033  v0.26.0
+sec_pii_attributes.star  de5d773586f2421309cf7e6df3f7682c  v0.26.0
+sec_strict_mode.star  88e030f06dbf303fcadae3d6d4e4094f  v0.26.0
+sec_unconstrained_anon_read.star  84611dda397107f5d9235bcf38c6cb80  v0.26.0
+sec_unconstrained_pii_read.star  f390c7ea1d2dfa84047f0d16b5d0f73f  v0.26.0
+conv001_boolean_naming.star  860ce0654811159bb08a0def0cb1b445  v0.27.0
+conv002_no_default_values.star  c7c6c925011c3ed57bbad429f416dae1  v0.27.0
+conv003_page_naming_suffix.star  5f8afb9cc4ba56947151118d00541468  v0.27.0
+conv004_enumeration_prefix.star  62028765e0f3aea4d3fc5f2dd3324bca  v0.27.0
+conv005_snippet_prefix.star  661f318f2236ef843cb342794cc6e41a  v0.27.0
+conv006_no_create_delete_rights.star  ffcde7cc3c8b7c578381a9eeb36d60e1  v0.27.0
+conv007_xpath_on_all_access.star  adbfd91301beab64039ddef3abe43370  v0.27.0
+conv008_module_role_mapping.star  cb1088010eea7205b2d0b17a75ef661b  v0.27.0
+conv009_max_microflow_objects.star  95f3d4fef197882e300fcfe4a7fae372  v0.27.0
+conv010_act_microflow_content.star  de7463c1eca28b9b3291adf2a03db2d7  v0.27.0
+conv015_no_validation_rules.star  3029ba58e7b7240544f77a0065ee2f76  v0.27.0
+conv016_no_event_handlers.star  8ec0f93ee41c4641e41274f75af164ec  v0.27.0
+conv017_no_calculated_attributes.star  d41914084669a6f77259c251996b3333  v0.27.0
+conv018_module_folder_organization.star  50e3b3587539652b2e25753ec3c8fde7  v0.27.0
+conv019_navigation_page_url.star  ce5dc6827438f0f387bd2ce5f54ea349  v0.27.0
+cross_module_data.star  63355ea0aa6663e0c49fe5633f14a82d  v0.27.0
+data_change_microflows.star  4f8194a133da3f1961e87f5df684afed  v0.27.0
+entity_attributes.star  80c714660642387d3079fa1d858e3673  v0.27.0
+entity_business_key.star  d66528c958ad2259462bdf0456c13286  v0.27.0
+example_microflow.star  cec8b599e1a11849f648af919276f229  v0.27.0
+example_naming.star  5c1ef5a448056ae86eb0c855220e83a1  v0.27.0
+long_microflows.star  e3123dbbd05689582516d470cc3a095f  v0.27.0
+mccabe_complexity.star  7d32db6d08906f98302ad7c51b650644  v0.27.0
+missing_documentation.star  2f4da2ccbf081e2f989ff377d009afae  v0.27.0
+orphaned_elements.star  67910ac37441384bbbfb48017746d5c2  v0.27.0
+sec_guest_access.star  fd4df00b1bc57101a21baeba6285f273  v0.27.0
+sec_missing_member_restriction.star  35ccd41c1025675fc54aa1cec1bec033  v0.27.0
+sec_pii_attributes.star  de5d773586f2421309cf7e6df3f7682c  v0.27.0
+sec_strict_mode.star  88e030f06dbf303fcadae3d6d4e4094f  v0.27.0
+sec_unconstrained_anon_read.star  84611dda397107f5d9235bcf38c6cb80  v0.27.0
+sec_unconstrained_pii_read.star  f390c7ea1d2dfa84047f0d16b5d0f73f  v0.27.0
+conv001_boolean_naming.star  860ce0654811159bb08a0def0cb1b445  v0.28.0
+conv002_no_default_values.star  c7c6c925011c3ed57bbad429f416dae1  v0.28.0
+conv003_page_naming_suffix.star  5f8afb9cc4ba56947151118d00541468  v0.28.0
+conv004_enumeration_prefix.star  62028765e0f3aea4d3fc5f2dd3324bca  v0.28.0
+conv005_snippet_prefix.star  661f318f2236ef843cb342794cc6e41a  v0.28.0
+conv006_no_create_delete_rights.star  ffcde7cc3c8b7c578381a9eeb36d60e1  v0.28.0
+conv007_xpath_on_all_access.star  adbfd91301beab64039ddef3abe43370  v0.28.0
+conv008_module_role_mapping.star  cb1088010eea7205b2d0b17a75ef661b  v0.28.0
+conv009_max_microflow_objects.star  95f3d4fef197882e300fcfe4a7fae372  v0.28.0
+conv010_act_microflow_content.star  de7463c1eca28b9b3291adf2a03db2d7  v0.28.0
+conv015_no_validation_rules.star  3029ba58e7b7240544f77a0065ee2f76  v0.28.0
+conv016_no_event_handlers.star  8ec0f93ee41c4641e41274f75af164ec  v0.28.0
+conv017_no_calculated_attributes.star  d41914084669a6f77259c251996b3333  v0.28.0
+conv018_module_folder_organization.star  50e3b3587539652b2e25753ec3c8fde7  v0.28.0
+conv019_navigation_page_url.star  ce5dc6827438f0f387bd2ce5f54ea349  v0.28.0
+cross_module_data.star  63355ea0aa6663e0c49fe5633f14a82d  v0.28.0
+data_change_microflows.star  4f8194a133da3f1961e87f5df684afed  v0.28.0
+entity_attributes.star  80c714660642387d3079fa1d858e3673  v0.28.0
+entity_business_key.star  d66528c958ad2259462bdf0456c13286  v0.28.0
+example_microflow.star  466da887092edeafb5761f3b04b0da80  v0.28.0
+example_naming.star  5c1ef5a448056ae86eb0c855220e83a1  v0.28.0
+long_microflows.star  e3123dbbd05689582516d470cc3a095f  v0.28.0
+mccabe_complexity.star  7d32db6d08906f98302ad7c51b650644  v0.28.0
+missing_documentation.star  2f4da2ccbf081e2f989ff377d009afae  v0.28.0
+orphaned_elements.star  ac8edca411ffd15e4b278197157b6328  v0.28.0
+sec_guest_access.star  fd4df00b1bc57101a21baeba6285f273  v0.28.0
+sec_missing_member_restriction.star  35ccd41c1025675fc54aa1cec1bec033  v0.28.0
+sec_pii_attributes.star  de5d773586f2421309cf7e6df3f7682c  v0.28.0
+sec_strict_mode.star  88e030f06dbf303fcadae3d6d4e4094f  v0.28.0
+sec_unconstrained_anon_read.star  84611dda397107f5d9235bcf38c6cb80  v0.28.0
+sec_unconstrained_pii_read.star  f390c7ea1d2dfa84047f0d16b5d0f73f  v0.28.0

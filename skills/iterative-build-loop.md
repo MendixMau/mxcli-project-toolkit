@@ -284,9 +284,9 @@ is the part worth stating twice.
 |---|---|
 | Branch on the **parsed error count**, never on the errors file's existence or size | `--write-errors` writes `{"problems":[]}` on success; "file is non-empty" reports every clean build as broken |
 | `mxbuild` exit ≠ 0 **with no errors file** is a distinct failure — bad args, JVM crash, missing Java home | Treating it as "no file ⇒ clean" lets an unverified model through |
-| `mxcli exec`'s status is **captured**, never allowed to trip `set -e` | mxcli is not transactional across statements; aborting skips the gate, the restore and the log while partial changes are already live |
+| `mxcli exec`'s status is **captured**, never allowed to trip `set -e` | Aborting skips the gate, the restore and the log. Before mxcli v0.27 exec was not transactional, so partial changes were already live; v0.27+ rolls the run back, and the gate still owes its log row |
 | The pre-exec `mxcli check … --references` runs **before** the snapshot | The only gate that can reject a script before it mutates the `.mpr` |
-| On mxcli ≥ v0.19.0, `exec` **also** runs its own pre-flight and refuses a script whose checks report an error — "Refusing to execute … Nothing was written." — including **MDL-ORDER01** (a statement referencing a document a *later* statement creates) | Read that refusal as the gate working, not a regression; the fix for ORDER01 is reordering the create above its first reference, and it matters because exec is not transactional — pre-v0.19 the same script half-applied before dying |
+| On mxcli ≥ v0.19.0, `exec` **also** runs its own pre-flight and refuses a script whose checks report an error — "Refusing to execute … Nothing was written." — including **MDL-ORDER01** (a statement referencing a document a *later* statement creates) | Read that refusal as the gate working, not a regression; the fix for ORDER01 is reordering the create above its first reference — pre-v0.19 the same script half-applied before dying (v0.27+ rolls back any write-time failure) |
 | Every outcome writes exactly one build-log row, carrying an ISO-8601 stamp and an explicit gate verdict | A clean build that logs nothing makes "no row" mean nothing at all — see the build log section below |
 | `last-mxbuild-errors.json` is cleared at the **start** of a run, not on success | An interrupted run must not leave a previous failure's file looking like its own report |
 | Studio Pro is never auto-killed; the reopen is offered, then done on a yes | See the SP Lifecycle Rule above |
@@ -381,6 +381,15 @@ re-run it after the other apply finishes.
 unverified write. If gate time dominates, reduce the number of applies at the granularity level
 (see "Iterative Granularity": layer scripts rather than per-page ones where partial recovery is
 unlikely, fewer stub-then-fill passes) — never by drafting less in parallel.
+
+Why there is no check-only gate yet (#444, probe 2026-10-26, Mendix 11.13.0 / mxcli v0.28.0, a
+blank `mxcli new` app plus one entity and microflow, 4 cores, 3 runs each): `mx check` took
+11–14 s where `mxbuild --target=deploy` took 24–33 s, and both reported the same model error
+(CE0117 after a dropped attribute). But with the model clean and one broken file under
+`javasource/`, `mx check` said **0 errors, exit 0**, while the deploy build failed in
+"compiling Java actions" with an **empty** `problems[]` list. A check-only gate would have
+passed a Java compile error. So a check-only gate needs a full deploy whenever `javasource/` or
+`theme/` changed and at module close — a gate redesign, parked on #444.
 
 **Draft the ready set in parallel, apply serially.** The unit is the build-plan row. The ready
 set is every `BUILD` row whose "Depends on" rows are all applied, minus overlapping writers: two

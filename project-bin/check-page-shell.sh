@@ -189,8 +189,23 @@ for f in $TARGETS; do
 
     case "$txt" in *page-shell-ok:*) continue ;; esac
 
-    page="$(printf '%s' "$txt" | sed -E 's/.*[Pp][Aa][Gg][Ee][[:space:]]+"?[A-Za-z0-9_]+"?\."?([A-Za-z0-9_]+)"?.*/\1/')"
-    [ -n "$page" ] || continue
+    # `-n ... p`: print only on a match, so an unreadable declaration yields "" and is
+    # reported as such. Without `-n`, `create page if not exists "M"."P"` (a placeholder that
+    # mxcli accepts) did not match, sed printed the whole line, and that line went on as the
+    # "page name" into a false "has no wireframe" STOP (#517, field-found 2026-10-18).
+    page="$(printf '%s' "$txt" | sed -nE 's/.*[Pp][Aa][Gg][Ee][[:space:]]+([Ii][Ff][[:space:]]+[Nn][Oo][Tt][[:space:]]+[Ee][Xx][Ii][Ss][Tt][Ss][[:space:]]+)?"?[A-Za-z0-9_]+"?\."?([A-Za-z0-9_]+)"?.*/\2/p')"
+    if [ -z "$page" ]; then
+      report "$f:$ln" "page declaration not read: could not parse a Module.Page name from this line" \
+        'Write the declaration as `create [or modify|or replace] page [if not exists] "Module"."Page"` on one line, or mark it `-- page-shell-ok: <reason>`.'
+      continue
+    fi
+    # A placeholder (`if not exists`) that the same file declares again for real is not the
+    # page that ships: the later create/modify/replace is, and that one is checked.
+    if grep -qiE -- 'PAGE[[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS' <<<"$txt" \
+       && grep -viE 'IF[[:space:]]+NOT[[:space:]]+EXISTS' "$f" \
+          | grep -iE "^[[:space:]]*CREATE([[:space:]]+OR[[:space:]]+(MODIFY|REPLACE))?[[:space:]]+PAGE[[:space:]]+\"?[A-Za-z0-9_]+\"?\.\"?$page\"?([^A-Za-z0-9_]|\$)" >/dev/null; then
+      continue
+    fi
 
     wf_for "$page"
     if [ ! -f "$wf" ]; then

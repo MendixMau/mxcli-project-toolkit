@@ -119,6 +119,9 @@ echo "== C: only the newest 30 logs are kept =="
 ( cd "$P" && git checkout -q -- Fixture.mpr mprcontents && rm -rf .mpr-snapshots docs .claude ) >/dev/null 2>&1
 mkdir -p "$P/.mpr-snapshots/.mxbuild-logs"
 i=1; while [ "$i" -le 35 ]; do : > "$P/.mpr-snapshots/.mxbuild-logs/20200101-0000$(printf %02d "$i")-$i.log"; i=$((i+1)); done
+# The oldest-NAMED log gets the newest mtime: pruning by mtime (`ls -t`) keeps it, which is what
+# tied mtimes did intermittently under load (#505). Pruning by the time-stamped name removes it.
+touch "$P/.mpr-snapshots/.mxbuild-logs/20200101-000001-1.log"
 RC=$(KEEP_SNAP=1 run C ok,long)
 N="$(ls "$P"/.mpr-snapshots/.mxbuild-logs/*.log 2>/dev/null | wc -l | tr -d ' ')"
 [ "$N" -eq 30 ] && ok "35 old + 1 new pruned to 30" || bad "C: $N logs"

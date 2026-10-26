@@ -284,6 +284,11 @@ telling a human to do it.
   Between syncs, `bin/lint-gate.sh` reads the same receipt before every lint: a stock-seeded rule whose md5
   no longer matches and whose header is gone stops the run as `BLIND — lint rules reverted to
   stock` (exit 1, exec.sh logs `LINT BLIND`), not as a rise on the next script (#264).
+  **An edit to a bundled rule is not durable before mxcli v0.28** (v0.27 `init --sync-skills`
+  overwrote an edited `example_microflow.star`; v0.28 keeps it, both verified 2026-10-26): prefer
+  `lint-config.yaml` options, or copy the rule under a new name. If you do edit one, take the
+  baseline after: it receipts the edit (`project` row), and a later overwrite reads `BLIND —
+  reverted` with the `git checkout -- <file>` that restores it (#524).
 - **Registering a file is not enough — register the pointer.** An earlier workstream's scripts sat
   in the toolkit unused for weeks because the routing row naming them existed in 2 of 6 projects.
   Nothing told any agent they existed. A skill without a `bin/lib/skill-routing.tsv` row is

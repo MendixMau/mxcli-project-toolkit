@@ -42,6 +42,16 @@
 # of a rule"; never delete the file). LINT_RULES_REVERTED_OK=1 runs anyway, with
 # the warning (a check run only: --update-baseline stays refused).
 #
+# PROJECT-EDITED BUNDLED RULES (#524). A project that edits a rule mxcli seeds (example_microflow,
+# conv001…) loses the edit at every session start: `mxcli init --sync-skills` re-seeds stock, and
+# the next exec was charged with the stock counts. So --update-baseline also writes a receipt row
+# `<file> <md5> project` for every seeded rule whose md5 is not a known stock version (toolkit
+# lint-rules/STOCK-HASHES-BUNDLED.txt, found via MXTK_ROOT / CLAUDE.local.md). A later run where
+# that md5 moved prints BLIND — reverted with `git checkout -- <file>` when HEAD still holds the
+# receipted edit (an update is then refused; the checkout never is), or asks for a re-baseline when
+# the rule changed some other way. No receipt list in reach, or an mxcli version the list has not
+# captured = no project rows, with a note. md5s are taken with CRs stripped (Git Bash autocrlf).
+#
 # ACCEPTING DEBT IS RECORDED, NOT SILENT (2026-10-12). Three toolkit-built apps re-baselined
 # 61 times in four days — every acceptance made by the agent whose script caused the rise,
 # with no reason field and nothing that ever summed them: baselines grew 8 -> 757, 440 -> 677
@@ -152,7 +162,7 @@ while [ $# -gt 0 ]; do
               REASON="$2"; shift ;;
     --reason=*) REASON="${1#--reason=}" ;;
     --approved-in-chat) APPROVED=1 ;;
-    -h|--help) sed -n '2,65p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,74p' "$0"; exit 0 ;;
     *) echo "lint-gate: unknown argument '$1'" >&2; exit 2 ;;
   esac
   shift
@@ -201,6 +211,13 @@ fi
 # LINT_JSON so fixtures exercise it. Reads the receipt bin/lib/install-lint-rules.sh writes;
 # never writes it — only the installer does, and that is the remedy named below.
 RECEIPT="$ROOT/.claude/.mxtk-lint-receipt"
+# Every stock .star `mxcli init` has seeded, per captured version (#524); tells an unedited
+# bundled rule from a project edit. In the toolkit clone, never copied into a project.
+STOCK_LIST="${MXTK_LINT_STOCK_LIST:-}"
+if [ -z "$STOCK_LIST" ] && type find_toolkit_root >/dev/null 2>&1; then
+  _tkr="$(PROJECT_ROOT="$ROOT" find_toolkit_root 2>/dev/null || true)"
+  [ -n "$_tkr" ] && STOCK_LIST="$_tkr/lint-rules/STOCK-HASHES-BUNDLED.txt"
+fi
 if [ -f "$RECEIPT" ]; then
   # Read into a variable first: a heredoc inside $(...) does not parse on bash 3.2.
   IFS= read -r -d '' _RCHK <<'PY' || true
@@ -234,10 +251,44 @@ if os.path.isfile(dis):
         else:
             disabled.add(w[0])
 HEADER = re.compile(rb"^# mxtk-lint-rule:", re.M)   # the installer's test: grep '^# mxtk-lint-rule:'
+# Kind `project` (#524): a bundled rule the project edited, receipted by --update-baseline.
+# `mxcli init --sync-skills` overwrites it at session start; the md5 then moves while the
+# committed edit still sits at HEAD. Two classes, third column: proj-reverted (HEAD still holds
+# the receipted edit: `git checkout -- <file>` restores it) and proj-changed (the rule changed
+# some other way: re-baseline if that was intended). An md5 that is a known stock hash replacing
+# another known stock hash is an mxcli upgrade of an unedited rule, not an edit: skipped.
+stock = set()
+sl = os.environ.get("STOCK_LIST", "")
+if sl and os.path.isfile(sl):
+    for line in open(sl, encoding="utf-8", errors="replace"):
+        w = line.split()
+        if len(w) >= 2 and not w[0].startswith("#"):
+            stock.add((w[0], w[1]))
+def lfmd5(data):
+    return hashlib.md5(data.replace(b"\r", b"")).hexdigest()   # CR-insensitive: Git Bash autocrlf
+def head_md5(name):
+    import subprocess
+    rel = os.path.relpath(os.path.join(d, name), os.environ["ROOT"]).replace(os.sep, "/")
+    try:
+        r = subprocess.run(["git", "-C", os.environ["ROOT"], "show", "HEAD:./" + rel],
+                           stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=20)
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return lfmd5(r.stdout) if r.returncode == 0 else ""
 for name, want, k in rows:
     if name in disabled:
         continue
     path = os.path.join(d, name)
+    if k == "project":
+        if not os.path.isfile(path):
+            print("%s\tgone (project-edited rule, receipted at the last baseline)\tproj-changed" % name)
+            continue
+        got = lfmd5(open(path, "rb").read())
+        if got == want or ((name, got) in stock and (name, want) in stock):
+            continue
+        cls = "proj-reverted" if head_md5(name) == want else "proj-changed"
+        print("%s\tmd5 %s != receipt %s\t%s" % (name, got[:8], want[:8], cls))
+        continue
     if not os.path.isfile(path):
         print("%s\tgone (installed per the receipt, missing now)" % name)
         continue
@@ -249,7 +300,10 @@ for name, want, k in rows:
         continue  # unchanged, or header kept: a hand edit, which install-lint-rules.sh reports
     print("%s\theader gone, md5 %s != receipt %s" % (name, got[:8], want[:8]))
 PY
-  REVERTED="$(RECEIPT="$RECEIPT" RULES_DIR="$ROOT/.claude/lint-rules" DISABLED="$ROOT/.claude/lint-rules-disabled.txt" "$PY" -c "$_RCHK")"
+  ALLREV="$(RECEIPT="$RECEIPT" RULES_DIR="$ROOT/.claude/lint-rules" DISABLED="$ROOT/.claude/lint-rules-disabled.txt" \
+    STOCK_LIST="$STOCK_LIST" ROOT="$ROOT" "$PY" -c "$_RCHK")"
+  REVERTED="$(printf '%s\n' "$ALLREV" | grep -v "$(printf '\t')proj-" | grep . || true)"
+  PROJREV="$(printf '%s\n' "$ALLREV" | grep "$(printf '\t')proj-" || true)"
   if [ -n "$REVERTED" ]; then
     TKR=""
     type find_toolkit_root >/dev/null 2>&1 && TKR="$(PROJECT_ROOT="$ROOT" find_toolkit_root 2>/dev/null || true)"
@@ -276,6 +330,47 @@ PY
       mkdir -p "$ROOT/.claude/loop" 2>/dev/null &&
         printf '{\n  "timestamp": "%s",\n  "verdict": "BLIND-RULES-REVERTED",\n  "reverted": "%s"\n}\n' \
           "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(printf '%s\n' "$REVERTED" | cut -f1 | paste -sd, -)" \
+          > "$ROOT/.claude/loop/lint-last.json" 2>/dev/null || true
+      exit 1
+    fi
+  fi
+  if [ -n "$PROJREV" ]; then
+    _TAB="$(printf '\t')"
+    echo "!! PROJECT-EDITED LINT RULE(S) CHANGED SINCE THE BASELINE — this run's delta is not attributable:"
+    printf '%s\n' "$PROJREV" | while IFS="$_TAB" read -r _f _why _cls; do
+      printf '   %s: %s\n' "$_f" "$_why"; done
+    echo ""
+    if printf '%s\n' "$PROJREV" | grep -q "${_TAB}proj-reverted"; then
+      echo "   Overwritten on disk (mxcli init --sync-skills re-seeds stock rules at session start);"
+      echo "   your edit is still committed. Restore it, then re-run:"
+      printf '%s\n' "$PROJREV" | grep "${_TAB}proj-reverted" | cut -f1 | while read -r _f; do
+        echo "     git checkout -- .claude/lint-rules/$_f"; done
+    fi
+    if printf '%s\n' "$PROJREV" | grep -q "${_TAB}proj-changed"; then
+      echo "   Changed on purpose (or deleted)? Re-baseline so the receipt records the new version:"
+      echo "     bin/lint-gate.sh --update-baseline --reason \"<what changed in the rule>\""
+    fi
+    if [ "$UPDATE" -eq 1 ]; then
+      if printf '%s\n' "$PROJREV" | grep -q "${_TAB}proj-reverted"; then
+        # The remedy (git checkout) is never blocked; only baselining the overwritten copy is.
+        echo "lint-gate: REFUSED — --update-baseline over an overwritten rule would baseline its stock counts." >&2
+        echo "           Restore it with git checkout (above). To drop your edit for good, commit the new file first." >&2
+        exit 2
+      fi
+      echo "   --update-baseline: the receipt is rewritten for the changed rule(s) below."
+      echo ""
+    elif [ "${LINT_RULES_REVERTED_OK:-}" = "1" ]; then
+      echo "   LINT_RULES_REVERTED_OK=1 — linting anyway; counts below are from the files on disk."
+      echo ""
+    else
+      if printf '%s\n' "$PROJREV" | grep -q "${_TAB}proj-reverted"; then
+        echo "BLIND — reverted: a project-edited lint rule was overwritten; lint not run, nothing compared against the baseline."
+      else
+        echo "BLIND — a lint rule changed since the baseline; lint not run, nothing compared against the baseline."
+      fi
+      mkdir -p "$ROOT/.claude/loop" 2>/dev/null &&
+        printf '{\n  "timestamp": "%s",\n  "verdict": "BLIND-RULES-REVERTED",\n  "reverted": "%s"\n}\n' \
+          "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(printf '%s\n' "$PROJREV" | cut -f1 | paste -sd, -)" \
           > "$ROOT/.claude/loop/lint-last.json" 2>/dev/null || true
       exit 1
     fi
@@ -596,3 +691,67 @@ for r, was, now in rose:
 write_last("FAIL", viol, counts)
 sys.exit(1)
 PY
+_RC=$?
+
+# Receipt project-edited bundled rules (#524). After a baseline is written, every
+# seeded .claude/lint-rules/*.star (a name in STOCK-HASHES-BUNDLED) that has no receipt row and is
+# not a known stock version (md5 with CRs stripped) gets a row; only when the running mxcli is a
+# captured version there
+# `<file> <md5> project`, so the check above can tell an overwrite from a rise next time. Toolkit
+# rows are the installer's and are left untouched; it keeps `project` rows on sync. No mxcli call.
+if [ "$UPDATE" -eq 1 ] && [ "$_RC" -eq 0 ] && [ -d "$ROOT/.claude/lint-rules" ]; then
+  if [ -z "$STOCK_LIST" ] || [ ! -f "$STOCK_LIST" ]; then
+    echo "note: edited bundled lint rules not receipted — no STOCK-HASHES-BUNDLED.txt (set MXTK_ROOT to the toolkit clone)" >&2
+  else
+    IFS= read -r -d '' _RWR <<'PY' || true
+import hashlib, os, sys
+rec, d, sl = os.environ["RECEIPT"], os.environ["RULES_DIR"], os.environ["STOCK_LIST"]
+stock, seeded, versions = set(), set(), set()
+for line in open(sl, encoding="utf-8", errors="replace"):
+    w = line.split()
+    if len(w) >= 2 and not w[0].startswith("#"):
+        stock.add((w[0], w[1])); seeded.add(w[0])
+        if len(w) >= 3:
+            versions.add(w[2].lstrip("v"))
+# Only on a captured mxcli version: on any other, that version's unedited stock rules would look
+# edited, and the next upgrade would read them as "reverted" and name the wrong remedy.
+ver = os.environ.get("MXCLI_VER", "").lstrip("v")
+if ver not in versions:
+    print("note: edited bundled lint rules not receipted — mxcli %s is not a captured version in "
+          "STOCK-HASHES-BUNDLED.txt (captured: %s)" % (ver or "(version unreadable)", ", ".join(sorted(versions))),
+          file=sys.stderr)
+    raise SystemExit(0)
+keep, owned = [], set()
+if os.path.isfile(rec):
+    for line in open(rec, encoding="utf-8", errors="replace"):
+        w = line.split()
+        if not w or w[0].startswith("#"):
+            continue
+        if len(w) >= 3 and w[2] == "project":
+            continue  # rewritten below from the files on disk
+        keep.append(line.rstrip("\n"))
+        owned.add(w[0])
+proj = []
+for name in sorted(os.listdir(d)):
+    if not name.endswith(".star") or name in owned or name not in seeded:
+        continue  # a project's own rule is never overwritten by mxcli: nothing to receipt
+    md5 = hashlib.md5(open(os.path.join(d, name), "rb").read().replace(b"\r", b"")).hexdigest()
+    if (name, md5) not in stock:
+        proj.append("%s  %s  project" % (name, md5))
+if not keep and not proj and not os.path.isfile(rec):
+    raise SystemExit(0)
+tmp = rec + ".tmp"
+with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+    f.write("# md5 of each toolkit lint rule AS INSTALLED, and its kind. Written by bin/lib/install-lint-rules.sh.\n")
+    f.write("# Do not edit. Deleting this file makes a revert-to-stock look like a first install.\n")
+    for l in keep + proj:
+        f.write(l + "\n")
+os.replace(tmp, rec)
+for l in proj:
+    print("==> receipted project-edited lint rule: %s" % l.split()[0])
+PY
+    RECEIPT="$RECEIPT" RULES_DIR="$ROOT/.claude/lint-rules" STOCK_LIST="$STOCK_LIST" MXCLI_VER="$MXCLI_VER" "$PY" -c "$_RWR" ||
+      echo "lint-gate: could not write project rows into $RECEIPT" >&2
+  fi
+fi
+exit "$_RC"

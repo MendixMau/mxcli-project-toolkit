@@ -22,6 +22,10 @@
 #       installed; when it is missing (as with no Python on Git Bash) or exits 2 (a flow it
 #       could not decode) the row is still INFO, says NOT MEASURED, and the module verdict is
 #       the same as the installed run's -- the rung is never a gate
+#   V9  the page-scope rung's budget is VM_TMO_PAGESCOPE (default 900); on timeout the watchdog
+#       kills the instrument's forked child too, so nothing writes a scope after the FAULT (#541)
+#   V10 the folder form journeys/<Module>/*.journey.json is walked (both files, one run) when
+#       journeys/<Module>.journey.json is absent; the single file still wins when both exist (#542)
 set -uo pipefail
 TK="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SUT="${1:-$TK/project-bin/verify-module.sh}"
@@ -142,6 +146,60 @@ vm MyFirstModule
   && ok "V8: mf-canvas-facts exit 2 (undecodable flow): INFO row, verdict and exit unchanged" \
   || bad "V8: undecodable flow must not gate" "$(row '^canvas facts') / $(row '^verdict') rc=$rc (was $_v8_verdict rc=$_v8_rc)"
 mv "$WORK/stub/mf-canvas-facts.py" "$P/bin/mf-canvas-facts.py"
+
+# V9: a page-scope.sh whose work runs in a forked child (as the real one's Python heredoc does)
+# and outlives a 1 s budget. Before #541 the child survived the watchdog and wrote late.
+cp "$P/bin/page-scope.sh" "$WORK/stub/page-scope.sh.keep"
+printf '#!/usr/bin/env bash\n( sleep 4; mkdir -p "$PROJECT_ROOT/.claude/loop"; echo late > "$PROJECT_ROOT/.claude/loop/late-scope" ) &\nwait\n' > "$P/bin/page-scope.sh"
+chmod +x "$P/bin/page-scope.sh"; rm -f "$P/.claude/loop/late-scope"
+VM_TMO_PAGESCOPE=1 vm MyFirstModule
+sleep 5
+{ row '^page scope' | grep -q '^FAULT' && [ ! -e "$P/.claude/loop/late-scope" ]; } \
+  && ok "V9: page-scope timeout (VM_TMO_PAGESCOPE=1) is a FAULT and its forked child is killed with it" \
+  || bad "V9: orphaned page-scope child" "$(row '^page scope') / late-scope: $(cat "$P/.claude/loop/late-scope" 2>/dev/null || echo absent)"
+reap
+cp "$WORK/stub/page-scope.sh.keep" "$P/bin/page-scope.sh"; chmod +x "$P/bin/page-scope.sh"
+grep -q 'VM_TMO_PAGESCOPE:-900' "$SUT" && ok "V9: page-scope default budget is 900 s" || bad "V9: page-scope budget not VM_TMO_PAGESCOPE:-900"
+
+# V10: folder form, then both forms.
+fake_mod "$P/node_modules" playwright; fake_mod "$P/node_modules" axe-core
+rm -f "$P/journeys/MyFirstModule.journey.json"; mkdir -p "$P/journeys/MyFirstModule/controls"
+printf '{"id":"J-01"}\n' > "$P/journeys/MyFirstModule/J-01.journey.json"
+printf '{"id":"J-02"}\n' > "$P/journeys/MyFirstModule/J-02.journey.json"
+printf '{}\n' > "$P/journeys/MyFirstModule/controls/J-01.control.json"
+vm MyFirstModule
+_jl="$P/.claude/loop/verify/MyFirstModule/20-journeys.log"
+{ row '^journeys [(]UI' | grep -q '^PASS' && grep -q 'J-01.journey.json' "$_jl" && grep -q 'J-02.journey.json' "$_jl" \
+    && ! grep -q 'control.json' "$_jl" && ! printf '%s' "$sum" | grep -q '^journeys	FAULT'; } \
+  && ok "V10: journeys/<Module>/*.journey.json walked (2 files, one run), controls/ not passed as journeys" \
+  || bad "V10: folder form" "$(row '^journeys') / $(cat "$_jl" 2>/dev/null)"
+printf '{"name":"golden"}\n' > "$P/journeys/MyFirstModule.journey.json"
+vm MyFirstModule
+{ grep -q 'journeys/MyFirstModule.journey.json' "$_jl" && ! grep -q 'J-01.journey.json' "$_jl"; } \
+  && ok "V10: the single file still wins when both forms exist" || bad "V10: precedence" "$(cat "$_jl" 2>/dev/null)"
+rm -rf "$P/journeys/MyFirstModule"
+
+# V11 (#567): the harness-scan rung. A hand-written script that signs in and never signs out is
+# named in an INFO row's log; the module verdict and exit stay what they were. Skipped on a
+# subject that predates the rung.
+if grep -q 'harness-scan.sh' "$SUT" && [ -f "$SD/harness-scan.sh" ]; then
+  # Earlier cases (V10) change the stubs, so take this case's own reference verdict first.
+  vm MyFirstModule; _v8_verdict="$(row '^verdict')"; _v8_rc="$rc"
+  mkdir -p "$P/tests/acceptance"
+  printf "await page.goto(base + '/login.html');\nawait page.fill('#usernameInput', u);\n" > "$P/tests/acceptance/hand.js"
+  cp "$SD/harness-scan.sh" "$P/bin/"; chmod +x "$P/bin/harness-scan.sh"
+  vm MyFirstModule
+  { row '^harness scan' | grep -q '^INFO	.claude/loop/verify/MyFirstModule/15-harness-scan.log$' \
+      && grep -q '^no-sign-out	tests/acceptance/hand.js' "$P/.claude/loop/verify/MyFirstModule/15-harness-scan.log" \
+      && [ "$(row '^verdict')" = "$_v8_verdict" ] && [ "$rc" = "$_v8_rc" ]; } \
+    && ok "V11: harness scan names tests/acceptance/hand.js (no sign-out); INFO row, verdict and exit unchanged" \
+    || bad "V11: harness scan row" "$(row '^harness scan') / $(row '^verdict') rc=$rc (was $_v8_verdict rc=$_v8_rc)"
+  rm -f "$P/bin/harness-scan.sh" "$P/tests/acceptance/hand.js"
+  MXTK_ROOT=/nonexistent vm MyFirstModule
+  { row '^harness scan' | grep -q '^INFO	(NOT MEASURED: ' && [ "$(row '^verdict')" = "$_v8_verdict" ]; } \
+    && ok "V11: harness-scan.sh not installed: INFO NOT MEASURED row, verdict unchanged" \
+    || bad "V11: missing harness scan must not gate" "$(row '^harness scan') / $(row '^verdict')"
+fi
 
 # Golden summaries for test-progress-harness-verify.sh, written by this subject (CAPTURE=<dir>).
 if [ -n "${CAPTURE:-}" ]; then

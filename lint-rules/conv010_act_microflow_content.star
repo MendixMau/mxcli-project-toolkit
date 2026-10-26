@@ -76,6 +76,7 @@ ALLOWED_ACTIONS = (
     "ShowMessageAction",
     "DownloadFileAction",
     "MicroflowCallAction",   # the delegation this rule asks for -- see DE-NOISED note
+    "NanoflowCallAction",    # the same delegation from an ACT_ nanoflow (#512; mxcli's stock copy allows it)
     "LogMessageAction",      # logging is not business logic
     "CreateVariableAction",  # a local variable is not business logic
 )

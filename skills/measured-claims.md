@@ -171,6 +171,19 @@ from six separate runs blocked all further logins. Two fixes, both needed:
 Invoking it once per journey burns one session per journey and reproduces the cap. Pass all
 journeys in a single invocation.
 
+**Recovery when the cap is hit mid-run** (field recipe, #567 — reported from one project's
+resume notes on `mxcli run --local` with Postgres, not re-measured here). A restart does not help:
+the sessions are rows. On the **local test database only**, with no user you care about signed in:
+
+```sql
+DELETE FROM "system$session_user";
+DELETE FROM "system$session";
+```
+
+Then fix the cause before re-running: a hand-written script that signs in without the harness
+(`bin/harness-scan.sh` lists them; `verify-module.sh` runs it as an info rung) should call
+`tests/e2e/helpers.js` `login()`/`logout()`, or go through `journey-runner.js`.
+
 ---
 
 ## 5. The Docker stack tests the app; an empty database tests the fixture

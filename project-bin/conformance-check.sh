@@ -215,11 +215,17 @@ extract() {
   mod="$(ledger_module "$ledger")"
   brd="$(ledger_brd "$ledger")"
   awk -F'|' -v mod="$mod" -v brd="$brd" -v file="$ledger" '
-    NF==9 && $2 ~ /^ *`?\// {   # pointer cell: backticked or bare (TK-006)
+    # pointer cell: backticked or bare (TK-006), and with or without a BRD prefix
+    # (`F002/modules/0`, the single-file multi-BRD ledger brd-to-build-plan.md writes, #515).
+    # A prefixed pointer is already unique across BRDs, so it is keyed as written.
+    NF==9 && $2 ~ /^ *`?([A-Za-z0-9][A-Za-z0-9_.-]*)?\// {
       total++
       ptr=$2; acc=$7; st=$8
-      gsub(/^ +| +$/, "", ptr); gsub(/^ +| +$/, "", st)
+      gsub(/^ +| +$/, "", ptr); gsub(/^ +| +$/, "", st); gsub(/`/, "", st)
       if (st == "planned") st = "not-built"   # "planned" = not built yet (TK-006)
+      # brd-to-build-plan.md writes `not built` and `blocked (<reason>)`: both mean the element
+      # is not there yet, so they are measured as not-built rather than UNKNOWN-STATUS (#515).
+      if (st == "not built" || st ~ /^blocked([ (]|$)/) st = "not-built"
       if (brd != "-") ptr = brd ":" ptr
       if (match(acc, /`(SHOW|DESCRIBE)[^`]*`/)) {
         cmd = substr(acc, RSTART+1, RLENGTH-2)

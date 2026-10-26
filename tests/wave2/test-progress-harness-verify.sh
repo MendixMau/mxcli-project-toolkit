@@ -184,7 +184,8 @@ for layout in single two; do
     && ok "N4 $L: build-plan.json lists all 10 HARNESS rows with their Step, Phase 1 state still in progress; build-plan.md untouched" \
     || bad "N4 $L: agent-facing plan" "json HARNESS rows, phase 1 state: ${nj:-none}"
   # N5: the badge reads build rows only; a HARNESS-only phase is a sign-off phase
-  bd="$(printf '%s' "$H" | grep -o 'Phase state: <span class="badge [^"]*">[^<]*' | sed 's/.*">//' | tr '\n' ',')"
+  # read by phase id: the Build tab orders cards by focus (building now first, completed phases folded last)
+  bd="$("$PY" -c 'import re,sys;h=sys.argv[1];c=dict((m.group(1),m.start()) for m in re.finditer(r"id=.phase-(\w+).",h));print("".join(re.search(r"Phase state: <span class=\"badge [^\"]*\">([^<]*)",h[c[k]:]).group(1)+"," for k in sorted(c)))' "$H")"
   { [ "$bd" = "built,in progress,sign-off only," ] && printf '%s' "$H" | grep -q 'Sign-off phase: no build rows'; } \
     && ok "N5 $L: Phase state badges built / in progress / sign-off only; Phase 3 card 'Sign-off phase: no build rows'" \
     || bad "N5 $L: badges" "$bd $(printf '%s' "$H" | grep -o 'Sign-off phase[^<]*')"

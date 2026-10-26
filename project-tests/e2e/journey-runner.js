@@ -1696,6 +1696,8 @@ module.exports = {
   resolveDevice, runDevice, contextOptions, deviceLabel, judgeDevice, networkVerb, setNetwork, isOffline,
   ensureOnline, networkEndRow, resolveGeolocation, applyGeolocation, clearGeolocation, stepGeolocation,
   act, describeAct, pseudoTexts, pseudoVerdict, scopedWidget,
+  // For fixtures that walk a journey in a real browser against a stand-in page (#564).
+  runJourney, results,
 };
 
 // ── Fix-loop reruns (#492) ───────────────────────────────────────────────────

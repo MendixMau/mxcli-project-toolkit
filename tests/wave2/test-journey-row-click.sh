@@ -45,7 +45,12 @@ out('D:row', R.describeAct({ do: 'click', widget: 'btnShip', label: 'Ship', row:
     '<tr><td>Order A-100</td><td><button class="mx-name-btnShip" onclick="hits.push(\'A\')">Ship</button></td></tr>' +
     '<tr><td>Order B-200</td><td><button class="mx-name-btnShip" onclick="hits.push(\'B\')">Ship</button></td></tr></table></div>' +
     '<div class="mx-name-grid2" role="grid"><div role="row" style="display:contents"><span>Order B-200</span>' +
-    '<button class="mx-name-btnShip" onclick="hits.push(\'B2\')">Ship</button></div></div>';
+    '<button class="mx-name-btnShip" onclick="hits.push(\'B2\')">Ship</button></div></div>' +
+    // cells rendered with no whitespace between them, as React renders a grid
+    '<div class="mx-name-grid3"><table><tr><td>Order 1</td><td><button class="mx-name-btnShip" onclick="hits.push(\'O1\')">Ship</button></td></tr>' +
+    '<tr><td>Order 10</td><td><button class="mx-name-btnShip" onclick="hits.push(\'O10\')">Ship</button></td></tr></table></div>' +
+    '<div class="mx-name-grid4"><table><tr><td>Order 7</td><td><button class="mx-name-btnShip">Ship</button></td></tr>' +
+    '<tr><td>Order 7</td><td><button class="mx-name-btnShip">Ship</button></td></tr></table></div>';
   const srv = http.createServer((q, s) => { s.setHeader('content-type', 'text/html'); s.end(html); });
   await new Promise(r => srv.listen(0, '127.0.0.1', r));
   let browser, page;
@@ -55,6 +60,8 @@ out('D:row', R.describeAct({ do: 'click', widget: 'btnShip', label: 'Ship', row:
   await R.act(page, { do: 'click', widget: 'btnShip', settleMs: 0 }, {}, note);
   await R.act(page, { do: 'click', widget: 'btnShip', row: '{{code}}', in: 'grid1', settleMs: 0 }, { code: 'B-200' }, note);
   await R.act(page, { do: 'click', widget: 'btnShip', row: 'B-200', in: 'grid2', settleMs: 0 }, {}, note);
+  await R.act(page, { do: 'click', widget: 'btnShip', row: 'Order 1', in: 'grid3', settleMs: 0 }, {}, note);
+  out('B:amb', await R.act(page, { do: 'click', widget: 'btnShip', row: 'Order 7', in: 'grid4', settleMs: 0 }, {}, note).then(() => 'no error', x => x.message));
   out('B:err', await R.act(page, { do: 'click', widget: 'btnShip', row: 'Z-999', in: 'grid1', settleMs: 0 }, {}, note).then(() => 'no error', x => x.message));
   out('B:hits', await page.evaluate(() => window.hits));
   await browser.close(); srv.close();
@@ -68,7 +75,8 @@ else
   [ "$(get D:row)" = '"Ship in the row \"B-200\""' ] && ok "the walk narrates which row was clicked" || bad "describeAct row" "$(get D:row)"
   if [ -n "$(get SKIPB)" ]; then echo "  skip — no Playwright browser here ($(get SKIPB))"
   else
-    [ "$(get B:hits)" = '["A","B","B2"]' ] && ok "bare click hits the first row (the defect); row+in hits the named row, also in a display:contents role=row grid" || bad "row-scoped click" "$(get B:hits)"
+    [ "$(get B:hits)" = '["A","B","B2","O1"]' ] && ok "bare click hits the first row (the defect); row+in hits the named row, also in a display:contents role=row grid; row \"Order 1\" never hits \"Order 10\"" || bad "row-scoped click" "$(get B:hits)"
+    [ "$(get B:amb)" = '"ambiguous: 2 rows in .mx-name-grid4 say \"Order 7\""' ] && ok "two rows that both say the text throw 'ambiguous' (step FAIL), never pick one" || bad "ambiguous row" "$(get B:amb)"
     [ "$(get B:err)" = '"no row in .mx-name-grid1 says \"Z-999\""' ] && ok "a row nobody shows throws (step FAIL), never falls back to the first row" || bad "missing row" "$(get B:err)"
   fi
 fi

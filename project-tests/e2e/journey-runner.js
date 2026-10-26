@@ -362,8 +362,10 @@ async function act(page, a, vars, note) {
 }
 
 // A grid repeats one widget name per row, so `.mx-name-<w>` first-match clicks whichever row
-// rendered first (#148). `in` scopes to one container widget; `row` (substituted) picks the
-// innermost row whose text contains it — the last match, since an outer row also contains it.
+// rendered first (#148). `in` scopes to one container widget; `row` (substituted) picks the one
+// innermost row that shows the text as a whole word run: "Order 1" never matches "Order 10". The
+// row's own text and each element in it are tested, so cells rendered with no whitespace between
+// them (React grids) still match. No row → throw; two or more → throw "ambiguous", never a pick.
 // Neither field → the old first-match locator, unchanged.
 const ROW_SEL = ':is(tr, [role="row"], .mx-listview-item, .mx-templategrid-item)';
 async function scopedWidget(page, a, vars = {}) {
@@ -371,10 +373,19 @@ async function scopedWidget(page, a, vars = {}) {
   if (a.in) base = page.locator(`.mx-name-${a.in}`).first();
   if (a.row !== undefined) {
     const text = String(subst(a.row, vars));
-    const rows = base.locator(ROW_SEL).filter({ hasText: text });
-    if (!(await rows.count().catch(() => 0)))
-      throw new Error(`no row${a.in ? ` in .mx-name-${a.in}` : ''} says "${text}"`);
-    base = rows.last();
+    const rows = base.locator(ROW_SEL);
+    const hits = await rows.evaluateAll((els, t) => {
+      const esc = t.replace(/\s+/g, ' ').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp(`(?:^|[^\\p{L}\\p{N}])${esc}(?:[^\\p{L}\\p{N}]|$)`, 'u');
+      const says = e => [e, ...e.querySelectorAll('*')]
+        .some(n => re.test(String(n.innerText != null && n.innerText !== '' ? n.innerText : n.textContent || '').replace(/\s+/g, ' ').trim()));
+      const m = els.filter(says);
+      return els.map((e, i) => (m.includes(e) && !m.some(o => o !== e && e.contains(o))) ? i : -1).filter(i => i >= 0);
+    }, text).catch(() => []);
+    const where = a.in ? ` in .mx-name-${a.in}` : '';
+    if (!hits.length) throw new Error(`no row${where} says "${text}"`);
+    if (hits.length > 1) throw new Error(`ambiguous: ${hits.length} rows${where} say "${text}"`);
+    base = rows.nth(hits[0]);
   }
   return base === page ? page.locator(`.mx-name-${a.widget}`).first() : base.locator(`.mx-name-${a.widget}`).first();
 }

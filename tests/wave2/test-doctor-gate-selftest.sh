@@ -45,6 +45,10 @@ case "${1:-}" in
       [ "$prev" = "-p" ] && mpr="$a"
       prev="$a"
     done
+    # Real mxcli refuses to write a model whose Studio Pro lock file sits beside it (#577).
+    if [ -n "$mpr" ] && [ -e "$mpr.lock" ]; then
+      echo "Error: refusing to write $(basename "$mpr"): Studio Pro has this project open (lock file $mpr.lock)" >&2; exit 1
+    fi
     if [ -n "$mpr" ] && grep -q GateSelftest "$mdl" 2>/dev/null; then
       : > "$(dirname "$mpr")/.gate-selftest-bad-applied"
     fi
@@ -215,6 +219,19 @@ assert_contains "$T/out.twotree" "baseline: gate read 0 error" "two-tree: baseli
 assert_contains "$T/out.twotree" "known-bad control: gate read" "two-tree: known-bad control ran"
 assert_missing  "$T/out.twotree" "gate self-test:" "two-tree: no gate-self-test FAIL line"
 assert_contains "$P2/.claude/.doctor-receipt" "gate-selftest: pass" "two-tree: receipt records pass"
+
+# ── 11: Studio Pro open (<App>.mpr.lock beside the real model) -> lock not copied, PASS ─────
+# #577: the scratch copy took the lock file along, so mxcli refused the injection into the
+# throwaway copy and the self-test reported only its baseline half.
+echo "== 11: Studio Pro lock file beside the model -> not copied, known-bad control still runs =="
+: > "$P/Fixture.mpr.lock"
+MXBUILD_PATH="$T/mxbuild" MODE_GATE_STUB=healthy \
+  bash "$DOCTOR" --quick --gate-selftest --no-docker "$P" > "$T/out.lock" 2>&1
+assert_missing  "$T/out.lock" "Studio Pro has this project open" "lock: injection not refused"
+assert_contains "$T/out.lock" "known-bad control: gate read" "lock: known-bad control ran"
+assert_contains "$P/.claude/.doctor-receipt" "gate-selftest: pass" "lock: receipt records pass"
+[ -e "$P/Fixture.mpr.lock" ] && ok "lock: the real model's lock file is untouched" || fail "lock: real lock file removed"
+rm -f "$P/Fixture.mpr.lock" "$P/.gate-selftest-bad-applied"
 
 echo; echo "$PASS passed, $FAIL failed   ($T)"
 [ "$FAIL" -eq 0 ]

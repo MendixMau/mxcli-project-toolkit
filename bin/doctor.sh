@@ -1450,6 +1450,10 @@ gate_selftest() {
     for x in $copy_excl; do
       [ "$entry_name" = "$x" ] && continue 2
     done
+    # Studio Pro's lock file: copied along, it makes mxcli refuse the known-bad injection
+    # into the throwaway copy ("Studio Pro has this project open"), the normal case during
+    # setup (#577). The lock belongs to the real model, never to the scratch copy.
+    case "$entry_name" in *.mpr.lock) continue ;; esac
     cp -R "$entry" "$scratch/" 2>/dev/null || copy_ok=0
   done
   scratch_mpr="$scratch/$(basename "$MPR")"
@@ -1459,7 +1463,7 @@ gate_selftest() {
     return 0
   fi
   copy_size="$(du -sh "$scratch" 2>/dev/null | awk '{print $1}')"
-  note "copied ${copy_size:-?} of project resources into the scratch dir (excluding .git, deployment/, node_modules/, .mpr-snapshots/)"
+  note "copied ${copy_size:-?} of project resources into the scratch dir (excluding .git, deployment/, node_modules/, .mpr-snapshots/, *.mpr.lock)"
 
   # (a) Baseline: the gate must resolve SOME integer off this model, clean or not — "?" here
   # means the gate cannot read mxbuild's own output, which is the original F-042-class defect.

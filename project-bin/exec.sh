@@ -1031,6 +1031,15 @@ run_lint_gate() {
          LINT_DETAIL="lint BLIND: rules reverted to stock (${_reverted:-see output}) — run sync-project.sh; delta not attributable"
          echo "  ✗ lint: toolkit rules reverted to stock (${_reverted:-see output}) — not linted, not a rise"
          sed -n '/^!! LINT RULES REVERTED TO STOCK/,/^BLIND/p' "$_lo" | head -16 | sed 's/^/    /'
+       elif grep -qE '^BLIND — (reverted: a project-edited|a lint rule changed since the baseline)' "$_lo"; then
+         # A rule the project edited moved since the baseline (#524): mxcli's session-start
+         # refresh re-seeded stock over it, or someone changed it. Not linted, not a rise.
+         _projrev=$(sed -n '/^!! PROJECT-EDITED LINT RULE/,/^$/p' "$_lo" \
+                     | grep -oE '^ +[A-Za-z0-9_.-]+\.star:' | tr -d ' :' | paste -sd, -)
+         LINT_RC=3
+         LINT_DETAIL="lint BLIND: project-edited rule(s) changed since the baseline (${_projrev:-see output}) — git checkout, or re-baseline; delta not attributable"
+         echo "  ✗ lint: project-edited lint rule(s) changed since the baseline (${_projrev:-see output}) — not linted, not a rise"
+         sed -n '/^!! PROJECT-EDITED LINT RULE/,/^BLIND/p' "$_lo" | head -16 | sed 's/^/    /'
        elif [ -z "$_rules" ] && grep -q '^PASS' "$_lo"; then
          # lint-gate exits 1 for PASS-BLIND too. Logging that as "ROSE: see output" made a rule
          # that inspected nothing look like a rise with no rule named — 20 such rows in two

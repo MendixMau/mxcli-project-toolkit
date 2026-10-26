@@ -174,7 +174,7 @@ _mxtk_lint_disabled_audit() {
 }
 
 # Rewrite the receipt to the current manifest: rows for rules no longer shipped, or validly
-# disabled here, are dropped (a stale row would make lint-gate.sh report the rule "gone" on every
+# disabled here, are dropped (`project` rows excepted, see below) (a stale row would make lint-gate.sh report the rule "gone" on every
 # run, forever), and every kept row carries its kind. Written only when something changed.
 _mxtk_lint_receipt_finalize() {
   _receipt="$1"; _keep=" $2 "; _dis="$3"
@@ -185,6 +185,11 @@ _mxtk_lint_receipt_finalize() {
     printf '# Do not edit. Deleting this file makes a revert-to-stock look like a first install.\n'
     while read -r _n _m _r; do
       case "$_n" in ''|'#'*) continue ;; esac
+      # A `project` row (#524) is lint-gate.sh's, written on --update-baseline for a bundled
+      # rule the project edited; not a toolkit rule, so the manifest never lists it. Kept as is.
+      case " $_r " in *" project "*)
+        case "$_keep" in *" $_n "*) ;; *) printf '%s  %s  project\n' "$_n" "$_m"; continue ;; esac ;;
+      esac
       case "$_keep" in *" $_n "*) ;; *) _pruned="$_pruned $_n"; continue ;; esac
       if _mxtk_lint_is_disabled "$_dis" "$_n"; then _pruned="$_pruned $_n"; continue; fi
       printf '%s  %s  %s\n' "$_n" "$_m" "$(_mxtk_lint_kind "$_n")"

@@ -96,7 +96,7 @@ ARCH002 went 0 → 38 on the casing fix. That looked like a repair. All 38 were 
 the rule had never skipped the platform modules its sibling ARCH003 always skipped, which was
 invisible while it was dead. With the same `SKIP_MODULES`, the same project measures **0**.
 
-CONV010/CONV020 identify a page action only by an `ACT_` name prefix (`refs_to()` reports the same
+CONV010/MXTK-UX003 identify a page action only by an `ACT_` name prefix (`refs_to()` reports the same
 `ref_kind` for a button click and a datasource, so the name is the only signal). That prefix is
 Mendix's Development Best Practices convention, but it is a convention: on a project naming things
 differently, both rules matched nothing and reported clean.
@@ -130,6 +130,12 @@ Confirmed workable everywhere: post-filter totals were 302 / 499 / 611 / 614 acr
 all the same order of magnitude, and no project produced a single real error-severity finding — so
 the ratchet is the *only* mechanism available. `project-bin/lint-gate.sh` implements it
 (`--update-baseline` to accept current counts).
+
+**After upgrading mxcli, re-baseline.** A new mxcli adds built-in rules, so the next exec reports a
+rise that no change of yours caused (v0.28.0 added a built-in CONV020, "Created object never persisted").
+Look at the new findings, then run
+`bin/lint-gate.sh --update-baseline --reason 'mxcli vX built-in rules'`. The baseline records
+`mxcli_version`, and `bin/doctor.sh` prints this hint when the installed mxcli differs from it.
 
 **Accepting a rise is a recorded decision, not a reflex.** Three apps built in four days
 re-baselined 61 times, every time by the agent whose script caused the rise; baselines grew
@@ -168,7 +174,7 @@ onto the wrong document. Each answer is the user's decision, recorded in `PROJEC
 
 | Finding | Why it is not a defect | What to do today |
 |---|---|---|
-| **QUAL004** on a `DS_` flow whose only caller is a Data grid 2 datasource (#360) | The stock rule already counts `datasource` refs (v0.24.0+), yet v0.26.0 flagged two working Data grid 2 datasources. The catalog likely misses the pluggable widget's ref. | Confirm with `describe page`, then accept the rise: `--update-baseline --reason "QUAL004 DS_ datasource false positive"`. Never rename or add a caller. Upstream: `pending-github-issues/qual004-dg2-datasource-ref.md` |
+| **QUAL004** on a `DS_` flow whose only reference is a pluggable widget's datasource (#360) | The stock rule counts `datasource` refs (v0.24.0+), but the catalog drops some pluggable-widget refs: v0.26.0 flagged two working Data grid 2 datasources. On v0.27.0 (Mendix 10.24, one app) a Gallery with a microflow `DataSource` and a microflow `onClick` keeps only the `onClick` ref (2 of 2); one without `onClick` keeps its ref (15 of 15); a third-party widget's datasources have none (3 of 3). `show references to` then says "no references found", while `describe page` shows the flow. | Find the page with `mxcli search "<Module.Flow>"` on a `REFRESH CATALOG FULL SOURCE` catalog (a PAGE row under "Source Matches"). Then accept the rise: `--update-baseline --reason "QUAL004 DS_ datasource false positive"`. Never rename or add a caller. Upstream: [mendixlabs/mxcli#1513](https://github.com/mendixlabs/mxcli/issues/1513) (open; Data grid 2, v0.26.0); draft `bug-logs/pending-github-issues/qual004-dg2-datasource-ref.md` |
 | **QUAL004** on a `TEST_` helper (#241) | It is called from `tests/*.test.mdl`, which lint cannot see. `ENTRY_POINT_PREFIXES` is a constant, not an option. | Baseline with a reason. Keep QUAL004 on: it is the orphan check `process-coherence-pass.md` runs. Upstream: `pending-github-issues/lint-naming-prefixes-as-options.md` |
 | **CUSTOM002** on `TEST_`, `GET_`, `PRS_`, `STUB_` (#241) | `example_microflow.star` is an *example* rule from `mxcli init` ("customize the prefixes"). Its `VALID_PREFIXES` is a constant. | `rules: CUSTOM002: enabled: false`, recorded in `PROJECT.md`, or baseline with a reason. Never edit the `.star` file. Upstream: `pending-github-issues/lint-naming-prefixes-as-options.md` |
 | **QUAL002** on import mappings, published REST services and Marketplace Java actions (#246) | MDL cannot store documentation on the first two (MDL089); a doc comment above them moves to the next microflow. | The rule has per-kind options (mxcli >= 0.24.0): `rules: QUAL002: options: check_import_mappings: false`, `check_published_rest_services: false`, `check_java_actions: false`, `check_java_action_params: false`. Or document them in Studio Pro. Upstream: `pending-github-issues/qual002-skip-mdl089-types.md` |

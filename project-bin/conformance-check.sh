@@ -180,7 +180,8 @@ if [ "$LEDGER_COUNT" -eq 0 ]; then
 fi
 
 # --- extract (module, pointer, status, command) from BUILDABLE rows -------------------
-# A BUILDABLE row is a 7-column table row whose first cell is a JSON Pointer. awk sees 9
+# A BUILDABLE row is a 7-column table row whose first cell is a JSON Pointer (backticked or bare;
+# status `planned` reads as not-built). awk sees 9
 # fields because of the leading and trailing pipes. Only rows with a backticked
 # SHOW/DESCRIBE in the acceptance cell are measurable; the rest are counted, not run.
 # The module label comes from the path, and the path has three shapes (above), so read it per
@@ -214,10 +215,11 @@ extract() {
   mod="$(ledger_module "$ledger")"
   brd="$(ledger_brd "$ledger")"
   awk -F'|' -v mod="$mod" -v brd="$brd" -v file="$ledger" '
-    NF==9 && $2 ~ /^ *`\// {
+    NF==9 && $2 ~ /^ *`?\// {   # pointer cell: backticked or bare (TK-006)
       total++
       ptr=$2; acc=$7; st=$8
       gsub(/^ +| +$/, "", ptr); gsub(/^ +| +$/, "", st)
+      if (st == "planned") st = "not-built"   # "planned" = not built yet (TK-006)
       if (brd != "-") ptr = brd ":" ptr
       if (match(acc, /`(SHOW|DESCRIBE)[^`]*`/)) {
         cmd = substr(acc, RSTART+1, RLENGTH-2)
@@ -263,6 +265,13 @@ if [ "$MEASURABLE" -eq 0 ]; then
   if [ "$NNOTABLE" -gt 0 ] && [ "$NNOTABLE" -eq "$LEDGER_COUNT" ]; then
     echo "FAULT: nothing to measure — the ledger read is an index, not a ledger table." >&2
     while IFS= read -r f; do [ -n "$f" ] && explain_index "$f"; done <<< "$NOTABLE"
+    echo "       Refusing to report a clean run over zero measurements." >&2
+    exit 2
+  fi
+  if [ "$PROSE" -gt 0 ]; then
+    echo "FAULT: $PROSE ledger row(s) found in $LEDGER_COUNT ledger(s), 0 measurable: the acceptance text is prose, not a probe." >&2
+    echo "       A row is measured only when its acceptance cell holds a backticked SHOW or DESCRIBE command." >&2
+    echo "       See skills/coverage-ledger.md for the acceptance column; prose is counted, never run." >&2
     echo "       Refusing to report a clean run over zero measurements." >&2
     exit 2
   fi
@@ -351,10 +360,31 @@ probe() {
   esac
   if [ $rc -ne 0 ]; then echo "ABSENT"; return; fi
   if [ -z "$(printf '%s' "$out" | tr -d '[:space:]')" ]; then echo "ABSENT"; return; fi
-  case "$out" in
-    Error:*|*"not found"*) echo "ABSENT"; return ;;
-    *"(0 "*)               echo "ABSENT"; return ;;   # empty result set, e.g. "(0 entities)"
-  esac
+  # Read the two absence markers only where mxcli prints them, never in the definition body.
+  # A substring match read a DESCRIBE whose documentation said "HttpStatus (0 = no response or
+  # time-out)" as an empty set, and the verbatim v0.25.0 `describe navigation` of mxcli's public
+  # test app carries "  not found page Pages.Vehicle_Overview" (a navigation setting): both
+  # scored ABSENT, so built rows went STALE (#470).
+  #   Error   — mxcli puts its error FIRST (stderr is merged above, and `-c` pairs it with exit 1,
+  #             which the rc test already scored); so only the first non-blank line is read, the
+  #             old `Error:*` start-of-output meaning. Not any line: a body line CAN start at
+  #             column 0 — enumerations, scheduled events and image collections print their
+  #             documentation raw inside `/** … */` (one ` * ` on the first line only), and a
+  #             multi-line string prints raw too, so a doc line "Error: …" is still PRESENT.
+  #   (0 …)   — a table's summary is printed as its own LAST line, `fmt.Fprintf("\n%s\n", Summary)`
+  #             with Summary = "(%d entities)", "(%d workflow group(s))", …; a definition ends in
+  #             `/`, `;` or a grant, never in a parenthesised count.
+  # CR stripped for a Windows-built mxcli (printed "\n%s\n", so nothing else trails the summary).
+  # Here-strings, not `printf | grep -q`: under pipefail
+  # that pipe can lose to SIGPIPE on a long definition (test-pipefail-grep-q.sh).
+  local first last
+  out="$(tr -d '\r' <<<"$out")"
+  first="$(sed -n '/[^[:space:]]/{p;q;}' <<<"$out")"
+  case "$first" in Error:*) echo "ABSENT"; return ;; esac
+  last="$(sed '/^[[:space:]]*$/d' <<<"$out" | tail -n 1)"
+  if grep -Eq '^\(0 .*\)$' <<<"$last"; then   # no trailing class: the CR strip above is what lets CRLF output match
+    echo "ABSENT"; return   # empty result set, e.g. "(0 entities)"
+  fi
   echo "PRESENT"
 }
 

@@ -65,7 +65,7 @@ if ! type require_py >/dev/null 2>&1; then
   }
 fi
 if ! type find_mpr >/dev/null 2>&1; then
-  find_mpr() { ls "$PROJECT_ROOT"/*.mpr "$PROJECT_ROOT"/app/*.mpr 2>/dev/null | head -1; }
+  find_mpr() { ls "$PROJECT_ROOT"/*.mpr "$PROJECT_ROOT"/app/*.mpr "$PROJECT_ROOT"/apps/*/*.mpr 2>/dev/null | head -1; }
 fi
 if ! type find_project_mxcli >/dev/null 2>&1; then
   find_project_mxcli() { [ -x "$PROJECT_ROOT/mxcli" ] && echo "$PROJECT_ROOT/mxcli"; }

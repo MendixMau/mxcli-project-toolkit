@@ -436,7 +436,7 @@ fi
 # ── Starlark lint rules ──────────────────────────────────────────────────────────────────
 # mxcli seeds .claude/lint-rules/ with its own copies; three of them are broken as shipped
 # (two match no entity at all and report a clean pass forever). Install the toolkit's fixed
-# versions over the stock ones, and conv020 — which mxcli does not ship — alongside them.
+# versions over the stock ones, and mxtk_ux003 (MXTK-UX003) — which mxcli does not ship — alongside them.
 # Nothing a human edited is overwritten: see bin/lib/install-lint-rules.sh.
 #
 # THIS MUST RUN AFTER wire-agents.sh. That script runs `mxcli init`, and `mxcli init` re-seeds
@@ -472,7 +472,7 @@ fi
 # analysis/ — THE OUTPUT SIDE, and it was never scaffolded (fixed 2026-08-20).
 #
 # Every rendered surface in the pipeline lands here: triage.html (bin/triage-report.sh),
-# source-sufficiency.html, brd-report.html (bin/brd-report.sh), open-questions.html. gate-check.sh
+# source-sufficiency.html, brd-report.html (bin/brd-report.sh; the open questions live in it). gate-check.sh
 # resolves $ANALYSIS_BASE against it. sources/ was created here from day one; analysis/ was not,
 # on the unstated assumption that an extraction pipeline would `mkdir -p` it on its way past.
 #
@@ -504,8 +504,7 @@ and the honest way to change one is to re-run its producer.
 | `source-sufficiency.html` | `bin/source-sufficiency.sh report` | 0 |
 | `triage.html` | `bin/triage-report.sh <project>` | 0 |
 | `extraction-report.html` | the extraction pipeline, or `kb-generation.md` for a document corpus | 1 |
-| `brd-report.html` | `bin/brd-report.sh <project>` | 2 |
-| `open-questions.html` | `bin/questions-report.sh <project> --stage N` | any gate |
+| `brd-report.html` | `bin/brd-report.sh <project> [--stage N]`: process map, requirements and open questions | 2, any gate |
 
 **This folder exists in every entry mode.** A requirements-driven or greenfield project runs no
 extraction pipeline, but it still produces a sufficiency grade, a scope decision and a BRD report
@@ -612,6 +611,18 @@ else
   fi
   printf '# Per-machine Claude Code permissions (absolute toolkit-root paths) — never shared\n.claude/settings.local.json\n' >> "$GITIGNORE"
   echo "Created/updated: .gitignore (.claude/settings.local.json ignored)"
+fi
+
+# The progress report caches which session logs belong to this project: absolute paths with a
+# user name and session ids. Machine-local, never tracked.
+if [ -f "$GITIGNORE" ] && grep -qE '^/?\.claude/progress-report-sessions\.txt$' "$GITIGNORE"; then
+  echo "Skip: .claude/progress-report-sessions.txt already listed in .gitignore."
+else
+  if [ -f "$GITIGNORE" ] && [ -s "$GITIGNORE" ] && [ -n "$(tail -c 1 "$GITIGNORE")" ]; then
+    printf '\n' >> "$GITIGNORE"
+  fi
+  printf '# Machine-local progress report session cache (absolute session-log paths) — never shared\n/.claude/progress-report-sessions.txt\n' >> "$GITIGNORE"
+  echo "Created/updated: .gitignore (.claude/progress-report-sessions.txt ignored)"
 fi
 
 # ---------------------------------------------------------------------------

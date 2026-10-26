@@ -43,7 +43,7 @@ git mv mdlsource/<NN-name>.mdl mdlsource/done-<NN-name>.mdl
 - The file stays in place and re-runnable — if a later phase invalidates it, rename back (drop the `done-` prefix), fix, re-exec, re-done.
 - Do **not** rename a script that only passed `mxcli check` or only exec'd without the happy-path/coverage check — `done-` means the *feature* works, not just that the MDL ran (mirrors the Core Principle: CE-error-free ≠ done).
 
-`build-plan.html` phase status and the `done-` prefixes should agree — when every script for a phase is `done-`, that phase flips to ✓ in the tracker.
+`progress-report.html` phase status and the `done-` prefixes should agree — when every script for a phase is `done-`, that phase flips to ✓ in the tracker.
 
 `project-bin/exec.sh` prints this rename reminder at the moment a script's gate passes clean.
 `project-bin/done-drift-check.sh` (surfaced automatically by `close-task.sh`) is the backstop for
@@ -320,7 +320,9 @@ Every MDL script, and every one-off model patch (`--patch`), is applied with `./
 A raw `./mxcli exec` writes no BUILD-LOG row, takes no snapshot and runs no gate, so the change
 shows as "not recorded" to everything that reads the build log (status, done-drift, proof views).
 
-When a guard refuses, the script's change is not in the model, unless exec.sh says the write is kept (LINT ROSE/BLIND, ⚠️ PARTIAL) — then do not re-apply it. Most refusals also write a
+When a guard refuses, the script's change is not in the model, unless exec.sh says the write is kept (exit 4 or 5, exit 1 under `Lint gate: hard`, ⚠️ PARTIAL) — then do not re-apply it.
+Exit codes (defined in the `exec.sh` header): `0` applied, gate passed · `1` not applied or rolled back, or ⚠️ PARTIAL (kept: a LINT ROSE under `Lint gate: hard`) · `2` usage ·
+`4` applied, gate passed, lint only (LINT ROSE/BLIND) · `5` applied, UNVERIFIED: run `./bin/verify-model.sh` before the next exec. Most refusals also write a
 BUILD-LOG row (uncommitted model, `--commit-first`, a failed pre-exec check, a gate that could
 not run, PRE-EXISTING errors, a NEW gate error); the plain Studio Pro refusal, the lock refusal and argument errors only print.
 Your move is one of three — **commit, wait, or stop and report** — never an override:
@@ -333,6 +335,8 @@ Your move is one of three — **commit, wait, or stop and report** — never an 
 | The mxbuild gate cannot run, even after its own download | Stop and report; run `bin/doctor.sh`. `ALLOW_UNVERIFIED=1` only when the person says so |
 | Pre-exec check or a NEW mxbuild error | Fix the script. That is the gate working |
 | `PRE-EXISTING <codes>` — errors already in the model before this script | Not the script's cause. Stop and report: it needs Studio Pro (e.g. "Update security") or a separate fix script, not a retry |
+| `lint could not run` with "no baseline yet" (the first exec, usually the scaffold) | Take the first baseline now, with the person: `bin/lint-gate.sh --update-baseline`. Later rises then measure the build, not the template |
+| `LINT ROSE` after a clean mxbuild (exit 4, or 1 under `Lint gate: hard`; write kept) | Expected often in a growing app, and not a broken script: do not re-apply it. Fix the new lint findings, or stop and report; only the person accepts a rise, with `bin/lint-gate.sh --update-baseline --reason "<why>"` |
 | Any other refusal | Read the remedy exec.sh prints and do that; the table above is not the full list of guards |
 
 **Never set `FORCE_EXEC=1` on your own initiative** — only when the person tells you to, naming
@@ -403,7 +407,7 @@ Before running exec.sh after any MCP session:
 
 ```
 1. Cmd+S in Studio Pro (or run save-sp.sh)
-2. git add MyProject.mpr mprcontents/ && git commit -m "MCP: <what changed>"
+2. git add MyProject.mpr mprcontents/ javasource/ javascriptsource/ && git commit -m "MCP: <what changed>"
 3. Close the project in Studio Pro
 4. ./bin/exec.sh mdlsource/my-script.mdl
 ```
@@ -426,12 +430,15 @@ Resolve it by enumerating first, then naming:
 ```
 mxcli exec mdlsource/my-script.mdl -p App.mpr
 git status --short                      # <- the list of what exec actually wrote
-git add App.mpr mprcontents/ mdlsource/my-script.mdl
+git add App.mpr mprcontents/ javasource/ javascriptsource/ mdlsource/my-script.mdl
 git commit -m "..."
 ```
 
 `mprcontents/` as a directory pathspec is the right grain: it catches every unit the exec
-rewrote without reaching outside the model. This is still not `add -A` — every path is named.
+rewrote. `javasource/` and `javascriptsource/` catch the action bodies exec writes beside the
+model (`create java action ... as $$`): left out, the app builds here and not in a clone.
+Drop one the app does not have: git refuses the whole add on a missing pathspec.
+This is still not `add -A` — every path is named.
 
 **Why this is written down (2026-09-16, a MOC/PSSR app replacement).** A commit named
 `App.mpr` and the script, and left the exploded navigation unit behind. Git reported
@@ -590,11 +597,9 @@ numbered: a gate inserted in the middle used to leave every ordinal behind it wr
       Diagnostic only: findings go to the punch-list, fixes are a separate approved pass.
 15. **Gate: COVERAGE — business-rule coverage checklist (mandatory, never skip):** `gate-agent` walks the confirmed checklist from the Pre-Module Checklist step — every mandatory/read-only/conditional/validation item — against the built module, item by item. A module with 0 CE errors and a working happy path but an unchecked validation rule is **not done**. Document any gap as an explicit sub-task; don't mark the module done with open items on this list.
 16. Mark module done ✅ — only if Gate: UI's per-module review produced no open P1. Then flip the
-    module's rows in `build-plan.md` to `built`. `architecture/build-plan.html` refreshes itself
-    after every `exec.sh` and every full `gate-check.sh` run, so the `done-` renames and the State
-    column show on the next of either; run `project-bin/build-plan-status.sh --html` only to see
-    it now. Mechanical, not judged: it reads `build-plan.md`, `done-` prefixes and verify-module.sh
-    summaries, and flags a row whose State disagrees with its scripts — it decides nothing.
+    module's rows in `build-plan.md` to `built`. `architecture/progress-report.html` refreshes after
+    every `exec.sh` and full `gate-check.sh` run (mechanical, decides nothing). Per PROJECT.md
+    `Progress report:` (`brd-to-build-plan.md` Step 10), `ask` offers it once here: `build-plan-status.sh --open`.
 17. **Every N=2–3 modules, run `process-coherence-pass.md`** on the cluster just closed — a
     cross-module seam check (does the persona journey actually chain across these modules, not
     just within each). This is not a per-module step and does not gate an individual module, but
@@ -618,9 +623,9 @@ step.
 **Verification is scoped — once per gate, not once per script.** Gate: SYNTAX and Gate: BUILD run
 inside every `exec.sh`, and they are the only per-script checks. The test passes (happy path, journeys, LOOK) run **once
 per gate round** over what that round changed, and `bin/gate-check.sh` runs **once per gate round**,
-not after every exec. What re-runs after a change, by whom, and when the full suite runs (module
-close only, never batch close) is `testing-shape.md` §3 — the single source; `exec.sh` prints the
-run's lane (`ui-only` / `logic`). Repeating a pass the artifacts already prove is the over-testing
+not after every exec. What re-runs after a change, by whom, and when the full suite runs (per
+PROJECT.md `## Test strategy`; never batch close) is `testing-shape.md` §3; `exec.sh` prints
+the run's lane (`ui-only` / `logic`). Repeating a pass the artifacts already prove is the over-testing
 toolkit issue #274 measured: UI-only changes re-proven 5–10×.
 
 > **Older ordinals, for anyone arriving from a document that still cites them:** Gate 2 = Gate:

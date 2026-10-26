@@ -1,0 +1,48 @@
+{
+  "module": "NativeNote",
+  "product_version": "9.24.2.6130",
+  "units_module_subtree": 73,
+  "units_shell": 6,
+  "project_docs_scrubbed": [
+    "Settings$ProjectSettings",
+    "Navigation$NavigationDocument",
+    "Security$ProjectSecurity"
+  ],
+  "unit_types": {
+    "DomainModels$DomainModel": 1,
+    "Enumerations$Enumeration": 2,
+    "Forms$Page": 2,
+    "Microflows$Microflow": 16,
+    "Microflows$Nanoflow": 35,
+    "Projects$Folder": 14,
+    "Projects$ModuleImpl": 1,
+    "Projects$ModuleSettings": 1,
+    "Security$ModuleSecurity": 1
+  },
+  "from_app_store": null,
+  "files": 0,
+  "java_files": 0,
+  "js_files": 0,
+  "widgets_referenced": [
+    "com.mendix.widget.native.appevents.AppEvents",
+    "com.mendix.widget.native.repeater.Repeater"
+  ],
+  "widgets_shipped": [],
+  "widgets_unresolved": [
+    "com.mendix.widget.native.appevents.AppEvents",
+    "com.mendix.widget.native.repeater.Repeater"
+  ],
+  "crossing_refs_by_module": {
+    "Administration": 3,
+    "CommunityCommons": 2,
+    "FSM_Specific": 2,
+    "General": 1,
+    "NanoflowCommons": 4,
+    "NativeMobile": 8,
+    "NativeMobileResources": 1,
+    "NativeTechnician": 2,
+    "Synchronization": 5,
+    "Utils": 7
+  },
+  "out": "outfix/NativeNote-924.mpk"
+}

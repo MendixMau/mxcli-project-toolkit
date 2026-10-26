@@ -1,21 +1,63 @@
 # mxcli-project-toolkit
 
+[![Release](https://img.shields.io/github/v/release/MendixMau/mxcli-project-toolkit?label=release)](https://github.com/MendixMau/mxcli-project-toolkit/releases/latest) [![Checks](https://github.com/MendixMau/mxcli-project-toolkit/actions/workflows/checks.yml/badge.svg?branch=master)](https://github.com/MendixMau/mxcli-project-toolkit/actions/workflows/checks.yml)
+
 > **Agents: this README is orientation, not the spec.** For any pipeline work, the executable authority is `skills/conversion-runbook.md` (stages, gates, interview protocol) plus each stage's owning skill — load those before producing anything. Stage summaries here and in `toolkit-guide.html` are routing, not deliverable lists.
+
+**A harness for AI coding agents that build and change Mendix apps, so the result is one you can review and trust.**
+Every decision written down, every stage gated, every rule learned on a real project.
 
 ## What it is
 
-A shared process layer for building and changing **Mendix apps with an AI coding agent** and
-[mxcli](https://github.com/mendixlabs/mxcli). You clone it once; each of your projects points at
-it. It gives the agent a staged pipeline, a single place to record decisions, skills it loads
-only when a task calls for them, and mechanical checks that report what is actually in your
-project rather than what the agent believes is there.
+```mermaid
+flowchart LR
+  you["🧑 You<br/>answer the questions"] --> agent["🤖 AI agent<br/>Claude Code, Copilot, Cursor..."]
+  agent --> tk["🧰 This toolkit<br/>stages · skills · gates"]
+  tk --> cli["mxcli"] --> app[("Mendix app<br/>.mpr")]
+  tk --> rep["📊 Reports<br/>you can read"]
+```
 
-It is for Mendix developers and leads who already use (or want to use) an agent such as Claude
-Code to migrate a legacy app, build from requirements, or change a live app, and who want the
-result to be reviewable: every decision written down, every stage gated, every rule backed by a
-real incident.
+A process layer on top of [mxcli](https://github.com/mendixlabs/mxcli). Clone it once; each
+project points at it.
+
+**Measured in 1.0** ([release notes](docs/releases/v1.0.md)):
+
+| **5 of 5** vs 0 of 5 | **~40%** | **0 to 1** of 20 |
+|:---:|:---:|:---:|
+| drafts that refused a planted bad binding, with vs without the toolkit | fewer tool calls with a context pack | journey files a typical change re-runs |
 
 ## How it works
+
+```mermaid
+flowchart LR
+  subgraph U["1 · Understand"]
+    direction TB
+    P[P kickoff] --> T0[0 triage ✋] --> A1[1 analysis] --> R2[2 requirements]
+  end
+  subgraph D["2 · Design"]
+    direction TB
+    D3[3 architecture and design ✋] --> B4[4 build plan ✋]
+  end
+  subgraph S["3 · Build and ship"]
+    direction TB
+    B5[5 build, module by module] --> T6[6 test] --> C7[7 cutover ✋<br/>migrations only]
+  end
+  U --> D --> S
+```
+
+✋ = hard gate: the agent asks, waits, and records your answer. Nothing before Stage 5 touches
+the model.
+
+| Piece | What it does |
+|---|---|
+| 📝 `PROJECT.md` | One register: every answer as `CONFIRMED` or `ASSUMED` |
+| 📚 `skills/` | The method, loaded only when its trigger happens |
+| 🚦 `bin/gate-check.sh` | Per stage: `PASS` / `PENDING` / `FAIL` / `WAIVED` |
+| 🛡️ `bin/exec.sh` | Every model write: snapshot, mxbuild, lint, rollback on failure |
+| 🧪 Tests at key moments | Per change only what it touched; everything at build end and before deploy |
+
+<details>
+<summary>More on stages, gates and instruments</summary>
 
 - **Stages and gates.** Work moves through the same stages for every project: kickoff (P),
   triage (0), analysis (1), requirements (2), architecture and design (3), build plan (4), build
@@ -38,28 +80,33 @@ real incident.
   `verify-module.sh`, `page-fidelity.js`, `lint-gate.sh` and the rest. `bin/sync-project.sh`
   keeps the copies you did not edit current.
 
-```
-P kickoff → 0 triage ✋ → 1 analysis → 2 requirements → 3 architecture & design ✋
-          → 4 build plan ✋ → 5 build (module by module, gated) → 6 test → 7 cutover ✋
-```
 
 `✋` is a hard gate. Nothing before Stage 5 touches the model: a wrong module boundary is cheaper
 to fix in a diagram than after 40 MDL scripts assume it. Each entry mode's walk, with the
 commands that run at every step: `docs/pipeline-walks.html`.
 
+</details>
+
+## What you see
+
+| Page | When | Shows |
+|---|---|---|
+| **Process map + BRD report** (`bin/brd-report.sh`) | Stages 2 and 3 | Swimlanes per process, questions pinned to each step |
+| **Progress report** (`architecture/progress-report.html`) | Stage 5 onward | Stages P to 6, phases built and proven, time and cost |
+| **Project dashboard** (`index.html`) | Every gate run | Gate status per stage and module |
+| **Bug log** (`docs/bugs.jsonl`, `bin/file-bugs.sh`) | Any time | Bugs, redacted before filing |
+
 ## Ways to use it
 
-Four pipeline entry modes share the same stages, plus one route with no pipeline at all. The
-agent proposes the mode at kickoff with evidence and you confirm it; it is never silently
-inferred (`skills/conversion-runbook.md` → "Entry Modes").
+| Mode | Pick it when | Stages |
+|---|---|---|
+| **Migration** | Legacy source code exists | P, 0 to 7 |
+| **Requirements-driven** | Specs, BRDs or wireframes, no code | P, 0 to 6 |
+| **Greenfield** | Just an idea or a plan | P (light), 0, 5, 6 |
+| **Change an existing app** | A live `.mpr` you add to or alter | P, 0 to 6 per change |
+| **À la carte assurance** | Audit or a test net only | none |
 
-| Mode | Pick it when | Stages | Start from |
-|---|---|---|---|
-| **Migration** | Legacy source code exists (OutSystems, Java/Angular, Node/React, or another stack) | P, 0–7 | `bin/init-project.sh`, then `skills/conversion-runbook.md`; extractors in `pipelines/` |
-| **Requirements-driven** | Specs, BRDs, workshop output or wireframes, no legacy code | P, 0–6 | `bin/init-project.sh`; document discovery replaces code extraction |
-| **Greenfield** | Starting from a conversation or a plan you already have | P (light), 0 (scope), 5–6 | `bin/init-project.sh` |
-| **Change an existing app** | A live `.mpr` you are adding to or altering, the rest stays | P, 0–6 per change | `bin/init-project.sh`, then `skills/existing-app-change.md` |
-| **À la carte assurance** | Audit, lint, or put a regression/e2e net under an app you have, no pipeline | none | `skills/existing-app-assurance.md` |
+The agent proposes the mode at kickoff; you confirm it.
 
 ## Quick start
 
@@ -69,9 +116,16 @@ git clone https://github.com/MendixMau/mxcli-project-toolkit.git ~/Mendix/mxcli-
 ~/Mendix/mxcli-project-toolkit/bin/init-project.sh <project-root>  # one command per project
 ```
 
+Then open your agent in the project folder and say where you start:
+*"Start the toolkit pipeline. I have the legacy source in `source/`."*
+
+<details>
+<summary>Step by step, upgrading and pinning</summary>
+
 1. **`doctor.sh`** names any missing prerequisite (bash, Python 3, sqlite3, line endings, mxcli,
    mxbuild) and exits non-zero if a stage would break. `doctor.sh --install <project>` fetches
-   mxcli and mxbuild after showing the plan and asking. Windows and Linux: read
+   mxcli and mxbuild after showing the plan and asking (an agent or any shell with no terminal
+   must add `--yes`, or nothing is downloaded). Windows and Linux: read
    [Platform support](#platform-support) first.
 2. **`init-project.sh`** scaffolds the project folder: `intake.md`, `PROJECT.md`,
    `CLAUDE.local.md` (the wiring every session reads), the six agent stubs, `bin/` instruments
@@ -83,7 +137,10 @@ git clone https://github.com/MendixMau/mxcli-project-toolkit.git ~/Mendix/mxcli-
 4. **Open your agent in the project folder and say where you are starting from**, for example:
    *"Start the toolkit pipeline. I have the legacy source in `source/`."* or *"I want to add an
    approval flow to this app."* The agent reads the runbook, proposes an entry mode and starts
-   the kickoff interview. In later sessions, `bin/status.sh` is the first command.
+   the kickoff interview. In later sessions, `bin/status.sh` is the first command. Launch every
+   lead session with the project folder as its working directory: Claude Code finds
+   `.claude/agents/` by walking up from there, so a session started in a sibling folder gets no
+   project agents (`bin/status.sh` prints a `CWD` warning when this happens).
 5. **Upgrade** with `git -C ~/Mendix/mxcli-project-toolkit pull`, then
    `bin/sync-project.sh <project-root>` for each project. Skills update with the pull; sync
    refreshes what was copied into the project and prints the `Toolkit release:` you are on once
@@ -92,7 +149,15 @@ git clone https://github.com/MendixMau/mxcli-project-toolkit.git ~/Mendix/mxcli-
 Everything a project produces lives inside its own folder; this clone stays clean
 ([Consuming this toolkit](#consuming-this-toolkit)).
 
+</details>
+
 ## Make it yours
+
+Every opinion has a switch that survives `git pull` and sync. All project settings in one table:
+[1.0 notes, section 2](docs/releases/v1.0.md#2-settings-you-control).
+
+<details>
+<summary>How to adjust each opinion</summary>
 
 The toolkit is opinionated, and every opinion has a supported way to adjust it that survives
 `git pull` + `sync-project.sh`. Use these instead of editing toolkit files in place, which is the
@@ -113,7 +178,14 @@ drift a fork gets.
 If an opinion is wrong for everyone, not just you, change it upstream: see
 [We need your input](#we-need-your-input).
 
+</details>
+
 ## Testing and quality
+
+CI on every PR, every instrument proven to fail where it must, every merge independently reviewed.
+
+<details>
+<summary>What the toolkit tests about itself, and in your app</summary>
 
 **What the toolkit tests about itself.**
 
@@ -141,40 +213,34 @@ If an opinion is wrong for everyone, not just you, change it upstream: see
 - **Behaviour:** Playwright journeys plus OQL database assertions (`skills/testing-shape.md`,
   `skills/journey-proof.md`), and `bin/verify-module.sh` to run every instrument at module close.
 
+</details>
+
 ## We need your input
 
-Every rule in this toolkit traces to something that went wrong on a real project: a corrupted
-model, a gate that went green over a broken feature, a question nobody asked. That is also its
-limit. It knows the walls its users have hit so far, and it learns about yours only if you tell
-it. Field feedback is how it improves.
+Every rule here came from a real project hitting a wall. Tell us about yours: it becomes a better
+foundation for every team.
 
-Ways in, from least to most effort ([CONTRIBUTING.md](CONTRIBUTING.md) has the detail):
-
-1. **Drop a file in `contrib/inbox/`** (copy `contrib/inbox/TEMPLATE.md`) and open a PR. No
-   quality bar: a bug-log entry, a diff, three sentences, raw terminal output.
-2. **Run `bin/harvest-learnings.sh <project-root>` at project wrap-up.** It drafts inbox files
-   from your project's bug logs, decision-register promotions and locally patched toolkit
-   scripts. Review them, then PR.
-3. **Open a direct PR** into `skills/`, `bin/` or `bug-logs/`, held to the field-proof bar.
-4. **Open a GitHub issue.** For a bug: the exact command, its verbatim output, and the
-   `Toolkit release:` line `bin/sync-project.sh` prints. For an idea: the failure it would
-   prevent.
+| Effort | How |
+|---|---|
+| ⚪ Lowest | Drop a file in `contrib/inbox/` (copy `TEMPLATE.md`) and open a PR. No quality bar |
+| 🟢 One command | `bin/harvest-learnings.sh <project-root>` at wrap-up drafts inbox files for you |
+| 🟡 Issue | The exact command, its output, and the `Toolkit release:` line sync prints |
+| 🔵 Direct PR | Into `skills/`, `bin/` or `bug-logs/`, held to the field-proof bar |
 
 **No client data**, anywhere: no client, partner or person names, codenames, internal hosts or
-real paths. Genericize first; the leak guard runs in CI but cannot know your client.
-
-Merged contributions get a `CHANGELOG.md` line crediting you or your project by name, and the
-release notes name contributors too.
+real paths. Contributors are credited by name in `CHANGELOG.md` and the release notes.
+Detail: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Releases
 
-Merged changes ship on a release train tagged `vYYYY.MM.DD` (the cycle is defined at the top of
-`CHANGELOG.md`). Tags are published from 1.0 on; earlier dated CHANGELOG sections were never
-pushed as tags. On top of the train, named milestones get curated notes: start
-with [**1.0**](docs/releases/v1.0.md). What a milestone promises, major versus minor, deprecation,
-and how to check, upgrade or pin the version a project uses: `docs/RELEASE-PROCESS.md` §8.
+**Bundled releases** from 1.0 on: master stays stable, then one tagged release (`vYYYY.MM.DD`)
+with notes. Latest: [**1.0**](docs/releases/v1.0.md).
 
----
+```bash
+git -C ~/Mendix/mxcli-project-toolkit pull && ~/Mendix/mxcli-project-toolkit/bin/sync-project.sh <project-root>
+```
+
+Pinning, major vs minor and deprecation: `docs/RELEASE-PROCESS.md` §8.
 
 ## Reference
 
@@ -251,7 +317,8 @@ they would have saved, restarted or reopened it. Everything either side of that 
 > ```
 >
 > `bin/doctor.sh --install <project>` closes the gap without Studio Pro: it fetches a
-> version-matched mxbuild that `exec.sh` then finds on its own.
+> version-matched mxbuild that `exec.sh` then finds on its own. With no terminal to answer the
+> prompt (an agent, CI), add `--yes`: `bin/doctor.sh --install --yes <project>`.
 
 **Existing clone from before 2026-08-18?** You predate `.gitattributes`, so if git checked the
 scripts out with CRLF they will not run. Fix once:
@@ -536,6 +603,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Generating a new project's CLAUDE.md — baseline routing plus project-specific facts | `skills/bootstrap-project.md` |
 | Setting up or resuming an mxcli project in a cloud/ephemeral container — the one-time setup order (mxcli download → mxcli init → init-project.sh → sources decision → push) and the commit-and-push loop that survives container reclaim | `skills/cloud-dev-environment.md` |
 | Changing an EXISTING Mendix app — adding a feature, altering a flow, restructuring a module — when it has no BRDs, no architecture doc and no wireframes: the knowledge base comes from the live model (Path D), stages 2–4 run over what changes plus what it touches, nothing more, and the Track B regression baseline is the precondition; audit-only stays in existing-app-assurance | `skills/existing-app-change.md` |
+| Splitting an existing Mendix monolith into several apps — strangler, "move module X into its own app", carving out a slice, microservices from one .mpr; choosing the cut, moving a slice by MPK, accounting for every crossing edge, or reporting the level a slice reached | `skills/decompose-app.md` |
 | Setting up or wiring a COMPANY BRAIN — the private tier between the toolkit and a project for own skills, conventions, lint rules, MDL snippets and approved MPKs; and deciding whether something goes to the toolkit, the company brain or docs/brain/ | `skills/company-brain.md` |
 | Cutover and retrospective — promoting proven patterns back into the toolkit | `skills/close-the-loop.md` |
 | Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence, or counting tokens from transcripts — a claim not in the register may not be cited | `skills/measured-claims.md` |
@@ -550,6 +618,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Reviewing what the extraction actually produced — the Stage 1 surface, and the file the Stage 1 gate looks for. Renders a code-extracted and a document knowledge base alike, so a requirements-driven project gets the surface too; prints no zero that a second record does not agree with | `bin/extraction-report.sh` |
 | Assessing or planning a migration up front, before any pipeline is chosen | `skills/assess-migration.md` |
 | Running the extraction pipeline | `skills/migration-pipeline.md` |
+| Rehosting an existing Mendix .mpr into a fresh app — "port this app to a clean Mendix 11 project", re-platforming or rebuilding a whole app from its own model, running pipelines/mendix-mpr/rehost-extract.sh or reading its fidelity ledger | `skills/rehost-app.md` |
 | Migrating from a stack that has no dedicated pipeline | `skills/migrate-general.md` |
 | Migrating an OutSystems app | `skills/migrate-outsystems.md` |
 | Understanding OutSystems 11 source | `skills/source-os11.md` |
@@ -588,11 +657,13 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 
 | Task | Skill to load |
 |---|---|
+| Building any page or snippet — before the first widget. Wireframe, tokens, gallery reuse, cross-check; no wireframe means STOP | `skills/ui-preflight-pages.md` |
 | Building or using the in-app design gallery | `skills/learned-stylegallery.md` |
 | Before porting ds.css into SCSS, and at the Stage-3 gate — greps the stylesheet for rules that cannot match the HTML Mendix emits (rem against the real root, table/th/td selectors, positional row selectors). mx check, mxcli check and mxcli lint are all blind to CSS | `project-bin/check-design-portability.sh` |
 | After every wireframe edit: assembles design/wireframes/*.html into design/prototype.html, one hash-routed page a stakeholder can click through instead of twenty separate files. Generated, never edited (design-artifacts.md Step 3) | `project-bin/assemble-prototype.js` |
 | Before wireframes pass to the build loop, and with --brd before a BRD is signed off: dead #/route links, orphan screens, controls with no data-bind and no data-cut, BRD routes no screen has, screens no use case walks (design-artifacts.md Step 3c, brd-validation.md check 8) | `project-bin/check-prototype-links.js` |
 | Designing the brand and ONE ANNOTATED WIREFRAME PER SCREEN before building pages — the design system alone is half the deliverable | `skills/design-artifacts.md` |
+| At Stage 2 close (draft, before the questions are raised) and again after the wireframes (Stage 3 re-render), when a reviewer cannot tell where the open questions and ASSUMED decisions fit: one swimlane map per process, each step on its wireframe, every question pinned to a step (project-bin/process-map.js validate, anchor, build) | `skills/process-map.md` |
 | Stage 3, after the role model is CONFIRMED and BEFORE THE FIRST WIREFRAME — and any time a page shows ONE object, a menu item or home page is added, or a data source retrieves the current/first record: role homes, inboxes, and per page how it is reached and which object it takes as parameter | `skills/interaction-model.md` |
 | Before a wireframe or a design commits to a WIDGET, when a requirement shows a widget to one role and not another, and when a page script hits a parse error that looks like a syntax mistake: the short list of things MDL cannot write at all, and the four-minute probe that answers it at Stage 3 instead of at build time | `skills/learned-mdl-cannot-express.md` |
 
@@ -602,7 +673,8 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 |---|---|
 | Dispatching a build step to a helper — generate its one-file pack (the brief's Build steps row, mxcli brain brief, live DESCRIBEs, example, folder) and hand over the path instead of a reading list. Measured: 25-38% fewer tool calls and 30-41% less time, same quality; the token saving is not proven | `project-bin/context-pack.sh` |
 | An exec.sh guard refused a write (not a permission prompt), or building a module with mxcli — verified, iterative, coverage-checklist gated; on a refusal: commit, wait or stop, never FORCE_EXEC | `skills/iterative-build-loop.md` |
-| After marking a module done, or any time "how much is built vs proven" is asked — renders build-plan.html from done- prefixes and verify-module.sh/improvement-register.md, kept as two honestly separate views; --json writes architecture/build-plan.json parsed from build-plan.md's Phase headings (a plan with no Phase headings gets no file) | `project-bin/build-plan-status.sh` |
+| Adding a second language, a language picker or a translation script — and the moment a language picker errors, shows a blank label or changes nothing: source language, enabled languages, the user's starting language, a switch a non-admin role can use | `skills/learned-multilingual-app.md` |
+| After marking a module done, or any time "how much is built vs proven" is asked — renders progress-report.html from done- prefixes and verify-module.sh/improvement-register.md, kept as two honestly separate views; --json writes architecture/build-plan.json parsed from build-plan.md's Phase headings (a plan with no Phase headings gets no file); --refresh keeps an existing build-plan.json current but never creates one | `project-bin/build-plan-status.sh` |
 | Turning a client-derived Mendix app into a clean, shareable demo with zero client fingerprint — branding, data, custom widgets | `skills/anonymize-client-app-for-demo.md` |
 | Handing a headless-built model to a person — opening it in Studio Pro, a free sandbox, or a colleague's machine: the model travels, the demo data and runtime config (keys, an agent's bound model) do not, and each needs its own re-establish step | `skills/handoff-to-studio-pro.md` |
 | Stage 5 start, before the first module of any entry mode — one entity, flow, page, nav, demo user, journey and screenshot proven in the running app, so build/run/look/test are known to work before a module depends on them | `skills/walking-skeleton.md` |
@@ -613,6 +685,8 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 
 | Task | Skill to load |
 |---|---|
+| Writing or fixing any microflow — MDL gotchas plus annotation discipline | `skills/learned-microflow-patterns.md` |
+| Writing a microflow with any loop, a retrieve/commit/call inside a loop, nested or multiple loops, >20 activities counting loop bodies, or a list built from a list — post the checklist before the first MDL line | `skills/microflow-preflight.md` |
 | Reading what loop bodies do (LOOP_TQ, deferred commit, nested loop, REST in loop, transaction control per item, scheduled-event reachability) from described MDL; the catalog holds top-level activities only and cannot see inside a loop | `skills/microflow-loop-antipatterns.md` |
 | Writing MDL microflow scripts — worked recipes | `skills/mdl-cookbook-microflows.md` |
 | Writing a single MDL script that takes a project from nothing to a working vertical slice — execution order, why it is deliberately non-idempotent, the instrument hierarchy, and the silent failures that pass every check | `skills/build/mdl/oneshot-mdl-method.md` |
@@ -649,7 +723,9 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 
 | Task | Skill to load |
 |---|---|
+| Wiring a service seam between two Mendix apps — one app's OData or REST consumed by another, replacing a stub by an external entity, joining data that lives in the other app, or choosing keys and auth for an app-to-app service | `skills/mendix-service-seam.md` |
 | Building a REST integration (consumed or published) for the first time on a project — the checks that avoid a rebuild after the first live call | `skills/rest-integration-first-time-right.md` |
+| App-to-app REST or microservices: two or more Mendix apps you build that read each other over REST — before the contract, before the first consumer, and before calling an API tested: pull vs push, key+version rule, auth in the operation microflow (BUG-152), honest last-success/stale/"as of", one owner per fact, and the six-rung cross-app test ladder with its per-change/slice/release cadence | `skills/rest-between-mendix-apps.md` |
 | Adding a constant, installing a marketplace module, deploying to a new environment, or needing a Mendix PAT — where an encryption key, API credential, endpoint or access token gets its value, why a free node has only one channel, and why a token missing from the files you grepped is not missing | `skills/learned-constants-and-secrets.md` |
 
 **Verify — does it work**
@@ -666,6 +742,8 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Proving a module's user journey end-to-end — the deep form of step 3 PROVE; use whenever an instrument reports green and you cannot say what would have made it red | `skills/journey-proof.md` |
 | Writing or running e2e cases beyond the happy journeys (blank/whitespace required fields, over-length, duplicates, cancel, double submit, wrong state, wrong role, backend down, stale write, empty search) — every case cites a requirement first, UNSPECIFIED is re-scored against house rules, GAP counts carry the denominator; runs after journey-proof and before monkey-test | `skills/unhappy-path-testing.md` |
 | Running the fuzz/crash net on a module whose journeys are already green — and reading the result, which is NOT evidence the module works | `skills/monkey-test.md` |
+| Load, performance or stress testing a page ("will it hold 1000 users", concurrent users, k6, JMeter) — record the real /xas/ calls with Playwright and replay them instead of correlating tokens by hand, and report what the number does NOT prove (requests vs users, empty data, whose limit was hit) | `skills/load-test.md` |
+| Writing or running a microflow unit test (.test.mdl, mxcli test, @expect) once the project or the user has decided a flow gets one — what is worth a test, equality-only asserts, --list before any run, a scratch copy so the live app survives, and a positive control that must fail | `skills/unit-test.md` |
 | UX audit and screenshot-loop discipline | `skills/learned-skill-ux-audit.md` |
 | Tracking scope delta between the BRD and the built state | `skills/learned-skill-scope-delta.md` |
 | Writing or reading docs/report.json — the append-only contract every instrument writes to and every renderer reads; open BEFORE building a new instrument or a second renderer | `skills/report-schema.md` |
@@ -674,6 +752,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | After every module's CONFIRM stage — counts proven modules since the last cluster/full coherence pass and exits DUE once the threshold is reached, so the cadence isn't left to memory | `project-bin/coherence-cadence.sh` |
 | Turning an already-rigorous run into a narrated proof a stakeholder can trust without running anything | `skills/e2e-evidence-report.md` |
 | Recording a narrated screen-capture demo of a running app for a human to watch — opening on the app instead of a blank frame, and keeping captions synced to the pixels | `skills/record-demo-video.md` |
+| A demo film someone will watch looks captured, not produced — 25 fps smear, scroll jumps, no visible pointer, a dense page nobody can read: 2x CDP screencast at 60 fps, drawn cursor and click ripple, eased scroll, and a zoom rendered afterwards from the click log (never a CSS transform in the page) | `skills/demo-recording-polish.md` |
 | Sending a demo guide, screenshots or a quickstart doc OUTSIDE the repo — to a customer, prospect or reviewer: relative image paths and "the name shown above" both break the moment the file travels alone, and the usernames a login panel displays are not the ones it accepts | `skills/share-demo-package.md` |
 | Running lint as a gate rather than a report — per-rule ratchet against a committed baseline, plus the crash and collapse guards that stop a blind rule passing | `project-bin/lint-gate.sh` |
 | Reading a lint result, or writing/repairing any .star rule — lint's failure mode is a confident clean pass, so 0 findings is a claim needing evidence | `skills/lint-that-actually-runs.md` |
@@ -774,7 +853,7 @@ Then filter by Role(s). A helper dispatched with a role stub (ba, architect, mdl
 | Script or skill? Before writing any .js or bash/.sh for a check, checker, linter, gate or report, or adding a rule or regex to an existing one — judgement goes in a skill, code only fetches facts a reader cannot | `skills/skills-over-scripts.md` | every stage | every role except mdl, review (on demand for those) |
 | Any pass whose input is missing, stale or unresolvable — before recording UNMEASURED, N/A or a silent skip: name what was missing, say what you assessed against instead, still deliver a verdict | `skills/degrade-to-judgement.md` | every stage | every role |
 | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude | `skills/tool-output-is-not-ground-truth.md` | every stage | every role |
-| Before obeying any learned-* STOP or workaround that costs a detour — probe the binary you actually have, then stamp the verdict back into the rule | `skills/retesting-learned-rules.md` | every stage | every role |
+| Before obeying any learned-* STOP or workaround that costs a detour — probe the binary you actually have, then stamp the verdict back into the rule | `skills/retesting-learned-rules.md` | every stage | every role except mdl (on demand for those) |
 | Any pipeline work at all — every session, before producing any stage artifact: read §1b plus your own stage's section, not the whole file (gate-check.sh prints the line spans); READMEs and the guide are orientation only | `skills/conversion-runbook.md` | P,0,1,2,3,4,5,6,7 | lead, ba, architect |
 | Any pipeline work at all, as a helper — every dispatch, before producing anything: run the toolkit's bin/runbook-slice.sh <stage>, which prints §1b plus your stage's section of the conversion runbook; never open skills/conversion-runbook.md whole | `bin/runbook-slice.sh` | P,0,1,2,3,4,5,6,7 | mdl, gate, test, review |
 | Any question before asking the user or writing anything — query the model, then read the source, then ask the human, in that order | `skills/query-the-model.md` | P,0,1,2,3,4,5,6,7 | every role |
@@ -791,12 +870,10 @@ Then filter by Role(s). A helper dispatched with a role stub (ba, architect, mdl
 | Deciding who answers a question — before putting any batch to the user. gap/conflict/choice/user-only is what keeps a gate batch at four questions instead of 127 | `bin/question-kinds.sh` | 1,2,3 | ba |
 | Writing BRDs, especially several in parallel — "build" before the fan-out, "check" before any BRD is called done | `bin/facts-lock.sh` | 2 | ba |
 | Building any module — before the first script. The mdl-agent's single per-module input | `skills/module-brief.md` | 4,5 | ba, mdl |
-| Writing ANY MDL script — before the first line. Step 0 picks the write mode, then the STOP table overrides it for corrupting operations | `skills/learned-mdl-preflight.md` | 5 | mdl |
+| Writing ANY MDL script — before the first line. Step 0 picks the write mode, then the STOP table overrides it for corrupting operations | `skills/learned-mdl-preflight.md` | 5 | (mdl: on demand) |
+| Writing ANY MDL script — before the first line: run bin/mdl-rules.sh <kinds> (page, microflow, access, workflow, entity) or --for <draft.mdl>, or read skills/generated/rules-<kind>.md, and read ALL of it — the STOP rows, gotchas and preflight sections for the statement kinds the script writes; your PREFLIGHT reports "STOP rows for kinds K: n/n checked" | `bin/mdl-rules.sh` | 5,6 | mdl |
 | Placing any document in a module — before the first `create`. Feature group, then Pages/Microflows/Services/Resources; the path comes from the brief's folder plan, and the table says which types mxcli can actually place | `skills/module-folder-convention.md` | 4,5 | architect, mdl |
-| Writing or fixing any microflow — MDL gotchas plus annotation discipline | `skills/learned-microflow-patterns.md` | 5 | mdl |
-| Writing a microflow with any loop, a retrieve/commit/call inside a loop, nested or multiple loops, >20 activities counting loop bodies, or a list built from a list — post the checklist before the first MDL line | `skills/microflow-preflight.md` | 5 | mdl |
-| Building any page or snippet — before the first widget. Wireframe, tokens, gallery reuse, cross-check; no wireframe means STOP | `skills/ui-preflight-pages.md` | 5 | mdl |
-| Writing or reviewing any page or snippet — the spacing scale (8/16/24/32/48), section rhythm, and the page-header scaffold every full page starts with; sections at 0px apart and pages with no H1 are the defects it retires | `skills/design-spacing.md` | 5 | mdl, review |
+| Writing or reviewing any page or snippet — the spacing scale (8/16/24/32/48), section rhythm, and the page-header scaffold every full page starts with; sections at 0px apart and pages with no H1 are the defects it retires | `skills/design-spacing.md` | 5 | review (mdl: on demand) |
 | After every page-building script, and any time the UI looks wrong — the cheap repeatable look during the build: one page, one screenshot, four questions, scored when a wireframe exists. Feeds Gate: UI, never replaces it | `skills/ui-loop.md` | 5 | review (mdl: on demand) |
 | After the FIRST build that follows any design-system port, and before any page is built on it — reads the BUILT stylesheet and reports how many framework knobs point at a design token, how many tokens arrived, how many component classes arrived, each with its denominator. Measured on a real run: 55 tokens ported correctly into the right file, 0 of 35 knobs bound and 0 of 20 classes present, two build phases shipped in the framework's default blue with mx check, mxcli lint, the MDL suite and two e2e journeys all green | `project-bin/check-design-reaches-app.sh` | 3,5 | architect, mdl, gate, review |
 | Before exec'ing ANY page script — compares the drafted MDL's shell against the wireframe's: page column, layout/nav shell, one H1. Measured 0/10 pages on a real first build, repaired wholesale 47 scripts later | `project-bin/check-page-shell.sh` | 5 | mdl, gate, review |
@@ -806,9 +883,10 @@ Then filter by Role(s). A helper dispatched with a role stub (ba, architect, mdl
 | Before calling any module tested, or before re-running tests after a change — what testing a module means, which re-runs a change owes (UI-only vs logic lane), and the false-green register of confirmed ways a test reports green over a broken feature | `skills/testing-shape.md` | 5,6 | test, gate, review |
 | Finishing any module — before calling it done. One command that runs every instrument and keeps "instrument faulted" apart from "feature failed"; in a wired project run the installed copy at bin/verify-module.sh | `project-bin/verify-module.sh` | 5,6 | mdl, gate, test, review |
 | A CSS/SCSS or style change that appears to have done nothing (a colour or class that won't show), a focus ring or outline that paints on every page landing or load, or an app still grey after a design port every instrument called green — the three ways a correct rule paints nothing (matches nothing / matches chrome / loses the cascade), the two reads that tell them apart, and the class that arrived in the stylesheet and is bound to no widget | `skills/learned-css-that-never-applied.md` | 5,6 | review, gate (mdl: on demand) |
-| Before trusting a green check/exec/DESCRIBE result as proof, or when a runtime symptom appears over a fully green model — the register of constructs that pass early rungs and fail later ones | `skills/learned-detection-gaps.md` | 5,6 | mdl, gate, review |
-| Creating any entity, or calling a module security-ready — entity and grants land in one script, and ready means SHOW SECURITY MATRIX proves it | `skills/security-is-not-a-later-script.md` | 5 | mdl, gate, review |
+| Before trusting a green check/exec/DESCRIBE result as proof, or when a runtime symptom appears over a fully green model — the register of constructs that pass early rungs and fail later ones | `skills/learned-detection-gaps.md` | 5,6 | gate, review (mdl: on demand) |
+| Creating any entity, or calling a module security-ready — entity and grants land in one script, and ready means SHOW SECURITY MATRIX proves it | `skills/security-is-not-a-later-script.md` | 5 | gate, review (mdl: on demand) |
 | A CE error (mx check or mxbuild: CE0066, CE0117…), a cited BUG-n, or behavior that looks like a known mxcli quirk rather than a modeling mistake — `bin/bug-lookup.sh CE0117` / `BUG-102` / "keyword" / the whole pasted error message (ranked top 3) prints the matching ledger entries, so the session reads one entry, not the whole ledger | `bin/bug-lookup.sh` | 5,6 | mdl, gate |
+| You hit, or worked around, a bug in mxcli or the toolkit — `bin/file-bugs.sh` (the `--add` line is in learned-detection-gaps.md) keeps docs/bugs.jsonl, redacts, shows duplicates, is filed only by a human with `!` (`--file PBUG-NN`, y/N, denied to agents), or prints new-issue links (`--links`, `--json`) | `bin/file-bugs.sh` | 5,6 | mdl, gate |
 | The first command of every session, and any time someone asks "where are we" or "what next" — one screen: stage, done/overdue, the ONE next action, from the instruments, never from memory | `bin/status.sh` | P,0,1,2,3,4,5,6,7 | every role |
 | Any session that will push a model to Mendix Team Server, and BEFORE telling the user a Team Server push is blocked — which remote is authoritative, settle-then-push order, and the four checks that have to fail first | `skills/teamserver-alignment.md` | 5,6,7 | gate (mdl, review: on demand) |
 <!-- ROUTING:END -->

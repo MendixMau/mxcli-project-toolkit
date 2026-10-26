@@ -114,7 +114,7 @@ SLICE="$(printf '%s' "$ROW" | cut -d'|' -f4)"
 case "$SLICE" in -|—|none) SLICE="" ;; esac
 
 # a cell is a comma-separated list of qualified names; "—" or "-" means none
-names() { printf '%s\n' "$1" | tr ',' '\n' | sed 's/^[ \t]*//; s/[ \t]*$//' | grep -vE '^(-|—|none)?$'; }
+names() { printf '%s\n' "$1" | tr ',' '\n' | sed 's/^[[:blank:]]*//; s/[[:blank:]]*$//' | grep -vE '^(-|—|none)?$'; }
 
 # folder for a document: its row in the "Document folder plan" table, by full or short name
 folder_of() {
@@ -173,6 +173,17 @@ pack() {
   }
   printf '## Rules — read these before drafting (the pack does not replace them)\n\n'
   printf -- '- `%sskills/learned-mdl-preflight.md` — STOP table; check every planned operation\n' "$tk"
+  # the per-kind MDL rules (STOP rows, gotchas, page/microflow preflights) — some of these reach
+  # a pack-fed helper ONLY through mdl-rules, so name the command with the step's kinds
+  local rk=""
+  case "$kinds" in *page*) rk="$rk page" ;; esac
+  case "$kinds" in *logic*) rk="$rk microflow" ;; esac
+  case "$kinds" in *domain*) rk="$rk entity" ;; esac
+  rk="${rk# }"
+  # toolkit not found: say <toolkit>/ — a bare bin/ would be the project's own, where it is not installed
+  if [ -n "$rk" ]; then
+    printf -- '- run `%sbin/mdl-rules.sh %s` (or read `%sskills/generated/rules-<kind>.md`) and read ALL of its output — the MDL rules for this step'"'"'s statement kinds\n' "${tk:-<toolkit>/}" "$rk" "${tk:-<toolkit>/}"
+  fi
   case "$kinds" in *logic*) printf -- '- `%sskills/learned-microflow-patterns.md` — microflow patterns\n' "$tk" ;; esac
   case "$kinds" in *page*)
     printf -- '- `%sskills/ui-preflight-pages.md` — page pre-flight (wireframe, tokens, StyleGallery)\n' "$tk"

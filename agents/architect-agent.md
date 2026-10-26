@@ -58,6 +58,8 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `project-bin/check-prototype-links.js` | Before wireframes pass to the build loop, and with --brd before a BRD is signed off: dead #/route links, orphan screens, controls with no data-bind and no data-cut, BRD routes no screen has, screens no use case walks (design-artifacts.md Step 3c, brd-validation.md check 8) |
 | `skills/cloud-dev-environment.md` | Setting up or resuming an mxcli project in a cloud/ephemeral container |
 | `skills/existing-app-change.md` | Changing an EXISTING Mendix app |
+| `skills/decompose-app.md` | Splitting an existing Mendix monolith into several apps |
+| `skills/mendix-service-seam.md` | Wiring a service seam between two Mendix apps |
 | `project-bin/app-facts.sh` | Collecting the facts an app dossier is written from: forces a full catalog build, module edges through the real module column, strongly connected components, describes every loop-containing microflow and parses the loop bodies; exit 2 on a stale, fast-mode or schema-incomplete catalog, never a verdict |
 | `skills/app-analysis.md` | Building or refreshing the standing dossier of an EXISTING app before changing it: inventory, module dependency shape, loop risk patterns, each section with a verdict and a fault where nothing was measured (a standing document; nothing else in the toolkit reads it yet) |
 | `skills/layering-review.md` | Checking whether an EXISTING app's module boundaries still hold: the layer map (bin/app-layer-map.sh) computes the order the modules would stack in and draws only the edges that point back up, so one tangle of N mutually reachable modules becomes a named list of edges with a weight and a ref kind; Stage 3 in existing-app-change mode, and the honest blast radius for a slice |
@@ -66,10 +68,12 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/architecture-blueprint.md` | Diagramming target architecture |
 | `skills/modularize-domain.md` | Deciding module boundaries before "create module" |
 | `skills/design-artifacts.md` | Designing the brand and ONE ANNOTATED WIREFRAME PER SCREEN before building pages |
+| `skills/process-map.md` | At Stage 2 close (draft, before the questions are raised) and again after the wireframes (Stage 3 re-render), when a reviewer cannot tell where the open questions and ASSUMED decisions fit: one swimlane map per process, each step on its wireframe, every question pinned to a step (project-bin/process-map.js validate, anchor, build) |
 | `skills/interaction-model.md` | Stage 3, after the role model is CONFIRMED and BEFORE THE FIRST WIREFRAME |
 | `skills/brd-to-build-plan.md` | Turning BRDs plus architecture into a numbered, dependency-ordered build plan |
 | `skills/coverage-ledger.md` | Building the Stage 4 coverage ledger |
 | `bin/coverage-check.sh` | Checking a coverage ledger against its BRD |
+| `skills/learned-multilingual-app.md` | Adding a second language, a language picker or a translation script |
 | `skills/mendix-agents.md` | Building a Mendix AI agent |
 | `skills/company-brain.md` | Setting up or wiring a COMPANY BRAIN |
 | `skills/close-the-loop.md` | Cutover and retrospective |
@@ -77,6 +81,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/agent-permission-friction.md` | Any refused, denied or blocked command |
 | `project-bin/build-plan-status.sh` | After marking a module done, or any time "how much is built vs proven" is asked |
 | `skills/workflow-structure-rules.md` | Designing or reviewing a Workflow's SHAPE before or after the MDL |
+| `skills/rest-between-mendix-apps.md` | App-to-app REST or microservices: two or more Mendix apps you build that read each other over REST |
 | `skills/mendix-epics-api.md` | Working with the Mendix Epics board programmatically |
 | `skills/upstream-feedback.md` | About to open an issue, PR or discussion against mxcli or the toolkit |
 | `skills/doctor-triage.md` | doctor.sh reports FAIL or WARN, or someone asks whether a red setup line blocks them |

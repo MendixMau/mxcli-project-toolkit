@@ -75,6 +75,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/layering-review.md` | Checking whether an EXISTING app's module boundaries still hold: the layer map (bin/app-layer-map.sh) computes the order the modules would stack in and draws only the edges that point back up, so one tangle of N mutually reachable modules becomes a named list of edges with a weight and a ref kind; Stage 3 in existing-app-change mode, and the honest blast radius for a slice |
 | `skills/assess-migration.md` | Assessing or planning a migration up front, before any pipeline is chosen |
 | `skills/migration-pipeline.md` | Running the extraction pipeline |
+| `skills/rehost-app.md` | Rehosting an existing Mendix .mpr into a fresh app |
 | `skills/migrate-general.md` | Migrating from a stack that has no dedicated pipeline |
 | `skills/migrate-outsystems.md` | Migrating an OutSystems app |
 | `skills/source-os11.md` | Understanding OutSystems 11 source |
@@ -104,7 +105,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 - Run the full interview protocol from `conversion-runbook.md` §1 at every gate: homework first, 2-4 options with evidence, assumptions stated out loud, user answers in the terminal, decision written to the stage HTML *and* `PROJECT.md`, unknowns default + `ASSUMED` + proceed.
 - Never invent legacy intent from code alone — that's what Path C (the SME interview) is for. Log it as an open question if no SME is available, don't guess.
 - **Logging an open question is half the job. Raising it is the other half** — see the Open-questions batch below. A question written to a BRD and never put in the chat is not "logged", it is buried.
-- **Read `interview-protocol.md` before raising anything.** Every question you hand over carries two named options and your recommendation; a bare question moves your analysis onto the user. Generate `docs/open-questions.html` with `bin/questions-report.sh` and give them the path.
+- **Read `interview-protocol.md` before raising anything.** Every question you hand over carries two named options and your recommendation; a bare question moves your analysis onto the user. Generate `analysis/brd-report.html` with `bin/brd-report.sh` and give them the path.
 - `✋` gates (Stages 0 and 7) do not resolve to `ASSUMED` — they need an explicit `CONFIRMED` answer before the run proceeds.
 
 ## Workflow

@@ -761,7 +761,7 @@ check_stage_P() {
       else if (l ~ /^unverified/ && l ~ /how to verify/) ok=1
     }
     END { flush(); print bad }' "$f")
-  total=$(grep -c '^##[ \t]' "$f")
+  total=$(grep -c '^##[[:blank:]]' "$f")
 
   # Always name the file that was graded. A Stage P line that does not is what let the
   # wrong-file bug survive for weeks: the output was locally coherent and globally wrong.
@@ -1059,6 +1059,83 @@ has_confirmed_decision() {
   ' "$f"
 }
 
+# stage_exit_recorded <N> — does the register say Stage N was APPROVED AS DONE, not merely that
+# some decision was taken during it? Used only by the "approved over a failing gate" flag (#207);
+# the Stage 3/4 checks keep has_confirmed_decision, where any CONFIRMED row is the evidence that
+# the stage's interview was held.
+#
+# Why not has_confirmed_decision (#477). Any CONFIRMED row whose Stage cell is N counted as the
+# approval, so a stage still being worked on raised the flag the moment the user answered any
+# question in it: a Stage-5 build with "| 5 | Sub-agents run on Sonnet | CONFIRMED |" read
+# "APPROVED OVER A FAILING GATE", and status.sh told the lead to re-open an approval nobody gave,
+# burying the real gap (PENDING obligations) under a wrong diagnosis.
+#
+# The register has no dedicated exit row (init-project.sh writes `| Stage | Decision | Status |
+# Notes |`; conversion-runbook.md §2 closes a gate on "its ✋ decisions CONFIRMED and gate-check
+# run"), so a stage counts as approved on either of two pieces of evidence, both in CONFIRMED
+# rows of the Decisions table (same table scoping and status anchoring as above):
+#   1. an explicit exit row for Stage N, in one of four wordings:
+#        "Stage N approved|exit…|gate: signed off|closed|complete|done|passed" (separators may be
+#        spaces, ":", "-", or an em/en dash: "Stage 4 — approved with conditions");
+#        "Approved: Stage N …";
+#        "Gate approved|signed off|passed|closed" ("gate" as the first word);
+#        "<artifact> approved|signed off", the artifact from a fixed list (build plan, plan,
+#        blueprint, architecture, design (system), wireframes, scope, triage, BRDs,
+#        requirements), so domain decisions ("Requests over 5k must be approved") never match.
+#      No checkpoint writes such a row today, so in practice rule 2 does the work; having the
+#      CAC checkpoint write one is the follow-up.
+#   2. the project moved past it: Stage N has CONFIRMED rows of its own AND a CONFIRMED row for
+#      a later stage up to 6 exists (the #207 field case: a Stage-4 approval, then 47 scripts
+#      built on it). Stage 7 is excluded and so is any row reading N/A / skip / no cutover:
+#      checkpoint-cutover.md and existing-app-change.md tell projects to record "No legacy
+#      system, no cutover" early, and that is not evidence that Stage 5 was signed off. A stage
+#      with no rows of its own is never "approved" by a forward-filed decision either.
+# A mid-stage decision is neither, so it no longer raises the flag.
+stage_exit_recorded() {
+  local stage="$1"
+  local f="$REGISTER"
+  [ -n "$f" ] && [ -f "$f" ] || return 1
+  awk -F'|' -v want="$stage" '
+    function rank(s) { s = toupper(s); if (s == "P") return 0; if (s ~ /^[0-7]$/) return s + 1; return -1 }
+    BEGIN {
+      wr = rank(want); w = tolower(want); r6 = rank("6")
+      # Separators: space, tab, colon, hyphen, or an em/en dash. The dashes are multi-byte, so
+      # they are an alternation, never inside a bracket class (POSIX awk reads bytes there).
+      SEP = "([ \t:-]|—|–)*"
+      ARTS = "^(the )?(build plan|plan|blueprint|architecture|design( system)?|wireframes?|scope|triage|brds?|requirements)"
+    }
+    !/^\|/ { intab = 0; next }
+    {
+      h = tolower($2); gsub(/^[ \t]+|[ \t]+$/, "", h)
+      if (h == "stage") { intab = 1; hdr = 1; next }
+      if ($2 ~ /^[ \t:]*-+[ \t:-]*$/) next
+      s = $2
+      gsub(/^[ \t]+|[ \t]+$/, "", s)
+      sub(/^[Ss]tage[ \t]*/, "", s)
+      confirmed = 0
+      for (i = 3; i <= NF; i++) {
+        f = toupper($i); gsub(/^[ \t]+|[ \t]+$/, "", f)
+        if (f ~ /^CONFIRMED([ \t]|$)/) confirmed = 1
+      }
+      if (!confirmed) next
+      d = tolower($3); gsub(/^[ \t]+|[ \t.]+$/, "", d)
+      r = rank(s)
+      if (wr >= 0 && r > wr && r <= r6 && d !~ /(^|[^a-z])(n\/a|not applicable|skip(ped|s)?|no cutover)([^a-z]|$)/) {
+        if (intab) tlater = 1; alater = 1
+      }
+      if (tolower(s) != w) next
+      if (intab) town = 1; aown = 1
+      if (d ~ ("(^|[^a-z0-9])stage[ \t]*" w SEP "((gate|exit)" SEP ")?(approv|sign|closed|complete|done|passed)") ||
+          d ~ ("^approved" SEP "stage[ \t]*" w "([^0-9]|$)") ||
+          d ~ ("^gate" SEP "(approved|signed[ -]off|sign-off|passed|closed)") ||
+          d ~ (ARTS SEP "(approved|signed[ -]off)$")) {
+        if (intab) texit = 1; aexit = 1
+      }
+    }
+    END { exit !(hdr ? (texit || (town && tlater)) : (aexit || (aown && alater))) }
+  ' "$f"
+}
+
 # Counts the Screen Inventory table in design/target-ui.md (design-artifacts.md Step 2): a
 # markdown table under a "## Screen Inventory" heading, one row per screen. Prints two numbers
 # separated by a space: total inventoried rows, and how many of those rows record that the
@@ -1159,6 +1236,24 @@ check_stage_3() {
       return
     fi
   done
+  # The process map (skills/process-map.md) is optional, but once its model exists the
+  # render must be current: a reviewer signs off on what the map shows, so a map older than
+  # its model, its anchors or a wireframe (the thumbnails) shows the wrong process. Same rule as blueprint.html above.
+  local pb_model pb_html pb_src
+  pb_model="$(resolve_artifact_nonempty "design/process-model.json")"
+  if [ -n "$pb_model" ]; then
+    pb_html="$(dirname "$pb_model")/process-map.html"
+    if [ ! -s "$pb_html" ]; then
+      echo "FAIL|design/process-model.json exists but design/process-map.html does not; render it (process-map.md Step 4: process-map.js build)"
+      return
+    fi
+    for pb_src in "$pb_model" "$(dirname "$pb_model")/question-anchors.json" "$(dirname "$pb_model")"/wireframes/*.html; do
+      if [ -f "$pb_src" ] && [ "$pb_html" -ot "$pb_src" ]; then
+        echo "FAIL|design/process-map.html is older than $(basename "$pb_src"): stale render at a sign-off gate; regenerate (process-map.md Step 4)"
+        return
+      fi
+    done
+  fi
   if reg_unavailable; then reg_unavailable_note; return; fi
   if has_confirmed_decision 3; then
     echo "PASS|fit-gap, blueprint render, design system, wireframes present and a Stage-3 CONFIRMED decision is in $REGISTER"
@@ -1423,10 +1518,14 @@ check_build_ready() {
   # its "UI review reports" row, so grepping for that string made this check satisfied by
   # the installer's own output: a project with zero real baseline routing passed.
   # ui-preflight-pages.md appears only in a genuine Baseline routing table.
-  if grep -q "ui-preflight-pages" "$PROJECT_DIR/CLAUDE.local.md" 2>/dev/null; then
+  # Since lazy-load PR 2 (2026-10-23) the rendered table no longer lists ui-preflight-pages.md:
+  # the mdl helper reaches it through the mdl-rules row (bin/mdl-rules.sh page prints it whole),
+  # which is baseline. Either name satisfies this item, so a project synced after that change
+  # does not flip to FAIL, and one synced before it still passes on its old table.
+  if grep -qE "ui-preflight-pages|bin/mdl-rules\.sh" "$PROJECT_DIR/CLAUDE.local.md" 2>/dev/null; then
     echo "  ✓ baseline routing references the UI-quality skills"
   else
-    echo "  ✗ baseline routing missing UI-quality rows (ui-preflight-pages.md, module-review.md) — run bin/sync-project.sh"
+    echo "  ✗ baseline routing missing UI-quality rows (ui-preflight-pages.md or bin/mdl-rules.sh, module-review.md) — run bin/sync-project.sh"
     fails=$((fails+1))
   fi
 
@@ -1714,6 +1813,9 @@ stage_surface_status() {
     # test-report.html is answered by the same function check_stage_6 uses (#233), so the
     # harness report pair also discharges it.
     if [ "$pat" = "test-report.html" ] && test_surface_hit; then continue; fi
+    # progress-report.html replaced build-plan.html; a project that still has the old page keeps
+    # its Surface green (the file is never deleted, so it must not read as missing).
+    if [ "$pat" = "progress-report.html" ] && [ -e "$PROJECT_DIR/architecture/build-plan.html" ]; then continue; fi
     # SURFACE_BASES, not just the project root. §2's Surface cells are inconsistent about
     # paths: some carry one ("architecture/blueprint.html", "docs/report.json") and some name
     # the file bare ("design-system.html", "build-plan.html", "test-report.html"). A bare cell
@@ -1766,13 +1868,13 @@ stage_protocol_paths() {
   case "$1" in
 # <!-- ROUTING:BEGIN stage-map -->
     P)  echo "skills/interview-protocol.md skills/grill-mode.md skills/agent-roles.md skills/dispatching.md skills/bootstrap-project.md skills/cloud-dev-environment.md skills/existing-app-change.md skills/app-analysis.md skills/mendix-epics-api.md skills/corpus-extraction-integrity.md skills/platform-link.md" ;;
-    0)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-scope.md skills/source-triage.md skills/image-transcription.md skills/small-project-tier.md skills/existing-app-change.md skills/app-analysis.md skills/layering-review.md skills/module-dependency-review.md skills/microflow-loop-antipatterns.md skills/assess-migration.md skills/migration-pipeline.md skills/migrate-general.md skills/migrate-outsystems.md skills/source-os11.md skills/os-xml-schema.md skills/source-node-express-react.md skills/document-discovery.md skills/extractor-quality-loop.md skills/qa-loop-goal-pattern.md skills/mendix-epics-api.md skills/corpus-extraction-integrity.md skills/gate-check-file-locations.md" ;;
-    1)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-extraction.md skills/dispatching.md skills/image-transcription.md skills/small-project-tier.md skills/migration-pipeline.md skills/source-os11.md skills/os-xml-schema.md skills/source-node-express-react.md skills/document-discovery.md skills/extractor-quality-loop.md skills/kb-generation.md skills/corpus-extraction-integrity.md" ;;
+    0)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-scope.md skills/source-triage.md skills/image-transcription.md skills/small-project-tier.md skills/existing-app-change.md skills/decompose-app.md skills/app-analysis.md skills/layering-review.md skills/module-dependency-review.md skills/microflow-loop-antipatterns.md skills/assess-migration.md skills/migration-pipeline.md skills/rehost-app.md skills/migrate-general.md skills/migrate-outsystems.md skills/source-os11.md skills/os-xml-schema.md skills/source-node-express-react.md skills/document-discovery.md skills/extractor-quality-loop.md skills/qa-loop-goal-pattern.md skills/mendix-epics-api.md skills/corpus-extraction-integrity.md skills/gate-check-file-locations.md" ;;
+    1)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-extraction.md skills/dispatching.md skills/image-transcription.md skills/small-project-tier.md skills/migration-pipeline.md skills/rehost-app.md skills/source-os11.md skills/os-xml-schema.md skills/source-node-express-react.md skills/document-discovery.md skills/extractor-quality-loop.md skills/kb-generation.md skills/corpus-extraction-integrity.md" ;;
     2)  echo "skills/interview-protocol.md skills/change-intake.md skills/change-intake-detail.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-brd.md skills/checkpoints/checkpoint-architecture.md skills/dispatching.md skills/image-transcription.md skills/small-project-tier.md skills/kb-generation.md skills/brd-generation.md skills/brd-validation.md" ;;
-    3)  echo "skills/interview-protocol.md skills/change-intake.md skills/change-intake-detail.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-design.md skills/dispatching.md skills/small-project-tier.md skills/mendix-best-practices-index.md skills/layering-review.md skills/architecture-blueprint.md skills/modularize-domain.md skills/design-artifacts.md skills/interaction-model.md skills/brd-to-build-plan.md skills/workflow-structure-rules.md skills/learned-mdl-cannot-express.md" ;;
-    4)  echo "skills/interview-protocol.md skills/change-intake.md skills/change-intake-detail.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-build.md skills/agent-roles.md skills/dispatching.md skills/small-project-tier.md skills/module-brief.md skills/module-folder-convention.md skills/brd-to-build-plan.md skills/coverage-ledger.md skills/workflow-structure-rules.md skills/rest-integration-first-time-right.md skills/learned-constants-and-secrets.md" ;;
-    5|build-ready) echo "skills/interview-protocol.md skills/change-intake.md skills/change-intake-detail.md skills/grill-mode.md skills/agent-roles.md skills/dispatching.md skills/module-brief.md skills/learned-mdl-preflight.md skills/module-folder-convention.md skills/learned-microflow-patterns.md skills/microflow-preflight.md skills/mendix-best-practices-index.md skills/ui-preflight-pages.md skills/design-spacing.md skills/learned-stylegallery.md skills/ui-loop.md skills/module-review.md skills/testing-shape.md skills/microflow-loop-antipatterns.md skills/iterative-build-loop.md skills/mdl-cookbook-microflows.md skills/build/mdl/oneshot-mdl-method.md skills/learned-page-patterns.md skills/oneshot-page-structure-patterns.md skills/mendix-agents.md skills/mendix-agent-ui.md skills/mendix-agent-setup.md skills/fixture-seeding.md skills/journey-proof.md skills/unhappy-path-testing.md skills/monkey-test.md skills/e2e-locators-that-lie.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/learned-workflow-patterns.md skills/workflow-structure-rules.md skills/rest-integration-first-time-right.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/learned-sidebar-collapse-icons.md skills/learned-popup-navigation.md skills/learned-datagrid-customcontent-binding.md skills/learned-popup-feedback-pattern.md skills/learned-mdl-cannot-express.md skills/learned-css-that-never-applied.md skills/learned-detection-gaps.md skills/learned-dg2-patterns.md skills/learned-file-upload-widget.md skills/security-is-not-a-later-script.md skills/learned-local-db-confusion.md skills/full-harness-audit.md skills/test-result-audit.md skills/finding-disposition.md skills/preview-over-hub-tunnel.md skills/walking-skeleton.md skills/platform-link.md skills/teamserver-alignment.md skills/learned-constants-and-secrets.md" ;;
-    6)  echo "skills/interview-protocol.md skills/change-intake.md skills/change-intake-detail.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-cutover.md skills/dispatching.md skills/mendix-best-practices-index.md skills/module-review.md skills/testing-shape.md skills/existing-app-assurance.md skills/app-analysis.md skills/module-dependency-review.md skills/microflow-loop-antipatterns.md skills/qa-loop-goal-pattern.md skills/mendix-agent-setup.md skills/e2e-harness-base.md skills/learned-db-assertions.md skills/fixture-seeding.md skills/journey-proof.md skills/unhappy-path-testing.md skills/monkey-test.md skills/e2e-locators-that-lie.md skills/learned-skill-ux-audit.md skills/learned-skill-scope-delta.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/e2e-evidence-report.md skills/record-demo-video.md skills/share-demo-package.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/workflow-structure-rules.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/anonymize-client-app-for-demo.md skills/learned-css-that-never-applied.md skills/learned-detection-gaps.md skills/learned-local-db-confusion.md skills/full-harness-audit.md skills/test-result-audit.md skills/finding-disposition.md skills/handoff-to-studio-pro.md skills/preview-over-hub-tunnel.md skills/platform-link.md skills/teamserver-alignment.md skills/learned-constants-and-secrets.md" ;;
+    3)  echo "skills/interview-protocol.md skills/change-intake.md skills/change-intake-detail.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-design.md skills/dispatching.md skills/small-project-tier.md skills/mendix-best-practices-index.md skills/decompose-app.md skills/mendix-service-seam.md skills/layering-review.md skills/architecture-blueprint.md skills/modularize-domain.md skills/design-artifacts.md skills/process-map.md skills/interaction-model.md skills/brd-to-build-plan.md skills/learned-multilingual-app.md skills/workflow-structure-rules.md skills/rest-between-mendix-apps.md skills/learned-mdl-cannot-express.md" ;;
+    4)  echo "skills/interview-protocol.md skills/change-intake.md skills/change-intake-detail.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-build.md skills/agent-roles.md skills/dispatching.md skills/small-project-tier.md skills/module-brief.md skills/module-folder-convention.md skills/brd-to-build-plan.md skills/coverage-ledger.md skills/workflow-structure-rules.md skills/rest-integration-first-time-right.md skills/rest-between-mendix-apps.md skills/learned-constants-and-secrets.md" ;;
+    5|build-ready) echo "skills/interview-protocol.md skills/change-intake.md skills/change-intake-detail.md skills/grill-mode.md skills/agent-roles.md skills/dispatching.md skills/module-brief.md skills/learned-mdl-preflight.md skills/module-folder-convention.md skills/learned-microflow-patterns.md skills/microflow-preflight.md skills/mendix-best-practices-index.md skills/ui-preflight-pages.md skills/design-spacing.md skills/learned-stylegallery.md skills/ui-loop.md skills/module-review.md skills/testing-shape.md skills/decompose-app.md skills/mendix-service-seam.md skills/microflow-loop-antipatterns.md skills/rehost-app.md skills/iterative-build-loop.md skills/mdl-cookbook-microflows.md skills/build/mdl/oneshot-mdl-method.md skills/learned-page-patterns.md skills/learned-multilingual-app.md skills/oneshot-page-structure-patterns.md skills/mendix-agents.md skills/mendix-agent-ui.md skills/mendix-agent-setup.md skills/fixture-seeding.md skills/journey-proof.md skills/unhappy-path-testing.md skills/monkey-test.md skills/load-test.md skills/unit-test.md skills/e2e-locators-that-lie.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/learned-workflow-patterns.md skills/workflow-structure-rules.md skills/rest-integration-first-time-right.md skills/rest-between-mendix-apps.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/learned-sidebar-collapse-icons.md skills/learned-popup-navigation.md skills/learned-datagrid-customcontent-binding.md skills/learned-popup-feedback-pattern.md skills/learned-mdl-cannot-express.md skills/learned-css-that-never-applied.md skills/learned-detection-gaps.md skills/learned-dg2-patterns.md skills/learned-file-upload-widget.md skills/security-is-not-a-later-script.md skills/learned-local-db-confusion.md skills/full-harness-audit.md skills/test-result-audit.md skills/finding-disposition.md skills/preview-over-hub-tunnel.md skills/walking-skeleton.md skills/platform-link.md skills/teamserver-alignment.md skills/learned-constants-and-secrets.md" ;;
+    6)  echo "skills/interview-protocol.md skills/change-intake.md skills/change-intake-detail.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-cutover.md skills/dispatching.md skills/mendix-best-practices-index.md skills/module-review.md skills/testing-shape.md skills/existing-app-assurance.md skills/decompose-app.md skills/app-analysis.md skills/module-dependency-review.md skills/microflow-loop-antipatterns.md skills/rehost-app.md skills/qa-loop-goal-pattern.md skills/learned-multilingual-app.md skills/mendix-agent-setup.md skills/e2e-harness-base.md skills/learned-db-assertions.md skills/fixture-seeding.md skills/journey-proof.md skills/unhappy-path-testing.md skills/monkey-test.md skills/load-test.md skills/unit-test.md skills/e2e-locators-that-lie.md skills/learned-skill-ux-audit.md skills/learned-skill-scope-delta.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/e2e-evidence-report.md skills/record-demo-video.md skills/demo-recording-polish.md skills/share-demo-package.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/workflow-structure-rules.md skills/rest-between-mendix-apps.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/anonymize-client-app-for-demo.md skills/learned-css-that-never-applied.md skills/learned-detection-gaps.md skills/learned-local-db-confusion.md skills/full-harness-audit.md skills/test-result-audit.md skills/finding-disposition.md skills/handoff-to-studio-pro.md skills/preview-over-hub-tunnel.md skills/platform-link.md skills/teamserver-alignment.md skills/learned-constants-and-secrets.md" ;;
     7)  echo "skills/interview-protocol.md skills/change-intake.md skills/change-intake-detail.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-cutover.md skills/close-the-loop.md skills/share-demo-package.md skills/handoff-to-studio-pro.md skills/platform-link.md skills/teamserver-alignment.md skills/deploy-to-sandbox.md" ;;
     *)  echo "" ;;
 # <!-- ROUTING:END -->
@@ -2729,6 +2831,18 @@ else
 fi
 printf "Report disposition (findings filed?): %s — %s\n" "$DISP_STATUS" "$DISP_NOTE"
 
+# Script ownership (#269): INFORMATION, never a verdict and never a block. A document created by
+# more than one mdlsource/ script reverts whenever an older script is replayed; field apps carried
+# 99/579, 130/357 and 38/159. exec.sh warns per write; this prints the project-wide count so a
+# slice close can see whether it is falling. One awk over mdlsource/, no mxcli; silent at 0.
+if [ -f "$TOOLKIT_DIR/project-bin/script-owners.sh" ]; then
+  OWN_CNT="$(bash "$TOOLKIT_DIR/project-bin/script-owners.sh" count "$PROJECT_DIR" 2>/dev/null || true)"
+  case "$OWN_CNT" in
+    0\ *|"") ;;
+    *) printf "Script ownership (info): %s of %s document(s) are created by more than one mdlsource/ script — bin/script-owners.sh report lists them\n" "${OWN_CNT%% *}" "${OWN_CNT#* }" ;;
+  esac
+fi
+
 # Stage P is checked outside the numeric loop (bash 3.2 arrays need integer indices).
 N_PASS=0; N_PENDING=0; N_WAIVED=0; N_FAIL=0; N_MANUAL=0; NEXT_UP=""; NEXT_UP_STATUS=""; ATTENTION=""
 APPROVED_OVER_FAIL=""
@@ -2804,8 +2918,10 @@ for stage in "${STAGE_NAMES[@]}"; do
   # and 47 scripts were built on that plan. Delegating the approval is legitimate; an approval
   # nobody compared to its gate is not. Same verdict, same exit code — the note names the
   # mismatch, and the summary repeats it so status.sh can quote it.
-  if [ "$status" = "FAIL" ] && ! reg_unavailable && has_confirmed_decision "$stage"; then
-    note="APPROVED OVER A FAILING GATE — Stage $stage is CONFIRMED in $(basename "${REGISTER:-PROJECT.md}"), but: $note"
+  # Approval means an exit row or a later stage's decision (stage_exit_recorded, #477), not any
+  # decision taken while the stage is still open.
+  if [ "$status" = "FAIL" ] && ! reg_unavailable && stage_exit_recorded "$stage"; then
+    note="APPROVED OVER A FAILING GATE — Stage $stage is approved in $(basename "${REGISTER:-PROJECT.md}"), but: $note"
     APPROVED_OVER_FAIL="${APPROVED_OVER_FAIL:+$APPROVED_OVER_FAIL, }Stage $stage"
   fi
   case "$status" in
@@ -3300,14 +3416,15 @@ if [ -n "$REQUESTED_STAGE" ]; then
     echo "" >&2
     echo "Gate BLOCKED: $blk question(s) at stage $st have never been raised with the user." >&2
     echo "  $counts" >&2
-    # Write the triage report the user reads, alongside the batch the agent reads.
-    # A terminal dump scrolls away and only the agent ever sees it; the HTML is the artefact
-    # a human can open, sort by state, and hand to someone else. --no-html suppresses it for
-    # the same reason it suppresses the board: a read-only query must not dirty a tree.
-    QR_SCRIPT="$TOOLKIT_DIR/bin/questions-report.sh"
-    QR_OUT="$PROJECT_DIR/docs/open-questions.html"
+    # Write the report the user reads, alongside the batch the agent reads. A terminal dump
+    # scrolls away and only the agent ever sees it; the HTML is the artefact a human can open and
+    # hand to someone else. Since 2026-10-16 the questions live in the Stage 2 BRD report, under
+    # the process map (bin/brd-report.sh), not in docs/open-questions.html. --no-html suppresses
+    # it for the same reason it suppresses the board: a read-only query must not dirty a tree.
+    QR_SCRIPT="$TOOLKIT_DIR/bin/brd-report.sh"
+    QR_OUT="$PROJECT_DIR/analysis/brd-report.html"
     if [ "$HTML_MODE" != "never" ] && [ -x "$QR_SCRIPT" ]; then
-      "$QR_SCRIPT" "$PROJECT_DIR" $arg -o "$QR_OUT" --quiet >/dev/null 2>&1
+      "$QR_SCRIPT" "$PROJECT_DIR" $arg --html "$QR_OUT" --quiet >/dev/null 2>&1
       [ -f "$QR_OUT" ] || QR_OUT=""
     else
       QR_OUT=""
@@ -3316,7 +3433,9 @@ if [ -n "$REQUESTED_STAGE" ]; then
     echo "" >&2
     echo "  See them, as a chat-ready batch:" >&2
     echo "    $OQ_SCRIPT $PROJECT_DIR${arg:+ $arg}" >&2
-    [ -n "$QR_OUT" ] && echo "  Triage report (open this, and give the user the path): $QR_OUT" >&2
+    [ -n "$QR_OUT" ] && echo "  BRD report, questions under the process map (open this, and give the user the path): $QR_OUT" >&2
+    # Back-compat: the retired page is never read and never fails a gate; it only gets pointed away from.
+    [ -f "$PROJECT_DIR/docs/open-questions.html" ] && echo "  (docs/open-questions.html is the retired page: its content is in analysis/brd-report.html now. Safe to delete.)" >&2
     echo "" >&2
     echo "  Raising is mandatory; assuming is not forbidden. Anything the user hands back" >&2
     echo "  ('you decide') is recorded ASSUMED with consentBy/consentAt and stops blocking." >&2

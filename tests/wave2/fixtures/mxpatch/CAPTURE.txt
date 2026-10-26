@@ -1,0 +1,81 @@
+tests/wave2/fixtures/mxpatch/ — provenance (captured 2026-10-14, Linux x86-64)
+
+Every file here is captured output or a captured model. Nothing was hand-written except
+this file and the two MDL scripts that told mxcli what to create (capture-*.mdl).
+
+BINARIES (anonymous HTTPS downloads of the public mendixlabs/mxcli release assets,
+https://github.com/mendixlabs/mxcli/releases/download/<tag>/mxcli-linux-amd64; no token):
+  v0.26.0  "mxcli version v0.26.0 (2026-10-11T18:37:07Z)"  sha256 c3fe5450931d52628777107c71617855db6acf606ef7df8815990ac3c55519ea
+  v0.25.0  "mxcli version v0.25.0 (2026-10-05T09:18:28Z)"  sha256 9092733497b942cc7e01b026ccd9c37876baba556fd429c2e25fc08a4e2d8388
+  v0.24.0  "mxcli version v0.24.0 (2026-09-24T05:44:35Z)"  sha256 911180cd0eefb8581068e7ee75a5f1901e92f5db61c97c600d5d9778783e3e2f
+  v0.21.0  "mxcli version v0.21.0 (2026-09-06T15:33:18Z)"  (used only to write the workflow, below)
+
+THE MODEL (model/: TestApp.mpr.sql + mprcontents/, 27 units, MPR v2, Mendix 11.14.0)
+  Base: testdata/testapp-views/ of the public mendixlabs/mxcli repo (Apache-2.0), commit
+  313c7ef64c2ec2aa56da7a2537d63cd7cc300f4f — mxcli's own trimmed copy of a Studio Pro-authored
+  11.14.0 app (22 units: the project documents and MyFirstModule). Four of its units are also
+  in fixtures/mx-metadata-note/. Then, on a copy:
+    mxcli-v0.21.0 exec capture-wf.mdl -p TestApp.mpr   # entity, 3 microflows, workflow Approval
+    mxcli-v0.26.0 exec capture-se.mdl -p TestApp.mpr   # scheduled event NightlyCleanup
+  v0.21.0 writes the workflow's two PARALLEL SPLIT paths WITHOUT their
+  EndOfParallelSplitPathActivity (BUG-121; v0.22.0 and later emit it — checked), so
+  wf-add-path-terminators.py has real work on it. The ScheduledEvents$ScheduledEvent unit
+  (c54d8347-…) carries StartDateTime as BSON 0x09 (UTC datetime), the type mxunit_bson.py
+  could not read. `mxcli-v0.26.0 fix hashes` on the result: clean (verify-clean-*).
+  *.mpr is gitignored in this repo, so the .mpr is stored as its sqlite dump
+  (python3 sqlite3 iterdump, lossless incl. BLOB UnitIDs); the fixtures rebuild it with
+  executescript. Rebuilt, it verifies clean under mxcli v0.26.0 and lists the workflow.
+
+THE CAPTURES (each run on a fresh copy of model/; <name>.out = stdout, .err = stderr,
+.exit = exit code). Relative paths in the output are the copy's directory name.
+  fix-hashes-help-v0.26.0.txt / -v0.25.0.txt   mxcli fix hashes --help (stdout+stderr; cut at
+                                                "Global Flags:", as fixtures/property-sets/ does)
+  fix-hashes-help-v0.24.0.txt (+ .exit = 0)     the same on v0.24.0: prints the PARENT `fix`
+                                                help and exits 0 — so `fix hashes --help`
+                                                cannot be the support probe; `fix --help`
+                                                listing `hashes` is (fixtures/property-sets/
+                                                fix-help-v0.2{4,5,6}.0.txt).
+  verify-clean-v0.26.0 / -v0.25.0         mxcli fix hashes -p clean/TestApp.mpr      exit 0
+  verify-stale-v0.26.0 / -v0.25.0         the DomainModel unit's row (UnitID
+                                          X'10667784B213CB48A265D5E984D63129', file
+                                          84776610-…) set to ContentsHash 'AAAA…A=' via
+                                          sqlite, then fix hashes                      exit 1
+  verify-orphan-missing-v0.26.0           84776610-….mxunit copied to 11111111-2222-3333-
+                                          4444-555555555555.mxunit, 3f64baa2-….mxunit
+                                          deleted                                      exit 1
+  verify-notfound-v0.26.0                 -p nope/TestApp.mpr ("project not found")   exit 1
+  verify-v1-v0.26.0                       an MPR v1 model (mxcli repo,
+                                          modelsdk/mpr/testdata/v1-project/App.mpr)   exit 0
+  after-master-patchers-v0.26.0           master's wf-add-path-terminators.py <unit> --apply,
+                                          then master's wf-set-call-captions.py <unit>
+                                          --captions MyFirstModule.ACT_Approval_Review=
+                                          'Review the request' --apply, then fix hashes:
+                                          MISMATCH on the workflow unit 056b39ea-…   exit 1
+  after-ported-patchers-v0.26.0           the same two runs with this PR's patchers, in the
+                                          exec.sh --patch form (TestApp.mpr
+                                          MyFirstModule.Approval ...), then fix hashes exit 0
+  after-mxpatch-set-v0.26.0               mxpatch.py set ... ScheduledEvent NightlyCleanup
+                                          --key Enabled --value false --expect true --apply,
+                                          and set ... Workflow Approval --element
+                                          ACT_Approval_Notify --key Caption --value 'Notify
+                                          the requester' --expect ACT_Approval_Notify
+                                          --apply, then fix hashes                    exit 0
+     The ContentsHash values that run left in the index (deterministic: no new IDs):
+       c54d8347-a8ec-40ba-b88e-873bfec0a493  V77jJhY1rHPZmUik9MNfog/UcINc2Zh95K9OVcaC1zU=
+       056b39ea-2e14-4d12-8ae1-87fa4b3c038a  Vp32DjJUjMa/yvpHOoloJq38zHdez18DBK3VJI+cwWU=
+
+THE CONTRACT these show (identical on v0.25.0 and v0.26.0):
+  exit 0 + "The ContentsHash index matches every unit file."            clean
+  exit 0 + "... is an MPR v1 project ..."                                nothing to verify
+  exit 1 + "N mismatch(es), N missing file(s), N orphan file(s)."       issues; one row each:
+           "  MISMATCH  <uuid>  <path> [<type>]" + "            stored X, file Y"
+           "  MISSING   <uuid>  <path> (indexed, no file)"
+           "  ORPHAN    <path> [<type>] (file, not indexed)"
+  exit 1 without that summary ("project not found: …")                  an error, not issues
+  stderr always carries the "WARNING: This is a vibe-coded PoC" banner. --json is accepted
+  and ignored (same text). A *.mxunit.bak beside a unit is NOT an orphan (checked).
+
+CROSS-CHECK of the hash routine, not committed (19 MB): on the mxcli repo's
+testdata/expr-checker model, base64(SHA-256(file)) disagrees with the stored ContentsHash on
+exactly the 67 units `mxcli-v0.26.0 fix hashes` lists as MISMATCH (identical UUID sets), and
+agrees on the other 302; on testdata/pedapp it agrees on all 369.

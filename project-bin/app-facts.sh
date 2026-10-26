@@ -272,7 +272,6 @@ if [ -z "$MXCLI" ]; then
   elif command -v mxcli >/dev/null 2>&1; then MXCLI="mxcli"
   else echo "app-facts: mxcli not found (./mxcli or on PATH); set MXCLI=/path/to/mxcli" >&2; exit 2; fi
 fi
-command -v sqlite3 >/dev/null || { echo "app-facts: sqlite3 not on PATH" >&2; exit 2; }
 MX_VERSION="$("$MXCLI" --version 2>/dev/null | head -1)"
 # A project-local ./mxcli is often an older pin; its catalog can lack whole tables (seen 2026-09-15:
 # a v0.17 pin had no scheduled_events_data and the guard below exits 2). Say so up front.
@@ -301,7 +300,20 @@ if [ $RC -ne 0 ] || [ ! -s "$FACTS_DIR/graph-report.json" ]; then
 fi
 [ -f "$DB" ] || { echo "FAULT: $DB not written by graph-report" >&2; exit 2; }
 
-q() { sqlite3 -noheader "$DB" "$1"; }
+# One-column guard queries. The sqlite3 CLI when it is there (unchanged behaviour); otherwise the
+# same query through Python's sqlite3 module, which step 2 needs anyway. The CLI is absent on
+# cloud containers where apt has no sqlite3 package (field run, FSM 9.24.2, 2026-10-12), and a
+# missing CLI must not stop a script whose facts never came from the CLI. Git Bash has no sqlite3,
+# so Windows always takes the Python path, and native Windows Python prints CRLF: the `tr` keeps
+# every `[ "$(q …)" = "1" ]` below from failing on a trailing \r (as _common.sh does for its probe).
+# APPFACTS_NO_SQLITE3_CLI=1 forces the Python path (the fixture uses it to prove this branch).
+if [ -z "${APPFACTS_NO_SQLITE3_CLI:-}" ] && command -v sqlite3 >/dev/null 2>&1; then
+  q() { sqlite3 -noheader "$DB" "$1"; }
+else
+  q() { DB="$DB" "$PY" -c 'import os, sqlite3, sys
+c = sqlite3.connect("file:%s?mode=ro" % os.environ["DB"], uri=True)
+for r in c.execute(sys.argv[1]): print(r[0])' "$1" | tr -d '\r'; }
+fi
 BUILD_MODE="$(q "SELECT Value FROM catalog_meta WHERE Key='build_mode';")"
 # The build_mode LABEL is not checked (fixed 2026-10-13, field report 2026-10-11): mxcli v0.24.0
 # labels a complete catalog 'source', and the old `!= full` test refused it on every run. What

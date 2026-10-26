@@ -38,6 +38,20 @@ REG="$PROJECT_DIR/PROJECT.md"
 [ -f "$REG" ] || { echo "no PROJECT.md in $PROJECT_DIR — run bin/init-project.sh first" >&2; exit 1; }
 NAME="$(basename "$PROJECT_DIR")"
 
+# --- session folder (#447) ------------------------------------------------------------------
+# Claude Code finds .claude/agents/ (and CLAUDE.md) by walking UP from the folder the session was
+# launched in. A lead started in a sibling folder saw no project agents and ran a whole Stage 5
+# build (110 execs) on general-purpose agents, with nothing saying why (field 2026-10-17).
+# status.sh runs in the session's cwd, so it can say so. Silent at the root or any folder below
+# it (two pwd -P builtins); only the warning path asks _common.sh's own walk (mxtk_walk_root, in
+# a subshell so its env loading cannot leak) which project the cwd belongs to instead.
+CWD_NOTE=""
+_pd="$(cd "$PROJECT_DIR" && pwd -P)"; _cw="$(pwd -P)"
+case "$_cw/" in "$_pd"/*) ;; *)
+  _cr="$(PROJECT_ROOT="$PROJECT_DIR" . "$TOOLKIT_ROOT/project-bin/_common.sh" >/dev/null 2>&1; mxtk_walk_root "$_cw" 2>/dev/null)"
+  CWD_NOTE="session cwd $_cw is not the project root${_cr:+ (it belongs to $_cr)}: project agents and CLAUDE.md will not load; restart the session in $PROJECT_DIR" ;;
+esac
+
 # --- register facts -------------------------------------------------------------------------
 STAGE_LINE="$(awk '/^## Current stage/{f=1;next} f && /^\*\*Stage/{print;exit}' "$REG" | sed -E 's/\*\*//g; s/,? *(in progress)?\.?$//')"
 [ -n "$STAGE_LINE" ] || STAGE_LINE="(no Current stage line in PROJECT.md)"
@@ -88,21 +102,22 @@ fi
 N_STALL="$(printf '%s' "$STALL_LIST" | grep -c .)"; N_STALL="${N_STALL:-0}"
 NOT_DONE_PASS="$(printf '%s\n' "$STALL_LIST" | sed '/^$/d' | head -3 | tr '\n' ' ')"
 # done- is gated on the coverage checklist (iterative-build-loop.md). Field case 2026-10-06: 47
-# scripts built, 0 done-, build-plan.html empty — the checklist could never pass and nothing said
+# scripts built, 0 done-, progress report empty — the checklist could never pass and nothing said
 # so. Several gate-passes and ZERO done- is a stall, not a backlog.
 DONE_STALL=""
 [ "$N_DONE" -eq 0 ] && [ "$N_STALL" -ge 3 ] && DONE_STALL="done- stalled: $N_STALL gate-pass, 0 done-"
-# build-plan.html older than the newest mdlsource/ change reads as a plan nobody is building.
+# the progress report (or an older build-plan.html) older than the newest mdlsource/ change reads as a plan nobody is building.
 BP_STALE=""
-BP_HTML="$PROJECT_DIR/architecture/build-plan.html"
+BP_HTML="$PROJECT_DIR/architecture/progress-report.html"
+[ -f "$BP_HTML" ] || BP_HTML="$PROJECT_DIR/architecture/build-plan.html"  # pre-progress-report projects
 if [ -f "$BP_HTML" ] && [ -d "$MDL_DIR" ] && git -C "$PROJECT_DIR" rev-parse --git-dir >/dev/null 2>&1; then
   _mdl_ts="$(git -C "$PROJECT_DIR" log -1 --format=%ct -- mdlsource 2>/dev/null)"
   # Commit time when the page is tracked (a fresh clone resets every mtime); mtime only for an
   # untracked, locally generated page.
-  _bp_ts="$(git -C "$PROJECT_DIR" log -1 --format=%ct -- architecture/build-plan.html 2>/dev/null)"
+  _bp_ts="$(git -C "$PROJECT_DIR" log -1 --format=%ct -- "${BP_HTML#"$PROJECT_DIR"/}" 2>/dev/null)"
   [ -n "$_bp_ts" ] || _bp_ts="$(stat -c %Y "$BP_HTML" 2>/dev/null || stat -f %m "$BP_HTML" 2>/dev/null)"
   case "$_mdl_ts$_bp_ts" in ''|*[!0-9]*) : ;; *)
-    [ "$_bp_ts" -lt "$_mdl_ts" ] && BP_STALE="build-plan.html STALE (older than the newest mdlsource/ commit — bin/build-plan-status.sh --html)" ;;
+    [ "$_bp_ts" -lt "$_mdl_ts" ] && BP_STALE="$(basename "$BP_HTML") STALE (older than the newest mdlsource/ commit — bin/build-plan-status.sh --html)" ;;
   esac
 fi
 # Agent slots still unfilled (#211) — by design until each agent's stage starts, never invisible.
@@ -239,9 +254,9 @@ next_action() {
   esac
   if [ "$UNSYNCED" -gt 0 ]; then echo "ba-agent flushes $UNSYNCED UNSYNCED marker(s) in PROJECT.md — every gate is blocked until then (conversion-runbook.md §3b)"; return; fi
   case "$COH" in *"DUE"*) echo "run process-coherence-pass.md — the cross-module seam check is due"; return ;; esac   # process-coherence-pass.md
-  if [ -n "$LAST_FAIL" ]; then echo "last gate FAILED for: $LAST_FAIL— fix and re-exec (docs/BUILD-LOG.md, .mpr-snapshots/last-mxbuild-errors.json)"; return; fi   # iterative-build-loop.md Gate: BUILD
+  if [ -n "$LAST_FAIL" ]; then echo "last gate FAILED for: ${LAST_FAIL}— fix and re-exec (docs/BUILD-LOG.md, .mpr-snapshots/last-mxbuild-errors.json)"; return; fi   # iterative-build-loop.md Gate: BUILD
   if [ -n "$DONE_STALL" ]; then echo "$DONE_STALL — done- needs the coverage checklist; run bin/coverage-preflight.sh to see what blocks it (iterative-build-loop.md)"; return; fi
-  if [ -n "$NOT_DONE_PASS" ]; then echo "gate-passed but not done-: $NOT_DONE_PASS— walk the happy path + coverage checklist, then git mv to done- (iterative-build-loop.md step 13-15)"; return; fi
+  if [ -n "$NOT_DONE_PASS" ]; then echo "gate-passed but not done-: ${NOT_DONE_PASS}— walk the happy path + coverage checklist, then git mv to done- (iterative-build-loop.md step 13-15)"; return; fi
   if [ -n "$OB_NEXT" ]; then echo "discharge: $OB_NEXT (bin/lib/obligations.tsv names the artifact each owes)"; return; fi
   [ -n "$GC_NEXT" ] && { echo "$GC_NEXT"; return; }
   echo "nothing overdue — take the next script in architecture/build-plan.md"
@@ -275,6 +290,7 @@ for _w in "${APPROVED_OVER:+APPROVED OVER A FAILING GATE: $APPROVED_OVER}" "$DON
   [ -n "$_w" ] && WATCH="${WATCH:+$WATCH · }$_w"
 done
 if [ "$BRIEF" = 1 ]; then
+  [ -n "$CWD_NOTE" ] && echo "CWD     $CWD_NOTE"
   echo "WHERE   $NAME · $STAGE_LINE${ENTRY:+ · $ENTRY}${ADOPTED:+ · joined at $ADOPTED}"
   [ -n "$ROUND_LINE" ] && echo "ROUND   $ROUND_LINE"
   echo "STATE   scripts $N_SCRIPTS written / $N_PASS gate-pass / $N_DONE done- · modules opened $MOD_OPENED${SKELETON:+ · skeleton $SKELETON} · UNSYNCED $UNSYNCED · open questions $OPEN_Q${MANUAL:+ · $MANUAL}${APPMAP:+ · $APPMAP}"
@@ -285,6 +301,7 @@ if [ "$BRIEF" = 1 ]; then
 fi
 printf '\n%s — %s%s%s\n' "$NAME" "$STAGE_LINE" "${ENTRY:+ · $ENTRY}" "${ADOPTED:+ · joined at stage $ADOPTED}"
 printf '%s\n\n' "$TK"
+[ -n "$CWD_NOTE" ] && printf 'CWD       %s\n' "$CWD_NOTE"
 [ -n "$ROUND_LINE" ] && printf 'ROUND     %s\n' "$ROUND_LINE"
 printf 'DONE      scripts: %s written, %s gate-pass, %s done-  ·  modules opened: %s%s\n' "$N_SCRIPTS" "$N_PASS" "$N_DONE" "$MOD_OPENED" "${SKELETON:+  ·  skeleton proven $SKELETON}"
 printf 'OVERDUE   %s  ·  %s  ·  %s  ·  UNSYNCED markers: %s  ·  open questions: %s\n' "$DOCTOR" "$LINT" "${COH:-coherence: cadence script not installed}" "$UNSYNCED" "$OPEN_Q"

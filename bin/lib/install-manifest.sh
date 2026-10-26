@@ -97,7 +97,8 @@ MXTK_AGENTS_STAGE_BUILD="mdl-agent.md gate-agent.md test-agent.md review-agent.m
 # none; the trend view lived only as a grep in the skill.
 # wf-add-path-terminators.py + mxunit_bson.py are the BUG-121 repair, and they install as a
 # PAIR — the patcher imports the codec from its own directory, so shipping one without the
-# other is an ImportError on first use. They are here rather than in bin/ because a PROJECT
+# other is an ImportError on first use. Since 2026-10-14 (#294) it is a TRIO: both wf-*.py
+# patchers import mxpatch.py (unit lookup, write + ContentsHash), which imports the codec. They are here rather than in bin/ because a PROJECT
 # runs them, against that project's own model unit, after every MDL script that rewrites a
 # workflow carrying a PARALLEL SPLIT. Until MDL has a branch-ending keyword there is no other
 # way to make a scripted split fan out, and every gate is blind to its absence.
@@ -114,7 +115,20 @@ MXTK_AGENTS_STAGE_BUILD="mdl-agent.md gate-agent.md test-agent.md review-agent.m
 # may run itself (stops only the pid run --local recorded for THIS project), and `mxcli test` on a
 # scratch copy under the test-port lock. exec.sh names app-restart.sh in its watch advisory, so
 # it has to be installed beside it.
-MXTK_PROJECT_BIN="app-restart.sh test-scratch.sh assemble-prototype.js prototype-route.js check-prototype-links.js wf-add-path-terminators.py wf-set-call-captions.py mxunit_bson.py _common.sh app-facts.sh _claims.sh snapshot-mpr.sh restore-mpr.sh exec.sh look-ledger.sh save-sp.sh restart-sp.sh check-sp-health.sh verify-module.sh test-stack-up.sh fixture-manifest.sh check-root-clean.sh lint-gate.sh lint-trend.sh metrics-ledger.sh metrics-trend.sh close-task.sh conformance-check.sh coverage-preflight.sh graph-sweep.sh review-module.sh coherence-cadence.sh build-plan-status.sh done-drift-check.sh page-scope.sh render-improvement-register.sh check-design-portability.sh check-design-reaches-app.sh check-page-shell.sh page-fidelity.js model-stamp.sh verify-model.sh install-project-hooks.sh mx-metadata-note.py session-check.sh constants-audit.sh context-pack.sh"
+# process-map.js + process-map.template.html joined on 2026-10-16 and install as a PAIR:
+# the generator reads the template from its own directory. The project runs it at Stage 3
+# (skills/process-map.md Step 4) after every change to design/process-model.json, the
+# anchors, a wireframe or a BRD, and gate-check.sh check_stage_3 fails a stale render.
+# script-owners.sh joined on 2026-10-21 (#269): exec.sh runs it as its sibling before every MDL
+# write (co-owned documents) and records each kept write in its ledger; restore-mpr.sh marks it.
+# describe-baseline.sh joined the same day (#261): exec.sh runs its verify for a script with a
+# `-- baseline:` header, and it reads script-owners.sh's ledger as ITS sibling.
+# mf-canvas-facts.py joined on 2026-10-21 and needs mxpatch.py and mxunit_bson.py beside it (the one
+# BSON reader). Run it by hand on any flow; verify-module.sh also
+# runs it per module (informational; see project-bin/mf-canvas-facts.py header).
+# model-scope.py joined on 2026-10-21: it imports mxpatch.py (and through it mxunit_bson.py) from
+# its own directory. It puts back units a write changed only in XPath whitespace (mxcli#1596).
+MXTK_PROJECT_BIN="process-map.js process-map.template.html app-restart.sh test-scratch.sh script-owners.sh describe-baseline.sh assemble-prototype.js prototype-route.js check-prototype-links.js wf-add-path-terminators.py wf-set-call-captions.py model-scope.py mf-canvas-facts.py mxunit_bson.py mxpatch.py _common.sh app-facts.sh _claims.sh snapshot-mpr.sh restore-mpr.sh exec.sh affected-tests.sh look-ledger.sh save-sp.sh restart-sp.sh check-sp-health.sh verify-module.sh test-stack-up.sh fixture-manifest.sh check-root-clean.sh lint-gate.sh lint-trend.sh metrics-ledger.sh metrics-trend.sh close-task.sh conformance-check.sh coverage-preflight.sh graph-sweep.sh review-module.sh coherence-cadence.sh build-plan-status.sh progress-report.py done-drift-check.sh page-scope.sh render-improvement-register.sh check-design-portability.sh check-design-reaches-app.sh check-page-shell.sh page-fidelity.js model-stamp.sh verify-model.sh install-project-hooks.sh mx-metadata-note.py session-check.sh constants-audit.sh context-pack.sh check-staged-secrets.sh"
 
 # Files in project-bin/ that are deliberately NOT installed into projects. The reverse check
 # below flags anything named by NEITHER list, so a new file in project-bin/ has to be either
@@ -125,7 +139,7 @@ MXTK_PROJECT_BIN="app-restart.sh test-scratch.sh assemble-prototype.js prototype
 # installed because a PROJECT runs it. report-disposition-check.sh is run by gate-check.sh out of
 # the toolkit clone, so a project copy would be a second copy nothing calls — which is how the
 # per-script lists drifted in the first place.
-MXTK_PROJECT_BIN_NOINSTALL="report-disposition-check.sh"  # gate-check.sh runs it from the TOOLKIT clone ($TOOLKIT_DIR/project-bin/, gate-check.sh:2149), never from a project copy — installing it would create a second copy nothing calls
+MXTK_PROJECT_BIN_NOINSTALL="report-disposition-check.sh coverage-check-all.sh ts-sync.sh"  # gate-check.sh runs it from the TOOLKIT clone ($TOOLKIT_DIR/project-bin/, gate-check.sh:2149), never from a project copy — installing it would create a second copy nothing calls; coverage-check-all.sh is run by review-module.sh through its _tool lookup (beside it, then the toolkit clone), so a project copy is optional and nothing calls it from bin/; ts-sync.sh is a toolkit-side transplant helper marked UNPROVEN and SUPERSEDED in its header (#381)
 
 # --- Starlark lint rules -----------------------------------------------------------------
 # Copied from toolkit lint-rules/ into <project>/.claude/lint-rules/. Two lists, because the
@@ -146,11 +160,10 @@ MXTK_PROJECT_BIN_NOINSTALL="report-disposition-check.sh"  # gate-check.sh runs i
 # after them in the list are toolkit-authored, never seeded by init. Copying the rest would pin every project
 # to whatever mxcli shipped the day someone copied them.
 #
-# MXTK_LINT_RULES_CONFIGURABLE — installed once, then owned by the project. conv020 is not an
-# mxcli rule at all (init never seeds it) and it REQUIRES editing: PROJECT_MODULES ships empty
-# and the rule refuses to run until it is filled in. Refreshing it on sync would silently
-# revert that configuration and the rule would go back to inspecting nothing. So: install if
-# absent, report if the template moves, never overwrite.
+# MXTK_LINT_RULES_CONFIGURABLE — installed once, then owned by the project. mxtk_ux003
+# (MXTK-UX003, formerly conv020/CONV020) is not an mxcli rule (init never seeds it) and MAY be
+# edited: a project narrows PROJECT_MODULES or sets ACTION_PREFIX. Refreshing it on sync would silently revert that
+# configuration. So: install if absent, report if the template moves, never overwrite.
 #
 # `mxcli init` OVERWRITES an edited .star without asking (verified 2026-08-18, mxcli v0.17.0:
 # a local edit was gone after a second `init` in the same directory; exit 0, no warning). A
@@ -165,7 +178,20 @@ MXTK_LINT_RULES="conv010_act_microflow_content.star data_change_microflows.star 
 # version the day a non-stock rule joined MXTK_LINT_RULES. Every name here must also be in
 # MXTK_LINT_RULES; the fixture asserts it.
 MXTK_LINT_RULES_STOCK="conv010_act_microflow_content.star data_change_microflows.star entity_business_key.star conv009_max_microflow_objects.star"
-MXTK_LINT_RULES_CONFIGURABLE="conv020_action_user_feedback.star"
+MXTK_LINT_RULES_CONFIGURABLE="mxtk_ux003_action_user_feedback.star"
+
+# MXTK_LINT_RENAMES — rules this toolkit has renamed, one per line:
+#   <old file> <old RULE_ID> <new file> <new RULE_ID> <md5s of every shipped old version, comma-separated> <finding regex>
+# install-lint-rules.sh (_mxtk_lint_migrate_renames) retires a project's old copy ONLY when it is
+# byte-identical (CR-insensitive) to a shipped version or to its receipt row, then rekeys the
+# baseline findings whose message matches the regex. Anything else gets a notice, never a write.
+# The md5s are every version of the old file in git, captured with:
+#   for c in $(git log --format=%h -- lint-rules/<old file>); do git show "$c:lint-rules/<old file>" | md5sum; done
+# CONV020 -> MXTK-UX003 (2026-10-23): mxcli v0.28.0 ships a built-in CONV020 ("Created object never
+# persisted", mendixlabs/mxcli#1518) and mxcli has no duplicate-ID guard. The regex matches only the
+# toolkit rule's messages (finding + its three `_rule` self-reports); the built-in's read
+# "<Noun> 'M.F' creates $X (E) without committing it, ..." (mxcli rules/conv_created_never_persisted.go).
+MXTK_LINT_RENAMES="conv020_action_user_feedback.star CONV020 mxtk_ux003_action_user_feedback.star MXTK-UX003 809ddca4d767a672ee811be51e25570b,a5caa8dacbcc6a64b28b4a4b2a0942e4,d7734ec8922edf2e136316c09b7bb9cf,215582a999ed3194c03922d6c4c40797 is triggered from a page and commits/imports/deletes data, but |^CONV020 (is unconfigured|matched no microflows|could not read any microflow activities)"
 
 # Files in lint-rules/ deliberately NOT installed. Same contract as MXTK_PROJECT_BIN_NOINSTALL:
 # the reverse check below flags anything named by no list, so a new rule has to be either
@@ -190,7 +216,7 @@ MXTK_LINT_RULES_NOINSTALL="README.md STOCK-HASHES.txt"
 #
 # project.config.template.js is listed separately because it is the one file a project is
 # EXPECTED to edit — installing it over an edited copy would silently revert the port.
-MXTK_PROJECT_TESTS="config.js helpers.js settle.js otel.js journey-runner.js named-controls.js journey-runner.selftest.js journey-rung4-scope.test.js monkey.js monkey.selftest.js page-audit.js page-audit-rules.js design-audit.js full-app-walkthrough.js report-normalize.js report-render.js review-report.js example.journey.json"
+MXTK_PROJECT_TESTS="config.js helpers.js settle.js otel.js journey-runner.js named-controls.js journey-runner.selftest.js journey-rung4-scope.test.js monkey.js monkey.selftest.js page-audit.js page-audit-rules.js design-audit.js full-app-walkthrough.js report-normalize.js report-render.js review-report.js demo-polish.js demo-polish.selftest.js example.journey.json"
 MXTK_PROJECT_TESTS_TEMPLATE="project.config.template.js"
 
 # Deliberately not installed. Same contract as the lists above.

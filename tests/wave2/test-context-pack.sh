@@ -7,7 +7,8 @@
 #
 #   1. A CHANGE STEP: every Reads element described with its real kind, the built document shown
 #      as "already in the model" with its impact table, the example included, the folder taken
-#      from the folder plan, and the microflow rules named. Exit 0.
+#      from the folder plan, and the microflow rules named — including `bin/mdl-rules.sh microflow`
+#      (a page step: `bin/mdl-rules.sh page`), the only route some rules have to a pack-fed helper. Exit 0.
 #   2. A PAGE STEP: the DateTime/Boolean/Enumeration watch-out names the real Boolean attribute.
 #   3. A TYPO in Reads: the pack is still written, the name is listed under "Not found", exit 1.
 #   4. NO ROW for the step: exit 2.
@@ -16,6 +17,10 @@
 #      an unrecognised value warns and runs as on.
 #   7. OLD BRIEF: a brief with no "### Build steps" table (written before packs) exits 3, like off.
 #   6. BOTH LAYOUTS: the .mpr at the root, and under app/ (two-tree).
+#   8. BSD SED (#468): `[ \t]` in a sed bracket is "space, backslash or t" on macOS, so a trim
+#      ate the trailing t of Sales.ACT_ApprovalStep_Reject and Sales.Product and both steps
+#      exited 1. On GNU sed the case re-runs through a `sed --posix` shim, which reads the
+#      bracket the same way BSD does; on macOS the plain runs above already are that case.
 #
 # Usage: bash test-context-pack.sh [path-to-context-pack.sh]
 
@@ -58,6 +63,7 @@ for layout in root app; do
   has "5.1 example included"                    "### Sales.ACT_ApprovalStep_Reject (microflow)" "$P/pack.md"
   has "5.1 folder from the folder plan"         "| Sales.ACT_ApprovalStep_Approve | SalesOrder/Microflows |" "$P/pack.md"
   has "5.1 microflow rules named"               "learned-microflow-patterns.md" "$P/pack.md"
+  has "5.1 mdl-rules named with logic kinds"    "bin/mdl-rules.sh microflow\`" "$P/pack.md"
   has "5.1 arch constraints carried"            "audit row in the same transaction" "$P/pack.md"
   has "5.1 no brain dir → says so"              "No docs/brain/ yet" "$P/pack.md"
 
@@ -65,6 +71,7 @@ for layout in root app; do
   has "5.2 widget watch-out present"            "Widget watch-out" "$P/pack.md"
   has "5.2 watch-out names the Boolean attr"    "Sales.Product: Active" "$P/pack.md"
   has "5.2 page rules named"                    "ui-preflight-pages.md" "$P/pack.md"
+  has "5.2 mdl-rules named with page kinds"     "bin/mdl-rules.sh page\`" "$P/pack.md"
 
   check "5.3 typo in Reads exits 1" "$(run "$P" 5.3)" "1"
   has "5.3 typo listed under Not found"         "- Sales.ApprovalStepp" "$P/pack.md"
@@ -72,6 +79,24 @@ for layout in root app; do
 
   check "unknown step exits 2" "$(run "$P" 9.9)" "2"
 done
+
+echo "== BSD sed bracket semantics (#468) =="
+if sed --posix -n p </dev/null >/dev/null 2>&1; then
+  REAL_SED="$(command -v sed)"; mkdir -p "$TMP/bsdsed"
+  printf '#!/usr/bin/env bash\nexec "%s" --posix "$@"\n' "$REAL_SED" > "$TMP/bsdsed/sed"; chmod +x "$TMP/bsdsed/sed"
+  if [ "$(printf 'Product\n' | "$TMP/bsdsed/sed" 's/[ \t]*$//')" = "Produc" ]; then   # portability-ok: the #468 defect, run on purpose to prove the shim reproduces it
+    P="$TMP/bsd"; mkproj "$P" root
+    runbsd() { ( cd "$1" && PATH="$TMP/bsdsed:$PATH" PROJECT_ROOT="$1" bash "$CP" Sales "$2" --out "$1/pack.md" ) 2>"$1/err"; echo $?; }
+    check "bsd sed: 5.1 exits 0 (example name ends in t)" "$(runbsd "$P" 5.1)" "0"
+    has "bsd sed: 5.1 example kept its trailing t" "### Sales.ACT_ApprovalStep_Reject (microflow)" "$P/pack.md"
+    check "bsd sed: 5.2 exits 0 (Reads name ends in t)" "$(runbsd "$P" 5.2)" "0"
+    has "bsd sed: 5.2 Sales.Product described" "Sales.Product: Active" "$P/pack.md"
+  else
+    echo "  SKIP bsd sed: this sed --posix expands \\t in a bracket; the case is not reproducible here"
+  fi
+else
+  echo "  (sed is not GNU sed: the runs above already used BSD bracket semantics)"
+fi
 
 echo "== switch =="
 P="$TMP/root"; mkdir -p "$P/docs/brain"

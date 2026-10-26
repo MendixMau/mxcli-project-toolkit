@@ -6,23 +6,26 @@
 #   tests/behaviour/build-packs.sh T <ref> --without <path>    # ablation: <ref>'s pack minus one file
 #   tests/behaviour/build-packs.sh N                           # no pack: preamble only
 #   [--role mdl] [--stage 5]                                   # the pack's role and stage
+#   [--rules "page access"]                                    # bin/mdl-rules.sh's output for these kinds
 #
 # Writes work/pack-<arm>.txt (work/ ignores itself). An M/T pack is the role stub
 # agents/<role>-agent.md plus every baseline file routing_baseline_pack (bin/lib/skill-routing.sh)
 # lists for <stage> and <role> at <ref>, with bin/runbook-slice.sh expanded to its output, so the
-# file list is the counted one. The ref is checked out in a temporary detached worktree, never in
+# file list is the counted one. A ref whose pack routes bin/mdl-rules.sh (lazy-load PR 2) gets that
+# script expanded to its output for --rules (default: `any`, the core it always prints) — the rules
+# the dispatcher hands a helper for its task's statement kinds, since a pack agent cannot run it. The ref is checked out in a temporary detached worktree, never in
 # the caller's tree. Every pack ends with a PACK-END line; an agent that quotes it back read to
 # the end (score.sh --reply). Prints arm, ref, routed words/files, and pack words.
 set -eu
 AB="$(cd "$(dirname "$0")" && pwd)"; REPO="$(cd "$AB/../.." && pwd)"
-usage() { sed -n '4,8p' "$0" >&2; exit 2; }
+usage() { sed -n '4,9p' "$0" >&2; exit 2; }
 ARM="${1:-}"; [ $# -gt 0 ] && shift
 case "$ARM" in M|T) REF="${1:-}"; [ -n "$REF" ] || usage; shift ;; N) REF="" ;; *) usage ;; esac
-ROLE=mdl; STAGE=5; DROP=""
+ROLE=mdl; STAGE=5; DROP=""; RULES="any"
 while [ $# -gt 0 ]; do
   case "$1" in
     --without) DROP="${2:-}"; [ -n "$DROP" ] || usage ;;
-    --role) ROLE="${2:-}" ;; --stage) STAGE="${2:-}" ;;
+    --role) ROLE="${2:-}" ;; --stage) STAGE="${2:-}" ;; --rules) RULES="${2:-}" ;;
     *) usage ;;
   esac
   shift 2 || usage
@@ -55,6 +58,10 @@ else
       if [ "$p" = "bin/runbook-slice.sh" ]; then
         echo "===== OUTPUT OF: bin/runbook-slice.sh $STAGE ====="
         (cd "$WT" && bash bin/runbook-slice.sh "$STAGE")
+      elif [ "$p" = "bin/mdl-rules.sh" ]; then
+        echo "===== OUTPUT OF: bin/mdl-rules.sh $RULES ====="
+        # shellcheck disable=SC2086
+        (cd "$WT" && bash bin/mdl-rules.sh $RULES)
       else
         echo "===== FILE: $p ====="
         cat "$WT/$p"

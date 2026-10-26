@@ -48,7 +48,8 @@
 # and 9 -> 187, and security warnings (CONV006, SEC003) went in in the same batches as naming
 # info. So an update that RAISES any rule now needs --reason, and is appended to
 # .claude/lint-acceptances.tsv (ts, total before/after, per-rule rises, security flag, reason)
-# — commit it with the baseline. A first baseline and a pure ratchet-down need no reason.
+# — commit it with the baseline. A first baseline (taken with the user right after the first
+# scaffold step, #496) and a pure ratchet-down need no reason.
 # A rise in a security-tier rule (default SEC* and CONV006; override, one id or glob per line,
 # in .claude/lint-security-rules.txt) also needs --approved-in-chat: a claim on the record that
 # the user was shown the findings and said yes, the same contract as gate-check --ack-protocol.
@@ -98,6 +99,14 @@ require_py
 # The .mpr is discovered, not hardcoded. A per-project default here is how this script
 # was previously un-promotable: it named PROJECT-C.mpr and silently linted nothing anywhere
 # else (mxcli exits 0 on a missing project, so the gate reported a clean PASS).
+# MPR_FILE (the user's, or _common.sh's pick from the cwd inside one apps/<X>/) names the model
+# when MPR does not; without it exec.sh run from apps/A reached the "several apps" refusal (#489).
+# Only when it resolves under $ROOT: a cwd-relative MPR_FILE (App.mpr from app/) or an absolute
+# one through a symlinked path (/tmp vs /private/tmp) falls back to discovery, not to exit 2,
+# which exec.sh logs as "lint could not run" and so turns lint off.
+if [ -z "${MPR:-}" ] && [ -n "${MPR_FILE:-}" ]; then
+  _m="${MPR_FILE#"$ROOT"/}"; [ -f "$ROOT/$_m" ] && MPR="$_m"
+fi
 if [ -z "${MPR:-}" ]; then
   MPR="$(ls "$ROOT"/*.mpr 2>/dev/null | head -1)"
   MPR="$(basename "${MPR:-}")"
@@ -108,9 +117,19 @@ if [ -z "${MPR:-}" ]; then
   if [ -z "$MPR" ] && ls "$ROOT"/app/*.mpr >/dev/null 2>&1; then
     MPR="app/$(basename "$(ls "$ROOT"/app/*.mpr | head -1)")"
   fi
+  # Multi-app folder (apps/<X>/X.mpr, #420): one app is linted as it is found; several are not
+  # guessed between (exit 2, naming MPR=apps/<X>/<X>.mpr), the same refusal as find_mpr.
+  if [ -z "$MPR" ] && ls "$ROOT"/apps/*/*.mpr >/dev/null 2>&1; then
+    if [ "$(ls "$ROOT"/apps/*/*.mpr | wc -l | tr -d ' ')" -gt 1 ]; then
+      echo "lint-gate: several apps under $ROOT/apps — set MPR=apps/<X>/<X>.mpr to choose:" >&2
+      ls "$ROOT"/apps/*/*.mpr | sed "s#^$ROOT/#  #" >&2
+      exit 2
+    fi
+    MPR="$(cd "$ROOT" && ls apps/*/*.mpr | head -1)"
+  fi
 fi
 if [ -z "$MPR" ] || [ ! -f "$ROOT/$MPR" ]; then
-  echo "lint-gate: no .mpr found in $ROOT or $ROOT/app — set MPR=<name>.mpr" >&2
+  echo "lint-gate: no .mpr found in $ROOT, $ROOT/app or $ROOT/apps/<X> — set MPR=<name>.mpr" >&2
   exit 2
 fi
 if [ "$(ls "$ROOT"/*.mpr 2>/dev/null | wc -l | tr -d " ")" -gt 1 ] && [ -z "${MPR_EXPLICIT:-}" ]; then
@@ -133,7 +152,7 @@ while [ $# -gt 0 ]; do
               REASON="$2"; shift ;;
     --reason=*) REASON="${1#--reason=}" ;;
     --approved-in-chat) APPROVED=1 ;;
-    -h|--help) sed -n '2,64p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,65p' "$0"; exit 0 ;;
     *) echo "lint-gate: unknown argument '$1'" >&2; exit 2 ;;
   esac
   shift
@@ -169,7 +188,7 @@ fi
 MXCLI=""
 case "$(uname -s 2>/dev/null)" in MINGW*|MSYS*|CYGWIN*) [ -x ./mxcli.exe ] && MXCLI=./mxcli.exe ;; esac
 [ -n "$MXCLI" ] || { [ -x ./mxcli ] && MXCLI=./mxcli; }
-[ -n "$MXCLI" ] || { echo "lint-gate: no runnable mxcli in $ROOT (Windows: mxcli.exe) — bin/doctor.sh --install" >&2; exit 2; }
+[ -n "$MXCLI" ] || { echo "lint-gate: no runnable mxcli in $ROOT (Windows: mxcli.exe) — bin/doctor.sh --install --yes <project>" >&2; exit 2; }
 [ -e "$MPR" ]  || { echo "lint-gate: $MPR not found" >&2; exit 2; }
 
 # Build the --exclude list from the vendor file (comments and blanks stripped).
@@ -263,6 +282,14 @@ PY
   fi
 fi
 
+# The mxcli version a baseline was taken with, so bin/doctor.sh can say "re-baseline" after an
+# upgrade (new built-in rules raise counts on the next exec with no model change). One --version
+# call, on --update-baseline only; a check run never pays for it.
+MXCLI_VER=""
+if [ "$UPDATE" -eq 1 ]; then
+  MXCLI_VER="$("$MXCLI" --version 2>/dev/null | head -1 | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+fi
+
 # LINT_JSON=<file> skips mxcli entirely and reads pre-captured lint output. This makes
 # the comparison logic testable against fixtures with no .mpr, no mxcli and no catalog
 # (a full cold run costs ~12 min on a project whose catalog needs rebuilding).
@@ -283,7 +310,7 @@ fi
 [ -s "$OUT" ] || { echo "lint-gate: lint produced no output" >&2; exit 2; }
 
 BASELINE="$BASELINE" OUT="$OUT" UPDATE="$UPDATE" REASON="$REASON" APPROVED="$APPROVED" \
-  SECURITY_FILE="$SECURITY_FILE" ACCEPT_LOG="$ACCEPT_LOG" "$PY" - <<'PY'
+  SECURITY_FILE="$SECURITY_FILE" ACCEPT_LOG="$ACCEPT_LOG" MXCLI_VER="$MXCLI_VER" "$PY" - <<'PY'
 import json, os, sys, collections, datetime, fnmatch
 
 out_path  = os.environ["OUT"]
@@ -306,6 +333,7 @@ def write_last(verdict, viol_list, counts_now):
             "total": len(viol_list),
             "rule_count": len(counts_now),
             "counts": dict(sorted(counts_now.items())),
+            **({"new_findings": new_by_rule} if new_by_rule else {}),
         }, open(last_path, "w"), indent=2)
         open(last_path, "a").write("\n")
     except OSError as e:
@@ -358,7 +386,7 @@ sev    = {v["ruleId"]: v["severity"] for v in viol}
 
 # A rule that did not actually run is a false PASS, not a clean result. Two forms,
 # and keying on only the first was a real bug in this script:
-#   1. Self-reported blindness: CONV010/CONV020 emit module="_rule" when they inspect
+#   1. Self-reported blindness: CONV010/MXTK-UX003 emit module="_rule" when they inspect
 #      documents but activities_for() hands back nothing.
 #   2. A hard Starlark crash: mxcli reports these as severity=error with an EMPTY
 #      module and a "Starlark rule error:" message prefix -- NOT as "_rule". Observed
@@ -382,9 +410,19 @@ if crashed:
 # PASS-BLIND via `blind` above, which was computed before this filter. The filter applies to
 # check runs too, not only --update-baseline: when it ran on updates alone, the blind finding
 # was missing from the baseline but present in every check, so each later run reported it as
-# "CONV020 0 -> 1 (+1)" — a rise — and exec.sh logged LINT ROSE for an instrument fault.
+# "CONV020 0 -> 1 (+1)" (the toolkit rule, now MXTK-UX003) — a rise — and exec.sh logged LINT ROSE for an instrument fault.
 viol = [v for v in viol if v.get("module") != "_rule"]
 counts = collections.Counter(v["ruleId"] for v in viol)
+
+# FINDING IDENTITY (#239). The baseline stores per-rule counts, so on a rise the gate could only
+# show three arbitrary members of the rule (first in model order = oldest documents), and agents
+# read those as "my" findings. The baseline now also keeps a multiset of findings keyed by
+# (rule, module, document, message); a rise lists the findings that are NOT in that multiset.
+def fkey(v):
+    return "|".join((v.get("ruleId") or "", v.get("module") or "", v.get("document") or "",
+                     (v.get("message") or "").replace("\n", " ")))
+fcounts = collections.Counter(fkey(v) for v in viol)
+new_by_rule = {}  # rule -> every new-or-changed finding; the FAIL view caps it, lint-last.json keeps all
 
 if update:
     # Accepting a rise is a decision; record it. See the header ("ACCEPTING DEBT ...").
@@ -442,7 +480,11 @@ if update:
             sys.exit(2)
     json.dump({"counts": dict(sorted(counts.items())),
                "total": len(viol),
-               "note": "Per-rule finding counts on OUR modules. Gate fails when any rises."},
+               "findings": dict(sorted(fcounts.items())),
+               "note": "Per-rule finding counts on OUR modules, plus a multiset of findings "
+                       "(rule|module|document|message) so a rise can name the new ones. "
+                       "Gate fails when any count rises.",
+               **({"mxcli_version": os.environ["MXCLI_VER"]} if os.environ.get("MXCLI_VER") else {})},
               open(base_path, "w"), indent=2)
     open(base_path, "a").write("\n")
     print("==> baseline written: %d findings across %d rules" % (len(viol), len(counts)))
@@ -452,12 +494,16 @@ if update:
     sys.exit(0)
 
 if not os.path.exists(base_path):
-    print("lint-gate: no baseline at %s — run: bin/lint-gate.sh --update-baseline" % base_path,
-          file=sys.stderr)
+    # The first exec of a build is usually the scaffold, and this is where it lands (#496).
+    print("lint-gate: no baseline yet (%s)." % os.path.relpath(base_path), file=sys.stderr)
+    print("  Take the first baseline now, after the scaffold, with the user, so later rises", file=sys.stderr)
+    print("  measure the build, not the template:  bin/lint-gate.sh --update-baseline", file=sys.stderr)
     write_last("ERROR-NO-BASELINE", viol, counts)
     sys.exit(2)
 
-base = json.load(open(base_path)).get("counts", {})
+_b = json.load(open(base_path))
+base = _b.get("counts", {})
+base_findings = _b.get("findings")  # None on a baseline written before #239
 rose, fell = [], []
 for r in sorted(set(counts) | set(base)):
     now, was = counts.get(r, 0), base.get(r, 0)
@@ -506,10 +552,46 @@ if not rose:
     sys.exit(1 if blind else 0)
 
 print("\nFAIL — %d rule(s) got worse:\n" % len(rose))
+# Work out every rule's new findings first, so the top of the output can be a SUMMARY: one
+# line per rule (rule, severity, base -> now, net rise, new findings). In one field build ~90%
+# of runs rose (#496), and with the findings interleaved the rule list was lost in the detail.
+# The summary lines keep the shape exec.sh parses for its BUILD-LOG row (rule sev N -> M (+K));
+# the detail headers below deliberately do not, so each rule is read once.
+new_lists = {}
 for r, was, now in rose:
-    print("   %-8s %-8s %d -> %d  (+%d)" % (r, sev.get(r, "?"), was, now, now - was))
-    for v in [x for x in viol if x["ruleId"] == r][:3]:
-        print("        %s | %s" % (v.get("module") or "(project)", v["message"][:120]))
+    if base_findings is None:
+        continue
+    # New = findings beyond what the baseline holds, per key (multiset surplus).
+    left = collections.Counter(base_findings)
+    new = []
+    for x in (x for x in viol if x["ruleId"] == r):
+        k = fkey(x)
+        if left[k] > 0: left[k] -= 1
+        else: new.append(x)
+    new_lists[r] = new
+    new_by_rule[r] = ["%s | %s | %s" % (v.get("module") or "(project)", v.get("document") or "-", v["message"][:120]) for v in new]
+for r, was, now in rose:
+    tail = ("  %d new" % len(new_lists[r])) if r in new_lists else ""
+    print("   %-8s %-8s %d -> %d  (+%d)%s" % (r, sev.get(r, "?"), was, now, now - was, tail))
+print("   detail: up to 3 new findings per rule below; all of them in .claude/loop/lint-last.json (new_findings)\n"
+      if base_findings is not None else "")
+for r, was, now in rose:
+    print("   %s:" % r)
+    if r in new_lists:
+        new = new_lists[r]
+        # Compact on purpose: exec.sh shows only the first 60 lines of this block.
+        if len(new) != now - was:
+            print("        new or changed findings (%d); net rise +%d (reworded messages, earlier swaps or un-baselined drift count here)" % (len(new), now - was))
+        shown = new if len(new) <= 3 else new[:2]
+        for line in new_by_rule[r][:len(shown)]:
+            print("        + " + line)
+        if len(new) > 3:
+            print("        + ... %d more in .claude/loop/lint-last.json (new_findings)" % (len(new) - 2))
+    else:
+        print("        (baseline holds counts only: these 3 are the FIRST in model order, not necessarily new.")
+        print("         Re-baseline once on a clean tree to enable listing the new findings.)")
+        for v in [x for x in viol if x["ruleId"] == r][:3]:
+            print("        %s | %s" % (v.get("module") or "(project)", v["message"][:120]))
     print()
 write_last("FAIL", viol, counts)
 sys.exit(1)

@@ -185,7 +185,7 @@ decline. Everything else on this page still applies: it goes in the chat, and yo
 
 `bin/open-questions.sh` prints whatever drafting position the BRD recorded. Where it prints a
 question with no position, **that is a defect in the stage that wrote it** — the collector and
-`bin/questions-report.sh` both mark those. Do not simply forward them; take a position first,
+`bin/brd-report.sh` both mark those. Do not simply forward them; take a position first,
 or state explicitly why you cannot.
 
 ### 3. Batch per gate, then end the turn and wait.
@@ -298,13 +298,15 @@ source, not against the memory of having checked.
 ## The report
 
 ```bash
-bin/questions-report.sh <project-dir> [--stage N] [-o out.html]
+bin/brd-report.sh <project-dir> [--stage N]
 ```
 
-Default output `<project-dir>/docs/open-questions.html`. It shows what was examined (BRD count,
-sme-questions files, duplicates collapsed), the count per state, and every question grouped by
-state with blocking states first. Questions arriving with no proposed answer are flagged
-individually and counted in a banner.
+Default output `<project-dir>/analysis/brd-report.html`. The open questions sit under the process
+map at the top: the count per state, then every question and assumption with its state, drafting
+position and the process step it is about. A click on a step shows only that step's rows.
+Questions arriving with no proposed answer are flagged individually and counted in a banner.
+This page replaced `docs/open-questions.html`; a project that still has the old file is not
+failed, the gate and these docs point at the BRD report.
 
 `gate-check.sh` writes it automatically when the open-questions row blocks a gate. **Give the
 user the path** — this is the artefact they asked for, and it is the thing they can open, read
@@ -335,7 +337,7 @@ A gate is a conversation with the user, not a script's exit code.
 ## Related
 
 - `bin/open-questions.sh` — the collector; `--json` for machine use, no flag for a chat batch.
-- `bin/questions-report.sh` — the HTML triage report.
+- `bin/brd-report.sh` — the HTML report, with the open questions under the process map.
 - `skills/conversion-runbook.md` §1 — gate mechanics.
 - `skills/close-the-loop.md` — writing a decision back into `PROJECT.md`.
 - `skills/brd-generation.md` — the stage that must stop emitting bare questions.

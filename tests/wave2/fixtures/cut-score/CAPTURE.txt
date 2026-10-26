@@ -1,0 +1,23 @@
+Captured 2026-10-12 from the lab checkout lab/decompose (CutFixture, Mendix 10.24.0.73019, mxcli v0.26.0),
+a four-module fixture built by MDL with a planted structure; the MDL is in the field-run notes
+(lab/decompose/mdl/*.mdl in that checkout, not shipped here).
+
+  Core, Util       Customer, Product; SUB_Log + non-persistent LogEntry
+  Orders           Order ->Core.Customer, OrderLine ->Core.Product; ACT_Order_Create calls Util.SUB_Log;
+                   ACT_Order_Close calls Billing.ACT_Invoice_Create   (deliberate back-edge)
+  Billing          Invoice ->Orders.Order; ACT_Invoice_Create calls Orders.SUB_Order_GetLines + Util.SUB_Log
+  Reporting        page over Core.Customer + Billing.Invoice; CAL_Invoice_Totals retrieves Billing.Invoice
+                   and runs COUNT + SUM over it
+  MyFirstModule    the mxcli new scaffold, left in place (an own module the cut does not name)
+
+facts/dependencies.json  verbatim output of project-bin/app-facts.sh --skip-loops
+facts/manifest.json      verbatim
+app-layer-map.json       verbatim output of bin/app-layer-map.sh (the default-cut producer)
+catalog.db               .mxcli/catalog.db reduced to the two tables cut-score.sh reads
+                         (activities_data 279 rows, catalog_meta), rows copied verbatim, nothing edited
+
+Known right answer for --cut "Core,Util|Orders|Billing|Reporting":
+  Orders <-> Billing   bidirectional call pair  -> blocker, both partitions blocked
+  Reporting -> Billing retrieve feeding 2 aggregates -> costly (DETECTED from the catalog)
+  Orders -> Core       associate + parameter only -> acceptable (external entity, Core owns the data)
+  Core+Util            nothing leaves            -> clean

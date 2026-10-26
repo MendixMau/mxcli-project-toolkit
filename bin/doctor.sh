@@ -57,7 +57,7 @@
 #
 # --install never downloads silently: it prints the plan first — what, from where, how big,
 # why, and the detected OS/arch — then asks [y/N] at a terminal, or requires --yes when there
-# is no terminal to ask on. $MXCLI_VERSION=vX.Y.Z pins the mxcli release; default is latest.
+# is no terminal to ask on (agents and CI: always pass --yes). $MXCLI_VERSION=vX.Y.Z pins the mxcli release; default is latest.
 #
 # --install is the one deliberate exception to the no-dependency rule: it needs network access
 # (and curl or wget), runs only when asked, and a failed or declined download degrades to the
@@ -195,9 +195,9 @@ probe_runs() {
 # The result is recorded in <project>/.claude/.property-sets-receipt (machine-local, like the
 # doctor receipt): line 1 "<date> <time> <result> <detail>", line 2 "mxcli: <--version line>".
 # Line 2 is what --if-stale and --quick compare: the check is owed again when mxcli changes.
-# Only a settled answer is recorded — clean, needs, failed, or unsupported (the support probe
+# Only a settled answer is recorded — clean, unproven, needs, failed, or unsupported (the support probe
 # ran and the subcommand is absent). An error or a timeout is never written, and --if-stale
-# skips the run only on a recorded clean/unsupported, so a one-off failure (locked model,
+# skips the run only on a recorded clean/unproven/unsupported, so a one-off failure (locked model,
 # unreadable version, a probe that crashed) is re-checked on the next sync instead of being
 # repeated from the receipt until mxcli changes.
 #
@@ -254,8 +254,28 @@ ps_classify() {
     PS_DETAIL="exit $1: $(printf '%s\n' "$2" | grep -v -e '^[[:space:]]*$' -e '^WARNING: This is a' | head -1)"
   fi
 }
+# ps_below_floor <version> — 0 when the Mendix version is older than 10.24.24, where mxcli's
+# property table starts (mendixlabs/mxcli#1595), so a clean dry-run there proves nothing. 1 when
+# it is not older, or the version is not a plain a.b.c[.d].
+# Deliberately not gated on the mxcli version: a later release that still has the defect must not
+# go silently green. Retire this check (and the warning) when mendixlabs/mxcli#1595 is fixed.
+ps_below_floor() {
+  case "$1" in [0-9]*.[0-9]*.[0-9]*) ;; *) return 1 ;; esac
+  _pf_a="${1%%.*}"; _pf_r="${1#*.}"; _pf_b="${_pf_r%%.*}"; _pf_r="${_pf_r#*.}"; _pf_c="${_pf_r%%.*}"
+  case "$_pf_a$_pf_b$_pf_c" in *[!0-9]*) return 1 ;; esac
+  [ "$_pf_a" -lt 10 ] && return 0
+  [ "$_pf_a" -gt 10 ] && return 1
+  [ "$_pf_b" -lt 24 ] && return 0
+  [ "$_pf_b" -gt 24 ] && return 1
+  [ "$_pf_c" -lt 24 ]
+}
+# ps_unproven_warn <detail> <version> — the warning for a clean dry-run below the floor.
+ps_unproven_warn() {
+  warn "property sets: $1 — NOT PROOF: this model (Mendix ${2:-?}) is below 10.24.24, where mxcli's property table starts, so units mxcli writes can still lack keys (mendixlabs/mxcli#1595)"
+  note "the proof is Mendix's own: mx diff <base>.mpr <mine>.mpr out.json with this version's mx; exit 0 is clean."
+}
 ps_write_receipt() {
-  case "$PS_RESULT" in clean|needs|failed|unsupported) ;; *) return 0 ;; esac
+  case "$PS_RESULT" in clean|unproven|needs|failed|unsupported) ;; *) return 0 ;; esac
   [ -n "$PS_VER" ] || return 0
   [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ] || return 0
   mkdir -p "$PROJECT_DIR/.claude" 2>/dev/null || return 0
@@ -300,7 +320,13 @@ ps_check() {
   fi
   ps_classify "$_psk_rc" "$PS_OUT"
   case "$PS_RESULT" in
-    clean) ok "property sets: $PS_DETAIL — every unit has the property names Studio Pro writes" ;;
+    clean)
+      _psk_mv="$(mxtk_model_version "$MPR" 2>/dev/null || true)"
+      if ps_below_floor "$_psk_mv"; then
+        PS_RESULT=unproven; ps_unproven_warn "$PS_DETAIL" "$_psk_mv"
+      else
+        ok "property sets: $PS_DETAIL — every unit has the property names Studio Pro writes"
+      fi ;;
     needs|failed)
       warn "property sets: $PS_DETAIL — Studio Pro's merge/diff can throw on these"
       printf '%s\n' "$PS_OUT" | grep -E '^  (NEEDS|FAILED) ' | head -10 | while IFS= read -r l; do note "$l"; done
@@ -323,7 +349,10 @@ ps_apply() {
   fi
   note "repairing through bin/exec.sh --patch (snapshot, fix, mxbuild gate, kept only on a verified gate)…"
   _psa_rc=0
-  ( cd "$PROJECT_DIR" && ./bin/exec.sh --patch "$TOOLKIT_ROOT/bin/doctor.sh" --property-sets-apply-step "$PMXCLI_PROBE" ) || _psa_rc=$?
+  # MXTK_LINT_GATE=soft: under a project's `Lint gate: hard` a kept repair would exit 1 (#496).
+  ( cd "$PROJECT_DIR" && MXTK_LINT_GATE=soft ./bin/exec.sh --patch "$TOOLKIT_ROOT/bin/doctor.sh" --property-sets-apply-step "$PMXCLI_PROBE" ) || _psa_rc=$?
+  # exec.sh exit 4 = kept on a passed gate, lint rose (exec.sh "Exit codes"); not a failed repair.
+  [ "$_psa_rc" -eq 4 ] && { note "property sets: repair kept; exec.sh reports a lint rise (see its BUILD-LOG row)"; _psa_rc=0; }
   if [ "$_psa_rc" -ne 0 ]; then
     bad "property sets: exec.sh --patch exited $_psa_rc — the repair was not kept (its output above says why)"
     return 0
@@ -332,7 +361,7 @@ ps_apply() {
   ps_check
 }
 ps_exit_code() {
-  case "$PS_RESULT" in clean) echo 0 ;; not-run) echo 2 ;; unsupported) echo 3 ;; needs|failed) echo 1 ;; *) echo 4 ;; esac
+  case "$PS_RESULT" in clean|unproven) echo 0 ;; not-run) echo 2 ;; unsupported) echo 3 ;; needs|failed) echo 1 ;; *) echo 4 ;; esac
 }
 
 # --property-sets / --fix-property-sets: only this check, then exit. Stands alone so
@@ -347,8 +376,21 @@ if [ -n "$PS_MODE" ]; then
   . "$TOOLKIT_ROOT/project-bin/_common.sh"
   MPR="$(ls "$PROJECT_DIR"/*.mpr 2>/dev/null | head -1)"
   [ -n "$MPR" ] || MPR="$(ls "$PROJECT_DIR"/app/*.mpr 2>/dev/null | head -1)"
+  # Multi-app folder (#420): MPR_FILE picks the app; otherwise the first is checked and the
+  # screen says so, naming the others, rather than silently checking one of several.
+  _ps_apps=""
+  if [ -z "$MPR" ] && ls "$PROJECT_DIR"/apps/*/*.mpr >/dev/null 2>&1; then
+    if [ -n "${MPR_FILE:-}" ] && [ -f "$PROJECT_DIR/${MPR_FILE#"$PROJECT_DIR"/}" ]; then
+      MPR="$PROJECT_DIR/${MPR_FILE#"$PROJECT_DIR"/}"
+    else
+      MPR="$(ls "$PROJECT_DIR"/apps/*/*.mpr | head -1)"
+      [ "$(ls "$PROJECT_DIR"/apps/*/*.mpr | wc -l | tr -d ' ')" -gt 1 ] \
+        && _ps_apps="$(cd "$PROJECT_DIR" && ls apps/*/*.mpr | paste -s -d, - | sed 's/,/, /g')"
+    fi
+  fi
   PMXCLI_PROBE="$(find_project_mxcli 2>/dev/null || true)"
   head_ "Property sets (Studio Pro merge safety): $PROJECT_DIR"
+  [ -n "$_ps_apps" ] && note "multi-app folder ($_ps_apps): checking ${MPR#"$PROJECT_DIR"/} only — rerun with MPR_FILE=apps/<X>/<X>.mpr for each other app"
   if [ "$PS_IF_STALE" = 1 ] && [ "$PS_MODE" = check ] && [ -n "$PMXCLI_PROBE" ]; then
     PS_VER="$(ps_version "$PMXCLI_PROBE")"
     if [ -n "$PS_VER" ] && ! ps_stale; then
@@ -357,6 +399,9 @@ if [ -n "$PS_MODE" ]; then
       case "$PS_RESULT" in
         clean|unsupported)
           ok "already checked for $PS_VER: $(sed -n 1p "$(ps_receipt)")"
+          exit "$(ps_exit_code)" ;;
+        unproven)
+          ps_unproven_warn "already checked for $PS_VER: $(sed -n 1p "$(ps_receipt)")" "$(mxtk_model_version "$MPR" 2>/dev/null || true)"
           exit "$(ps_exit_code)" ;;
       esac
     fi
@@ -533,6 +578,45 @@ fi
 
 fi
 
+# --- installed Claude hooks: copies that call a toolkit script which is gone ------------------
+#
+# install-claude-hooks.sh writes COPIES into ~/.claude/hooks with the toolkit path filled in.
+# When a toolkit update removes a script (bin/questions-report.sh was retired in v1.0), an old
+# copy keeps calling it: the hook still runs but silently loses its output. A warning only,
+# never a failure: the hooks are user-global and optional.
+if [ -d "$HOME/.claude/hooks" ]; then
+  head_ "Installed Claude hooks (~/.claude/hooks)"
+  STALE_HOOKS=0
+  HOOKS_SEEN=0
+  for hf in "$HOME"/.claude/hooks/*.sh; do
+    [ -f "$hf" ] || continue
+    HOOKS_SEEN=$((HOOKS_SEEN + 1))
+    # The toolkit root the installer wrote, e.g. TOOLKIT="/path/to/toolkit".
+    HOOK_ROOT="$(sed -n 's/^[A-Z_]*TOOLKIT[A-Z_]*="\(\/[^"]*\)".*/\1/p' "$hf" | head -1)"
+    HOOK_REFS=""
+    if [ -n "$HOOK_ROOT" ]; then
+      HOOK_REFS="$(grep -oE '[$][{]?[A-Z_]*TOOLKIT[A-Z_]*[}]?/[A-Za-z0-9_./-]+[.](sh|py|js|tsv)' "$hf" 2>/dev/null \
+        | sed -e 's/^[$][{]*[A-Z_]*[}]*//' -e "s|^|$HOOK_ROOT|" | sort -u)"
+    fi
+    HOOK_GONE=""
+    while IFS= read -r ref; do
+      [ -n "$ref" ] || continue
+      [ -e "$ref" ] || HOOK_GONE="$HOOK_GONE ${ref##*/}"
+    done <<EOF_REFS
+$HOOK_REFS
+EOF_REFS
+    if [ -n "$HOOK_GONE" ]; then
+      STALE_HOOKS=$((STALE_HOOKS + 1))
+      warn "installed hook $(basename "$hf") calls a toolkit script that no longer exists:$HOOK_GONE"
+    fi
+  done
+  if [ "$STALE_HOOKS" -gt 0 ]; then
+    note "The installed copy is older than this toolkit. Re-run: $TOOLKIT_ROOT/bin/install-claude-hooks.sh --full"
+  elif [ "$HOOKS_SEEN" -gt 0 ]; then
+    ok "installed hooks only call toolkit scripts that exist"
+  fi
+fi
+
 # --- command line tools ---------------------------------------------------------------------
 
 head_ "Command line tools"
@@ -605,6 +689,8 @@ SP_APP="$(find_sp_app 2>/dev/null || true)"
 MXBUILD="$(find_mxbuild 2>/dev/null || true)"
 JAVA_HOME_FOUND="$(find_java 2>/dev/null || true)"
 JAVA_EXE="$(find_java_exe 2>/dev/null || true)"
+
+_jnote="$(find_java_note 2>/dev/null || true)"
 
 # toolkit.env — the human-editable answer to "doctor guessed the wrong Studio Pro / Java".
 # _common.sh already loaded it (project file, then ~/.mxcli-toolkit.env; a variable set in
@@ -681,17 +767,30 @@ if [ "$INSTALL" -eq 1 ]; then
     # `-c` input changed shape (navigation, DynamicClasses, `show entity` refused). The
     # toolkit's instruments read both shapes, so a project mid-build may stay on its version
     # (MXCLI_VERSION=v0.24.0) and move when it chooses.
+    # Git Bash on Windows ARM64 runs emulated, so `uname -m` says x86_64 there. On Windows the
+    # real hardware shows in the `uname -s` suffix (...-ARM64) and in PROCESSOR_ARCHITEW6432
+    # (set for emulated processes) / PROCESSOR_ARCHITECTURE; those win over `uname -m`.
     MXCLI_ARCH="$(uname -m 2>/dev/null || echo unknown)"
     case "$MXCLI_ARCH" in
       x86_64|amd64) MXCLI_ARCH=amd64 ;;
       arm64|aarch64) MXCLI_ARCH=arm64 ;;
     esac
+    if [ "$PLATFORM" = gitbash ]; then
+      case "$UNAME:${PROCESSOR_ARCHITEW6432:-}:${PROCESSOR_ARCHITECTURE:-}" in
+        *-ARM64:*|*:ARM64:*|*:*:ARM64) MXCLI_ARCH=arm64 ;;
+      esac
+    fi
+    MXCLI_FALLBACK_ASSET=""
     case "$PLATFORM-$MXCLI_ARCH" in
       macos-amd64)   MXCLI_ASSET="mxcli-darwin-amd64";      MXCLI_DEST="mxcli" ;;
       macos-arm64)   MXCLI_ASSET="mxcli-darwin-arm64";      MXCLI_DEST="mxcli" ;;
       linux-amd64|wsl-amd64) MXCLI_ASSET="mxcli-linux-amd64"; MXCLI_DEST="mxcli" ;;
       linux-arm64|wsl-arm64) MXCLI_ASSET="mxcli-linux-arm64"; MXCLI_DEST="mxcli" ;;
       gitbash-amd64) MXCLI_ASSET="mxcli-windows-amd64.exe"; MXCLI_DEST="mxcli.exe" ;;
+      # Windows ARM64: native build; releases before it existed fall back to the amd64 .exe,
+      # which Windows on ARM runs under emulation.
+      gitbash-arm64) MXCLI_ASSET="mxcli-windows-arm64.exe"; MXCLI_DEST="mxcli.exe"
+                     MXCLI_FALLBACK_ASSET="mxcli-windows-amd64.exe" ;;
       *)             MXCLI_ASSET=""; MXCLI_DEST="" ;;
     esac
     if [ -n "${MXCLI_VERSION:-}" ]; then
@@ -763,7 +862,12 @@ if [ "$INSTALL" -eq 1 ]; then
         MXCLI_READY=1
         if [ "$NEED_MXCLI" -eq 1 ]; then
           note "fetching $MXCLI_ASSET from the mxcli releases..."
-          if $MXCLI_FETCH "$PROJECT_DIR/$MXCLI_DEST" "$MXCLI_URL" && chmod +x "$PROJECT_DIR/$MXCLI_DEST" \
+          if ! $MXCLI_FETCH "$PROJECT_DIR/$MXCLI_DEST" "$MXCLI_URL" && [ -n "$MXCLI_FALLBACK_ASSET" ]; then
+            warn "$MXCLI_ASSET is not published for this mxcli version; trying $MXCLI_FALLBACK_ASSET (runs emulated)."
+            MXCLI_URL="${MXCLI_URL%/*}/$MXCLI_FALLBACK_ASSET"
+            $MXCLI_FETCH "$PROJECT_DIR/$MXCLI_DEST" "$MXCLI_URL" || true
+          fi
+          if [ -s "$PROJECT_DIR/$MXCLI_DEST" ] && chmod +x "$PROJECT_DIR/$MXCLI_DEST" \
              && probe_runs "$PROJECT_DIR/$MXCLI_DEST"; then
             ok "mxcli fetched into the project root: $(probe_line)"
             PMXCLI="$PROJECT_DIR/$MXCLI_DEST"
@@ -843,6 +947,7 @@ if [ -n "$JAVA_EXE" ] && [ -x "$JAVA_EXE" ]; then
   JV="$("$JAVA_EXE" -version 2>&1 | grep -i 'version' | head -1)" || JV=""
   if [ -n "$JV" ]; then
     ok "java runs: $JV  ($JAVA_EXE)"
+    [ -z "${_jnote:-}" ] || warn "$_jnote"
     # mxbuild compiles the model's Java actions, which takes javac — a JRE has none. Studio
     # Pro's bundled runtime is a JRE that mxbuild is paired with, so only flag a system Java.
     case "$JAVA_HOME_FOUND" in
@@ -1123,6 +1228,12 @@ if [ -n "$PROJECT_DIR" ]; then
     # Two-tree checkout (cloud-dev-environment.md: `mxcli new --output-dir ./app`) — the app
     # lives under app/. Reported "no .mpr found" on a healthy pilot, 2026-09-04.
     [ -n "$MPR" ] || MPR="$(ls "$PROJECT_DIR"/app/*.mpr 2>/dev/null | head -1)"
+    # Multi-app folder (apps/<X>/X.mpr, #420): report every app, not "no .mpr found".
+    if [ -z "$MPR" ] && ls "$PROJECT_DIR"/apps/*/*.mpr >/dev/null 2>&1; then
+      MPR="$(ls "$PROJECT_DIR"/apps/*/*.mpr | head -1)"
+      _apps="$(cd "$PROJECT_DIR" && ls apps/*/*.mpr | paste -s -d, - | sed 's/,/, /g')"
+      [ "$(ls "$PROJECT_DIR"/apps/*/*.mpr | wc -l | tr -d ' ')" -gt 1 ] && note "multi-app folder: $_apps — instruments need MPR_FILE=apps/<X>/<X>.mpr to pick one"
+    fi
     [ -n "$MPR" ] && ok "model: ${MPR#$PROJECT_DIR/}" || {
       warn "no .mpr found in the project root"
       note "If the model lives elsewhere, point doctor at the folder that contains it;"
@@ -1174,6 +1285,22 @@ if [ -n "$PROJECT_DIR" ]; then
     else
       ok "settings files match the profile"
     fi
+    # The two hooks. Without the PostToolUse(Read) look-ledger hook seen.tsv is never written, so the
+    # ledger says "0 seen" for pages whose screenshots were opened (field: a lab project, 22 of 31).
+    HOOK_GAP=""
+    grep -qF 'bin/session-check.sh' "$PSET" 2>/dev/null || HOOK_GAP="session-check (SessionStart)"
+    grep -qF 'bin/look-ledger.sh seen' "$PSET" 2>/dev/null || HOOK_GAP="${HOOK_GAP:+$HOOK_GAP and }look-ledger seen (PostToolUse Read)"
+    # #446: the pre-2026-10-21 relative form records nothing from any cwd but the project root.
+    # Any look hook not in the root-resolving form (one JSON string per line, so per-line is exact).
+    grep -F 'look-ledger.sh seen' "$PSET" 2>/dev/null | grep -vqF 'CLAUDE_PROJECT_DIR' && HOOK_GAP="${HOOK_GAP:+$HOOK_GAP and }look-ledger seen run from the project root (a look hook that does not cd to \$CLAUDE_PROJECT_DIR first records nothing from any other cwd)"
+    if [ -n "$HOOK_GAP" ] && [ -f "$PROJECT_DIR/.mxtk/no-hook-repair" ]; then
+      ok "hook gap ($HOOK_GAP) accepted: .mxtk/no-hook-repair is set"
+    elif [ -n "$HOOK_GAP" ]; then
+      warn "the project's .claude/settings.json has no hook for $HOOK_GAP, so the look ledger will read 0 seen however many screenshots were opened"
+      note "fix: $TOOLKIT_ROOT/bin/install-claude-permissions.sh $PROJECT_DIR --hooks-only   (or bin/sync-project.sh $PROJECT_DIR)"
+    else
+      ok "session-check and look-ledger hooks are in .claude/settings.json"
+    fi
     for _pf in "$PSET" "$PLOCAL"; do
       if grep -qE '"defaultMode"[[:space:]]*:[[:space:]]*"(auto|bypassPermissions)"' "$_pf" 2>/dev/null; then
         warn "${_pf#$PROJECT_DIR/} sets defaultMode to auto/bypassPermissions — Claude Code ignores that in a project file"
@@ -1204,6 +1331,8 @@ if [ -n "$PROJECT_DIR" ]; then
         _psq="$(sed -n 1p "$(ps_receipt)")"
         case "$_psq" in
           *" clean "*|*" clean") ok "property sets: last check for this mxcli was clean ($_psq)" ;;
+          *" unproven "*) warn "property sets: last check for this mxcli was clean, but the model is below Mendix 10.24.24, so that proves nothing (mendixlabs/mxcli#1595)"
+                          note "run: mx diff <base>.mpr <mine>.mpr out.json; exit 0 is clean" ;;
           *" unsupported "*) note "property sets: this mxcli cannot check them (v0.26.0+ needed)" ;;
           *) warn "property sets: last check for this mxcli: $_psq"
              note "repair: bin/doctor.sh --fix-property-sets $PROJECT_DIR" ;;
@@ -1417,6 +1546,32 @@ fi
 
 # --- verdict ---------------------------------------------------------------------------------
 
+# Line 2 of the receipt below: the installed mxcli's --version line. Read here, once (it was read
+# inside the receipt block before), so the lint-baseline hint below needs no extra mxcli call.
+FP_MXCLI="none"
+[ -n "$PROJECT_DIR" ] && [ -x "$PROJECT_DIR/mxcli" ] && FP_MXCLI="$("$PROJECT_DIR/mxcli" --version 2>/dev/null | head -1)"
+
+# Lint baseline vs this mxcli. A new mxcli can add built-in rules (v0.28.0: CONV020) that raise
+# lint on the next exec with no model change. lint-gate.sh --update-baseline records
+# mxcli_version. Notes only: the exit code does not change, the gate's behaviour does not either.
+_lb="${PROJECT_DIR:-.}/.claude/lint-baseline.json"
+_lb_now="$(printf '%s\n' "$FP_MXCLI" | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+if [ -n "$PROJECT_DIR" ] && [ -f "$_lb" ] && [ -n "$_lb_now" ]; then
+  _lb_was="$(sed -n 's/.*"mxcli_version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$_lb" | head -1)"
+  if [ "$_lb_was" != "$_lb_now" ]; then
+    head_ "Lint baseline: $PROJECT_DIR"
+    # No recorded version is no evidence of a rise: name no command (a reflex re-baseline is what
+    # skills/lint-that-actually-runs.md warns against). A recorded, different one is evidence.
+    if [ -z "$_lb_was" ]; then
+      note "lint baseline records no mxcli version; if mxcli was upgraded since it was taken, new built-in rules can raise lint."
+      note "  the next bin/lint-gate.sh --update-baseline records it; nothing to do until lint actually rises."
+    else
+      note "lint baseline was taken with mxcli $_lb_was; this is $_lb_now. New built-in rules can raise lint."
+      note "  after reviewing the new findings: bin/lint-gate.sh --update-baseline --reason \"mxcli $_lb_now built-in rules\""
+    fi
+  fi
+fi
+
 head_ "Verdict"
 
 # Leave a dated receipt in the project so gate-check can tell "doctor ran and passed" from
@@ -1429,7 +1584,6 @@ if [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ]; then
   mkdir -p "$PROJECT_DIR/.claude" 2>/dev/null || true
   # Line 2 is the environment fingerprint: mxcli version, mxbuild path, arch. exec.sh re-runs
   # `doctor.sh --quick` when it changes or the receipt is over a day old (warn-only).
-  FP_MXCLI="$( [ -x "$PROJECT_DIR/mxcli" ] && "$PROJECT_DIR/mxcli" --version 2>/dev/null | head -1 || echo none)"
   { printf '%s %s fail=%s warn=%s%s\n' "$(date '+%Y-%m-%d %H:%M')" "$RECEIPT_VERDICT" "$FAIL" "$WARN" "$( [ "$QUICK" = 1 ] && echo ' quick')"
     printf 'fingerprint: %s | %s | %s\n' "$FP_MXCLI" "${MXBUILD:-no-mxbuild}" "$(uname -sm)"
     [ -n "$GATE_SELFTEST_LINE" ] && printf 'gate-selftest: %s\n' "$GATE_SELFTEST_LINE"
@@ -1449,6 +1603,17 @@ if [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ]; then
     printf '\n# Machine-local tool locations (bin/doctor.sh / project-bin/_common.sh)\n/.claude/toolkit.env\n' \
       >> "$PROJECT_DIR/.gitignore" 2>/dev/null || true
     note "(added /.claude/toolkit.env to the project's .gitignore — it holds this machine's paths)"
+  fi
+  # The progress report's session cache holds absolute session-log paths (user name, session ids).
+  # -e, not -d: in a git worktree .git is a file. --no-index: a tracked file is never "ignored" otherwise,
+  # and the line would be appended again on every run.
+  if [ -e "$PROJECT_DIR/.git" ] && ! git -C "$PROJECT_DIR" check-ignore -q --no-index .claude/progress-report-sessions.txt 2>/dev/null; then
+    printf '\n# Machine-local progress report session cache (absolute session-log paths)\n/.claude/progress-report-sessions.txt\n' \
+      >> "$PROJECT_DIR/.gitignore" 2>/dev/null || true
+    note "(added /.claude/progress-report-sessions.txt to the project's .gitignore — the cache is machine-local)"
+  fi
+  if [ -e "$PROJECT_DIR/.git" ] && git -C "$PROJECT_DIR" ls-files --error-unmatch .claude/progress-report-sessions.txt >/dev/null 2>&1; then
+    note "(.claude/progress-report-sessions.txt is already tracked by git; untrack it with: git rm --cached .claude/progress-report-sessions.txt)"
   fi
 fi
 

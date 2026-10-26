@@ -20,8 +20,12 @@
 #   Q  dev and held-out scores (top-1, top-3, confident-wrong) are at or above their floors
 #   W  a ranked answer stays short: at most 200 words per query
 #   X  every other awk on PATH (mawk, gawk, original-awk = BWK) prints the same ranking
-#   L  one word keeps the full-entry path: BUG-n, CE code, keyword, --index, --exact
+#   L  one word keeps the full-entry path: BUG-n, CE code, keyword, --index, --exact; --index
+#      prints the same entries under a BSD-sed shim (\t read as t, #488)
 #   F  --full N prints the N-th ranked entry in full and stops at the next entry
+#   P  project drafts: a wired project's own bug-logs/*.md are searched after the ledger, marked
+#      `(project draft: ...)`; the ledger part is byte-identical with drafts off; --full and
+#      --index stay ledger-only (fixtures/bug-lookup/project-drafts/, synthetic, invented text)
 #   U  usage: no query exits 1; --full 0 exits 2; a backslash in the query survives (`\\n` is
 #      not read as a newline: same ranking as the query with the backslashes spaced out)
 set -uo pipefail
@@ -31,6 +35,7 @@ SUBJ="${1:-$TOOLKIT/bin/bug-lookup.sh}"
 case "$SUBJ" in /*) ;; *) SUBJ="$PWD/$SUBJ" ;; esac
 FX="$TOOLKIT/tests/wave2/fixtures/bug-lookup"
 export MXTK_BUG_LOG="$TOOLKIT/bug-logs/mxcli-bugs.md"
+export MXTK_PROJECT_DIR=""   # drafts off for every group but P, whatever folder the run starts in
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/buglookup.XXXXXX")" || exit 2
 trap 'rm -rf "$WORK"' EXIT
 
@@ -128,6 +133,18 @@ printf '%s\n' "$o" | grep -q '^## ' && ! printf '%s\n' "$o" | grep -qE '^[0-9]+\
   && ok "CE0053: entries in full, not ranked" || bad "CE0053: $(printf '%s\n' "$o" | head -2)"
 n_hdr=$(grep '^## ' "$MXTK_BUG_LOG" | grep -vc '^## Provenance')
 [ "$(bash "$SUBJ" --index | wc -l | tr -d ' ')" = "$n_hdr" ] && ok "--index: $n_hdr lines, one per entry" || bad "--index line count"
+# BSD sed reads \t outside a bracket as the letter t (#488); GNU sed cannot be made to, so a
+# shim rewrites every backslash-t in sed's arguments to t. wc -l above counts empty lines too,
+# which is how an --index of 222 blank lines would have passed on macOS.
+mkdir -p "$WORK/bsdsed"
+printf '#!/usr/bin/env bash\na=(); for x in "$@"; do a+=("${x//\\\\t/t}"); done\nexec "%s" "${a[@]}"\n' "$(command -v sed)" > "$WORK/bsdsed/sed"
+chmod +x "$WORK/bsdsed/sed"
+if [ "$(printf 'x\n' | PATH="$WORK/bsdsed:$PATH" sed 's/x/\t/')" = t ]; then   # portability-ok: probes the shim's BSD reading on purpose
+  [ "$(PATH="$WORK/bsdsed:$PATH" bash "$SUBJ" --index)" = "$(bash "$SUBJ" --index)" ] \
+    && [ "$(PATH="$WORK/bsdsed:$PATH" bash "$SUBJ" --index | grep -c .)" = "$n_hdr" ] \
+    && ok "--index under a BSD-sed shim: the same $n_hdr non-empty lines" \
+    || bad "--index under a BSD-sed shim: $(PATH="$WORK/bsdsed:$PATH" bash "$SUBJ" --index | grep -c .) non-empty lines, want $n_hdr"
+else bad "BSD-sed shim did not turn \\t into t"; fi
 o="$(bash "$SUBJ" --exact "widget name")"; rc=$?
 ! printf '%s\n' "$o" | grep -qE '^[0-9]+\. \[' && ok "--exact: literal path, not ranked (exit $rc)" || bad "--exact ranked"
 
@@ -139,6 +156,38 @@ o="$(bash "$SUBJ" --full 1 "$q")"
 second=$(bash "$SUBJ" "$q" | grep '^2\. \[' | sed 's/^2\. \[[0-9.]*\] //' | cut -c1-40)
 [ -n "$second" ] && [ "$(bash "$SUBJ" --full 2 "$q" | head -1 | cut -c4-43)" = "$second" ] \
   && ok "--full 2: the entry ranked 2nd" || bad "--full 2 is not the 2nd ranked entry"
+
+echo "== P: project drafts"
+PX="$FX/project-drafts"
+o="$(MXTK_PROJECT_DIR="$PX" bash "$SUBJ" rewire)"; rc=$?
+[ "$rc" = 0 ] && printf '%s\n' "$o" | grep -q '^(project draft: bug-logs/2026-01-02-order-flow.md:[0-9]*)$' \
+  && printf '%s\n' "$o" | grep -q 'Shop.ACT_Order cannot be rewired' \
+  && ok "one word: ledger says nothing, the draft entry follows in full, marked, exit 0" || bad "one word: exit $rc: $(printf '%s\n' "$o" | head -3)"
+bash "$SUBJ" rewire >/dev/null 2>&1; [ $? = 1 ] && ok "drafts off (MXTK_PROJECT_DIR empty): the same word exits 1" || bad "drafts off: wrong exit"
+o="$(MXTK_PROJECT_DIR="$PX" bash "$SUBJ" 'Shop.ACT_Order cannot be rewired')"; rc=$?
+[ "$rc" = 0 ] && printf '%s\n' "$o" | grep -q '^Project drafts (not in the ledger):$' \
+  && printf '%s\n' "$o" | grep -q '^1\. \[[0-9.]*\] BUG-DRAFT-rewire-refusal:.*(project draft: bug-logs/2026-01-02-order-flow.md:[0-9]*)$' \
+  && ok "ranked: the best draft is listed first, marked, exit 0 although the ledger has no match" || bad "ranked: exit $rc: $(printf '%s\n' "$o" | head -4)"
+! printf '%s\n' "$o" | grep -q 'gallery-lost-ref' && ok "ranked: a draft below the 40% coverage floor is not listed" || bad "ranked: a weak draft was listed"
+! printf '%s\n' "$o" | grep -q 'frobnicate' && ok "ranked: the Provenance section is not an entry" || bad "ranked: Provenance listed"
+o="$(MXTK_PROJECT_DIR="$PX" bash "$SUBJ" provenance 2>&1)"; ! printf '%s\n' "$o" | grep -q 'seen twice' \
+  && ok "one word: Provenance text is not searched in drafts" || bad "one word: Provenance text was found"
+q='[error] [CE0710] "The main flow cannot join an error flow or end in an error event."'
+[ "$(MXTK_PROJECT_DIR="$PX" bash "$SUBJ" "$q")" = "$(bash "$SUBJ" "$q")" ] \
+  && ok "ranked ledger query no draft matches: output identical to drafts off" || bad "ranked ledger output changed by drafts"
+[ "$(MXTK_PROJECT_DIR="$PX" bash "$SUBJ" BUG-102)" = "$(bash "$SUBJ" BUG-102)" ] \
+  && ok "BUG-102: output identical to drafts off" || bad "BUG-102 output changed by drafts"
+[ "$(MXTK_PROJECT_DIR="$PX" bash "$SUBJ" --full 1 "$q")" = "$(bash "$SUBJ" --full 1 "$q")" ] \
+  && [ "$(MXTK_PROJECT_DIR="$PX" bash "$SUBJ" --index)" = "$(bash "$SUBJ" --index)" ] \
+  && ok "--full 1 and --index: ledger only, identical to drafts off" || bad "--full/--index changed by drafts"
+# Found from the working directory the way a session runs it: inside a wired project.
+PRJ="$WORK/proj"; mkdir -p "$PRJ/.claude" "$PRJ/bug-logs" "$PRJ/deep/er"; : > "$PRJ/PROJECT.md"
+cp "$PX"/bug-logs/*.md "$PRJ/bug-logs/"
+o="$(cd "$PRJ/deep/er" && env -u MXTK_PROJECT_DIR bash "$SUBJ" rewire)"; rc=$?
+[ "$rc" = 0 ] && printf '%s\n' "$o" | grep -q '^(project draft: bug-logs/2026-01-02-order-flow.md:' \
+  && ok "found from a subfolder of the wired project (no variable set)" || bad "cwd discovery: exit $rc: $(printf '%s\n' "$o" | head -2)"
+o="$(cd "$TOOLKIT" && env -u MXTK_PROJECT_DIR bash "$SUBJ" rewire 2>&1)"; rc=$?
+[ "$rc" = 1 ] && ok "outside any project (the toolkit itself): no drafts, exit 1" || bad "outside a project: exit $rc: $(printf '%s\n' "$o" | head -2)"
 
 echo "== U: usage"
 bash "$SUBJ" >/dev/null 2>&1; [ $? = 1 ] && ok "no query: exit 1" || bad "no query: wrong exit"

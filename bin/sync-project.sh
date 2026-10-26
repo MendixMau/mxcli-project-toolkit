@@ -1058,17 +1058,25 @@ if [ -f "$PROJECT_DIR/CLAUDE.local.md" ]; then
   # can also trip it; the message below is phrased as "check whether" for that reason, not as
   # a flat assertion. Same rule as the ledger-row warn above: CLAUDE.md is bootstrap-project.md's
   # (an LLM merge), not this script's, so sync never edits it — only names the fix.
-  if [ -f "$PROJECT_DIR/CLAUDE.md" ] && grep -qE 'skills/(learned-mdl-preflight|query-the-model)\.md' "$PROJECT_DIR/CLAUDE.md"; then
+  # The toolkit's own wiring block (mxtk:wiring:start..end, written by wire-agents.sh) cites
+  # skills/learned-mdl-preflight.md in its item-3 sentence, so it is stripped before the grep:
+  # otherwise the toolkit flags its own text as the adopter's duplicate (#382). And the check
+  # only speaks when the "mxcli-project-toolkit Integration" heading exists: with no heading
+  # there is no section to name or size, and a whole-file word count described as "heading to
+  # EOF" pointed the adopter at text that is not theirs to edit.
+  _dup_from_line=""
+  if [ -f "$PROJECT_DIR/CLAUDE.md" ]; then
+    _dup_body="$(awk '/mxtk:wiring:start/{skip=1} !skip{print} /mxtk:wiring:end/{skip=0}' "$PROJECT_DIR/CLAUDE.md")"
     # `|| true`: no heading is the COMMON case (every CLAUDE.md mxcli init v0.25 writes cites
     # the skills without it). Unguarded, grep's exit 1 fails the pipeline under pipefail and
     # errexit ended the whole sync here, silently, before the bin/ and tests/e2e refresh —
     # every sync from 9a0350b (2026-09-18) to this fix. Regression: tests/wave2/test-sync-dup-heading-exit.sh.
-    _dup_from_line="$(grep -n 'mxcli-project-toolkit Integration' "$PROJECT_DIR/CLAUDE.md" | head -1 | cut -d: -f1 || true)"
-    if [ -n "$_dup_from_line" ]; then
-      _dup_words="$(tail -n "+$_dup_from_line" "$PROJECT_DIR/CLAUDE.md" | wc -w | tr -d ' ')"
-    else
-      _dup_words="$(wc -w < "$PROJECT_DIR/CLAUDE.md" | tr -d ' ')"
+    if grep -qE -- 'skills/(learned-mdl-preflight|query-the-model)\.md' <<<"$_dup_body"; then
+      _dup_from_line="$(printf '%s\n' "$_dup_body" | grep -n 'mxcli-project-toolkit Integration' | head -1 | cut -d: -f1 || true)"
     fi
+  fi
+  if [ -n "$_dup_from_line" ]; then
+    _dup_words="$(printf '%s\n' "$_dup_body" | tail -n "+$_dup_from_line" | wc -w | tr -d ' ')"
     warn "CLAUDE.md cites Baseline-only skills also covered by CLAUDE.local.md — check whether" \
          "its \"mxcli-project-toolkit Integration\" section (~$_dup_words word(s), heading to" \
          "EOF, not all of it necessarily routing) is a duplicated Baseline routing block." \
@@ -1137,6 +1145,9 @@ known_fix_note() {
     page-scope.sh)
       echo "bin/page-scope.sh predates the HEADER_WORDS fix (F-042, 2026-08-28): SHOW PAGES header columns Excluded/Folder/Params were parsed as page rows, inflating the page denominator (measured: 6 real pages counted as 13), so every consumer of page-scope.json graded against furniture. One-line fix — recommended upgrade." ;;
     _common.sh)
+      if ! grep -q '_mxtk_has_model' "$PROJECT_DIR/bin/_common.sh" 2>/dev/null; then
+        echo "bin/_common.sh predates the MULTI-APP ROOT fix (#420, toolkit, 2026-10-20): in a multi-app folder (apps/<X>/X.mpr) its root search climbed to the first ancestor holding any .mpr, so ledgers, stamps and lint landed in another folder. A hand-edited copy also holds back every older script that depends on it. Take just this file (your copy is backed up): $0 $PROJECT_DIR --only-bin _common.sh --upgrade-bin _common.sh"
+      fi
       if grep -q 'mxtk_ensure_mxbuild' "$PROJECT_DIR/bin/_common.sh" 2>/dev/null \
          && ! grep -q 'mxtk_model_version' "$PROJECT_DIR/bin/_common.sh" 2>/dev/null; then
         echo "bin/_common.sh predates the VERSION-MISMATCH FALSE GREEN fix (toolkit, 2026-09-27, field project): find_mxbuild picked the NEWEST mxbuild, which refuses a model of another Mendix version (exit 3, reason in errors[], problems[] empty), and the gate counted that as 0 errors — 29 of 29 execs logged 'mxbuild clean' on one machine and a CE0066 shipped. Now: the mxbuild matching the model's _ProductVersion is preferred, and a non-zero exit with 0 problems is unverified, never clean. Upgrade BOTH: --upgrade-bin _common.sh --upgrade-bin exec.sh (and verify-model.sh)."; return
@@ -1146,6 +1157,10 @@ known_fix_note() {
       fi
       echo "bin/_common.sh predates the WINDOWS MXBUILD GATE fix (toolkit, 2026-08-25). This is where find_sp_app/find_mxbuild, JAVA_HOME resolution and mxtk_platform actually live — exec.sh only calls them. So upgrading exec.sh ALONE does not deliver the fix, and grepping exec.sh for mxtk_platform reports 0 even on a fully patched project: grep _common.sh instead. Without this file the mxbuild gate is skipped on every Windows exec and nothing checks your builds. Upgrade BOTH: --upgrade-bin _common.sh --upgrade-bin exec.sh." ;;
     exec.sh)
+      if grep -q 'PATCH_MODE' "$PROJECT_DIR/bin/exec.sh" 2>/dev/null \
+         && ! grep -q 'fail_rc' "$PROJECT_DIR/bin/exec.sh" 2>/dev/null; then
+        echo "bin/exec.sh predates the EXIT CODES fix (#443/#448, toolkit, 2026-10-20, field project): a clean build with a lint rise exited 1 like a failed gate, and an UNVERIFIED gate exited 0 like a pass, so agents learned to ignore 1 and trust 0. Now 4 = applied, lint only; 5 = applied, unverified; 1 = not applied. Its _common.sh also retries a bundle-only mxbuild exit 3 once. Upgrade BOTH: --upgrade-bin _common.sh --upgrade-bin exec.sh."; return
+      fi
       if grep -q 'RESTORER=' "$PROJECT_DIR/bin/exec.sh" 2>/dev/null \
          && ! grep -q 'PATCH_MODE' "$PROJECT_DIR/bin/exec.sh" 2>/dev/null; then
         echo "bin/exec.sh predates --patch (toolkit, 2026-09-27, field project): a one-off script that edits the .mpr directly (a Python BSON patch) had no guarded path — no snapshot, no mxbuild gate, no restore, no BUILD-LOG row — and Claude Code's auto-mode classifier refused it run bare. Now: ./bin/exec.sh --patch <script> [args] runs it through the same chain and keeps it only on a verified gate. Upgrade: --upgrade-bin exec.sh."; return
@@ -1503,15 +1518,46 @@ _ea_rewrite_item3() {   # $1=file  $2=start-prefix  $3=end-prefix  $4=replacemen
     grep -qF -- "$needle" <<<"$_blk" || return 1
   fi
   [ "$DRY_RUN" -eq 1 ] && return 0
-  _tmp="$(mktemp "${TMPDIR:-/tmp}/eaitem3.XXXXXX")" || return 1
-  awk -v start="$start" -v endp="$endp" -v repl="$repl" '
+  _tmp="$(mktemp "${TMPDIR:-/tmp}/eaitem3.XXXXXX")" || return 2
+  _rf="$(mktemp "${TMPDIR:-/tmp}/eaitem3r.XXXXXX")" || { rm -f "$_tmp"; return 2; }
+  # BSD awk (stock macOS) rejects a newline inside -v ("awk: newline in string"), so the
+  # replacement text is streamed from a file, as the Q9 repair does. Return 2 (not 0) when awk
+  # fails so the caller warns instead of reporting a rewrite that never happened.
+  printf '%s\n' "$repl" > "$_rf" || { rm -f "$_tmp" "$_rf"; return 2; }
+  if awk -v start="$start" -v endp="$endp" -v rf="$_rf" '
     BEGIN { skip = 0 }
     { if (skip) { if (index($0, endp) == 1) { skip = 0 } else { next } }
-      if (!skip && index($0, start) == 1) { print repl; skip = 1; next }
+      if (!skip && index($0, start) == 1) {
+        while ((getline l < rf) > 0) print l
+        close(rf); skip = 1; next }
       print }
-  ' "$f" > "$_tmp" && cat "$_tmp" > "$f"
-  rm -f "$_tmp"
-  return 0
+  ' "$f" > "$_tmp" && [ -s "$_tmp" ]; then
+    cat "$_tmp" > "$f"
+    rm -f "$_tmp" "$_rf"
+    return 0
+  fi
+  rm -f "$_tmp" "$_rf"
+  return 2
+}
+# Report one item-3 rewrite attempt: $1=rc of _ea_rewrite_item3  $2=label  $3=dry text  $4=done text
+_ea_report_item3() {
+  case "$1" in
+    0) if [ "$DRY_RUN" -eq 1 ]; then echo "Would rewrite: $2 item 3 — $3"
+       else echo "Rewrote: $2 item 3 — $4"; fi
+       CHANGES=$((CHANGES + 1)) ;;
+    2) warn "$2 item 3 rewrite FAILED (awk error or temp file); file left unchanged." "Re-run sync, or edit item 3 by hand." ;;
+  esac
+}
+_ea_try_item3() {   # $1=file $2=label $3=md/hash text $4=prefix of "3. **"  — tries both wordings
+  _p="$4"; _rc=0
+  _ea_rewrite_item3 "$1" "${_p}3. **Never run" "${_p}4. **" "$3" || _rc=$?
+  if [ "$_rc" -ne 1 ]; then
+    _ea_report_item3 "$_rc" "$2" "carries the old \"without asking the user first — every time\" wording" "the old \"without asking the user first — every time\" wording is now the exec-approval knob (bin/exec-approval.sh)."
+    return
+  fi
+  _rc=0
+  _ea_rewrite_item3 "$1" "${_p}3. **Before any" "${_p}4. **" "$3" '`ask` (the default)' || _rc=$?
+  _ea_report_item3 "$_rc" "$2" "still says \`ask\` is the default; exec approval now defaults to \`auto\`" "flipped from \"\`ask\` (the default)\" wording to auto-default (bin/exec-approval.sh)."
 }
 if [ "$WIRED" -eq 1 ]; then
   _EA_NEW3_MD="$(wiring_item3_md "$TOOLKIT_ROOT")"
@@ -1519,38 +1565,10 @@ if [ "$WIRED" -eq 1 ]; then
   for rel in AGENTS.md CLAUDE.md .github/copilot-instructions.md .cursorrules .windsurfrules; do
     f="$PROJECT_DIR/$rel"
     [ -f "$f" ] || continue
-    if _ea_rewrite_item3 "$f" "3. **Never run" "4. **" "$_EA_NEW3_MD"; then
-      if [ "$DRY_RUN" -eq 1 ]; then
-        echo "Would rewrite: $rel item 3 — carries the old \"without asking the user first — every time\" wording"
-      else
-        echo "Rewrote: $rel item 3 — the old \"without asking the user first — every time\" wording is now the exec-approval knob (bin/exec-approval.sh)."
-      fi
-      CHANGES=$((CHANGES + 1))
-    elif _ea_rewrite_item3 "$f" "3. **Before any" "4. **" "$_EA_NEW3_MD" '`ask` (the default)'; then
-      if [ "$DRY_RUN" -eq 1 ]; then
-        echo "Would rewrite: $rel item 3 — still says \`ask\` is the default; exec approval now defaults to \`auto\`"
-      else
-        echo "Rewrote: $rel item 3 — flipped from \"\`ask\` (the default)\" wording to auto-default (bin/exec-approval.sh)."
-      fi
-      CHANGES=$((CHANGES + 1))
-    fi
+    _ea_try_item3 "$f" "$rel" "$_EA_NEW3_MD" ""
   done
   f="$PROJECT_DIR/.aider.conf.yml"
-  if [ -f "$f" ] && _ea_rewrite_item3 "$f" "# 3. **Never run" "# 4. **" "$_EA_NEW3_HASH"; then
-    if [ "$DRY_RUN" -eq 1 ]; then
-      echo "Would rewrite: .aider.conf.yml item 3 — carries the old \"without asking the user first — every time\" wording"
-    else
-      echo "Rewrote: .aider.conf.yml item 3 — the old \"without asking the user first — every time\" wording is now the exec-approval knob (bin/exec-approval.sh)."
-    fi
-    CHANGES=$((CHANGES + 1))
-  elif [ -f "$f" ] && _ea_rewrite_item3 "$f" "# 3. **Before any" "# 4. **" "$_EA_NEW3_HASH" '`ask` (the default)'; then
-    if [ "$DRY_RUN" -eq 1 ]; then
-      echo "Would rewrite: .aider.conf.yml item 3 — still says \`ask\` is the default; exec approval now defaults to \`auto\`"
-    else
-      echo "Rewrote: .aider.conf.yml item 3 — flipped from \"\`ask\` (the default)\" wording to auto-default (bin/exec-approval.sh)."
-    fi
-    CHANGES=$((CHANGES + 1))
-  fi
+  [ -f "$f" ] && _ea_try_item3 "$f" ".aider.conf.yml" "$_EA_NEW3_HASH" "# "
 fi
 
 # ── Per-harness auto-run allow-list: report only, never write ────────────────────────────
@@ -1561,13 +1579,62 @@ fi
 # unlike the exec-approval item-3 rewrite above, there is no safe way to REPAIR this from
 # sync-project.sh itself: writing to any of these files here would race a live agent session
 # reading the same file. So this only runs --check and reports what's missing, same as the
-# wire-agents --check probe above; the fix is the one-line re-run this prints.
+# wire-agents --check probe above; the fix is the one-line re-run this prints. ONE exception,
+# below: the two Claude Code hook lines, repaired only in a project that installed the profile.
 if [ "$WIRED" -eq 1 ] && [ -x "$SCRIPT_DIR/install-harness-permissions.sh" ]; then
   if ! _PERM_OUT="$("$SCRIPT_DIR/install-harness-permissions.sh" "$PROJECT_DIR" --check 2>&1)"; then
     warn "$PROJECT_DIR is missing per-harness auto-run allow-list entries for the toolkit's safe wrappers (bin/exec.sh and friends) — those harnesses will prompt on every one of those calls, which defeats bin/exec-approval.sh --set auto. Re-run:" \
          "$SCRIPT_DIR/install-harness-permissions.sh $PROJECT_DIR"
     echo "$_PERM_OUT" | sed 's/^/   /'
   fi
+  # The two hooks (SessionStart session-check, PostToolUse look-ledger seen). Without the
+  # look-ledger hook seen.tsv stays empty and the owed-LOOK count reads "0 seen" for pages that
+  # were looked at (field: a lab project, 22 of 31 pages had screenshots, ledger said 0 seen).
+  #
+  # This is the one place sync writes .claude/settings.json, so it is narrow: it repairs only a
+  # project that installed the permission profile before (install-claude-permissions.sh
+  # --consent-check); a project that never did (declined, or not asked yet) gets a WARN and the
+  # one-line command instead. Opt out for good: touch <project>/.mxtk/no-hook-repair (also
+  # silences doctor). Racing a live session: the write is one small file written once, and only
+  # when a hook line is missing, i.e. at most once per project.
+  _HOOKS_CMD="$SCRIPT_DIR/install-claude-permissions.sh $PROJECT_DIR --hooks-only"
+  if [ -x "$SCRIPT_DIR/install-claude-permissions.sh" ] && [ ! -f "$PROJECT_DIR/.mxtk/no-hook-repair" ] \
+     && ! "$SCRIPT_DIR/install-claude-permissions.sh" "$PROJECT_DIR" --hooks-only --check >/dev/null 2>&1; then
+    if ! "$SCRIPT_DIR/install-claude-permissions.sh" "$PROJECT_DIR" --consent-check >/dev/null 2>&1; then
+      warn "the project's .claude/settings.json has no look-ledger / session-check hook, and this project has not installed the permission profile, so sync did not add them. The look ledger reads 0 seen without the look hook. To add just the two hooks:" \
+           "$_HOOKS_CMD" \
+           "(to stop this warning: touch $PROJECT_DIR/.mxtk/no-hook-repair)"
+    elif [ "$DRY_RUN" -eq 1 ]; then
+      echo "Would add: Claude Code hooks (session-check, look-ledger seen) to .claude/settings.json"
+      CHANGES=$((CHANGES + 1))
+    elif "$SCRIPT_DIR/install-claude-permissions.sh" "$PROJECT_DIR" --hooks-only >/dev/null 2>&1; then
+      echo "Added: Claude Code hooks (session-check, look-ledger seen) to .claude/settings.json (it was missing them; the look ledger read 0 seen without it). Opt out: touch $PROJECT_DIR/.mxtk/no-hook-repair"
+      CHANGES=$((CHANGES + 1))
+    else
+      warn "could not add the Claude Code hooks to $PROJECT_DIR/.claude/settings.json (hand-formatted or invalid JSON; it was not touched). Add the two hook lines yourself, or run:" \
+           "$_HOOKS_CMD"
+    fi
+  fi
+fi
+
+# ── Progress report session cache: machine-local, keep it out of git ─────────────────────
+# It holds absolute session-log paths (user name, session ids). Same shape as doctor.sh's
+# receipt and toolkit.env lines; a project synced from an older toolkit has no such line.
+# -e, not -d: in a git worktree .git is a file. --no-index: a tracked file is never "ignored" otherwise.
+if [ "$WIRED" -eq 1 ] && [ -e "$PROJECT_DIR/.git" ] \
+   && ! git -C "$PROJECT_DIR" check-ignore -q --no-index .claude/progress-report-sessions.txt 2>/dev/null; then
+  if [ "$DRY_RUN" -eq 1 ]; then
+    echo "Would add: /.claude/progress-report-sessions.txt to .gitignore (machine-local cache)"
+  else
+    if [ -s "$PROJECT_DIR/.gitignore" ] && [ -n "$(tail -c 1 "$PROJECT_DIR/.gitignore")" ]; then printf '\n' >> "$PROJECT_DIR/.gitignore"; fi
+    printf '\n# Machine-local progress report session cache (absolute session-log paths)\n/.claude/progress-report-sessions.txt\n' >> "$PROJECT_DIR/.gitignore"
+    echo "Added: /.claude/progress-report-sessions.txt to .gitignore (machine-local cache)"
+  fi
+  CHANGES=$((CHANGES + 1))
+fi
+if [ "$WIRED" -eq 1 ] && [ -e "$PROJECT_DIR/.git" ] \
+   && git -C "$PROJECT_DIR" ls-files --error-unmatch .claude/progress-report-sessions.txt >/dev/null 2>&1; then
+  echo "Note: .claude/progress-report-sessions.txt is already tracked by git; untrack it with: git rm --cached .claude/progress-report-sessions.txt"
 fi
 
 # ── Starlark lint rules ──────────────────────────────────────────────────────────────────

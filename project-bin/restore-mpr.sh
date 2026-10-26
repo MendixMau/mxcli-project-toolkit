@@ -94,4 +94,12 @@ else
   exit 1
 fi
 
+# script-owners.sh's last-writer ledger described the model before this restore: mark it, so rows
+# above the marker stop counting and its next replay check asks the model (DESCRIBE) instead.
+# exec.sh's own rollback sets MXTK_RESTORE_SAME_LEDGER=1: that snapshot predates nothing recorded.
+_SO_LEDGER="$PROJECT_ROOT/.claude/loop/script-owners/written.tsv"
+if [ -f "$_SO_LEDGER" ] && [ "${MXTK_RESTORE_SAME_LEDGER:-0}" != 1 ]; then
+  printf '%s\tRESTORE\t%s\n' "$(date +%s)" "$(basename "$SNAP")" >> "$_SO_LEDGER" || true
+fi
+
 echo "Restore complete. Verify with: ./mxcli docker check -p $MPR --no-update-widgets"

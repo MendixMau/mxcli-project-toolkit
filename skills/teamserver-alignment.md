@@ -55,6 +55,10 @@ git push <teamserver-remote> main:main
 real commits and a merge is the correct answer. Reaching for `--rebase` or `--force` because
 `--ff-only` refused is how a Studio Pro checkout gets orphaned.
 
+**Studio Pro's "Merge feature branch" merges `origin/<branch>`, not your local branch** (Studio Pro 10.24.18,
+macOS, read from its `git.log.*.txt`; seen against a plain git remote, not Team Server). A local-only
+fix is not in it: push the branch and its note (`mx-metadata-note.py sync`) first.
+
 ## 3. Before reporting a Team Server push as blocked — four checks, in order
 
 This is the section that exists because of the field run. Three reports of "blocked", zero actual

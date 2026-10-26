@@ -19,13 +19,25 @@ swap on one field, everywhere it occurs.
 
 Defaults to a dry run. Nothing is written without --apply.
 
-    <toolkit>/project-bin/wf-set-call-captions.py <unit.mxunit> \
+    bin/wf-set-call-captions.py <unit.mxunit> \
         --captions Mod.ACT_ApprovalRun_FailProjection='Fail projection'
-    <toolkit>/project-bin/wf-set-call-captions.py <unit.mxunit> \
+    bin/exec.sh --patch bin/wf-set-call-captions.py Mod.ApprovalWorkflow \
         --captions-file captions.txt --apply
+
+The second form is the guarded one: exec.sh passes the .mpr first, the workflow is found by
+its qualified name, and the write gets the snapshot, the `mxcli fix hashes` verify and the
+mxbuild gate. A unit path works in either form.
+
+The write goes through mxpatch.py, so the .mpr's ContentsHash for the unit is updated in
+the same step. Until 2026-10-14 (#294) this tool rewrote the .mxunit and left the index
+alone: every --apply left a stale hash that `mx check` cannot see and Studio Pro trips on.
 
 --captions takes repeated Qualified.Name='Caption' pairs. --captions-file reads the
 same thing one per line, # for comments.
+
+Drift is refused: a Caption is replaced only while it is still the microflow's own name
+(what Studio Pro stamps), or the value given with --expect-caption Qualified.Name='Old'.
+Anything else -- a caption someone already edited -- exits 3 and writes nothing.
 
 FIELD RUN. An approval-workflow app replacement, 2026-09-14, mxcli v0.21.0 / Mendix 11.13.0: 36 call-microflow
 activities across one 16-station approval workflow, all still showing their raw
@@ -35,52 +47,42 @@ actions. All 36 relabelled in one pass. Native `mx check`: 0 errors after.
 NEVER run this against a model Studio Pro has open, or while the app is running --
 same rule as every other .mxunit write in this toolkit.
 """
-import os, sys, shutil
+import os, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from mxunit_bson import load, enc_doc
+import mxpatch
+from mxpatch import get, is_doc
 
 CALL = "Workflows$CallMicroflowActivity"
 
 
-def get(doc, key):
-    for _t, k, v in doc:
-        if k == key:
-            return v
-    return None
-
-
-def is_doc(x):
-    return isinstance(x, list) and all(isinstance(e, tuple) and len(e) == 3 for e in x)
-
-
-def set_key(doc, key, value):
-    """Replace key's value in place, preserving its position and BSON type."""
-    for i, (t, k, _v) in enumerate(doc):
-        if k == key:
-            doc[i] = (t, k, value)
-            return True
-    return False
-
-
-def walk(node, captions, state):
+def walk(node, captions, expects, state):
     if is_doc(node):
         if get(node, "$Type") == CALL:
             mf = get(node, "Microflow")
             if mf in captions:
                 want = captions[mf]
                 have = get(node, "Caption")
-                if have == want:
-                    state["already"].append(mf)
-                elif set_key(node, "Caption", want):
-                    state["changed"].append((mf, have, want))
-                else:
+                # Drift guard: the caption this tool assumes is there is the one Studio Pro (and
+                # mxcli) stamps -- the microflow's own name -- unless --expect-caption says other.
+                # A caption someone already edited by hand is refused, never overwritten.
+                expect = expects.get(mf, mf.split(".", 1)[-1])
+                try:
+                    r = mxpatch.set_value(node, "Caption", want, expect=expect)
+                except mxpatch.Drift:
+                    state["drifted"].append((mf, have, expect))
+                except mxpatch.PatchError:     # no Caption key, or one that is not a string
                     state["no_caption_field"].append(mf)
+                else:
+                    if r == "already":
+                        state["already"].append(mf)
+                    else:
+                        state["changed"].append((mf, have, want))
         for _t, _k, v in node:
-            walk(v, captions, state)
+            walk(v, captions, expects, state)
     elif isinstance(node, list):
         for v in node:
-            walk(v, captions, state)
+            walk(v, captions, expects, state)
 
 
 def parse_pair(s):
@@ -92,7 +94,7 @@ def parse_pair(s):
 
 def main():
     argv = sys.argv[1:]
-    args, captions, apply_ = [], {}, False
+    args, captions, expects, apply_ = [], {}, {}, False
     i = 0
     while i < len(argv):
         a = argv[i]
@@ -103,6 +105,13 @@ def main():
             while i < len(argv) and not argv[i].startswith("--"):
                 mf, cap = parse_pair(argv[i])
                 captions[mf] = cap
+                i += 1
+            continue
+        elif a == "--expect-caption":
+            i += 1
+            while i < len(argv) and not argv[i].startswith("--"):
+                mf, cap = parse_pair(argv[i])
+                expects[mf] = cap
                 i += 1
             continue
         elif a == "--captions-file":
@@ -116,13 +125,15 @@ def main():
             args.append(a)
         i += 1
 
-    if len(args) != 1 or not captions:
+    if not args or not captions:
         sys.exit(__doc__)
-    path = args[0]
-
-    doc = load(path)
-    state = {"changed": [], "already": [], "no_caption_field": []}
-    walk(doc, captions, state)
+    try:
+        model, unit = mxpatch.resolve_unit(args, "Workflows$Workflow")
+    except mxpatch.PatchError as e:
+        sys.exit("wf-set-call-captions: %s" % e)
+    doc = unit.doc
+    state = {"changed": [], "already": [], "no_caption_field": [], "drifted": []}
+    walk(doc, captions, expects, state)
 
     print("captions to set: %d" % len(state["changed"]))
     seen = {}
@@ -136,6 +147,14 @@ def main():
     if state["no_caption_field"]:
         print("NO Caption field (skipped): %d" % len(state["no_caption_field"]))
 
+    if state["drifted"]:
+        print("\nREFUSED -- caption is not the one this run expects (edited since?): %d" % len(state["drifted"]))
+        for mf, have, expect in state["drifted"]:
+            print("    %s: is %r, expected %r" % (mf, have, expect))
+        print("Nothing written. If the current caption is right to replace, pass it:")
+        print("    --expect-caption %s='<current caption>'" % state["drifted"][0][0])
+        sys.exit(3)
+
     missing = set(captions) - {mf for mf, _h, _w in state["changed"]} - set(state["already"])
     if missing:
         print("\nWARNING: no call site found for: %s" % ", ".join(sorted(missing)))
@@ -147,16 +166,14 @@ def main():
         print("\nDry run. Re-run with --apply to write.")
         return
 
-    # Encode before touching the original, so an encoder failure cannot destroy it.
-    blob = enc_doc(doc)
-    shutil.copy2(path, path + ".bak")
-    was = os.path.getsize(path + ".bak")
-    with open(path, "wb") as fh:
-        fh.write(blob)
-    print("\nwrote %s (%d bytes, was %d)" % (path, len(blob), was))
-    print("backup: %s.bak" % path)
-    print("\nNow run mx check.")
+    # mxpatch encodes before touching the original, and updates the ContentsHash with the file.
+    print("")
+    model.write_unit(unit, apply=True, backup=True)
+    print("\nNow run mx check (or run this under bin/exec.sh --patch, which does).")
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except mxpatch.PatchError as e:
+        sys.exit("wf-set-call-captions: %s" % e)

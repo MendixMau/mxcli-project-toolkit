@@ -92,6 +92,12 @@ else
   bad "missing crash-net script NOT installed"
 fi
 
+echo "== T1b: a hand-edited exec.sh from before the exit-code fix is named (#443/#448) =="
+P="$(mkproj t1b)"
+printf '#!/usr/bin/env bash\n# local edit; PATCH_MODE\nexit 0\n' > "$P/bin/exec.sh"
+OUT="$("$SYNC" "$P" 2>&1)"
+printf '%s' "$OUT" | grep -q 'predates the EXIT CODES fix' && ok "pre-fix exec.sh: the exit-code fix is named" || bad "exit-code fix not named" "$(printf '%s' "$OUT" | grep -A2 exec.sh | head -6)"
+
 echo "== T2: a lost exec bit on an otherwise identical script is repaired =="
 P="$(mkproj t2)"
 chmod -x "$P/bin/snapshot-mpr.sh"

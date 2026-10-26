@@ -4,7 +4,8 @@
 # Usage: bash tests/wave2/test-behaviour-score.sh tests/behaviour/score.sh
 #
 # Golden input: four real agent outputs from the 2026-10-15 runs (tests/behaviour/fixtures/,
-# captured verbatim, one page and one mf draft from a pack arm and from the no-pack arm). Each
+# captured verbatim, one page and one mf draft from a pack arm and from the no-pack arm), plus
+# L-mf-r3 from the 2026-10-23 lazy-load 2b run for the mfpre separator. Each of the four
 # is scored and every scored column must equal its row in tests/behaviour/results/. `check`
 # needs an mxcli binary: with none (CI) it must read NA and is not compared; with $MXCLI set
 # it is compared too. The recorded columns (read_all, tool_calls, tokens) are not scores.
@@ -28,6 +29,9 @@ done
 # the scorer discriminates: the no-pack drafts fail the planted trap / commit inside the loop
 printf '%s' "$(bash "$SUBJ" "$DIR/fixtures/N-page-r1.md")" | grep -q 'planted=0' && ok "N page: planted=0" || bad "N page: planted trap not scored 0"
 printf '%s' "$(bash "$SUBJ" "$DIR/fixtures/N-mf-r1.md")" | grep -q 'cinloop=1' && ok "N mf: cinloop=1" || bad "N mf: commit-in-loop not counted"
+# mfpre accepts an em dash after the name (2026-10-23 lazy-load 2b A/B, L-mf-r3: two checklist lines
+# `microflow-preflight — Sales."…" — tier: Guided` that the colon-only pattern scored 0)
+printf '%s' "$(bash "$SUBJ" "$DIR/fixtures/L-mf-r3.md")" | grep -q 'mfpre=1' && ok "L mf: em-dash checklist line scores mfpre=1" || bad "L mf: em-dash checklist line not counted"
 bash "$SUBJ" "$DIR/fixtures/M-page-r5.md" --tool-calls 19 --tokens 245000 | grep -q 'read_all=NA	tool_calls=19	tokens=245000$' \
   && ok "recorded columns appended" || bad "recorded columns not appended"
 echo "PASS=$PASS FAIL=$FAIL"

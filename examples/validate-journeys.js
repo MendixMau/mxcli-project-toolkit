@@ -187,15 +187,24 @@ function resolvePointer(doc, ptr) {
   return true;
 }
 
+// A Stage-2 folder holds a derived <id>-<slug>.mx-brd.json beside each <id>-<slug>.brd.json, with
+// the same id and another shape. Pointers are written against the BRD, so the BRD wins the id; a
+// derived file is read only for an id no BRD in the folder has (#520: it listed second and
+// replaced the BRD, and every pointer read DANGLING).
 function loadBrds(dir) {
   const m = new Map();
-  for (const f of fs.readdirSync(dir)) {
-    if (!f.endsWith('.json')) continue;
+  const derived = (f) => f.endsWith('.mx-brd.json');
+  const names = fs.readdirSync(dir).filter((f) => f.endsWith('.json'));
+  let ignored = 0;
+  for (const f of [...names.filter((f) => !derived(f)), ...names.filter(derived)]) {
     try {
       const d = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
-      if (d && d.id) m.set(String(d.id), d);
+      if (!d || !d.id) continue;
+      if (derived(f) && m.has(String(d.id))) { ignored++; continue; }
+      m.set(String(d.id), d);
     } catch { /* a BRD that does not parse is not this tool's finding */ }
   }
+  if (ignored) console.error(`note: ${ignored} .mx-brd.json file(s) not read: a .brd.json in ${dir} has the same id, and pointers resolve against the BRD`);
   return m;
 }
 

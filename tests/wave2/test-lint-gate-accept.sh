@@ -95,14 +95,14 @@ mk "$(v CONV009 info 1)$(v MDL-FLOW01 info 3)$(v SEC003 warning 2)$(v CONV006 wa
 "$PY" - "$WORK/lint.json" <<'PY'
 import json,sys
 d=json.load(open(sys.argv[1]))
-d["violations"].append({"ruleId":"CONV020","severity":"warning","module":"_rule","document":"","documentType":"",
-  "documentId":"","message":"CONV020 is unconfigured: PROJECT_MODULES is empty, so this rule inspected NOTHING.","suggestion":"s"})
+d["violations"].append({"ruleId":"MXTK-UX003","severity":"warning","module":"_rule","document":"","documentType":"",
+  "documentId":"","message":"MXTK-UX003 is unconfigured: PROJECT_MODULES is empty, so this rule inspected NOTHING.","suggestion":"s"})
 json.dump(d,open(sys.argv[1],"w"))
 PY
 out=$(gate 2>&1); grc=$?
 [ "$grc" -eq 1 ] && ok "lint-gate still exits 1 for PASS-BLIND" || bad "gate rc=$grc" "$out"
 detail=$(cd "$P" && PROJECT_ROOT="$P" LINT_JSON="$WORK/lint.json" bash -c ". '$fn'; LINT_RC=0; run_lint_gate >/dev/null; echo \"\$LINT_RC|\$LINT_DETAIL\"")
-case "$detail" in "3|lint BLIND: CONV020"*) ok "exec detail: ${detail#*|}" ;; *) bad "blind run not told apart from a rise" "$detail" ;; esac
+case "$detail" in "3|lint BLIND: MXTK-UX003"*) ok "exec detail: ${detail#*|}" ;; *) bad "blind run not told apart from a rise" "$detail" ;; esac
 
 echo "T9 the metrics ledger does not class a blind run as a clean apply"
 ML="$TK/project-bin/metrics-ledger.sh"
@@ -117,6 +117,36 @@ if [ -f "$ML" ]; then
 else
   echo "  skip (no project-bin/metrics-ledger.sh in this tree)"
 fi
+
+echo "T-MA a multi-app folder: MPR_FILE names the model lint-gate lints (#489)"
+# exec.sh run from apps/A exports MPR_FILE (absolute) via _common.sh and cd's to the root;
+# lint-gate ignored it and exited 2 "several apps". The stub mxcli records its -p argument.
+M="$WORK/multi"; mkdir -p "$M/bin" "$M/.claude" "$M/apps/A" "$M/apps/B"; : > "$M/PROJECT.md"
+cp "$GATE" "$M/bin/lint-gate.sh"; [ -f "$TK/project-bin/_common.sh" ] && cp "$TK/project-bin/_common.sh" "$M/bin/"
+printf 'mpr' > "$M/apps/A/A.mpr"; printf 'mpr' > "$M/apps/B/B.mpr"
+printf '#!/bin/sh\nfor a; do printf "%%s\\n" "$a"; done > "%s/mxcli-args"\nprintf "{\\"violations\\":[],\\"summary\\":{}}"\n' "$M" > "$M/mxcli"; chmod +x "$M/mxcli"
+for mf in apps/A/A.mpr "$M/apps/B/B.mpr"; do
+  rm -f "$M/mxcli-args"
+  out=$(cd "$M" && MPR_FILE="$mf" bash bin/lint-gate.sh --update-baseline 2>&1); rc=$?
+  want="${mf#"$M"/}"
+  if [ "$rc" -eq 0 ] && grep -qx "$want" "$M/mxcli-args" 2>/dev/null; then ok "MPR_FILE=${mf#"$WORK"/}: linted $want"
+  else bad "MPR_FILE=${mf#"$WORK"/}: rc $rc, mxcli args: $(tr '\n' ' ' < "$M/mxcli-args" 2>/dev/null)" "$out"; fi
+done
+
+echo "T-MF an MPR_FILE that does not resolve under the root falls back to discovery, never exit 2 (#489)"
+# exec.sh logs lint-gate's exit 2 as "lint could not run", so an unresolvable MPR_FILE used to
+# turn lint off on a single-app project. mkp <dir> <mpr relpath>: a project with a recording mxcli.
+mkp() { mkdir -p "$1/bin" "$1/.claude" "$(dirname "$1/$2")"; : > "$1/PROJECT.md"; printf 'mpr' > "$1/$2"
+  cp "$GATE" "$1/bin/lint-gate.sh"; [ -f "$TK/project-bin/_common.sh" ] && cp "$TK/project-bin/_common.sh" "$1/bin/"
+  printf '#!/bin/sh\nfor a; do printf "%%s\\n" "$a"; done > "%s/mxcli-args"\nprintf "{\\"violations\\":[],\\"summary\\":{}}"\n' "$1" > "$1/mxcli"; chmod +x "$1/mxcli"; }
+S1="$WORK/real/s1"; mkp "$S1" App.mpr; ln -s "$WORK/real" "$WORK/link"
+out=$(cd "$S1" && MPR_FILE="$WORK/link/s1/App.mpr" bash bin/lint-gate.sh --update-baseline 2>&1); rc=$?
+if [ "$rc" -eq 0 ] && grep -qx 'App.mpr' "$S1/mxcli-args" 2>/dev/null; then ok "absolute MPR_FILE through a symlinked path: discovered and linted App.mpr"
+else bad "symlinked absolute MPR_FILE: rc $rc, mxcli args: $(tr '\n' ' ' < "$S1/mxcli-args" 2>/dev/null)" "$out"; fi
+S2="$WORK/s2"; mkp "$S2" app/App.mpr
+out=$(cd "$S2/app" && MPR_FILE=App.mpr bash ../bin/lint-gate.sh --update-baseline 2>&1); rc=$?
+if [ "$rc" -eq 0 ] && grep -qx 'app/App.mpr' "$S2/mxcli-args" 2>/dev/null; then ok "cwd-relative MPR_FILE=App.mpr from app/: discovered and linted app/App.mpr"
+else bad "cwd-relative MPR_FILE: rc $rc, mxcli args: $(tr '\n' ' ' < "$S2/mxcli-args" 2>/dev/null)" "$out"; fi
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"

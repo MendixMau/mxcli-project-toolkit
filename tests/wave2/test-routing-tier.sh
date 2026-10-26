@@ -165,7 +165,8 @@ if [ -z "$BASE1" ]; then
 fi
 
 echo "== T2: demote demo from baseline to ondemand, re-render =="
-sed -i.bak 's/^demo\tskills\/demo-tier\.md\t\(.*\)\tbaseline\treference$/demo\tskills\/demo-tier.md\t\1\tondemand\treference/' \
+TAB=$'\t'   # a real tab (#488): BSD sed reads backslash-t in a BRE as the letter t
+sed -i.bak "s/^demo${TAB}skills\/demo-tier\.md${TAB}\(.*\)${TAB}baseline${TAB}reference\$/demo${TAB}skills\/demo-tier.md${TAB}\1${TAB}ondemand${TAB}reference/" \
   "$R/bin/lib/skill-routing.tsv"
 rm -f "$R/bin/lib/skill-routing.tsv.bak"
 if ! grep -q $'\tondemand\treference' "$R/bin/lib/skill-routing.tsv"; then

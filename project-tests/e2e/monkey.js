@@ -135,15 +135,22 @@ async function oracle(page, t0, bucket) {
 }
 
 // ── typing without shelling ─────────────────────────────────────────────────
+// The value is cut to the box's maxLength, as a user's typing or paste is (#544). A script write
+// bypasses maxlength, so a 5000-character payload reached a String(200) attribute and every capped
+// box gave a crash-class HTTP 560 no user can cause. Both count UTF-16 code units, like the
+// server's check. Returns the cap applied (0 = none), so the finding can say so.
 async function typeSafely(page, handle, text) {
   const b64 = Buffer.from(text, 'utf8').toString('base64');
-  await handle.evaluate((el, encoded) => {
+  return handle.evaluate((el, encoded) => {
     // decodeURIComponent(escape(atob(...))) round-trips UTF-8 through atob's latin1.
-    const v = decodeURIComponent(escape(atob(encoded)));
+    let v = decodeURIComponent(escape(atob(encoded)));
+    const cap = el.maxLength > 0 && v.length > el.maxLength ? el.maxLength : 0;
+    if (cap) v = v.slice(0, cap);
     const setter = Object.getOwnPropertyDescriptor(el.constructor.prototype, 'value').set;
     setter.call(el, v);
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
+    return cap;
   }, b64);
 }
 
@@ -232,7 +239,8 @@ async function round(page, target, bucket) {
     const p = pick(PAYLOADS)();
     const el = inputs.nth(Math.floor(rnd() * nIn));
     what = `field ← ${p.label}`;
-    await typeSafely(page, el, p.text).catch(() => {});
+    const cap = await typeSafely(page, el, p.text).catch(() => 0);
+    if (cap) what += ` (truncated to maxlength ${cap})`;
     if (nBtn > 0) await buttons.nth(Math.floor(rnd() * nBtn)).click({ force: true, timeout: 4000 }).catch(() => {});
   } else {
     const abuse = pick(ABUSES);
@@ -272,7 +280,7 @@ async function round(page, target, bucket) {
 }
 
 // leftApp is exported for tests/wave2/test-monkey-left-app.sh; requiring this file runs nothing.
-module.exports = { leftApp, SIGN_OUT, SIGN_OUT_DEFAULT, signOutPattern, isSignOutLabel };
+module.exports = { leftApp, SIGN_OUT, SIGN_OUT_DEFAULT, signOutPattern, isSignOutLabel, typeSafely };
 
 // ── main ────────────────────────────────────────────────────────────────────
 if (require.main === module) (async () => {

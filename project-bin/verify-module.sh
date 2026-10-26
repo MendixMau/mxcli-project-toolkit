@@ -578,6 +578,19 @@ else
   printf '%s\tINFO\t-\t-\t(NOT MEASURED: %s)\n' "$_vm_canvas_name" "$_vm_canvas_why" >> "$SUMMARY"
 fi
 
+# ── 1d. Harness scan: test scripts that sign in without the toolkit's harness (#567) ─────
+# INFO, never a gate. A hand-written acceptance script that signs in and never signs out (or
+# only GETs /logout) holds a server session per run, and a trial runtime then refuses every
+# login (measured-claims.md §4). Project-wide, one grep pass, no app needed.
+_vm_hscan="$(_tool harness-scan.sh)"
+if [ -x "$_vm_hscan" ]; then
+  run "harness scan (hand-rolled test scripts — informational)" "$OUTDIR/15-harness-scan.log" note 60 -- \
+    env PROJECT_ROOT="$ROOT" bash "$_vm_hscan"
+else
+  printf '%s\tINFO\t-\t-\t(NOT MEASURED: bin/harness-scan.sh not installed; run bin/sync-project.sh)\n' \
+    "harness scan (hand-rolled test scripts — informational)" >> "$SUMMARY"
+fi
+
 # ── 2. Runtime instruments (need the app) ───────────────────────────────────
 # F-042 (MarkUseCase, 2026-08-28): design-audit.js reads .claude/loop/page-scope.json for
 # its page denominator, but nothing in any mandatory chain ever GENERATED that file — its

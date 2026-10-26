@@ -350,6 +350,25 @@ V="$(t17s5 t17m "| 6 | Test depth: journeys per module | CONFIRMED | |")"
 case "$V" in *'APPROVED OVER'*|*'Approved over'*) bad "a forward-filed Stage-6 row flagged a Stage 5 with no rows of its own: $V" ;;
              *) ok "a forward-filed Stage-6 decision does not approve a Stage 5 with no rows of its own" ;; esac
 
+echo "== T18: build-ready names a multi-line {{PLACEHOLDER}} left in an agent stub (#509) =="
+# The real templates: mdl-agent.md carries PROJECT_LOCAL_SOURCES_OF_TRUTH over four lines. The
+# per-line grep never saw it, so an untouched stub read "no unfilled placeholders". WARN only.
+TK="$(cd "$(dirname "$GATE")/.." && pwd)"
+P="$(mkproj t18)"; mkdir -p "$P/.claude/agents"
+for a in ba-agent architect-agent mdl-agent gate-agent test-agent review-agent; do
+  # Fill every single-line placeholder so only the multi-line one is left.
+  sed -E 's/\{\{[A-Z][A-Z0-9_]*[^}]*\}\}/filled/g' "$TK/agents/$a.md" > "$P/.claude/agents/$a.md"
+done
+OUT="$("$GATE" --no-html "$P" build-ready 2>&1)"
+case "$OUT" in *'multi-line placeholder(s) still unfilled: {{PROJECT_LOCAL_SOURCES_OF_TRUTH'*) ok "names the multi-line placeholder" ;;
+  *) bad "multi-line placeholder not named: $(printf '%s' "$OUT" | grep -i placeholder)" ;; esac
+case "$OUT" in *'no unfilled placeholders'*) bad "still claims no unfilled placeholders" ;; *) ok "does not claim the stubs are complete" ;; esac
+case "$OUT" in *'still have unfilled placeholders'*) bad "the multi-line case FAILs (WARN expected): $(printf '%s' "$OUT" | grep -i placeholder)" ;; *) ok "a multi-line placeholder is a WARN, not a FAIL" ;; esac
+# Filled: the warning is gone.
+perl -0777 -pi -e 's/\{\{PROJECT_LOCAL_SOURCES_OF_TRUTH.*?\}\}/filled/s' "$P/.claude/agents/mdl-agent.md"
+OUT="$("$GATE" --no-html "$P" build-ready 2>&1)"
+case "$OUT" in *'no unfilled placeholders'*) ok "a filled stub reads clean" ;; *) bad "filled stub not clean: $(printf '%s' "$OUT" | grep -i placeholder)" ;; esac
+
 printf '\n%s: %d ok, %d FAIL\n' "$(basename "$0")" "$PASS" "$FAIL"
 rm -rf "$WORK"
 [ "$FAIL" -eq 0 ]

@@ -1,0 +1,30 @@
+create module Shop;
+
+create persistent entity Shop.Item (
+  Name: String(100)
+);
+
+create microflow Shop.ACT_SaveItem ()
+begin
+  $Item = create Shop.Item (Name = 'x');
+  commit $Item;
+end;
+
+create microflow Shop.SUB_Seed ()
+begin
+  $Orphan = create Shop.Item (Name = 'never committed');
+  log info node 'Seed' 'Seeded 1';
+end;
+
+create page Shop.Item_Overview (
+  Title: 'Items',
+  Layout: Atlas_Core.Atlas_Default
+) {
+  layoutgrid lg1 {
+    row {
+      column (DesktopWidth: 12) {
+        actionbutton btnSave (Caption: 'Save', Action: call microflow Shop.ACT_SaveItem)
+      }
+    }
+  }
+};

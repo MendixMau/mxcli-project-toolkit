@@ -436,7 +436,7 @@ fi
 # ── Starlark lint rules ──────────────────────────────────────────────────────────────────
 # mxcli seeds .claude/lint-rules/ with its own copies; three of them are broken as shipped
 # (two match no entity at all and report a clean pass forever). Install the toolkit's fixed
-# versions over the stock ones, and conv020 — which mxcli does not ship — alongside them.
+# versions over the stock ones, and mxtk_ux003 (MXTK-UX003) — which mxcli does not ship — alongside them.
 # Nothing a human edited is overwritten: see bin/lib/install-lint-rules.sh.
 #
 # THIS MUST RUN AFTER wire-agents.sh. That script runs `mxcli init`, and `mxcli init` re-seeds

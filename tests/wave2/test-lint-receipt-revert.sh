@@ -52,7 +52,7 @@ n=$(grep -cv '^#' "$R" 2>/dev/null || echo 0)
 [ "$n" -ge 3 ] && ok "receipt lists $n rules" || bad "receipt lists $n rules"
 grep -q '^conv010_act_microflow_content.star  [0-9a-f]\{32\}  stock$' "$R" && ok "conv010 row: name + md5 + kind stock" || bad "conv010 row missing" "$(cat "$R")"
 grep -q '^ux001_confirm_before_destructive.star  [0-9a-f]\{32\}  toolkit$' "$R" && ok "ux001 row: kind toolkit" || bad "ux001 row kind wrong" "$(cat "$R")"
-grep -q '^conv020_action_user_feedback.star  [0-9a-f]\{32\}  configurable$' "$R" && ok "conv020 row: kind configurable" || bad "conv020 row kind wrong" "$(cat "$R")"
+grep -q '^mxtk_ux003_action_user_feedback.star  [0-9a-f]\{32\}  configurable$' "$R" && ok "mxtk_ux003 row: kind configurable" || bad "mxtk_ux003 row kind wrong" "$(cat "$R")"
 
 echo "T1 rules as installed: no receipt complaint, normal ratchet"
 mk "$(v CONV010 warning 26)"
@@ -204,13 +204,13 @@ out=$(inst2 "$P13")
 case "$out" in *"ux001_confirm_before_destructive.star is LOCALLY MODIFIED"*) ok "installer reports LOCALLY MODIFIED" ;; *) bad "not reported as a local edit" "$out" ;; esac
 [ "$(portable_md5 "$U1")" = "$um" ] && ok "ux001 not overwritten" || bad "ux001 overwritten"
 
-echo "T14 a configured, headerless conv020 is not overwritten and not BLIND"
-C2="$P13/.claude/lint-rules/conv020_action_user_feedback.star"
+echo "T14 a configured, headerless mxtk_ux003 is not overwritten and not BLIND"
+C2="$P13/.claude/lint-rules/mxtk_ux003_action_user_feedback.star"
 strip_header "$C2"; printf 'PROJECT_MODULES = "Orders"\n' >> "$C2"; cm=$(portable_md5 "$C2")
 out=$(gate2 "$P13" 2>&1); rc=$?
-[ "$rc" -eq 0 ] && ok "lint-gate: rc 0 for a configured conv020" || bad "configured conv020 called a re-seed (rc $rc)" "$out"
+[ "$rc" -eq 0 ] && ok "lint-gate: rc 0 for a configured mxtk_ux003" || bad "configured mxtk_ux003 called a re-seed (rc $rc)" "$out"
 out=$(inst2 "$P13")
-[ "$(portable_md5 "$C2")" = "$cm" ] && ok "conv020 not overwritten" || bad "conv020 overwritten" "$out"
+[ "$(portable_md5 "$C2")" = "$cm" ] && ok "mxtk_ux003 not overwritten" || bad "mxtk_ux003 overwritten" "$out"
 
 echo "T11 a rule the toolkit stops shipping: its receipt row is pruned, no permanent 'gone'"
 P11=$(newproj p11); inst2 "$P11" >/dev/null

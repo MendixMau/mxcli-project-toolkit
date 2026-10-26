@@ -42,7 +42,7 @@ P="$W/proj"; mkdir -p "$P/.claude"; echo "# PROJECT" > "$P/PROJECT.md"
 . "$W/tk/bin/lib/install-manifest.sh" >/dev/null 2>&1
 . "$W/tk/bin/lib/install-lint-rules.sh"
 R="$P/.claude/lint-rules"
-A="$R/data_change_microflows.star"; C="$R/conv020_action_user_feedback.star"
+A="$R/data_change_microflows.star"; C="$R/mxtk_ux003_action_user_feedback.star"
 RECEIPT="$P/.claude/.mxtk-lint-receipt"
 
 echo "== 1 fresh install =="
@@ -94,14 +94,14 @@ ls "$R"/*.local-* >/dev/null 2>&1 && grep -q "LOCAL TUNING" "$R"/*.local-* \
   && ok "backup holds the local work" || no "backup missing or empty"
 rm -f "$R"/*.local-*
 
-echo "== 8 configured conv020 is left alone, silently =="
+echo "== 8 configured mxtk_ux003 is left alone, silently =="
 sed 's/^PROJECT_MODULES = "\*"/PROJECT_MODULES = ("MyModule",)/' "$C" > "$C.t" && mv "$C.t" "$C"
 out=$(mxtk_install_lint_rules "$W/tk" "$P" 0 "" 2>&1)
 [ -z "$out" ] && ok "silent" || no "noisy about the expected state"
 grep -q 'PROJECT_MODULES = ("MyModule",)' "$C" && ok "config survived" || no "CONFIG WIPED"
 
-echo "== 9 conv020 template moves while the project is configured =="
-printf '\n# template moved\n' >> "$W/tk/lint-rules/conv020_action_user_feedback.star"
+echo "== 9 mxtk_ux003 template moves while the project is configured =="
+printf '\n# template moved\n' >> "$W/tk/lint-rules/mxtk_ux003_action_user_feedback.star"
 out=$(mxtk_install_lint_rules "$W/tk" "$P" 0 "" 2>&1)
 echo "$out" | grep -q "template has since changed" && ok "flagged the move" || no "silent on move"
 grep -q 'PROJECT_MODULES = ("MyModule",)' "$C" && ok "config STILL survived" || no "CONFIG WIPED"

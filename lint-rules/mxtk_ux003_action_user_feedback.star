@@ -1,4 +1,4 @@
-# mxtk-lint-rule: conv020_action_user_feedback
+# mxtk-lint-rule: mxtk_ux003_action_user_feedback
 # Shipped by mxcli-project-toolkit. UNLIKE the other rules here this one MAY be edited:
 # PROJECT_MODULES defaults to "*" (every module the lint run includes, i.e. all but those
 # in .claude/lint-vendor-modules.txt); narrow it to a tuple to scope the rule down.
@@ -6,7 +6,12 @@
 # when the template changes it reports the change and leaves your configured copy alone.
 # See lint-rules/README.md.
 # --- end mxtk-lint-rule header ---
-# CONV020: Completing user actions must tell the user what happened
+# MXTK-UX003: Completing user actions must tell the user what happened
+#
+# MXTK-UX003 was CONV020 (conv020_action_user_feedback.star) until 2026-10-23. mxcli v0.28.0
+# ships a built-in CONV020 ("Created object never persisted") and has no duplicate-ID guard, so
+# both ran under one ID. MXTK- is a toolkit-only prefix that mxcli does not use. sync-project.sh
+# migrates an unedited project copy (MXTK_LINT_RENAMES in bin/lib/install-manifest.sh).
 #
 # A microflow that is triggered from a page and that COMPLETES WORK -- commits
 # created/changed objects, runs an import, deletes -- should give the user
@@ -34,7 +39,7 @@
 # differently gets no findings and no signal, which the self-check at the bottom now catches.
 ACTION_PREFIX = "ACT_"
 
-RULE_ID = "CONV020"
+RULE_ID = "MXTK-UX003"
 RULE_NAME = "ActionUserFeedback"
 DESCRIPTION = "Page-triggered microflows that commit, import or delete should show the user a message"
 CATEGORY = "quality"
@@ -112,8 +117,8 @@ def check():
     # the exact silent-false-pass shape this rule's self-check exists to prevent.
     if not PROJECT_MODULES:  # empty tuple/string only; "*" is truthy
         return [violation(
-            message="CONV020 is unconfigured: PROJECT_MODULES is empty, so this rule inspected NOTHING.",
-            location=location(module="_rule", document_type="Microflow", document_name="CONV020"),
+            message="MXTK-UX003 is unconfigured: PROJECT_MODULES is empty, so this rule inspected NOTHING.",
+            location=location(module="_rule", document_type="Microflow", document_name="MXTK-UX003"),
             suggestion="Set PROJECT_MODULES at the top of this rule to "*" (all non-vendor modules) or to a tuple of module names.",
         )]
 
@@ -231,15 +236,15 @@ def check():
     # is a legitimate clean result and stays quiet.
     if in_scope > 0 and prefix_matched == 0:
         violations.append(violation(
-            message="CONV020 matched no microflows: none of the {} in PROJECT_MODULES start with '{}', so this rule inspected NOTHING. A clean result here means the naming convention does not match, not that every action gives feedback.".format(in_scope, ACTION_PREFIX),
-            location=location(module="_rule", document_type="Microflow", document_name="CONV020"),
+            message="MXTK-UX003 matched no microflows: none of the {} in PROJECT_MODULES start with '{}', so this rule inspected NOTHING. A clean result here means the naming convention does not match, not that every action gives feedback.".format(in_scope, ACTION_PREFIX),
+            location=location(module="_rule", document_type="Microflow", document_name="MXTK-UX003"),
             suggestion="Set ACTION_PREFIX at the top of this rule to the prefix this project uses for page-action microflows. Without a prefix convention this rule cannot tell a button click from a datasource and should be removed deliberately rather than left inert.",
         ))
 
     if inspected > 0 and not saw_any_activity:
         violations.append(violation(
-            message="CONV020 could not read any microflow activities ({} page-triggered microflows inspected, all reported zero). activities_for() is returning nothing -- this rule checked NOTHING. Do not read a clean result as a pass.".format(inspected),
-            location=location(module="_rule", document_type="Microflow", document_name="CONV020"),
+            message="MXTK-UX003 could not read any microflow activities ({} page-triggered microflows inspected, all reported zero). activities_for() is returning nothing -- this rule checked NOTHING. Do not read a clean result as a pass.".format(inspected),
+            location=location(module="_rule", document_type="Microflow", document_name="MXTK-UX003"),
             suggestion="Your mxcli build likely postdates the graphcatalog refactor that stubbed activities_for(). Use a build where it is populated, or rewrite this rule against a different API.",
         ))
 

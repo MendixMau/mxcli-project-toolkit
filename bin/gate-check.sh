@@ -1518,10 +1518,14 @@ check_build_ready() {
   # its "UI review reports" row, so grepping for that string made this check satisfied by
   # the installer's own output: a project with zero real baseline routing passed.
   # ui-preflight-pages.md appears only in a genuine Baseline routing table.
-  if grep -q "ui-preflight-pages" "$PROJECT_DIR/CLAUDE.local.md" 2>/dev/null; then
+  # Since lazy-load PR 2 (2026-10-23) the rendered table no longer lists ui-preflight-pages.md:
+  # the mdl helper reaches it through the mdl-rules row (bin/mdl-rules.sh page prints it whole),
+  # which is baseline. Either name satisfies this item, so a project synced after that change
+  # does not flip to FAIL, and one synced before it still passes on its old table.
+  if grep -qE "ui-preflight-pages|bin/mdl-rules\.sh" "$PROJECT_DIR/CLAUDE.local.md" 2>/dev/null; then
     echo "  ✓ baseline routing references the UI-quality skills"
   else
-    echo "  ✗ baseline routing missing UI-quality rows (ui-preflight-pages.md, module-review.md) — run bin/sync-project.sh"
+    echo "  ✗ baseline routing missing UI-quality rows (ui-preflight-pages.md or bin/mdl-rules.sh, module-review.md) — run bin/sync-project.sh"
     fails=$((fails+1))
   fi
 

@@ -160,11 +160,10 @@ MXTK_PROJECT_BIN_NOINSTALL="report-disposition-check.sh coverage-check-all.sh ts
 # after them in the list are toolkit-authored, never seeded by init. Copying the rest would pin every project
 # to whatever mxcli shipped the day someone copied them.
 #
-# MXTK_LINT_RULES_CONFIGURABLE — installed once, then owned by the project. conv020 is not an
-# mxcli rule at all (init never seeds it) and it REQUIRES editing: PROJECT_MODULES ships empty
-# and the rule refuses to run until it is filled in. Refreshing it on sync would silently
-# revert that configuration and the rule would go back to inspecting nothing. So: install if
-# absent, report if the template moves, never overwrite.
+# MXTK_LINT_RULES_CONFIGURABLE — installed once, then owned by the project. mxtk_ux003
+# (MXTK-UX003, formerly conv020/CONV020) is not an mxcli rule (init never seeds it) and MAY be
+# edited: a project narrows PROJECT_MODULES or sets ACTION_PREFIX. Refreshing it on sync would silently revert that
+# configuration. So: install if absent, report if the template moves, never overwrite.
 #
 # `mxcli init` OVERWRITES an edited .star without asking (verified 2026-08-18, mxcli v0.17.0:
 # a local edit was gone after a second `init` in the same directory; exit 0, no warning). A
@@ -179,7 +178,20 @@ MXTK_LINT_RULES="conv010_act_microflow_content.star data_change_microflows.star 
 # version the day a non-stock rule joined MXTK_LINT_RULES. Every name here must also be in
 # MXTK_LINT_RULES; the fixture asserts it.
 MXTK_LINT_RULES_STOCK="conv010_act_microflow_content.star data_change_microflows.star entity_business_key.star conv009_max_microflow_objects.star"
-MXTK_LINT_RULES_CONFIGURABLE="conv020_action_user_feedback.star"
+MXTK_LINT_RULES_CONFIGURABLE="mxtk_ux003_action_user_feedback.star"
+
+# MXTK_LINT_RENAMES — rules this toolkit has renamed, one per line:
+#   <old file> <old RULE_ID> <new file> <new RULE_ID> <md5s of every shipped old version, comma-separated> <finding regex>
+# install-lint-rules.sh (_mxtk_lint_migrate_renames) retires a project's old copy ONLY when it is
+# byte-identical (CR-insensitive) to a shipped version or to its receipt row, then rekeys the
+# baseline findings whose message matches the regex. Anything else gets a notice, never a write.
+# The md5s are every version of the old file in git, captured with:
+#   for c in $(git log --format=%h -- lint-rules/<old file>); do git show "$c:lint-rules/<old file>" | md5sum; done
+# CONV020 -> MXTK-UX003 (2026-10-23): mxcli v0.28.0 ships a built-in CONV020 ("Created object never
+# persisted", mendixlabs/mxcli#1518) and mxcli has no duplicate-ID guard. The regex matches only the
+# toolkit rule's messages (finding + its three `_rule` self-reports); the built-in's read
+# "<Noun> 'M.F' creates $X (E) without committing it, ..." (mxcli rules/conv_created_never_persisted.go).
+MXTK_LINT_RENAMES="conv020_action_user_feedback.star CONV020 mxtk_ux003_action_user_feedback.star MXTK-UX003 809ddca4d767a672ee811be51e25570b,a5caa8dacbcc6a64b28b4a4b2a0942e4,d7734ec8922edf2e136316c09b7bb9cf,215582a999ed3194c03922d6c4c40797 is triggered from a page and commits/imports/deletes data, but |^CONV020 (is unconfigured|matched no microflows|could not read any microflow activities)"
 
 # Files in lint-rules/ deliberately NOT installed. Same contract as MXTK_PROJECT_BIN_NOINSTALL:
 # the reverse check below flags anything named by no list, so a new rule has to be either

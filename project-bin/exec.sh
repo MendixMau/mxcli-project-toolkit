@@ -1034,7 +1034,7 @@ run_lint_gate() {
        elif [ -z "$_rules" ] && grep -q '^PASS' "$_lo"; then
          # lint-gate exits 1 for PASS-BLIND too. Logging that as "ROSE: see output" made a rule
          # that inspected nothing look like a rise with no rule named — 20 such rows in two
-         # field apps whose CONV020 shipped unconfigured (#229). It is an instrument fault.
+         # field apps whose toolkit CONV020 (now MXTK-UX003) shipped unconfigured (#229). It is an instrument fault.
          LINT_RC=3
          LINT_DETAIL="lint BLIND: ${_blind:-a rule} inspected nothing (instrument fault, not a rise)"
          echo "  ✗ lint: nothing rose, but ${_blind:-a rule} could not read the model — a clean count means nothing"

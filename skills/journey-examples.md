@@ -76,6 +76,18 @@ Three of those are worth knowing before you write anything:
 | `consumes[]` | no | ordering (every `requires` holder of the token runs first). The token is gone after this journey | — | `["request-at-review"]` on the journey that approves the request and moves it on |
 | `resetsData` | no | printed at suite start; `--protect-state` refuses the journey | not flagged — a run can wipe a rehearsed or hand-seeded state unannounced | `true` on a journey that resets or reloads demo data |
 | `assertLanding` | no | after login, before any click: fails on any visible outline or focused box-shadow (`--assert-landing` does the same for the whole run) | no landing check | `true` on a journey that proves a focus or "selected" style |
+| `device` | no | before the browser opens: a Playwright device profile (user agent, touch, scale) at the profile's `screen` size, or `{ "name", "viewport": { "width", "height" } }` to set the size | the default 1440x900 desktop window — Mendix then serves the Responsive profile, so a phone journey fails at step 1 for a setup reason | `"iPhone 13"` → 390x844, phone user agent, touch |
+| `viewport` | no | as `device`: `{ "width", "height" }` is a desktop window of that size; add `"isMobile": true` for a phone (iPhone 13 user agent) | as above | `{ "width": 390, "height": 844, "isMobile": true }` |
+| `geolocation` | no | from step 1 on, until a step sets its own (see `steps[]`) | no position — a nanoflow reading it gets "permission denied" | `{ "latitude": 52.37, "longitude": 4.90, "accuracy": 10 }` |
+
+**One run is one device.** One run is one browser context and one sign-in, so a run whose journeys
+need different devices exits 2 before the browser opens, with one `SETUP  device:` line naming which
+journeys need which; run each group separately. `JOURNEY_DEVICE=<name>` (or `desktop`) applies one
+device to every journey in the run. An unknown name is refused with the nearest known ones; the
+runner never swaps in a neighbouring profile. After launch it measures the viewport, user agent and
+touch points on `about:blank` and exits 2 on a mismatch, before any sign-in. The device is written to
+the findings file and to each walk. Position: Chromium allows geolocation only on a secure origin, and
+`http://localhost` counts as one; an app on another plain-http host gets no position.
 
 The three state fields are free strings that you choose. A `requires` token that no journey in the
 run `leaves` is left to the fixture (the runner lists it once and does not gate it). Journeys with
@@ -116,6 +128,13 @@ none of the fields run exactly as before.
 | `ui` | no | rungs 1–2 | no landing guard: later rungs may measure the previous page |
 | `spans` | no | rung 3 | no trace assertion |
 | `data` | no | rung 4 | no data assertion. `null` is fine and is what the read-only real journeys use |
+| `geolocation` | no | before this step's actions: grants the browser's position permission once, then sets the fix. It holds until the next fix; permission and position are cleared between journeys. `{{seed}}` placeholders allowed | the previous fix, if any |
+
+A `geolocation` value that is an unresolved placeholder, not a number, or out of range records
+`setup … geolocation INVALID` and stops the journey; it is never sent as 0,0. `_geolocation` (files
+written before the field existed) is read when `geolocation` is absent, with a WARN — rename it: the
+validator treats `_` keys as comments and does not check them. An unknown step key close to one of
+these names (`spams`, `geolocaton`) is reported by `validate-journeys.js` as a likely typo.
 
 If a step's actions throw, or its landing guard fails, the runner records the failure and **returns
 from the whole journey** — later steps and the outcome rung produce no rows at all. A missing outcome
@@ -126,12 +145,13 @@ row means "the walk did not get there", never "not applicable".
 | `do` | Fields read | Notes |
 |---|---|---|
 | `nav` | `group`, `item` | Anchor `title` attributes, clicked as a user would. Nav groups toggle — journeys must start from a reset state. **See `testing-shape.md` §4a rule 4 for the canonical statement of this trap.** |
-| `click` | `widget` | Waits for attached, scrolls into view, requires visible, then `click({force:true})`. Not visible → throws → step `FAIL`. |
+| `click` | `widget`, `row`?, `in`? | Waits for attached, scrolls into view, requires visible, then `click({force:true})`. Not visible → throws → step `FAIL`. A grid repeats one widget name per row, and the bare name clicks whichever row rendered first: `row` (substituted) picks the innermost row (`tr`, `[role=row]`, list/template-grid item) whose text contains it, `in` scopes to one container widget by bare name. No row says it → throws → step `FAIL`. |
 | `fill` | `widget`, `value` | Targets `input`/`textarea` inside the widget. `value` is substituted. |
 | `combobox` | `widget`, `match` | The heavy one — see below. |
 | `dismissModal` | — | Clicks up to three modal-footer buttons. |
 | `wait` | `ms` | **`ms`, not `settleMs`.** |
 | `back` | `timeout` (default 15000) | Browser Back: Mendix rebuilds the previous page from its own history and re-sends the client state, a path no in-app click takes. Back that leaves the app (login page, another origin) throws → step `FAIL`. |
+| `offline` / `online` | — | `context.setOffline(true / false)`: the browser leaves or rejoins the network; the page is not touched and nothing settles. A journey still offline at its end is put back online, and if it walked every step it gets `setup … back online at the end INVALID` (add the `online` step). The sign-out always goes online first. A legacy `wait` whose `label` names `context.setOffline(true\|false)` is honoured, with a WARN asking for the verb. |
 | anything else | — | throws `unknown action` → step `FAIL`. |
 
 Every action also reads `settleMs` (a fixed wait *after* the action; when absent the runner waits until the page is idle — no progress bar, DOM still — via `tests/e2e/settle.js`, and `SETTLE_MODE=fixed` restores the old 1200) and `label`
@@ -155,6 +175,7 @@ the screenshot looked perfect.
 | `textPresent[]` | strings, substituted | Substring of `body.innerText`, case-sensitive. |
 | `textAbsent[]` | strings, substituted | Present → `FAIL` with `"the screen contradicts the data"`. |
 | `no5xx` | `true` (opt-in) | One more row, `no HTTP 5xx during the step`: any answer ≥ 500 from the first action to the landing guard is `FAIL`. Mendix can draw a page's frame while every data source on it failed (560 on `/xas/`), and `ready` alone then reads `PASS`. |
+| `pseudoText[]` | strings, substituted | One row per string, `CSS content says "…"`: `PASS` when a rendered element's `::before` / `::after` content contains it. For sentences authored in CSS (an empty-state message as `content:`), which `innerText`, and so `textPresent`, never sees: a correct page FAILs `textPresent` there. Elements that are not rendered (`display:none`) are skipped. No control mutant yet. |
 
 `ready` and `checks` take **different vocabularies**, and mixing them up is the easiest mistake in
 the format: `checks: [".mx-name-btnGo"]` becomes `.mx-name-.mx-name-btnGo`, which reports as a
@@ -244,6 +265,17 @@ passes every rung above and fails here. The runner reads `outcome.sql` specifica
 spells it `query` gets no rung 5 and no complaint.
 
 ---
+
+## Rerunning in a fix loop
+
+Inside a fix loop, rerun only what failed: `--rerun-failed` reads the last findings file for this
+mode (`journey-findings.json`, or the control slot under `--positive-control`; `--rerun-failed=<file>`
+names another) and walks every journey with a non-PASS row. `--only=<id,...>` names them instead. Either
+way the runner adds every journey that `leaves` a token a chosen one `requires`, transitively, so the
+declared state is rebuilt. It prints `PARTIAL RUN … N of M journeys` and writes
+`journey-findings-rerun.json`, so the full run's findings are never replaced. A partial run is not a
+result: run the whole suite at module done, build complete and before deploy. An aborted or missing
+findings file exits 2 ("run the journeys in full first"); an unknown `--only` id exits 2 naming it.
 
 ## Requirement pointers
 

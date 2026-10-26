@@ -1,0 +1,42 @@
+{
+ "capturedWith": "axe-core 4.10.2 via Playwright chromium",
+ "violations": [
+  {
+   "id": "button-name",
+   "impact": "critical",
+   "help": "Buttons must have discernible text",
+   "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/button-name?application=axeAPI",
+   "nodes": [
+    {
+     "target": [
+      "button"
+     ],
+     "html": "<button data-button-id=\"Orders.Orders_Overview.actionButtonDeleteSelectedRows\" data-mendix-id=\"183_29\" tabindex=\"0\" type=\"button\" class=\"btn mx-button btn-default spacing-outer-right mx-name-actionButtonDelete\"><span class=\"glyphicon glyphicon-trash\"></span></button>",
+     "impact": "critical",
+     "failureSummary": "Fix any of the following:\n  Element does not have inner text that is visible to screen readers\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element does not have an implicit (wrapped) <label>\n  Element does not have an explicit <label>\n  Element's default semantics were not overridden with role=\"none\" or role=\"presentation\""
+    }
+   ]
+  }
+ ],
+ "passes": [
+  {
+   "id": "aria-hidden-body"
+  },
+  {
+   "id": "color-contrast"
+  },
+  {
+   "id": "document-title"
+  },
+  {
+   "id": "html-has-lang"
+  },
+  {
+   "id": "html-lang-valid"
+  },
+  {
+   "id": "nested-interactive"
+  }
+ ],
+ "incomplete": []
+}

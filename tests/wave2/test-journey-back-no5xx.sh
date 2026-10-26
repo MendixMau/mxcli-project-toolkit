@@ -82,6 +82,50 @@ if [ -f "$VALIDATOR" ]; then
   printf '%s\n' "$VB" | grep -q 'must be true or false' && ok "validate-journeys flags a non-boolean ui.no5xx" || bad "validator accepts no5xx: \"yes\""
 fi
 
+# A real headless Chromium walks a stand-in app on localhost (review follow-up): a step whose
+# button POSTs to /xas/ and gets 560 still lands (ready PASS) and its no5xx row FAILs naming the
+# 560 — the issue's shape; Back returns to the home page with no 5xx; Back on a first page leaves
+# the app and throws. SKIPs (counted in neither column) without Playwright or its browser.
+IFS= read -r -d '' BJS <<'JSEOF' || true
+const http = require('http');
+(async () => {
+  const pages = {
+    '/': '<a class="mx-name-lnk" href="/p2">to p2</a><div class="mx-name-home">home</div>',
+    '/p2': '<div class="mx-name-ready2">p2</div><button class="mx-name-btnLoad" onclick="fetch(\'/xas/\',{method:\'POST\'})">load</button>',
+  };
+  const srv = http.createServer((q, s) => {
+    if (q.url.startsWith('/xas/')) { s.statusCode = 560; return s.end('{}'); }
+    s.setHeader('content-type', 'text/html'); s.end(pages[q.url] || 'nope');
+  });
+  await new Promise(r => srv.listen(0, '127.0.0.1', r));
+  process.env.APP_URL = `http://localhost:${srv.address().port}`;
+  let R, H, browser, page;
+  try { R = require('./journey-runner.js'); H = require('./helpers.js'); if (!H.deviceProfiles || !H.deviceProfiles()) throw new Error('no playwright');
+        if (typeof R.runJourney !== 'function') throw new Error('runJourney not exported');
+        ({ browser, page } = await H.launchBrowser()); }
+  catch (e) { console.log('SKIPB ' + e.message.split('\n')[0]); srv.close(); return; }
+  await page.goto(process.env.APP_URL + '/');
+  const j = { id: 'J-BACK', steps: [
+    { name: 'open p2', actions: [{ do: 'click', widget: 'lnk' }], ui: { ready: '.mx-name-ready2' } },
+    { name: 'load', actions: [{ do: 'click', widget: 'btnLoad', settleMs: 500 }], ui: { ready: '.mx-name-ready2', no5xx: true } },
+    { name: 'back home', actions: [{ do: 'back', timeout: 3000 }], ui: { ready: '.mx-name-home', no5xx: true } } ] };
+  const done = await R.runJourney(page, j);
+  console.log('ROWS ' + JSON.stringify(R.results.map(r => [r.name, r.verdict, /560 POST/.test(r.detail)])) + ' ' + done);
+  const p2 = await browser.newPage(); await p2.goto(process.env.APP_URL + '/');
+  console.log('LEFT ' + await R.act(p2, { do: 'back', timeout: 3000 }, {}, () => {}).then(() => 'no error', e => e.message.split('(')[0].trim()));
+  await browser.close(); srv.close();
+})().catch(e => console.log('BERR ' + e.message));
+JSEOF
+BOUT="$(cd "$WORK/tests/e2e" && printf '%s' "$BJS" | ALLOW_UNVERIFIED_APP=1 timeout 90 node - 2>&1)"
+bget() { printf '%s\n' "$BOUT" | sed -n "s/^$1 //p"; }
+if [ -n "$(bget SKIPB)" ]; then echo "  skip — real-browser walk: $(bget SKIPB)"
+else
+  [ "$(bget ROWS)" = '[["open p2: reached","PASS",false],["load: reached","PASS",false],["load: no HTTP 5xx during the step","FAIL",true],["back home: reached","PASS",false],["back home: no HTTP 5xx during the step","PASS",false]] true' ] \
+    && ok "Chromium: a 560 on /xas/ behind a page that still lands → ready PASS, no5xx FAIL naming the 560; Back lands home with no 5xx" \
+    || bad "real-browser back/no5xx walk" "$(bget ROWS) $(bget BERR)"
+  [ "$(bget LEFT)" = 'Back left the app' ] && ok "Chromium: Back on the first page leaves the app and throws (step FAIL)" || bad "Back out of the app not caught" "$(bget LEFT) $(bget BERR)"
+fi
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

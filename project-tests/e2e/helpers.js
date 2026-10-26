@@ -57,9 +57,11 @@ function resolveExecutablePath() {
   if (pinned && fs.existsSync(pinned)) return undefined;
   return fs.existsSync(FALLBACK_CHROMIUM) ? FALLBACK_CHROMIUM : undefined;
 }
-async function launchBrowser({ videoDir = null, trace = false, viewport = null } = {}) {
+// `contextOptions` (journey-runner's phone device, #521) is spread into the context; its viewport
+// wins over `viewport` and cfg.viewport. Without it the call is exactly the desktop one it was.
+async function launchBrowser({ videoDir = null, trace = false, viewport = null, contextOptions = null } = {}) {
   requirePlaywright();
-  const vp = viewport || cfg.viewport;
+  const vp = (contextOptions && contextOptions.viewport) || viewport || cfg.viewport;
   const launchOpts = {
     headless: !cfg.headed,
     slowMo: 0,   // cursor animation is JS-driven; slowMo is set via script-level pauses
@@ -70,6 +72,7 @@ async function launchBrowser({ videoDir = null, trace = false, viewport = null }
   if (exe) launchOpts.executablePath = exe;
   const browser = await chromium.launch(launchOpts);
   const context = await browser.newContext({
+    ...(contextOptions || {}),
     viewport: vp,
     recordVideo: videoDir ? { dir: videoDir, size: vp } : undefined,
   });
@@ -605,7 +608,7 @@ function visibleWithin(loc, ms) {
 async function gotoTarget(page, target) {
   if (target.nav) {
     const nav = page.locator(target.nav).first();
-    if (await nav.isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (await visibleWithin(nav, 3000)) {
       await humanClick(page, nav);
       await page.waitForTimeout(1500);
     }
@@ -842,7 +845,7 @@ function parseTokens() {
 }
 
 module.exports = {
-  launchBrowser, launchBrowserAt, injectCursor, injectOqlOverlay, showOqlResult,
+  launchBrowser, launchBrowserAt, deviceProfiles: () => devices, injectCursor, injectOqlOverlay, showOqlResult,
   humanMove, humanClick, humanType, humanTypeKeys, humanScroll,
   navTo, ensureSidebar, copilotText, askCopilot, approveConfirmCard,
   login, logout, assertIdentity, dismissModal, gotoTarget, visibleWithin,

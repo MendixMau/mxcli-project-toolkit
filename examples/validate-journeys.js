@@ -29,7 +29,31 @@
 const fs = require('fs');
 const path = require('path');
 
-const ACTIONS = new Set(['nav', 'click', 'fill', 'combobox', 'dismissModal', 'wait', 'back']);
+const ACTIONS = new Set(['nav', 'click', 'fill', 'combobox', 'dismissModal', 'wait', 'back', 'offline', 'online']);
+// Step keys journey-runner.js reads. An unknown key close to one of these is a likely typo: the
+// runner ignores it silently and walks the step without the check the author meant (#522).
+const STEP_KEYS = ['name', 'requirement', 'actions', 'ui', 'spans', 'data', 'geolocation'];
+function editDistance(a, b) {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++)
+    d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+// A GPS fix as the runner reads it (#521): literal numbers are range-checked here; a {{seed}} is
+// checked by the placeholder rule and resolved by the runner.
+function checkGeolocation(g, where, add) {
+  if (!g || typeof g !== 'object' || Array.isArray(g)) { add(where, 'must be { "latitude", "longitude", "accuracy"? }'); return; }
+  for (const [k, lo, hi, req] of [['latitude', -90, 90, true], ['longitude', -180, 180, true], ['accuracy', 0, Infinity, false]]) {
+    const v = g[k];
+    if (v === undefined) { if (req) add(where, `no \`${k}\` — the runner stops the journey INVALID`); continue; }
+    if (typeof v === 'string' && /^\s*\{\{\w+\}\}\s*$/.test(v)) continue;
+    const n = typeof v === 'string' && v.trim() ? Number(v) : v;
+    if (typeof n !== 'number' || !Number.isFinite(n) || n < lo || n > hi)
+      add(where, `\`${k}\` ${JSON.stringify(v)} is not a number in [${lo}, ${hi}] — the runner stops the journey INVALID`);
+  }
+}
+const validSize = v => v && Number.isInteger(v.width) && Number.isInteger(v.height) && v.width > 0 && v.height > 0;
 
 // ── the rules ────────────────────────────────────────────────────────────────
 // Each returns an array of problem strings. `brds` is a Map<id, object> or null.
@@ -38,6 +62,13 @@ function validate(j, brds) {
   const add = (where, msg) => p.push(`${where}: ${msg}`);
 
   if (!j.id) add('journey', 'no `id` — findings and control mutants are named from it');
+  // device / viewport (#521): the runner refuses a malformed one before the browser opens.
+  if (j.device !== undefined && typeof j.device !== 'string' &&
+      !(j.device && typeof j.device.name === 'string' && (j.device.viewport === undefined || validSize(j.device.viewport))))
+    add('journey.device', 'must be a Playwright device name, or { "name", "viewport": { "width", "height" } } in whole pixels');
+  if (j.viewport !== undefined && !validSize(j.viewport))
+    add('journey.viewport', 'must be { "width", "height" } in whole pixels (plus "isMobile": true for a phone)');
+  if (j.geolocation !== undefined) checkGeolocation(j.geolocation, 'journey.geolocation', add);
   if (!Array.isArray(j.steps) || !j.steps.length) {
     add('journey', 'no `steps[]` — nothing to walk');
     return p;
@@ -82,6 +113,12 @@ function validate(j, brds) {
   for (const [i, st] of j.steps.entries()) {
     const at = `steps[${i}]${st.name ? ` "${st.name}"` : ''}`;
     if (!st.name) add(at, 'no `name` — every finding for this step is labelled "undefined:"');
+    for (const k of Object.keys(st)) {
+      if (k.startsWith('_') || STEP_KEYS.includes(k)) continue;
+      const near = STEP_KEYS.find(x => editDistance(k.toLowerCase(), x.toLowerCase()) <= 2);
+      if (near) add(at, `unknown key \`${k}\` — likely a typo for \`${near}\`; the runner ignores it and walks the step without it`);
+    }
+    if (st.geolocation !== undefined) checkGeolocation(st.geolocation, `${at}.geolocation`, add);
 
     for (const [k, a] of (st.actions || []).entries()) {
       const aat = `${at}.actions[${k}]`;
@@ -94,6 +131,10 @@ function validate(j, brds) {
         add(aat, `back \`timeout\` must be a positive number of ms (got ${JSON.stringify(a.timeout)})`);
       if (a.do === 'wait' && a.settleMs !== undefined && a.ms === undefined)
         add(aat, 'wait reads `ms`, not `settleMs`');
+      if (a.row !== undefined && (a.do !== 'click' || typeof a.row !== 'string'))
+        add(aat, a.do !== 'click' ? `\`row\` is read only by click (got it on ${a.do})` : '`row` must be a string: text of the one row to click in');
+      if (a.in !== undefined && (a.do !== 'click' || typeof a.in !== 'string' || a.in.startsWith('.')))
+        add(aat, a.do !== 'click' ? `\`in\` is read only by click (got it on ${a.do})` : '`in` takes a bare Mendix widget name (the container); the runner prepends .mx-name-');
       if (a.widget && a.widget.startsWith('.'))
         add(aat, `\`widget\` takes a bare Mendix name; the runner prepends .mx-name- (got "${a.widget}")`);
     }
@@ -106,7 +147,7 @@ function validate(j, brds) {
     for (const c of ui.checks || [])
       if (typeof c !== 'string' || /^[.#[]/.test(c))
         add(`${at}.ui.checks`, `"${c}" looks like a selector — \`checks\` takes bare widget names, the runner prepends .mx-name-`);
-    for (const key of ['textPresent', 'textAbsent'])
+    for (const key of ['textPresent', 'textAbsent', 'pseudoText'])
       for (const t of ui[key] || [])
         if (typeof t !== 'string')
           add(`${at}.ui.${key}`, 'contains a non-string — comment objects inside these arrays become assertions');
@@ -244,6 +285,18 @@ function selftest() {
     ['unqualified ordered span', j => { j.steps[0].spans.ordered = ['ACT_Go']; return j; }, 'is unqualified'],
     ['unknown action', j => { j.steps[0].actions[0].do = 'swipe'; return j; }, 'unknown action'],
     ['browser back is a known action', j => { j.steps[0].actions.push({ do: 'back' }); return j; }, null],
+    ['offline / online are known actions', j => { j.steps[0].actions.push({ do: 'offline' }, { do: 'online' }); return j; }, null],
+    ['phone device, step GPS fix from a seed', j => { j.device = 'iPhone 13'; j.steps[0].geolocation = { latitude: '{{a}}', longitude: 4.9, accuracy: 10 }; return j; }, null],
+    ['GPS latitude out of range', j => { j.steps[0].geolocation = { latitude: 95, longitude: 4.9 }; return j; }, 'not a number in [-90, 90]'],
+    ['GPS fix with no longitude', j => { j.geolocation = { latitude: 1 }; return j; }, 'no `longitude`'],
+    ['device object with a bad viewport', j => { j.device = { name: 'iPhone 13', viewport: { width: '390' } }; return j; }, 'Playwright device name'],
+    ['viewport not whole pixels', j => { j.viewport = { width: 390.5, height: 844, isMobile: true }; return j; }, 'whole pixels'],
+    ['pseudoText strings are accepted', j => { j.steps[0].ui.pseudoText = ['No rows yet']; return j; }, null],
+    ['comment object inside pseudoText', j => { j.steps[0].ui.pseudoText = [{ _note: 'x' }]; return j; }, 'non-string'],
+    ['row-scoped click is accepted', j => { j.steps[0].actions[0].row = '{{a}}'; j.steps[0].actions[0].in = 'gridOrders'; return j; }, null],
+    ['row on a fill', j => { j.steps[0].actions.push({ do: 'fill', widget: 'tb', value: 'x', row: 'A' }); return j; }, 'read only by click'],
+    ['in given a selector', j => { j.steps[0].actions[0].in = '.mx-name-grid'; return j; }, 'bare Mendix widget name'],
+    ['misspelt step key', j => { j.steps[0].spams = j.steps[0].spans; delete j.steps[0].spans; return j; }, 'likely a typo for `spans`'],
     ['back timeout not a number', j => { j.steps[0].actions.push({ do: 'back', timeout: '15s' }); return j; }, 'must be a positive number'],
     ['ui.no5xx true is accepted', j => { j.steps[0].ui.no5xx = true; return j; }, null],
     ['ui.no5xx not a boolean', j => { j.steps[0].ui.no5xx = 'yes'; return j; }, 'must be true or false'],

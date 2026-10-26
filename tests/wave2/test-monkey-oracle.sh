@@ -62,7 +62,9 @@ const out = (k, v) => console.log(`${k} ${JSON.stringify(v)}`);
   // #562 — a stand-in page: which selectors are visible, and no real waiting. No Jaeger: the
   // OTel arm returns no spans (the traceRan flag reports that, as in a real run).
   require('./otel.js').capture = async () => [];
-  const page = vis => ({ locator: sel => ({ first: () => ({ isVisible: async () => !!vis[sel] }) }),
+  // isVisible answers at once; waitFor (what visibleWithin uses, #536) resolves or times out.
+  const loc = on => ({ isVisible: async () => on, waitFor: async () => { if (!on) throw new Error('Timeout'); } });
+  const page = vis => ({ locator: sel => ({ first: () => loc(!!vis[sel]) }),
                          waitForTimeout: async () => {} });
   const B = (js = [], h = []) => ({ jsErrors: js, http5xx: h });
   if (typeof M.oracle !== 'function') out('OR', 'NOFN');
@@ -80,12 +82,12 @@ const out = (k, v) => console.log(`${k} ${JSON.stringify(v)}`);
   else {
     const H = require('./helpers.js');
     const open = { url: () => 'http://localhost:1/p/real', goto: async () => {}, waitForTimeout: async () => {},
-                   locator: () => ({ first: () => ({ isVisible: async () => true }) }) };
+                   locator: () => ({ first: () => loc(true) }) };
     H.navTo = async () => { throw new Error('navigation item "Ghost" not found for demo_user; visible: Real\n  at navTo'); };
     const ghost = await M.land(open, 'Group', 'Ghost');
     H.navTo = async () => {};
     const real = await M.land(open, null, 'Real');
-    const gone = await M.land({ ...open, locator: () => ({ first: () => ({ isVisible: async () => false }) }) }, null, 'Real');
+    const gone = await M.land({ ...open, locator: () => ({ first: () => loc(false) }) }, null, 'Real');
     out('LD', { ghost, real, gone });
   }
   process.exit(0);

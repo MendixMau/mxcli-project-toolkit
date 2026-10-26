@@ -97,17 +97,27 @@ KEYED = {
 # in these corpora and the key varies too much to enumerate.
 CODESET_RE = re.compile(r"\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*_CODE_SET\b")
 
-def walk(node, key, out, src):
+# `name` inside an identifier-bearing array (domainEntities[].name, pages[].name, the shape
+# coverage-check.sh enumerates) is read too, but WARN-only (#519): it is collected apart from the
+# lock, never frozen, and its disagreements change no exit code, so no project that passes today
+# fails after a sync. Whether these become facts is a maintainer call.
+NAME_PARENTS = {"domainentities": "entities", "entities": "entities", "pages": "pages",
+                "microflows": "microflows", "nanoflows": "microflows", "integrations": "operations"}
+names = {}
+
+def walk(node, key, out, src, parent=""):
     if isinstance(node, dict):
         for k, v in node.items():
-            walk(v, k.lower(), out, src)
+            walk(v, k.lower(), out, src, key)
     elif isinstance(node, list):
         for v in node:
-            walk(v, key, out, src)
+            walk(v, key, out, src, parent)
     elif isinstance(node, str):
         s = node.strip()
         if not s:
             return
+        if key == "name" and parent in NAME_PARENTS and len(s) <= 80 and " " not in s:
+            names.setdefault(NAME_PARENTS[parent], {}).setdefault(s.lower(), {}).setdefault(s, set()).add(src)
         for ns, keys in KEYED.items():
             # Identifiers only: a sentence under an `entity` key is prose, not a name.
             if key in keys and len(s) <= 80 and " " not in s:
@@ -264,6 +274,23 @@ if CMD == "check":
                   % (sum(len(c) for c in harvest.values()), len(brds)))
         else:
             print("facts-lock: %d BRD(s) agree with all %d frozen fact(s)" % (len(brds), total))
+
+# WARN-only: name-keyed spellings that disagree (#519). Same "two mixed-case spellings" test as a
+# CONFLICT; reported for build/check/show, never frozen, never counted in the exit code.
+name_warns = []
+for ns, clusters in sorted(names.items()):
+    for ck, spellings in sorted(clusters.items()):
+        if canonical_of(ns, ck) or ck in harvest.get(ns, {}):
+            continue   # already a keyed fact: the lock and the CONFLICT/DEVIATION lines own it
+        variants = contestable(sorted(spellings.keys()))
+        if len(variants) > 1:
+            name_warns.append((ns, ck, {v: sorted(spellings[v]) for v in variants}))
+for ns, ck, sp in name_warns:
+    print("  WARN  name-keyed %s/%s — %d spellings (not frozen; WARN only): %s" % (
+        ns, ck, len(sp), "; ".join("%s (%s)" % (v, ", ".join(srcs)) for v, srcs in sorted(sp.items()))))
+if names and not sum(len(v) for v in frozen.values()):
+    print("            %d identifier(s) found under `name` in %s arrays: read WARN-only, not in the lock"
+          % (sum(len(c) for c in names.values()), "/".join(sorted(names))))
 
 if unreadable:
     sys.exit(1)

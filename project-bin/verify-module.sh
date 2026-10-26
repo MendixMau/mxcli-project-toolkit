@@ -197,10 +197,24 @@ fault() {
 # for the traps below), and a cancelled watchdog takes its sleep with it (#446): an orphaned
 # `sleep 1800` holding fd 3 kept `verify-module.sh | tee` and `$(verify-module.sh)` waiting for
 # up to 30 minutes after the verdict was printed.
+#
+# On timeout the watchdog kills the instrument's whole process tree, not just the PID it
+# started (#541): page-scope.sh does its work in a `"$PY" - <<'PY'` child, which survived a
+# kill of the bash parent, kept running, and wrote page-scope.json minutes after the rung was
+# scored FAULT and the design audit had already read the previous run's file. Descendants are
+# listed before anything is killed, so none is reparented out of reach. Where pgrep is absent
+# (Git Bash) only the started PID is killed, as before.
+_kill_tree() {
+  local p="$1" c
+  if command -v pgrep >/dev/null 2>&1; then
+    for c in $(pgrep -P "$p" 2>/dev/null); do _kill_tree "$c"; done
+  fi
+  kill -9 "$p" 2>/dev/null
+}
 with_timeout() {
   local secs="$1"; shift
   "$@" 3>&- 4>&- & local child=$!
-  ( trap 'kill "$s" 2>/dev/null; exit 0' TERM; sleep "$secs" & s=$!; wait "$s"; kill -9 "$child" 2>/dev/null ) 3>&- 4>&- & local watchdog=$!
+  ( trap 'kill "$s" 2>/dev/null; exit 0' TERM; sleep "$secs" & s=$!; wait "$s"; kill -STOP "$child" 2>/dev/null; _kill_tree "$child" ) 3>&- 4>&- & local watchdog=$!
   wait "$child" 2>/dev/null; local rc=$?
   kill "$watchdog" 2>/dev/null; wait "$watchdog" 2>/dev/null
   # 137 = SIGKILL from the watchdog. Remap to 2 so it lands in the FAULT bucket.
@@ -451,6 +465,7 @@ fi
 # this needs no opt-in flag.
 # Rung budgets in seconds, overridable for big plans or loaded machines (TK-008):
 #   VM_TMO_CONFORMANCE (1200)  VM_TMO_GRAPH (300)  VM_TMO_COVERAGE (1200)  VM_TMO_JOURNEYS (900)
+#   VM_TMO_PAGESCOPE (900) — was a fixed 300 until #541: ~90 pages at ~4.8 s each needed ~7.5 min
 # Coverage was 300 until #446: 12 BRDs on a loaded machine ran 48 s of measurement plus ~290 s
 # of phantom pass and timed out with a complete, clean log.
 if [ -x "$(_tool conformance-check.sh)" ]; then
@@ -587,7 +602,7 @@ fi
 # gate: a scope refresh that fails leaves the audit to report the missing/stale scope itself.
 PAGE_SCOPE_SH="${PAGE_SCOPE_SH:-$(_tool page-scope.sh)}"
 if [ -x "$PAGE_SCOPE_SH" ]; then
-  run "page scope (denominator for the design audit)" "$OUTDIR/39-page-scope.log" info 300 -- \
+  run "page scope (denominator for the design audit)" "$OUTDIR/39-page-scope.log" info "${VM_TMO_PAGESCOPE:-900}" -- \
     "$PAGE_SCOPE_SH"
 else
   fault "page scope (denominator for the design audit)" "not installed at ${PAGE_SCOPE_SH#$ROOT/}" \
@@ -672,16 +687,28 @@ else
   fi
 
   JOURNEY="$JOURNEY_DIR/$MODULE.journey.json"
+  # One journey per file under journeys/<Module>/ is the folder form (#542): the runner takes
+  # several files, and a module with eight journeys there read FAULT "no journeys/<M>.journey.json".
+  # The single file wins when both exist (unchanged); else every journeys/<M>/*.journey.json is
+  # walked in one run. A journey whose persona is not TEST_USER reads INVALID with the remedy
+  # (the runner's own one-run-per-role rule) — loud, never skipped.
+  JOURNEY_FILES=()
+  if [ -f "$JOURNEY" ]; then
+    JOURNEY_FILES=("$JOURNEY")
+  elif [ -d "$JOURNEY_DIR/$MODULE" ]; then
+    for _jf in "$JOURNEY_DIR/$MODULE"/*.journey.json; do [ -f "$_jf" ] && JOURNEY_FILES+=("$_jf"); done
+    [ "${#JOURNEY_FILES[@]}" -gt 0 ] && JOURNEY="$JOURNEY_DIR/$MODULE/"
+  fi
   if [ "$SKIP_JOURNEYS" -eq 1 ]; then
     printf '\n\033[1m── journeys\033[0m\n'; c_warn "  · skipped by flag"; echo ""
     printf 'journeys\tSKIPPED\t0\t-\t(--skip-journeys)\n' >> "$SUMMARY"
-  elif [ ! -f "$JOURNEY" ] && [ "$MODULE_PAGES" = 0 ]; then
+  elif [ "${#JOURNEY_FILES[@]}" -eq 0 ] && [ "$MODULE_PAGES" = 0 ]; then
     # A module with no pages (a REST client, a mock service) cannot have a UI journey: the runner
     # knows UI steps only. Not applicable, so neither a fault nor a pass.
     printf '\n\033[1m── journeys\033[0m\n'; c_warn "  · not applicable"; echo " — $MODULE has 0 pages in the page scope"
     printf 'journeys\tSKIPPED\t0\t-\t(N/A: %s has 0 pages in .claude/loop/page-scope.json; its proof is its unit/trace suite, its journey is owed by the first page that calls it)\n' "$MODULE" >> "$SUMMARY"
-  elif [ ! -f "$JOURNEY" ]; then
-    fault "journeys" "no ${JOURNEY#$ROOT/}" \
+  elif [ "${#JOURNEY_FILES[@]}" -eq 0 ]; then
+    fault "journeys" "no ${JOURNEY#$ROOT/} (nor ${JOURNEY_DIR#$ROOT/}/$MODULE/*.journey.json)" \
           "The golden path for $MODULE is UNTESTED end-to-end. Page-stop specs, if any, check that pages render — not that the journey through them does what was specified.${OTHER_SHAPE:+ Tests exist in another shape, not walked by the runner:$OTHER_SHAPE}"
   elif [ ! -f "$JOURNEY_RUNNER" ]; then
     fault "journeys" "no journey runner at ${JOURNEY_RUNNER#$ROOT/}" \
@@ -689,13 +716,14 @@ else
   elif [ "$PW_OK" -eq 0 ]; then
     printf 'journeys\tSKIPPED\t0\t-\t(not run: needs playwright, see the e2e harness dependency row)\n' >> "$SUMMARY"
   else
+    [ "${#JOURNEY_FILES[@]}" -gt 1 ] && echo "  journeys: ${#JOURNEY_FILES[@]} file(s) in ${JOURNEY#$ROOT/}"
     _exec "journeys (UI + ordered spans + data effects)" "$OUTDIR/20-journeys.log" gate "${VM_TMO_JOURNEYS:-900}" -- \
-      node "$JOURNEY_RUNNER" "$JOURNEY"
+      node "$JOURNEY_RUNNER" "${JOURNEY_FILES[@]}"
     # Non-vacuity: a journey that cannot fail is not evidence. Skipped under --quick because it
     # re-walks every step.
     [ "$QUICK" -eq 1 ] || _exec "journeys (positive control — MUST detect a broken precondition)" \
       "$OUTDIR/21-journeys-control.log" gate "${VM_TMO_JOURNEYS:-900}" -- \
-      node "$JOURNEY_RUNNER" "$JOURNEY" --positive-control
+      node "$JOURNEY_RUNNER" "${JOURNEY_FILES[@]}" --positive-control
   fi
 
   if [ "$SKIP_MONKEY" -eq 1 ]; then

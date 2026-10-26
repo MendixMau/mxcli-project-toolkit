@@ -292,9 +292,12 @@ doc = {
 if not NO_ROLES:
     doc["distinctRolePageSets"] = distinct_sets
 
-with open(OUT, "w", encoding="utf-8") as f:
+# Write-then-rename: a run killed mid-write (verify-module's watchdog, #541) leaves the previous
+# scope whole rather than a truncated one, and a reader never sees half a file.
+with open(OUT + ".tmp", "w", encoding="utf-8") as f:
     json.dump(doc, f, indent=2, sort_keys=True)
     f.write("\n")
+os.replace(OUT + ".tmp", OUT)
 
 print(f"page-scope → {OUT}")
 print(f"  modules  {len(MODULES)}  ({module_source.split(' — ')[0]})")

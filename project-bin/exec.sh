@@ -1737,9 +1737,9 @@ fi
 if [ "$EXEC_STATUS" -ne 0 ]; then
   echo ""
   echo "  ✗ mxcli exec exited $EXEC_STATUS."
-  echo "    mxcli v0.27+ rolls the whole run back (\"Nothing was written\" above): no"
-  echo "    statement of this script is in the model. Older mxcli is not transactional:"
-  echo "    everything before the failing statement is already in the model."
+  echo "    If mxcli printed \"Nothing was written\" above (v0.27+), no statement of this"
+  echo "    script is in the model. Otherwise (older mxcli, or a rollback that itself"
+  echo "    failed) everything before the failing statement may already be in it."
   echo "    Running the gate anyway."
 fi
 

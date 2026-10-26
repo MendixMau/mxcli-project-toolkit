@@ -964,7 +964,11 @@ if [ -n "$JAVA_EXE" ] && [ -x "$JAVA_EXE" ]; then
           "${SP_APP:-<none>}"/*) ;;
           *) if [ -n "$_jmaj" ] && [ "$_jmaj" != "$JAVA_WANT" ]; then
                warn "Java $_jmaj, but this model (Mendix $_mver) builds with JDK $JAVA_WANT — mxbuild will stop before checking the model"
-               if [ -n "${JAVA_HOME:-}" ]; then
+               _jenv=""
+               for _ef in ${MXTK_ENV_LOADED:-}; do grep -q '^[[:space:]]*\(export[[:space:]]\{1,\}\)\{0,1\}JAVA_HOME=' "$_ef" 2>/dev/null && _jenv="$_ef"; done
+               if [ -n "$_jenv" ]; then
+                 note "JAVA_HOME comes from $_jenv: change it there to a JDK $JAVA_WANT folder."
+               elif [ -n "${JAVA_HOME:-}" ]; then
                  note "JAVA_HOME is set in your environment, which wins over the toolkit's per-model JDK choice and over toolkit.env."
                  note "Point it at JDK $JAVA_WANT (macOS: export JAVA_HOME=\$(/usr/libexec/java_home -v $JAVA_WANT)) or unset it in your shell profile."
                else

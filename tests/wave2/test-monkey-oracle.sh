@@ -8,6 +8,8 @@
 #   #544  typeSafely() cuts a payload to the box's maxLength, as a user's typing does. A script
 #         write skipped maxlength: 5000 characters into a String(200) box gave HTTP 560 on every
 #         capped box, filed crash-class, though no user can reach it.
+#   #562  a spinner still up after 8 s goes in `slow`, not crash-class: it is none of the four
+#         crash signals monkey-test.md defines. A ~10 s batch job that then succeeded failed a run.
 
 set -uo pipefail
 
@@ -53,6 +55,22 @@ const out = (k, v) => console.log(`${k} ${JSON.stringify(v)}`);
     const c4 = await M.typeSafely(null, handle(short), 'abc');
     out('TS', { c1, l1: capped.v.length, ev: capped.ev, c2, l2: free.v.length, c3, v3: cjk.v, c4, v4: short.v });
   }
+  // #562 — a stand-in page: which selectors are visible, and no real waiting. No Jaeger: the
+  // OTel arm returns no spans (the traceRan flag reports that, as in a real run).
+  require('./otel.js').capture = async () => [];
+  const page = vis => ({ locator: sel => ({ first: () => ({ isVisible: async () => !!vis[sel] }) }),
+                         waitForTimeout: async () => {} });
+  const B = (js = [], h = []) => ({ jsErrors: js, http5xx: h });
+  if (typeof M.oracle !== 'function') out('OR', 'NOFN');
+  else {
+    const P = '.mx-page, .mx-navigationtree', S = '.mx-progress, .mx-dialog-progress';
+    const spin = await M.oracle(page({ [P]: true, [S]: true }), 0, B());
+    const spin5 = await M.oracle(page({ [P]: true, [S]: true }), 0, B([], ['560 http://x/xas/']));
+    const clean = await M.oracle(page({ [P]: true }), 0, B());
+    const blank = await M.oracle(page({}), 0, B());
+    out('OR', { spinHits: spin.hits, spinSlow: spin.slow, s5Hits: spin5.hits.length, s5Slow: spin5.slow.length,
+                cleanHits: clean.hits.length, cleanSlow: (clean.slow || []).length, blankHits: blank.hits });
+  }
   process.exit(0);
 })();
 JSEOF
@@ -72,6 +90,20 @@ else
     || bad "#544 CJK cut wrong" "$(get TS)"
   [ "$(j TS c4)" = 0 ] && [ "$(j TS v4)" = abc ] && ok "#544 a payload under the cap is untouched and reports no cut" || bad "#544 short payload altered" "$(get TS)"
 fi
+
+if [ -z "$(get OR)" ] || [ "$(get OR)" = '"NOFN"' ]; then
+  bad "monkey.js exports no oracle (#562)" "$(printf '%s\n' "$OUT" | tail -3)"
+else
+  [ "$(j OR 'spinHits.length')" = 0 ] && [ "$(j OR 'spinSlow.join()')" = "spinner still up after 8s" ] \
+    && ok "#562 a spinner still up after 8 s is slow, not crash-class" || bad "#562 a long spinner is still a crash" "$(get OR)"
+  [ "$(j OR s5Hits)" = 1 ] && ok "#562 a 5xx in the same round is still crash-class" || bad "#562 5xx lost" "$(get OR)"
+  [ "$(j OR cleanHits)" = 0 ] && [ "$(j OR cleanSlow)" = 0 ] && ok "#562 a clean page gives neither" || bad "#562 clean page flagged" "$(get OR)"
+  [ "$(j OR 'blankHits.join()')" = "blank page — no .mx-page or nav tree" ] && ok "#562 a blank page stays crash-class (unchanged)" \
+    || bad "#562 blank page handling changed" "$(get OR)"
+fi
+grep -q "finding('slow'" "$SUT" && awk '/process\.exit\(crashes\.length/ {f=1} END{exit !f}' "$SUT" \
+  && ok "#562 round() files slow as its own severity; the exit code counts crash-class only" \
+  || bad "#562 round() does not file slow, or the exit code changed"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"

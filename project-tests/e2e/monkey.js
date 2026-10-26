@@ -87,7 +87,7 @@ const ABUSES = ['doubleClick', 'backAfterSubmit', 'rapidTab', 'reloadMidFlow'];
 const findings = [];
 function finding(severity, target, what, detail) {
   findings.push({ severity, target, what, detail: String(detail).slice(0, 400), seed: SEED });
-  const c = { crash: '\x1b[31mCRASH\x1b[0m', info: '\x1b[33minfo \x1b[0m', ok: '\x1b[32mok   \x1b[0m' }[severity];
+  const c = { crash: '\x1b[31mCRASH\x1b[0m', slow: '\x1b[35mslow \x1b[0m', info: '\x1b[33minfo \x1b[0m', ok: '\x1b[32mok   \x1b[0m' }[severity];
   console.log(`  ${c} ${target} · ${what}${detail ? '  — ' + detail : ''}`);
 }
 
@@ -99,8 +99,12 @@ function installClientWatch(page, bucket) {
   page.on('response', r => { if (r.status() >= 500) bucket.http5xx.push(`${r.status()} ${r.url().slice(0, 120)}`); });
 }
 
+// A spinner still up after 8 s is NOT one of the four crash signals monkey-test.md defines
+// (#562): a ~10 s batch job that then succeeded was filed crash-class and failed the run.
+// It goes in `slow` — reported, never an exit code on its own.
 async function oracle(page, t0, bucket) {
   const hits = [];
+  const slow = [];
   if (bucket.jsErrors.length) hits.push(`unhandled JS: ${bucket.jsErrors[0]}`);
   if (bucket.http5xx.length) hits.push(`HTTP 5xx: ${bucket.http5xx[0]}`);
 
@@ -116,7 +120,7 @@ async function oracle(page, t0, bucket) {
     await page.waitForTimeout(8000);
     const still = await page.locator('.mx-progress, .mx-dialog-progress').first()
                             .isVisible({ timeout: 1000 }).catch(() => false);
-    if (still) hits.push('spinner still up after 8s');
+    if (still) slow.push('spinner still up after 8s');
   }
 
   // The signal no UI check can produce: an ERROR activity span whose microflow span
@@ -131,7 +135,7 @@ async function oracle(page, t0, bucket) {
     if (errs.length) hits.push(`ERROR span: ${O.describeError(errs[0])}`);
   }
   const traceRan = spans.length > 0;
-  return { hits: hits.filter(Boolean), traceRan };
+  return { hits: hits.filter(Boolean), slow, traceRan };
 }
 
 // ── typing without shelling ─────────────────────────────────────────────────
@@ -273,14 +277,15 @@ async function round(page, target, bucket) {
   }
 
   await page.waitForTimeout(1800);
-  const { hits, traceRan } = await oracle(page, t0, bucket);
+  const { hits, slow, traceRan } = await oracle(page, t0, bucket);
   if (hits.length) finding('crash', target, what, hits.join(' | '));
+  else if (slow.length) finding('slow', target, what, slow.join(' | ') + ' — not a crash signal; check whether the action finished before calling it a hang');
   else finding('ok', target, what, traceRan ? '' : 'no spans — OTel arm of the oracle did NOT run');
   return traceRan;
 }
 
 // leftApp is exported for tests/wave2/test-monkey-left-app.sh; requiring this file runs nothing.
-module.exports = { leftApp, SIGN_OUT, SIGN_OUT_DEFAULT, signOutPattern, isSignOutLabel, typeSafely };
+module.exports = { leftApp, SIGN_OUT, SIGN_OUT_DEFAULT, signOutPattern, isSignOutLabel, typeSafely, oracle };
 
 // ── main ────────────────────────────────────────────────────────────────────
 if (require.main === module) (async () => {
@@ -327,8 +332,9 @@ if (require.main === module) (async () => {
   await browser.close();
 
   const crashes = findings.filter(f => f.severity === 'crash');
+  const slowN = findings.filter(f => f.severity === 'slow').length;
   console.log('\n=== MONKEY SUMMARY ===');
-  console.log(`  seed ${SEED} · ${findings.length} observations · ${crashes.length} crash-class`);
+  console.log(`  seed ${SEED} · ${findings.length} observations · ${crashes.length} crash-class · ${slowN} slow`);
   if (!anyTrace) {
     console.log('  ⚠ No spans were captured in ANY round. The OTel arm of the crash oracle');
     console.log('    never ran, so swallowed-error crashes could not have been detected.');

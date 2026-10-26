@@ -570,6 +570,10 @@ function evidenceTable(evs, rebase) {
               (has(e.value) ? ' \u2192 <b class="mono">' + esc(e.value) + '</b>' : '');
     } else if (has(e.command)) {
       cellv = '<span class="mono">' + esc(e.command) + '</span>';
+    } else if (has(e.target)) {
+      // An element a check failed on (design-audit a11y, #561): the Mendix widget name first.
+      cellv = '<span class="mono">' + esc((has(e.rule) ? e.rule + ': ' : '') + (has(e.widget) ? e.widget + ' \u2014 ' : '') + e.target) +
+              '</span>' + (has(e.html) ? '<div class="muted mono">' + esc(e.html) + '</div>' : '');
     } else if (has(e.spanCount)) {
       cellv = '<span class="mono">' + esc(e.spanCount) + ' spans captured</span>';
     } else {

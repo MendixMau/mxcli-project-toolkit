@@ -432,8 +432,29 @@ async function checkA11y(page, axeSource) {
     totalViolations: (res.violations || []).length,
     seriousOrCritical: bad.length,
     testedRules: (res.passes || []).length + (res.violations || []).length + (res.incomplete || []).length,
-    items: bad.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length, help: v.help })),
+    items: bad.map((v) => ({
+      id: v.id, impact: v.impact, nodes: v.nodes.length, help: v.help, helpUrl: v.helpUrl,
+      targets: v.nodes.slice(0, 5).map((n) => ({
+        target: [].concat(n.target || []).join(' '), html: String(n.html || '').slice(0, 120),
+      })),
+    })),
   };
+}
+
+// Which element failed (#561). axe hands back each node's selector and opening tag; the row kept
+// only the count, so "button-name(critical,x1)" on a page of dozens of buttons sent the reader to a
+// hand probe. Mendix renders the widget name as an mx-name-<widget> class, which maps to the MDL,
+// so it is shown first when the element's own tag or selector carries one.
+function a11yEvidence(items) {
+  const out = [];
+  for (const v of items || []) {
+    for (const t of v.targets || []) {
+      const mx = (`${t.html} ${t.target}`.match(/\bmx-name-[\w-]+/) || [])[0] || null;
+      out.push({ type: 'selector', rule: v.id, impact: v.impact, widget: mx, target: t.target, html: t.html,
+                 help: v.help, helpUrl: v.helpUrl });
+    }
+  }
+  return out;
 }
 
 async function checkOverflow(page, widths = [360, 768, 1440]) {
@@ -795,6 +816,9 @@ async function appSweep(pages, navMap, controlNotes) {
           : `${a.seriousOrCritical} serious/critical of ${a.totalViolations} violations over ${a.testedRules} rules`
             + (a.items.length ? `: ${a.items.map((i) => `${i.id}(${i.impact},x${i.nodes})`).join(', ')}` : ''),
         nonVacuity: controlNotes.a11y,
+        evidence: a.items.length
+          ? [...a11yEvidence(a.items), { type: 'screenshot', path: `../tests/e2e/artifacts/${path.basename(shot)}` }]
+          : [],
       }));
 
       const ov = await checkOverflow(page);

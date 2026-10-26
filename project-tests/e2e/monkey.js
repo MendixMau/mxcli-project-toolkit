@@ -87,7 +87,7 @@ const ABUSES = ['doubleClick', 'backAfterSubmit', 'rapidTab', 'reloadMidFlow'];
 const findings = [];
 function finding(severity, target, what, detail) {
   findings.push({ severity, target, what, detail: String(detail).slice(0, 400), seed: SEED });
-  const c = { crash: '\x1b[31mCRASH\x1b[0m', info: '\x1b[33minfo \x1b[0m', ok: '\x1b[32mok   \x1b[0m' }[severity];
+  const c = { crash: '\x1b[31mCRASH\x1b[0m', slow: '\x1b[35mslow \x1b[0m', info: '\x1b[33minfo \x1b[0m', ok: '\x1b[32mok   \x1b[0m' }[severity];
   console.log(`  ${c} ${target} · ${what}${detail ? '  — ' + detail : ''}`);
 }
 
@@ -99,8 +99,12 @@ function installClientWatch(page, bucket) {
   page.on('response', r => { if (r.status() >= 500) bucket.http5xx.push(`${r.status()} ${r.url().slice(0, 120)}`); });
 }
 
+// A spinner still up after 8 s is NOT one of the four crash signals monkey-test.md defines
+// (#562): a ~10 s batch job that then succeeded was filed crash-class and failed the run.
+// It goes in `slow` — reported, never an exit code on its own.
 async function oracle(page, t0, bucket) {
   const hits = [];
+  const slow = [];
   if (bucket.jsErrors.length) hits.push(`unhandled JS: ${bucket.jsErrors[0]}`);
   if (bucket.http5xx.length) hits.push(`HTTP 5xx: ${bucket.http5xx[0]}`);
 
@@ -116,7 +120,7 @@ async function oracle(page, t0, bucket) {
     await page.waitForTimeout(8000);
     const still = await page.locator('.mx-progress, .mx-dialog-progress').first()
                             .isVisible({ timeout: 1000 }).catch(() => false);
-    if (still) hits.push('spinner still up after 8s');
+    if (still) slow.push('spinner still up after 8s');
   }
 
   // The signal no UI check can produce: an ERROR activity span whose microflow span
@@ -131,19 +135,26 @@ async function oracle(page, t0, bucket) {
     if (errs.length) hits.push(`ERROR span: ${O.describeError(errs[0])}`);
   }
   const traceRan = spans.length > 0;
-  return { hits: hits.filter(Boolean), traceRan };
+  return { hits: hits.filter(Boolean), slow, traceRan };
 }
 
 // ── typing without shelling ─────────────────────────────────────────────────
+// The value is cut to the box's maxLength, as a user's typing or paste is (#544). A script write
+// bypasses maxlength, so a 5000-character payload reached a String(200) attribute and every capped
+// box gave a crash-class HTTP 560 no user can cause. Both count UTF-16 code units, like the
+// server's check. Returns the cap applied (0 = none), so the finding can say so.
 async function typeSafely(page, handle, text) {
   const b64 = Buffer.from(text, 'utf8').toString('base64');
-  await handle.evaluate((el, encoded) => {
+  return handle.evaluate((el, encoded) => {
     // decodeURIComponent(escape(atob(...))) round-trips UTF-8 through atob's latin1.
-    const v = decodeURIComponent(escape(atob(encoded)));
+    let v = decodeURIComponent(escape(atob(encoded)));
+    const cap = el.maxLength > 0 && v.length > el.maxLength ? el.maxLength : 0;
+    if (cap) v = v.slice(0, cap);
     const setter = Object.getOwnPropertyDescriptor(el.constructor.prototype, 'value').set;
     setter.call(el, v);
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
+    return cap;
   }, b64);
 }
 
@@ -205,12 +216,17 @@ function leftApp(url, baseUrl) {
   return /\/login\.html(?:[?#]|$)/.test(url);
 }
 
-// Open a NAV target, from outside the app if a round left it.
+// Open a NAV target, from outside the app if a round left it. Returns '' when the page landed,
+// else the reason. A navTo throw (menu item absent for this user) is a miss (#563): swallowing it
+// left the previous target's page open, which "some .mx-page is visible" then counted as reached,
+// so a target not in the app was fuzzed on another page and the findings filed under its name.
 async function land(page, group, item) {
   if (leftApp(page.url(), cfg.baseUrl)) await page.goto(cfg.baseUrl + '/', { timeout: 20000 }).catch(() => {});
-  await H.navTo(page, group, item).catch(() => {});
+  let navErr = '';
+  await H.navTo(page, group, item).catch(e => { navErr = String((e && e.message) || e).split('\n')[0]; });
+  if (navErr) return navErr;
   await page.waitForTimeout(2000);
-  return page.locator('.mx-page').first().isVisible({ timeout: 8000 }).catch(() => false);
+  return (await page.locator('.mx-page').first().isVisible({ timeout: 8000 }).catch(() => false)) ? '' : 'no .mx-page visible after navigation';
 }
 
 // ── one round ───────────────────────────────────────────────────────────────
@@ -232,7 +248,8 @@ async function round(page, target, bucket) {
     const p = pick(PAYLOADS)();
     const el = inputs.nth(Math.floor(rnd() * nIn));
     what = `field ← ${p.label}`;
-    await typeSafely(page, el, p.text).catch(() => {});
+    const cap = await typeSafely(page, el, p.text).catch(() => 0);
+    if (cap) what += ` (truncated to maxlength ${cap})`;
     if (nBtn > 0) await buttons.nth(Math.floor(rnd() * nBtn)).click({ force: true, timeout: 4000 }).catch(() => {});
   } else {
     const abuse = pick(ABUSES);
@@ -265,14 +282,15 @@ async function round(page, target, bucket) {
   }
 
   await page.waitForTimeout(1800);
-  const { hits, traceRan } = await oracle(page, t0, bucket);
+  const { hits, slow, traceRan } = await oracle(page, t0, bucket);
   if (hits.length) finding('crash', target, what, hits.join(' | '));
+  else if (slow.length) finding('slow', target, what, slow.join(' | ') + ' — not a crash signal; check whether the action finished before calling it a hang');
   else finding('ok', target, what, traceRan ? '' : 'no spans — OTel arm of the oracle did NOT run');
   return traceRan;
 }
 
 // leftApp is exported for tests/wave2/test-monkey-left-app.sh; requiring this file runs nothing.
-module.exports = { leftApp, SIGN_OUT, SIGN_OUT_DEFAULT, signOutPattern, isSignOutLabel };
+module.exports = { leftApp, SIGN_OUT, SIGN_OUT_DEFAULT, signOutPattern, isSignOutLabel, typeSafely, oracle, land };
 
 // ── main ────────────────────────────────────────────────────────────────────
 if (require.main === module) (async () => {
@@ -296,20 +314,22 @@ if (require.main === module) (async () => {
   if (ONLY && !targets.length) { console.error(`no NAV target "${ONLY}" — have: ${Object.keys(NAV).join(', ')}`); process.exit(3); }
 
   let anyTrace = false;
+  const unreached = [];
   for (const key of targets) {
     // NAV entries are ['Item'] for top-level or ['Group', 'Item'] for nested —
     // navTo takes (page, parentTitle|null, childTitle).
     const nav = NAV[key];
     const [group, item] = nav.length === 1 ? [null, nav[0]] : nav;
     console.log(`\n=== ${key}`);
-    if (!(await land(page, group, item))) { finding('info', key, 'not reached', 'nav did not land — target skipped, NOT fuzzed'); continue; }
+    const miss = await land(page, group, item);
+    if (miss) { finding('info', key, 'not reached', `${miss} — target skipped, NOT fuzzed`); unreached.push(key); continue; }
     const n = Math.ceil(ROUNDS / targets.length);
     for (let i = 0; i < n; i++) {
       anyTrace = (await round(page, key, bucket)) || anyTrace;
       // A round that leaves no page behind would have every later round re-score the same
       // screen. Re-land; if that fails, say how much of the target went unfuzzed.
       if (!(await page.locator('.mx-page').first().isVisible({ timeout: 3000 }).catch(() => false))
-          && !(await land(page, group, item))) {
+          && (await land(page, group, item))) {
         finding('info', key, 'lost', `no page after round ${i + 1} (at ${page.url()}) and re-landing failed — the remaining ${n - i - 1} round(s) NOT fuzzed`);
         break;
       }
@@ -319,8 +339,10 @@ if (require.main === module) (async () => {
   await browser.close();
 
   const crashes = findings.filter(f => f.severity === 'crash');
+  const slowN = findings.filter(f => f.severity === 'slow').length;
   console.log('\n=== MONKEY SUMMARY ===');
-  console.log(`  seed ${SEED} · ${findings.length} observations · ${crashes.length} crash-class`);
+  console.log(`  seed ${SEED} · ${findings.length} observations · ${crashes.length} crash-class · ${slowN} slow`);
+  console.log(`  reached ${targets.length - unreached.length} of ${targets.length} target(s)${unreached.length ? ' — NOT reached: ' + unreached.join(', ') : ''}`);
   if (!anyTrace) {
     console.log('  ⚠ No spans were captured in ANY round. The OTel arm of the crash oracle');
     console.log('    never ran, so swallowed-error crashes could not have been detected.');

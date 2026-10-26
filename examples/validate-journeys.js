@@ -29,7 +29,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const ACTIONS = new Set(['nav', 'click', 'fill', 'combobox', 'dismissModal', 'wait']);
+const ACTIONS = new Set(['nav', 'click', 'fill', 'combobox', 'dismissModal', 'wait', 'back']);
 
 // ── the rules ────────────────────────────────────────────────────────────────
 // Each returns an array of problem strings. `brds` is a Map<id, object> or null.
@@ -90,6 +90,8 @@ function validate(j, brds) {
       if (a.do === 'fill' && a.value === undefined) add(aat, 'fill needs `value`');
       if (a.do === 'combobox' && a.match === undefined) add(aat, 'combobox needs `match`');
       if (a.do === 'nav' && !a.item) add(aat, 'nav needs `item` (the destination anchor title)');
+      if (a.do === 'back' && a.timeout !== undefined && !(typeof a.timeout === 'number' && a.timeout > 0))
+        add(aat, `back \`timeout\` must be a positive number of ms (got ${JSON.stringify(a.timeout)})`);
       if (a.do === 'wait' && a.settleMs !== undefined && a.ms === undefined)
         add(aat, 'wait reads `ms`, not `settleMs`');
       if (a.widget && a.widget.startsWith('.'))
@@ -97,6 +99,8 @@ function validate(j, brds) {
     }
 
     const ui = st.ui || {};
+    if (ui.no5xx !== undefined && typeof ui.no5xx !== 'boolean')
+      add(`${at}.ui.no5xx`, `must be true or false — the runner watches for HTTP 5xx only when it is exactly true (got ${JSON.stringify(ui.no5xx)})`);
     if (ui.ready !== undefined && !/^[.#[]/.test(String(ui.ready)))
       add(`${at}.ui.ready`, `"${ui.ready}" is not a CSS selector — \`ready\` is passed to page.locator() verbatim, unlike \`checks\``);
     for (const c of ui.checks || [])
@@ -239,6 +243,10 @@ function selftest() {
     ['mustNotFire not a regex', j => { j.steps[0].spans.mustNotFire = ['ACT_(Del']; return j; }, 'not a valid regex'],
     ['unqualified ordered span', j => { j.steps[0].spans.ordered = ['ACT_Go']; return j; }, 'is unqualified'],
     ['unknown action', j => { j.steps[0].actions[0].do = 'swipe'; return j; }, 'unknown action'],
+    ['browser back is a known action', j => { j.steps[0].actions.push({ do: 'back' }); return j; }, null],
+    ['back timeout not a number', j => { j.steps[0].actions.push({ do: 'back', timeout: '15s' }); return j; }, 'must be a positive number'],
+    ['ui.no5xx true is accepted', j => { j.steps[0].ui.no5xx = true; return j; }, null],
+    ['ui.no5xx not a boolean', j => { j.steps[0].ui.no5xx = 'yes'; return j; }, 'must be true or false'],
     ['wait using settleMs', j => { j.steps[0].actions = [{ do: 'wait', settleMs: 500 }]; return j; }, 'reads `ms`'],
     ['assoc with no target', j => { delete j.steps[0].data.assocMustBeSet[0].target; return j; }, 'no `target`'],
     ['step with no name', j => { delete j.steps[0].name; return j; }, 'no `name`'],

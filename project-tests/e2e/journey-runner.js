@@ -167,6 +167,7 @@ function describeAct(a, vars) {
     case 'fill':     return { verb: 'Type', target: `"${v(a.value)}" into ${a.label || a.widget}`, selector: `.mx-name-${a.widget}` };
     case 'combobox': return { verb: 'Select', target: `"${v(a.match)}" in ${a.label || a.widget}`, selector: `.mx-name-${a.widget}` };
     case 'wait':     return { verb: 'Wait', target: `${a.ms || 0}ms`, selector: null };
+    case 'back':     return { verb: 'Browser Back', target: '', selector: null };
     default:         return { verb: a.do, target: a.widget || '', selector: a.widget ? `.mx-name-${a.widget}` : null };
   }
 }
@@ -181,7 +182,7 @@ async function act(page, a, vars, note) {
       const el = w(a.widget);
       await el.waitFor({ state: 'attached', timeout: 8000 }).catch(() => {});
       await el.scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {});
-      if (!(await el.isVisible({ timeout: 6000 }).catch(() => false)))
+      if (!(await H.visibleWithin(el, 6000)))
         throw new Error(`.mx-name-${a.widget} not visible`);
       // Hit-test before the forced click. `force` skips Playwright's actionability check, so a
       // click lands on whatever sits on top: a toast over the page's header actions swallowed
@@ -207,7 +208,7 @@ async function act(page, a, vars, note) {
     }
     case 'fill': {
       const el = page.locator(`.mx-name-${a.widget} input, .mx-name-${a.widget} textarea`).first();
-      if (!(await el.isVisible({ timeout: 6000 }).catch(() => false)))
+      if (!(await H.visibleWithin(el, 6000)))
         throw new Error(`.mx-name-${a.widget} input not visible`);
       await el.fill(String(subst(a.value, vars)));
       break;
@@ -219,7 +220,7 @@ async function act(page, a, vars, note) {
       // selection. Toggle, then keyboard-select — the technique proven in
       // spec-fieldscan-otel.js.
       const box = w(a.widget);
-      if (!(await box.isVisible({ timeout: 6000 }).catch(() => false)))
+      if (!(await H.visibleWithin(box, 6000)))
         throw new Error(`.mx-name-${a.widget} not visible`);
       await box.scrollIntoViewIfNeeded().catch(() => {});
       if (FIXED) await PAUSE(400); else await frames(page);
@@ -316,6 +317,20 @@ async function act(page, a, vars, note) {
     }
     case 'dismissModal': await H.dismissModal(page); break;
     case 'wait':         await page.waitForTimeout(a.ms || 1000); break;
+    case 'back': {
+      // Browser Back (#564): the Mendix client rebuilds the previous page from its own history and
+      // re-sends the client state it kept — a path no in-app click takes. A networkidle timeout is
+      // not a failure (a polling page never goes idle; the history move happened). Leaving the app
+      // is: every later check would measure the login page or another site.
+      const ms = a.timeout || 15000;
+      await page.goBack({ waitUntil: 'networkidle', timeout: ms }).catch(e => {
+        if (!/timeout/i.test(e.message)) throw e;
+        console.log(`    WARN back: networkidle not reached in ${ms} ms; settling as usual`);
+      });
+      if (backLeftApp(page.url(), cfg.baseUrl))
+        throw new Error(`Back left the app (now at ${page.url()}): the previous action pushed no history entry`);
+      break;
+    }
     default: throw new Error(`unknown action "${a.do}"`);
   }
   // An explicit settleMs is a fixed wait, as before. Otherwise wait for the page to
@@ -323,6 +338,22 @@ async function act(page, a, vars, note) {
   // restores the old 1200 ms for an A/B run.
   if (a.settleMs != null) await page.waitForTimeout(a.settleMs);
   else await settle(page, { timeout: 10000, stableMs: 300, networkIdleMs: 0, fallbackMs: 1200 });
+}
+
+// Outside the app after a Back: another origin, about:blank, or the login page (monkey.js leftApp).
+function backLeftApp(url, baseUrl) {
+  const base = String(baseUrl).replace(/\/+$/, '');
+  if (!url || (url !== base && !url.startsWith(base + '/'))) return true;
+  return /\/login\.html(?:[?#]|$)/.test(url);
+}
+
+// The opt-in `ui.no5xx` row (#564): every answer >= 500 between the step's first action and its
+// landing guard. Mendix can render a page's frame while every data source on it failed (HTTP 560
+// on /xas/), and the landing guard alone then reads PASS.
+function no5xxVerdict(hits) {
+  return hits.length
+    ? { verdict: 'FAIL', detail: `${hits.length} answer(s) >= 500: ${hits.slice(0, 5).join('; ')}${hits.length > 5 ? '; …' : ''}` }
+    : { verdict: 'PASS', detail: 'no answer >= 500' };
 }
 
 // ── RUNG 2: ordered spans, as a function (called from runJourney) ───────────
@@ -772,7 +803,22 @@ async function runJourney(page, j) {
     // early `return`s below, which is why it is a finaliser called at each exit and
     // not a line at the bottom of the loop. A step that bailed still has to show
     // what it managed, or the walk goes quiet exactly where it matters most.
+    // ui.no5xx (opt-in, #564): watch every response from the first action to the landing guard.
+    const watch5xx = !!(step.ui && step.ui.no5xx === true);
+    const hits5xx = [];
+    const on5xx = (r) => { if (r.status() >= 500) hits5xx.push(`${r.status()} ${r.request().method()} ${r.url().slice(0, 120)}`); };
+    let no5xxDone = !watch5xx;
+    // Recorded before any bail-out, so a 5xx that is WHY the page never landed shows beside it.
+    const record5xx = () => {
+      if (no5xxDone) return;
+      no5xxDone = true;
+      page.off('response', on5xx);
+      const v = no5xxVerdict(hits5xx);
+      record('ui', `${step.name}: no HTTP 5xx during the step`, v.verdict, v.detail, req);
+    };
+    if (watch5xx) page.on('response', on5xx);
     const seal = () => {
+      if (watch5xx) page.off('response', on5xx);
       leg.checks = results.slice(from).map(r =>
         ({ rung: r.rung, name: r.name, verdict: r.verdict, detail: r.detail }));
       leg.ms = Date.now() - t0;
@@ -803,6 +849,7 @@ async function runJourney(page, j) {
     } catch (e) {
       record('ui', `${step.name}: actions completed`, 'FAIL', e.message.split('\n')[0], req);
       leg.shot = await shoot(page, `${j.id}-step${i + 1}-ACTION-FAILED`);
+      record5xx();
       seal();
       return; // the journey's state is now unknown; later steps would measure noise
     }
@@ -824,6 +871,7 @@ async function runJourney(page, j) {
       }
       leg.reached = onPage;
     }
+    record5xx();
 
     // The success shot, taken HERE: after the actions and the landing guard, before
     // the text/trace/data rungs. That ordering is the whole point — this image is the
@@ -949,8 +997,17 @@ async function runJourney(page, j) {
   // ── RUNG 4: outcome ────────────────────────────────────────────────────────
   if (j.outcome && j.outcome.sql) {
     const c = checkOql(j.outcome, vars);
-    record('outcome', `${j.id} end state`, c.verdict, c.detail, (j.requirement || []).join(', '));
+    record('outcome', outcomeCheckName(j), c.verdict, c.detail, (j.requirement || []).join(', '));
   }
+}
+
+// The outcome check's name carries `outcome.label` when one is set, as a `data.oql[]` check's
+// name carries its label (#538): a named control tagged in outcome.label otherwise matched no
+// check name and always read NOT PROVEN. `<id> end state` stays the prefix, so an existing
+// `mustFail: "end state"` still matches. report-normalize.js builds the same name.
+function outcomeCheckName(j) {
+  const label = j.outcome && typeof j.outcome.label === 'string' ? j.outcome.label.trim() : '';
+  return label ? `${j.id} end state: ${label}` : `${j.id} end state`;
 }
 
 // ── Exit code ───────────────────────────────────────────────────────────────
@@ -964,6 +1021,25 @@ async function runJourney(page, j) {
 // FAILs plus the INVALID a broken landing leaves downstream, so verify-module graded the
 // rung FINDING and the module INCOMPLETE on every run — a control rung that could not go
 // green, and so told the reader nothing when it went red.
+// One mutant's control row, from the rows its walk produced (#560). Caught on the targeted check
+// → PASS. Failed elsewhere → FAIL, still unproven. Nothing failed but something was INVALID (a
+// seed the previous mutant consumed, a guard that stopped the walk) → the mutant never reached
+// its check: INVALID "mutant not run". Reading that as "BROKEN PRECONDITION WENT GREEN" sent the
+// reader looking for a vacuous assertion in a journey that was fine. Only an all-green walk is
+// "went green". The exit code is unchanged: a control passes only when every row is PASS.
+function judgeMutant(produced, expectFail) {
+  const hit = produced.find(r => r.verdict === 'FAIL' && expectFail(r));
+  if (hit) return { verdict: 'PASS', proven: true, detail: `caught by "${hit.name}"` };
+  if (produced.some(r => r.verdict === 'FAIL'))
+    return { verdict: 'FAIL', proven: false, detail: 'the run failed, but NOT on the targeted check — this rung is still unproven' };
+  const stop = produced.find(r => r.verdict === 'INVALID');
+  if (stop)
+    return { verdict: 'INVALID', proven: false,
+             detail: `mutant not run: "${stop.name}" = INVALID before the targeted check — this rung is NOT tried, ` +
+                     'not proven and not green (a consuming journey needs fresh data per mutant)' };
+  return { verdict: 'FAIL', proven: false, detail: 'BROKEN PRECONDITION WENT GREEN — this rung proves nothing' };
+}
+
 function runExitCode(positiveControl, results, mutants) {
   if (!positiveControl) return results.some(r => r.verdict === 'FAIL' || r.verdict === 'INVALID') ? 1 : 0;
   const ctl = results.filter(r => r.rung === 'control');
@@ -1341,14 +1417,14 @@ function flagAppDown(rows, detail) {
 // ── Exports for the rung-4 scope unit test ──────────────────────────────────
 // The SQL builders are pure and exported so their behaviour can be proven against
 // fixture rows without a running app. See tests/e2e/journey-rung4-scope.test.js.
-// runExitCode is exported for tests/wave2/test-journey-control-exit.sh, personaMismatch
+// runExitCode/judgeMutant are exported for tests/wave2/test-journey-control-exit.sh, personaMismatch
 // for tests/wave2/test-journey-persona.sh, the preflight/ordering set for
-// tests/wave2/test-journey-preflight.sh, namedControlGaps/findControls for
+// tests/wave2/test-journey-preflight.sh, namedControlGaps/findControls/outcomeCheckName for
 // tests/wave2/test-named-controls.sh.
 module.exports = {
   sqlRowCount, sqlWatermark, whereScoped, scopeLiteral,
   sqlAssocTotal, sqlAssocLinked, sqlMustPointAt, captureScope, scopeEvidence,
-  runExitCode, personaMismatch, namedControlGaps, findControls,
+  runExitCode, judgeMutant, backLeftApp, no5xxVerdict, personaMismatch, namedControlGaps, findControls, outcomeCheckName,
   classifyAdminProbe, journeyNeedsAdmin, missingEnv, preflight, orderJourneys, stateTracker,
   judgeLanding, journeyIdProblems,
   traceRung, controlMutants, forbiddenSample, probeApp, appGate, flagAppDown, LIVENESS_SKEW_MS,
@@ -1586,6 +1662,11 @@ function journeyIdProblems(loaded, files) {
         // not merely that something did. Accepting any FAIL would let a mutant that
         // breaks by accident vouch for a rung it never reached, which is the same
         // vacuity bug one level up.
+        // Mutants share one data set: nothing resets the data between them (#560).
+        if ((j.consumes || []).length) {
+          console.log(`  WARN   ${j.id} consumes ${j.consumes.join(', ')}: a mutant that walks past the action ` +
+                      'uses that state up, so later mutants can stop INVALID ("mutant not run") — reset the data and re-run them');
+        }
         for (const m of controlMutants(j)) {
           if (!m.supported) {
             // Unproven, and it must say so. INVALID is the verdict for "the
@@ -1600,16 +1681,9 @@ function journeyIdProblems(loaded, files) {
           const before = results.length;
           await resetToStart(page);
           await runJourney(page, m.journey);
-          const produced = results.slice(before);
-          const hit = produced.find(r => r.verdict === 'FAIL' && m.expectFail(r));
-          const anyFail = produced.some(r => r.verdict === 'FAIL');
-          mutantLedger.push({ journey: j.id, rung: m.rung, supported: true, proven: !!hit });
-          record('control', `${j.id} · ${m.rung}: ${m.what}`,
-                 hit ? 'PASS' : 'FAIL',
-                 hit ? `caught by "${hit.name}"`
-                     : anyFail
-                       ? 'the run failed, but NOT on the targeted check — this rung is still unproven'
-                       : 'BROKEN PRECONDITION WENT GREEN — this rung proves nothing');
+          const v = judgeMutant(results.slice(before), m.expectFail);
+          mutantLedger.push({ journey: j.id, rung: m.rung, supported: true, proven: v.proven });
+          record('control', `${j.id} · ${m.rung}: ${m.what}`, v.verdict, v.detail);
         }
       } else {
         const before = results.length;

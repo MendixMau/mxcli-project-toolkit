@@ -131,6 +131,7 @@ row means "the walk did not get there", never "not applicable".
 | `combobox` | `widget`, `match` | The heavy one — see below. |
 | `dismissModal` | — | Clicks up to three modal-footer buttons. |
 | `wait` | `ms` | **`ms`, not `settleMs`.** |
+| `back` | `timeout` (default 15000) | Browser Back: Mendix rebuilds the previous page from its own history and re-sends the client state, a path no in-app click takes. Back that leaves the app (login page, another origin) throws → step `FAIL`. |
 | anything else | — | throws `unknown action` → step `FAIL`. |
 
 Every action also reads `settleMs` (a fixed wait *after* the action; when absent the runner waits until the page is idle — no progress bar, DOM still — via `tests/e2e/settle.js`, and `SETTLE_MODE=fixed` restores the old 1200) and `label`
@@ -153,6 +154,7 @@ the screenshot looked perfect.
 | `checks[]` | **bare widget names** | Visibility of `.mx-name-<name>`, 4s each. `FAIL`, not `INVALID`. |
 | `textPresent[]` | strings, substituted | Substring of `body.innerText`, case-sensitive. |
 | `textAbsent[]` | strings, substituted | Present → `FAIL` with `"the screen contradicts the data"`. |
+| `no5xx` | `true` (opt-in) | One more row, `no HTTP 5xx during the step`: any answer ≥ 500 from the first action to the landing guard is `FAIL`. Mendix can draw a page's frame while every data source on it failed (560 on `/xas/`), and `ready` alone then reads `PASS`. |
 
 `ready` and `checks` take **different vocabularies**, and mixing them up is the easiest mistake in
 the format: `checks: [".mx-name-btnGo"]` becomes `.mx-name-.mx-name-btnGo`, which reports as a

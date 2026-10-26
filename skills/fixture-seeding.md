@@ -139,6 +139,7 @@ There is no single right channel. Choose per fixture element:
 | Bulk rows, from a file | `import from` — `demo-data.md` | Handles multi-`link` rows better than its own INSERT templates |
 | A whole realistic dataset | copy an existing Run Locally database | Zero authoring; see interview Q2 |
 | Reference/config data | an after-startup microflow | Idempotent, ships with the model |
+| One existing row in an exact state the UI cannot reach | a state fixture — § State fixtures below | Set and revert, guarded; not a seed |
 
 ### Four traps that have each cost real time
 
@@ -215,6 +216,43 @@ with *Change workflow state*); if SQL is unavoidable (local database only), dele
 first. Reset a context object only after its instances are gone: a deleted context object makes an
 instance incompatible, and that cannot be resolved (Mendix docs, *Workflow versioning*).
 
+## State fixtures — an exact state the UI cannot reach
+
+**Trigger:** a journey needs an *existing* row in one exact state, and the app's own UI cannot
+produce it (a scenario clock at 13:08 when Jump only reaches fixed moments), or producing it through
+the UI would consume seed state other journeys need. Without one, that journey can only ever read
+INVALID. Anything else is seeding (above), not this.
+
+**Recipe:** copy `$MXTK_TOOLKIT/project-tests/e2e/fixtures/state-fixture.template.sh` (not installed
+into projects; copy by hand) to `tests/e2e/fixtures/<name>.sh` and fill every `FILL` block. It gives
+`check [expected]` (0 in state / 1 other state / 2 drifted), `dry-run`, `set` and `revert`.
+
+1. **Find the row by a stable key, never by object id.** A base-data reload re-creates ids.
+   A singleton is "the only row"; anything but exactly one row is refused.
+2. **One transaction, guards first.** The template locks the row, runs your guards (nothing races
+   the write: clock paused, no queued task; the target is legal for the app's own rules), and only
+   then writes. A `RAISE` leaves nothing behind.
+3. **Write what the app would write.** Mirror the microflow that normally makes the change, field
+   for field, derived fields included; name it in the header, and list what SQL does not do
+   (events not played, no client refresh) with the manual step for each.
+4. **Save before, mark used.** The template saves the pre-change value outside the repo after
+   COMMIT; `revert` restores the value from before the *first* un-reverted `set`, refuses when the
+   row changed since, and refuses a second time. Past that, the answer is the app's own reset.
+5. **Journeys assert, never set.** Journeys check the state through their seeds (or `check`);
+   the harness never runs `set` — the rule at the top of this file. `set` is a run-sheet
+   precondition step, run by a human or the main session **with approval** (§4).
+6. **`dry-run` before the first live `set`** — the full transaction, guards included, rolled back.
+7. **Local test database only.** The template refuses a non-local `PGHOST` unless
+   `FIXTURE_ALLOW_HOST` names it, never prints credentials, and makes no model change.
+
+Wrong shape this prevents: `UPDATE "scenario$scenarioclock" SET currentmoment = '13:08' WHERE id =
+281474976710657;` — the id is gone after the next base-data reload, nothing checked the clock was
+paused, and there is no way back.
+
+Done when: the fixture's header names the mirrored microflow and lists every "does not do" item
+(0 blank `FILL`s: `grep -c FILL` reads 0); `dry-run` shows the change and `check` the old value;
+`set` → `check` exit 0 → `revert` → `check <old>` exit 0 ran once on the local database.
+
 ## What seeding buys - set expectations
 
 Journeys PASS / FAIL / INVALID on two public template apps, same set, empty vs seeded database:
@@ -248,3 +286,4 @@ before trusting a green manifest.
 | Creating login accounts and roles | `manage-security.md` |
 | Mendix ID system, associations, bulk insert | `demo-data.md` (project-local, mxcli-bundled) |
 | Whether the seed landed, at runtime | `verify-with-oql.md` (project-local) |
+| Setting and reverting one row's state for a journey | § State fixtures, `project-tests/e2e/fixtures/state-fixture.template.sh` |

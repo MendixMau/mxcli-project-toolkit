@@ -1703,8 +1703,12 @@ module.exports = {
 // ── Fix-loop reruns (#492) ───────────────────────────────────────────────────
 // The journeys a findings file shows as not clean: a step check, or a journey-level row
 // (`<id>: …` / `<id> end state…`, setup and outcome rows), that is not PASS. An aborted run
-// measured nothing usable and is refused.
-function failedJourneyIds(findings) {
+// measured nothing usable and is refused. A journey that was never walked is recognised only by
+// the row shapes the runner writes for one (app up, precondition, persona, seeds resolved, a
+// control row, an end state), so a data or setup step named "Submit: …" is never read as an id.
+// With `loadedIds`, ids the journeys given do not have are dropped (a renamed or removed journey).
+const NEVER_WALKED = /^(\S+?)(?:: (?:app up|precondition|persona|seeds resolved|back online at the end)$| · | end state)/;
+function failedJourneyIds(findings, loadedIds) {
   if (!findings || findings.aborted) return { error: `the findings file is an aborted run (${findings && findings.aborted}) — nothing to rerun from; run the journeys in full` };
   const ids = new Set();
   const walked = (findings.walks || []).map(w => w.journey);
@@ -1714,9 +1718,10 @@ function failedJourneyIds(findings) {
   for (const r of findings.results || []) {
     if (r.verdict === 'PASS') continue;
     for (const id of known) if (r.name === id || r.name.startsWith(id + ':') || r.name.startsWith(id + ' ')) ids.add(id);
-    const m = /^([^:\s]+)(?::| ·| end state)/.exec(r.name);   // journeys never walked (preflight, APP-DOWN, persona)
-    if (m && (r.rung !== 'ui' || / persona$/.test(r.name)) && !known.has(m[1])) ids.add(m[1]);
+    const m = NEVER_WALKED.exec(r.name);   // journeys never walked (preflight, APP-DOWN, persona)
+    if (m && !known.has(m[1])) ids.add(m[1]);
   }
+  if (loadedIds) for (const id of [...ids]) if (!loadedIds.has(id)) ids.delete(id);
   return { ids };
 }
 // The chosen journeys plus every journey that leaves a token one of them requires (transitively),
@@ -1864,7 +1869,7 @@ function journeyIdProblems(loaded, files) {
       let f = null;
       try { f = JSON.parse(fs.readFileSync(src, 'utf8')); }
       catch (e) { console.error(`ERROR --rerun-failed: cannot read ${src} (${e.code || e.message}) — run the journeys in full first`); process.exit(2); }
-      const r = failedJourneyIds(f);
+      const r = failedJourneyIds(f, new Set(allJourneys.map(j => j.id)));
       if (r.error) { console.error(`ERROR --rerun-failed: ${r.error}`); process.exit(2); }
       wanted = r.ids;
       if (!wanted.size) { console.log(`  --rerun-failed: nothing failed in ${path.relative(cfg.root, src)} — nothing to rerun`); process.exit(0); }

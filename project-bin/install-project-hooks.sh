@@ -89,6 +89,9 @@ if [ -n "$(git config --get core.hooksPath 2>/dev/null)" ]; then
   echo "  and this to its post-commit (revision notes for Studio Pro History; python via resolve_py, never the shebang):"  # portability-ok: advice text
   echo "    b=\"\$(git rev-parse --show-toplevel)/$BIN_REL\"; py=\"\$(PROJECT_ROOT=\"\$b/..\" bash -c '. \"\$1/_common.sh\" >/dev/null 2>&1 && resolve_py' _ \"\$b\")\""
   echo "    [ -n \"\$py\" ] && MXTK_HOOK=1 \"\$py\" \"\$b/mx-metadata-note.py\" write HEAD || true"
+  echo "  and this to its post-merge and post-checkout (restatement-ledger marker, #504; for post-checkout use \"\$1\" \"\$2\" in place of ORIG_HEAD HEAD):"
+  echo "    l=\"\$(git rev-parse --show-toplevel)/$BIN_REL/../.claude/loop/script-owners/written.tsv\"; [ -f \"\$l\" ] && git diff --name-only ORIG_HEAD HEAD | grep -qE '(\\.mpr\$|(^|/)mprcontents/)' \\"
+  echo "      && printf '%s\\tRESTORE\\tgit-hook:%s\\n' \"\$(date +%s)\" \"\$(git rev-parse --short HEAD)\" >> \"\$l\"; true"
   exit 1
 fi
 

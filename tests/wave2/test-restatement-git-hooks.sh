@@ -80,5 +80,22 @@ run_layout() {  # $1 = label, $2 = model dir relative to the root ("" or "app")
 
 run_layout single ""
 run_layout twotree "app"
+
+# core.hooksPath set: the installer writes nothing and prints what to add. The post-merge advice
+# must exist and, pasted as a hook, mark the ledger on a model-changing pull (review of #578).
+echo "== core.hooksPath"
+R="$WORK/hp"; C="$WORK/hp-clone"; mkdir -p "$R/bin"; cd "$R" || exit 2
+git init -q -b main .; cp "$BIN/_common.sh" "$BIN/install-project-hooks.sh" bin/ 2>/dev/null
+mkdir -p mprcontents/aa; echo v1 > App.mpr; echo u1 > mprcontents/aa/unit.mxunit; printf '.claude/\n' > .gitignore
+git add -A >/dev/null; git commit -qm base; git clone -q "$R" "$C"; cd "$C" || exit 2
+mkdir -p .hk .claude/loop/script-owners; lg="$C/.claude/loop/script-owners/written.tsv"; : > "$lg"
+git config core.hooksPath .hk
+out="$(./bin/install-project-hooks.sh 2>&1)"
+case "$out" in *"post-merge and post-checkout"*) ok "hooksPath: advice names post-merge and post-checkout" ;; *) bad "hooksPath: no post-merge/post-checkout advice" "$out" ;; esac
+{ echo '#!/usr/bin/env bash'; printf '%s\n' "$out" | sed -n '/post-merge and post-checkout/,$p' | sed '1d' | sed 's/^    //; s/^  //'; } > .hk/post-merge
+chmod +x .hk/post-merge
+cd "$R"; echo v2 > mprcontents/aa/unit.mxunit; git commit -qam w; cd "$C"
+git pull -q --no-rebase origin main >/dev/null 2>&1
+grep -q 'RESTORE	git-hook:' "$lg" && ok "hooksPath: the advised snippet, pasted as post-merge, marks the ledger" || bad "hooksPath: pasted snippet did not mark" "$(cat .hk/post-merge; cat "$lg")"
 echo "== $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

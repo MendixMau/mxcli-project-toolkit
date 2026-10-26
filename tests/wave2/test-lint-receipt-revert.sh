@@ -231,7 +231,7 @@ STOCKEX="$TK/tests/wave2/fixtures/lint-receipt-524/example_microflow.stock-v0.27
 SL="$TK/lint-rules/STOCK-HASHES-BUNDLED.txt"
 P15="$WORK/p15"; mkdir -p "$P15/bin" "$P15/.claude/lint-rules"
 cp "$GATE" "$P15/bin/lint-gate.sh"; [ -f "$TK/project-bin/_common.sh" ] && cp "$TK/project-bin/_common.sh" "$P15/bin/"
-printf 'mpr' > "$P15/App.mpr"; printf '#!/bin/sh\nexit 0\n' > "$P15/mxcli"; chmod +x "$P15/mxcli"
+printf 'mpr' > "$P15/App.mpr"; printf '#!/bin/sh\necho "mxcli version v0.27.0"\n' > "$P15/mxcli"; chmod +x "$P15/mxcli"
 ( . "$TK/bin/lib/install-lint-rules.sh"; mxtk_install_lint_rules "$TK" "$P15" 0 "" ) >/dev/null 2>&1
 EX="$P15/.claude/lint-rules/example_microflow.star"
 cp "$STOCKEX" "$EX"; printf '# project tweak: our prefixes\n' >> "$EX"; em=$(portable_md5 "$EX")
@@ -275,6 +275,53 @@ out=$(g15 2>&1); rc=$?
 [ "$rc" -eq 0 ] && ok "next run clean" || bad "rc=$rc" "$out"
 out=$( (cd "$P15" && MXTK_ROOT=/nonexistent LINT_JSON="$WORK/lint.json" bash bin/lint-gate.sh --update-baseline 2>&1) ); rc=$?
 [ "$rc" -eq 0 ] && case "$out" in *"not receipted"*) true ;; *) false ;; esac && ok "no hash list in reach: baseline still written, with a note" || bad "no-list case (rc $rc)" "$out"
+
+echo "T16 #524 review: CRLF checkouts, a project's own rule, and an uncaptured mxcli write no project rows"
+mk16() {   # $1 dir, $2 the version the mxcli stub reports
+  mkdir -p "$1/bin" "$1/.claude/lint-rules"
+  cp "$GATE" "$1/bin/lint-gate.sh"; [ -f "$TK/project-bin/_common.sh" ] && cp "$TK/project-bin/_common.sh" "$1/bin/"
+  printf 'mpr' > "$1/App.mpr"; printf '#!/bin/sh\necho "mxcli version %s"\n' "$2" > "$1/mxcli"; chmod +x "$1/mxcli"
+  ( . "$TK/bin/lib/install-lint-rules.sh"; mxtk_install_lint_rules "$TK" "$1" 0 "" ) >/dev/null 2>&1
+}
+g16() { local d="$1"; shift; (cd "$d" && MXTK_LINT_STOCK_LIST="$SL" LINT_JSON="$WORK/lint.json" bash bin/lint-gate.sh "$@"); }
+git16() { local d="$1"; shift; git -C "$d" -c user.name=t -c user.email=t@example.invalid "$@" >/dev/null 2>&1; }
+# (a) Git Bash with core.autocrlf: the unedited stock rule is checked out with CRLF line ends.
+P16="$WORK/p16a"; mk16 "$P16" v0.27.0
+sed 's/$/\r/' "$STOCKEX" > "$P16/.claude/lint-rules/example_microflow.star"
+git16 "$P16" init -q; git16 "$P16" add -A; git16 "$P16" commit -qm base
+mk "$(v CUSTOM002 warning 3)"
+out=$(g16 "$P16" --update-baseline 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ! grep -q ' project$' "$P16/.claude/.mxtk-lint-receipt" \
+  && ok "(a) a CRLF copy of a stock rule is stock: no project row" || bad "(a) CRLF stock copy receipted as project-edited (rc $rc)" "$(cat "$P16/.claude/.mxtk-lint-receipt")"
+cp "$STOCKEX" "$P16/.claude/lint-rules/example_microflow.star"   # --sync-skills writes LF stock back
+mk "$(v CUSTOM002 warning 3)"
+out=$(g16 "$P16" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "(a) LF stock written over the CRLF copy: rc 0, no BLIND" || bad "(a) false BLIND on a line-end change (rc $rc)" "$out"
+# (a2) an edited rule receipted from a CRLF checkout still reads reverted when LF stock is written back.
+sed 's/$/\r/' "$STOCKEX" > "$P16/.claude/lint-rules/example_microflow.star"; printf '# tweak\r\n' >> "$P16/.claude/lint-rules/example_microflow.star"
+git16 "$P16" add -A; git16 "$P16" commit -qm edit
+out=$(g16 "$P16" --update-baseline --reason edit 2>&1)
+grep -q '^example_microflow.star  [0-9a-f]\{32\}  project$' "$P16/.claude/.mxtk-lint-receipt" && ok "(a2) a real edit in a CRLF checkout is receipted" || bad "(a2) edit not receipted" "$out"
+cp "$STOCKEX" "$P16/.claude/lint-rules/example_microflow.star"
+out=$(g16 "$P16" 2>&1); rc=$?
+[ "$rc" -eq 1 ] && case "$out" in *"BLIND — reverted"*) true ;; *) false ;; esac && ok "(a2) overwrite of a CRLF-committed edit reads BLIND — reverted" || bad "(a2) rc=$rc" "$out"
+# (b) a project's own custom rule: mxcli never overwrites it, so it gets no row and an edit stays a plain lint change.
+P16="$WORK/p16b"; mk16 "$P16" v0.27.0
+printf 'def check(m):\n    return []\n' > "$P16/.claude/lint-rules/acme_own_rule.star"
+git16 "$P16" init -q; git16 "$P16" add -A; git16 "$P16" commit -qm base
+out=$(g16 "$P16" --update-baseline 2>&1)
+grep -q '^acme_own_rule.star ' "$P16/.claude/.mxtk-lint-receipt" && bad "(b) custom rule got a receipt row" "$(cat "$P16/.claude/.mxtk-lint-receipt")" || ok "(b) a project's own rule gets no project row"
+printf '# tightened\n' >> "$P16/.claude/lint-rules/acme_own_rule.star"; git16 "$P16" commit -qam tune
+out=$(g16 "$P16" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && case "$out" in *BLIND*) false ;; *) true ;; esac && ok "(b) editing it later is not BLIND (rc 0)" || bad "(b) custom-rule edit read BLIND (rc $rc)" "$out"
+# (c) an mxcli version the list has not captured: no rows at all, and a note that says why.
+P16="$WORK/p16c"; mk16 "$P16" v0.29.0
+cp "$STOCKEX" "$P16/.claude/lint-rules/example_microflow.star"; printf '# tweak\n' >> "$P16/.claude/lint-rules/example_microflow.star"
+git16 "$P16" init -q; git16 "$P16" add -A; git16 "$P16" commit -qm base
+out=$(g16 "$P16" --update-baseline 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ! grep -q ' project$' "$P16/.claude/.mxtk-lint-receipt" && case "$out" in *"0.29.0 is not a captured version"*) true ;; *) false ;; esac \
+  && ok "(c) uncaptured mxcli v0.29.0: no project rows, the note names the version" || bad "(c) rc=$rc" "$out
+$(cat "$P16/.claude/.mxtk-lint-receipt")"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"

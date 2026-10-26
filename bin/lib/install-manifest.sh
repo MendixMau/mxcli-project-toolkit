@@ -196,7 +196,7 @@ MXTK_LINT_RENAMES="conv020_action_user_feedback.star CONV020 mxtk_ux003_action_u
 # Files in lint-rules/ deliberately NOT installed. Same contract as MXTK_PROJECT_BIN_NOINSTALL:
 # the reverse check below flags anything named by no list, so a new rule has to be either
 # delivered or declared undelivered. README.md is documentation, not a rule.
-MXTK_LINT_RULES_NOINSTALL="README.md STOCK-HASHES.txt"
+MXTK_LINT_RULES_NOINSTALL="README.md STOCK-HASHES.txt STOCK-HASHES-BUNDLED.txt"
 
 # --- verification engine ------------------------------------------------------------------
 # Copied from toolkit project-tests/e2e/ into <project>/tests/e2e/. This is the journey-proof

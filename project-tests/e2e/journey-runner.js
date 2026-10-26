@@ -173,7 +173,7 @@ function describeAct(a, vars) {
   const v = x => String(subst(x, vars));
   switch (a.do) {
     case 'nav':      return { verb: 'Navigate', target: [a.group, a.item].filter(Boolean).join(' › '), selector: null };
-    case 'click':    return { verb: 'Click', target: a.label || a.widget, selector: `.mx-name-${a.widget}` };
+    case 'click':    return { verb: 'Click', target: (a.label || a.widget) + (a.row !== undefined ? ` in the row "${v(a.row)}"` : ''), selector: `.mx-name-${a.widget}` };
     case 'fill':     return { verb: 'Type', target: `"${v(a.value)}" into ${a.label || a.widget}`, selector: `.mx-name-${a.widget}` };
     case 'combobox': return { verb: 'Select', target: `"${v(a.match)}" in ${a.label || a.widget}`, selector: `.mx-name-${a.widget}` };
     case 'wait':     return { verb: 'Wait', target: `${a.ms || 0}ms`, selector: null };
@@ -200,7 +200,7 @@ async function act(page, a, vars, note) {
       await H.navTo(page, a.group || null, a.item);
       break;
     case 'click': {
-      const el = w(a.widget);
+      const el = await scopedWidget(page, a, vars);
       await el.waitFor({ state: 'attached', timeout: 8000 }).catch(() => {});
       await el.scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {});
       if (!(await H.visibleWithin(el, 6000)))
@@ -359,6 +359,24 @@ async function act(page, a, vars, note) {
   // restores the old 1200 ms for an A/B run.
   if (a.settleMs != null) await page.waitForTimeout(a.settleMs);
   else await settle(page, { timeout: 10000, stableMs: 300, networkIdleMs: 0, fallbackMs: 1200 });
+}
+
+// A grid repeats one widget name per row, so `.mx-name-<w>` first-match clicks whichever row
+// rendered first (#148). `in` scopes to one container widget; `row` (substituted) picks the
+// innermost row whose text contains it — the last match, since an outer row also contains it.
+// Neither field → the old first-match locator, unchanged.
+const ROW_SEL = ':is(tr, [role="row"], .mx-listview-item, .mx-templategrid-item)';
+async function scopedWidget(page, a, vars = {}) {
+  let base = page;
+  if (a.in) base = page.locator(`.mx-name-${a.in}`).first();
+  if (a.row !== undefined) {
+    const text = String(subst(a.row, vars));
+    const rows = base.locator(ROW_SEL).filter({ hasText: text });
+    if (!(await rows.count().catch(() => 0)))
+      throw new Error(`no row${a.in ? ` in .mx-name-${a.in}` : ''} says "${text}"`);
+    base = rows.last();
+  }
+  return base === page ? page.locator(`.mx-name-${a.widget}`).first() : base.locator(`.mx-name-${a.widget}`).first();
 }
 
 // Outside the app after a Back: another origin, about:blank, or the login page (monkey.js leftApp).
@@ -1677,7 +1695,7 @@ module.exports = {
   traceRung, controlMutants, forbiddenSample, probeApp, appGate, flagAppDown, LIVENESS_SKEW_MS,
   resolveDevice, runDevice, contextOptions, deviceLabel, judgeDevice, networkVerb, setNetwork, isOffline,
   ensureOnline, networkEndRow, resolveGeolocation, applyGeolocation, clearGeolocation, stepGeolocation,
-  act, describeAct, pseudoTexts, pseudoVerdict,
+  act, describeAct, pseudoTexts, pseudoVerdict, scopedWidget,
 };
 
 // ── Fix-loop reruns (#492) ───────────────────────────────────────────────────

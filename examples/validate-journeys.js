@@ -131,6 +131,10 @@ function validate(j, brds) {
         add(aat, `back \`timeout\` must be a positive number of ms (got ${JSON.stringify(a.timeout)})`);
       if (a.do === 'wait' && a.settleMs !== undefined && a.ms === undefined)
         add(aat, 'wait reads `ms`, not `settleMs`');
+      if (a.row !== undefined && (a.do !== 'click' || typeof a.row !== 'string'))
+        add(aat, a.do !== 'click' ? `\`row\` is read only by click (got it on ${a.do})` : '`row` must be a string: text of the one row to click in');
+      if (a.in !== undefined && (a.do !== 'click' || typeof a.in !== 'string' || a.in.startsWith('.')))
+        add(aat, a.do !== 'click' ? `\`in\` is read only by click (got it on ${a.do})` : '`in` takes a bare Mendix widget name (the container); the runner prepends .mx-name-');
       if (a.widget && a.widget.startsWith('.'))
         add(aat, `\`widget\` takes a bare Mendix name; the runner prepends .mx-name- (got "${a.widget}")`);
     }
@@ -289,6 +293,9 @@ function selftest() {
     ['viewport not whole pixels', j => { j.viewport = { width: 390.5, height: 844, isMobile: true }; return j; }, 'whole pixels'],
     ['pseudoText strings are accepted', j => { j.steps[0].ui.pseudoText = ['No rows yet']; return j; }, null],
     ['comment object inside pseudoText', j => { j.steps[0].ui.pseudoText = [{ _note: 'x' }]; return j; }, 'non-string'],
+    ['row-scoped click is accepted', j => { j.steps[0].actions[0].row = '{{a}}'; j.steps[0].actions[0].in = 'gridOrders'; return j; }, null],
+    ['row on a fill', j => { j.steps[0].actions.push({ do: 'fill', widget: 'tb', value: 'x', row: 'A' }); return j; }, 'read only by click'],
+    ['in given a selector', j => { j.steps[0].actions[0].in = '.mx-name-grid'; return j; }, 'bare Mendix widget name'],
     ['misspelt step key', j => { j.steps[0].spams = j.steps[0].spans; delete j.steps[0].spans; return j; }, 'likely a typo for `spans`'],
     ['back timeout not a number', j => { j.steps[0].actions.push({ do: 'back', timeout: '15s' }); return j; }, 'must be a positive number'],
     ['ui.no5xx true is accepted', j => { j.steps[0].ui.no5xx = true; return j; }, null],

@@ -1293,7 +1293,7 @@ if [ "$WIRED" -eq 1 ] && [ -x "$PROJECT_DIR/bin/install-project-hooks.sh" ] \
    && git -C "$PROJECT_DIR" rev-parse --show-toplevel >/dev/null 2>&1; then
   if ! "$PROJECT_DIR/bin/install-project-hooks.sh" --check >/dev/null 2>&1; then
     if [ "$DRY_RUN" -eq 1 ]; then
-      echo "Would install: the model-verification pre-commit hook (bin/install-project-hooks.sh)"
+      echo "Would install: the project git hooks — model-verification pre-commit, revision notes, restatement-ledger marker (bin/install-project-hooks.sh)"
     else
       "$PROJECT_DIR/bin/install-project-hooks.sh" | sed 's/^/   /' || warn "bin/install-project-hooks.sh failed — see above"
     fi

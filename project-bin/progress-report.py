@@ -17,7 +17,7 @@ Privacy: the logs are read for numbers (token counters, timestamps, tool names) 
 short descriptions. No prompt or message text is copied into the page.
 Every tunable lives in the CONFIG block below so the page is easy to change.
 """
-import sys, os, re, json, glob, html, fnmatch, calendar, collections, datetime, pathlib, argparse, time, urllib.parse
+import sys, os, re, json, glob, html, fnmatch, calendar, collections, datetime, pathlib, argparse, time, urllib.parse, shlex
 
 # ----------------------------------------------------------------- CONFIG
 STAGES = ["P", "0", "1", "2", "3", "4", "5", "6"]
@@ -281,7 +281,8 @@ def render_bugs(w, bugs):
         elif st == "fixed": act = "<span class=sub>fixed</span>"
         elif it.get("refused"): act = "<span class=sub title='%s'>held back: redaction found something that looks private; fix the row</span>" % esc(it.get("note", ""))
         elif it.get("title") and bugs.get("cmd"):   # filing runs gh in the person's terminal: redact, duplicate search, y/N, gh issue create
-            home = os.path.expanduser("~"); q = lambda x: "~" + x[len(home):] if x.startswith(home + os.sep) else x
+            home = os.path.expanduser("~")   # pasted into bash (Git Bash too): forward slashes, each path quoted, ~/ kept outside the quotes
+            q = lambda x: ("~/" + shlex.quote(x[len(home) + 1:].replace(os.sep, "/"))) if x.startswith(home + os.sep) else shlex.quote(x.replace(os.sep, "/"))
             base = "%s --project %s --file %s" % (q(bugs["cmd"]), q(bugs["proj"]), r.get("id"))
             # a finding that is really both is two submissions, one per repo (skills/upstream-feedback.md section 1)
             cmds = [(base, "File to " + label, "")] + [(base + " --to " + k, "also to " + BUG_REPO[k][0], " alt") for k in BUG_REPO if k != tgt and tgt in BUG_REPO]

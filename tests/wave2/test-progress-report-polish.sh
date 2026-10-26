@@ -254,6 +254,14 @@ has "$R" "button\[data-cmd\]" "the page carries the copy handler"
 hasnt "$R" "issues/new" "no browser new-issue link on the page"
 has "$R" "href='https://github.com/MendixMau/mxcli-project-toolkit/issues/9'" "a second submission is linked too"
 has "$R" "href='https://github.com/mendixlabs/mxcli/issues/1'" "filed bug links its issue"
+P9S="$WORK/p9 space/My Project"; mkproj "$P9S" "**Stage 5 - Build**, in progress - gates passed: P, 0, 1, 2, 3, 4"; mkdir -p "$P9S/docs"
+cp "$P9/docs/bugs.jsonl" "$P9S/docs/bugs.jsonl"
+LEAKGUARD_DENY='Acmebank' CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$P9S" --html >/dev/null 2>&1
+CMD="$(python3 -c 'import html,re,sys;m=re.search(r"class=.filebtn. data-cmd=.([^\x27]*).",open(sys.argv[1]).read());print(html.unescape(m.group(1)) if m else "")' "$P9S/architecture/progress-report.html")"
+# the copied command, run as pasted (dry run: --file dropped, so nothing is posted), must keep a path with a space whole
+if [ -n "$CMD" ] && LEAKGUARD_DENY='Acmebank' bash -c "${CMD% --file PBUG-01}" 2>&1 | grep -q "PBUG-01"; then
+  ok "the copied command runs as pasted for a project path with a space"
+else bad "the copied command breaks on a project path with a space: '$CMD'"; fi
 CLAUDE_CONFIG_DIR="$EMPTY" LEAKGUARD_DENY= bash "$SCRIPT" "$P9" --html >/dev/null 2>&1
 has "$R" "No file buttons:" "without a deny list the tab says why there is no button"
 hasnt "$R" "data-cmd=" "and shows no button"

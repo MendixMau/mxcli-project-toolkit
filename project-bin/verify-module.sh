@@ -206,8 +206,8 @@ fault() {
 # (Git Bash) only the started PID is killed, as before.
 _kill_tree() {
   local p="$1" c
-  if command -v pgrep >/dev/null 2>&1; then
-    for c in $(pgrep -P "$p" 2>/dev/null); do _kill_tree "$c"; done
+  if command -v pgrep >/dev/null 2>&1; then  # portability-ok: guarded; without pgrep only the started PID is killed
+    for c in $(pgrep -P "$p" 2>/dev/null); do _kill_tree "$c"; done  # portability-ok: pgrep -P is parent-PID, not grep -P; guarded above
   fi
   kill -9 "$p" 2>/dev/null
 }

@@ -183,6 +183,8 @@ rm -rf "$P/journeys/MyFirstModule"
 # named in an INFO row's log; the module verdict and exit stay what they were. Skipped on a
 # subject that predates the rung.
 if grep -q 'harness-scan.sh' "$SUT" && [ -f "$SD/harness-scan.sh" ]; then
+  # Earlier cases (V10) change the stubs, so take this case's own reference verdict first.
+  vm MyFirstModule; _v8_verdict="$(row '^verdict')"; _v8_rc="$rc"
   mkdir -p "$P/tests/acceptance"
   printf "await page.goto(base + '/login.html');\nawait page.fill('#usernameInput', u);\n" > "$P/tests/acceptance/hand.js"
   cp "$SD/harness-scan.sh" "$P/bin/"; chmod +x "$P/bin/harness-scan.sh"

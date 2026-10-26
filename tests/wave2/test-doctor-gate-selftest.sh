@@ -253,7 +253,8 @@ assert_contains "$P/.claude/.doctor-receipt" "gate-selftest: fail (mxbuild did n
 # version is read from a minimal _MetaData table; java is a stub that prints a JDK 21 banner.
 echo "== 13: JAVA_HOME JDK 21 vs an 11.15 model -> WARN with the fix =="
 P3="$T/proj-1115"; mkdir -p "$P3/mprcontents" "$T/jdk21/bin"
-python3 -c "import sqlite3,sys;c=sqlite3.connect(sys.argv[1]);c.execute('create table _MetaData(_ProductVersion text)');c.execute(\"insert into _MetaData values('11.15.0')\");c.commit()" "$P3/App.mpr"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/bin/lib/portable.sh"; require_py || exit 1
+"$PY" -c "import sqlite3,sys;c=sqlite3.connect(sys.argv[1]);c.execute('create table _MetaData(_ProductVersion text)');c.execute(\"insert into _MetaData values('11.15.0')\");c.commit()" "$P3/App.mpr"
 cp "$P/mxcli" "$P3/mxcli"
 printf '#!/bin/sh\necho %s >&2\n' "'openjdk version \"21.0.11\" 2026-04-21'" > "$T/jdk21/bin/java"; chmod +x "$T/jdk21/bin/java"
 JAVA_HOME="$T/jdk21" MXBUILD_PATH="$T/mxbuild" \

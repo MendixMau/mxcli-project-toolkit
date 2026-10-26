@@ -54,9 +54,10 @@ const out = (k, v) => console.log(`${k} ${JSON.stringify(v)}`);
     const capped = new Input(200), free = new Input(-1), cjk = new Input(5), short = new Input(10);
     const c1 = await M.typeSafely(null, handle(capped), 'A'.repeat(5000));
     const c2 = await M.typeSafely(null, handle(free), 'A'.repeat(5000));
-    const c3 = await M.typeSafely(null, handle(cjk), '倉庫管理システ');
+    const c3 = await M.typeSafely(null, handle(cjk), '\u5009\u5eab\u7ba1\u7406\u30b7\u30b9\u30c6');
     const c4 = await M.typeSafely(null, handle(short), 'abc');
-    out('TS', { c1, l1: capped.v.length, ev: capped.ev, c2, l2: free.v.length, c3, v3: cjk.v, c4, v4: short.v });
+    out('TS', { c1, l1: capped.v.length, ev: capped.ev, c2, l2: free.v.length, c3,
+                v3: cjk.v === '\u5009\u5eab\u7ba1\u7406\u30b7', c4, v4: short.v });
   }
   // #562 — a stand-in page: which selectors are visible, and no real waiting. No Jaeger: the
   // OTel arm returns no spans (the traceRan flag reports that, as in a real run).
@@ -102,7 +103,7 @@ else
   [ "$(j TS 'ev.join()')" = "input,change" ] && ok "#544 the input and change events still fire" || bad "#544 events lost" "$(get TS)"
   [ "$(j TS c2)" = 0 ] && [ "$(j TS l2)" = 5000 ] && ok "#544 a box with no maxlength still gets the whole payload (the case a user can reach)" \
     || bad "#544 an uncapped box was cut" "$(get TS)"
-  [ "$(j TS c3)" = 5 ] && [ "$(j TS v3)" = "倉庫管理シ" ] && ok "#544 the cut counts UTF-16 code units, like maxlength and the server" \
+  [ "$(j TS c3)" = 5 ] && [ "$(j TS v3)" = true ] && ok "#544 the cut counts UTF-16 code units, like maxlength and the server" \
     || bad "#544 CJK cut wrong" "$(get TS)"
   [ "$(j TS c4)" = 0 ] && [ "$(j TS v4)" = abc ] && ok "#544 a payload under the cap is untouched and reports no cut" || bad "#544 short payload altered" "$(get TS)"
 fi

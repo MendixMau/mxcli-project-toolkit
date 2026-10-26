@@ -1800,7 +1800,9 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
         printf '%s\n' "$MXBUILD_OUT"
       fi > "$PROJECT_ROOT/$MXB_LOG_REL"; } 2>/dev/null; then
       MXB_LOG_NOTE="mxbuild log: $MXB_LOG_REL"
-      ls -t "$_MXB_LOG_DIR"/*.log 2>/dev/null | sed -n '31,$p' | while IFS= read -r _old; do rm -f "$_old"; done
+      # By NAME (the time stamp it starts with), not `ls -t`: logs written within one clock tick
+      # tie on mtime and `ls -t` then breaks the tie by name ascending, keeping the oldest (#505).
+      ls "$_MXB_LOG_DIR"/*.log 2>/dev/null | sort -r | sed -n '31,$p' | while IFS= read -r _old; do rm -f "$_old"; done
     else
       MXB_LOG_REL=""
     fi

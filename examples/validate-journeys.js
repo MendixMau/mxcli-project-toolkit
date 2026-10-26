@@ -143,7 +143,7 @@ function validate(j, brds) {
     for (const c of ui.checks || [])
       if (typeof c !== 'string' || /^[.#[]/.test(c))
         add(`${at}.ui.checks`, `"${c}" looks like a selector — \`checks\` takes bare widget names, the runner prepends .mx-name-`);
-    for (const key of ['textPresent', 'textAbsent'])
+    for (const key of ['textPresent', 'textAbsent', 'pseudoText'])
       for (const t of ui[key] || [])
         if (typeof t !== 'string')
           add(`${at}.ui.${key}`, 'contains a non-string — comment objects inside these arrays become assertions');
@@ -287,6 +287,8 @@ function selftest() {
     ['GPS fix with no longitude', j => { j.geolocation = { latitude: 1 }; return j; }, 'no `longitude`'],
     ['device object with a bad viewport', j => { j.device = { name: 'iPhone 13', viewport: { width: '390' } }; return j; }, 'Playwright device name'],
     ['viewport not whole pixels', j => { j.viewport = { width: 390.5, height: 844, isMobile: true }; return j; }, 'whole pixels'],
+    ['pseudoText strings are accepted', j => { j.steps[0].ui.pseudoText = ['No rows yet']; return j; }, null],
+    ['comment object inside pseudoText', j => { j.steps[0].ui.pseudoText = [{ _note: 'x' }]; return j; }, 'non-string'],
     ['misspelt step key', j => { j.steps[0].spams = j.steps[0].spans; delete j.steps[0].spans; return j; }, 'likely a typo for `spans`'],
     ['back timeout not a number', j => { j.steps[0].actions.push({ do: 'back', timeout: '15s' }); return j; }, 'must be a positive number'],
     ['ui.no5xx true is accepted', j => { j.steps[0].ui.no5xx = true; return j; }, null],

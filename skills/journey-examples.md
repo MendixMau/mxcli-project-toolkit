@@ -175,6 +175,7 @@ the screenshot looked perfect.
 | `textPresent[]` | strings, substituted | Substring of `body.innerText`, case-sensitive. |
 | `textAbsent[]` | strings, substituted | Present → `FAIL` with `"the screen contradicts the data"`. |
 | `no5xx` | `true` (opt-in) | One more row, `no HTTP 5xx during the step`: any answer ≥ 500 from the first action to the landing guard is `FAIL`. Mendix can draw a page's frame while every data source on it failed (560 on `/xas/`), and `ready` alone then reads `PASS`. |
+| `pseudoText[]` | strings, substituted | One row per string, `CSS content says "…"`: `PASS` when a rendered element's `::before` / `::after` content contains it. For sentences authored in CSS (an empty-state message as `content:`), which `innerText`, and so `textPresent`, never sees: a correct page FAILs `textPresent` there. Elements that are not rendered (`display:none`) are skipped. No control mutant yet. |
 
 `ready` and `checks` take **different vocabularies**, and mixing them up is the easiest mistake in
 the format: `checks: [".mx-name-btnGo"]` becomes `.mx-name-.mx-name-btnGo`, which reports as a

@@ -473,6 +473,31 @@ async function measureDevice(page) {
   return { width: vp.width, height: vp.height, ua: e.ua, touch: e.touch };
 }
 
+// The ::before / ::after text of every rendered element (#276). `content` comes back as a CSS
+// string ('"No placements yet"'); quotes and escapes are undone. Hidden elements are skipped: a
+// pseudo-element on a display:none host is not on the screen.
+async function pseudoTexts(page) {
+  return page.evaluate(() => {
+    const out = [];
+    for (const el of document.querySelectorAll('body *')) {
+      if (!el.getClientRects().length) continue;
+      for (const pe of ['::before', '::after']) {
+        const c = getComputedStyle(el, pe).content;
+        if (!c || c === 'none' || c === 'normal') continue;
+        const m = /^"((?:[^"\\]|\\.)*)"$/.exec(c);
+        if (m) out.push(m[1].replace(/\\(.)/g, '$1'));
+      }
+    }
+    return out;
+  }).catch(() => null);
+}
+function pseudoVerdict(texts, want) {
+  if (texts === null) return { verdict: 'INVALID', detail: 'could not read pseudo-element content (page gone?)' };
+  return texts.some(t => t.includes(want))
+    ? { verdict: 'PASS', detail: '' }
+    : { verdict: 'FAIL', detail: `no rendered ::before/::after says it (${texts.length} with text${texts.length ? `: ${texts.slice(0, 3).map(t => JSON.stringify(t)).join(', ')}` : ''})` };
+}
+
 // offline / online. A `wait` whose label names context.setOffline(true|false) is the
 // placeholder projects wrote before the verbs existed; it is honoured, with a WARN.
 const NET = { offline: false };
@@ -1115,6 +1140,18 @@ async function runJourney(page, j) {
              body.includes(bad) ? 'rendered — the screen contradicts the data' : '', req);
     }
 
+    // CSS-authored text (#276): an empty-state sentence written as ::before / ::after content is
+    // on the screen and absent from innerText, so textPresent FAILs a correct page. `pseudoText`
+    // asserts it against the rendered pseudo-elements of visible elements instead.
+    if (step.ui && (step.ui.pseudoText || []).length) {
+      const texts = await pseudoTexts(page);
+      for (const t of step.ui.pseudoText) {
+        const want = String(subst(t, vars));
+        const v = pseudoVerdict(texts, want);
+        record('ui', `${step.name}: CSS content says "${want}"`, v.verdict, v.detail, req);
+      }
+    }
+
     // ── RUNG 2: ordered spans ────────────────────────────────────────────────
     await traceRung(step, { t0, since: jt0,
       rec: (name, verdict, detail) => record('trace', name, verdict, detail, req) });
@@ -1640,7 +1677,7 @@ module.exports = {
   traceRung, controlMutants, forbiddenSample, probeApp, appGate, flagAppDown, LIVENESS_SKEW_MS,
   resolveDevice, runDevice, contextOptions, deviceLabel, judgeDevice, networkVerb, setNetwork, isOffline,
   ensureOnline, networkEndRow, resolveGeolocation, applyGeolocation, clearGeolocation, stepGeolocation,
-  act, describeAct,
+  act, describeAct, pseudoTexts, pseudoVerdict,
 };
 
 // ── Fix-loop reruns (#492) ───────────────────────────────────────────────────

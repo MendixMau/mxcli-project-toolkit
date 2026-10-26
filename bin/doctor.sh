@@ -1316,13 +1316,22 @@ if [ -n "$PROJECT_DIR" ]; then
     grep -qF 'bin/session-check.sh' "$PSET" 2>/dev/null || HOOK_GAP="session-check (SessionStart)"
     grep -qF 'bin/look-ledger.sh seen' "$PSET" 2>/dev/null || HOOK_GAP="${HOOK_GAP:+$HOOK_GAP and }look-ledger seen (PostToolUse Read)"
     # #446: the pre-2026-10-21 relative form records nothing from any cwd but the project root.
-    # Any look hook not in the root-resolving form (one JSON string per line, so per-line is exact).
-    grep -F 'look-ledger.sh seen' "$PSET" 2>/dev/null | grep -vqF 'CLAUDE_PROJECT_DIR' && HOOK_GAP="${HOOK_GAP:+$HOOK_GAP and }look-ledger seen run from the project root (a look hook that does not cd to \$CLAUDE_PROJECT_DIR first records nothing from any other cwd)"
+    # Any look hook not in the root-resolving form. Each "command" string is split onto its own
+    # line first, so a single-line settings.json holding both forms is still caught (#502).
+    grep -F 'look-ledger.sh seen' "$PSET" 2>/dev/null | awk '{gsub(/"command"/, "\n\"command\""); print}' | grep -F 'look-ledger.sh seen' | grep -vqF 'CLAUDE_PROJECT_DIR' && HOOK_GAP="${HOOK_GAP:+$HOOK_GAP and }look-ledger seen run from the project root (a look hook that does not cd to \$CLAUDE_PROJECT_DIR first records nothing from any other cwd)"
+    # The installer rewrites only its own old form (`bash bin/look-ledger.sh seen || true`); a
+    # hand-written variant it leaves alone, so naming --hooks-only for it would be a dead end.
+    LOOK_CUSTOM=0
+    case "$HOOK_GAP" in *"project root"*)
+      grep -F 'look-ledger.sh seen' "$PSET" 2>/dev/null | awk '{gsub(/"command"/, "\n\"command\""); print}' \
+        | grep -F 'look-ledger.sh seen' | grep -vF 'CLAUDE_PROJECT_DIR' | grep -vqF '"bash bin/look-ledger.sh seen || true"' && LOOK_CUSTOM=1 ;;
+    esac
     if [ -n "$HOOK_GAP" ] && [ -f "$PROJECT_DIR/.mxtk/no-hook-repair" ]; then
       ok "hook gap ($HOOK_GAP) accepted: .mxtk/no-hook-repair is set"
     elif [ -n "$HOOK_GAP" ]; then
       warn "the project's .claude/settings.json has no hook for $HOOK_GAP, so the look ledger will read 0 seen however many screenshots were opened"
       note "fix: $TOOLKIT_ROOT/bin/install-claude-permissions.sh $PROJECT_DIR --hooks-only   (or bin/sync-project.sh $PROJECT_DIR)"
+      [ "$LOOK_CUSTOM" = 1 ] && note "the look hook is a hand-written variant the installer will not rewrite: edit it by hand in .claude/settings.json to cd to \$CLAUDE_PROJECT_DIR first (the installed form is in bin/install-claude-permissions.sh, LOOK_HOOK)"
     else
       ok "session-check and look-ledger hooks are in .claude/settings.json"
     fi

@@ -86,11 +86,16 @@ per deploy.
 > On the field run, `POST .../runs` with a deliberately-zeros UUID returned **`404`, not `401`** —
 > which is how we learned the PAT authenticated fine and only the pipeline was missing.
 
-### 3. A first cloud environment cannot be created from any API
+### 3. A first cloud environment: Deploy API **v1**, not v4
 
 An app created through the Projects API has a repository and **no deployment target**.
-`GET /api/v4/apps/<id>/environments` returns `404 Application not found` until someone deploys once
-from the Developer Portal. `POST /api/v4/apps` → `405`. Plan for one human action here.
+`GET /api/v4/apps/<id>/environments` returns `404 Application not found`, and `POST /api/v4/apps`
+→ `405`. The v1 Deploy API does create one: with a PAT, `POST /api/1/apps` with body
+`{"ProjectId": "<project id>"}` created the **Free App sandbox** (environment listed, URL assigned;
+mxcli v0.26.0, Mendix 11.12.5). This is the "Create Free App environment" call quoted under
+[Free App](#on-a-free-app--none-of-it-is-automatable-and-the-limits-go-further-than-deploy).
+Deploying to it stays manual: `POST /api/1/apps/<app>/packages` returned `500 BUILD_FAILED` for every
+revision on a Free App, so publish from Studio Pro.
 
 ### 4. Chromium cannot reach external hosts through an agent proxy
 
@@ -416,7 +421,7 @@ whether any of this is automatable at all.
 
 ### On a licensed app
 
-First time: a human, in the portal (see trap 3). After that: create a pipeline once in the portal,
+First time: a human, in the portal (trap 3's v1 call creates only a Free App sandbox). After that: create a pipeline once in the portal,
 then `POST /apps/{appId}/runs` with its `pipelineId` on every change.
 
 ### On a Free App — none of it is automatable, and the limits go further than deploy

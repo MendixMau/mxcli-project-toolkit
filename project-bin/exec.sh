@@ -1611,9 +1611,9 @@ fi
 #
 # This is the fix for a defect that fired three times before anyone traced it:
 # with a bare `./mxcli exec`, a mid-script failure aborted exec.sh instantly —
-# skipping the mxbuild gate, the restore, and the build-log entry. And mxcli is
-# NOT transactional across statements, so every statement before the failing one
-# was already applied. The result was live, ungated, unlogged model changes,
+# skipping the mxbuild gate, the restore, and the build-log entry. And mxcli
+# before v0.27 is NOT transactional across statements, so every statement before
+# the failing one was already applied (v0.27+ rolls the whole run back). The result was live, ungated, unlogged model changes,
 # arrived at by the guard chain exiting through the one path with no guards on
 # it. A failed exec is precisely when the gate matters most.
 step_done baseline
@@ -1736,9 +1736,11 @@ fi
 
 if [ "$EXEC_STATUS" -ne 0 ]; then
   echo ""
-  echo "  ✗ mxcli exec exited $EXEC_STATUS — PARTIAL APPLICATION LIKELY."
-  echo "    mxcli is not transactional across statements: everything before the"
-  echo "    failing statement is already in the model. Running the gate anyway."
+  echo "  ✗ mxcli exec exited $EXEC_STATUS."
+  echo "    mxcli v0.27+ rolls the whole run back (\"Nothing was written\" above): no"
+  echo "    statement of this script is in the model. Older mxcli is not transactional:"
+  echo "    everything before the failing statement is already in the model."
+  echo "    Running the gate anyway."
 fi
 
 step_done exec

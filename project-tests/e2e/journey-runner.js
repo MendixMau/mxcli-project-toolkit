@@ -949,8 +949,17 @@ async function runJourney(page, j) {
   // ── RUNG 4: outcome ────────────────────────────────────────────────────────
   if (j.outcome && j.outcome.sql) {
     const c = checkOql(j.outcome, vars);
-    record('outcome', `${j.id} end state`, c.verdict, c.detail, (j.requirement || []).join(', '));
+    record('outcome', outcomeCheckName(j), c.verdict, c.detail, (j.requirement || []).join(', '));
   }
+}
+
+// The outcome check's name carries `outcome.label` when one is set, as a `data.oql[]` check's
+// name carries its label (#538): a named control tagged in outcome.label otherwise matched no
+// check name and always read NOT PROVEN. `<id> end state` stays the prefix, so an existing
+// `mustFail: "end state"` still matches. report-normalize.js builds the same name.
+function outcomeCheckName(j) {
+  const label = j.outcome && typeof j.outcome.label === 'string' ? j.outcome.label.trim() : '';
+  return label ? `${j.id} end state: ${label}` : `${j.id} end state`;
 }
 
 // ── Exit code ───────────────────────────────────────────────────────────────
@@ -1343,12 +1352,12 @@ function flagAppDown(rows, detail) {
 // fixture rows without a running app. See tests/e2e/journey-rung4-scope.test.js.
 // runExitCode is exported for tests/wave2/test-journey-control-exit.sh, personaMismatch
 // for tests/wave2/test-journey-persona.sh, the preflight/ordering set for
-// tests/wave2/test-journey-preflight.sh, namedControlGaps/findControls for
+// tests/wave2/test-journey-preflight.sh, namedControlGaps/findControls/outcomeCheckName for
 // tests/wave2/test-named-controls.sh.
 module.exports = {
   sqlRowCount, sqlWatermark, whereScoped, scopeLiteral,
   sqlAssocTotal, sqlAssocLinked, sqlMustPointAt, captureScope, scopeEvidence,
-  runExitCode, personaMismatch, namedControlGaps, findControls,
+  runExitCode, personaMismatch, namedControlGaps, findControls, outcomeCheckName,
   classifyAdminProbe, journeyNeedsAdmin, missingEnv, preflight, orderJourneys, stateTracker,
   judgeLanding, journeyIdProblems,
   traceRung, controlMutants, forbiddenSample, probeApp, appGate, flagAppDown, LIVENESS_SKEW_MS,

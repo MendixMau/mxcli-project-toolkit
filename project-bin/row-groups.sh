@@ -19,8 +19,11 @@
 # row 16 refused it for leaving rows 14 and 15 unbuilt.
 #
 # check refuses (exit 1) when the script
-#   - covers part of a low group and leaves other rows of it unbuilt (built = State not "not built",
-#     or a BUILD-LOG "applied" row for a script with that row number), or
+#   - covers part of a low group and leaves other rows of it unbuilt (built = a State that starts
+#     built / done / complete / verified / proven / passed / applied, the same prefixes
+#     progress-report.py's classify_state counts; planned, partial, **blocked**, empty are not.
+#     Or a BUILD-LOG "applied" row for a script whose `-- rows:` header names the row, or, with
+#     `Row groups: on`, whose file name does), or
 #   - mixes a high row with any other row, or
 #   - starts past the last row of a module that has no docs/progress/module-close/<Module>.md
 #     (module = first word of a "### Phase N — <Module> …" heading that names a folder in
@@ -82,15 +85,45 @@ for n, kind, step, high, state in rows:
 if cur: groups.append(("low", cur))
 info = {r[0]: r for r in rows}
 
-built = {n for n, k, s, h, st in rows if st and st.lower() != "not built"}
+def is_built(st):
+    l = (st or "").strip().lower().replace("**", "")
+    if l.startswith(("not built", "not done", "not started")): return False
+    return l.startswith(("built", "done", "complete", "verified", "proven", "passed", "applied"))
+
+def header_rows(path):
+    try:
+        for line in open(path, encoding="utf-8"):
+            m = re.match(r"\s*--\s*rows?\s*:\s*([\d,\s–-]+)", line, re.I)
+            if m:
+                got = set()
+                for part in re.split(r"[,\s]+", m.group(1).strip()):
+                    if not part: continue
+                    a, _, b = part.replace("–", "-").partition("-")
+                    got.update(range(int(a), int(b or a) + 1))
+                return got
+    except (OSError, ValueError):
+        pass
+    return None
+
+def name_rows(name):
+    m = re.match(r"(\d+)(?:-(\d+)(?=-))?-", os.path.basename(name))
+    if not m: return set()
+    a, b = int(m.group(1)), int(m.group(2) or m.group(1))
+    return set(range(a, b + 1)) if b >= a and b - a < 20 else {a}
+
+built = {n for n, k, s, h, st in rows if is_built(st)}
 if os.path.exists(log):
+    scripts = {}  # basename -> path, done- prefix stripped (exec.sh's hint renames applied scripts)
+    for d, _, fs in os.walk(os.path.join(root, "mdlsource")):
+        for f in fs:
+            if f.endswith(".mdl"): scripts.setdefault(f[5:] if f.startswith("done-") else f, os.path.join(d, f))
     for line in open(log, encoding="utf-8"):
         if "applied" not in line: continue
         for name in re.findall(r"`([^`]+\.mdl)`", line):
-            m = re.match(r"(\d+)(?:-(\d+)(?=-))?-", os.path.basename(name))
-            if m:
-                a, b = int(m.group(1)), int(m.group(2) or m.group(1))
-                built.update(range(a, b + 1) if b >= a and b - a < 20 else [a])
+            b = os.path.basename(name); b = b[5:] if b.startswith("done-") else b
+            got = header_rows(scripts[b]) if b in scripts else None
+            if got is None and optin: got = name_rows(b)
+            built.update(got or ())
 
 if mode != "check":
     print("| Group | Rows | Risk | Steps |\n|---|---|---|---|")

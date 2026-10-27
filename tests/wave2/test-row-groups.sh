@@ -83,6 +83,37 @@ printf -- '-- rows: 2,3\n' > "$P4/mdlsource/a.mdl"
 chk "$P4" "b.mdl" "-- rows: 1"
 [ "$rc" = 0 ] && ok "S1: rows a BUILD-LOG 'applied' script declared (-- rows: 2,3) count as built" || bad "S1 log: rc=$rc" "$out"
 
+echo "== M1 module close is read, not just found"
+mplan() {
+  printf '### Phase 1 — Orders\n\n| # | Kind | Step | Produces | Depends on | Skills | State |\n|---|---|---|---|---|---|---|\n'
+  printf '| 1 | BUILD | Order entity | e | — | `mdl-entities.md` | done |\n'
+  printf '| 2 | BUILD | Order page | p | 1 | `mdl-pages.md` | done |\n\n'
+  printf '### Phase 2 — Billing\n\n| # | Kind | Step | Produces | Depends on | Skills | State |\n|---|---|---|---|---|---|---|\n'
+  printf '| 3 | BUILD | Invoice entity | e | 2 | `mdl-entities.md` | not built |\n'
+  printf '| 4 | BUILD | Invoice page | p | 3 | `mdl-pages.md` | not built |\n'
+}
+P5="$WORK/mc"; mplan | mkproj "$P5"; mkdir -p "$P5/architecture/modules/Orders" "$P5/architecture/modules/Billing" "$P5/docs/progress/module-close"
+R="$P5/docs/progress/module-close/Orders.md"
+chk "$P5" "b.mdl" "-- rows: 3,4"
+{ [ "$rc" = 1 ] && printf '%s' "$out" | grep -q 'module close owed for Orders'; } && ok "M1: no report → refused" || bad "M1 none: rc=$rc" "$out"
+table='| Page | Role | Seen (screenshot path) | Defect | Fixed in row/script |
+|---|---|---|---|---|'
+printf '# Module close: Orders\n\n<!-- mxtk-module-close: lint=2 vm=0 -->\n\n## 6. Lead\n\n%s\n' "$table" > "$R"
+chk "$P5" "b.mdl" "-- rows: 3,4"
+{ [ "$rc" = 1 ] && printf '%s' "$out" | grep -q 'Orders'; } && ok "M1: report with 2 lint findings and an empty LOOK table → refused" || bad "M1 empty table: rc=$rc" "$out"
+printf '# Module close: Orders\n\n## 6. Lead\n\n%s\n' "$table" > "$R"
+chk "$P5" "b.mdl" "-- rows: 3,4"
+[ "$rc" = 1 ] && ok "M1: report with no summary line and an empty LOOK table → refused" || bad "M1 no marker: rc=$rc" "$out"
+printf '# Module close: Orders\n\n<!-- mxtk-module-close: lint=0 vm=0 -->\n\n## 6. Lead\n\n%s\n' "$table" > "$R"
+chk "$P5" "b.mdl" "-- rows: 3,4"
+[ "$rc" = 0 ] && ok "M1: report recording 0 lint findings → passes" || bad "M1 lint=0: rc=$rc" "$out"
+printf '# Module close: Orders\n\n<!-- mxtk-module-close: lint=2 vm=1 -->\n\n## 6. Lead\n\n%s\n| Order_Overview | User | look/orders-user.png | none | — |\n' "$table" > "$R"
+chk "$P5" "b.mdl" "-- rows: 3,4"
+[ "$rc" = 0 ] && ok "M1: findings but a filled LOOK row → passes (the lead recorded the pass)" || bad "M1 filled: rc=$rc" "$out"
+rm -f "$R"
+chk "$P5" "03-billing.mdl" "create entity ..."
+[ "$rc" = 3 ] && ok "M1: no rows header, no opt-in → the module-close part does not run either" || bad "M1 no opt-in: rc=$rc" "$out"
+
 echo
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

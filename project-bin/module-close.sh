@@ -19,6 +19,9 @@
 # One command at the module boundary makes the per-module pass cheap enough to actually run.
 #
 # Exit: 0 report written, no ⚠ for this module · 1 report written, findings to act on · 2 usage.
+# The report's first lines carry `<!-- mxtk-module-close: lint=N vm=RC -->`. bin/row-groups.sh (the
+# exec.sh row-group gate) lets the next module's scripts run when lint=0, or when the lead has filled
+# at least one row of section 6's Page | Role table. Findings and an empty table = not closed.
 set -u
 mod=${1:?usage: bin/module-close.sh <Module>}
 cd "$(dirname "$0")/.." || exit 2
@@ -37,6 +40,9 @@ look=$(bash bin/look-ledger.sh status 2>/dev/null | grep -E "\b$mod\." || true)
 
 {
   echo "# Module close: $mod ($(now), $(( $(date +%s) - t0 )) s of instruments)"
+  echo
+  # Read by bin/row-groups.sh: lint=0, or a filled row in section 6, lets the next module's scripts run.
+  echo "<!-- mxtk-module-close: lint=$nmine vm=$vm_rc -->"
   echo
   echo "## 1. Lint ⚠ in $mod: $nmine"
   echo; [ -n "$mine" ] && printf '%s\n' "$mine" | sed 's/^ */- /' || echo "none"

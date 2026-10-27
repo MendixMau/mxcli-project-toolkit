@@ -25,9 +25,12 @@
 #     Or a BUILD-LOG "applied" row for a script whose `-- rows:` header names the row, or, with
 #     `Row groups: on`, whose file name does), or
 #   - mixes a high row with any other row, or
-#   - starts past the last row of a module that has no docs/progress/module-close/<Module>.md
-#     (module = first word of a "### Phase N — <Module> …" heading that names a folder in
-#     architecture/modules/). Run bin/module-close.sh <Module> first.
+#   - starts past the last row of a module whose docs/progress/module-close/<Module>.md is missing
+#     or does not show the close was done (module = first word of a "### Phase N — <Module> …"
+#     heading that names a folder in architecture/modules/). Done = the summary line
+#     bin/module-close.sh writes says `lint=0`, or the report's "Page | Role" LOOK table has at
+#     least one filled row. A report with findings and an empty table is a run, not a close.
+#     The remedy is never blocked: run bin/module-close.sh <Module>, fix and re-run, or fill the table.
 # Override, with a reason that lands in the BUILD-LOG row: MXTK_ROWS_OVERRIDE="<why>".
 # exit 0 pass, 1 refused, 3 nothing to check (no plan, no rows header and no opt-in, or no BUILD row).
 #
@@ -173,12 +176,31 @@ for risk, ns in groups:
                             f"({'; '.join(info[n][2] for n in left)}). Put them in this script")
 # WHY (run 2, arm D): module close was a prompt rule; D closed Audit and StyleGallery but went into
 # slice 2 without closing Procurement. A prompt reaches who reads it; this gate reaches every exec.
+# WHY content, not presence (PR #581 review): module-close.sh writes the report even when it finds
+# lint findings, and its LOOK table starts empty, so a gate on the file alone passed a module
+# whose pages nobody opened (run 3 arm D: 0 of 44 pages seen).
+def close_state(m):
+    p = os.path.join(root, "docs", "progress", "module-close", m + ".md")
+    if not os.path.exists(p): return "missing"
+    txt = open(p, encoding="utf-8").read()
+    s = re.search(r"mxtk-module-close:\s*lint=(\d+)", txt)
+    if s and int(s.group(1)) == 0: return "done"
+    in_table = False
+    for line in txt.splitlines():
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if line.lstrip().startswith("|") and cells[:2] == ["Page", "Role"]: in_table = True; continue
+        if in_table:
+            if not line.lstrip().startswith("|"): break
+            if all(set(c) <= set("-: ") for c in cells): continue
+            if cells and cells[0]: return "done"
+    return f"open ({'lint=' + s.group(1) if s else 'no summary line'}, LOOK table empty)"
 start = min(mine)
-owed = [m for m, last in sorted(last_row.items(), key=lambda kv: kv[1])
-        if last < start and not os.path.exists(os.path.join(root, "docs", "progress", "module-close", m + ".md"))]
+owed = [(m, close_state(m)) for m, last in sorted(last_row.items(), key=lambda kv: kv[1]) if last < start]
+owed = [(m, st) for m, st in owed if st != "done"]
 if owed:
-    problems.append(f"module close owed for {', '.join(owed)} (all its rows are before row {start}). "
-                    f"Run bin/module-close.sh {owed[0]} and act on its report first")
+    problems.append(f"module close owed for {', '.join(m + ' (' + st + ')' for m, st in owed)} (all its rows are before row {start}). "
+                    f"Run bin/module-close.sh {owed[0][0]}, fix its findings and re-run, or record the pages you looked at "
+                    f"in the report's Page | Role table")
 if problems:
     print("row-groups: " + "\n  ".join(problems)); sys.exit(1)
 print(f"row-groups: rows {sorted(mine)} OK"); sys.exit(0)

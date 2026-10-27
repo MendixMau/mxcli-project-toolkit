@@ -16,7 +16,10 @@
 # check refuses (exit 1) when the script
 #   - covers part of a low group and leaves other rows of it unbuilt (built = State not "not built",
 #     or a BUILD-LOG "applied" row for a script with that row number), or
-#   - mixes a high row with any other row.
+#   - mixes a high row with any other row, or
+#   - starts past the last row of a module that has no docs/progress/module-close/<Module>.md
+#     (module = first word of a "### Phase N — <Module> …" heading that names a folder in
+#     architecture/modules/). Run bin/module-close.sh <Module> first.
 # Override, with a reason that lands in the BUILD-LOG row: MXTK_ROWS_OVERRIDE="<why>".
 # exit 0 pass, 1 refused, 3 nothing to check (no plan, or the script names no row).
 #
@@ -36,12 +39,21 @@ mode, plan, log, script, gmax = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[
 HIGH_SKILL = re.compile(r"security|agents?\b|mendix-agents|workflow|rest-|java|constants-and-secrets", re.I)
 HIGH_STEP = re.compile(r"\broles?\b|security|marketplace|\bjava\b|\brest\b|\bapi\b|extensions?\b|changes\b", re.I)
 
+root = os.path.dirname(os.path.dirname(plan))
+mods = {d for d in os.listdir(os.path.join(root, "architecture", "modules"))
+        if os.path.isdir(os.path.join(root, "architecture", "modules", d))} if os.path.isdir(os.path.join(root, "architecture", "modules")) else set()
 rows = []  # (n, kind, step, high, state)
+last_row = {}  # module -> last plan row of its phases
+cur_mod = None
 for line in open(plan, encoding="utf-8"):
+    h = re.match(r"#{2,4}\s*Phase\s+\d+\s*[—-]\s*(\w+)", line)
+    if h: cur_mod = h.group(1) if h.group(1) in mods else None; continue
+    if line.startswith("## "): cur_mod = None
     c = [x.strip() for x in line.strip().strip("|").split("|")]
     if len(c) >= 7 and c[0].isdigit() and c[1].isupper():
         n, kind, step, skills, state = int(c[0]), c[1], c[2], c[5], c[6]
         rows.append((n, kind, step, kind == "BUILD" and bool(HIGH_SKILL.search(skills) or HIGH_STEP.search(step)), state))
+        if cur_mod: last_row[cur_mod] = n
 
 groups, cur = [], []   # groups: list of (risk, [row numbers])
 for n, kind, step, high, state in rows:
@@ -106,6 +118,14 @@ for risk, ns in groups:
         if left:
             problems.append(f"rows {ns[0]}–{ns[-1]} are one low-risk group; this script leaves {left} unbuilt "
                             f"({'; '.join(info[n][2] for n in left)}). Put them in this script")
+# WHY (run 2, arm D): module close was a prompt rule; D closed Audit and StyleGallery but went into
+# slice 2 without closing Procurement. A prompt reaches who reads it; this gate reaches every exec.
+start = min(mine)
+owed = [m for m, last in sorted(last_row.items(), key=lambda kv: kv[1])
+        if last < start and not os.path.exists(os.path.join(root, "docs", "progress", "module-close", m + ".md"))]
+if owed:
+    problems.append(f"module close owed for {', '.join(owed)} (all its rows are before row {start}). "
+                    f"Run bin/module-close.sh {owed[0]} and act on its report first")
 if problems:
     print("row-groups: " + "\n  ".join(problems)); sys.exit(1)
 print(f"row-groups: rows {sorted(mine)} OK"); sys.exit(0)

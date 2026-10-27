@@ -1083,23 +1083,41 @@ d = sys.argv[1]
 def load(n):
     try: return {(r, f) for r, fs in (json.load(open(os.path.join(d, n))).get("new_findings") or {}).items() for f in fs}
     except (OSError, ValueError): return set()
-new = sorted(load("lint-last.json") - load("lint-prev-exec.json"))
+cur = load("lint-last.json")
+added = cur - load("lint-prev-exec.json")
+# Carried: reported before, still in lint-last (so neither fixed nor accepted into the baseline).
+# Without it a finding an agent ignored once read "0 new" on every later exec (PR #581 review).
+carried = (load("lint-unacked.json") & cur) - added
+new = sorted(added | carried)
+try:
+    by_r = {}
+    for r, f in new: by_r.setdefault(r, []).append(f)
+    json.dump({"new_findings": by_r}, open(os.path.join(d, "lint-unacked.json"), "w"))
+except OSError:
+    pass
 by = {}
 for r, _ in new: by[r] = by.get(r, 0) + 1
-print(len(new), " ".join(f"{r}:{n}" for r, n in sorted(by.items())))
-for r, f in new[:10]: print(f"    {r}  {f[:180]}")
+print(len(new), len(carried), " ".join(f"{r}:{n}" for r, n in sorted(by.items())))
+for r, f in new[:10]: print(f"    {r}  {f[:180]}" + ("   (carried: still unfixed)" if (r, f) in carried else ""))
 if len(new) > 10: print(f"    … {len(new) - 10} more in .claude/loop/lint-last.json")
 PY
          _thispyexe="${PY:-$(resolve_py 2>/dev/null || true)}"
          _thisnew=$([ -n "$_thispyexe" ] && "$_thispyexe" -c "$_thispy" "$PROJECT_ROOT/.claude/loop")
          _thisn=$(printf '%s\n' "$_thisnew" | head -1 | cut -d' ' -f1)
-         if [ "${_thisn:-0}" = 0 ]; then
+         _thisc=$(printf '%s\n' "$_thisnew" | head -1 | cut -d' ' -f2)
+         if [ -z "$_thisnew" ]; then
+           # No Python, or the diff failed: never read that as "0 new". Report the rise vs baseline.
+           LINT_DETAIL="lint rose: ${_rules:-see output} (per-script diff unavailable)"
+           echo "  ✗ lint: rule(s) rose vs baseline — ${_rules:-see below} (per-script diff unavailable)"
+           sed -n '/^FAIL/,$p' "$_lo" | head -60 | sed 's/^/    /'
+         elif [ "${_thisn:-0}" = 0 ]; then
            LINT_RC=0
            LINT_DETAIL="lint: 0 new this script (baseline debt: ${_rules:-see lint-last.json})"
            echo "  ✓ lint: this script added no finding (older debt vs baseline unchanged)"
          else
-         LINT_DETAIL="lint +${_thisn} new this script: $(printf '%s\n' "$_thisnew" | head -1 | cut -d' ' -f2-)"
-         echo "  ✗ lint: this script added ${_thisn} finding(s) — read each one:"
+         # "lint rose" stays the wording, as before this change (metrics and readers key on it).
+         LINT_DETAIL="lint rose: +${_thisn} new or unfixed (${_thisc:-0} carried from earlier execs): $(printf '%s\n' "$_thisnew" | head -1 | cut -d' ' -f3-)"
+         echo "  ✗ lint: ${_thisn} finding(s) new this script or still unfixed from an earlier one — read each one:"
          printf '%s\n' "$_thisnew" | tail -n +2
          echo "    Fix the script and re-run. Accepting the debt is the user's call, made in chat:"
          echo "    bin/lint-gate.sh --update-baseline --reason \"<why>\" (a security-tier rise also"

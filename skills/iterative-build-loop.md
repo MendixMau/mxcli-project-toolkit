@@ -391,7 +391,14 @@ blank `mxcli new` app plus one entity and microflow, 4 cores, 3 runs each): `mx 
 passed a Java compile error. So a check-only gate needs a full deploy whenever `javasource/` or
 `theme/` changed and at module close — a gate redesign, parked on #444.
 
-**Draft the ready set in parallel, apply serially.** The unit is the build-plan row. The ready
+**Draft the ready set in parallel, apply serially.** The unit is the build-plan row, and a script may
+carry several rows: low-risk rows of one module that are ready together (enumerations, entities and
+associations, CRUD pages over them, simple sub-microflows) go in **one script**, so the per-apply loop
+(check, apply, mxbuild gate, commit) is paid once for the group. Rows that touch security (roles, access
+rules), workflows, AI agents, REST, Java actions or a STOP rule 21 target stay **one row per script**:
+those are where a failed apply must roll back the least. A group script names all its rows in its
+header and BUILD-LOG row (run 2, 2026-10-26: arm C wrote 0.93 scripts per row against the cloud's 0.34,
+and paid a 22-128 s loop per script). The ready
 set is every `BUILD` row whose "Depends on" rows are all applied, minus overlapping writers: two
 rows whose scripts `create or replace`, `alter` or drop+create the same document (the row's
 written documents are listed in Produces, `brd-to-build-plan.md`) are never in one ready set,
@@ -402,8 +409,12 @@ refuses a second); after each apply, recompute the ready set. The failure this p
 that drafted one script at a time and sat idle while each draft finished. The risk it adds: a
 queued draft can restate a document as it was before a sibling apply — STOP rule 21's incident,
 where the second of two drop+creates of a shared seed aggregator silently dropped a seed call
-with `mx check` at 0 errors. So before applying a draft, if any apply has landed since it was
-drafted, run `mxcli diff -p <mpr> <script> --format struct` (`learned-mdl-preflight.md` STOP
+with `mx check` at 0 errors. So before applying a draft, if an apply that landed since it was
+drafted **wrote a document this draft also writes** (compare the `create or replace` / `alter` / `drop`
+targets of both scripts; a `grep` of the qualified names is enough), or the draft touches a STOP rule 21
+target, run `mxcli diff -p <mpr> <script> --format struct`. Drafts with no shared target skip the diff:
+it is the slowest read verb (14-21 s on a 21-module model; 53.5 s lead median late in run 2) and found
+0 stale restatements in 98 runs there (`learned-mdl-preflight.md` STOP
 rule 23; check each `-` line against `describe` per its BUG-146 note before re-drafting): any
 confirmed `-` line, or any target STOP rule 21 covers (aggregator, after-startup chain, navigation), means
 re-draft from a fresh `describe` — never patch. `exec.sh`'s own

@@ -994,6 +994,7 @@ fi
 # to stop. ~13 s measured on a 10k-finding project.
 LINT_RC=0; LINT_DETAIL="lint not-run"
 run_lint_gate() {
+  _noadv=""
   if [ -n "${SKIP_LINT:-}" ]; then
     LINT_DETAIL="lint SKIPPED (SKIP_LINT=$SKIP_LINT)"
     echo "  ⚠ lint ratchet skipped: SKIP_LINT=$SKIP_LINT"; return
@@ -1113,6 +1114,7 @@ PY
          _thisn=$(printf '%s\n' "$_thisnew" | head -1 | cut -d' ' -f1)
          _thisc=$(printf '%s\n' "$_thisnew" | head -1 | cut -d' ' -f2)
          if [ -z "$_thisnew" ]; then
+           _noadv=1   # undiffed rise: keep prev-exec as is, or the next exec reads these as old debt
            # No Python, or the diff failed: never read that as "0 new". Report the rise vs baseline.
            LINT_DETAIL="lint rose: ${_rules:-see output} (per-script diff unavailable)"
            echo "  ✗ lint: rule(s) rose vs baseline — ${_rules:-see below} (per-script diff unavailable)"
@@ -1139,7 +1141,7 @@ PY
   [ -n "$_restored" ] && [ "$LINT_RC" -ne 3 ] && LINT_DETAIL="$LINT_DETAIL; toolkit lint rules auto-restored after a stock re-seed (${_restored})"
   rm -f "$_lo"
   # The next exec compares against what lint saw now.
-  case "$LINT_RC" in 0|1) cp "$PROJECT_ROOT/.claude/loop/lint-last.json" "$PROJECT_ROOT/.claude/loop/lint-prev-exec.json" 2>/dev/null || true ;; esac
+  case "$LINT_RC" in 0|1) [ -n "${_noadv:-}" ] || cp "$PROJECT_ROOT/.claude/loop/lint-last.json" "$PROJECT_ROOT/.claude/loop/lint-prev-exec.json" 2>/dev/null || true ;; esac
 }
 # One place decides the applied-row wording, so both mxbuild-clean branches agree.
 log_applied() {  # $1 = mxbuild detail

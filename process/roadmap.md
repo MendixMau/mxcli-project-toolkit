@@ -164,8 +164,10 @@ ever removed or re-costed. No release measured what the sum did to a build. A co
    states in its header: seconds per exec, tokens of output per exec, and who reads the result and
    when. A check whose output no step reads is moved to a cadence (per module, per checkpoint) or
    removed. Review the list at each weekly toolkit review; removing is a normal outcome.
-3. **Cadence over repetition.** Per exec: only what protects the model (check, apply, mxbuild gate).
-   Per module: lint, score, verify-module, LOOK (`module-close.sh`). Per checkpoint: docker
+3. **Cadence over repetition.** Per exec: what protects the model (check, apply, mxbuild gate) and
+   lint — kept per exec by decision (2026-10-27: deferring it risks missing findings), but it prints
+   only the NEW warnings in the documents this script wrote, so it is read, not skimmed past as ROSE.
+   Per module: score, verify-module, LOOK (`module-close.sh`). Per checkpoint: docker
    check/build, the test suite. A check that "must" run is called by a gate, never only by a prompt.
 4. **Quiet by default.** `exec.sh` prints the verdict and the errors; the long form goes to a log
    file. Every line printed is re-read on every later model call until the next compaction.
@@ -177,7 +179,7 @@ ever removed or re-costed. No release measured what the sum did to a build. A co
 whichever comes first.
 
 **Exit bar:** the benchmark runs on every release and its table is in the release notes; `exec.sh`
-lists cost and reader for each step; lint/score/verify-module run at module close under a gate
+lists cost and reader for each step; new lint warnings are shown per exec and acted on; score/verify-module run at module close under a gate
 (not a prompt), with a non-zero run count in a field build; a headless build's fixed load per call
 is reported and below 35k tokens.
 

@@ -1083,12 +1083,19 @@ d = sys.argv[1]
 def load(n):
     try: return {(r, f) for r, fs in (json.load(open(os.path.join(d, n))).get("new_findings") or {}).items() for f in fs}
     except (OSError, ValueError): return set()
+# Unreadable lint-last.json, or one without a new_findings object: nothing to itemise, so print
+# nothing and let the shell keep the rise as lint-gate returned it (never downgrade to "0 new").
+try:
+    if not isinstance(json.load(open(os.path.join(d, "lint-last.json"))).get("new_findings"), dict): sys.exit(0)
+except (OSError, ValueError, AttributeError): sys.exit(0)
 cur = load("lint-last.json")
 added = cur - load("lint-prev-exec.json")
 # Carried: reported before, still in lint-last (so neither fixed nor accepted into the baseline).
 # Without it a finding an agent ignored once read "0 new" on every later exec (PR #581 review).
 carried = (load("lint-unacked.json") & cur) - added
 new = sorted(added | carried)
+# Rise reported but nothing itemised and no previous exec to explain it: not provably old debt.
+if not new and not os.path.exists(os.path.join(d, "lint-prev-exec.json")): sys.exit(0)
 try:
     by_r = {}
     for r, f in new: by_r.setdefault(r, []).append(f)

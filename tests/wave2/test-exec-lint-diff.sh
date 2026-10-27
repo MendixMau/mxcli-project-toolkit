@@ -10,6 +10,7 @@
 #   D3  it is fixed: clean again
 #   D4  the user accepts it (lint-gate --update-baseline --reason): the next exec is clean
 #   D5  a rose exec lands in the metrics ledger as applied-lint-rose (status text exec.sh writes)
+#   D7  a rise while lint-last.json cannot be read: kept as a rise, never "0 new"
 #   D6  the diff cannot run (no usable Python): reported as a rise vs baseline, never as "0 new"
 set -uo pipefail
 EXEC="${1:?usage: test-exec-lint-diff.sh /path/to/exec.sh}"
@@ -65,6 +66,13 @@ echo "D6 the per-script diff cannot run"
 lint "$debt,$(f MPR002 "empty flow" Empty_Flow)"
 out=$(run_exec env PY=/bin/false)
 printf '%s' "$out" | grep -q 'RESULT 1|lint rose' && ok "D6: no diff → still a rise (rc 1), not a silent pass" || bad "D6: silent pass" "$out"
+echo "D7 a rise, but lint-last.json is gone when the diff runs"
+lint "$debt,$(f MPR003 "bad name" Bad_Name)"
+printf '#!/bin/sh\nrm -f "%s/.claude/loop/lint-last.json"\nexec "%s" "$@"\n' "$P" "$PY" > "$WORK/py-nolast"; chmod +x "$WORK/py-nolast"
+rm -f "$P/.claude/loop/lint-prev-exec.json"
+out=$(run_exec env PY="$WORK/py-nolast")
+{ printf '%s' "$out" | grep -q 'RESULT 1|lint rose' && ! printf '%s' "$out" | grep -q '0 new this script'; } \
+  && ok "D7: unreadable lint-last.json → still a rise (rc 1), never '0 new'" || bad "D7: downgraded to 0 new" "$out"
 echo
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

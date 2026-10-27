@@ -1072,12 +1072,38 @@ run_lint_gate() {
          sed -n '/^!! A RULE COULD NOT READ/,/^$/p' "$_lo" | head -12 | sed 's/^/    /'
          echo "    Configure or fix the rule (see the message above); do not re-baseline over it."
        else
-         LINT_DETAIL="lint ROSE: ${_rules:-see output}${_blind:+; BLIND: $_blind}"
-         echo "  ✗ lint: rule(s) rose vs baseline — ${_rules:-see below}"
-         sed -n '/^FAIL/,$p' "$_lo" | head -60 | sed 's/^/    /'
+         # New THIS script (run 3, 2026-10-27). The baseline cannot be refreshed unattended, so
+         # "rose vs baseline" stays true for every later exec once one script adds a finding:
+         # run 2 arm C logged ROSE on 123 of 147 rows and printed ~60 lines each time, and the 6
+         # real SEC010 findings in it went unread. Compare with the previous exec's findings
+         # (.claude/loop/lint-prev-exec.json); only what this script added is printed and counts.
+         _thisnew=$(python3 - "$PROJECT_ROOT/.claude/loop" <<'PY'
+import json, os, sys
+d = sys.argv[1]
+def load(n):
+    try: return {(r, f) for r, fs in (json.load(open(os.path.join(d, n))).get("new_findings") or {}).items() for f in fs}
+    except (OSError, ValueError): return set()
+new = sorted(load("lint-last.json") - load("lint-prev-exec.json"))
+by = {}
+for r, _ in new: by[r] = by.get(r, 0) + 1
+print(len(new), " ".join(f"{r}:{n}" for r, n in sorted(by.items())))
+for r, f in new[:10]: print(f"    {r}  {f[:180]}")
+if len(new) > 10: print(f"    … {len(new) - 10} more in .claude/loop/lint-last.json")
+PY
+)
+         _thisn=$(printf '%s\n' "$_thisnew" | head -1 | cut -d' ' -f1)
+         if [ "${_thisn:-0}" = 0 ]; then
+           LINT_RC=0
+           LINT_DETAIL="lint: 0 new this script (baseline debt: ${_rules:-see lint-last.json})"
+           echo "  ✓ lint: this script added no finding (older debt vs baseline unchanged)"
+         else
+         LINT_DETAIL="lint +${_thisn} new this script: $(printf '%s\n' "$_thisnew" | head -1 | cut -d' ' -f2-)"
+         echo "  ✗ lint: this script added ${_thisn} finding(s) — read each one:"
+         printf '%s\n' "$_thisnew" | tail -n +2
          echo "    Fix the script and re-run. Accepting the debt is the user's call, made in chat:"
          echo "    bin/lint-gate.sh --update-baseline --reason \"<why>\" (a security-tier rise also"
          echo "    needs --approved-in-chat). The acceptance is logged to .claude/lint-acceptances.tsv."
+         fi
        fi ;;
     *) LINT_DETAIL="lint could not run (lint-gate exit $LINT_RC)"; echo "  ⚠ $LINT_DETAIL"
        tail -5 "$_lo" | sed 's/^/    /' ;;
@@ -1086,6 +1112,8 @@ run_lint_gate() {
   # should know the files changed under them.
   [ -n "$_restored" ] && [ "$LINT_RC" -ne 3 ] && LINT_DETAIL="$LINT_DETAIL; toolkit lint rules auto-restored after a stock re-seed (${_restored})"
   rm -f "$_lo"
+  # The next exec compares against what lint saw now.
+  case "$LINT_RC" in 0|1) cp "$PROJECT_ROOT/.claude/loop/lint-last.json" "$PROJECT_ROOT/.claude/loop/lint-prev-exec.json" 2>/dev/null || true ;; esac
 }
 # One place decides the applied-row wording, so both mxbuild-clean branches agree.
 log_applied() {  # $1 = mxbuild detail

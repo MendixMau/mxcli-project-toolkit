@@ -24,17 +24,21 @@
 # at least one row of section 6's Page | Role table. Findings and an empty table = not closed.
 set -u
 mod=${1:?usage: bin/module-close.sh <Module>}
-cd "$(dirname "$0")/.." || exit 2
-MPR=$(ls ./*.mpr 2>/dev/null | head -1); [ -n "$MPR" ] || { echo "no .mpr here" >&2; exit 2; }
+# The .mpr and mxcli resolve through _common.sh like every project-bin script, so a two-tree
+# checkout (.mpr under app/) and a multi-app folder work; `ls ./*.mpr` found neither (PR #581 review).
+. "$(dirname "$0")/_common.sh"
+cd "$PROJECT_ROOT" || exit 2
+MPR=$(find_mpr) || exit 2
+MX=$(find_project_mxcli 2>/dev/null || command -v mxcli) || { echo "module-close: no mxcli (project root or PATH)" >&2; exit 2; }
 out=docs/progress/module-close; mkdir -p "$out"; rep="$out/$mod.md"
 MXB=${MXTK_MXBUILD_PATH:-}
 t0=$(date +%s); now() { date '+%F %H:%M'; }
 
-lint=$(./mxcli lint -p "$MPR" 2>&1 | grep -v WARNING)
+lint=$("$MX" lint -p "$MPR" 2>&1 | grep -v WARNING)
 mine=$(printf '%s\n' "$lint" | grep -A1 '⚠' | grep -B1 -E "\b$mod\." | grep '⚠' || true)
 nmine=$(printf '%s' "$mine" | grep -c '⚠' || true)
 score=$(bash bin/metrics-ledger.sh score 2>&1 | tail -1)
-chk=$(./mxcli docker check -p "$MPR" ${MXB:+--mxbuild-path "$MXB"} 2>&1 | grep -v WARNING | tail -3)
+chk=$("$MX" docker check -p "$MPR" ${MXB:+--mxbuild-path "$MXB"} 2>&1 | grep -v WARNING | tail -3)
 vm=$(bash bin/verify-module.sh "$mod" --quick 2>&1); vm_rc=$?; vm=$(printf '%s\n' "$vm" | tail -15)
 look=$(bash bin/look-ledger.sh status 2>/dev/null | grep -E "\b$mod\." || true)
 

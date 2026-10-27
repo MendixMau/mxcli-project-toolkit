@@ -18,19 +18,24 @@
 # Falls back to --restart when the reload fails, and says so. Prints the path taken and seconds.
 # Exit: 0 app serving the new model · 1 not proven up · 2 usage.
 set -u
-cd "$(dirname "$0")/.." || exit 2
-MPR=$(ls ./*.mpr 2>/dev/null | head -1); [ -n "$MPR" ] || { echo "reload.sh: no .mpr here" >&2; exit 2; }
+# .mpr and mxcli resolve through _common.sh (two-tree: .mpr under app/). mxcli writes .docker/ beside
+# the .mpr (cmd/mxcli/docker/build.go: filepath.Dir(projectPath)/.docker), so that is where it is read.
+. "$(dirname "$0")/_common.sh"
+cd "$PROJECT_ROOT" || exit 2
+MPR=$(find_mpr) || exit 2
+MX=$(find_project_mxcli 2>/dev/null || command -v mxcli) || { echo "reload.sh: no mxcli (project root or PATH)" >&2; exit 2; }
+DK="$(dirname "$MPR")/.docker"
 MXB=${MXTK_MXBUILD_PATH:-}
 mxb() { [ -n "$MXB" ] && printf -- '--mxbuild-path\n%s\n' "$MXB"; }
 mode=reload
 case "${1:-}" in "") ;; --css) mode=css ;; --restart) mode=restart ;; *) sed -n 2,8p "$0"; exit 2 ;; esac
 
 # The admin port as mapped on the host (compose maps container 8090 to it).
-admin=$(cd .docker 2>/dev/null && docker compose port mendix 8090 2>/dev/null | sed 's/.*://')
+admin=$(cd "$DK" 2>/dev/null && docker compose port mendix 8090 2>/dev/null | sed 's/.*://')
 # URL: APP_URL, else the port mxcli docker publishes (.docker/.env APP_PORT), else CLAUDE.md, else 8080.
 # Run 2 arm D: the CLAUDE.md fallback missed the app on 8084 and waited 284 s.
 app_url=${APP_URL:-}
-[ -n "$app_url" ] || { p=$(grep -m1 '^APP_PORT=' .docker/.env 2>/dev/null | cut -d= -f2 | tr -d '"[:space:]'); [ -n "$p" ] && app_url=http://localhost:$p; }
+[ -n "$app_url" ] || { p=$(grep -m1 '^APP_PORT=' "$DK/.env" 2>/dev/null | cut -d= -f2 | tr -d '"[:space:]'); [ -n "$p" ] && app_url=http://localhost:$p; }
 [ -n "$app_url" ] || app_url=$(grep -m1 -o 'http://localhost:[0-9]*' CLAUDE.md 2>/dev/null)
 app_url=${app_url:-http://localhost:8080}
 up() { for i in $(seq 1 90); do [ "$(curl -s -o /dev/null -w '%{http_code}' "$app_url/login.html")" = 200 ] && return 0; sleep 2; done; return 1; }
@@ -38,14 +43,14 @@ up() { for i in $(seq 1 90); do [ "$(curl -s -o /dev/null -w '%{http_code}' "$ap
 t0=$(date +%s)
 if [ "$mode" != restart ] && [ -n "$admin" ]; then
   args=(-p "$MPR" --direct --port "$admin"); [ "$mode" = css ] && args+=(--css) || { args+=(--skip-check); while IFS= read -r a; do args+=("$a"); done < <(mxb); }
-  if out=$(./mxcli docker reload "${args[@]}" 2>&1); then
+  if out=$("$MX" docker reload "${args[@]}" 2>&1); then
     up && { echo "reload.sh: $mode via --direct OK in $(( $(date +%s) - t0 )) s"; exit 0; }
   fi
   echo "reload.sh: $mode failed, falling back to restart: $(printf '%s' "$out" | grep -v WARNING | tail -1)"
 fi
 [ -z "$admin" ] && echo "reload.sh: app not running (no admin port mapped); starting it"
 args=(-p "$MPR"); while IFS= read -r a; do args+=("$a"); done < <(mxb)
-./mxcli docker build "${args[@]}" 2>&1 | grep -E 'rror|BUILD|CE[0-9]' | tail -3
-./mxcli docker up -p "$MPR" --detach >/dev/null 2>&1 || (cd .docker && docker compose up -d >/dev/null 2>&1)
+"$MX" docker build "${args[@]}" 2>&1 | grep -E 'rror|BUILD|CE[0-9]' | tail -3
+"$MX" docker up -p "$MPR" --detach >/dev/null 2>&1 || (cd "$DK" && docker compose up -d >/dev/null 2>&1)
 up && { echo "reload.sh: restart OK in $(( $(date +%s) - t0 )) s"; exit 0; }
 echo "reload.sh: app not answering on $app_url after $(( $(date +%s) - t0 )) s"; exit 1

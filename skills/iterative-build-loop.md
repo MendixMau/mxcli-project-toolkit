@@ -397,10 +397,11 @@ associations, CRUD pages over them, simple sub-microflows) go in **one script**,
 (check, apply, mxbuild gate, commit) is paid once for the group. Rows that touch security (roles, access
 rules), workflows, AI agents, REST, Java actions or a STOP rule 21 target stay **one row per script**:
 those are where a failed apply must roll back the least. `bin/row-groups.sh` prints the groups
-from the build plan; the script file name carries the rows (`16-19-….mdl`, or a `-- rows: 16,17` header),
-and exec.sh refuses a script that splits a low-risk group or mixes a high-risk row in
+from the build plan; a script names its rows in a `-- rows: 16,17` header (its file name, `16-19-….mdl`,
+counts only with `Row groups: on` in PROJECT.md: `brd-to-build-plan.md` numbers scripts on their own
+sequence), and exec.sh refuses such a script when it splits a low-risk group or mixes a high-risk row in
 (override: `MXTK_ROWS_OVERRIDE="<why>"`, logged) (run 2, 2026-10-26: arm C wrote 0.93 scripts per row against the cloud's 0.34,
-and paid a 22-128 s loop per script). The same gate refuses the first script past a module's last row
+and paid a 22-128 s loop per script). The same gate refuses the first such script past a module's last row
 until `docs/progress/module-close/<Module>.md` exists: run `bin/module-close.sh <Module>` and act on it
 (run 2, arm D skipped the Procurement close when it was only a prompt rule). The ready
 set is every `BUILD` row whose "Depends on" rows are all applied, minus overlapping writers: two

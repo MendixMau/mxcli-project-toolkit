@@ -10,8 +10,13 @@
 #         built documents (the diff-before-apply cases). One row per script.
 #   low   otherwise: domain, CRUD microflows, pages. Consecutive low rows form a group (at most
 #         $MXTK_GROUP_MAX, default 4); any BRIEF/PROVE/LOOK row or high row ends the group.
-# A script names its rows in its file name (16-…mdl, or 16-19-…mdl for 16 to 19) or in a header
-# line `-- rows: 16,17,18,19`, which wins.
+# A script names its rows in a header line `-- rows: 16,17,18,19`. Its file name (16-…mdl, or
+# 16-19-…mdl for 16 to 19) counts only when PROJECT.md says `Row groups: on`: brd-to-build-plan.md
+# numbers scripts on their own sequence (`060-crm-page-….mdl` under row 21, `01-{module}-domain.mdl`
+# per module), so on a project that has not opted in a file-name number is a script number, and a
+# script with no header is not checked (exit 3). Real case: on the SampleDashboards plan
+# (tests/wave2/fixtures/build-plan-claims-real.md) `16-cutover.mdl` is row 26, and reading it as
+# row 16 refused it for leaving rows 14 and 15 unbuilt.
 #
 # check refuses (exit 1) when the script
 #   - covers part of a low group and leaves other rows of it unbuilt (built = State not "not built",
@@ -21,7 +26,7 @@
 #     (module = first word of a "### Phase N — <Module> …" heading that names a folder in
 #     architecture/modules/). Run bin/module-close.sh <Module> first.
 # Override, with a reason that lands in the BUILD-LOG row: MXTK_ROWS_OVERRIDE="<why>".
-# exit 0 pass, 1 refused, 3 nothing to check (no plan, or the script names no row).
+# exit 0 pass, 1 refused, 3 nothing to check (no plan, no rows header and no opt-in, or no BUILD row).
 #
 # WHY (run 2, 2026-10-26, arm C). 147 build-plan rows ran as ~137 scripts and ~185 execs; each exec
 # paid check, snapshot, baseline mxbuild, apply, mxbuild gate (~2 min of instruments). A prompt rule
@@ -44,6 +49,14 @@ HIGH_SKILL = re.compile(r"security|agents?\b|mendix-agents|workflow|rest-|java|c
 HIGH_STEP = re.compile(r"\broles?\b|security|marketplace|\bjava\b|\brest\b|\bapi\b|extensions?\b|changes\b", re.I)
 
 root = os.path.dirname(os.path.dirname(plan))
+# PROJECT.md `Row groups: on` = this project's script file names carry build-plan row numbers.
+optin = False
+try:
+    for line in open(os.path.join(root, "PROJECT.md"), encoding="utf-8"):
+        m = re.match(r"^[*_ -]*Row groups:[*_ ]*`?([A-Za-z]+)", line)
+        if m: optin = m.group(1).lower() in ("on", "yes", "true"); break
+except OSError:
+    pass
 mods = {d for d in os.listdir(os.path.join(root, "architecture", "modules"))
         if os.path.isdir(os.path.join(root, "architecture", "modules", d))} if os.path.isdir(os.path.join(root, "architecture", "modules")) else set()
 rows = []  # (n, kind, step, high, state)
@@ -103,6 +116,9 @@ try:
             break
 except OSError:
     pass
+if mine is None and not optin:
+    print("row-groups: script has no `-- rows:` header and PROJECT.md does not say `Row groups: on` — not checked")
+    sys.exit(3)
 if mine is None:
     m = re.match(r"(\d+)(?:-(\d+)(?=-))?-", os.path.basename(script))
     if not m: print("row-groups: script names no row — not checked"); sys.exit(3)

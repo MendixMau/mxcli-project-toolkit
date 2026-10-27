@@ -514,7 +514,7 @@ HDR2
   # The gate cell is read from GATE_STATE rather than passed in, so no caller
   # can omit it — a blank cell in this table reads as "fine", which is the exact
   # false-green the gate exists to prevent.
-  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${SCAN_NOTE:+ · $SCAN_NOTE}${RESTATE_NOTE:+ · $RESTATE_NOTE}${GATE_NOTE:+ · $GATE_NOTE}${MXB_LOG_NOTE:+ · $MXB_LOG_NOTE}${HV_NOTE:+ · $HV_NOTE}$_EXEC_APPROVAL_SUFFIX${STEP_TIMES:+ · steps: $STEP_TIMES}"
+  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${SCAN_NOTE:+ · $SCAN_NOTE}${ROWS_NOTE:+ · $ROWS_NOTE}${RESTATE_NOTE:+ · $RESTATE_NOTE}${GATE_NOTE:+ · $GATE_NOTE}${MXB_LOG_NOTE:+ · $MXB_LOG_NOTE}${HV_NOTE:+ · $HV_NOTE}$_EXEC_APPROVAL_SUFFIX${STEP_TIMES:+ · steps: $STEP_TIMES}"
   printf '| %s | `%s` | %s | %s | %s |\n' \
     "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$LOG_NAME" \
     "${GATE_STATE:-not-run}" "$1" "$_detail" >> "$BUILD_LOG"
@@ -604,6 +604,28 @@ if [ "$PATCH_MODE" != "1" ]; then
         esac ;;
       *) echo "⚠ STOP-row scan could not run (exit $_scan_rc): $_scan_out" >&2 ;;
     esac
+  fi
+fi
+
+# ── Row-group gate (run 3, 2026-10-27) ──────────────────────────────────────
+# bin/row-groups.sh check: low-risk build-plan rows of one group go in ONE script; a high-risk row
+# (security, agents, workflow, REST, Java, changes to built documents) goes alone. Runs here, before
+# the lock and the snapshot, for every caller of exec.sh, agent or person. Run 2 arm C paid ~2 min of
+# instruments per exec on 147 rows. No build plan, or a script that names no row: skipped.
+# Override, with a reason that lands in the BUILD-LOG row: MXTK_ROWS_OVERRIDE="<why>".
+ROWS_NOTE=""
+if [ "$PATCH_MODE" != "1" ] && [ -x "$PROJECT_ROOT/bin/row-groups.sh" ]; then
+  _rg_rc=0; _rg_out="$("$PROJECT_ROOT/bin/row-groups.sh" check "$SCRIPT" 2>&1)" || _rg_rc=$?
+  if [ "$_rg_rc" = 1 ]; then
+    echo "$_rg_out"
+    if [ -z "${MXTK_ROWS_OVERRIDE:-}" ]; then
+      echo "✗ Row-group gate: refusing exec. NOTHING was locked, snapshotted or written."
+      echo "  See the groups: bin/row-groups.sh. Override with a reason: MXTK_ROWS_OVERRIDE=\"<why>\" ./bin/exec.sh $SCRIPT"
+      log_build "🚫 blocked" "row-group gate: $(printf '%s' "$_rg_out" | head -1 | tr '|' '/' | cut -c1-200) — nothing written"
+      exit 1
+    fi
+    echo "⚠ Row-group gate OVERRIDDEN: ${MXTK_ROWS_OVERRIDE}" >&2
+    ROWS_NOTE="rows override: $(printf '%s' "$MXTK_ROWS_OVERRIDE" | tr '|' '/')"
   fi
 fi
 

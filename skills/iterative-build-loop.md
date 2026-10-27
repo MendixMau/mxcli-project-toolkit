@@ -396,8 +396,10 @@ carry several rows: low-risk rows of one module that are ready together (enumera
 associations, CRUD pages over them, simple sub-microflows) go in **one script**, so the per-apply loop
 (check, apply, mxbuild gate, commit) is paid once for the group. Rows that touch security (roles, access
 rules), workflows, AI agents, REST, Java actions or a STOP rule 21 target stay **one row per script**:
-those are where a failed apply must roll back the least. A group script names all its rows in its
-header and BUILD-LOG row (run 2, 2026-10-26: arm C wrote 0.93 scripts per row against the cloud's 0.34,
+those are where a failed apply must roll back the least. `bin/row-groups.sh` prints the groups
+from the build plan; the script file name carries the rows (`16-19-….mdl`, or a `-- rows: 16,17` header),
+and exec.sh refuses a script that splits a low-risk group or mixes a high-risk row in
+(override: `MXTK_ROWS_OVERRIDE="<why>"`, logged) (run 2, 2026-10-26: arm C wrote 0.93 scripts per row against the cloud's 0.34,
 and paid a 22-128 s loop per script). The ready
 set is every `BUILD` row whose "Depends on" rows are all applied, minus overlapping writers: two
 rows whose scripts `create or replace`, `alter` or drop+create the same document (the row's

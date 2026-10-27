@@ -1077,7 +1077,7 @@ run_lint_gate() {
          # run 2 arm C logged ROSE on 123 of 147 rows and printed ~60 lines each time, and the 6
          # real SEC010 findings in it went unread. Compare with the previous exec's findings
          # (.claude/loop/lint-prev-exec.json); only what this script added is printed and counts.
-         _thisnew=$(python3 - "$PROJECT_ROOT/.claude/loop" <<'PY'
+         IFS= read -r -d '' _thispy <<'PY' || true
 import json, os, sys
 d = sys.argv[1]
 def load(n):
@@ -1090,7 +1090,8 @@ print(len(new), " ".join(f"{r}:{n}" for r, n in sorted(by.items())))
 for r, f in new[:10]: print(f"    {r}  {f[:180]}")
 if len(new) > 10: print(f"    … {len(new) - 10} more in .claude/loop/lint-last.json")
 PY
-)
+         _thispyexe="${PY:-$(resolve_py 2>/dev/null || true)}"
+         _thisnew=$([ -n "$_thispyexe" ] && "$_thispyexe" -c "$_thispy" "$PROJECT_ROOT/.claude/loop")
          _thisn=$(printf '%s\n' "$_thisnew" | head -1 | cut -d' ' -f1)
          if [ "${_thisn:-0}" = 0 ]; then
            LINT_RC=0

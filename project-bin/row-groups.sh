@@ -33,7 +33,11 @@ plan="$root/architecture/build-plan.md"; log="$root/docs/BUILD-LOG.md"
 [ -f "$plan" ] || { echo "row-groups: no architecture/build-plan.md — nothing to check"; exit 3; }
 [ "$mode" = check ] && { [ -n "$script" ] || { echo "usage: bin/row-groups.sh check <script.mdl>" >&2; exit 2; }; }
 
-exec python3 - "$mode" "$plan" "$log" "$script" "${MXTK_GROUP_MAX:-4}" <<'PY'
+# Python via _common.sh's resolve_py (runs each candidate; a name on PATH is not an interpreter).
+# No Python: exit 3, the same "nothing to check" exec.sh already passes through.
+. "$(dirname "$0")/_common.sh" 2>/dev/null || true
+PY=$(resolve_py 2>/dev/null) || { echo "row-groups: no Python 3 found (set PYTHON=/path/to/python3) — not checked" >&2; exit 3; }  # portability-ok: names in a diagnostic
+exec "$PY" - "$mode" "$plan" "$log" "$script" "${MXTK_GROUP_MAX:-4}" <<'PY'
 import os, re, sys
 mode, plan, log, script, gmax = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], int(sys.argv[5])
 HIGH_SKILL = re.compile(r"security|agents?\b|mendix-agents|workflow|rest-|java|constants-and-secrets", re.I)

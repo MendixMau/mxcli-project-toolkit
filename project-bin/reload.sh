@@ -27,7 +27,12 @@ case "${1:-}" in "") ;; --css) mode=css ;; --restart) mode=restart ;; *) sed -n 
 
 # The admin port as mapped on the host (compose maps container 8090 to it).
 admin=$(cd .docker 2>/dev/null && docker compose port mendix 8090 2>/dev/null | sed 's/.*://')
-app_url=$(grep -m1 -o 'http://localhost:[0-9]*' CLAUDE.md 2>/dev/null); app_url=${app_url:-http://localhost:8080}
+# URL: APP_URL, else the port mxcli docker publishes (.docker/.env APP_PORT), else CLAUDE.md, else 8080.
+# Run 2 arm D: the CLAUDE.md fallback missed the app on 8084 and waited 284 s.
+app_url=${APP_URL:-}
+[ -n "$app_url" ] || { p=$(grep -m1 '^APP_PORT=' .docker/.env 2>/dev/null | cut -d= -f2 | tr -d '"[:space:]'); [ -n "$p" ] && app_url=http://localhost:$p; }
+[ -n "$app_url" ] || app_url=$(grep -m1 -o 'http://localhost:[0-9]*' CLAUDE.md 2>/dev/null)
+app_url=${app_url:-http://localhost:8080}
 up() { for i in $(seq 1 90); do [ "$(curl -s -o /dev/null -w '%{http_code}' "$app_url/login.html")" = 200 ] && return 0; sleep 2; done; return 1; }
 
 t0=$(date +%s)

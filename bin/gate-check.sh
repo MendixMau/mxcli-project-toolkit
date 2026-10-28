@@ -934,7 +934,26 @@ check_stage_2() {
   fi
   case "$(printf '%s' "$first" | tr '[:upper:]' '[:lower:]')" in
     clean|clean[^a-z0-9]*)
-      echo "PASS|brd/*.brd.json present, Stop condition reads \"$first\"" ;;
+      # Facts lock (brd-generation.md "Running BRDs in parallel"). With 2+ BRDs a frozen identifier
+      # that a BRD spells differently is a FAIL; no lock yet is a note, never a FAIL. WHY
+      # (2026-10-28): facts-lock.sh reached 1 of 6 projects as advice; 20 parallel BRDs on
+      # PROJECT-C carried 10 casing conflicts into Stage 3 as "open questions".
+      local nbrd fl_out fl_dev fl_note=""
+      nbrd=$(find "$brd_dir" -maxdepth 1 -name '*.brd.json' 2>/dev/null | wc -l | tr -d ' ')
+      if [ "${nbrd:-0}" -ge 2 ] && [ -f "$TOOLKIT_DIR/bin/facts-lock.sh" ]; then
+        if [ -f "$PROJECT_DIR/analysis/facts.lock.json" ]; then
+          fl_out=$(bash "$TOOLKIT_DIR/bin/facts-lock.sh" "$PROJECT_DIR" check 2>&1)
+          fl_dev=$(printf '%s\n' "$fl_out" | grep -c '^  DEVIATION' || true)
+          if [ "${fl_dev:-0}" -gt 0 ]; then
+            echo "FAIL|$fl_dev BRD identifier(s) contradict analysis/facts.lock.json, e.g.$(printf '%s\n' "$fl_out" | grep -m1 '^  DEVIATION' | sed 's/^  DEVIATION//') — fix the BRD to the lock's spelling (bin/facts-lock.sh <project> check lists all)"
+            return
+          fi
+          printf '%s\n' "$fl_out" | grep -q '^  UNFROZEN' && fl_note="; facts lock: contested identifiers left (bin/facts-lock.sh <project> resolve)"
+        else
+          fl_note="; no facts lock for $nbrd BRDs (bin/facts-lock.sh <project> build, then resolve)"
+        fi
+      fi
+      echo "PASS|brd/*.brd.json present, Stop condition reads \"$first\"$fl_note" ;;
     *)
       echo "FAIL|'## Stop condition' in $validation reads \"$first\" — it must START with \"Clean\"; a report that merely contains the word (\"NOT clean, 14 findings\") is not a clean stop" ;;
   esac

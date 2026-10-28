@@ -1634,7 +1634,10 @@ gate_kind_decide() {
     elif [ -z "$_gk_checks" ] || [ -z "$_gk_java" ]; then GATE_KIND_WHY="no full build recorded yet"
     elif [ "$_gk_java" != "$(_gk_java_fp)" ]; then GATE_KIND_WHY="Java/JavaScript/theme/widgets changed since the last full build"
     elif ls "$PROJECT_ROOT"/javasource/*/actions/*.java >/dev/null 2>&1 \
-         && grep -Eiq '^[[:space:]]*(drop|rename)[[:space:]]|^[[:space:]]*alter[[:space:]].*[[:space:]](drop|rename)[[:space:]]' "$SCRIPT" 2>/dev/null; then
+         && grep -Ei '^[[:space:]]*(drop|rename)[[:space:]]|^[[:space:]]*alter[[:space:]].*[[:space:]](drop|rename)[[:space:]]' "$SCRIPT" 2>/dev/null \
+            | grep -Eiqv '[[:space:]]if[[:space:]]+exists[[:space:]]'; then
+      # `drop … if exists X` is the re-runnable re-create idiom (X is created again below it),
+      # not a removal: counting it forced a full build on 3 of 23 ordinary scripts (E1, 2026-10-28).
       GATE_KIND_WHY="the project has Java actions and this script drops or renames something"
     elif [ "$_gk_checks" -ge 4 ] 2>/dev/null; then GATE_KIND_WHY="every 5th exec is a full build"
     else GATE_KIND=check; GATE_KIND_WHY="check-only pass $((_gk_checks + 1)) of 4 before the next full build"

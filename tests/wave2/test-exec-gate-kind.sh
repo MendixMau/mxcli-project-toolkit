@@ -94,6 +94,8 @@ JFP=$( cd "$P" && . "$TK/project-bin/_common.sh" && PROJECT_ROOT="$P" SCRIPT=/de
 printf 'checks 1\njava %s\n' "$JFP" > "$P/.claude/loop/gate-kind.state"
 out=$(decide "$WORK/add.mdl"); case "$out" in check\|*) ok "K6c: state recorded → check ($out)" ;; *) bad "K6c" "$out" ;; esac
 out=$(decide "$WORK/drop.mdl"); case "$out" in "full|the project has Java actions"*) ok "K6d: drop with Java actions → full" ;; *) bad "K6d" "$out" ;; esac
+printf 'drop microflow if exists Mod.ACT_X;\ncreate microflow Mod.ACT_X () begin end;\n' > "$WORK/recreate.mdl"
+out=$(decide "$WORK/recreate.mdl"); case "$out" in check\|*) ok "K6k: drop … if exists (re-create idiom) stays check" ;; *) bad "K6k" "$out" ;; esac
 out=$(decide "$WORK/add.mdl" 1); case "$out" in "full|--patch"*) ok "K6e: --patch → full" ;; *) bad "K6e" "$out" ;; esac
 printf 'checks 4\njava %s\n' "$JFP" > "$P/.claude/loop/gate-kind.state"
 out=$(decide "$WORK/add.mdl"); case "$out" in "full|every 5th"*) ok "K6f: 4 checks since the last full build → full" ;; *) bad "K6f" "$out" ;; esac

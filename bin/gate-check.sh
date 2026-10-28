@@ -948,7 +948,7 @@ check_stage_2() {
             echo "FAIL|$fl_dev BRD identifier(s) contradict analysis/facts.lock.json, e.g.$(printf '%s\n' "$fl_out" | grep -m1 '^  DEVIATION' | sed 's/^  DEVIATION//') — fix the BRD to the lock's spelling (bin/facts-lock.sh <project> check lists all)"
             return
           fi
-          printf '%s\n' "$fl_out" | grep -q '^  UNFROZEN' && fl_note="; facts lock: contested identifiers left (bin/facts-lock.sh <project> resolve)"
+          grep -q -- '^  UNFROZEN' <<<"$fl_out" && fl_note="; facts lock: contested identifiers left (bin/facts-lock.sh <project> resolve)"
         else
           fl_note="; no facts lock for $nbrd BRDs (bin/facts-lock.sh <project> build, then resolve)"
         fi

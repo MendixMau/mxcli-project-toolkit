@@ -514,7 +514,7 @@ HDR2
   # The gate cell is read from GATE_STATE rather than passed in, so no caller
   # can omit it — a blank cell in this table reads as "fine", which is the exact
   # false-green the gate exists to prevent.
-  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${SCAN_NOTE:+ · $SCAN_NOTE}${RESTATE_NOTE:+ · $RESTATE_NOTE}${GATE_NOTE:+ · $GATE_NOTE}${MXB_LOG_NOTE:+ · $MXB_LOG_NOTE}${HV_NOTE:+ · $HV_NOTE}$_EXEC_APPROVAL_SUFFIX${STEP_TIMES:+ · steps: $STEP_TIMES}"
+  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${SCAN_NOTE:+ · $SCAN_NOTE}${ROWS_NOTE:+ · $ROWS_NOTE}${RESTATE_NOTE:+ · $RESTATE_NOTE}${GATE_NOTE:+ · $GATE_NOTE}${MXB_LOG_NOTE:+ · $MXB_LOG_NOTE}${HV_NOTE:+ · $HV_NOTE}$_EXEC_APPROVAL_SUFFIX${STEP_TIMES:+ · steps: $STEP_TIMES}"
   printf '| %s | `%s` | %s | %s | %s |\n' \
     "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$LOG_NAME" \
     "${GATE_STATE:-not-run}" "$1" "$_detail" >> "$BUILD_LOG"
@@ -604,6 +604,28 @@ if [ "$PATCH_MODE" != "1" ]; then
         esac ;;
       *) echo "⚠ STOP-row scan could not run (exit $_scan_rc): $_scan_out" >&2 ;;
     esac
+  fi
+fi
+
+# ── Row-group gate (run 3, 2026-10-27) ──────────────────────────────────────
+# bin/row-groups.sh check: low-risk build-plan rows of one group go in ONE script; a high-risk row
+# (security, agents, workflow, REST, Java, changes to built documents) goes alone. Runs here, before
+# the lock and the snapshot, for every caller of exec.sh, agent or person. Run 2 arm C paid ~2 min of
+# instruments per exec on 147 rows. No build plan, or a script that names no row: skipped.
+# Override, with a reason that lands in the BUILD-LOG row: MXTK_ROWS_OVERRIDE="<why>".
+ROWS_NOTE=""
+if [ "$PATCH_MODE" != "1" ] && [ -x "$PROJECT_ROOT/bin/row-groups.sh" ]; then
+  _rg_rc=0; _rg_out="$("$PROJECT_ROOT/bin/row-groups.sh" check "$SCRIPT" 2>&1)" || _rg_rc=$?
+  if [ "$_rg_rc" = 1 ]; then
+    echo "$_rg_out"
+    if [ -z "${MXTK_ROWS_OVERRIDE:-}" ]; then
+      echo "✗ Row-group gate: refusing exec. NOTHING was locked, snapshotted or written."
+      echo "  See the groups: bin/row-groups.sh. Override with a reason: MXTK_ROWS_OVERRIDE=\"<why>\" ./bin/exec.sh $SCRIPT"
+      log_build "🚫 blocked" "row-group gate: $(printf '%s' "$_rg_out" | head -1 | tr '|' '/' | cut -c1-200) — nothing written"
+      exit 1
+    fi
+    echo "⚠ Row-group gate OVERRIDDEN: ${MXTK_ROWS_OVERRIDE}" >&2
+    ROWS_NOTE="rows override: $(printf '%s' "$MXTK_ROWS_OVERRIDE" | tr '|' '/')"
   fi
 fi
 
@@ -972,6 +994,7 @@ fi
 # to stop. ~13 s measured on a 10k-finding project.
 LINT_RC=0; LINT_DETAIL="lint not-run"
 run_lint_gate() {
+  _noadv=""
   if [ -n "${SKIP_LINT:-}" ]; then
     LINT_DETAIL="lint SKIPPED (SKIP_LINT=$SKIP_LINT)"
     echo "  ⚠ lint ratchet skipped: SKIP_LINT=$SKIP_LINT"; return
@@ -1050,12 +1073,65 @@ run_lint_gate() {
          sed -n '/^!! A RULE COULD NOT READ/,/^$/p' "$_lo" | head -12 | sed 's/^/    /'
          echo "    Configure or fix the rule (see the message above); do not re-baseline over it."
        else
-         LINT_DETAIL="lint ROSE: ${_rules:-see output}${_blind:+; BLIND: $_blind}"
-         echo "  ✗ lint: rule(s) rose vs baseline — ${_rules:-see below}"
-         sed -n '/^FAIL/,$p' "$_lo" | head -60 | sed 's/^/    /'
+         # New THIS script (run 3, 2026-10-27). The baseline cannot be refreshed unattended, so
+         # "rose vs baseline" stays true for every later exec once one script adds a finding:
+         # run 2 arm C logged ROSE on 123 of 147 rows and printed ~60 lines each time, and the 6
+         # real SEC010 findings in it went unread. Compare with the previous exec's findings
+         # (.claude/loop/lint-prev-exec.json); only what this script added is printed and counts.
+         IFS= read -r -d '' _thispy <<'PY' || true
+import json, os, sys
+d = sys.argv[1]
+def load(n):
+    try: return {(r, f) for r, fs in (json.load(open(os.path.join(d, n))).get("new_findings") or {}).items() for f in fs}
+    except (OSError, ValueError): return set()
+# Unreadable lint-last.json, or one without a new_findings object: nothing to itemise, so print
+# nothing and let the shell keep the rise as lint-gate returned it (never downgrade to "0 new").
+try:
+    if not isinstance(json.load(open(os.path.join(d, "lint-last.json"))).get("new_findings"), dict): sys.exit(0)
+except (OSError, ValueError, AttributeError): sys.exit(0)
+cur = load("lint-last.json")
+added = cur - load("lint-prev-exec.json")
+# Carried: reported before, still in lint-last (so neither fixed nor accepted into the baseline).
+# Without it a finding an agent ignored once read "0 new" on every later exec (PR #581 review).
+carried = (load("lint-unacked.json") & cur) - added
+new = sorted(added | carried)
+# Rise reported but nothing itemised and no previous exec to explain it: not provably old debt.
+if not new and not os.path.exists(os.path.join(d, "lint-prev-exec.json")): sys.exit(0)
+try:
+    by_r = {}
+    for r, f in new: by_r.setdefault(r, []).append(f)
+    json.dump({"new_findings": by_r}, open(os.path.join(d, "lint-unacked.json"), "w"))
+except OSError:
+    pass
+by = {}
+for r, _ in new: by[r] = by.get(r, 0) + 1
+print(len(new), len(carried), " ".join(f"{r}:{n}" for r, n in sorted(by.items())))
+for r, f in new[:10]: print(f"    {r}  {f[:180]}" + ("   (carried: still unfixed)" if (r, f) in carried else ""))
+if len(new) > 10: print(f"    … {len(new) - 10} more in .claude/loop/lint-last.json")
+PY
+         _thispyexe="${PY:-$(resolve_py 2>/dev/null || true)}"
+         _thisnew=$([ -n "$_thispyexe" ] && "$_thispyexe" -c "$_thispy" "$PROJECT_ROOT/.claude/loop")
+         _thisn=$(printf '%s\n' "$_thisnew" | head -1 | cut -d' ' -f1)
+         _thisc=$(printf '%s\n' "$_thisnew" | head -1 | cut -d' ' -f2)
+         if [ -z "$_thisnew" ]; then
+           _noadv=1   # undiffed rise: keep prev-exec as is, or the next exec reads these as old debt
+           # No Python, or the diff failed: never read that as "0 new". Report the rise vs baseline.
+           LINT_DETAIL="lint rose: ${_rules:-see output} (per-script diff unavailable)"
+           echo "  ✗ lint: rule(s) rose vs baseline — ${_rules:-see below} (per-script diff unavailable)"
+           sed -n '/^FAIL/,$p' "$_lo" | head -60 | sed 's/^/    /'
+         elif [ "${_thisn:-0}" = 0 ]; then
+           LINT_RC=0
+           LINT_DETAIL="lint: 0 new this script (baseline debt: ${_rules:-see lint-last.json})"
+           echo "  ✓ lint: this script added no finding (older debt vs baseline unchanged)"
+         else
+         # "lint rose" stays the wording, as before this change (metrics and readers key on it).
+         LINT_DETAIL="lint rose: +${_thisn} new or unfixed (${_thisc:-0} carried from earlier execs): $(printf '%s\n' "$_thisnew" | head -1 | cut -d' ' -f3-)"
+         echo "  ✗ lint: ${_thisn} finding(s) new this script or still unfixed from an earlier one — read each one:"
+         printf '%s\n' "$_thisnew" | tail -n +2
          echo "    Fix the script and re-run. Accepting the debt is the user's call, made in chat:"
          echo "    bin/lint-gate.sh --update-baseline --reason \"<why>\" (a security-tier rise also"
          echo "    needs --approved-in-chat). The acceptance is logged to .claude/lint-acceptances.tsv."
+         fi
        fi ;;
     *) LINT_DETAIL="lint could not run (lint-gate exit $LINT_RC)"; echo "  ⚠ $LINT_DETAIL"
        tail -5 "$_lo" | sed 's/^/    /' ;;
@@ -1064,6 +1140,8 @@ run_lint_gate() {
   # should know the files changed under them.
   [ -n "$_restored" ] && [ "$LINT_RC" -ne 3 ] && LINT_DETAIL="$LINT_DETAIL; toolkit lint rules auto-restored after a stock re-seed (${_restored})"
   rm -f "$_lo"
+  # The next exec compares against what lint saw now.
+  case "$LINT_RC" in 0|1) [ -n "${_noadv:-}" ] || cp "$PROJECT_ROOT/.claude/loop/lint-last.json" "$PROJECT_ROOT/.claude/loop/lint-prev-exec.json" 2>/dev/null || true ;; esac
 }
 # One place decides the applied-row wording, so both mxbuild-clean branches agree.
 log_applied() {  # $1 = mxbuild detail

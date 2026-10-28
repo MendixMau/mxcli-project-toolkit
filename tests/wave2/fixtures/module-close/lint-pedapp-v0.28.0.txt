@@ -1,0 +1,19 @@
+WARNING: This is a vibe-coded PoC, alpha quality, use with caution.
+Connected to: PedApp.mpr (Mendix 11.13.0)
+Cache invalid: project file modified
+Building catalog (full mode - includes activities/widgets)...
+MyFirstModule
+-------------
+  ⚠ Microflow 'ACT_Empty' has no activities [MPR002]
+      at MyFirstModule.ACT_Empty
+      → Add activities or remove the unused microflow
+
+  ⚠ Microflow name 'do_stuff' should use PascalCase with optional prefix (ACT_, SUB_, DS_, VAL_, SCH_, IVK_, BCO_, ACO_, BCR_, ACR_, BDE_, ADE_, BRO_, ARO_, OCH_, SE_, DL_, PWS_, ASU_, NAV_, LOGIN_) [MPR001]
+      at MyFirstModule.do_stuff
+      → DoStuff
+
+  ⚠ Microflow 'do_stuff' has no activities [MPR002]
+      at MyFirstModule.do_stuff
+      → Add activities or remove the unused microflow
+
+3 issues: 0 errors, 3 warnings, 0 info

@@ -70,6 +70,11 @@ BUGS_OUT="$INBOX/$STAMP-$PROJECT_NAME-bugs.md"
 FOUND_BUGS=0
 if [ -d "$PROJECT_DIR/bug-logs" ]; then
   TMP="$(mktemp)"
+  # A heading is stripped of ~ * ` before it is matched (below), so the log it is matched against is
+  # stripped the same way. Without that, a heading the toolkit log carries with a backtick in its
+  # first 30 characters never matched, and was drafted again.
+  BUGLOG_PLAIN="$(mktemp)"
+  tr -d '~*`' < "$TOOLKIT_BUGLOG" > "$BUGLOG_PLAIN" 2>/dev/null
   find "$PROJECT_DIR/bug-logs" -name '*.md' -type f | sort | while IFS= read -r f; do
     # Split the file on '## ' headings; test each heading's distinctive text against the
     # toolkit log. awk emits candidate sections whole, delimited for the outer loop.
@@ -86,7 +91,8 @@ if [ -d "$PROJECT_DIR/bug-logs" ]; then
       # measured: personal-toolkit and the toolkit disagree from 82 up), then take 30 chars.
       slice="$(printf '%s' "$heading" | sed -E 's/^BUG-[0-9]+[: ]*//' | cut -c1-30)"
       [ -n "$slice" ] || continue
-      if ! grep -qiF "$slice" "$TOOLKIT_BUGLOG" 2>/dev/null; then
+      # -e: stripping can leave a slice that starts with "-", which grep would read as an option.
+      if ! grep -qiF -e "$slice" "$BUGLOG_PLAIN" 2>/dev/null; then
         { printf '## [candidate — from %s] %s\n' "${f#$PROJECT_DIR/}" "$heading"
           printf '%s' "$section" | tail -n +2
           printf '\n'; } >> "$TMP"
@@ -99,7 +105,7 @@ if [ -d "$PROJECT_DIR/bug-logs" ]; then
     FOUND_BUGS=1; WROTE=$((WROTE + 1))
     echo "  wrote ${BUGS_OUT#$TOOLKIT_ROOT/}"
   fi
-  rm -f "$TMP"
+  rm -f "$TMP" "$BUGLOG_PLAIN"
 fi
 [ "$FOUND_BUGS" -eq 1 ] || echo "  bug-logs: nothing the toolkit log doesn't already carry (or no bug-logs/)"
 

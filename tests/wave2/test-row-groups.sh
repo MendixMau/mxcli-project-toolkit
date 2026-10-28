@@ -11,6 +11,7 @@
 #   G1  real plan, no opt-in: no script name in it is refused (16-cutover.mdl was, as row 16)
 #   G2  `-- rows:` header: the split-group refusal still works on the real plan
 #   G3  `Row groups: on`: a file-name number is read as the row again
+#   G4  `Row groups: on` but the script names no BUILD row: exit 4, the `-- rows:` hint exec.sh prints
 #   S1  built = an explicit built/done/applied State; planned, **blocked**, partial, empty are not
 #   M1  module close: the report must record 0 lint findings for the module, or a filled LOOK row
 set -uo pipefail
@@ -60,6 +61,15 @@ chk "$P3" "14-snippets.mdl" "create snippet ..."
 printf '# Project\n\n- Row groups: off\n' > "$P3/PROJECT.md"
 chk "$P3" "14-snippets.mdl" "create snippet ..."
 [ "$rc" = 3 ] && ok "G3: Row groups: off → not checked" || bad "G3 off: rc=$rc" "$out"
+printf '# Project\n\n- Row groups: on — CONFIRMED\n' > "$P3/PROJECT.md"
+chk "$P3" "999-cleanup.mdl" "create microflow ..."
+{ [ "$rc" = 4 ] && printf '%s' "$out" | grep -q -- '-- rows: N'; } \
+  && ok "G4: Row groups: on, a script numbered past the plan → exit 4 with the -- rows: hint" || bad "G4 numbered: rc=$rc" "$out"
+chk "$P3" "cleanup.mdl" "create microflow ..."
+[ "$rc" = 4 ] && ok "G4: Row groups: on, an unnumbered script → exit 4 hint" || bad "G4 unnumbered: rc=$rc" "$out"
+printf '# Project\n\n- Row groups: off\n' > "$P3/PROJECT.md"
+chk "$P3" "999-cleanup.mdl" "create microflow ..."
+[ "$rc" = 3 ] && ok "G4: Row groups: off, same script → still exit 3, no hint" || bad "G4 off: rc=$rc" "$out"
 
 echo "== S1 what counts as built"
 plan_states() {  # $1 $2 $3 = states of rows 1..3 (one low group)

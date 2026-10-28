@@ -626,6 +626,10 @@ if [ "$PATCH_MODE" != "1" ] && [ -x "$PROJECT_ROOT/bin/row-groups.sh" ]; then
     fi
     echo "⚠ Row-group gate OVERRIDDEN: ${MXTK_ROWS_OVERRIDE}" >&2
     ROWS_NOTE="rows override: $(printf '%s' "$MXTK_ROWS_OVERRIDE" | tr '|' '/')"
+  elif [ "$_rg_rc" = 4 ]; then
+    # Opted in, but the script names no plan row: a reminder, never a refusal.
+    echo "⚠ $_rg_out"
+    ROWS_NOTE="rows: no -- rows: header (not grouped)"
   fi
 fi
 

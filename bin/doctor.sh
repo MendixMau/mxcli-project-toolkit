@@ -439,6 +439,32 @@ case "${BASH_VERSION:-0}" in
   3.*) note "bash 3.2 (the macOS system bash). Scripts here are written for it; nothing to do." ;;
 esac
 
+# Process-start cost (#584/#585). Every toolkit script is many small process starts; exec.sh
+# alone makes hundreds. On a Windows machine whose antivirus scans each start, one start cost
+# 58-94 ms (vs ~1-3 ms on Linux/macOS), about 69 s of bookkeeping per exec before any build.
+# 20 starts of /bin/true (or `true` on PATH) measured with one clock read each side.
+_spawn_ms=""
+if command -v date >/dev/null 2>&1 && _t0=$(date +%s%N 2>/dev/null) && [ "${_t0%N}" = "$_t0" ]; then
+  _i=0; _tbin="$(command -v true 2>/dev/null)"; case "$_tbin" in /*) ;; *) _tbin=/bin/true ;; esac
+  while [ $_i -lt 20 ]; do "$_tbin"; _i=$((_i + 1)); done
+  _t1=$(date +%s%N); _spawn_ms=$(( (_t1 - _t0) / 20000000 ))
+elif [ -n "${EPOCHREALTIME:-}" ]; then
+  _t0=${EPOCHREALTIME/[.,]/}; _i=0
+  while [ $_i -lt 20 ]; do /bin/true 2>/dev/null || true; _i=$((_i + 1)); done
+  _t1=${EPOCHREALTIME/[.,]/}; _spawn_ms=$(( (_t1 - _t0) / 20000 ))
+fi
+if [ -z "$_spawn_ms" ]; then
+  note "process start cost: not measured (no sub-second clock in this shell)"
+elif [ "$_spawn_ms" -gt "${MXTK_SPAWN_WARN_MS:-30}" ]; then
+  warn "process start cost: ${_spawn_ms} ms each (fast machines: under 5 ms). Toolkit scripts start many"
+  note "processes, so each exec spends roughly a minute just starting them. Usual cause on Windows:"
+  note "antivirus scanning every start. Ask IT for Microsoft Defender exclusions (processes or folders) for:"
+  note "  this project folder, Git for Windows' usr\\bin, the JDK, and ~/.mxcli; or run the toolkit in"
+  note "  WSL2 / a dev container, where starts are cheap."
+else
+  ok "process start cost: ${_spawn_ms} ms each"
+fi
+
 # --- environment lane -------------------------------------------------------------------------
 # Where this session runs decides the write modes available (CONVERSION-RUNBOOK.md → "Where you
 # run this"). It is DETECTED, never asked: the agent records the answer in PROJECT.md and moves on.

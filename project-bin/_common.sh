@@ -482,6 +482,10 @@ print('file:'+u.pathname2url(os.path.abspath(sys.argv[1]))+'?mode=ro')" "$1" | t
 # ---------------------------------------------------------------------------
 mxtk_model_version() {
   local mpr="${1:-}" v="" py
+  # Memo: exec.sh exports MXTK_MODEL_VERSION once per run, so the many find_mxbuild calls
+  # in one exec (and the scripts it starts) do not each spawn sqlite3/python (#584: a
+  # process start costs 58-94 ms on a Defender-scanned Windows machine).
+  if [ -z "$mpr" ] && [ -n "${MXTK_MODEL_VERSION:-}" ]; then printf '%s\n' "$MXTK_MODEL_VERSION"; return 0; fi
   [ -n "$mpr" ] || mpr="$(find_mpr 2>/dev/null)" || return 1
   [ -f "$mpr" ] || return 1
   if command -v sqlite3 >/dev/null 2>&1; then
@@ -809,6 +813,12 @@ sys.exit(0 if m and all(ok.match(x) and not re.search(r"CE[0-9]{4}", x) for x in
 mxtk_gate_mxbuild() {
   local _mpr="$1" _timeout="${2:-0}" _ef="$3" _rc=0
   MXTK_GATE_RETRY_NOTE=""; MXTK_GATE_FIRST_OUT=""; MXTK_GATE_FIRST_EXIT=""
+  # MXTK_GATE_KIND=check (set by exec.sh's gate-kind decision): `mx check` instead of a
+  # deploy build. No infra retry: mx check has no deploy stage to collide on.
+  if [ "${MXTK_GATE_KIND:-full}" = "check" ]; then
+    mxtk_mx_check_error_count "$_mpr" "$_timeout" "$_ef" >/dev/null || _rc=$?
+    return "$_rc"
+  fi
   mxtk_pause_watchers "${PROJECT_ROOT:-$(dirname "$_mpr")}"
   mxtk_mxbuild_error_count "$_mpr" "$_timeout" "$_ef" >/dev/null || _rc=$?
   case "${MXTK_MXBUILD_EXIT:-}" in
@@ -969,6 +979,87 @@ def one(e):
   m=re.search(r'error: ([^\\n]+)',e.get('details','') or '')
   return e.get('message','')+(' ('+m.group(1).strip()+')' if m else '')
 print('; '.join(one(e) for e in d.get('errors',[]) or [])[:300])" 2>/dev/null || true
+}
+
+# ---------------------------------------------------------------------------
+# Check-only gate (opt-in: `Gate mode: check` in PROJECT.md; exec.sh decides per exec).
+#
+# `mx check` ships next to mxbuild and runs the same model consistency checks (CE codes) in
+# ~12 s where a deploy build takes 18-165 s, because it skips the Java compile and the deploy
+# packaging. What it cannot see is exactly that: Java compile errors, including a model change
+# that breaks a generated proxy a Java action uses. exec.sh therefore still runs the full build
+# when those can change (mxtk_gate_kind_decide in exec.sh) — this is the cheap path only.
+# WHY (#584/#585, Windows field reports): mxbuild was the largest single cost per exec there.
+#
+# mxtk_find_mx — the `mx` tool beside the resolved mxbuild (same version by construction).
+mxtk_find_mx() {
+  local _mb _d _c
+  _mb="${MXBUILD_PATH:-$(find_mxbuild 2>/dev/null || true)}"
+  [ -n "$_mb" ] || return 1
+  _d="$(dirname "$_mb")"
+  for _c in "$_d/mx" "$_d/mx.exe"; do [ -x "$_c" ] && { echo "$_c"; return 0; }; done
+  return 1
+}
+
+# mxtk_mx_check_to_mxbuild <mx-check.json> <out.json> [python] — rewrite `mx check -j` output
+# into the mxbuild --write-errors shape exec.sh's err_set/err_report/err_codes read:
+#   {"errors":[...],"problems":[{"severity":"Error","errorCode","message","locations":[{module,document,element}]}]}
+# Golden input: tests/wave2/fixtures/mx-check/mx-check-11.13.0-CE1613.json (captured, mx 11.13.0).
+mxtk_mx_check_to_mxbuild() {
+  local _py="${3:-${PY:-$(resolve_py 2>/dev/null || true)}}"
+  [ -n "$_py" ] || return 1
+  "$_py" -c "import json,sys
+d=json.load(open(sys.argv[1]))
+def loc(l): return {'module':l.get('module-name',''),'document':l.get('document-name',''),'element':l.get('element-name','')}
+probs=[{'severity':'Error','errorCode':e.get('code',''),'message':e.get('message',''),
+        'locations':[loc(l) for l in e.get('locations') or []]} for e in d.get('errors') or []]
+json.dump({'errors':[],'problems':probs,'source':'mx check'},open(sys.argv[2],'w'))
+print(len(probs))" "$(native_path "$1")" "$(native_path "$2")" 2>/dev/null
+}
+
+# mxtk_mx_check_error_count <mpr> <timeout-seconds> [errors-file] — mxtk_mxbuild_error_count's
+# contract (same globals, same return codes, same printed count), backed by `mx check -j`.
+# The errors file it leaves is in mxbuild's shape (mxtk_mx_check_to_mxbuild), so every reader
+# downstream is unchanged. A run that produced no JSON is "?" with the output tail in
+# MXTK_MXBUILD_WHY — never 0.
+mxtk_mx_check_error_count() {
+  local _mpr="$1" _timeout="${2:-300}" _ef="${3:-}" _own_ef=0
+  local _mx _out _js _pid _waited=0 _exit=0 _count
+  MXTK_MXBUILD_OUT=""; MXTK_MXBUILD_EXIT=""; MXTK_MXBUILD_WHY=""
+  _mx="$(mxtk_find_mx)" || { echo "?"; return 2; }
+  if [ -z "$_ef" ]; then _ef=$(mktemp /tmp/mxcheck-errors.XXXXXX) || { echo "?"; return 2; }; _own_ef=1; fi
+  _out=$(mktemp /tmp/mxcheck-out.XXXXXX) || { echo "?"; return 2; }
+  _js=$(mktemp /tmp/mxcheck-json.XXXXXX) || { rm -f "$_out"; echo "?"; return 2; }
+  rm -f "$_js"   # mx writes the file itself; an empty pre-existing one would read as "no output"
+  "$_mx" check "$_mpr" -j "$(native_path "$_js")" > "$_out" 2>&1 < /dev/null &
+  _pid=$!
+  while kill -0 "$_pid" 2>/dev/null; do
+    if [ "$_timeout" -gt 0 ] && [ "$_waited" -ge "$_timeout" ]; then
+      kill "$_pid" 2>/dev/null; wait "$_pid" 2>/dev/null
+      MXTK_MXBUILD_OUT=$(cat "$_out" 2>/dev/null); rm -f "$_out" "$_js"
+      MXTK_MXBUILD_EXIT=124; [ "$_own_ef" -eq 1 ] && rm -f "$_ef"
+      echo "?"; return 3
+    fi
+    sleep 1; _waited=$((_waited + 1))
+  done
+  wait "$_pid" || _exit=$?
+  MXTK_MXBUILD_OUT=$(cat "$_out" 2>/dev/null); rm -f "$_out"
+  MXTK_MXBUILD_EXIT="$_exit"
+  if [ -s "$_js" ]; then _count=$(mxtk_mx_check_to_mxbuild "$_js" "$_ef"); fi
+  rm -f "$_js"
+  [ "$_own_ef" -eq 1 ] && rm -f "$_ef"
+  case "${_count:-}" in
+    ''|*[!0-9]*)
+      MXTK_MXBUILD_WHY="mx check wrote no readable JSON (exit $_exit): $(printf '%s' "$MXTK_MXBUILD_OUT" | tail -3 | tr '\n' ' ' | cut -c1-240)"
+      echo "?"; return 1 ;;
+  esac
+  # exit 1 with errors is the normal "model has errors" answer; any other non-zero exit
+  # with 0 errors means mx did not check the model.
+  if [ "$_count" = "0" ] && [ "$_exit" -ne 0 ]; then
+    MXTK_MXBUILD_WHY="mx check exited $_exit with no errors listed: $(printf '%s' "$MXTK_MXBUILD_OUT" | tail -3 | tr '\n' ' ' | cut -c1-240)"
+    echo "?"; return 1
+  fi
+  echo "$_count"; return 0
 }
 
 # project_name — the .mpr basename without extension, for user-facing messages.

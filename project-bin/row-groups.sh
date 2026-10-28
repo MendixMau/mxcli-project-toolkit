@@ -33,6 +33,7 @@
 #     The remedy is never blocked: run bin/module-close.sh <Module>, fix and re-run, or fill the table.
 # Override, with a reason that lands in the BUILD-LOG row: MXTK_ROWS_OVERRIDE="<why>".
 # exit 0 pass, 1 refused, 3 nothing to check (no plan, no rows header and no opt-in, or no BUILD row).
+# exit 4: `Row groups: on` but the script names no BUILD row; exec.sh prints the hint, never refuses.
 #
 # WHY (run 2, 2026-10-26, arm C). 147 build-plan rows ran as ~137 scripts and ~185 execs; each exec
 # paid check, snapshot, baseline mxbuild, apply, mxbuild gate (~2 min of instruments). A prompt rule
@@ -155,13 +156,22 @@ except OSError:
 if mine is None and not optin:
     print("row-groups: script has no `-- rows:` header and PROJECT.md does not say `Row groups: on` — not checked")
     sys.exit(3)
+# Opted in, but the script names no BUILD row of the plan: exit 4, a reminder exec.sh prints and
+# lets through. WHY (A/B 2026-10-27, purchase-requests app): with `Row groups: on` every script was
+# numbered on its own sequence (052-…, 076-…) and none carried a header, so all 31 read "not
+# checked" and the run never grouped a row; exit 3 said nothing anyone saw.
+OPTIN_HINT = ("row-groups: `Row groups: on`, but this script names no build-plan BUILD row, so it was not "
+              "checked or grouped. Start the script with `-- rows: N` (or `-- rows: N,M,…` for a group); "
+              "bin/row-groups.sh lists the groups.")
 if mine is None:
     m = re.match(r"(\d+)(?:-(\d+)(?=-))?-", os.path.basename(script))
-    if not m: print("row-groups: script names no row — not checked"); sys.exit(3)
+    if not m: print(OPTIN_HINT); sys.exit(4)
     a, b = int(m.group(1)), int(m.group(2) or m.group(1))
     mine = set(range(a, b + 1)) if b >= a else {a}
 mine &= {n for n, k, *_ in rows if k == "BUILD"}
-if not mine: print("row-groups: script names no BUILD row — not checked"); sys.exit(3)
+if not mine:
+    if optin: print(OPTIN_HINT); sys.exit(4)
+    print("row-groups: script names no BUILD row — not checked"); sys.exit(3)
 
 problems = []
 for risk, ns in groups:

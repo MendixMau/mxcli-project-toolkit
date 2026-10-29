@@ -1605,25 +1605,19 @@ fi
 #   - javasource/ javascriptsource/ theme/ userlib/ widgets/ changed since the last full build;
 #   - the project has Java actions and this script drops or renames something (a generated
 #     proxy a Java action uses can break);
-#   - 4 check-only passes since the last full build (every 5th exec is full);
-#   - no full build recorded yet in this clone, --patch (opaque), or no `mx` beside mxbuild.
-# module-close.sh runs its own full build (mxcli docker check) at every module close.
+#   - no full build recorded yet in this clone, --patch (opaque), or no `mx` beside mxbuild;
+#   - a backstop: MXTK_CHECK_MAX (default 10) check-only passes in a row.
+# The other full builds sit at the work's natural boundaries, as in mxcli's own advice ("mx check
+# after every exec", mxbuild when packaging) and Mendix CI practice (one build per push): the
+# pre-push hook (install-project-hooks.sh) and module-close.sh run bin/verify-model.sh when the
+# stamp says the model was only `mx check`ed, and bin/verify-model.sh closes a batch on demand.
 # State: .claude/loop/gate-kind.state ("checks <n>" and "java <fingerprint>"), machine-local.
 _GK_STATE="$PROJECT_ROOT/.claude/loop/gate-kind.state"
 gate_kind_decide() {
   GATE_KIND=full; GATE_KIND_WHY=""
   # javasource/*/proxies/ is excluded: mxbuild regenerates those from the model on every
   # full build, so counting them made each full build look like a Java change (field run).
-  # Content, not git state: committing an unchanged file must not read as a Java change.
-  # javasource/*/proxies/ is excluded: mxbuild regenerates it from the model on every full
-  # build, so counting it made each full build look like a Java change (field run).
-  _gk_java_fp() {
-    ( cd "$PROJECT_ROOT" 2>/dev/null || exit 0
-      _l="$(git ls-files -co --exclude-standard -- javasource javascriptsource theme userlib widgets 2>/dev/null \
-            | grep -v '^javasource/[^/]*/proxies/' || true)"
-      { printf '%s\n' "$_l"; [ -z "$_l" ] || printf '%s\n' "$_l" | git hash-object --stdin-paths 2>/dev/null; } \
-        | cksum | awk '{print $1}' )
-  }
+  _gk_java_fp() { mxtk_java_fp "$PROJECT_ROOT"; }
   _gk_mode="${MXTK_GATE_MODE:-}"
   [ -n "$_gk_mode" ] || _gk_mode="$(sed -n 's/^[*_ ]*Gate mode:[*_ ]*\([A-Za-z]*\).*/\1/p' "$PROJECT_ROOT/PROJECT.md" 2>/dev/null | head -1 | tr 'A-Z' 'a-z')"
   if [ "$_gk_mode" = "check" ]; then
@@ -1639,8 +1633,8 @@ gate_kind_decide() {
       # `drop … if exists X` is the re-runnable re-create idiom (X is created again below it),
       # not a removal: counting it forced a full build on 3 of 23 ordinary scripts (E1, 2026-10-28).
       GATE_KIND_WHY="the project has Java actions and this script drops or renames something"
-    elif [ "$_gk_checks" -ge 4 ] 2>/dev/null; then GATE_KIND_WHY="every 5th exec is a full build"
-    else GATE_KIND=check; GATE_KIND_WHY="check-only pass $((_gk_checks + 1)) of 4 before the next full build"
+    elif [ "$_gk_checks" -ge "${MXTK_CHECK_MAX:-10}" ] 2>/dev/null; then GATE_KIND_WHY="backstop: ${MXTK_CHECK_MAX:-10} check-only passes in a row"
+    else GATE_KIND=check; GATE_KIND_WHY="check-only pass $((_gk_checks + 1)); full build before push, at module close, or bin/verify-model.sh"
     fi
   fi
 }
@@ -2298,7 +2292,7 @@ fi
 # is no longer the one anything verified.
 if [ -x ./bin/model-stamp.sh ]; then
   if [ "$GATE_STATE" = "pass" ] && [ "$EXEC_STATUS" -eq 0 ]; then
-    MXTK_STAMP_ERRORS="$GATE_ERRORS" ./bin/model-stamp.sh write pass "exec.sh $([ "$PATCH_MODE" = 1 ] && echo '--patch ')$(basename "$SCRIPT")$([ "$GATE_KIND" = check ] && echo ' (mx check)')" || true
+    MXTK_STAMP_KIND="$GATE_KIND" MXTK_STAMP_ERRORS="$GATE_ERRORS" ./bin/model-stamp.sh write pass "exec.sh $([ "$PATCH_MODE" = 1 ] && echo '--patch ')$(basename "$SCRIPT")$([ "$GATE_KIND" = check ] && echo ' (mx check)')" || true
   else
     ./bin/model-stamp.sh clear >/dev/null 2>&1 || true
   fi

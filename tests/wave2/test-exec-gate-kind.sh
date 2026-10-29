@@ -12,7 +12,10 @@
 #   K4  mx writes no JSON: "?" with the reason, never 0
 #   K5  mxtk_gate_mxbuild with MXTK_GATE_KIND=check runs mx, not mxbuild
 #   K6  gate_kind_decide: default full; check mode → full until a full build is recorded, then
-#       check; full again on the 5th, on a Java change, on a drop with Java actions, on --patch
+#       check; full again after MXTK_CHECK_MAX (10) checks, on a Java change, on a real drop with
+#       Java actions, on --patch
+#   K7  model-stamp kind: a check stamp passes `check` but not `check --full`; no kind line = full
+#   K8  pre-push hook: full build only when the stamp says mx check; refuses on errors
 set -uo pipefail
 EXEC="${1:?usage: test-exec-gate-kind.sh /path/to/exec.sh}"
 TK="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -98,7 +101,9 @@ printf 'drop microflow if exists Mod.ACT_X;\ncreate microflow Mod.ACT_X () begin
 out=$(decide "$WORK/recreate.mdl"); case "$out" in check\|*) ok "K6k: drop … if exists (re-create idiom) stays check" ;; *) bad "K6k" "$out" ;; esac
 out=$(decide "$WORK/add.mdl" 1); case "$out" in "full|--patch"*) ok "K6e: --patch → full" ;; *) bad "K6e" "$out" ;; esac
 printf 'checks 4\njava %s\n' "$JFP" > "$P/.claude/loop/gate-kind.state"
-out=$(decide "$WORK/add.mdl"); case "$out" in "full|every 5th"*) ok "K6f: 4 checks since the last full build → full" ;; *) bad "K6f" "$out" ;; esac
+out=$(decide "$WORK/add.mdl"); case "$out" in check\|*) ok "K6f: 4 checks in a row → still check (no every-5th rule)" ;; *) bad "K6f" "$out" ;; esac
+printf 'checks 10\njava %s\n' "$JFP" > "$P/.claude/loop/gate-kind.state"
+out=$(decide "$WORK/add.mdl"); case "$out" in "full|backstop: 10"*) ok "K6f2: 10 check-only passes in a row → full (backstop)" ;; *) bad "K6f2" "$out" ;; esac
 printf 'checks 1\njava %s\n' "$JFP" > "$P/.claude/loop/gate-kind.state"
 echo 'class A { int x; }' > "$P/javasource/Mod/actions/A.java"
 out=$(decide "$WORK/add.mdl"); case "$out" in "full|Java/JavaScript"*) ok "K6g: Java edited since the last full build → full" ;; *) bad "K6g" "$out" ;; esac
@@ -110,6 +115,39 @@ out=$(MXTK_GATE_MODE=full decide "$WORK/add.mdl"); [ "$out" = "full|" ] && ok "K
 mv "$T/mx" "$T/mx.off"
 out=$(decide "$WORK/add.mdl"); case "$out" in "full|no mx tool"*) ok "K6i: no mx beside mxbuild → full" ;; *) bad "K6i" "$out" ;; esac
 mv "$T/mx.off" "$T/mx"
+
+echo "K7 stamp kind"
+S="$WORK/stamp"; mkdir -p "$S/bin" "$S/.claude"; cp "$TK/project-bin/model-stamp.sh" "$TK/project-bin/_common.sh" "$S/bin/"
+( cd "$S" && git init -q && git config user.email t@example.invalid && git config user.name t && printf 'm' > App.mpr \
+  && mkdir mprcontents && echo u > mprcontents/u && git add -A && git commit -qm i ) >/dev/null 2>&1
+st() { ( cd "$S" && PROJECT_ROOT="$S" "$@" ) >/dev/null 2>&1; }
+st env MXTK_STAMP_KIND=check MXTK_STAMP_ERRORS=0 bash bin/model-stamp.sh write pass "exec.sh x (mx check)"
+st bash bin/model-stamp.sh check -q && ok "K7a: a check stamp passes the plain check (commits allowed)" || bad "K7a"
+st bash bin/model-stamp.sh check -q --full && bad "K7b: check stamp passed --full" || ok "K7b: a check stamp fails --full"
+st env MXTK_STAMP_ERRORS=0 bash bin/model-stamp.sh write pass "verify-model.sh"
+st bash bin/model-stamp.sh check -q --full && ok "K7c: a full stamp passes --full" || bad "K7c"
+sed -i.bak '/^kind: /d' "$S/.claude/.model-verified" 2>/dev/null; rm -f "$S/.claude/.model-verified.bak"
+st bash bin/model-stamp.sh check -q --full && ok "K7d: a stamp with no kind line (older) counts as full" || bad "K7d"
+
+echo "K8 pre-push hook"
+cp "$TK/project-bin/install-project-hooks.sh" "$S/bin/"
+printf '#!/usr/bin/env bash\necho ran > .claude/full-ran; exit "${FAKE_VM_RC:-0}"\n' > "$S/bin/verify-model.sh"; chmod +x "$S/bin/"*.sh
+st bash bin/install-project-hooks.sh
+PPH="$S/.git/hooks/pre-push"
+[ -x "$PPH" ] && ok "K8a: pre-push hook installed" || bad "K8a"
+pp() { ( cd "$S" && echo "refs/heads/m 0 refs/heads/m 0" | "$@" "$PPH" origin x ) >/dev/null 2>&1; }
+rm -f "$S/.claude/full-ran"; pp env; rc=$?
+[ "$rc" = 0 ] && [ ! -e "$S/.claude/full-ran" ] && ok "K8b: no gate-kind state → no-op" || bad "K8b" "rc=$rc"
+mkdir -p "$S/.claude/loop"; echo "checks 1" > "$S/.claude/loop/gate-kind.state"
+st env MXTK_STAMP_KIND=check MXTK_STAMP_ERRORS=0 bash bin/model-stamp.sh write pass "exec.sh x (mx check)"
+rm -f "$S/.claude/full-ran"; pp env; rc=$?
+[ "$rc" = 0 ] && [ -e "$S/.claude/full-ran" ] && ok "K8c: check-only stamp → full build runs, push goes on" || bad "K8c" "rc=$rc"
+rm -f "$S/.claude/full-ran"; pp env FAKE_VM_RC=1; rc=$?
+[ "$rc" = 1 ] && ok "K8d: full build fails → push refused" || bad "K8d" "rc=$rc"
+pp env FAKE_VM_RC=1 MODEL_UNVERIFIED_OK=1; [ $? = 0 ] && ok "K8e: MODEL_UNVERIFIED_OK=1 pushes anyway" || bad "K8e"
+st env MXTK_STAMP_ERRORS=0 bash bin/model-stamp.sh write pass "verify-model.sh"
+rm -f "$S/.claude/full-ran"; pp env FAKE_VM_RC=1; rc=$?
+[ "$rc" = 0 ] && [ ! -e "$S/.claude/full-ran" ] && ok "K8f: full stamp → no build" || bad "K8f" "rc=$rc"
 
 echo
 echo "gate-kind: $PASS passed, $FAIL failed"

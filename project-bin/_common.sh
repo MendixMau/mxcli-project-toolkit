@@ -991,6 +991,18 @@ print('; '.join(one(e) for e in d.get('errors',[]) or [])[:300])" 2>/dev/null ||
 # when those can change (mxtk_gate_kind_decide in exec.sh) — this is the cheap path only.
 # WHY (#584/#585, Windows field reports): mxbuild was the largest single cost per exec there.
 #
+# mxtk_java_fp <project-root> — content fingerprint of the files only a full build compiles
+# (javasource/ javascriptsource/ theme/ userlib/ widgets/). Content, not git state: committing an
+# unchanged file must not read as a change. javasource/*/proxies/ is excluded: mxbuild regenerates
+# it from the model on every full build. exec.sh (gate kind) and verify-model.sh record it.
+mxtk_java_fp() {
+  ( cd "$1" 2>/dev/null || exit 0
+    _l="$(git ls-files -co --exclude-standard -- javasource javascriptsource theme userlib widgets 2>/dev/null \
+          | grep -v '^javasource/[^/]*/proxies/' || true)"
+    { printf '%s\n' "$_l"; [ -z "$_l" ] || printf '%s\n' "$_l" | git hash-object --stdin-paths 2>/dev/null; } \
+      | cksum | awk '{print $1}' )
+}
+
 # mxtk_find_mx — the `mx` tool beside the resolved mxbuild (same version by construction).
 mxtk_find_mx() {
   local _mb _d _c

@@ -1,0 +1,120 @@
+mdl 1;
+/**
+ * Request header form and lines grid. Editable and Save/Add line only while the request is a Draft.
+ */
+create or modify page Purchasing.Request_Edit folder 'Requests' (
+  Title: 'Purchase request',
+  Layout: Purchasing.App_Default,
+  Url: 'request/{Request}',
+  Params: ( $Request: Purchasing.PurchaseRequest )
+) {
+  container pageBody (Class: 'page-column') {
+    dynamictext titleRequest (Content: 'Purchase request', RenderMode: H1, Class: 'page-title')
+    dataview dvState (DataSource: $Request, ReadOnlyStyle: Control) {
+      -- Context: $currentObject (Purchasing.PurchaseRequest)
+      container stateRow (Class: 'actionbar') {
+        dynamictext txtState (
+          Content: '{1}',
+          ContentParams: ({1} = Status),
+          Class: 'badge-ds',
+          DynamicClasses: if $currentObject/Status = Purchasing.RequestStatus.Draft then 'badge-draft' else if $currentObject/Status = Purchasing.RequestStatus.Submitted then 'badge-submitted' else if $currentObject/Status = Purchasing.RequestStatus.Approved then 'badge-approved' else 'badge-rejected'
+        )
+        dynamictext txtRequestNumber (
+          Content: 'Request no. {1}',
+          ContentParams: ({1} = RequestNumber),
+          Class: 'muted-ds',
+          Visible: $currentObject/RequestNumber != empty
+        )
+      }
+    }
+    layoutgrid requestGrid (Class: 'grid-flush') {
+      row {
+        column (DesktopWidth: AutoFill) {
+          dataview dvRequest (DataSource: $Request, ReadOnlyStyle: Control, Class: 'form-card') {
+            -- Context: $currentObject (Purchasing.PurchaseRequest)
+            textbox tbTitle (
+              Label: 'Title',
+              Attribute: Title,
+              Editable: $currentObject/Status = Purchasing.RequestStatus.Draft
+            )
+            textarea taJustification (
+              Label: 'Justification',
+              Attribute: Justification,
+              Editable: $currentObject/Status = Purchasing.RequestStatus.Draft
+            )
+            datepicker dpNeededBy (
+              Label: 'Needed by',
+              Attribute: NeededBy,
+              Editable: $currentObject/Status = Purchasing.RequestStatus.Draft
+            )
+            combobox cbSupplier (
+              Label: 'Supplier',
+              Attribute: PurchaseRequest_Supplier,
+              DataSource: database from Purchasing.Supplier where [IsActive = true] sort by Name asc,
+              CaptionAttribute: Name,
+              Editable: $currentObject/Status = Purchasing.RequestStatus.Draft
+            )
+            textbox tbTotal (Label: 'Total (EUR)', Attribute: TotalAmount, Editable: Never)
+            footer {
+              container requestActions (Class: 'actionbar') {
+                actionbutton btnSave (
+                  Caption: 'Save',
+                  Action: call microflow Purchasing.ACT_Request_Save(Request = $currentObject),
+                  ButtonStyle: Primary,
+                  Visible: $currentObject/Status = Purchasing.RequestStatus.Draft
+                )
+                actionbutton btnSubmit (
+                  Caption: 'Submit for approval',
+                  Action: call microflow Purchasing.ACT_Request_Submit(Request = $currentObject),
+                  ButtonStyle: Success,
+                  Visible: $currentObject/Status = Purchasing.RequestStatus.Draft
+                )
+                actionbutton btnBack (Caption: 'Back to list', Action: close page)
+              }
+            }
+          }
+        }
+      }
+    }
+    dynamictext titleLines (Content: 'Lines', RenderMode: H2, Class: 'section-title')
+    container lineActionsBar (Class: 'actionbar') {
+      actionbutton btnAddLine (
+        Caption: 'Add line',
+        Action: call microflow Purchasing.ACT_Line_New(Request = $Request),
+        Visible: $Request/Status = Purchasing.RequestStatus.Draft
+      )
+    }
+    datagrid dgLines (
+      DataSource: database from Purchasing.RequestLine where [Purchasing.RequestLine_PurchaseRequest = $Request] sort by Description asc,
+      onClick: call microflow Purchasing.ACT_Line_Open(Line = $currentObject),
+      showEmptyPlaceholder: 'custom',
+      Class: 'spacing-outer-bottom-large'
+    ) {
+      -- Context: $currentObject (Purchasing.RequestLine), $dgLines (selection)
+      emptyplaceholder {
+        dynamictext txtNoLines (Content: 'No lines yet - add the first one with Add line', Class: 'empty-ds')
+      }
+      column (Attribute: Description, Caption: 'Description')
+      column (Attribute: Quantity, Caption: 'Qty', Alignment: right)
+      column (Caption: 'Unit price', ShowContentAs: customContent, Alignment: right) {
+        textbox tbRowUnitPrice (Attribute: UnitPrice, GroupDigits: true, Editable: Never, Class: 'cell-money')
+      }
+      column (Caption: 'Line total', ShowContentAs: customContent, Alignment: right) {
+        textbox tbRowLineTotal (Attribute: LineTotal, GroupDigits: true, Editable: Never, Class: 'cell-money')
+      }
+      column (
+        Caption: 'Actions',
+        ShowContentAs: customContent,
+        DynamicCellClass: if $Request/Status = Purchasing.RequestStatus.Draft then '' else 'cell-hidden',
+        allowEventPropagation: false
+      ) {
+        actionbutton btnDeleteLine (
+          Caption: 'Delete',
+          Action: call microflow Purchasing.ACT_Line_Delete(Line = $currentObject) with (Confirmation: 'Delete this line?', ProceedCaption: 'Delete', CancelCaption: 'Keep')
+        )
+      }
+    }
+  }
+};
+
+grant view on page Purchasing.Request_Edit to Purchasing.Requester;

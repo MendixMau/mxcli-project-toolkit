@@ -1,0 +1,71 @@
+mdl 1;
+/**
+ * The requester home: own requests, state filter, New request and Delete (drafts only).
+ */
+create or modify page Purchasing.Request_List folder 'Requests' (
+  Title: 'My requests',
+  Layout: Purchasing.App_Default,
+  Url: 'requests'
+) {
+  container pageBody (Class: 'page-column') {
+    dynamictext titleRequests (Content: 'My requests', RenderMode: H1, Class: 'page-title')
+    layoutgrid listGrid (Class: 'grid-flush') {
+      row {
+        column (DesktopWidth: AutoFill) {
+          dataview dvFilter (DataSource: microflow Purchasing.DS_Request_Filter, ReadOnlyStyle: Control) {
+            -- Context: $currentObject (Purchasing.RequestFilter)
+            container listActions (Class: 'actionbar') {
+              actionbutton btnNewRequest (
+                Caption: 'New request',
+                Action: call microflow Purchasing.ACT_Request_New,
+                ButtonStyle: Primary
+              )
+              combobox cbState (Label: 'State', Attribute: State, emptyOptionText: 'All states', Class: 'filter-state')
+            }
+            datagrid dgRequests (
+              DataSource: microflow Purchasing.DS_Request_MyRequests(Filter = $currentObject),
+              onClick: show page Purchasing.Request_Edit(Request = $currentObject),
+              showEmptyPlaceholder: 'custom',
+              Class: 'spacing-outer-bottom-large'
+            ) {
+              -- Context: $currentObject (Purchasing.PurchaseRequest), $dgRequests (selection)
+              emptyplaceholder {
+                dynamictext txtNoRequests (
+                  Content: 'No purchase requests yet - create one to get started',
+                  Class: 'empty-ds'
+                )
+              }
+              column (Attribute: RequestNumber, Caption: 'No.')
+              column (Attribute: Title, Caption: 'Title')
+              column (Attribute: PurchaseRequest_Supplier/Name, Caption: 'Supplier')
+              column (Caption: 'Total', ShowContentAs: customContent, Alignment: right) {
+                textbox tbRowTotal (Attribute: TotalAmount, GroupDigits: true, Editable: Never, Class: 'cell-money')
+              }
+              column (Attribute: Status, Caption: 'State', ShowContentAs: customContent) {
+                dynamictext txtStatus (
+                  Content: '{1}',
+                  ContentParams: ({1} = Status),
+                  Class: 'badge-ds',
+                  DynamicClasses: if $currentObject/Status = Purchasing.RequestStatus.Draft then 'badge-draft' else if $currentObject/Status = Purchasing.RequestStatus.Submitted then 'badge-submitted' else if $currentObject/Status = Purchasing.RequestStatus.Approved then 'badge-approved' else 'badge-rejected'
+                )
+              }
+              column (
+                Caption: 'Actions',
+                ShowContentAs: customContent,
+                DynamicCellClass: if $currentObject/Status = Purchasing.RequestStatus.Draft then '' else 'cell-hidden',
+                allowEventPropagation: false
+              ) {
+                actionbutton btnDeleteRequest (
+                  Caption: 'Delete',
+                  Action: call microflow Purchasing.ACT_Request_Delete(Request = $currentObject) with (Confirmation: 'Delete this draft request and its lines?', ProceedCaption: 'Delete', CancelCaption: 'Keep')
+                )
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+};
+
+grant view on page Purchasing.Request_List to Purchasing.Requester;

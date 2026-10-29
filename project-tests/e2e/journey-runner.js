@@ -2130,6 +2130,20 @@ function journeyIdProblems(loaded, files) {
     appDown, appDiedIn, namedControlGaps: CONTROL_GAPS, partial,
   }, null, 2));
   console.log(`  findings → ${path.relative(cfg.root, out)}`);
+  // The screenshots this run took are LOOK evidence for the pages they reached (look-ledger.sh
+  // `shots`): this is the mandatory step that produces shots.tsv, so no separate screenshot pass is
+  // needed for those pages. Fail-open and silent when no page is owed a LOOK.
+  if (!POSITIVE_CONTROL) {
+    try {
+      const dir = [cfg.root, path.dirname(cfg.root)].find((d) => fs.existsSync(path.join(d, 'bin', 'look-ledger.sh'))
+        && fs.existsSync(path.join(d, '.claude', 'loop', 'look', 'owed.tsv')));
+      if (dir) {
+        const r = require('child_process').spawnSync('bash', [path.join(dir, 'bin', 'look-ledger.sh'), 'shots', out],
+          { cwd: dir, encoding: 'utf8', timeout: 60000, env: Object.assign({}, process.env, { PROJECT_ROOT: dir }) });
+        for (const l of String(r.stdout || '').split('\n').filter(Boolean)) console.log(`  look: ${l}`);
+      }
+    } catch (e) { /* the LOOK ledger must never fail a journey run */ }
+  }
   if (partial)
     console.log(`  PARTIAL RUN — ${partial.ran.length} of ${partial.of} journeys; the full findings slot is untouched. ` +
                 'A fix-loop result only: the full journey run is still owed at module done, build complete and before deploy.');

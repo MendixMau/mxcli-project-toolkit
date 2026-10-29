@@ -2,6 +2,7 @@
 # exec.sh — the guard chain around a model write.
 #
 #   STOP-row scan → concurrent-writer guard → module-brief advisory → mxcli check → snapshot → baseline → exec
+#   → model-scope restore (units changed only in whitespace go back to HEAD; model-scope.py)
 #   → mxbuild delta gate → auto-restore only on a NEW error → lint ratchet → SP reopen
 #
 # The mxbuild gate is a DELTA gate, not an absolute "0 errors" one: a write is kept
@@ -514,7 +515,7 @@ HDR2
   # The gate cell is read from GATE_STATE rather than passed in, so no caller
   # can omit it — a blank cell in this table reads as "fine", which is the exact
   # false-green the gate exists to prevent.
-  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${SCAN_NOTE:+ · $SCAN_NOTE}${ROWS_NOTE:+ · $ROWS_NOTE}${RESTATE_NOTE:+ · $RESTATE_NOTE}${GATE_NOTE:+ · $GATE_NOTE}${MXB_LOG_NOTE:+ · $MXB_LOG_NOTE}${HV_NOTE:+ · $HV_NOTE}$_EXEC_APPROVAL_SUFFIX${STEP_TIMES:+ · steps: $STEP_TIMES}"
+  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${SCAN_NOTE:+ · $SCAN_NOTE}${ROWS_NOTE:+ · $ROWS_NOTE}${RESTATE_NOTE:+ · $RESTATE_NOTE}${GATE_NOTE:+ · $GATE_NOTE}${MXB_LOG_NOTE:+ · $MXB_LOG_NOTE}${HV_NOTE:+ · $HV_NOTE}${SCOPE_NOTE:+ · $SCOPE_NOTE}$_EXEC_APPROVAL_SUFFIX${STEP_TIMES:+ · steps: $STEP_TIMES}"
   printf '| %s | `%s` | %s | %s | %s |\n' \
     "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$LOG_NAME" \
     "${GATE_STATE:-not-run}" "$1" "$_detail" >> "$BUILD_LOG"
@@ -569,6 +570,7 @@ take_score() {
 # check and the mxbuild gate still stand behind it.
 SCAN_NOTE=""; HV_NOTE=""   # HV_NOTE: the ContentsHash bracket's cell text, set below
 RESTATE_NOTE=""            # the restatement warnings' cell text (#269, #261), set after the check
+SCOPE_NOTE=""              # the model-scope restore's cell text, set after the write
 if [ "$PATCH_MODE" != "1" ]; then
   _SCAN=""
   for _s in "${MXTK_ROOT:-}/bin/mdl-scan.sh" \
@@ -1832,6 +1834,37 @@ if [ "$EXEC_STATUS" -ne 0 ]; then
   echo "    script is in the model. Otherwise (older mxcli, or a rollback that itself"
   echo "    failed) everything before the failing statement may already be in it."
   echo "    Running the gate anyway."
+fi
+
+# ── Model scope: put back units that changed only in whitespace ──────────────
+# mxcli v0.27.0's `alter entity ... rename attribute` rewrote 135 units in 20 modules that never
+# referenced the attribute, removing the line breaks in their XPath constraints (mxcli#1596);
+# `mxcli diff-local` showed nothing. model-scope.py restore puts such units back from HEAD and
+# updates their ContentsHash rows. It runs after the write (MDL and --patch alike) and before
+# the mxbuild gate, so the gate checks the final model. The model was committed when this exec
+# started (the refusal above), so the diff against HEAD is this write's change; when FORCE_EXEC let
+# the write run over uncommitted model changes it is not, and the step is skipped. Never blocks: a
+# failure is a warning, and model-scope.py says what it left (a part-way restore keeps the index
+# matching). MXTK_NO_SCOPE=1 skips it.
+_ms="$PROJECT_ROOT/bin/model-scope.py"
+if [ "${MXTK_NO_SCOPE:-0}" != "1" ] && [ -z "$MPR_DIRTY" ] && [ -f "$_ms" ] && [ -n "${PY:-}" ] \
+   && [ -d "$MODEL_DIR/mprcontents" ]; then
+  echo ""
+  echo "→ Model scope: units this write changed only in whitespace go back to HEAD..."
+  _ms_rc=0
+  _ms_out="$("$PY" -I "$(native_path "$_ms")" restore --mpr "$(native_path "$MPR")" 2>&1)" || _ms_rc=$?
+  printf '%s\n' "$_ms_out" | sed 's/^/  /'
+  if [ "$_ms_rc" -ne 0 ]; then
+    echo "  ⚠ model-scope exited $_ms_rc (its message is above); the write is kept, with any noise not"
+    echo "    restored still in it. To see what is left, then retry:"
+    echo "      python3 -I bin/model-scope.py report -v"  # portability-ok: command text shown to the user, not run here
+    echo "      python3 -I bin/model-scope.py restore"  # portability-ok: command text shown to the user, not run here
+    SCOPE_NOTE="scope: incomplete (exit $_ms_rc)"
+  else
+    # First line: "model scope vs HEAD: N unit file(s) changed, R real, K noise".
+    SCOPE_NOTE="$(printf '%s\n' "$_ms_out" | sed -n '1s/^model scope vs [^:]*: /scope: /p')"
+    case "$_ms_out" in *"restored "*) SCOPE_NOTE="$SCOPE_NOTE restored" ;; esac
+  fi
 fi
 
 step_done exec

@@ -587,6 +587,9 @@ EOF_SP
 # is loud in mxtk_ensure_mxbuild (this function is always called with stderr discarded).
 find_mxbuild() {
   if [ -n "${MXBUILD_PATH:-}" ]; then echo "$MXBUILD_PATH"; return 0; fi
+  # Per-run memo exec.sh exports (#584) — its own name, so the explicit-override semantics of
+  # MXBUILD_PATH (no version match, mxtk_ensure_mxbuild's warning) never reach child scripts.
+  if [ -n "${MXTK_MXBUILD_MEMO:-}" ] && [ -x "$MXTK_MXBUILD_MEMO" ]; then echo "$MXTK_MXBUILD_MEMO"; return 0; fi
   local ver m
   if ver=$(mxtk_model_version 2>/dev/null) && m=$(mxtk_mxbuild_for_version "$ver"); then
     echo "$m"; return 0

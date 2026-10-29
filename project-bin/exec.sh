@@ -108,13 +108,17 @@ _TLAST=$_T0; STEP_TIMES=""
 step_done() { _tn=${EPOCHSECONDS:-$(date +%s)}; STEP_TIMES="${STEP_TIMES:+$STEP_TIMES }$1 $((_tn - _TLAST))s"; _TLAST=$_tn; }
 # MXTK_PROFILE=1 (#584/#585): one trace line per command with a wall-clock stamp, written to
 # .claude/loop/exec-profile-<pid>.log; at exit the slowest lines and the number of commands
-# are printed. Bash 5 has EPOCHREALTIME (microseconds); bash 3.2 (macOS) has no sub-second
-# clock without a process start, so there the trace stamps whole seconds.
+# are printed. Needs bash 4.1+ (BASH_XTRACEFD); bash 5 has EPOCHREALTIME (microseconds), 4.x
+# stamps whole seconds. macOS's bash 3.2 cannot send the trace to a file: it says so and runs.
 # MXTK_PROFILE=2 (#584/#585 follow-up): the same trace for every bash script exec.sh starts
 # (model-stamp, snapshot-mpr, lint-gate, ...), through BASH_ENV, so the count covers the whole
 # run and not only this process. The count under =1 is exec.sh's own commands, which a script
 # it starts never adds to: a start shows up as ONE line there, however many commands it runs.
 _PROFILING=0; case "${MXTK_PROFILE:-0}" in 1|2) _PROFILING=1 ;; esac
+if [ "$_PROFILING" = "1" ] && { [ "${BASH_VERSINFO[0]:-0}" -lt 4 ] || { [ "${BASH_VERSINFO[0]}" -eq 4 ] && [ "${BASH_VERSINFO[1]:-0}" -lt 1 ]; }; }; then
+  echo "⚠ MXTK_PROFILE needs bash 4.1+ (this is $BASH_VERSION); running without a profile (brew install bash)." >&2
+  _PROFILING=0; MXTK_PROFILE=0
+fi
 if [ "$_PROFILING" = "1" ]; then
   _PROF_DIR="$(pwd)/.claude/loop"; mkdir -p "$_PROF_DIR" 2>/dev/null || _PROF_DIR="${TMPDIR:-/tmp}"
   _PROF_LOG="$_PROF_DIR/exec-profile-$$.log"
@@ -1402,9 +1406,9 @@ fi
 _mv="$(mxtk_model_version "$MPR" 2>/dev/null || true)"; [ -n "$_mv" ] && export MXTK_MODEL_VERSION="$_mv"
 MXBUILD="$(mxtk_ensure_mxbuild "$MPR" || true)"
 # Memo for the rest of this run and every script it starts (#584): find_mxbuild honours
-# MXBUILD_PATH, mxtk_model_version honours MXTK_MODEL_VERSION, so neither re-reads the .mpr
+# MXTK_MXBUILD_MEMO, mxtk_model_version honours MXTK_MODEL_VERSION, so neither re-reads the .mpr
 # or re-probes the Studio Pro install per call. A run only ever gates one model version.
-[ -x "$MXBUILD" ] && export MXBUILD_PATH="$MXBUILD"
+[ -x "$MXBUILD" ] && export MXTK_MXBUILD_MEMO="$MXBUILD"
 # Was: JAVA_HOME=$(/usr/libexec/java_home ...) — a macOS-only binary, so on Windows
 # JAVA_HOME came back empty, JAVA_EXE was the literal "/bin/java", the gate guard
 # below failed its -x test and the entire mxbuild block was skipped on every run.
@@ -1690,8 +1694,8 @@ fi
 # time, with two mxbuilds per exec; the baseline one re-measured a model the previous
 # exec had just verified, in most of 100 execs.
 # ── Gate kind: full deploy build or `mx check` (opt-in, #584/#585) ───────────
-# Default is the full mxbuild deploy build on every exec. `Gate mode: check` in PROJECT.md
-# (or MXTK_GATE_MODE=check) runs `mx check` instead (_common.sh, "Check-only gate"), which
+# Default (2026-10-29): `mx check` per exec. `Gate mode: full` in PROJECT.md (or
+# MXTK_GATE_MODE=full) keeps the full mxbuild deploy build on every exec. Check mode runs `mx check` (_common.sh, "Check-only gate"), which
 # sees every model consistency error but no Java compile. So the full build still runs when
 # a Java compile error is possible or has gone unchecked too long:
 #   - javasource/ javascriptsource/ theme/ userlib/ widgets/ changed since the last full build;
@@ -1723,6 +1727,10 @@ gate_kind_decide() {
     _gk_first "$PROJECT_ROOT/PROJECT.md" '^[*_ ]*Gate mode:[*_ ]*([A-Za-z]*)' || true
     case "$_FM" in [Cc][Hh][Ee][Cc][Kk]) _gk_mode=check ;; *) _gk_mode="$_FM" ;; esac
   fi
+  # Default is check (2026-10-29, maintainer decision): nobody was going to add a line to
+  # PROJECT.md, and the full build still runs at every boundary listed above. `Gate mode: full`
+  # (or MXTK_GATE_MODE=full) keeps a full mxbuild on every exec.
+  [ -n "$_gk_mode" ] || _gk_mode=check
   if [ "$_gk_mode" = "check" ]; then
     _gk_first "$_GK_STATE" '^checks ([^'$'\n'']*)' || true; _gk_checks="$_FM"
     _gk_first "$_GK_STATE" '^java ([^'$'\n'']*)' || true; _gk_java="$_FM"
@@ -2405,7 +2413,9 @@ fi
 
 # Gate-kind bookkeeping (see "Gate kind" above): a passing full build resets the count and
 # records the Java fingerprint it compiled; a passing check-only gate adds one.
-if [ "$GATE_STATE" = "pass" ]; then
+# Only under `Gate mode: check`: the state file is what the pre-push hook and module-close.sh
+# look for, so a project that never opted in never gets their full-build step (#587 review).
+if [ "$GATE_STATE" = "pass" ] && [ "${_gk_mode:-}" = "check" ]; then
   mkdir -p "${_GK_STATE%/*}" 2>/dev/null || true
   if [ "$GATE_KIND" = "full" ]; then
     printf 'checks 0\njava %s\n' "$(_gk_java_fp)" > "$_GK_STATE" 2>/dev/null || true
@@ -2446,8 +2456,11 @@ if [ -f "$_XD/build-plan-status.sh" ]; then
   if [ "${MXTK_SYNC_REFRESH:-0}" = "1" ]; then
     { bash "$_XD/build-plan-status.sh" "$PROJECT_ROOT" --refresh 2>&1 >/dev/null || true; } | grep -m1 '^WARN: ' || true
   else
+    # stdout AND stderr go to a file: an inherited stderr kept a caller's `exec.sh 2>&1 | …` pipe
+    # open until the refresh finished, which is how agent tools read output (#587 review).
+    mkdir -p "$PROJECT_ROOT/.claude/loop" 2>/dev/null || true
     ( { bash "$_XD/build-plan-status.sh" "$PROJECT_ROOT" --refresh 2>&1 >/dev/null || true; } \
-        | grep -m1 '^WARN: ' >&2 || true ) </dev/null >/dev/null &
+        | grep -m1 '^WARN: ' || true ) </dev/null >"$PROJECT_ROOT/.claude/loop/build-plan-refresh.warn" 2>&1 &
   fi
 fi
 

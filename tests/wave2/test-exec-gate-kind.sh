@@ -80,7 +80,7 @@ echo "K6 gate_kind_decide"
 fn="$WORK/gk.sh"
 sed -n '/^_GK_STATE=/,/^}/p' "$EXEC" > "$fn"
 grep -q '^gate_kind_decide() {' "$fn" || bad "K6: gate_kind_decide not found in $EXEC"
-( cd "$P" && git init -q && git config user.email t@example.invalid && git config user.name t \
+( cd "$P" && git init -q && git config user.email tester && git config user.name t \
   && mkdir -p javasource/Mod/actions && echo 'class A {}' > javasource/Mod/actions/A.java \
   && git add -A && git commit -qm init ) >/dev/null 2>&1
 printf 'create entity Mod.E (Name: String);\n' > "$WORK/add.mdl"
@@ -90,7 +90,9 @@ decide() {  # $1 script, $2 patch mode → "<kind>|<why>"
     && . "$fn" && gate_kind_decide && echo "$GATE_KIND|$GATE_KIND_WHY" ) 2>&1
 }
 rm -f "$P/.claude/loop/gate-kind.state"
-out=$(decide "$WORK/add.mdl"); [ "$out" = "full|" ] && ok "K6a: no Gate mode → full, silent" || bad "K6a" "$out"
+out=$(decide "$WORK/add.mdl"); case "$out" in "full|no full build recorded yet") ok "K6a: no Gate mode line → check mode (first exec builds full)" ;; *) bad "K6a" "$out" ;; esac
+printf '# P\n\nGate mode: full\n' > "$P/PROJECT.md"
+out=$(decide "$WORK/add.mdl"); [ "$out" = "full|" ] && ok "K6a2: Gate mode: full → full build, silent" || bad "K6a2" "$out"
 printf '# P\n\nGate mode: check\n' > "$P/PROJECT.md"
 out=$(decide "$WORK/add.mdl"); case "$out" in "full|no full build recorded yet") ok "K6b: check mode, no state → full" ;; *) bad "K6b" "$out" ;; esac
 JFP=$( cd "$P" && . "$TK/project-bin/_common.sh" && PROJECT_ROOT="$P" SCRIPT=/dev/null PATCH_MODE=0 MXBUILD="$T/mxbuild" && . "$fn" && gate_kind_decide && _gk_java_fp )
@@ -118,7 +120,7 @@ mv "$T/mx.off" "$T/mx"
 
 echo "K7 stamp kind"
 S="$WORK/stamp"; mkdir -p "$S/bin" "$S/.claude"; cp "$TK/project-bin/model-stamp.sh" "$TK/project-bin/_common.sh" "$S/bin/"
-( cd "$S" && git init -q && git config user.email t@example.invalid && git config user.name t && printf 'm' > App.mpr \
+( cd "$S" && git init -q && git config user.email tester && git config user.name t && printf 'm' > App.mpr \
   && mkdir mprcontents && echo u > mprcontents/u && git add -A && git commit -qm i ) >/dev/null 2>&1
 st() { ( cd "$S" && PROJECT_ROOT="$S" "$@" ) >/dev/null 2>&1; }
 st env MXTK_STAMP_KIND=check MXTK_STAMP_ERRORS=0 bash bin/model-stamp.sh write pass "exec.sh x (mx check)"
@@ -134,6 +136,8 @@ cp "$TK/project-bin/install-project-hooks.sh" "$S/bin/"
 printf '#!/usr/bin/env bash\necho ran > .claude/full-ran; exit "${FAKE_VM_RC:-0}"\n' > "$S/bin/verify-model.sh"; chmod +x "$S/bin/"*.sh
 st bash bin/install-project-hooks.sh
 PPH="$S/.git/hooks/pre-push"
+( cd "$S" && PROJECT_ROOT="$S" bash bin/install-project-hooks.sh --check ) >/dev/null 2>&1 && ok "K8g: --check passes with all hooks installed" || bad "K8g"
+mv "$PPH" "$PPH.off"; ( cd "$S" && PROJECT_ROOT="$S" bash bin/install-project-hooks.sh --check ) >/dev/null 2>&1 && bad "K8h: --check passed with pre-push missing" || ok "K8h: --check fails when pre-push is missing (so sync installs it)"; mv "$PPH.off" "$PPH"
 [ -x "$PPH" ] && ok "K8a: pre-push hook installed" || bad "K8a"
 pp() { ( cd "$S" && echo "refs/heads/m 0 refs/heads/m 0" | "$@" "$PPH" origin x ) >/dev/null 2>&1; }
 rm -f "$S/.claude/full-ran"; pp env; rc=$?
@@ -144,6 +148,8 @@ rm -f "$S/.claude/full-ran"; pp env; rc=$?
 [ "$rc" = 0 ] && [ -e "$S/.claude/full-ran" ] && ok "K8c: check-only stamp → full build runs, push goes on" || bad "K8c" "rc=$rc"
 rm -f "$S/.claude/full-ran"; pp env FAKE_VM_RC=1; rc=$?
 [ "$rc" = 1 ] && ok "K8d: full build fails → push refused" || bad "K8d" "rc=$rc"
+rm -f "$S/.claude/full-ran"; pp env FAKE_VM_RC=2; rc=$?
+[ "$rc" = 0 ] && ok "K8d2: full build cannot run (exit 2) → warn, push goes on" || bad "K8d2" "rc=$rc"
 pp env FAKE_VM_RC=1 MODEL_UNVERIFIED_OK=1; [ $? = 0 ] && ok "K8e: MODEL_UNVERIFIED_OK=1 pushes anyway" || bad "K8e"
 st env MXTK_STAMP_ERRORS=0 bash bin/model-stamp.sh write pass "verify-model.sh"
 rm -f "$S/.claude/full-ran"; pp env FAKE_VM_RC=1; rc=$?

@@ -305,6 +305,29 @@ screen, and a builder can still see the checklist.
 
 ---
 
+## Running Stage 3 in parallel (the default)
+
+Stage 3 is documents that do not depend on each other once three things are fixed, so it fans
+out. Measured 2026-10-28 on one project (2 modules, 8 screens, Sonnet, single runs): serial 13 min,
+parallel 10 min, parallel with a shared brief 6 min; the parallel runs had **0** name mismatches
+(the serial run dropped 3 entities from its ERD) and cost about 20% more. Both parallel runs also
+**forgot whole artifacts** (process map, swimlanes): the lead split the work from memory. So:
+
+1. **Lead fixes the shared facts first:** module boundaries, the canonical names (from the BRDs and
+   `analysis/facts.lock.json`), the design tokens (`design/ds.css`).
+2. **Lead writes one brief**, `docs/progress/stage3-brief.md`: those facts, the screen list with its
+   BRD use cases, and the **task list taken from `bin/lib/artifact-check.sh <project>`**: every
+   `Artifact … stage 3` line not PRESENT is a task, with the skill section it names. Per task, the
+   sections the output must hold (fit-gap columns, NFRs, roles and access) — not whole skill files.
+3. **Fan out** one subagent per task group: 1–2 wireframes each; blueprint + fit-gap + ERD + NFRs;
+   module definitions + module design; process model + swimlanes + process map. Every prompt opens
+   with the same line ("Read docs/progress/stage3-brief.md first and follow it"), then its task, so
+   the shared start is cached. Mechanical tasks (prototype assembly, renders, link checks) run on the
+   cheap tier (`conversion-runbook.md` → Three tiers).
+4. Subagents write their own files and reply in at most 5 lines. **The lead is the only writer of
+   `PROJECT.md`**, checks every output against the brief, re-runs `artifact-check.sh` (0 stage-3
+   lines PENDING) and then `bin/gate-check.sh <project> 3`.
+
 ## Step 3b: Scope Crosscheck — Every Wireframed Element Needs a Requirement
 
 Wireframing invents structure the BRD never asked for — breadcrumbs, a back button, a filter chip, a "clear all" link. None of these are source *fields*, so they never earn a row in the binding-annotation table above, which means they never reach `iterative-build-loop.md`'s checklist either. The result ships as static chrome: it renders, but no microflow, datasource, or navigation action stands behind it — a breadcrumb with no trail logic, a button with no on-click.

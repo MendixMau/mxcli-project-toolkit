@@ -75,6 +75,11 @@ for line in open(plan, encoding="utf-8"):
     if h: cur_mod = h.group(1) if h.group(1) in mods else None; continue
     if line.startswith("## "): cur_mod = None
     c = [x.strip() for x in line.strip().strip("|").split("|")]
+    # A plan may format the number and Kind cells as code or bold (`BUILD`, **12**); read through it.
+    # WHY (speed experiment 2026-10-28): a plan with `BUILD` in backticks read 0 BUILD rows, so with
+    # `Row groups: on` grouping silently did nothing until the agent edited the plan by hand.
+    if len(c) >= 7:
+        c[0], c[1] = c[0].strip("`*_ "), c[1].strip("`*_ ")
     if len(c) >= 7 and c[0].isdigit() and c[1].isupper():
         n, kind, step, skills, state = int(c[0]), c[1], c[2], c[5], c[6]
         rows.append((n, kind, step, kind == "BUILD" and bool(HIGH_SKILL.search(skills) or HIGH_STEP.search(step)), state))

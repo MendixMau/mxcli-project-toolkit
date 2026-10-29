@@ -206,5 +206,21 @@ chk "fix b: wsl.exe --status failing -> next option" "$WORK/rf.out" "Use a dev c
 rm -f "$WORK/bin/uname" "$WORK/bin/wsl.exe"
 chkno "no IT-dependent advice anywhere in the output" "$WORK/rf.out" "exclusion\|ask IT" -i
 
+# 7. Fast process starts but one step far slower -> name the step, never "None needed" (field, 2026-10-29:
+# verdict "5x slower, mainly git status" next to "None needed"). A fake git sleeps 2.5 s on status only.
+printf '#!/bin/sh\ncase "$*" in *status*) sleep 2.5 ;; esac\nexit 0\n' > "$WORK/bin/git"; chmod +x "$WORK/bin/git"
+rf bash "$DOCTOR" --bench "$P"
+chk "slow step: git status slow, starts fast -> git cache advice" "$WORK/rf.out" "git config core.untrackedCache true"
+chkno "slow step: not 'None needed'" "$WORK/rf.out" "None needed"
+rm -f "$WORK/bin/git"
+# 8. Project inside a sync folder (OneDrive holds Documents/Desktop by default on Windows) -> move it
+mkdir -p "$WORK/OneDrive - Contoso/proj"; printf '# P\n' > "$WORK/OneDrive - Contoso/proj/PROJECT.md"
+rf bash "$DOCTOR" --bench "$WORK/OneDrive - Contoso/proj"
+chk "sync folder: health line names OneDrive" "$WORK/rf.out" "folder synced by OneDrive"
+chk "sync folder: fix is moving the project" "$WORK/rf.out" "Move the project out of OneDrive"
+# 9. Low-memory advice offers a restart, the plain option, besides --cleanup
+rf env MXTK_PROC_MEMINFO="$WORK/meminfo-low" bash "$DOCTOR" --bench "$P"
+chk "low memory: restart offered" "$WORK/rf.out" "restart the computer"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

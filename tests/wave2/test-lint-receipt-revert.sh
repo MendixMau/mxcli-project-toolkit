@@ -67,10 +67,14 @@ RF="$P/.claude/lint-rules/conv010_act_microflow_content.star"
 cp -p "$RF" "$WORK/rf.keep"
 out=$(gate 2>&1)   # clean run: leaves the skip marker
 [ -f "$P/.claude/loop/.lint-receipt-ok" ] && ok "clean run leaves the skip marker" || bad "no skip marker after a clean run"
-strip_header "$RF"; touch -r "$WORK/rf.keep" "$RF"
+touch -r "$P/.claude/lint-rules" "$WORK/dir.keep"
+# In place (same inode, no rename), then both the file's and the folder's old mtimes back:
+# exactly what cp -p / tar / rsync -t leave behind.
+sed '1,/^# --- end mxtk-lint-rule header ---$/d' "$RF" > "$WORK/rf.new" && cat "$WORK/rf.new" > "$RF"
+touch -r "$WORK/rf.keep" "$RF"; touch -r "$WORK/dir.keep" "$P/.claude/lint-rules"
 out=$(gate 2>&1); rc=$?
 case "$out" in *REVERTED*) ok "header stripped with the old mtime kept -> still REVERTED (marker not trusted on mtime)" ;; *) bad "old-mtime re-seed skipped the receipt check" "$out" ;; esac
-cp -p "$WORK/rf.keep" "$RF"
+cat "$WORK/rf.keep" > "$RF"; touch -r "$WORK/rf.keep" "$RF"
 out=$(gate 2>&1)
 case "$out" in *REVERTED*) bad "restored rule still reported" "$out" ;; *) ok "restored rule: clean again" ;; esac
 

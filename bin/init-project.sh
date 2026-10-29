@@ -196,6 +196,11 @@ ${TOOLKIT_COMMIT_LINE}
 Exec approval: auto
 Permission profile: project
 Unit tests default: no
+Gate mode: check
+
+<!-- Gate mode: check (the default, also without this line) = bin/exec.sh runs \`mx check\` per
+     script and the full mxbuild before every push, at module close and when Java/theme files
+     change (mxcli's own advice). \`Gate mode: full\` = a full mxbuild on every exec. -->
 
 <!-- The bold line above is a READOUT: bin/gate-check.sh rewrites it on every full run from the
      verdicts it just produced (first stage neither PASS nor WAIVED). Do not edit it by hand.

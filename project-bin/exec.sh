@@ -106,6 +106,33 @@ _T0=$(date +%s)
 # run (the costliest ones) logs its gate seconds too.
 _TLAST=$_T0; STEP_TIMES=""
 step_done() { _tn=$(date +%s); STEP_TIMES="${STEP_TIMES:+$STEP_TIMES }$1 $((_tn - _TLAST))s"; _TLAST=$_tn; }
+# MXTK_PROFILE=1 (#584/#585): one trace line per command with a wall-clock stamp, written to
+# .claude/loop/exec-profile-<pid>.log; at exit the slowest lines and the number of commands
+# are printed. Needs bash 4.1+ (BASH_XTRACEFD); bash 5 has EPOCHREALTIME (microseconds), 4.x
+# stamps whole seconds. macOS's bash 3.2 cannot send the trace to a file: it says so and runs.
+if [ "${MXTK_PROFILE:-0}" = "1" ] && { [ "${BASH_VERSINFO[0]:-0}" -lt 4 ] || { [ "${BASH_VERSINFO[0]}" -eq 4 ] && [ "${BASH_VERSINFO[1]:-0}" -lt 1 ]; }; }; then
+  echo "⚠ MXTK_PROFILE needs bash 4.1+ (this is $BASH_VERSION); running without a profile (brew install bash)." >&2
+  MXTK_PROFILE=0
+fi
+if [ "${MXTK_PROFILE:-0}" = "1" ]; then
+  _PROF_DIR="$(pwd)/.claude/loop"; mkdir -p "$_PROF_DIR" 2>/dev/null || _PROF_DIR="${TMPDIR:-/tmp}"
+  _PROF_LOG="$_PROF_DIR/exec-profile-$$.log"
+  exec 7>"$_PROF_LOG"
+  BASH_XTRACEFD=7
+  if [ -n "${EPOCHREALTIME:-}" ]; then PS4='+ ${EPOCHREALTIME} ${LINENO} '; else PS4='+ ${SECONDS}.000000 ${LINENO} '; fi
+  set -x
+  _prof_report() {
+    set +x
+    exec 7>&-
+    echo ""
+    echo "── MXTK_PROFILE: $(grep -c '^+' "$_PROF_LOG" 2>/dev/null || echo 0) traced commands · steps: ${STEP_TIMES:-none} · trace: $_PROF_LOG"
+    # Each line's duration is the gap to the next traced line, so a slow child process shows
+    # on the line that started it.
+    awk '/^\++ [0-9]+\.[0-9]+ [0-9]+ /{ t=$2; if (p!="") printf "%9.3f s  line %-5s %s\n", t-pt, pl, substr(p,1,110); pt=t; pl=$3; p=$0; sub(/^\++ [^ ]+ [^ ]+ /,"",p) }' \
+      "$_PROF_LOG" 2>/dev/null | sort -rn | head -15
+  }
+  trap _prof_report EXIT
+fi
 # A failed script's own exit code becomes 1: passed through, its 2 would read as "nothing
 # touched" and its 4 or 5 as "applied" (see Exit codes above).
 fail_rc() { case "$1" in 0) echo 0 ;; *) echo 1 ;; esac; }
@@ -759,7 +786,7 @@ if [ "$LOCK_TAKEN" != 1 ]; then
   echo "  → Wait for the other exec to finish, then re-run. Nothing was written."
   exit 1
 fi
-trap 'mxtk_resume_watchers; exec_lock_release' EXIT
+trap 'mxtk_resume_watchers; exec_lock_release; [ "${MXTK_PROFILE:-0}" != 1 ] || _prof_report' EXIT
 mxtk_resume_leftover "$PROJECT_ROOT"   # a watcher an earlier, SIGKILLed exec.sh left stopped
 
 # 3. A raw `mxcli exec` elsewhere on the machine is NOT this project's business. The old guard
@@ -1137,6 +1164,14 @@ PY
          echo "    needs --approved-in-chat). The acceptance is logged to .claude/lint-acceptances.tsv."
          fi
        fi ;;
+    2) if grep -q 'no baseline yet' "$_lo"; then
+         LINT_DETAIL="lint not measured: no lint baseline yet (bin/lint-gate.sh --update-baseline)"
+         echo "  ⚠ lint: no baseline yet, so nothing to compare against. Take it once, after the scaffold:"
+         echo "    bin/lint-gate.sh --update-baseline"
+       else
+         LINT_DETAIL="lint could not run (lint-gate exit $LINT_RC)"; echo "  ⚠ $LINT_DETAIL"
+         tail -5 "$_lo" | sed 's/^/    /'
+       fi ;;
     *) LINT_DETAIL="lint could not run (lint-gate exit $LINT_RC)"; echo "  ⚠ $LINT_DETAIL"
        tail -5 "$_lo" | sed 's/^/    /' ;;
   esac
@@ -1277,6 +1312,11 @@ fi
 # loud "write anyway"; that write then carries no verification stamp, so the pre-commit
 # hook refuses it until ./bin/verify-model.sh has seen it.
 MXBUILD="$(mxtk_ensure_mxbuild "$MPR" || true)"
+# Memo for the rest of this run and every script it starts (#584): find_mxbuild honours
+# MXTK_MXBUILD_MEMO, mxtk_model_version honours MXTK_MODEL_VERSION, so neither re-reads the .mpr
+# or re-probes the Studio Pro install per call. A run only ever gates one model version.
+[ -x "$MXBUILD" ] && export MXTK_MXBUILD_MEMO="$MXBUILD"
+_mv="$(mxtk_model_version "$MPR" 2>/dev/null || true)"; [ -n "$_mv" ] && export MXTK_MODEL_VERSION="$_mv"
 # Was: JAVA_HOME=$(/usr/libexec/java_home ...) — a macOS-only binary, so on Windows
 # JAVA_HOME came back empty, JAVA_EXE was the literal "/bin/java", the gate guard
 # below failed its -x test and the entire mxbuild block was skipped on every run.
@@ -1561,6 +1601,66 @@ fi
 # WHY (field run 2026-10-07, requirements-driven build): exec.sh was 22% of all tool
 # time, with two mxbuilds per exec; the baseline one re-measured a model the previous
 # exec had just verified, in most of 100 execs.
+# ── Gate kind: full deploy build or `mx check` (opt-in, #584/#585) ───────────
+# Default (2026-10-29): `mx check` per exec. `Gate mode: full` in PROJECT.md (or
+# MXTK_GATE_MODE=full) keeps the full mxbuild deploy build on every exec. Check mode runs `mx check` (_common.sh, "Check-only gate"), which
+# sees every model consistency error but no Java compile. So the full build still runs when
+# a Java compile error is possible or has gone unchecked too long:
+#   - javasource/ javascriptsource/ theme/ userlib/ widgets/ changed since the last full build;
+#   - the project has Java actions and this script drops or renames something (a generated
+#     proxy a Java action uses can break);
+#   - no full build recorded yet in this clone, --patch (opaque), or no `mx` beside mxbuild;
+#   - a backstop: MXTK_CHECK_MAX (default 10) check-only passes in a row.
+# The other full builds sit at the work's natural boundaries, as in mxcli's own advice ("mx check
+# after every exec", mxbuild when packaging) and Mendix CI practice (one build per push): the
+# pre-push hook (install-project-hooks.sh) and module-close.sh run bin/verify-model.sh when the
+# stamp says the model was only `mx check`ed, and bin/verify-model.sh closes a batch on demand.
+# State: .claude/loop/gate-kind.state ("checks <n>" and "java <fingerprint>"), machine-local.
+_GK_STATE="$PROJECT_ROOT/.claude/loop/gate-kind.state"
+gate_kind_decide() {
+  GATE_KIND=full; GATE_KIND_WHY=""
+  # javasource/*/proxies/ is excluded: mxbuild regenerates those from the model on every
+  # full build, so counting them made each full build look like a Java change (field run).
+  _gk_java_fp() { mxtk_java_fp "$PROJECT_ROOT"; }
+  _gk_mode="${MXTK_GATE_MODE:-}"
+  [ -n "$_gk_mode" ] || _gk_mode="$(sed -n 's/^[*_ ]*Gate mode:[*_ ]*\([A-Za-z]*\).*/\1/p' "$PROJECT_ROOT/PROJECT.md" 2>/dev/null | head -1 | tr 'A-Z' 'a-z')"
+  # Default is check (2026-10-29, maintainer decision): nobody was going to add a line to
+  # PROJECT.md, and the full build still runs at every boundary listed above. `Gate mode: full`
+  # (or MXTK_GATE_MODE=full) keeps a full mxbuild on every exec.
+  [ -n "$_gk_mode" ] || _gk_mode=check
+  if [ "$_gk_mode" = "check" ]; then
+    _gk_checks="$(sed -n 's/^checks //p' "$_GK_STATE" 2>/dev/null | head -1)"
+    _gk_java="$(sed -n 's/^java //p' "$_GK_STATE" 2>/dev/null | head -1)"
+    if [ "$PATCH_MODE" = "1" ]; then GATE_KIND_WHY="--patch is opaque"
+    elif ! mxtk_find_mx >/dev/null 2>&1; then GATE_KIND_WHY="no mx tool beside $MXBUILD"
+    elif [ -z "$_gk_checks" ] || [ -z "$_gk_java" ]; then GATE_KIND_WHY="no full build recorded yet"
+    elif [ "$_gk_java" != "$(_gk_java_fp)" ]; then GATE_KIND_WHY="Java/JavaScript/theme/widgets changed since the last full build"
+    elif ls "$PROJECT_ROOT"/javasource/*/actions/*.java >/dev/null 2>&1 \
+         && grep -Ei '^[[:space:]]*(drop|rename)[[:space:]]|^[[:space:]]*alter[[:space:]].*[[:space:]](drop|rename)[[:space:]]' "$SCRIPT" 2>/dev/null \
+            | grep -Eiqv '[[:space:]]if[[:space:]]+exists[[:space:]]'; then
+      # `drop … if exists X` is the re-runnable re-create idiom (X is created again below it),
+      # not a removal: counting it forced a full build on 3 of 23 ordinary scripts (E1, 2026-10-28).
+      GATE_KIND_WHY="the project has Java actions and this script drops or renames something"
+    elif [ "$_gk_checks" -ge "${MXTK_CHECK_MAX:-10}" ] 2>/dev/null; then GATE_KIND_WHY="backstop: ${MXTK_CHECK_MAX:-10} check-only passes in a row"
+    else GATE_KIND=check; GATE_KIND_WHY="check-only pass $((_gk_checks + 1)); full build before push, at module close, or bin/verify-model.sh"
+    fi
+  fi
+}
+gate_kind_decide
+if [ "$GATE_KIND" = "check" ]; then
+  export MXTK_GATE_KIND=check
+  echo "→ Gate: mx check ($GATE_KIND_WHY; no Java compile)"
+else
+  export MXTK_GATE_KIND=full
+  [ -n "$GATE_KIND_WHY" ] && echo "→ Gate: full build ($GATE_KIND_WHY)"
+  # Cold-start notice (#585): the first mxbuild after a reboot or a long pause loads its JVM
+  # and .NET runtime from disk — 150-165 s on the reporter's Windows machine, 18-20 s warm.
+  # Without a word it looks like a hang. "Warm" = a full build in this clone in the last hour.
+  _gk_warm="$PROJECT_ROOT/.claude/loop/mxbuild-warm"
+  if [ ! -f "$_gk_warm" ] || [ -n "$(find "$_gk_warm" -mmin +60 2>/dev/null)" ]; then
+    echo "  (first mxbuild in a while: a cold start can take 2-3 min, later ones are much faster)"
+  fi
+fi
 BASELINE_SET=""
 BASE_KNOWN=0
 if [ "${SKIP_BASELINE:-0}" != "1" ] && [ -x ./bin/model-stamp.sh ] \
@@ -1863,6 +1963,7 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
   # which branch applies.
   mxtk_gate_mxbuild "$MPR" "${MXTK_GATE_TIMEOUT:-0}" "$ERRORS_FILE" >/dev/null || true
   [ -n "$MXTK_GATE_RETRY_NOTE" ] && GATE_NOTE="$MXTK_GATE_RETRY_NOTE"
+  [ "$GATE_KIND" = "check" ] && GATE_NOTE="${GATE_NOTE:+$GATE_NOTE; }gate: mx check (no Java compile)"
   MXBUILD_EXIT="$MXTK_MXBUILD_EXIT"
   MXBUILD_OUT="$MXTK_MXBUILD_OUT"
   MXB_WHY="${MXTK_MXBUILD_WHY:-}"
@@ -2199,9 +2300,23 @@ fi
 # is no longer the one anything verified.
 if [ -x ./bin/model-stamp.sh ]; then
   if [ "$GATE_STATE" = "pass" ] && [ "$EXEC_STATUS" -eq 0 ]; then
-    MXTK_STAMP_ERRORS="$GATE_ERRORS" ./bin/model-stamp.sh write pass "exec.sh $([ "$PATCH_MODE" = 1 ] && echo '--patch ')$(basename "$SCRIPT")" || true
+    MXTK_STAMP_KIND="$GATE_KIND" MXTK_STAMP_ERRORS="$GATE_ERRORS" ./bin/model-stamp.sh write pass "exec.sh $([ "$PATCH_MODE" = 1 ] && echo '--patch ')$(basename "$SCRIPT")$([ "$GATE_KIND" = check ] && echo ' (mx check)')" || true
   else
     ./bin/model-stamp.sh clear >/dev/null 2>&1 || true
+  fi
+fi
+
+# Gate-kind bookkeeping (see "Gate kind" above): a passing full build resets the count and
+# records the Java fingerprint it compiled; a passing check-only gate adds one.
+# Only under `Gate mode: check`: the state file is what the pre-push hook and module-close.sh
+# look for, so a project that never opted in never gets their full-build step (#587 review).
+if [ "$GATE_STATE" = "pass" ] && [ "${_gk_mode:-}" = "check" ]; then
+  mkdir -p "$(dirname "$_GK_STATE")" 2>/dev/null || true
+  if [ "$GATE_KIND" = "full" ]; then
+    printf 'checks 0\njava %s\n' "$(_gk_java_fp)" > "$_GK_STATE" 2>/dev/null || true
+    touch "$PROJECT_ROOT/.claude/loop/mxbuild-warm" 2>/dev/null || true
+  elif [ -f "$_GK_STATE" ]; then
+    printf 'checks %s\njava %s\n' "$(( ${_gk_checks:-0} + 1 ))" "$_gk_java" > "$_GK_STATE" 2>/dev/null || true
   fi
 fi
 
@@ -2231,7 +2346,17 @@ fi
 # generated, and leaves the file alone when nothing but the timestamp would change.
 if [ -f "$(dirname "$0")/build-plan-status.sh" ]; then
   # A crashed generator leaves one visible WARN line (the script prints it on stderr); never a failed step.
-  { bash "$(dirname "$0")/build-plan-status.sh" "$PROJECT_ROOT" --refresh 2>&1 >/dev/null || true; } | grep -m1 '^WARN: ' || true
+  # In the background (#584): the verdict is already known and nothing below reads the page,
+  # so the exec does not wait for its python/node starts. MXTK_SYNC_REFRESH=1 waits (tests).
+  if [ "${MXTK_SYNC_REFRESH:-0}" = "1" ]; then
+    { bash "$(dirname "$0")/build-plan-status.sh" "$PROJECT_ROOT" --refresh 2>&1 >/dev/null || true; } | grep -m1 '^WARN: ' || true
+  else
+    # stdout AND stderr go to a file: an inherited stderr kept a caller's `exec.sh 2>&1 | …` pipe
+    # open until the refresh finished, which is how agent tools read output (#587 review).
+    mkdir -p "$PROJECT_ROOT/.claude/loop" 2>/dev/null || true
+    ( { bash "$(dirname "$0")/build-plan-status.sh" "$PROJECT_ROOT" --refresh 2>&1 >/dev/null || true; } \
+        | grep -m1 '^WARN: ' || true ) </dev/null >"$PROJECT_ROOT/.claude/loop/build-plan-refresh.warn" 2>&1 &
+  fi
 fi
 
 # ── Watch compatibility (advisory) ───────────────────────────────────────────

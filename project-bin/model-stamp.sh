@@ -3,8 +3,9 @@
 #
 #   ./bin/model-stamp.sh fingerprint [--staged]   # print the model fingerprint
 #   ./bin/model-stamp.sh write <state> <source…>  # record that the current model was verified
-#   ./bin/model-stamp.sh check [--staged] [-q] [--clean]  # exit 0 iff the (staged) model matches a PASS stamp
-#                                                          (--clean: and that pass saw 0 mxbuild errors)
+#   ./bin/model-stamp.sh check [--staged] [-q] [--clean] [--full]  # exit 0 iff the (staged) model matches a PASS stamp
+#                                                          (--clean: and that pass saw 0 mxbuild errors;
+#                                                           --full: and it was a full mxbuild, not `mx check`)
 #   ./bin/model-stamp.sh clear                    # forget the stamp (the model changed unverified)
 #   ./bin/model-stamp.sh paths                    # the repo-relative model paths this covers
 #
@@ -283,6 +284,9 @@ case "$cmd" in
       # still carries pre-existing errors, so "pass" alone does not mean clean; exec.sh
       # skips its pre-flight mxbuild only on a stamp that says 0 here (check --clean).
       printf 'errors: %s\n' "${MXTK_STAMP_ERRORS:-?}"
+      # full = mxbuild deploy build (Java compiled); check = `mx check` only (exec.sh `Gate mode: check`).
+      # The pre-push hook and module-close.sh run a full build when the stamp says check.
+      printf 'kind: %s\n' "${MXTK_STAMP_KIND:-full}"
       printf 'at: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     } > "$STAMP"
     # Machine-local, like the doctor receipt: never let it travel with the repo.
@@ -294,8 +298,8 @@ case "$cmd" in
     ;;
   clear) rm -f "$STAMP"; echo "  verification stamp cleared" ;;
   check)
-    staged=0; quiet=0; clean=0
-    for a in "$@"; do case "$a" in --staged) staged=1 ;; -q|--quiet) quiet=1 ;; --clean) clean=1 ;; esac; done
+    staged=0; quiet=0; clean=0; full=0
+    for a in "$@"; do case "$a" in --staged) staged=1 ;; -q|--quiet) quiet=1 ;; --clean) clean=1 ;; --full) full=1 ;; esac; done
     say() { [ "$quiet" = 1 ] || echo "$@"; }
     if [ "$staged" = 1 ]; then
       in_git || exit 0
@@ -329,6 +333,10 @@ case "$cmd" in
     fi
     if [ "$clean" = 1 ] && [ "$(stamp_field errors)" != "0" ]; then
       say "  ✗ $what passed with pre-existing errors ($(stamp_field errors)) — not a clean stamp"; exit 1
+    fi
+    # A stamp without a kind line predates `mx check` stamps: it was a full build.
+    if [ "$full" = 1 ] && [ "$(stamp_field kind)" = "check" ]; then
+      say "  ✗ $what was verified by mx check only ($src, $at) — no full build (Java compile) yet"; exit 1
     fi
     say "  ✓ $what verified ($src, $at)"
     ;;

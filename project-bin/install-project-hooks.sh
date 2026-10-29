@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # install-project-hooks.sh — the commit-time backstop for the mxbuild gate.
 #
-#   ./bin/install-project-hooks.sh           # install/refresh the pre-commit + revision-note hooks
+#   ./bin/install-project-hooks.sh           # install/refresh the pre-commit, pre-push + revision-note hooks
 #   ./bin/install-project-hooks.sh --check   # exit 1 if any is missing or stale
 #
 # Three jobs. (1) pre-commit: the mxbuild-gate backstop below. (2) post-commit + post-rewrite: the
@@ -99,6 +99,10 @@ if [ "${1:-}" = "--check" ]; then
   rc=0
   if [ -f "$HOOK" ] && grep -q "^$MARK" "$HOOK"; then echo "  ✓ pre-commit hook installed ($HOOK)"
   else echo "  ✗ pre-commit model-verification hook missing — run ./bin/install-project-hooks.sh"; rc=1; fi
+  # Missing pre-push = rc 1, so sync-project.sh (which installs only when --check fails) adds it
+  # to existing projects: `Gate mode: check` is the default, and this hook is its full build.
+  if [ -f "$HOOKS/pre-push" ] && grep -q "^# mxtk-pre-push full-build hook v1" "$HOOKS/pre-push"; then echo "  ✓ pre-push full-build hook installed"
+  else echo "  ✗ pre-push full-build hook missing — run ./bin/install-project-hooks.sh"; rc=1; fi
   for h in post-commit post-rewrite; do
     if [ -f "$HOOKS/$h" ] && grep -q "^$NOTE_MARK" "$HOOKS/$h"; then echo "  ✓ $h revision-note hook installed"
     else echo "  ✗ $h revision-note hook missing — run ./bin/install-project-hooks.sh"; rc=1; fi
@@ -162,6 +166,46 @@ HOOKEOF
 chmod +x "$HOOK"
 echo "  ✓ pre-commit hook installed -> $HOOK"
 echo "    (refuses to commit .mpr/mprcontents changes that have no mxbuild-gate PASS stamp; ./bin/verify-model.sh writes one)"
+
+# --- pre-push: the full build `Gate mode: check` defers (exec.sh "Gate kind") ------------------------
+# Under `Gate mode: check` (the default) exec.sh runs `mx check` per script, which compiles no Java. A push is where
+# a model leaves this machine, so this hook runs the full mxbuild (bin/verify-model.sh) when the
+# stamp matches the model but says `mx check` only. It does the remedy itself (guard rule 7) and
+# refuses only when that full build finds errors. Every other project: a no-op (no gate-kind state,
+# or a full-build stamp, or a stamp that does not match — the pre-commit hook's business).
+# MODEL_UNVERIFIED_OK=1 pushes anyway, once, out loud.
+PP="$HOOKS/pre-push"
+PP_MARK="# mxtk-pre-push full-build hook v1"
+if [ -f "$PP" ] && ! grep -q "^$PP_MARK" "$PP"; then
+  mv "$PP" "$PP.pre-mxtk"
+  echo "  existing pre-push hook kept as pre-push.pre-mxtk and chained first"
+fi
+cat > "$PP" <<HOOKEOF
+#!/usr/bin/env bash
+$PP_MARK — written by bin/install-project-hooks.sh (mxcli-project-toolkit). Re-run it to refresh.
+input="\$(cat)"
+[ -x "\$(dirname "\$0")/pre-push.pre-mxtk" ] && { printf '%s\n' "\$input" | "\$(dirname "\$0")/pre-push.pre-mxtk" "\$@" || exit 1; }
+b="\$(git rev-parse --show-toplevel)/$BIN_REL"
+[ -x "\$b/model-stamp.sh" ] && [ -f "\$b/verify-model.sh" ] && [ -f "\$b/../.claude/loop/gate-kind.state" ] || exit 0
+"\$b/model-stamp.sh" check -q >/dev/null 2>&1 || exit 0
+"\$b/model-stamp.sh" check -q --full >/dev/null 2>&1 && exit 0
+if [ "\${MODEL_UNVERIFIED_OK:-0}" = "1" ]; then
+  echo "⚠ MODEL_UNVERIFIED_OK=1 — pushing a model verified by mx check only (no Java compile)." >&2; exit 0
+fi
+echo "→ pre-push: the model was verified by mx check only; running the full build first (bin/verify-model.sh)..." >&2
+( cd "\$b/.." && bash bin/verify-model.sh ) >&2; vrc=\$?
+if [ "\$vrc" = 1 ]; then
+  echo "✗ push refused: the full build found errors (above). Fix them, commit, push again." >&2
+  echo "  Deliberate override, once:   MODEL_UNVERIFIED_OK=1 git push ..." >&2
+  exit 1
+elif [ "\$vrc" != 0 ]; then
+  # exit 2: mxbuild could not run here — not a finding about the model; never block the push on it.
+  echo "⚠ pre-push: the full build could not run on this machine (verify-model.sh exit \$vrc) — pushing a model verified by mx check only." >&2
+fi
+exit 0
+HOOKEOF
+chmod +x "$PP"
+echo "  ✓ pre-push hook installed (runs the full build before a model only mx-checked leaves this machine)"
 
 # --- revision notes for Studio Pro History (post-commit + post-rewrite) -------------------------
 # Both hooks find Python through bin/_common.sh's resolve_py (executes each candidate, skips the

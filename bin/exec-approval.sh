@@ -48,8 +48,6 @@
 
 set -u
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-
 PROJECT_DIR="${1:-}"
 ACTION="${2:-}"
 
@@ -129,9 +127,14 @@ if [ -z "$MODE" ] && [ -f "$PROJECT_DIR/PROJECT.md" ]; then
   # first occurrence wins so an appended log entry cannot silently retune the project. The whole
   # rest of the line is the value, so any trailing note is invalid → `ask`. (interview-mode.sh
   # allows a note after `steering` only; this read deliberately stays exact.)
-  FROM_MD=$(grep -iEm1 '^[[:space:]]*(-[[:space:]]*)?\**Exec approval\**[[:space:]]*:' "$PROJECT_DIR/PROJECT.md" 2>/dev/null \
-            | sed -E 's/.*[Aa]pproval\**[[:space:]]*:[[:space:]]*//' \
-            | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]*`')
+  # grep first, alone: most projects have no such line, and the sed | tr | tr behind it then
+  # ran over empty input (three process starts to produce nothing).
+  FROM_MD=""
+  _EA_LINE=$(grep -iEm1 '^[[:space:]]*(-[[:space:]]*)?\**Exec approval\**[[:space:]]*:' "$PROJECT_DIR/PROJECT.md" 2>/dev/null || true)
+  if [ -n "$_EA_LINE" ]; then
+    FROM_MD=$(printf '%s\n' "$_EA_LINE" | sed -E 's/.*[Aa]pproval\**[[:space:]]*:[[:space:]]*//' \
+              | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]*`')
+  fi
   if [ -n "$FROM_MD" ]; then
     if is_valid "$FROM_MD"; then
       MODE="$FROM_MD"; SOURCE="PROJECT.md"

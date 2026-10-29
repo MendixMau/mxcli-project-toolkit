@@ -77,7 +77,9 @@
 
 set -uo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# dirname of this script without a process (a start costs ~100 ms on Windows).
+_lgd="${BASH_SOURCE[0]%/*}"; [ "$_lgd" != "${BASH_SOURCE[0]}" ] || _lgd=.
+ROOT="$(cd "$_lgd/.." && pwd)"
 cd "$ROOT" || exit 2
 
 # Python is resolved, not assumed: a bare `python3` is the Store alias stub on Windows and a
@@ -88,8 +90,8 @@ cd "$ROOT" || exit 2
 # overwriting it — deliberately, since projects harden their crash net. So every project that
 # has already tuned _common.sh would receive this script and have it die on line 1 with
 # "require_py: command not found". Measured on PROJECT-C before this fallback existed.
-if [ -f "$(dirname "${BASH_SOURCE[0]}")/_common.sh" ]; then
-  . "$(dirname "${BASH_SOURCE[0]}")/_common.sh"
+if [ -f "$_lgd/_common.sh" ]; then
+  . "$_lgd/_common.sh"
 fi
 if ! type require_py >/dev/null 2>&1; then
   require_py() {
@@ -117,6 +119,10 @@ require_py
 if [ -z "${MPR:-}" ] && [ -n "${MPR_FILE:-}" ]; then
   _m="${MPR_FILE#"$ROOT"/}"; [ -f "$ROOT/$_m" ] && MPR="$_m"
 fi
+# Under exec.sh the model was resolved once (MXTK_MPR_MEMO, relative to ROOT here): no ls probes.
+if [ -z "${MPR:-}" ] && type _mxtk_mpr_memo_ok >/dev/null 2>&1 && _mxtk_mpr_memo_ok; then
+  case "$MXTK_MPR_MEMO" in "$ROOT"/*) MPR="${MXTK_MPR_MEMO#"$ROOT"/}" ;; esac
+fi
 if [ -z "${MPR:-}" ]; then
   MPR="$(ls "$ROOT"/*.mpr 2>/dev/null | head -1)"
   MPR="$(basename "${MPR:-}")"
@@ -142,7 +148,8 @@ if [ -z "$MPR" ] || [ ! -f "$ROOT/$MPR" ]; then
   echo "lint-gate: no .mpr found in $ROOT, $ROOT/app or $ROOT/apps/<X> — set MPR=<name>.mpr" >&2
   exit 2
 fi
-if [ "$(ls "$ROOT"/*.mpr 2>/dev/null | wc -l | tr -d " ")" -gt 1 ] && [ -z "${MPR_EXPLICIT:-}" ]; then
+_rootmprs=("$ROOT"/*.mpr)   # a glob, not ls | wc | tr
+if [ -e "${_rootmprs[0]}" ] && [ "${#_rootmprs[@]}" -gt 1 ] && [ -z "${MPR_EXPLICIT:-}" ]; then
   echo "lint-gate: several .mpr files here; linting $MPR. Set MPR=<name>.mpr to choose." >&2
 fi
 VENDOR_FILE="$ROOT/.claude/lint-vendor-modules.txt"
@@ -196,7 +203,11 @@ fi
 # This script does not source _common.sh (see header); resolve the binary the same way it
 # does — mxcli.exe first on Git Bash, since the Dev Container may have left a Linux `mxcli`.
 MXCLI=""
-case "$(uname -s 2>/dev/null)" in MINGW*|MSYS*|CYGWIN*) [ -x ./mxcli.exe ] && MXCLI=./mxcli.exe ;; esac
+if [ -n "${MXTK_PLATFORM:-}" ]; then   # exec.sh already asked uname
+  [ "$MXTK_PLATFORM" = windows ] && [ -x ./mxcli.exe ] && MXCLI=./mxcli.exe
+else
+  case "$(uname -s 2>/dev/null)" in MINGW*|MSYS*|CYGWIN*) [ -x ./mxcli.exe ] && MXCLI=./mxcli.exe ;; esac
+fi
 [ -n "$MXCLI" ] || { [ -x ./mxcli ] && MXCLI=./mxcli; }
 [ -n "$MXCLI" ] || { echo "lint-gate: no runnable mxcli in $ROOT (Windows: mxcli.exe) — bin/doctor.sh --install --yes <project>" >&2; exit 2; }
 [ -e "$MPR" ]  || { echo "lint-gate: $MPR not found" >&2; exit 2; }
@@ -300,10 +311,36 @@ for name, want, k in rows:
         continue  # unchanged, or header kept: a hand edit, which install-lint-rules.sh reports
     print("%s\theader gone, md5 %s != receipt %s" % (name, got[:8], want[:8]))
 PY
-  ALLREV="$(RECEIPT="$RECEIPT" RULES_DIR="$ROOT/.claude/lint-rules" DISABLED="$ROOT/.claude/lint-rules-disabled.txt" \
-    STOCK_LIST="$STOCK_LIST" ROOT="$ROOT" "$PY" -c "$_RCHK")"
-  REVERTED="$(printf '%s\n' "$ALLREV" | grep -v "$(printf '\t')proj-" | grep . || true)"
-  PROJREV="$(printf '%s\n' "$ALLREV" | grep "$(printf '\t')proj-" || true)"
+  # The check below is a Python start whose answer only changes when one of its inputs does. A
+  # clean answer leaves .claude/loop/.lint-receipt-ok behind, holding a content signature (one
+  # cksum pipeline) of everything the check reads: the receipt, the disabled list, the stock list
+  # and every rule file. While the signature is unchanged, the clean answer still stands. Content,
+  # not mtimes: `cp -p`, `rsync -t`, tar/unzip and in-place restores keep an old mtime (#590
+  # review). Any mismatch is never marked, so it is always re-checked.
+  _okm="$ROOT/.claude/loop/.lint-receipt-ok"; _rc_skip=0
+  _rc_sig="$(cksum "$RECEIPT" ${STOCK_LIST:+"$STOCK_LIST"} "$ROOT/.claude/lint-rules-disabled.txt" "$ROOT"/.claude/lint-rules/* 2>/dev/null | cksum)"
+  if [ -f "$_okm" ] && [ -n "$_rc_sig" ] && [ "$(cat "$_okm" 2>/dev/null)" = "$_rc_sig" ]; then
+    _rc_skip=1
+  fi
+  ALLREV=""; REVERTED=""; PROJREV=""
+  if [ "$_rc_skip" = 0 ]; then
+    if ALLREV="$(RECEIPT="$RECEIPT" RULES_DIR="$ROOT/.claude/lint-rules" DISABLED="$ROOT/.claude/lint-rules-disabled.txt" \
+        STOCK_LIST="$STOCK_LIST" ROOT="$ROOT" "$PY" -c "$_RCHK")" && [ -z "$ALLREV" ]; then
+      { mkdir -p "$ROOT/.claude/loop" && printf '%s\n' "$_rc_sig" > "$_okm"; } 2>/dev/null || true
+    fi
+    if [ -n "$ALLREV" ]; then   # the two greps only have something to sort when the check printed rows
+      _tab="$(printf '\t')"
+      while IFS= read -r _arl; do
+        [ -n "$_arl" ] || continue
+        case "$_arl" in
+          *"${_tab}proj-"*) PROJREV="${PROJREV:+$PROJREV
+}$_arl" ;;
+          *) REVERTED="${REVERTED:+$REVERTED
+}$_arl" ;;
+        esac
+      done <<< "$ALLREV"
+    fi
+  fi
   if [ -n "$REVERTED" ]; then
     TKR=""
     type find_toolkit_root >/dev/null 2>&1 && TKR="$(PROJECT_ROOT="$ROOT" find_toolkit_root 2>/dev/null || true)"

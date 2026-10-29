@@ -88,13 +88,14 @@ MDLSOURCE="$ROOT/mdlsource"
 MODULES_DIR="$ROOT/architecture/modules"
 REGISTER="$ROOT/docs/improvement-register.md"
 BUILD_PLAN="$ROOT/architecture/build-plan.md"
-STAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+if [ -n "${EPOCHSECONDS:-}" ]; then TZ=UTC printf -v STAMP '%(%Y-%m-%dT%H:%M:%SZ)T' -1   # bash 5: no date process
+else STAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; fi
 
 # PROJECT.md `Progress report: off | ask | auto` (default ask). off = this script never writes the
 # page; ask and auto only change what the agent does at a stage gate or module close (the skills
 # say: ask once, or open it), so the script treats them the same.
 report_name() {  # the page name lives in progress-report.py (REPORT_FILE); asked once, here
-  REPORT_FILE="$("${PY:-python3}" "$(dirname "${BASH_SOURCE[0]}")/progress-report.py" --print-name 2>/dev/null)"  # portability-ok: PY is resolve_py output; python3 only if unset
+  REPORT_FILE="$("${PY:-python3}" "${_bpd:-$(dirname "${BASH_SOURCE[0]}")}/progress-report.py" --print-name 2>/dev/null)"  # portability-ok: PY is resolve_py output; python3 only if unset
   [ -n "$REPORT_FILE" ] || REPORT_FILE="progress-report.html"
 }
 progress_report_setting() {
@@ -116,12 +117,21 @@ progress_report_setting() {
 PHASE_ROWS=""
 PHASE_COUNT=0
 if [ -d "$MDLSOURCE" ]; then
+  # Counted with globs: the find | wc | tr (and basename) per phase folder were five process
+  # starts each. dotglob + the symlink test keep find -type f's answer.
+  _dg=0; shopt -q dotglob && _dg=1
   for d in "$MDLSOURCE"/*/; do
     [ -d "$d" ] || continue
-    phase="$(basename "$d")"
-    total=$(find "$d" -maxdepth 1 -type f \( -name '*.mdl' -o -name '*.sql' \) | wc -l | tr -d ' ')
+    _dn="${d%/}"; phase="${_dn##*/}"
+    total=0; done_ct=0
+    shopt -s dotglob   # only for the file globs: the phase folders themselves stay non-hidden
+    for _pf in "$d"*.mdl "$d"*.sql; do
+      [ -f "$_pf" ] && [ ! -L "$_pf" ] || continue
+      total=$((total + 1))
+      case "${_pf##*/}" in done-*) done_ct=$((done_ct + 1)) ;; esac
+    done
+    [ "$_dg" = 1 ] || shopt -u dotglob
     [ "$total" -eq 0 ] && continue
-    done_ct=$(find "$d" -maxdepth 1 -type f \( -name 'done-*.mdl' -o -name 'done-*.sql' \) | wc -l | tr -d ' ')
     pct=$(( total > 0 ? done_ct * 100 / total : 0 ))
     status="pending"
     [ "$done_ct" -gt 0 ] && status="in-progress"
@@ -142,7 +152,7 @@ REVIEWED_COUNT=0
 if [ -d "$MODULES_DIR" ]; then
   for d in "$MODULES_DIR"/*/; do
     [ -d "$d" ] || continue
-    module="$(basename "$d")"
+    _dn="${d%/}"; module="${_dn##*/}"
     briefed="no"
     if [ -f "$d/module-brief.md" ]; then
       briefed="yes"
@@ -170,14 +180,13 @@ if [ -d "$MODULES_DIR" ]; then
     reviewed="not yet"
     if [ -f "$summary" ]; then
       REVIEWED_COUNT=$((REVIEWED_COUNT+1))
-      if grep -q $'\tFAULT\t' "$summary" 2>/dev/null; then
-        reviewed="INCOMPLETE (instrument fault)"
-      elif grep -q $'\tFINDING\t' "$summary" 2>/dev/null; then
-        reviewed="FINDINGS"
-      else
-        reviewed="CLEAN"
-      fi
-      age_s=$(( $(date +%s) - $(date -r "$summary" +%s 2>/dev/null || echo 0) ))
+      _sum=""; IFS= read -r -d '' _sum < "$summary" 2>/dev/null || true   # two greps over it, in-shell
+      case "$_sum" in
+        *$'\tFAULT\t'*) reviewed="INCOMPLETE (instrument fault)" ;;
+        *$'\tFINDING\t'*) reviewed="FINDINGS" ;;
+        *) reviewed="CLEAN" ;;
+      esac
+      age_s=$(( ${EPOCHSECONDS:-$(date +%s)} - $(date -r "$summary" +%s 2>/dev/null || echo 0) ))
       age_d=$(( age_s / 86400 ))
       reviewed="$reviewed (${age_d}d ago)"
     fi
@@ -432,9 +441,10 @@ PYEOF
 }
 
 if [ "$WRITE_JSON" -eq 1 ] || [ "$WRITE_HTML" -eq 1 ]; then
-  if [ -f "$(dirname "${BASH_SOURCE[0]}")/_common.sh" ]; then
+  _bpd="${BASH_SOURCE[0]%/*}"; [ "$_bpd" != "${BASH_SOURCE[0]}" ] || _bpd=.   # dirname without a process
+  if [ -f "$_bpd/_common.sh" ]; then
     # shellcheck disable=SC1091
-    . "$(dirname "${BASH_SOURCE[0]}")/_common.sh"
+    . "$_bpd/_common.sh"
   fi
   if ! type resolve_py >/dev/null 2>&1; then
     resolve_py() {
@@ -532,7 +542,7 @@ render_plan_section() {  # stdout: the plan section's HTML
     echo "<h2>The plan</h2><p class=empty>Nothing to show yet: ${PLAN_MSG:-build-plan.md was not read}.</p>"
     return 0
   fi
-  "$PY" - "$PLAN_JSON" "$MDLSOURCE" "${PHASE_DETAIL:-/dev/null}" "$ROOT" "$(dirname "${BASH_SOURCE[0]}")/progress-report.py" <<'PYEOF' || echo "<h2>The plan</h2><p class=empty>Could not render the plan section from build-plan.md.</p>"
+  "$PY" - "$PLAN_JSON" "$MDLSOURCE" "${PHASE_DETAIL:-/dev/null}" "$ROOT" "${_bpd:-$(dirname "${BASH_SOURCE[0]}")}/progress-report.py" <<'PYEOF' || echo "<h2>The plan</h2><p class=empty>Could not render the plan section from build-plan.md.</p>"
 import fnmatch, html, json, os, re, sys
 
 src, mdl, detail_out, proj, gen = sys.argv[1:6]
@@ -709,7 +719,7 @@ PYEOF
 # architecture/build-plan.html is left exactly where it is: not read, not rewritten, not deleted.
 if [ "$WRITE_HTML" -eq 1 ]; then
   SKIP_HTML=""
-  GEN="$(dirname "${BASH_SOURCE[0]}")/progress-report.py"
+  GEN="${_bpd:-$(dirname "${BASH_SOURCE[0]}")}/progress-report.py"
   report_name
   OUT="$ROOT/architecture/$REPORT_FILE"
   SETTING="$(progress_report_setting)"

@@ -10,6 +10,10 @@
 # (see its CAPTURE.txt). Each fact has a negative control in the same model: a parameter column
 # (no OVERLAP), a decision captioned to match its true branch (no SENSE).
 #
+# The note numbering depends on the model's Mendix version (section V). The captured dump says
+# 11.14.0; the golden facts below were measured on a Mendix 10 reading of it, so model() stamps
+# 10.24.18 over it, and section V builds the Mendix 11 copies.
+#
 # Positive control: against a project-bin without the script every case fails -- it does not
 # exist. [guard] marks regression guards.
 set -uo pipefail
@@ -27,11 +31,31 @@ bad() { FAIL=$((FAIL+1)); printf '  FAIL %s\n' "$1"; [ -n "${2:-}" ] && printf '
 . "$TK/bin/lib/portable.sh"; require_py
 export MXPATCH_BACKUP_DIR="$WORK/bak"
 
-# model <dir> -- the base model's units, the captured five over them, the captured .mpr.
+# model <dir> [version] -- the base model's units, the captured five over them, the captured .mpr
+# stamped with the Mendix version (default 10.24.18.103793, a Mendix 10 model).
 model() {
   rm -rf "$1"; mkdir -p "$1"; cp -r "$BASE/mprcontents" "$1/"; cp -r "$FX/overlay/mprcontents" "$1/"
-  "$PY" -c 'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.executescript(open(sys.argv[2]).read()); c.commit()' \
-    "$1/TestApp.mpr" "$FX/overlay/TestApp.mpr.sql"
+  "$PY" -c 'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.executescript(open(sys.argv[2]).read())
+c.execute("UPDATE _MetaData SET _ProductVersion = ?", (sys.argv[3],)); c.commit()' \
+    "$1/TestApp.mpr" "$FX/overlay/TestApp.mpr.sql" "${2:-10.24.18.103793}"
+}
+# notes <dir> set <n> | remap -- the origin side of every note line: all set to n, or renumbered the way
+# the Mendix 10 -> 11 upgrade does (top 0 -> 0, bottom 1 -> 2, left 2 -> 3, right 3 -> 1). Prints how many.
+notes() {
+  "$PY" -I -c 'import sys; sys.path.insert(0, sys.argv[1]); import mxpatch
+m = mxpatch.Model(sys.argv[2]); n = 0
+for p in m.unit_files():
+    raw = open(p, "rb").read()
+    if b"AnnotationFlow" not in raw:
+        continue
+    u = mxpatch.Unit(p, raw)
+    for d in mxpatch.walk(u.doc):
+        if mxpatch.get(d, "$Type") == "Microflows$AnnotationFlow":
+            old = mxpatch.get(d, "OriginConnectionIndex")
+            mxpatch.set_value(d, "OriginConnectionIndex", int(sys.argv[4]) if sys.argv[3] == "set" else {0: 0, 1: 2, 2: 3, 3: 1}[old])
+            n += 1
+    m.write_unit(u, apply=True, log=lambda s: None)
+print(n)' "$BIN" "$1" "$2" "${3:-}"
 }
 FACTS() { "$PY" -I "$BIN/mf-canvas-facts.py" "$@"; }
 
@@ -68,6 +92,33 @@ for c in sys.argv[2:]: print("%s=%s" % (c, bool(f.NEG.search(c))))' "$BIN/mf-can
   && ok "[guard] 'inactive?', 'incomplete?', 'expired?', 'unknown?', 'unsaved?' read as negated questions; 'active?', 'found?', 'unit', 'unique', 'under', 'until' do not" || bad "negative-word list" "$OUT2"
 printf '%s' "$OUT" | tail -1 | grep -q '^# facts: 15 flows, OVERLAP 1, LINE 1, NOTE-SIDE 1, LEFTWARD 0, TURN 0, CAPTION 0, SENSE 1$' \
   && ok "summary line counts every fact kind" || bad "summary" "$(printf '%s' "$OUT" | tail -1)"
+
+echo "== V: the note numbering follows the model's Mendix version =="
+printf '%s\n' "$OUT" | head -1 | grep -qx '# note sides: Mendix 10 numbering (model version 10.24.18.103793)' \
+  && ok "the first output line names the numbering used (Mendix 10)" || bad "numbering line" "$(printf '%s\n' "$OUT" | head -1)"
+M11="$WORK/m11"; model "$M11" 11.15.0
+OUT11="$(FACTS "$M11" --module MyFirstModule 2>&1)"
+printf '%s\n' "$OUT11" | head -1 | grep -qx '# note sides: Mendix 11 numbering (model version 11.15.0)' \
+  && ok "the first output line names the numbering used (Mendix 11)" || bad "numbering line 11" "$(printf '%s\n' "$OUT11" | head -1)"
+printf '%s' "$OUT" | grep -q '^  NOTE-SIDE note line Annotation@360,100 -> Action@360,200 leaves the note left' \
+  && ! printf '%s' "$OUT11" | grep -q '^  NOTE-SIDE' \
+  && ok "mxcli's (2,0) note above its activity: NOTE-SIDE on Mendix 10, none on Mendix 11 (bottom of the note)" \
+  || bad "(2,0) above the activity, 10 vs 11" "$OUT11"
+# Every origin side of that note, on a Mendix 10 model, against the same line renumbered as the upgrade does
+# on a Mendix 11 model: the same NOTE-SIDE result. The note sits above its activity, so only its bottom faces it.
+for n in 0 1 2 3; do
+  A="$WORK/n10-$n"; B="$WORK/n11-$n"; model "$A"; model "$B" 11.15.0
+  C1="$(notes "$A" set "$n")"; C2="$(notes "$B" set "$n")"; C3="$(notes "$B" remap)"
+  R10="$(FACTS "$A" --module MyFirstModule | grep -c '^  NOTE-SIDE')"; R11="$(FACTS "$B" --module MyFirstModule | grep -c '^  NOTE-SIDE')"
+  WANT=1; [ "$n" = 1 ] && WANT=0
+  [ "$C1/$C2/$C3" = "1/1/1" ] && [ "$R10" = "$WANT" ] && [ "$R11" = "$WANT" ] \
+    && ok "origin side $n on Mendix 10 and the upgraded $n on Mendix 11 give the same NOTE-SIDE result ($WANT)" \
+    || bad "origin side $n: lines $C1/$C2/$C3, NOTE-SIDE on 10: $R10, on 11: $R11, want $WANT"
+done
+MU="$WORK/mu"; model "$MU"; "$PY" -c 'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.execute("DROP TABLE _MetaData"); c.commit()' "$MU/TestApp.mpr"
+OUTU="$(FACTS "$MU" --module MyFirstModule 2>&1)"; RC=$?
+[ "$RC" -eq 0 ] && printf '%s\n' "$OUTU" | head -1 | grep -qx '# note sides: Mendix 11 numbering (model version unreadable, assumed)' \
+  && ok "[guard] a version that cannot be read: Mendix 11 numbering, said on the first line, still exit 0" || bad "unreadable version rc=$RC" "$(printf '%s\n' "$OUTU" | head -1)"
 
 echo "== S: selection and faults =="
 OUT="$(FACTS "$M/mprcontents" MyFirstModule.ACT_Customer_Check ACT_Customer_Merge 2>&1)"; RC=$?

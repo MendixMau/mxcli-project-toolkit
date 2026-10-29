@@ -37,17 +37,28 @@
 # The stamp is machine-local (.claude/.model-verified, self-gitignored): a clone on
 # another machine starts unverified, which is the truth.
 set -e
-. "$(dirname "$0")/_common.sh"
+_msd="${0%/*}"; [ "$_msd" != "$0" ] || _msd=.   # dirname without a process
+. "$_msd/_common.sh"
+_NL=$'\n'
 
 STAMP="$PROJECT_ROOT/.claude/.model-verified"
+
+# `clear` needs nothing but the stamp path. Under exec.sh (a model resolved once for the run) it
+# answers before the model, git and fingerprint set-up below, which `clear` never reads.
+if [ "${1:-}" = clear ] && _mxtk_mpr_memo_ok; then
+  [ ! -e "$STAMP" ] || rm -f "$STAMP"
+  echo "  verification stamp cleared"; exit 0
+fi
 
 _real() {  # resolve symlinks by hand (GNU-only resolvers are absent on older macOS)
   local p="$1" d
   while [ -L "$p" ]; do
-    d="$(dirname "$p")"; p="$(readlink "$p")"
+    d="${p%/*}"; [ "$d" != "$p" ] || d=.
+    p="$(readlink "$p")"
     case "$p" in /*) ;; *) p="$d/$p" ;; esac
   done
-  printf '%s/%s\n' "$(cd "$(dirname "$p")" && pwd -P)" "$(basename "$p")"
+  d="${p%/*}"; [ "$d" != "$p" ] || d=.; [ -n "$d" ] || d=/
+  printf '%s/%s\n' "$(cd "$d" && pwd -P)" "${p##*/}"
 }
 
 # Pin git's view of the repository before any `git -C "$MODEL_DIR"` below.
@@ -98,8 +109,10 @@ _mxtk_several_apps() {
   [ "$(ls "$PROJECT_ROOT"/apps/*/*.mpr 2>/dev/null | wc -l | tr -d ' ')" -gt 1 ]
 }
 _several=0
-if [ "${1:-}" = "check" ] && [ -z "${MPR_FILE:-}" ] && _mxtk_several_apps; then _several=1; fi
-if [ "${1:-}" = "check" ] && [ -z "${MPR_FILE:-}" ] && { [ "$_several" = 1 ] || ! _mxtk_any_mpr; }; then
+# Under exec.sh the model was resolved once for this run (MXTK_MPR_MEMO): a single .mpr exists,
+# so neither the several-apps nor the no-model probe (six ls processes) can apply.
+if [ "${1:-}" = "check" ] && [ -z "${MPR_FILE:-}" ] && ! _mxtk_mpr_memo_ok && _mxtk_several_apps; then _several=1; fi
+if [ "${1:-}" = "check" ] && [ -z "${MPR_FILE:-}" ] && ! _mxtk_mpr_memo_ok && { [ "$_several" = 1 ] || ! _mxtk_any_mpr; }; then
   _q=0; for a in "$@"; do case "$a" in -q|--quiet) _q=1 ;; esac; done
   _staged=""
   if git -C "$PROJECT_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
@@ -158,17 +171,30 @@ fi
 
 MPR="$(find_mpr)" || exit 1
 MPR="$(_real "$MPR")"
-MODEL_DIR="$(dirname "$MPR")"
+MODEL_DIR="${MPR%/*}"; [ "$MODEL_DIR" != "$MPR" ] || MODEL_DIR=.
 MPRC="$MODEL_DIR/mprcontents"
 
-in_git() { git -C "$MODEL_DIR" rev-parse --show-toplevel >/dev/null 2>&1; }
+# git's answers for the model folder, asked ONCE per run of this script (it used to ask
+# `rev-parse --show-toplevel` four to six times and `--show-prefix` twice: a process each).
+# Called in the main shell before any $(...) so the subshells see the cached values.
+_GI_DONE=""; _GI_IN=0; _GI_TOP=""; _GI_PFX=""
+_git_info() {
+  [ -z "$_GI_DONE" ] || return 0
+  _GI_DONE=1
+  local out
+  if out="$(git -C "$MODEL_DIR" rev-parse --show-toplevel --show-prefix 2>/dev/null)"; then
+    _GI_IN=1; _GI_TOP="${out%%$'\n'*}"
+    if [ "$_GI_TOP" != "$out" ]; then _GI_PFX="${out#*$'\n'}"; else _GI_PFX=""; fi
+  fi
+  return 0
+}
+in_git() { _git_info; [ "$_GI_IN" = 1 ]; }
 
 # Repo-relative paths (from the git top level), printed one per line.
 model_paths() {
-  local prefix
-  prefix="$(git -C "$MODEL_DIR" rev-parse --show-prefix)"
-  printf '%s%s\n' "$prefix" "$(basename "$MPR")"
-  [ -d "$MPRC" ] && printf '%smprcontents\n' "$prefix"
+  _git_info
+  printf '%s%s\n' "$_GI_PFX" "${MPR##*/}"
+  [ -d "$MPRC" ] && printf '%smprcontents\n' "$_GI_PFX"
   return 0
 }
 
@@ -185,14 +211,12 @@ model_paths() {
 # An empty path set is never a fingerprint: see _fp_worktree/_fp_staged below.
 MODEL_PATHS=()
 _load_model_paths() {
-  local p n=0
+  local n=0
   MODEL_PATHS=()
-  while IFS= read -r p; do
-    [ -n "$p" ] || continue
-    MODEL_PATHS[$n]="$p"; n=$((n + 1))
-  done <<EOF
-$(model_paths)
-EOF
+  _git_info
+  # The same two entries model_paths prints, without running it in a subshell.
+  [ -n "${MPR##*/}" ] && { MODEL_PATHS[$n]="${_GI_PFX}${MPR##*/}"; n=$((n + 1)); }
+  [ -d "$MPRC" ] && { MODEL_PATHS[$n]="${_GI_PFX}mprcontents"; n=$((n + 1)); }
   if [ "$n" -eq 0 ]; then
     echo "model-stamp: no model paths resolved for $MPR — refusing to fingerprint (a stamp over" >&2
     echo "  nothing would match every model state, which is worse than no stamp at all)." >&2
@@ -203,13 +227,16 @@ EOF
 
 _fp_worktree() {
   if in_git; then
-    local top lst; top="$(git -C "$MODEL_DIR" rev-parse --show-toplevel)"
+    local top f h n=0 k=0 files=() hashes=(); _git_info; top="$_GI_TOP"
     _load_model_paths || return 1
-    lst="$(mktemp "${TMPDIR:-/tmp}/model-stamp.XXXXXX")"
     # Tracked + untracked-not-ignored, minus anything deleted in the working tree. Newline
     # separated: `git hash-object --stdin-paths` has no -z, and unit file names carry none.
-    ( cd "$top" && git ls-files -c -o --exclude-standard -- "${MODEL_PATHS[@]}" 2>/dev/null \
-        | while IFS= read -r f; do [ -f "$f" ] && printf '%s\n' "$f"; done ) > "$lst"
+    # Held in an array, not a temp file: the file, its rm and the paste that rejoined it with
+    # the hashes were three more process starts per fingerprint.
+    while IFS= read -r f; do
+      [ -f "$top/$f" ] && files[${#files[@]}]="$f"
+    done < <(cd "$top" && git ls-files -c -o --exclude-standard -- "${MODEL_PATHS[@]}" 2>/dev/null)
+    n=${#files[@]}
     # An EMPTY list is not a fingerprint over nothing — that used to fall through to
     # `mxtk_sha256` over empty stdin, which is a CONSTANT, so a project whose mprcontents/
     # is gitignored fingerprinted identically no matter what the model contained, and every
@@ -222,8 +249,7 @@ _fp_worktree() {
     # hashes real bytes, not an empty list, so it carries none of the constant-hash risk
     # this guard exists to prevent. Only a genuinely unresolvable empty set (paths git
     # neither tracks NOR ignores — e.g. deleted mid-session) still refuses.
-    if [ ! -s "$lst" ]; then
-      rm -f "$lst"
+    if [ "$n" -eq 0 ]; then
       local ignored=1 p
       for p in "${MODEL_PATHS[@]}"; do
         ( cd "$top" && git check-ignore -q -- "$p" ) || { ignored=0; break; }
@@ -237,9 +263,9 @@ _fp_worktree() {
       echo "  a stamp over an empty set would match every model state." >&2
       return 1
     fi
-    ( cd "$top" && paste -d' ' <(git hash-object --stdin-paths < "$lst") "$lst" ) \
+    IFS=$'\n' read -r -d '' -a hashes < <(cd "$top" && printf '%s\n' "${files[@]}" | git hash-object --stdin-paths) || true
+    for f in "${files[@]}"; do printf '%s %s\n' "${hashes[$k]:-}" "$f"; k=$((k + 1)); done \
       | LC_ALL=C sort -k2 | mxtk_sha256
-    rm -f "$lst"
   else
     { cksum < "$MPR"; [ -d "$MPRC" ] && find "$MPRC" -type f -exec cksum {} + | LC_ALL=C sort -k3; } | mxtk_sha256
   fi
@@ -247,7 +273,7 @@ _fp_worktree() {
 
 _fp_staged() {
   in_git || { echo "model-stamp: not a git repository — --staged has no meaning" >&2; return 1; }
-  local top lst; top="$(git -C "$MODEL_DIR" rev-parse --show-toplevel)"
+  local top lst; _git_info; top="$_GI_TOP"
   _load_model_paths || return 1
   lst="$(mktemp "${TMPDIR:-/tmp}/model-stamp.XXXXXX")"
   ( cd "$top" && git ls-files -s -- "${MODEL_PATHS[@]}" \
@@ -264,9 +290,15 @@ _fp_staged() {
 
 fingerprint() { if [ "${1:-}" = "--staged" ]; then _fp_staged; else _fp_worktree; fi; }
 
-stamp_field() { sed -n "s/^$1: //p" "$STAMP" 2>/dev/null | head -1; }
+# The stamp is a handful of "key: value" lines. _sload reads it once; _sf <key> sets _SF to the
+# value of the FIRST line with that key (what `sed -n "s/^key: //p" | head -1` printed, at two
+# process starts per field and six fields per check).
+_stxt=""
+_sload() { _stxt=""; IFS= read -r -d '' _stxt < "$STAMP" 2>/dev/null || true; }
+_sf() { _SF=""; if [[ "$_NL$_stxt" =~ $_NL$1:\ ([^$_NL]*) ]]; then _SF="${BASH_REMATCH[1]}"; fi; return 0; }
 
 cmd="${1:-}"; shift || true
+case "$cmd" in fingerprint|write|check|paths) _git_info ;; esac
 case "$cmd" in
   fingerprint) fingerprint "${1:-}" ;;
   paths) model_paths ;;
@@ -276,7 +308,7 @@ case "$cmd" in
     # instead of writing a stamp with an empty fingerprint field.
     fp="$(fingerprint)"
     [ -n "$fp" ] || { echo "model-stamp: empty fingerprint — refusing to write a stamp" >&2; exit 1; }
-    mkdir -p "$(dirname "$STAMP")"
+    mkdir -p "${STAMP%/*}"
     { printf 'fingerprint: %s\n' "$fp"
       printf 'state: %s\n' "$state"
       printf 'source: %s\n' "$*"
@@ -287,7 +319,8 @@ case "$cmd" in
       # full = mxbuild deploy build (Java compiled); check = `mx check` only (exec.sh `Gate mode: check`).
       # The pre-push hook and module-close.sh run a full build when the stamp says check.
       printf 'kind: %s\n' "${MXTK_STAMP_KIND:-full}"
-      printf 'at: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      if [ -n "${EPOCHSECONDS:-}" ]; then TZ=UTC printf 'at: %(%Y-%m-%dT%H:%M:%SZ)T\n' -1   # no date process (bash 5)
+      else printf 'at: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"; fi
     } > "$STAMP"
     # Machine-local, like the doctor receipt: never let it travel with the repo.
     if in_git && ! git -C "$PROJECT_ROOT" check-ignore -q .claude/.model-verified 2>/dev/null; then
@@ -303,7 +336,7 @@ case "$cmd" in
     say() { [ "$quiet" = 1 ] || echo "$@"; }
     if [ "$staged" = 1 ]; then
       in_git || exit 0
-      top="$(git -C "$MODEL_DIR" rev-parse --show-toplevel)"
+      _git_info; top="$_GI_TOP"
       _load_model_paths || exit 1
       if [ -z "$(cd "$top" && git diff --cached --name-only -- "${MODEL_PATHS[@]}")" ]; then
         say "  no model files staged — nothing to verify"; exit 0
@@ -317,9 +350,10 @@ case "$cmd" in
       say "    (nothing has run the mxbuild gate on this model here — ./bin/verify-model.sh runs it)"
       exit 1
     fi
-    st="$(stamp_field state)"; src="$(stamp_field source)"; at="$(stamp_field at)"
-    if [ "$(stamp_field fingerprint)" != "$fp" ]; then
-      if [ "$staged" = 1 ] && [ "$(_fp_worktree)" = "$(stamp_field fingerprint)" ] && [ "$st" = "pass" ]; then
+    _sload
+    _sf state; st="$_SF"; _sf source; src="$_SF"; _sf at; at="$_SF"; _sf fingerprint; sfp="$_SF"
+    if [ "$sfp" != "$fp" ]; then
+      if [ "$staged" = 1 ] && [ "$(_fp_worktree)" = "$sfp" ] && [ "$st" = "pass" ]; then
         say "  ✗ the verified model is in the working tree but the STAGED model differs from it"
         say "    (stage the whole model — $(model_paths | tr '\n' ' ')— or unstage the model files)"
       else
@@ -331,11 +365,13 @@ case "$cmd" in
     if [ "$st" != "pass" ]; then
       say "  ✗ $what is UNVERIFIED: last verification was '$st' ($src, $at)"; exit 1
     fi
-    if [ "$clean" = 1 ] && [ "$(stamp_field errors)" != "0" ]; then
-      say "  ✗ $what passed with pre-existing errors ($(stamp_field errors)) — not a clean stamp"; exit 1
+    if [ "$clean" = 1 ]; then
+      _sf errors
+      if [ "$_SF" != "0" ]; then say "  ✗ $what passed with pre-existing errors ($_SF) — not a clean stamp"; exit 1; fi
     fi
     # A stamp without a kind line predates `mx check` stamps: it was a full build.
-    if [ "$full" = 1 ] && [ "$(stamp_field kind)" = "check" ]; then
+    _sf kind
+    if [ "$full" = 1 ] && [ "$_SF" = "check" ]; then
       say "  ✗ $what was verified by mx check only ($src, $at) — no full build (Java compile) yet"; exit 1
     fi
     say "  ✓ $what verified ($src, $at)"

@@ -41,15 +41,16 @@
 # text mode). Keep bash-3.2 compatible.
 
 set -uo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+_mld="${BASH_SOURCE[0]%/*}"; [ "$_mld" != "${BASH_SOURCE[0]}" ] || _mld=.   # dirname without a process
+ROOT="$(cd "$_mld/.." && pwd)"
 PROJECT_ROOT="$ROOT"
 LOOP="$ROOT/.claude/loop"
 LEDGER="$LOOP/metrics-ledger.tsv"
 REPORT_LAST="$LOOP/report-last.json"
 LINT_LAST="$LOOP/lint-last.json"
 
-if [ -f "$(dirname "${BASH_SOURCE[0]}")/_common.sh" ]; then
-  . "$(dirname "${BASH_SOURCE[0]}")/_common.sh"
+if [ -f "$_mld/_common.sh" ]; then
+  . "$_mld/_common.sh"
 fi
 if ! type require_py >/dev/null 2>&1; then
   require_py() {
@@ -85,7 +86,7 @@ if [ "$MODE" = "score" ]; then
   if [ -z "$MXCLI" ] || [ ! -x "$MXCLI" ] || [ -z "$MPR" ]; then
     echo "metrics-ledger: no ./mxcli or no .mpr — score not taken" >&2; exit 3
   fi
-  mkdir -p "$LOOP"
+  [ -d "$LOOP" ] || mkdir -p "$LOOP"
   _tmp="$LOOP/.report-last.tmp"
   if ! "$MXCLI" report -p "$MPR" --format json >"$_tmp" 2>/dev/null; then
     rm -f "$_tmp"; echo "metrics-ledger: mxcli report failed — score not taken" >&2; exit 3
@@ -130,7 +131,7 @@ done
   echo "metrics-ledger: exec needs --script --gate --result --elapsed" >&2; exit 2; }
 
 MODEL_COMMIT="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo "")"
-mkdir -p "$LOOP"
+[ -d "$LOOP" ] || mkdir -p "$LOOP"
 "$PY" - "$LEDGER" "$SCRIPT" "$GATE" "$RESULT" "$ELAPSED" "$MXB_ERR" "$LINT_RC" "$RESTORED" \
        "$SCORED" "$REPORT_LAST" "$LINT_LAST" "$MODEL_COMMIT" <<'PYEOF'
 import datetime, json, os, sys

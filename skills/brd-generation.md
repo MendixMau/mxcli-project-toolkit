@@ -369,13 +369,15 @@ So the order is: **freeze first, then fan out.**
 
 ```bash
 bin/facts-lock.sh <project> build    # harvest, freeze what is unanimous, list what is contested
+bin/facts-lock.sh <project> resolve  # freeze each casing conflict with a strict majority; ties stay
 bin/facts-lock.sh <project> check    # fail any BRD that contradicts a frozen fact
 ```
 
 `build` freezes every identifier the corpus agrees on into `analysis/facts.lock.json`. Where it
 finds two mixed-case spellings it freezes **nothing** and records the conflict — picking a
-winner silently is the failure being prevented. Resolve a conflict by verifying against the
-source corpus and setting `canonical` in the lock; **do not ask the user which spelling is
+winner silently is the failure being prevented. `resolve` is the explicit step after it: it
+freezes the spelling more BRD sources use and writes the count into the lock. A tie stays
+contested: resolve it by verifying against the source corpus and setting `canonical` in the lock; **do not ask the user which spelling is
 right**, that is research, not a decision (see `interview-protocol.md` on the RESEARCH tier).
 
 Once frozen, the lock wins. Parallel agents read it instead of re-deriving, and `check` fails

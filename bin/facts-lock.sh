@@ -30,6 +30,13 @@
 #   facts-lock.sh <project-dir> build      harvest, freeze what is unanimous, report conflicts
 #   facts-lock.sh <project-dir> check      fail any BRD that deviates from the frozen lock
 #   facts-lock.sh <project-dir> show       what is frozen and what is still contested
+#   facts-lock.sh <project-dir> resolve    build, then freeze each casing conflict whose majority
+#                                          spelling is used by strictly more BRD sources than any
+#                                          other; record the count in the lock; ties stay contested
+#
+# resolve is an explicit step an agent runs, never part of build: build must not pick silently.
+# WHY (2026-10-28): conflicts are always casing (WIPStatus/WipStatus); asking the user is wrong
+# (it is research, not a decision), but every resolution by hand was the same majority count.
 #
 # Exit: 0 clean · 1 conflicts or deviations · 2 usage/no BRDs
 
@@ -45,10 +52,10 @@ PROJECT_DIR="${1:-}"
 CMD="${2:-show}"
 
 [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ] || {
-  echo "usage: facts-lock.sh <project-dir> [build|check|show]" >&2; exit 2; }
+  echo "usage: facts-lock.sh <project-dir> [build|check|show|resolve]" >&2; exit 2; }
 
-case "$CMD" in build|check|show) ;; *)
-  echo "usage: facts-lock.sh <project-dir> [build|check|show]" >&2; exit 2 ;; esac
+case "$CMD" in build|check|show|resolve) ;; *)
+  echo "usage: facts-lock.sh <project-dir> [build|check|show|resolve]" >&2; exit 2 ;; esac
 
 # Discovery is SHARED, not re-derived here. This script originally had its own copy and the
 # copy was wrong: it matched analysis/source (2 BRDs), silently skipped analysis/alt-source
@@ -224,7 +231,21 @@ for ns, clusters in sorted(harvest.items()):
 # --- act ----------------------------------------------------------------------------------------
 EMPTY_MSG = ("PENDING facts-lock: 0 identifiers found under any known key in %d BRD(s): the lock is empty "
              "and check proves nothing (keys read: " + ", ".join(k for ks in KEYED.values() for k in ks) + ", *_CODE_SET)")
-if CMD == "build":
+resolved = []
+if CMD == "resolve":
+    keep = []
+    for ns, ck, sp in conflicts:
+        ranked = sorted(sp.items(), key=lambda kv: (-len(kv[1]), kv[0]))
+        if len(ranked) > 1 and len(ranked[0][1]) > len(ranked[1][1]):
+            win = ranked[0][0]
+            frozen.setdefault(ns, {})[ck] = {
+                "canonical": win, "sources": sorted({x for v in sp.values() for x in v}),
+                "resolvedBy": "majority: %s" % ", ".join("%s %d" % (v, len(x)) for v, x in ranked)}
+            resolved.append((ns, ck, win, ranked))
+        else:
+            keep.append((ns, ck, sp))
+    conflicts = keep
+if CMD in ("build", "resolve"):
     for ns, ck, canon, srcs in new_facts:
         frozen.setdefault(ns, {})[ck] = {"canonical": canon, "sources": srcs}
     lock["conflicts"] = [
@@ -247,7 +268,10 @@ if CMD == "build":
 for src, err in unreadable:
     print("  UNREADABLE  %s — %s (its facts are NOT in the lock)" % (src, err))
 
-if CMD in ("build", "show"):
+for ns, ck, win, ranked in resolved:
+    print("  RESOLVED  %s/%s -> %s (majority of BRD sources: %s); run check and fix the BRDs it lists"
+          % (ns, ck, win, ", ".join("%s %d" % (v, len(x)) for v, x in ranked)))
+if CMD in ("build", "show", "resolve"):
     if CMD == "show":
         total = sum(len(v) for v in frozen.values())
         print("facts-lock: %d frozen, %d contested, %d BRD(s) read" % (total, len(conflicts), len(brds)))

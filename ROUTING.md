@@ -270,6 +270,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | gate-check.sh reports a Stage 0 file not found that plainly exists — ANALYSIS_BASE falls back to project root until Stage 1; move the file, do not debug the script | `skills/gate-check-file-locations.md` | ba,gate | 0 | ondemand |
 | A CE error (mx check or mxbuild: CE0066, CE0117…), a cited BUG-n, or behavior that looks like a known mxcli quirk rather than a modeling mistake — `bin/bug-lookup.sh CE0117` / `BUG-102` / "keyword" / the whole pasted error message (ranked top 3) prints the matching ledger entries, so the session reads one entry, not the whole ledger | `bin/bug-lookup.sh` | mdl,gate | 5,6 | baseline |
 | You hit, or worked around, a bug in mxcli or the toolkit — `bin/file-bugs.sh` (the `--add` line is in learned-detection-gaps.md) keeps docs/bugs.jsonl, redacts, shows duplicates, is filed only by a human with `!` (`--file PBUG-NN`, y/N, denied to agents), or prints new-issue links (`--links`, `--json`) | `bin/file-bugs.sh` | mdl,gate | 5,6 | baseline |
+| The user says the toolkit, an exec or the gate is slow, or asks to update the toolkit, run doctor and check whether it can be faster on their machine (werk de toolkit bij, draai doctor, controleer of het sneller kan) | `skills/speed-setup.md` | lead | - | ondemand |
 
 #### Reference — lookup tables, not method
 

@@ -447,9 +447,34 @@ recommended_fix() {
       return 0
     fi
   fi
+  if [ -n "${MH_SYNC:-}" ]; then
+    echo "  Move the project out of $MH_SYNC to a plain local folder (for example C:\\dev\\<project> or ~/dev/<project>),"
+    echo "  then reopen it there. A sync client re-reads and uploads every file git and the build touch, which"
+    echo "  slows every step and can lock the model file mid-write."
+    return 0
+  fi
   if [ "$_rf_slow" = 0 ] && [ "${MH_BAD:-0}" = 1 ]; then
-    echo "  Free up memory first (see Machine health): bin/doctor.sh --cleanup stops leftover mxbuild helpers,"
-    echo "  asking before it stops anything. Process starts are not slow here${RF_SPAWN_MS:+ ($RF_SPAWN_MS ms each)}."
+    echo "  Free up memory first (see Machine health). Simplest: restart the computer, which also ends Mendix"
+    echo "  build processes that were left running. Or, without a restart: bin/doctor.sh --cleanup, which asks"
+    echo "  before it stops anything. Process starts are not slow here${RF_SPAWN_MS:+ ($RF_SPAWN_MS ms each)}."
+    return 0
+  fi
+  # One step far slower than the reference while process starts are fine: name that step, never "None needed".
+  # Threshold: the slowest step is 5x+ the reference AND costs 2 s+ extra (B_TOP_* from --bench; 0 otherwise).
+  if [ "$_rf_slow" = 0 ] && [ "${B_TOP_F10:-0}" -ge 50 ] && [ "${B_TOP_EXCESS:-0}" -ge 2000 ]; then
+    case "$B_TOP_ID" in
+      git)
+        echo "  git is slow in this project (git status: $(( (B_TOP_EXCESS + BENCH_REF_GIT_MS) / 100 / 10 )).$(( (B_TOP_EXCESS + BENCH_REF_GIT_MS) / 100 % 10 )) s; normal is well under 1 s)."
+        echo "  Turn on git's own file cache for this project (no install, no admin rights):"
+        echo "    git config core.untrackedCache true"
+        [ "$MH_OS" != linux ] && echo "    git config core.fsmonitor true"
+        echo "  Then run doctor --bench again. Still slow: check that no large build output or source dump is"
+        echo "  tracked in git (git count-objects -vH)." ;;
+      *)
+        echo "  One step is much slower than the reference: $B_TOP_LABEL. Process starts are fine, so this is"
+        echo "  probably a one-off (first run after a restart or an update). Run doctor --bench once more; if"
+        echo "  the same step is still slow, send the results file to the toolkit maintainers." ;;
+    esac
     return 0
   fi
   if [ "$_rf_slow" = 0 ]; then
@@ -593,6 +618,17 @@ machine_health() {
   else
     ok "no leftover mxbuild helper processes"
   fi
+  # Project inside a file-sync folder (OneDrive is where Windows puts Documents and Desktop by default).
+  MH_SYNC=""; _mh_pd=""
+  [ -n "${PROJECT_DIR:-}" ] && _mh_pd="$(cd "$PROJECT_DIR" 2>/dev/null && pwd)"
+  # Whole path components only: ~/dev/dropbox-client or a repo named OneDrive-connector must not match.
+  case "$_mh_pd/" in
+    */OneDrive/*|*/"OneDrive - "*/*) MH_SYNC=OneDrive ;;
+    */Dropbox/*|*/"Dropbox ("*/*) MH_SYNC=Dropbox ;;
+    */"Google Drive"/*|*/GoogleDrive/*|*/"My Drive"/*) MH_SYNC="Google Drive" ;;
+    */"Mobile Documents"/*|*/"iCloud Drive"/*) MH_SYNC=iCloud ;;
+  esac
+  [ -n "$MH_SYNC" ] && advise "the project is in a folder synced by $MH_SYNC: $_mh_pd"
   MH_BAD="$_mh_bad"
   if [ "$_mh_bad" = 1 ]; then
     note "When memory runs out the operating system kills mxbuild (exit 137), and the build gate then reads"
@@ -644,7 +680,7 @@ if [ "$CLEANUP" = 1 ]; then
   exit 0
 fi
 
-# --bench: ~1 minute, changes nothing in the project. Times the things every toolkit script is made of,
+# --bench: ~1 minute, changes nothing in the project (only git's own stat cache, via the warm-up below). Times the things every toolkit script is made of,
 # against this table's reference column, so "the toolkit is slow here" becomes a number a colleague can
 # compare. Writes <project>/.claude/loop/bench-<timestamp>.tsv (one row per step, concatenable).
 #
@@ -699,15 +735,16 @@ b_fmt_ms() {
 }
 
 # b_row <id> <label> <this-ms|""> <ref-ms> <note> — print the table row, append the TSV row, feed the verdict.
-B_SPAWN_FAC=""; B_TOP_ID=""; B_TSV=""; B_TOT_THIS=0; B_TOT_REF=0; B_NMEAS=0; B_TOP_EXCESS=0; B_TOP_LABEL=""; B_SPAWN_THIS=""; B_NOTES=""
+B_SPAWN_FAC=""; B_TOP_ID=""; B_TSV=""; B_TOT_THIS=0; B_TOT_REF=0; B_NMEAS=0; B_TOP_EXCESS=0; B_TOP_LABEL=""; B_TOP_F10=0; B_SPAWN_THIS=""; B_NOTES=""
 b_row() {
   _r_id="$1"; _r_label="$2"; _r_this="$3"; _r_ref="$4"; _r_note="$5"
   b_fmt_ms "$_r_ref"; _r_reffmt="$B_FMT"
   if [ -n "$_r_this" ]; then
     b_fmt_ms "$_r_this"; _r_thisfmt="$B_FMT"
+    _r_f10=0
     if [ "$_r_ref" -gt 0 ]; then _r_f10=$(( _r_this * 10 / _r_ref )); _r_fac="$((_r_f10 / 10)).$((_r_f10 % 10))"; else _r_fac="-"; fi
     B_TOT_THIS=$((B_TOT_THIS + _r_this)); B_TOT_REF=$((B_TOT_REF + _r_ref)); B_NMEAS=$((B_NMEAS + 1))
-    if [ $((_r_this - _r_ref)) -gt "$B_TOP_EXCESS" ]; then B_TOP_EXCESS=$((_r_this - _r_ref)); B_TOP_LABEL="$_r_label"; B_TOP_ID="$_r_id"; fi
+    if [ $((_r_this - _r_ref)) -gt "$B_TOP_EXCESS" ]; then B_TOP_EXCESS=$((_r_this - _r_ref)); B_TOP_LABEL="$_r_label"; B_TOP_ID="$_r_id"; B_TOP_F10="${_r_f10:-0}"; fi
     [ "$_r_id" = spawn50 ] && B_SPAWN_THIS="$_r_this" && B_SPAWN_FAC="$_r_fac"
   else
     _r_thisfmt="not measured"; _r_fac="-"
@@ -738,11 +775,15 @@ if [ "$BENCH" = 1 ]; then
   if [ -n "$_t0" ] && [ -n "$_t1" ]; then b_row spawn50 "50 process starts" "$((_t1 - _t0))" "$BENCH_REF_SPAWN50_MS" ""
   else b_row spawn50 "50 process starts" "" "$BENCH_REF_SPAWN50_MS" "no sub-second clock"; fi
 
-  # 2. git status (GIT_OPTIONAL_LOCKS=0: git must not refresh the index of the project it measures)
+  # 2. git status. One untimed warm-up first: a copied or freshly cloned project has a stale index, and the
+  # first git status there pays a one-off full re-read (field, 2026-10-29: 18.3 s, then 0.03 s). The warm-up
+  # is an ordinary `git status`, which only refreshes git's own file-stat cache (.git/index), exactly as
+  # the user's next git status would; no tracked or untracked project file changes. The timed run is warm.
   if [ -z "$B_P" ]; then b_row git "git status" "" "$BENCH_REF_GIT_MS" "no project given"
   elif ! command -v git >/dev/null 2>&1; then b_row git "git status" "" "$BENCH_REF_GIT_MS" "git not installed"
   elif ! git -C "$B_P" rev-parse --git-dir >/dev/null 2>&1; then b_row git "git status" "" "$BENCH_REF_GIT_MS" "project is not a git repository"
   else
+    git -C "$B_P" status --porcelain >/dev/null 2>&1 < /dev/null
     b_clock; _t0="$B_MS"; GIT_OPTIONAL_LOCKS=0 git -C "$B_P" status --porcelain >/dev/null 2>&1 < /dev/null; b_clock; _t1="$B_MS"
     if [ -n "$_t0" ] && [ -n "$_t1" ]; then b_row git "git status" "$((_t1 - _t0))" "$BENCH_REF_GIT_MS" ""
     else b_row git "git status" "" "$BENCH_REF_GIT_MS" "no sub-second clock"; fi

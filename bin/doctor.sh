@@ -447,6 +447,11 @@ recommended_fix() {
       return 0
     fi
   fi
+  if [ "$_rf_slow" = 0 ] && [ "${MH_BAD:-0}" = 1 ]; then
+    echo "  Free up memory first (see Machine health): bin/doctor.sh --cleanup stops leftover mxbuild helpers,"
+    echo "  asking before it stops anything. Process starts are not slow here${RF_SPAWN_MS:+ ($RF_SPAWN_MS ms each)}."
+    return 0
+  fi
   if [ "$_rf_slow" = 0 ]; then
     echo "  None needed: process starts are not slow here${RF_SPAWN_MS:+ ($RF_SPAWN_MS ms each)}."
     return 0
@@ -555,6 +560,11 @@ mh_fmt_mb() {
   if [ "$1" -ge 1024 ]; then MH_FMT="$(( $1 * 10 / 1024 / 10 )).$(( $1 * 10 / 1024 % 10 )) GB"; else MH_FMT="$1 MB"; fi
 }
 
+# advise — prints like warn but does not count toward the exit code: machine health is about this
+# machine's state right now, not about the toolkit install, and doctor's exit code is read by
+# callers (#591 review). session-check still shows the line, because it greps for WARN.
+advise() { printf '  WARN  %s\n' "$*"; }
+MH_BAD=0
 machine_health() {
   head_ "Machine health"
   _mh_free="$(mh_free_mb)"
@@ -570,19 +580,20 @@ machine_health() {
   if [ -z "$_mh_free" ]; then
     note "free memory: not measured on this platform"
   elif [ "$_mh_free" -lt "$MH_LOW_MB" ]; then
-    mh_fmt_mb "$_mh_free"; warn "free memory: $MH_FMT (under $((MH_LOW_MB / 1024)) GB)"; _mh_bad=1
+    mh_fmt_mb "$_mh_free"; advise "free memory: $MH_FMT (under $((MH_LOW_MB / 1024)) GB)"; _mh_bad=1
   else
     mh_fmt_mb "$_mh_free"; ok "free memory: $MH_FMT"
   fi
   if [ "$_mh_n" -gt 0 ]; then
     mh_fmt_mb "$((_mh_kb / 1024))"
-    warn "$_mh_n leftover mxbuild helper process(es) (deno), $MH_FMT in total, oldest $((_mh_old / 60)) min"
+    advise "$_mh_n leftover mxbuild helper process(es) (deno), $MH_FMT in total, oldest $((_mh_old / 60)) min"
     _mh_bad=1
   elif [ "$_mh_can" = 0 ]; then
     note "leftover mxbuild helpers: not checked (this machine has no ps / wmic to list processes)"
   else
     ok "no leftover mxbuild helper processes"
   fi
+  MH_BAD="$_mh_bad"
   if [ "$_mh_bad" = 1 ]; then
     note "When memory runs out the operating system kills mxbuild (exit 137), and the build gate then reads"
     note "as a failure that is not about your model. Each mxbuild that is killed leaves its deno helper"
@@ -829,7 +840,7 @@ if [ "$BENCH" = 1 ]; then
     mkdir -p "$B_P/.claude/loop" 2>/dev/null || true
     _btsv="$B_P/.claude/loop/bench-$B_STAMP.tsv"
     { printf 'timestamp\tplatform\tcores\tfree_mb\tstep\tthis_ms\treference_ms\tfactor\tnote\n'; printf '%s' "$B_TSV"; } > "$_btsv" 2>/dev/null \
-      && echo "  Results: $_btsv  (send it to colleagues to compare)" || echo "  Results: could not write $_btsv"
+      && echo "  Results: $_btsv  (send it to colleagues to compare; untracked, do not commit it)" || echo "  Results: could not write $_btsv"
   else
     echo "  Results: not saved (pass a project directory: bin/doctor.sh --bench <project>)."
   fi

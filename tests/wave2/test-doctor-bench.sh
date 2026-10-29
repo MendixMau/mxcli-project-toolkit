@@ -180,6 +180,16 @@ printf '# P\n' > "$P/PROJECT.md"
 rf bash "$DOCTOR" --bench "$P"
 chk "fix: fast machine with the line set -> none needed" "$WORK/rf.out" "None needed"
 printf '#!/bin/sh\nexit 0\n' > "$WORK/bin/fakedocker"; chmod +x "$WORK/bin/fakedocker"
+rf env MXTK_PROC_MEMINFO="$WORK/meminfo-low" bash "$DOCTOR" --bench "$P"
+chk "fix: fast machine, low memory -> free memory first (--cleanup), not 'None needed'" "$WORK/rf.out" "Free up memory first"
+# Machine health warns without counting toward doctor's exit code (#591 review): same code with low and high memory.
+_wcount() { grep -oE '[0-9]+ warning\(s\)' "$1" | tail -1; }
+( PATH="$SAFEPATH" MXTK_PROC_MEMINFO="$WORK/meminfo-high" FAKE_PS_FILE="$WORK/ps-clean.txt" bash "$DOCTOR" --quick "$P" > "$WORK/q-hi.out" 2>&1 ); _rc_hi=$?
+( PATH="$SAFEPATH" MXTK_PROC_MEMINFO="$WORK/meminfo-low" FAKE_PS_FILE="$WORK/ps-clean.txt" bash "$DOCTOR" --quick "$P" > "$WORK/q-lo.out" 2>&1 ); _rc_lo=$?
+grep -q 'WARN  free memory' "$WORK/q-lo.out" && ok "low memory is shown as a WARN line" || bad "no low-memory WARN line" "$(tail -20 "$WORK/q-lo.out")"
+[ "$_rc_hi" = "$_rc_lo" ] && [ "$(_wcount "$WORK/q-hi.out")" = "$(_wcount "$WORK/q-lo.out")" ] \
+  && ok "health warnings change neither the exit code ($_rc_hi) nor the warning count ($(_wcount "$WORK/q-hi.out"))" \
+  || bad "low memory changed doctor's result: rc $_rc_hi -> $_rc_lo, $(_wcount "$WORK/q-hi.out") -> $(_wcount "$WORK/q-lo.out")"
 rf env MXTK_SPAWN_WARN_MS=0 MXTK_CONTAINER_RUNTIME=fakedocker bash "$DOCTOR" --bench "$P"
 chk "fix c: slow starts + working container CLI -> dev container" "$WORK/rf.out" "Use a dev container (fakedocker"
 rf env MXTK_SPAWN_WARN_MS=0 MXTK_CONTAINER_RUNTIME=no-such-runtime bash "$DOCTOR" --bench "$P"

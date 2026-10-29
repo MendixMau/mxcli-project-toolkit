@@ -43,7 +43,7 @@ ROOT="${PROJECT_ROOT:-$(pwd)}"
 
 # The engine files the toolkit installs into tests/e2e/ — kept in step with install-manifest.sh's
 # MXTK_PROJECT_TESTS. A name missing here is only a false NOTE on the toolkit's own file.
-ENGINE=" config.js helpers.js settle.js otel.js journey-runner.js named-controls.js journey-runner.selftest.js journey-rung4-scope.test.js monkey.js monkey.selftest.js page-audit.js page-audit-rules.js design-audit.js full-app-walkthrough.js report-normalize.js report-render.js review-report.js demo-polish.js demo-polish.selftest.js project.config.js project.config.template.js "
+ENGINE=" config.js helpers.js settle.js otel.js journey-runner.js named-controls.js journey-runner.selftest.js journey-rung4-scope.test.js monkey.js monkey.selftest.js page-audit.js page-audit-rules.js design-audit.js full-app-walkthrough.js report-normalize.js report-render.js review-report.js demo-polish.js demo-polish.selftest.js scope-ensure.js project.config.js project.config.template.js "
 
 files=()
 for d in tests e2e acceptance; do

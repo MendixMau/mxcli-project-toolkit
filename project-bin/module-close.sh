@@ -43,7 +43,10 @@ chk=$("$MX" docker check -p "$MPR" ${MXB:+--mxbuild-path "$MXB"} 2>&1 | grep -v 
 # `Gate mode: check` (exec.sh): the module's execs were `mx check`ed, which compiles no Java. The
 # module boundary is one of the natural places for the full build, so run it here when the stamp
 # says the model has not had one (bin/verify-model.sh: mxbuild deploy build, stamps when clean).
-if [ -f .claude/loop/gate-kind.state ] && ! bash bin/model-stamp.sh check -q --full >/dev/null 2>&1; then
+# Only when the stamp itself says `kind: check`: a project that never opted in (or whose stamp is
+# missing or stale) gets no unrequested build here (#587 review).
+if [ -f .claude/loop/gate-kind.state ] && grep -q '^kind: check' .claude/.model-verified 2>/dev/null \
+   && ! bash bin/model-stamp.sh check -q --full >/dev/null 2>&1; then
   chk="$chk
 full build (bin/verify-model.sh): $(bash bin/verify-model.sh 2>&1 | grep -E '^(✓|✗)' | tail -2)"
 fi

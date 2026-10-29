@@ -108,8 +108,12 @@ _TLAST=$_T0; STEP_TIMES=""
 step_done() { _tn=$(date +%s); STEP_TIMES="${STEP_TIMES:+$STEP_TIMES }$1 $((_tn - _TLAST))s"; _TLAST=$_tn; }
 # MXTK_PROFILE=1 (#584/#585): one trace line per command with a wall-clock stamp, written to
 # .claude/loop/exec-profile-<pid>.log; at exit the slowest lines and the number of commands
-# are printed. Bash 5 has EPOCHREALTIME (microseconds); bash 3.2 (macOS) has no sub-second
-# clock without a process start, so there the trace stamps whole seconds.
+# are printed. Needs bash 4.1+ (BASH_XTRACEFD); bash 5 has EPOCHREALTIME (microseconds), 4.x
+# stamps whole seconds. macOS's bash 3.2 cannot send the trace to a file: it says so and runs.
+if [ "${MXTK_PROFILE:-0}" = "1" ] && { [ "${BASH_VERSINFO[0]:-0}" -lt 4 ] || { [ "${BASH_VERSINFO[0]}" -eq 4 ] && [ "${BASH_VERSINFO[1]:-0}" -lt 1 ]; }; }; then
+  echo "⚠ MXTK_PROFILE needs bash 4.1+ (this is $BASH_VERSION); running without a profile (brew install bash)." >&2
+  MXTK_PROFILE=0
+fi
 if [ "${MXTK_PROFILE:-0}" = "1" ]; then
   _PROF_DIR="$(pwd)/.claude/loop"; mkdir -p "$_PROF_DIR" 2>/dev/null || _PROF_DIR="${TMPDIR:-/tmp}"
   _PROF_LOG="$_PROF_DIR/exec-profile-$$.log"
@@ -1309,9 +1313,9 @@ fi
 # hook refuses it until ./bin/verify-model.sh has seen it.
 MXBUILD="$(mxtk_ensure_mxbuild "$MPR" || true)"
 # Memo for the rest of this run and every script it starts (#584): find_mxbuild honours
-# MXBUILD_PATH, mxtk_model_version honours MXTK_MODEL_VERSION, so neither re-reads the .mpr
+# MXTK_MXBUILD_MEMO, mxtk_model_version honours MXTK_MODEL_VERSION, so neither re-reads the .mpr
 # or re-probes the Studio Pro install per call. A run only ever gates one model version.
-[ -x "$MXBUILD" ] && export MXBUILD_PATH="$MXBUILD"
+[ -x "$MXBUILD" ] && export MXTK_MXBUILD_MEMO="$MXBUILD"
 _mv="$(mxtk_model_version "$MPR" 2>/dev/null || true)"; [ -n "$_mv" ] && export MXTK_MODEL_VERSION="$_mv"
 # Was: JAVA_HOME=$(/usr/libexec/java_home ...) — a macOS-only binary, so on Windows
 # JAVA_HOME came back empty, JAVA_EXE was the literal "/bin/java", the gate guard
@@ -2300,7 +2304,9 @@ fi
 
 # Gate-kind bookkeeping (see "Gate kind" above): a passing full build resets the count and
 # records the Java fingerprint it compiled; a passing check-only gate adds one.
-if [ "$GATE_STATE" = "pass" ]; then
+# Only under `Gate mode: check`: the state file is what the pre-push hook and module-close.sh
+# look for, so a project that never opted in never gets their full-build step (#587 review).
+if [ "$GATE_STATE" = "pass" ] && [ "${_gk_mode:-}" = "check" ]; then
   mkdir -p "$(dirname "$_GK_STATE")" 2>/dev/null || true
   if [ "$GATE_KIND" = "full" ]; then
     printf 'checks 0\njava %s\n' "$(_gk_java_fp)" > "$_GK_STATE" 2>/dev/null || true
@@ -2341,8 +2347,11 @@ if [ -f "$(dirname "$0")/build-plan-status.sh" ]; then
   if [ "${MXTK_SYNC_REFRESH:-0}" = "1" ]; then
     { bash "$(dirname "$0")/build-plan-status.sh" "$PROJECT_ROOT" --refresh 2>&1 >/dev/null || true; } | grep -m1 '^WARN: ' || true
   else
+    # stdout AND stderr go to a file: an inherited stderr kept a caller's `exec.sh 2>&1 | …` pipe
+    # open until the refresh finished, which is how agent tools read output (#587 review).
+    mkdir -p "$PROJECT_ROOT/.claude/loop" 2>/dev/null || true
     ( { bash "$(dirname "$0")/build-plan-status.sh" "$PROJECT_ROOT" --refresh 2>&1 >/dev/null || true; } \
-        | grep -m1 '^WARN: ' >&2 || true ) </dev/null >/dev/null &
+        | grep -m1 '^WARN: ' || true ) </dev/null >"$PROJECT_ROOT/.claude/loop/build-plan-refresh.warn" 2>&1 &
   fi
 fi
 

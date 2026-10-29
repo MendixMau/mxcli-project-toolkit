@@ -492,7 +492,7 @@ if [ -n "$_perf_log" ] && [ -f "$_perf_log" ] && grep -q 'steps: ' "$_perf_log" 
     warn "slow execs — $_pmsg"
     [ "$_pgate" -gt "${MXTK_PERF_GATE_WARN:-45}" ] && note "The gate (mxbuild) dominates: 'Gate mode: check' in PROJECT.md runs mx check per exec and the full build before push."
     [ -n "$_spawn_ms" ] && [ "$_spawn_ms" -gt "${MXTK_SPAWN_WARN_MS:-30}" ] && note "Process starts are slow too (above): that is the machine, not the model — see the advice there."
-    note "Per-command profile of one exec: MXTK_PROFILE=1 ./bin/exec.sh <script> (prints the 15 slowest lines)."
+    note "Per-command profile of one exec: MXTK_PROFILE=1 ./bin/exec.sh <script> (prints the 15 slowest lines; MXTK_PROFILE=2 traces the scripts it starts too)."
   else
     ok "$_pmsg"
   fi

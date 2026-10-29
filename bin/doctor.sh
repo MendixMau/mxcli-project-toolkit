@@ -638,7 +638,7 @@ fi
 # compare. Writes <project>/.claude/loop/bench-<timestamp>.tsv (one row per step, concatenable).
 #
 # REFERENCE (BENCH_REF_*, milliseconds): measured on 2026-10-29 on Linux 6.18 (Firecracker VM, 4 cores,
-# 16 GB, local disk), project /home/user/ab-581/gk (PurchaseApp, mxcli v0.28.0, mx 11.13.0, git with 6.5k
+# 16 GB, local disk), project = a copy of the purchase-requests test app (PurchaseApp, mxcli v0.28.0, mx 11.13.0, git with 6.5k
 # files): the median of 5 `bin/doctor.sh --bench` runs. Honest caveat: the machine was not freshly idle; it
 # held 46 leftover deno helpers and ~1.4 GB free memory during those runs (CPU-bound steps do not care, and
 # no step swapped: there is no swap), so treat the reference as "a Linux box, a bit loaded", not a lab figure.

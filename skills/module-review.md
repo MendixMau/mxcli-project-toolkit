@@ -88,6 +88,13 @@ lists **all N pages**, its header says so, and the denominator does not change. 
 bottom with zero findings still gets its look: the rules cannot see layout, and "the audit was
 clean" is exactly the "looked fine" this stage exists to refuse.
 
+**A journey run's screenshots are the LOOK's screenshots.** `bin/look-ledger.sh shots` (journey-runner
+runs it after every run) maps each reached step's PNG to the one page whose widgets it landed on and
+lists every owed page as `OPEN` (open that PNG; cite it in `PROOF-OF-LOOK`) or `UNREACHED`. The line
+`owed N = A OPEN + B UNREACHED` is the denominator: no owed page is in neither list. An `UNREACHED`
+page gets a short gap-fill journey (the first steps of a journey that gets there, ending on a step whose
+`ui.ready` is a widget of the page) or a `page-audit.js` pass; do not re-shoot the `OPEN` ones.
+
 ### 4b. Run the mechanical sweep first, then look at what it cannot see
 
 ```bash

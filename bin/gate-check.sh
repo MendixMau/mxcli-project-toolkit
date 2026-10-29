@@ -1423,7 +1423,7 @@ EOF
   [ "$n_proof" -gt 0 ] && how="$how, $n_proof by PROOF-OF-LOOK"
   [ "$n_waived" -gt 0 ] && how="$how, $n_waived waived"
   if [ "$n_unseen" -gt 0 ]; then
-    echo "FAIL|look: $n_unseen of $n built page(s) never looked at since their last build: $unseen — screenshot each, open the PNG (a file name containing the page name), compare it to its wireframe (skills/ui-loop.md); or --waive look/<Module> --reason \"...\""
+    echo "FAIL|look: $n_unseen of $n built page(s) never looked at since their last build: $unseen — screenshot each, open the PNG (a file name containing the page name, or the journey screenshot bin/look-ledger.sh shots lists), compare it to its wireframe (skills/ui-loop.md); or --waive look/<Module> --reason \"...\""
   else
     echo "MANUAL|look: $n of $n built page(s) accounted for ($how); the rest of Stage 5 is manual"
   fi

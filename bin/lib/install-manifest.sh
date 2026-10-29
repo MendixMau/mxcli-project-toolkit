@@ -107,6 +107,7 @@ MXTK_AGENTS_STAGE_BUILD="mdl-agent.md gate-agent.md test-agent.md review-agent.m
 # directory. prototype-route.js is the one reader and writer of design/prototype.html's section
 # format, so page-fidelity.js, check-page-shell.sh and check-prototype-links.js resolve it as a
 # sibling too.
+# look-shots.js joined on 2026-10-29 (speed experiment E2): look-ledger.sh shots runs it to map journey screenshots to pages.
 # look-ledger.sh joined on 2026-10-02 with exec.sh's LOOK-owed call: exec.sh resolves it as its
 # own sibling, and the PostToolUse(Read) hook install-claude-permissions.sh writes runs
 # `bash bin/look-ledger.sh seen`. Two unattended builds built every page and opened no
@@ -128,7 +129,7 @@ MXTK_AGENTS_STAGE_BUILD="mdl-agent.md gate-agent.md test-agent.md review-agent.m
 # runs it per module (informational; see project-bin/mf-canvas-facts.py header).
 # model-scope.py joined on 2026-10-21: it imports mxpatch.py (and through it mxunit_bson.py) from
 # its own directory. It puts back units a write changed only in XPath whitespace (mxcli#1596).
-MXTK_PROJECT_BIN="reload.sh module-close.sh row-groups.sh process-map.js process-map.template.html app-restart.sh test-scratch.sh script-owners.sh describe-baseline.sh assemble-prototype.js prototype-route.js check-prototype-links.js wf-add-path-terminators.py wf-set-call-captions.py model-scope.py mf-canvas-facts.py mxunit_bson.py mxpatch.py _common.sh app-facts.sh _claims.sh snapshot-mpr.sh restore-mpr.sh exec.sh affected-tests.sh look-ledger.sh save-sp.sh restart-sp.sh check-sp-health.sh verify-module.sh harness-scan.sh test-stack-up.sh fixture-manifest.sh check-root-clean.sh lint-gate.sh lint-trend.sh metrics-ledger.sh metrics-trend.sh close-task.sh conformance-check.sh coverage-preflight.sh graph-sweep.sh review-module.sh coherence-cadence.sh build-plan-status.sh progress-report.py done-drift-check.sh page-scope.sh render-improvement-register.sh check-design-portability.sh check-design-reaches-app.sh check-page-shell.sh page-fidelity.js model-stamp.sh verify-model.sh install-project-hooks.sh mx-metadata-note.py session-check.sh constants-audit.sh context-pack.sh check-staged-secrets.sh"
+MXTK_PROJECT_BIN="reload.sh module-close.sh row-groups.sh process-map.js process-map.template.html app-restart.sh test-scratch.sh script-owners.sh describe-baseline.sh assemble-prototype.js prototype-route.js check-prototype-links.js wf-add-path-terminators.py wf-set-call-captions.py model-scope.py mf-canvas-facts.py mxunit_bson.py mxpatch.py _common.sh app-facts.sh _claims.sh snapshot-mpr.sh restore-mpr.sh exec.sh affected-tests.sh look-ledger.sh look-shots.js save-sp.sh restart-sp.sh check-sp-health.sh verify-module.sh harness-scan.sh test-stack-up.sh fixture-manifest.sh check-root-clean.sh lint-gate.sh lint-trend.sh metrics-ledger.sh metrics-trend.sh close-task.sh conformance-check.sh coverage-preflight.sh graph-sweep.sh review-module.sh coherence-cadence.sh build-plan-status.sh progress-report.py done-drift-check.sh page-scope.sh render-improvement-register.sh check-design-portability.sh check-design-reaches-app.sh check-page-shell.sh page-fidelity.js model-stamp.sh verify-model.sh install-project-hooks.sh mx-metadata-note.py session-check.sh constants-audit.sh context-pack.sh check-staged-secrets.sh"
 
 # Files in project-bin/ that are deliberately NOT installed into projects. The reverse check
 # below flags anything named by NEITHER list, so a new file in project-bin/ has to be either
@@ -216,7 +217,7 @@ MXTK_LINT_RULES_NOINSTALL="README.md STOCK-HASHES.txt STOCK-HASHES-BUNDLED.txt"
 #
 # project.config.template.js is listed separately because it is the one file a project is
 # EXPECTED to edit — installing it over an edited copy would silently revert the port.
-MXTK_PROJECT_TESTS="config.js helpers.js settle.js otel.js journey-runner.js named-controls.js journey-runner.selftest.js journey-rung4-scope.test.js monkey.js monkey.selftest.js page-audit.js page-audit-rules.js design-audit.js full-app-walkthrough.js report-normalize.js report-render.js review-report.js demo-polish.js demo-polish.selftest.js example.journey.json"
+MXTK_PROJECT_TESTS="config.js helpers.js settle.js scope-ensure.js otel.js journey-runner.js named-controls.js journey-runner.selftest.js journey-rung4-scope.test.js monkey.js monkey.selftest.js page-audit.js page-audit-rules.js design-audit.js full-app-walkthrough.js report-normalize.js report-render.js review-report.js demo-polish.js demo-polish.selftest.js example.journey.json"
 MXTK_PROJECT_TESTS_TEMPLATE="project.config.template.js"
 
 # Deliberately not installed. Same contract as the lists above.

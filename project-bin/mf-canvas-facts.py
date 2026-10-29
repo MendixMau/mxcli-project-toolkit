@@ -27,16 +27,19 @@ FACTS (geometry in canvas units; Studio Pro draws 1 unit = 1 px at 100%):
 CALIBRATION, measured from Studio Pro 10.24 screenshots: a variable label is ~5.5 units per
 character, two lines (name, type) under the shape; an activity fits 3 caption lines of ~16
 characters and no word over 14; a decision diamond fits 2 lines of ~10 characters and no word
-over 10. Connection sides are stored as indexes: an annotation (note) numbers its sides top 0,
-bottom 1, left 2, right 3; every other object top 0, right 1, bottom 2, left 3. The note is
-always the origin of a note line. A flow line is the cubic Bezier through the two stored control
-vectors, sampled at 48 points. SENSE is a prompt to read the true branch, not a verdict: on one
-hand-drawn corpus 15 of its 18 hits were fine (`$Message = empty` really means "valid"), while all
-9 hits in the mxcli-written flows were real.
+over 10. Connection sides are stored as indexes. Every object except a note numbers its sides top 0,
+right 1, bottom 2, left 3. A note (annotation) numbers its own sides by the model's Mendix version:
+on Mendix 10 top 0, bottom 1, left 2, right 3; on Mendix 11 like every other object. The version is
+the .mpr's `_MetaData._ProductVersion`; the first output line says which numbering was used, and a
+version that cannot be read counts as Mendix 11. The note is always the origin of a note line. A flow
+line is the cubic Bezier through the two stored control vectors, sampled at 48 points. SENSE is a
+prompt to read the true branch, not a verdict: on one hand-drawn corpus 15 of its 18 hits were fine
+(`$Message = empty` really means "valid"), while all 9 hits in the mxcli-written flows were real.
 
-OUTPUT: per flow `# Module.Name  (n)` then one indented fact line each; last line
-`# facts: <flows> flows, OVERLAP a, LINE b, ...`. Field run, measured 2026-10-21 on one Mendix 10.24 app (1,588 flows, read in one pass):
-on the 36 flows one mxcli-built branch added or changed in a single module, before any repair, OVERLAP 19,
+OUTPUT: first `# note sides: <numbering used>`, then per flow `# Module.Name  (n)` then one indented
+fact line each; last line `# facts: <flows> flows, OVERLAP a, LINE b, ...`. Field run, measured
+2026-10-21 on one Mendix 10.24 app (1,588 flows, read in one pass): on the 36 flows one mxcli-built
+branch added or changed in a single module, before any repair, OVERLAP 19,
 LINE 27, NOTE-SIDE 17, LEFTWARD 3, TURN 4, SENSE 9, CAPTION 148; after the branch's later repair
 commits, OVERLAP 3, LINE 7, TURN 4, CAPTION 113 and the rest 0.
 
@@ -55,7 +58,8 @@ FLOW_TYPES = ("Microflows$Microflow", "Microflows$Nanoflow")
 KINDS = ("OVERLAP", "LINE", "NOTE-SIDE", "LEFTWARD", "TURN", "CAPTION", "SENSE")
 CH = 5.5
 ACT_SIDES = {0: (0, -1), 1: (1, 0), 2: (0, 1), 3: (-1, 0)}
-NOTE_SIDES = {0: (0, -1), 1: (0, 1), 2: (-1, 0), 3: (1, 0)}
+NOTE_SIDES_10 = {0: (0, -1), 1: (0, 1), 2: (-1, 0), 3: (1, 0)}   # a note on Mendix 10
+NOTE_SIDES = ACT_SIDES      # a note on Mendix 11 and up; main() sets it from the model's version
 SIDE_NAME = {(0, -1): "top", (0, 1): "bottom", (-1, 0): "left", (1, 0): "right"}
 NEG = re.compile(r"\b(not|no|non|none|never|missing|wrong|without|empty|invalid|inactive|incomplete|"
                  r"incorrect|disabled|absent|expired|refused|failed|lacks?)\b|n't\b|"
@@ -64,6 +68,23 @@ NEG = re.compile(r"\b(not|no|non|none|never|missing|wrong|without|empty|invalid|
                  r"\bun(?:able|assigned|available|changed|checked|defined|filled|finished|"
                  r"known|matched|paid|read|ready|resolved|saved|selected|sent|set|used|"
                  r"validated|verified)\b", re.I)
+
+
+# -- which numbering the model's notes use ---------------------------------------------------------
+def note_numbering(model):
+    """(note side table, text for the output line), from the major version in the .mpr's _MetaData."""
+    try:
+        db = model._db()
+        try:
+            ver = db.execute("SELECT _ProductVersion FROM _MetaData").fetchone()[0]
+        finally:
+            db.close()
+        major = int(re.match(r"\d+", ver).group())
+    except Exception:                   # no table, no row, no number: say so, and take the newer numbering
+        return ACT_SIDES, "Mendix 11 numbering (model version unreadable, assumed)"
+    if major >= 11:
+        return ACT_SIDES, "Mendix 11 numbering (model version %s)" % ver
+    return NOTE_SIDES_10, "Mendix 10 numbering (model version %s)" % ver
 
 
 # -- the unit as plain data ----------------------------------------------------------------------
@@ -346,6 +367,8 @@ def main(argv):
     except mxpatch.PatchError as e:
         sys.stderr.write("mf-canvas-facts: %s\n" % e)
         return 2
+    global NOTE_SIDES
+    NOTE_SIDES, numbering = note_numbering(model)
     # model.units() would stop at the first unit that does not decode; read each candidate on
     # its own so one bad unit is a named fault and every other flow is still measured.
     needles = [mxpatch._bson_str(0x02, "$Type", t) for t in FLOW_TYPES]
@@ -375,6 +398,7 @@ def main(argv):
     found = {q for q, _ in picked} | {q.split(".", 1)[1] for q, _ in picked}
     missing = [n for n in names if n not in found]
     totals = dict.fromkeys(KINDS, 0)
+    print("# note sides: %s" % numbering)
     for q, mf in sorted(picked, key=lambda x: x[0]):
         res = check(mf, exposed)
         print("# %s  (%d)" % (q, len(res)))

@@ -190,18 +190,18 @@ grep -q 'WARN  free memory' "$WORK/q-lo.out" && ok "low memory is shown as a WAR
 [ "$_rc_hi" = "$_rc_lo" ] && [ "$(_wcount "$WORK/q-hi.out")" = "$(_wcount "$WORK/q-lo.out")" ] \
   && ok "health warnings change neither the exit code ($_rc_hi) nor the warning count ($(_wcount "$WORK/q-hi.out"))" \
   || bad "low memory changed doctor's result: rc $_rc_hi -> $_rc_lo, $(_wcount "$WORK/q-hi.out") -> $(_wcount "$WORK/q-lo.out")"
-rf env MXTK_SPAWN_WARN_MS=0 MXTK_CONTAINER_RUNTIME=fakedocker bash "$DOCTOR" --bench "$P"
+rf env MXTK_SPAWN_WARN_MS=-1 MXTK_CONTAINER_RUNTIME=fakedocker bash "$DOCTOR" --bench "$P"
 chk "fix c: slow starts + working container CLI -> dev container" "$WORK/rf.out" "Use a dev container (fakedocker"
-rf env MXTK_SPAWN_WARN_MS=0 MXTK_CONTAINER_RUNTIME=no-such-runtime bash "$DOCTOR" --bench "$P"
+rf env MXTK_SPAWN_WARN_MS=-1 MXTK_CONTAINER_RUNTIME=no-such-runtime bash "$DOCTOR" --bench "$P"
 chk "fix d: slow starts, nothing else -> cloud" "$WORK/rf.out" "Let Claude work in the cloud"
 chk "fix d: names git pull" "$WORK/rf.out" "git pull"
 # b: pretend Git Bash with WSL present (fake uname + wsl.exe); falls through to c when --status fails
 printf '#!/bin/sh\ncase "$1" in -m) echo x86_64 ;; *) echo MINGW64_NT-10.0-26200 ;; esac\n' > "$WORK/bin/uname"
 printf '#!/bin/sh\nexit 0\n' > "$WORK/bin/wsl.exe"; chmod +x "$WORK/bin/uname" "$WORK/bin/wsl.exe"
-rf env MXTK_SPAWN_WARN_MS=0 MXTK_CONTAINER_RUNTIME=fakedocker bash "$DOCTOR" --bench "$P"
+rf env MXTK_SPAWN_WARN_MS=-1 MXTK_CONTAINER_RUNTIME=fakedocker bash "$DOCTOR" --bench "$P"
 chk "fix b: Git Bash + wsl.exe --status ok -> WSL (before dev container)" "$WORK/rf.out" "Run the toolkit in WSL"
 printf '#!/bin/sh\nexit 1\n' > "$WORK/bin/wsl.exe"
-rf env MXTK_SPAWN_WARN_MS=0 MXTK_CONTAINER_RUNTIME=fakedocker bash "$DOCTOR" --bench "$P"
+rf env MXTK_SPAWN_WARN_MS=-1 MXTK_CONTAINER_RUNTIME=fakedocker bash "$DOCTOR" --bench "$P"
 chk "fix b: wsl.exe --status failing -> next option" "$WORK/rf.out" "Use a dev container"
 rm -f "$WORK/bin/uname" "$WORK/bin/wsl.exe"
 chkno "no IT-dependent advice anywhere in the output" "$WORK/rf.out" "exclusion\|ask IT" -i

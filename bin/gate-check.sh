@@ -1947,6 +1947,42 @@ protocol_is_relevant() {
   return 1
 }
 
+# Evaluation cache (#583): `--closeout` right after a stage query replays that query's variables
+# instead of re-evaluating. Everything from here to the "Regenerate index.html" block is the
+# evaluation; see bin/lib/gate-cache.sh for exactly when a hit is allowed.
+. "$TOOLKIT_DIR/bin/lib/gate-cache.sh"
+GC_CACHE_HIT=0
+[ "$CLOSEOUT" = "1" ] && gc_cache_try
+[ -n "${MXTK_GATE_CACHE_TRACE:-}" ] && [ "$CLOSEOUT" = "1" ] && echo "gate-cache: $([ "$GC_CACHE_HIT" = 1 ] && echo hit || echo miss)" >&4
+if [ "$GC_CACHE_HIT" = "1" ]; then
+  eval "$GC_CACHE_SNAPSHOT"
+else
+gc_cache_begin
+
+# The fetch below runs at most once per MXTK_FETCH_TTL_MIN minutes (default 15; 0 = every run) per
+# toolkit clone (#583: a git fetch is a network round trip plus four processes on every query, and a
+# Stage close runs three queries in a row). The stamp lives inside the clone's git dir, written only
+# after a fetch SUCCEEDED, so a failed or skipped fetch is never remembered as a good one. A fresh
+# stamp reuses the remote-tracking ref the last fetch left, which is exactly what a successful
+# fetch would have compared against, minutes later. A worktree or submodule checkout has a .git
+# FILE ("gitdir: <path>"), read here without a process; a .git that is neither means there is
+# nowhere safe to put the stamp, and every run fetches as before.
+GC_FETCH_STAMP=""
+if [ -d "$TOOLKIT_DIR/.git" ]; then
+  GC_FETCH_STAMP="$TOOLKIT_DIR/.git/mxtk-last-fetch"
+elif [ -f "$TOOLKIT_DIR/.git" ]; then
+  _gc_gd=""; read -r _ _gc_gd < "$TOOLKIT_DIR/.git" 2>/dev/null || true
+  case "$_gc_gd" in /*|[A-Za-z]:*) ;; ?*) _gc_gd="$TOOLKIT_DIR/$_gc_gd" ;; esac
+  [ -n "$_gc_gd" ] && [ -d "$_gc_gd" ] && GC_FETCH_STAMP="$_gc_gd/mxtk-last-fetch"
+fi
+gc_fetch_is_fresh() {
+  local ttl="${MXTK_FETCH_TTL_MIN:-15}"
+  case "$ttl" in ''|*[!0-9]*) return 1 ;; esac
+  [ -n "$GC_FETCH_STAMP" ] && [ "$ttl" -gt 0 ] && [ -f "$GC_FETCH_STAMP" ] || return 1
+  [ -n "$(find "$GC_FETCH_STAMP" -mmin "-$ttl" 2>/dev/null)" ]
+}
+gc_fetch_stamp() { [ -n "$GC_FETCH_STAMP" ] && : > "$GC_FETCH_STAMP" 2>/dev/null; return 0; }
+
 TOOLKIT_HEAD="$(git -C "$TOOLKIT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")"
 
 # Resolve the reference tip. Fetch failure must not silently degrade to the old self-comparison:
@@ -1964,8 +2000,10 @@ if [ "${MXTK_NO_FETCH:-0}" = "1" ]; then
   TOOLKIT_REF="$TOOLKIT_HEAD"
   SYNC_REF_LABEL="local HEAD — UNVERIFIED, fetch skipped (MXTK_NO_FETCH=1)"
 elif git -C "$TOOLKIT_DIR" rev-parse --abbrev-ref '@{u}' >/dev/null 2>&1 \
-   && GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -o BatchMode=yes -o ConnectTimeout=5}" \
-      git -C "$TOOLKIT_DIR" -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=8 fetch --quiet 2>/dev/null; then
+   && { gc_fetch_is_fresh \
+        || { GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -o BatchMode=yes -o ConnectTimeout=5}" \
+             git -C "$TOOLKIT_DIR" -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=8 fetch --quiet 2>/dev/null \
+             && gc_fetch_stamp; }; }; then
   TOOLKIT_REF="$(git -C "$TOOLKIT_DIR" rev-parse --short '@{u}' 2>/dev/null || echo "unknown")"
 else
   TOOLKIT_REF="$TOOLKIT_HEAD"
@@ -2643,6 +2681,8 @@ printf "Open questions (raised?): %s — %s\n" "$OQ_STATUS" "$OQ_NOTE"
 # INFORMATIONAL here, not blocking: the verify loop is optional on small projects, a module can
 # legitimately have no pages (an integration module), and a project that joined at Stage 5 owes
 # nothing below its adoption point. What must not happen is silence. Stage 6 still blocks.
+# Rows for stages after the requested one are not evaluated (#583); see the two libs.
+case "$REQUESTED_STAGE" in P|p|[0-7]) export MXTK_ROWS_UPTO="$REQUESTED_STAGE" ;; *) unset MXTK_ROWS_UPTO ;; esac
 if [ -r "$TOOLKIT_DIR/bin/lib/obligation-check.sh" ]; then
   # shellcheck source=lib/obligation-check.sh
   . "$TOOLKIT_DIR/bin/lib/obligation-check.sh"
@@ -3020,6 +3060,9 @@ case "${LEDGER_OWED:-}" in
   *)   _roll="$_roll    Source files: ${LEDGER_OWED} owed (pending/fault/missing/not inventoried)"
        _owed=$(( _owed + ${LEDGER_OWED:-0} )) ;;
 esac
+# A stage query skipped the rows owed from later stages (#583); the counts above are for the
+# requested stage and earlier, and must not read as "nothing is owed anywhere".
+[ -n "${MXTK_ROWS_UPTO:-}" ] && _roll="$_roll    (obligation/artifact rows for stages after ${MXTK_ROWS_UPTO} not evaluated)"
 printf "         %s\n" "$_roll"
 if [ "$_owed" -gt 0 ]; then
   echo "         These do not affect the exit code and never have. They are passes and files"
@@ -3054,6 +3097,9 @@ if [ "$N_WAIVED" = "0" ] && { [ "$N_PENDING" -ge 4 ] || [ "$N_FAIL" -ge 3 ]; }; 
   echo "  $0 --waive <stage> --reason \"...\" $PROJECT_DIR    (one stage → WAIVED)"
   echo "  $0 --waive look/<Module> --reason \"...\" $PROJECT_DIR (one PASS on one module → WAIVED)"
 fi
+
+gc_cache_end
+fi   # GC_CACHE_HIT
 
 # Regenerate index.html from these exact results — subject to three conditions, all of which
 # exist because this write has destroyed a real file:

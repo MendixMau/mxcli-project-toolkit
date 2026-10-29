@@ -218,6 +218,18 @@ mkdir -p "$WORK/OneDrive - Contoso/proj"; printf '# P\n' > "$WORK/OneDrive - Con
 rf bash "$DOCTOR" --bench "$WORK/OneDrive - Contoso/proj"
 chk "sync folder: health line names OneDrive" "$WORK/rf.out" "folder synced by OneDrive"
 chk "sync folder: fix is moving the project" "$WORK/rf.out" "Move the project out of OneDrive"
+# 8b. Only whole path components match: a repo NAMED like a sync client is not inside one
+mkdir -p "$WORK/dev/OneDrive-connector" "$WORK/dev/dropbox-client"
+printf '# P\n' > "$WORK/dev/OneDrive-connector/PROJECT.md"; printf '# P\n' > "$WORK/dev/dropbox-client/PROJECT.md"
+rf bash "$DOCTOR" --bench "$WORK/dev/OneDrive-connector"
+chkno "sync folder: repo named OneDrive-connector is not flagged" "$WORK/rf.out" "folder synced by"
+rf bash "$DOCTOR" --bench "$WORK/dev/dropbox-client"
+chkno "sync folder: repo named dropbox-client is not flagged" "$WORK/rf.out" "folder synced by"
+# 8c. The sync-folder WARN does not change doctor's exit code
+( PATH="$SAFEPATH" MXTK_PROC_MEMINFO="$WORK/meminfo-high" FAKE_PS_FILE="$WORK/ps-clean.txt" bash "$DOCTOR" --quick "$WORK/OneDrive - Contoso/proj" > "$WORK/q-od.out" 2>&1 ); _rc_od=$?
+( PATH="$SAFEPATH" MXTK_PROC_MEMINFO="$WORK/meminfo-high" FAKE_PS_FILE="$WORK/ps-clean.txt" bash "$DOCTOR" --quick "$WORK/dev/dropbox-client" > "$WORK/q-nod.out" 2>&1 ); _rc_nod=$?
+grep -q 'folder synced by OneDrive' "$WORK/q-od.out" && [ "$_rc_od" = "$_rc_nod" ] \
+  && ok "sync folder: WARN shown, exit code unchanged ($_rc_od)" || bad "sync folder: rc $_rc_nod -> $_rc_od or no WARN"
 # 9. Low-memory advice offers a restart, the plain option, besides --cleanup
 rf env MXTK_PROC_MEMINFO="$WORK/meminfo-low" bash "$DOCTOR" --bench "$P"
 chk "low memory: restart offered" "$WORK/rf.out" "restart the computer"

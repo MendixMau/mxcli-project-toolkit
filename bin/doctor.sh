@@ -621,9 +621,12 @@ machine_health() {
   # Project inside a file-sync folder (OneDrive is where Windows puts Documents and Desktop by default).
   MH_SYNC=""; _mh_pd=""
   [ -n "${PROJECT_DIR:-}" ] && _mh_pd="$(cd "$PROJECT_DIR" 2>/dev/null && pwd)"
-  case "$_mh_pd" in
-    *OneDrive*) MH_SYNC=OneDrive ;; *Dropbox*) MH_SYNC=Dropbox ;;
-    *"Google Drive"*|*GoogleDrive*) MH_SYNC="Google Drive" ;; *Mobile\ Documents*|*iCloud*) MH_SYNC=iCloud ;;
+  # Whole path components only: ~/dev/dropbox-client or a repo named OneDrive-connector must not match.
+  case "$_mh_pd/" in
+    */OneDrive/*|*/"OneDrive - "*/*) MH_SYNC=OneDrive ;;
+    */Dropbox/*|*/"Dropbox ("*/*) MH_SYNC=Dropbox ;;
+    */"Google Drive"/*|*/GoogleDrive/*|*/"My Drive"/*) MH_SYNC="Google Drive" ;;
+    */"Mobile Documents"/*|*/"iCloud Drive"/*) MH_SYNC=iCloud ;;
   esac
   [ -n "$MH_SYNC" ] && advise "the project is in a folder synced by $MH_SYNC: $_mh_pd"
   MH_BAD="$_mh_bad"
@@ -677,7 +680,7 @@ if [ "$CLEANUP" = 1 ]; then
   exit 0
 fi
 
-# --bench: ~1 minute, changes nothing in the project. Times the things every toolkit script is made of,
+# --bench: ~1 minute, changes nothing in the project (only git's own stat cache, via the warm-up below). Times the things every toolkit script is made of,
 # against this table's reference column, so "the toolkit is slow here" becomes a number a colleague can
 # compare. Writes <project>/.claude/loop/bench-<timestamp>.tsv (one row per step, concatenable).
 #
@@ -774,7 +777,8 @@ if [ "$BENCH" = 1 ]; then
 
   # 2. git status. One untimed warm-up first: a copied or freshly cloned project has a stale index, and the
   # first git status there pays a one-off full re-read (field, 2026-10-29: 18.3 s, then 0.03 s). The warm-up
-  # is an ordinary `git status`, which only refreshes git's own file-stat cache. The timed run is warm.
+  # is an ordinary `git status`, which only refreshes git's own file-stat cache (.git/index), exactly as
+  # the user's next git status would; no tracked or untracked project file changes. The timed run is warm.
   if [ -z "$B_P" ]; then b_row git "git status" "" "$BENCH_REF_GIT_MS" "no project given"
   elif ! command -v git >/dev/null 2>&1; then b_row git "git status" "" "$BENCH_REF_GIT_MS" "git not installed"
   elif ! git -C "$B_P" rev-parse --git-dir >/dev/null 2>&1; then b_row git "git status" "" "$BENCH_REF_GIT_MS" "project is not a git repository"

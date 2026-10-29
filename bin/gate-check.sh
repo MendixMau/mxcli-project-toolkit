@@ -1953,6 +1953,7 @@ protocol_is_relevant() {
 . "$TOOLKIT_DIR/bin/lib/gate-cache.sh"
 GC_CACHE_HIT=0
 [ "$CLOSEOUT" = "1" ] && gc_cache_try
+[ -n "${MXTK_GATE_CACHE_TRACE:-}" ] && [ "$CLOSEOUT" = "1" ] && echo "gate-cache: $([ "$GC_CACHE_HIT" = 1 ] && echo hit || echo miss)" >&4
 if [ "$GC_CACHE_HIT" = "1" ]; then
   eval "$GC_CACHE_SNAPSHOT"
 else

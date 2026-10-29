@@ -29,6 +29,13 @@
 #     PROJECT.md, stage artifact, source file, mpr, deleted file (its directory's mtime moves)
 #     or a toolkit pull all end the cache. The reference time is backdated two seconds so a
 #     coarse-timestamp filesystem cannot hide an edit made in the same second.
+#   - CONTENT SIGNATURE (review of #589): the project's file contents, cksum'd, equal what they were
+#     when the cached run finished. mtime alone is blind to an overwrite that keeps an old mtime
+#     (`cp -p`, `rsync -t`, `tar x`, `unzip`, `touch -d`): a signed triage.md copied over a FAIL
+#     one still replayed the cached FAIL. Skipped trees: .git node_modules .mxtk mprcontents
+#     deployment theme-cache themesource userlib widgets, *.mpr, and any file over 1 MB (those
+#     stay covered by the mtime test). One `find | xargs cksum` pipeline, not a process per file;
+#     if it cannot be computed the cache is a miss.
 #   - only for a plain stage query or --closeout: never with --adopt, --waive,
 #     --ack-protocol (they write the register, so there is nothing to reuse).
 #
@@ -66,7 +73,7 @@ gc_cache_key() {
       "ref: "*) IFS= read -r ref < "$PROJECT_DIR/.git/${head#ref: }" 2>/dev/null || ref="packed"; head="$head@$ref" ;;
     esac
   fi
-  GC_CKEY="v1|stage=${REQUESTED_STAGE}|dir=$abs|reg=${REGISTER:-}|strict=${STRICT_PROTOCOL:-0}|force=${FORCE_STALE:-0}|chat=${APPROVED_IN_CHAT:-0}|verbose=${PROTOCOL_VERBOSE:-0}|day=$today|head=$head|tk=${TOOLKIT_DIR:-}"
+  GC_CKEY="v2|stage=${REQUESTED_STAGE}|dir=$abs|reg=${REGISTER:-}|strict=${STRICT_PROTOCOL:-0}|force=${FORCE_STALE:-0}|chat=${APPROVED_IN_CHAT:-0}|verbose=${PROTOCOL_VERBOSE:-0}|day=$today|head=$head|tk=${TOOLKIT_DIR:-}"
   # Environment a verdict can read. Names matched by pattern so a new MXTK_ knob needs no edit here.
   for k in $(compgen -e); do
     case "$k" in
@@ -77,6 +84,16 @@ gc_cache_key() {
   done
   # A key must be one line.
   GC_CKEY="${GC_CKEY//$'\n'/ }"
+}
+
+# gc_cache_sig — sets GC_SIG to a checksum of the names and contents of the files the checks read.
+# Returns 1 (=> miss / no cache) if it cannot be computed.
+gc_cache_sig() {
+  GC_SIG=""
+  local s
+  s="$(cd "$PROJECT_DIR" 2>/dev/null && LC_ALL=C find . \( -name .git -o -name node_modules -o -name .mxtk -o -name mprcontents -o -name deployment -o -name theme-cache -o -name themesource -o -name userlib -o -name widgets \) -prune -o -type f ! -name '*.mpr' -size -1025k -print0 2>/dev/null | LC_ALL=C sort -z 2>/dev/null | xargs -0 cksum 2>/dev/null | cksum 2>/dev/null)" || return 1
+  [ -n "$s" ] || return 1
+  GC_SIG="${s// /-}"
 }
 
 # gc_cache_clean <ref> <ref2> <own-writes> — true when nothing under the project or the toolkit
@@ -121,7 +138,11 @@ gc_cache_try() {
   local own="${GC_CACHE_SNAPSHOT%%$'\n'*}"
   GC_CACHE_SNAPSHOT="${GC_CACHE_SNAPSHOT#*$'\n'}"
   case "$own" in "# own-writes:"*) own="${own#\# own-writes:}" ;; *) return 0 ;; esac
+  local sig="${GC_CACHE_SNAPSHOT%%$'\n'*}"
+  GC_CACHE_SNAPSHOT="${GC_CACHE_SNAPSHOT#*$'\n'}"
+  case "$sig" in "# sig:"*) sig="${sig#\# sig:}" ;; *) return 0 ;; esac
   gc_cache_clean "$GC_CACHE_REF" "$GC_CACHE_REF2" "$own" || return 0
+  gc_cache_sig && [ "$GC_SIG" = "$sig" ] || return 0
   # Trial replay in a subshell: a snapshot that does not replay cleanly must not half-apply.
   ( eval "$GC_CACHE_SNAPSHOT" ) >/dev/null 2>&1 || return 0
   GC_CACHE_HIT=1
@@ -160,10 +181,12 @@ gc_cache_end() {
   out="$GC_CACHE_FILE.new"
   declare -p > "$after" 2>/dev/null
   local own="" f
+  gc_cache_sig || { rm -f "$GC_SNAP_BEFORE" "$after" "$GC_CACHE_REF.new"; return 0; }
   while IFS= read -r f; do own="$own|$f"; done < <(find "$PROJECT_DIR" \( -name .git -o -name node_modules -o -name 'gate-cache*' \) -prune -o -newer "$GC_CACHE_REF.new" ! -path "$PROJECT_DIR/.mxtk" -print 2>/dev/null)
   {
     printf '%s\n' "$GC_BKEY"
     printf '# own-writes:%s\n' "$own"
+    printf '# sig:%s\n' "$GC_SIG"
     awk '
       function flush() {
         if (name != "") {
@@ -180,7 +203,7 @@ gc_cache_end() {
       }
       { if (name != "") rec = rec "\n" $0 }
       END { flush() }
-    ' skip='^(BASH|FUNCNAME$|LINENO$|SECONDS$|RANDOM$|SRANDOM$|EPOCH|PIPESTATUS$|_$|PPID$|UID$|EUID$|GROUPS$|SHLVL$|PWD$|OLDPWD$|COLUMNS$|LINES$|IFS$|REPLY$|OPTIND$|OPTARG$|DIRSTACK$|HISTCMD$|COMP|GC_C|GC_SNAP|GC_FETCH)' \
+    ' skip='^(BASH|FUNCNAME$|LINENO$|SECONDS$|RANDOM$|SRANDOM$|EPOCH|PIPESTATUS$|_$|PPID$|UID$|EUID$|GROUPS$|SHLVL$|PWD$|OLDPWD$|COLUMNS$|LINES$|IFS$|REPLY$|OPTIND$|OPTARG$|DIRSTACK$|HISTCMD$|COMP|GC_C|GC_SNAP|GC_SIG|GC_FETCH)' \
       "$GC_SNAP_BEFORE" "$after"
     printf '# gate-cache-end\n'
   } > "$out" 2>/dev/null

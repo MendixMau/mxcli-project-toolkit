@@ -2,7 +2,7 @@
 # Fixture for wave-2 #3: the unanchored substring CONTENT gates — Stage 0 (triage sign-off),
 # Stage 2 (validation stop condition) and Stage 7 (cutover decision row); T12 adds the
 # existing-app-change parked state (Stage 0) and that mode's Stage 1 hint; T16 the Stage 4
-# closing rows (brd-to-build-plan.md, #163).
+# closing rows (brd-to-build-plan.md, #163); T19 the facts lock at Stage 2.
 #
 # Stage P is covered by test-stage-p.sh and is deliberately not retested here.
 #
@@ -368,6 +368,23 @@ case "$OUT" in *'still have unfilled placeholders'*) bad "the multi-line case FA
 perl -0777 -pi -e 's/\{\{PROJECT_LOCAL_SOURCES_OF_TRUTH.*?\}\}/filled/s' "$P/.claude/agents/mdl-agent.md"
 OUT="$("$GATE" --no-html "$P" build-ready 2>&1)"
 case "$OUT" in *'no unfilled placeholders'*) ok "a filled stub reads clean" ;; *) bad "filled stub not clean: $(printf '%s' "$OUT" | grep -i placeholder)" ;; esac
+
+echo "== T19: Stage 2 reads the facts lock once there are 2+ BRDs =="
+P="$(mkproj t19)"
+printf '# Validation\n\n## Stop condition\n\nClean.\n' > "$P/knowledge-base/reports/validation-report.md"
+V="$(verdict "$P" 2)"
+case "$V" in *PASS*) case "$V" in *'facts lock'*) bad "1 BRD already gets a facts-lock note: $V" ;; *) ok "1 BRD: unchanged, no facts-lock note" ;; esac ;; *) bad "1 BRD: $V" ;; esac
+printf '{ "id":"F001","domainEntities":[{"entity":"WIPStatus"}] }\n' > "$P/knowledge-base/brd/F001.brd.json"
+printf '{ "id":"F002","domainEntities":[{"entity":"WIPStatus"}] }\n' > "$P/knowledge-base/brd/F002.brd.json"
+V="$(verdict "$P" 2)"
+case "$V" in *PASS*'no facts lock'*) ok "2 BRDs, no lock: still PASS, with a note naming facts-lock build" ;; *) bad "2 BRDs, no lock: $V" ;; esac
+TK="$(cd "$(dirname "$GATE")/.." && pwd)"
+mkdir -p "$P/analysis"; bash "$TK/bin/facts-lock.sh" "$P" build >/dev/null 2>&1
+V="$(verdict "$P" 2)"
+case "$V" in *PASS*) case "$V" in *'facts lock'*) bad "agreeing BRDs with a lock still noted: $V" ;; *) ok "lock built, BRDs agree: plain PASS" ;; esac ;; *) bad "lock built, BRDs agree: $V" ;; esac
+printf '{ "id":"F002","domainEntities":[{"entity":"WipStatus"}] }\n' > "$P/knowledge-base/brd/F002.brd.json"
+V="$(verdict "$P" 2)"
+case "$V" in *FAIL*'WipStatus'*) ok "a BRD that contradicts a frozen name FAILs Stage 2 and quotes it" ;; *) bad "contradicted frozen name not caught: $V" ;; esac
 
 printf '\n%s: %d ok, %d FAIL\n' "$(basename "$0")" "$PASS" "$FAIL"
 rm -rf "$WORK"

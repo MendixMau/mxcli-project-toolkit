@@ -99,9 +99,10 @@ if [ "${1:-}" = "--check" ]; then
   rc=0
   if [ -f "$HOOK" ] && grep -q "^$MARK" "$HOOK"; then echo "  ✓ pre-commit hook installed ($HOOK)"
   else echo "  ✗ pre-commit model-verification hook missing — run ./bin/install-project-hooks.sh"; rc=1; fi
-  # Informational only: an older install has no pre-push hook, and only `Gate mode: check` needs it.
+  # Missing pre-push = rc 1, so sync-project.sh (which installs only when --check fails) adds it
+  # to existing projects: `Gate mode: check` is the default, and this hook is its full build.
   if [ -f "$HOOKS/pre-push" ] && grep -q "^# mxtk-pre-push full-build hook v1" "$HOOKS/pre-push"; then echo "  ✓ pre-push full-build hook installed"
-  else echo "  – pre-push full-build hook not installed (needed only with Gate mode: check) — ./bin/install-project-hooks.sh adds it"; fi
+  else echo "  ✗ pre-push full-build hook missing — run ./bin/install-project-hooks.sh"; rc=1; fi
   for h in post-commit post-rewrite; do
     if [ -f "$HOOKS/$h" ] && grep -q "^$NOTE_MARK" "$HOOKS/$h"; then echo "  ✓ $h revision-note hook installed"
     else echo "  ✗ $h revision-note hook missing — run ./bin/install-project-hooks.sh"; rc=1; fi
@@ -167,7 +168,7 @@ echo "  ✓ pre-commit hook installed -> $HOOK"
 echo "    (refuses to commit .mpr/mprcontents changes that have no mxbuild-gate PASS stamp; ./bin/verify-model.sh writes one)"
 
 # --- pre-push: the full build `Gate mode: check` defers (exec.sh "Gate kind") ------------------------
-# Under `Gate mode: check` exec.sh runs `mx check` per script, which compiles no Java. A push is where
+# Under `Gate mode: check` (the default) exec.sh runs `mx check` per script, which compiles no Java. A push is where
 # a model leaves this machine, so this hook runs the full mxbuild (bin/verify-model.sh) when the
 # stamp matches the model but says `mx check` only. It does the remedy itself (guard rule 7) and
 # refuses only when that full build finds errors. Every other project: a no-op (no gate-kind state,
@@ -192,15 +193,19 @@ if [ "\${MODEL_UNVERIFIED_OK:-0}" = "1" ]; then
   echo "⚠ MODEL_UNVERIFIED_OK=1 — pushing a model verified by mx check only (no Java compile)." >&2; exit 0
 fi
 echo "→ pre-push: the model was verified by mx check only; running the full build first (bin/verify-model.sh)..." >&2
-if ! ( cd "\$b/.." && bash bin/verify-model.sh ) >&2; then
+( cd "\$b/.." && bash bin/verify-model.sh ) >&2; vrc=\$?
+if [ "\$vrc" = 1 ]; then
   echo "✗ push refused: the full build found errors (above). Fix them, commit, push again." >&2
   echo "  Deliberate override, once:   MODEL_UNVERIFIED_OK=1 git push ..." >&2
   exit 1
+elif [ "\$vrc" != 0 ]; then
+  # exit 2: mxbuild could not run here — not a finding about the model; never block the push on it.
+  echo "⚠ pre-push: the full build could not run on this machine (verify-model.sh exit \$vrc) — pushing a model verified by mx check only." >&2
 fi
 exit 0
 HOOKEOF
 chmod +x "$PP"
-echo "  ✓ pre-push hook installed (under Gate mode: check, runs the full build before a model leaves this machine)"
+echo "  ✓ pre-push hook installed (runs the full build before a model only mx-checked leaves this machine)"
 
 # --- revision notes for Studio Pro History (post-commit + post-rewrite) -------------------------
 # Both hooks find Python through bin/_common.sh's resolve_py (executes each candidate, skips the

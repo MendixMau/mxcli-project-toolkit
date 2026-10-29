@@ -427,8 +427,8 @@ fi
 
 # recommended_fix — ONE block that ends both the normal run and --bench: the first option that works on THIS
 # machine, in this order. Read-only, cheap probes; never installs anything and never asks for IT's help.
-#   a. PROJECT.md lacks `Gate mode: check` -> add that line (one line; helps every machine, so it is offered
-#      even when nothing is slow).
+#   a. PROJECT.md says `Gate mode: full` -> remove that line: `mx check` per exec is the default, with the
+#      full build before every push (offered even when nothing is slow: it helps every machine).
 #   b. process starts are slow AND this is Git Bash AND `wsl.exe --status` succeeds -> run the toolkit in WSL.
 #   c. slow AND a docker/podman CLI is present and runs (`--version`, no daemon call) -> a dev container.
 #   d. slow, none of the above -> let Claude work in the cloud (Claude Code on the web), pull with git pull.
@@ -441,9 +441,9 @@ recommended_fix() {
   _rf_pm=""
   if [ -n "$PROJECT_DIR" ] && [ -f "$PROJECT_DIR/PROJECT.md" ]; then
     _rf_pm="$(sed -n 's/^[*_ ]*Gate mode:[*_ ]*\([A-Za-z]*\).*/\1/p' "$PROJECT_DIR/PROJECT.md" 2>/dev/null | head -1 | tr 'A-Z' 'a-z')"
-    if [ "$_rf_pm" != check ]; then
-      echo "  Add \"Gate mode: check\" to PROJECT.md (one line). Each model write is then checked with the quick"
-      echo "  mx check instead of a full build, and the full build runs only before you push."
+    if [ "$_rf_pm" = full ]; then
+      echo "  Remove \"Gate mode: full\" from PROJECT.md (one line). Each model write is then checked with the quick"
+      echo "  mx check instead of a full build, and the full build runs before you push and at module close."
       return 0
     fi
   fi
@@ -915,7 +915,7 @@ if [ -n "$_perf_log" ] && [ -f "$_perf_log" ] && grep -q 'steps: ' "$_perf_log" 
   _pmsg="last $_pn execs: median ${_pmed} s per exec (gate ${_pgate} s; slowest step: $_ptop ${_ptopv} s). Normal: 17-34 s, gate 9-20 s."
   if [ "$_pmed" -gt "${MXTK_PERF_EXEC_WARN:-60}" ] || [ "$_pgate" -gt "${MXTK_PERF_GATE_WARN:-45}" ]; then
     warn "slow execs — $_pmsg"
-    [ "$_pgate" -gt "${MXTK_PERF_GATE_WARN:-45}" ] && note "The gate (mxbuild) dominates: 'Gate mode: check' in PROJECT.md runs mx check per exec and the full build before push."
+    [ "$_pgate" -gt "${MXTK_PERF_GATE_WARN:-45}" ] && note "The gate (mxbuild) dominates: 'Gate mode: full' in PROJECT.md forces a full build per exec; without it, exec runs mx check and the full build before push."
     [ -n "$_spawn_ms" ] && [ "$_spawn_ms" -gt "${MXTK_SPAWN_WARN_MS:-30}" ] && note "Process starts are slow too (above): that is the machine, not the model — see the advice there."
     note "Per-command profile of one exec: MXTK_PROFILE=1 ./bin/exec.sh <script> (prints the 15 slowest lines)."
   else

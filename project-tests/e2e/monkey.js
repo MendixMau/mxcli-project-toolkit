@@ -337,6 +337,10 @@ if (require.main === module) (async () => {
     }
   }
 
+  // Release the Mendix session before closing the browser: a closed browser does NOT free a seat,
+  // and a trial licence caps live sessions (speed experiment E2: six login-and-close runs made
+  // every later journey "Sign in failed"). Bounded, so a dead page cannot hang the exit.
+  await Promise.race([H.logout(page).catch(() => false), new Promise(r => setTimeout(() => r(false), 5000))]);
   await browser.close();
 
   const crashes = findings.filter(f => f.severity === 'crash');

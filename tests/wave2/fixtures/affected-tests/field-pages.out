@@ -1,0 +1,36 @@
+| Qualified Name                      | Module         | Name                 | Excluded | Folder                         | Title                | url               | Params |
+|-------------------------------------|----------------|----------------------|----------|--------------------------------|----------------------|-------------------|--------|
+| Administration.Account_Edit         | Administration | Account_Edit         | false    | User Management/Admin          | Edit Account         |                   | 1      |
+| Administration.Account_New          | Administration | Account_New          | false    | User Management/Admin          | New Account          |                   | 1      |
+| Administration.Account_Overview     | Administration | Account_Overview     | false    | User Management/Admin          | Accounts             |                   | 0      |
+| Administration.ActiveSessions       | Administration | ActiveSessions       | false    | System Administration          | Active Sessions      |                   | 0      |
+| Administration.ChangeMyPasswordForm | Administration | ChangeMyPasswordForm | false    | User Management/User           | Change Password      |                   | 1      |
+| Administration.ChangePasswordForm   | Administration | ChangePasswordForm   | false    | User Management/Admin          | Change Password      |                   | 1      |
+| Administration.MyAccount            | Administration | MyAccount            | false    | User Management/User           | My Account           |                   | 1      |
+| Administration.RuntimeInstances     | Administration | RuntimeInstances     | false    | System Administration          | Runtime Instances    |                   | 0      |
+| Administration.ScheduledEvents      | Administration | ScheduledEvents      | false    | System Administration          | Scheduled Events     |                   | 0      |
+| Approval.Approval_Decide            | Approval       | Approval_Decide      | false    | Approvals                      | Decide on request    | decide/{Request}  | 1      |
+| Approval.Approval_Inbox             | Approval       | Approval_Inbox       | false    | Approvals                      | Approval inbox       | inbox             | 0      |
+| Approval.Dashboard                  | Approval       | Dashboard            | false    | Dashboard                      | Dashboard            | dashboard         | 0      |
+| FeedbackModule.PopupFailure         | FeedbackModule | PopupFailure         | false    | USE_ME/Pages                   | Something went wrong |                   | 0      |
+| FeedbackModule.PopupFailure_Logo    | FeedbackModule | PopupFailure_Logo    | true     | Examples/WithCompanyLogo/Pages | Something went wrong |                   | 0      |
+| FeedbackModule.PopupSuccess         | FeedbackModule | PopupSuccess         | false    | USE_ME/Pages                   | Feedback Submitted   |                   | 1      |
+| FeedbackModule.PopupSuccess_Logo    | FeedbackModule | PopupSuccess_Logo    | true     | Examples/WithCompanyLogo/Pages | Feedback Submitted   |                   | 1      |
+| FeedbackModule.ShareFeedback        | FeedbackModule | ShareFeedback        | false    | USE_ME/Pages                   | Share your feedback  |                   | 0      |
+| FeedbackModule.ShareFeedback_Logo   | FeedbackModule | ShareFeedback_Logo   | true     | Examples/WithCompanyLogo/Pages | Share your feedback  |                   | 0      |
+| MyFirstModule.Home_Web              | MyFirstModule  | Home_Web             | false    |                                | Homepage             |                   | 0      |
+| Purchasing.Request_Edit             | Purchasing     | Request_Edit         | false    | Requests                       | Purchase request     | request/{Request} | 1      |
+| Purchasing.Request_List             | Purchasing     | Request_List         | false    | Requests                       | My requests          | requests          | 0      |
+| Purchasing.RequestLine_Edit         | Purchasing     | RequestLine_Edit     | false    | Requests                       | Request line         |                   | 1      |
+| Purchasing.Supplier_Edit            | Purchasing     | Supplier_Edit        | false    | Suppliers                      | Supplier             |                   | 1      |
+| Purchasing.Supplier_List            | Purchasing     | Supplier_List        | false    | Suppliers                      | Suppliers            | suppliers         | 0      |
+
+(24 pages)
+| Qualified Name                    | Module         | Name                   | Folder | Params |
+|-----------------------------------|----------------|------------------------|--------|--------|
+| Administration.ReadMe             | Administration | ReadMe                 | _Docs  | 0      |
+| Atlas_Core.FeedbackWidget         | Atlas_Core     | FeedbackWidget         | Web    | 0      |
+| Atlas_Core.LanguageSelectorWidget | Atlas_Core     | LanguageSelectorWidget | Web    | 0      |
+| FeedbackModule._ReadMe            | FeedbackModule | _ReadMe                | _Docs  | 0      |
+
+(4 snippets)

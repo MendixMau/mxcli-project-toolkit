@@ -172,11 +172,11 @@ unset FAKE_PS_PIDS MXTK_LEFTOVER_MIN_AGE_S
 
 # 6. Recommended fix: ONE block, first option that works here, no IT-dependent step
 rf() { PATH="$SAFEPATH" MXTK_PROC_MEMINFO="$WORK/meminfo-high" FAKE_PS_FILE="$WORK/ps-clean.txt" "$@" > "$WORK/rf.out" 2>&1; }
-printf '# P\n' > "$P/PROJECT.md"
+printf '# P\n\nGate mode: full\n' > "$P/PROJECT.md"
 rf bash "$DOCTOR" --bench "$P"
-chk "fix a: no Gate mode line -> add it" "$WORK/rf.out" 'Add "Gate mode: check" to PROJECT.md'
+chk "fix a: Gate mode: full -> remove it" "$WORK/rf.out" 'Remove "Gate mode: full" from PROJECT.md'
 [ "$(grep -c '^Recommended fix' "$WORK/rf.out")" -eq 1 ] && ok "fix: exactly one block" || bad "fix: block count"
-printf 'Gate mode: check\n' > "$P/PROJECT.md"
+printf '# P\n' > "$P/PROJECT.md"
 rf bash "$DOCTOR" --bench "$P"
 chk "fix: fast machine with the line set -> none needed" "$WORK/rf.out" "None needed"
 printf '#!/bin/sh\nexit 0\n' > "$WORK/bin/fakedocker"; chmod +x "$WORK/bin/fakedocker"

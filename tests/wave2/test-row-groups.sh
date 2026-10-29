@@ -12,6 +12,7 @@
 #   G2  `-- rows:` header: the split-group refusal still works on the real plan
 #   G3  `Row groups: on`: a file-name number is read as the row again
 #   G4  `Row groups: on` but the script names no BUILD row: exit 4, the `-- rows:` hint exec.sh prints
+#   G5  a plan whose number/Kind cells are in backticks reads the same rows
 #   S1  built = an explicit built/done/applied State; planned, **blocked**, partial, empty are not
 #   M1  module close: the report must record 0 lint findings for the module, or a filled LOOK row
 set -uo pipefail
@@ -52,6 +53,15 @@ chk "$P" "09-snippets.mdl" "-- rows: 14" "create snippet ..."
 { [ "$rc" = 1 ] && printf '%s' "$out" | grep -q '15, 16'; } && ok "G2: rows 14 alone leaves 15, 16 of its low group unbuilt → refused" || bad "G2: rc=$rc" "$out"
 chk "$P" "09-11-snippets-pages.mdl" "-- rows: 14,15,16"
 [ "$rc" = 0 ] && ok "G2: the whole group in one script passes" || bad "G2 whole group: rc=$rc" "$out"
+
+echo "== G5 code-formatted Kind and number cells read the same"
+P5b="$WORK/backticks"; sed -E 's/^\| ([0-9]+) \| ([A-Z]+) \|/| `\1` | `\2` |/' "$GOLD" | mkproj "$P5b"
+P5c="$WORK/plain"; mkproj "$P5c" < "$GOLD"
+plain=$(cd "$P5c" && bash bin/row-groups.sh 2>&1 | tail -1); ticked=$(cd "$P5b" && bash bin/row-groups.sh 2>&1 | tail -1)
+{ [ "$plain" = "$ticked" ] && printf '%s' "$ticked" | grep -q '[1-9][0-9]* BUILD rows'; } \
+  && ok "G5: a plan with \`BUILD\` / \`12\` in backticks plans the same groups ($ticked)" || bad "G5: plain '$plain' vs backticks '$ticked'"
+chk "$P5b" "x.mdl" "-- rows: 14" "create snippet ..."
+[ "$rc" = 1 ] && ok "G5: the split-group refusal works on the backtick plan too" || bad "G5 check: rc=$rc" "$out"
 
 echo "== G3 opt-in: file names carry row numbers"
 P3="$WORK/optin"; mkproj "$P3" < "$GOLD"

@@ -90,7 +90,9 @@ decide() {  # $1 script, $2 patch mode → "<kind>|<why>"
     && . "$fn" && gate_kind_decide && echo "$GATE_KIND|$GATE_KIND_WHY" ) 2>&1
 }
 rm -f "$P/.claude/loop/gate-kind.state"
-out=$(decide "$WORK/add.mdl"); [ "$out" = "full|" ] && ok "K6a: no Gate mode → full, silent" || bad "K6a" "$out"
+out=$(decide "$WORK/add.mdl"); case "$out" in "full|no full build recorded yet") ok "K6a: no Gate mode line → check mode (first exec builds full)" ;; *) bad "K6a" "$out" ;; esac
+printf '# P\n\nGate mode: full\n' > "$P/PROJECT.md"
+out=$(decide "$WORK/add.mdl"); [ "$out" = "full|" ] && ok "K6a2: Gate mode: full → full build, silent" || bad "K6a2" "$out"
 printf '# P\n\nGate mode: check\n' > "$P/PROJECT.md"
 out=$(decide "$WORK/add.mdl"); case "$out" in "full|no full build recorded yet") ok "K6b: check mode, no state → full" ;; *) bad "K6b" "$out" ;; esac
 JFP=$( cd "$P" && . "$TK/project-bin/_common.sh" && PROJECT_ROOT="$P" SCRIPT=/dev/null PATCH_MODE=0 MXBUILD="$T/mxbuild" && . "$fn" && gate_kind_decide && _gk_java_fp )

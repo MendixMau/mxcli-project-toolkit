@@ -1602,8 +1602,8 @@ fi
 # time, with two mxbuilds per exec; the baseline one re-measured a model the previous
 # exec had just verified, in most of 100 execs.
 # ── Gate kind: full deploy build or `mx check` (opt-in, #584/#585) ───────────
-# Default is the full mxbuild deploy build on every exec. `Gate mode: check` in PROJECT.md
-# (or MXTK_GATE_MODE=check) runs `mx check` instead (_common.sh, "Check-only gate"), which
+# Default (2026-10-29): `mx check` per exec. `Gate mode: full` in PROJECT.md (or
+# MXTK_GATE_MODE=full) keeps the full mxbuild deploy build on every exec. Check mode runs `mx check` (_common.sh, "Check-only gate"), which
 # sees every model consistency error but no Java compile. So the full build still runs when
 # a Java compile error is possible or has gone unchecked too long:
 #   - javasource/ javascriptsource/ theme/ userlib/ widgets/ changed since the last full build;
@@ -1624,6 +1624,10 @@ gate_kind_decide() {
   _gk_java_fp() { mxtk_java_fp "$PROJECT_ROOT"; }
   _gk_mode="${MXTK_GATE_MODE:-}"
   [ -n "$_gk_mode" ] || _gk_mode="$(sed -n 's/^[*_ ]*Gate mode:[*_ ]*\([A-Za-z]*\).*/\1/p' "$PROJECT_ROOT/PROJECT.md" 2>/dev/null | head -1 | tr 'A-Z' 'a-z')"
+  # Default is check (2026-10-29, maintainer decision): nobody was going to add a line to
+  # PROJECT.md, and the full build still runs at every boundary listed above. `Gate mode: full`
+  # (or MXTK_GATE_MODE=full) keeps a full mxbuild on every exec.
+  [ -n "$_gk_mode" ] || _gk_mode=check
   if [ "$_gk_mode" = "check" ]; then
     _gk_checks="$(sed -n 's/^checks //p' "$_GK_STATE" 2>/dev/null | head -1)"
     _gk_java="$(sed -n 's/^java //p' "$_GK_STATE" 2>/dev/null | head -1)"

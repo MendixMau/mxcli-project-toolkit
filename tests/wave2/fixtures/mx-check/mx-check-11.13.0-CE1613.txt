@@ -1,0 +1,13 @@
+Checking your app for issues...
+Checking the version of the mpr file.
+The mpr file version is '11.13.0'.
+Loading the mpr file.
+The mpr file version is '11.13.0'.
+Checking app for errors...
+[error] [CE1613] "The selected attribute 'Purchasing.PurchaseRequest.Title' no longer exists." at Text box [Title]
+[error] [CE1613] "The selected attribute 'Purchasing.PurchaseRequest.Title' no longer exists." at Columns (2/5) of data grid 2 'dgInbox'
+[error] [CE1613] "The selected attribute 'Purchasing.PurchaseRequest.Title' no longer exists." at Columns (2/6) of data grid 2 'dgRequests'
+[error] [CE1613] "The selected attribute 'Purchasing.PurchaseRequest.Title' no longer exists." at Validation feedback activity 'Show validation message on member Title of Request'
+[error] [CE1613] "The selected attribute 'Purchasing.PurchaseRequest.Title' no longer exists." at Text box [Title]
+[error] [CE1613] "The selected attribute 'Purchasing.PurchaseRequest.Title' no longer exists." at Text 'txtDecisionTitle'
+The app contains: 6 errors.

@@ -40,14 +40,15 @@
 # reaches only agents that read the prompt; this gate reaches everyone who applies through exec.sh.
 set -u
 mode=${1:-plan}; script=${2:-}
-root=$(cd "$(dirname "$0")/.." && pwd)
+_rgd="${0%/*}"; [ "$_rgd" != "$0" ] || _rgd=.   # dirname without a process
+root=$(cd "$_rgd/.." && pwd)
 plan="$root/architecture/build-plan.md"; log="$root/docs/BUILD-LOG.md"
 [ -f "$plan" ] || { echo "row-groups: no architecture/build-plan.md — nothing to check"; exit 3; }
 [ "$mode" = check ] && { [ -n "$script" ] || { echo "usage: bin/row-groups.sh check <script.mdl>" >&2; exit 2; }; }
 
 # Python via _common.sh's resolve_py (runs each candidate; a name on PATH is not an interpreter).
 # No Python: exit 3, the same "nothing to check" exec.sh already passes through.
-. "$(dirname "$0")/_common.sh" 2>/dev/null || true
+. "$_rgd/_common.sh" 2>/dev/null || true
 PY=$(resolve_py 2>/dev/null) || { echo "row-groups: no Python 3 found (set PYTHON=/path/to/python3) — not checked" >&2; exit 3; }  # portability-ok: names in a diagnostic
 exec "$PY" - "$mode" "$plan" "$log" "$script" "${MXTK_GROUP_MAX:-4}" <<'PY'
 import os, re, sys

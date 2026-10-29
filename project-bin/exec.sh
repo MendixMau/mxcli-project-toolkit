@@ -98,33 +98,46 @@
 #            MXTK_NO_INSTALL=1 (never download mxbuild; offline CI)
 #            MXTK_SCAN_OVERRIDE="<reason>" (the user only: run despite a blocking STOP-row scan hit, #349)
 set -e
-_T0=$(date +%s)
+_T0=${EPOCHSECONDS:-$(date +%s)}   # EPOCHSECONDS (bash 5): no process per timestamp
 # Per-step seconds (2026-10-16): the BUILD-LOG row used to carry only the total, so nobody could
 # say where an exec's time went (check, baseline, exec, gate, lint, score). step_done <name>
 # adds "<name> <s>s" since the previous mark; the run summary and the BUILD-LOG detail print it.
 # The gate mark sits right after the mxbuild run, before any pass/fail branch, so a rolled-back
 # run (the costliest ones) logs its gate seconds too.
 _TLAST=$_T0; STEP_TIMES=""
-step_done() { _tn=$(date +%s); STEP_TIMES="${STEP_TIMES:+$STEP_TIMES }$1 $((_tn - _TLAST))s"; _TLAST=$_tn; }
+step_done() { _tn=${EPOCHSECONDS:-$(date +%s)}; STEP_TIMES="${STEP_TIMES:+$STEP_TIMES }$1 $((_tn - _TLAST))s"; _TLAST=$_tn; }
 # MXTK_PROFILE=1 (#584/#585): one trace line per command with a wall-clock stamp, written to
 # .claude/loop/exec-profile-<pid>.log; at exit the slowest lines and the number of commands
 # are printed. Bash 5 has EPOCHREALTIME (microseconds); bash 3.2 (macOS) has no sub-second
 # clock without a process start, so there the trace stamps whole seconds.
-if [ "${MXTK_PROFILE:-0}" = "1" ]; then
+# MXTK_PROFILE=2 (#584/#585 follow-up): the same trace for every bash script exec.sh starts
+# (model-stamp, snapshot-mpr, lint-gate, ...), through BASH_ENV, so the count covers the whole
+# run and not only this process. The count under =1 is exec.sh's own commands, which a script
+# it starts never adds to: a start shows up as ONE line there, however many commands it runs.
+_PROFILING=0; case "${MXTK_PROFILE:-0}" in 1|2) _PROFILING=1 ;; esac
+if [ "$_PROFILING" = "1" ]; then
   _PROF_DIR="$(pwd)/.claude/loop"; mkdir -p "$_PROF_DIR" 2>/dev/null || _PROF_DIR="${TMPDIR:-/tmp}"
   _PROF_LOG="$_PROF_DIR/exec-profile-$$.log"
   exec 7>"$_PROF_LOG"
   BASH_XTRACEFD=7
-  if [ -n "${EPOCHREALTIME:-}" ]; then PS4='+ ${EPOCHREALTIME} ${LINENO} '; else PS4='+ ${SECONDS}.000000 ${LINENO} '; fi
+  if [ -n "${EPOCHREALTIME:-}" ]; then PS4='+ ${EPOCHREALTIME} ${BASH_SOURCE##*/}:${LINENO} '; else PS4='+ ${SECONDS}.000000 ${BASH_SOURCE##*/}:${LINENO} '; fi
+  if [ "${MXTK_PROFILE:-0}" = "2" ]; then
+    _PROF_ENV="$_PROF_DIR/exec-profile-$$.env"
+    if [ -n "${EPOCHREALTIME:-}" ]; then printf '%s\n' "PS4='+ \${EPOCHREALTIME} \${BASH_SOURCE##*/}:\${LINENO} '" > "$_PROF_ENV"
+    else printf '%s\n' "PS4='+ \${SECONDS}.000000 \${BASH_SOURCE##*/}:\${LINENO} '" > "$_PROF_ENV"; fi
+    printf '%s\n' 'set -x' >> "$_PROF_ENV"
+    export BASH_XTRACEFD=7 BASH_ENV="$_PROF_ENV"
+  fi
   set -x
   _prof_report() {
     set +x
     exec 7>&-
+    [ -z "${_PROF_ENV:-}" ] || rm -f "$_PROF_ENV"
     echo ""
     echo "── MXTK_PROFILE: $(grep -c '^+' "$_PROF_LOG" 2>/dev/null || echo 0) traced commands · steps: ${STEP_TIMES:-none} · trace: $_PROF_LOG"
     # Each line's duration is the gap to the next traced line, so a slow child process shows
     # on the line that started it.
-    awk '/^\++ [0-9]+\.[0-9]+ [0-9]+ /{ t=$2; if (p!="") printf "%9.3f s  line %-5s %s\n", t-pt, pl, substr(p,1,110); pt=t; pl=$3; p=$0; sub(/^\++ [^ ]+ [^ ]+ /,"",p) }' \
+    awk '/^\++ [0-9]+\.[0-9]+ [^ :]*:[0-9]+ /{ t=$2; if (p!="") printf "%9.3f s  %-22s %s\n", t-pt, pl, substr(p,1,110); pt=t; pl=$3; p=$0; sub(/^\++ [^ ]+ [^ ]+ /,"",p) }' \
       "$_PROF_LOG" 2>/dev/null | sort -rn | head -15
   }
   trap _prof_report EXIT
@@ -420,15 +433,35 @@ if [ "$ADVISORY" = "--watch-compat" ]; then
   exit 0
 fi
 
-. "$(dirname "$0")/_common.sh"
+# Process-start budget (Windows: ~100 ms each): this script and the ones it starts avoid
+# dirname/basename/date forks, resolve the model, the platform and Python once per run and
+# hand the answers down through exported memos (MXTK_MPR_MEMO, MXTK_PLATFORM, MXTK_PY_MEMO).
+_XD="${0%/*}"; [ "$_XD" != "$0" ] || _XD=.
+. "$_XD/_common.sh"
+
+# _first_match <file> <ERE starting with ^ and holding one capture group> — sets _FM to the
+# capture of the FIRST line that matches, returns 1 when none does. The in-shell form of
+# `sed -n 's/…/\1/p' file | head -1` (two process starts per read; PROJECT.md is read this way
+# several times per exec). The file is slurped once and matched as one string: a per-line
+# loop would be no process but hundreds of traced commands. A capture must exclude $_NL.
+_NL=$'\n'
+_first_match() {
+  _FM=""; [ -r "$1" ] || return 1
+  local _fmt; IFS= read -r -d '' _fmt < "$1" || true
+  [[ "$_NL$_fmt" =~ $_NL${2#^} ]] || return 1
+  _FM="${BASH_REMATCH[1]}"
+}
 
 MPR="$(find_mpr)" || exit 1
-MPR_BASE="$(basename "$MPR")"
-NAME="$(basename "$MPR" .mpr)"
+MXTK_MPR_MEMO="$MPR"; MXTK_MPR_MEMO_KEY="$PROJECT_ROOT|${MPR_FILE:-}"
+MXTK_PLATFORM="$(mxtk_platform)"
+export PROJECT_ROOT MXTK_MPR_MEMO MXTK_MPR_MEMO_KEY MXTK_PLATFORM
+MPR_BASE="${MPR##*/}"
+NAME="${MPR_BASE%.mpr}"
 SCRIPT="${1:-}"
 [ $# -gt 0 ] && shift
 # Remaining args go to the patch script, after the model path. An MDL run takes none.
-LOG_NAME="$(basename "$SCRIPT")"
+LOG_NAME="${SCRIPT##*/}"
 [ "$PATCH_MODE" = "1" ] && LOG_NAME="patch: $LOG_NAME"
 
 if [ -z "$SCRIPT" ]; then
@@ -495,18 +528,28 @@ GATE_NOTE=""           # "retry after infra exit" when a gate mxbuild was run tw
 # per-project (same as bin/interview-mode.sh), so it has to be found in the toolkit, not here.
 # Never fatal: if it cannot be found, or errors, the row is written exactly as it always was.
 _EXEC_APPROVAL_SUFFIX=""
-for _ea in "${MXTK_ROOT:-}/bin/exec-approval.sh" \
-           "$(sed -nE 's/^\| *Toolkit root *\| *`([^`]+)`.*/\1/p' "$PROJECT_ROOT/CLAUDE.local.md" 2>/dev/null | head -1)/bin/exec-approval.sh"; do
+# The "Toolkit root" row of CLAUDE.local.md, read once in-shell (this used to be a sed|head
+# pair three times over: exec-approval, mdl-scan, doctor). First matching line wins, as before.
+_first_match "$PROJECT_ROOT/CLAUDE.local.md" '^\| *Toolkit root *\| *`([^`'"$_NL"']+)`' || true
+_TKR="$_FM"
+for _ea in "${MXTK_ROOT:-}/bin/exec-approval.sh" "$_TKR/bin/exec-approval.sh"; do
   [ -x "$_ea" ] || continue
   _ea_out="$("$_ea" "$PROJECT_ROOT" --explain 2>/dev/null)" || continue
-  _ea_mode="$(printf '%s\n' "$_ea_out" | sed -n 's/^mode: //p')"
-  _ea_from="$(printf '%s\n' "$_ea_out" | sed -n 's/^from: //p')"
+  _ea_mode=""; _ea_from=""
+  while IFS= read -r _l; do
+    case "$_l" in
+      "mode: "*) _ea_mode="${_ea_mode:+$_ea_mode
+}${_l#mode: }" ;;
+      "from: "*) _ea_from="${_ea_from:+$_ea_from
+}${_l#from: }" ;;
+    esac
+  done <<< "$_ea_out"
   [ "$_ea_mode" = "auto" ] && _EXEC_APPROVAL_SUFFIX=" · approval: auto ($_ea_from)"
   break
 done
 
 log_build() {   # $1=status  $2=detail
-  mkdir -p "$(dirname "$BUILD_LOG")"
+  [ -d "${BUILD_LOG%/*}" ] || mkdir -p "${BUILD_LOG%/*}"
   [ -f "$BUILD_LOG" ] || cat > "$BUILD_LOG" <<'HDR'
 # Build log — auto-appended by bin/exec.sh
 
@@ -525,7 +568,8 @@ HDR
   # One-time migration: logs written before the gate column existed keep their
   # 4-column header, and 5-column rows would render ragged under it. Start a
   # fresh table rather than rewrite history.
-  if ! grep -q '| when (ISO-8601 local) |' "$BUILD_LOG"; then
+  IFS= read -r -d '' _blog < "$BUILD_LOG" || true   # grep -q over the log, in-shell
+  if [[ "$_blog" != *'| when (ISO-8601 local) |'* ]]; then
     cat >> "$BUILD_LOG" <<'HDR2'
 
 <!-- gate column added; rows above this line predate it -->
@@ -538,8 +582,9 @@ HDR2
   # can omit it — a blank cell in this table reads as "fine", which is the exact
   # false-green the gate exists to prevent.
   _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${SCAN_NOTE:+ · $SCAN_NOTE}${ROWS_NOTE:+ · $ROWS_NOTE}${RESTATE_NOTE:+ · $RESTATE_NOTE}${GATE_NOTE:+ · $GATE_NOTE}${MXB_LOG_NOTE:+ · $MXB_LOG_NOTE}${HV_NOTE:+ · $HV_NOTE}$_EXEC_APPROVAL_SUFFIX${STEP_TIMES:+ · steps: $STEP_TIMES}"
+  if [ -n "${EPOCHSECONDS:-}" ]; then printf -v _when '%(%Y-%m-%dT%H:%M:%S%z)T' -1; else _when="$(date '+%Y-%m-%dT%H:%M:%S%z')"; fi
   printf '| %s | `%s` | %s | %s | %s |\n' \
-    "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$LOG_NAME" \
+    "$_when" "$LOG_NAME" \
     "${GATE_STATE:-not-run}" "$1" "$_detail" >> "$BUILD_LOG"
   record_metrics "$1"
 }
@@ -558,7 +603,7 @@ record_metrics() {  # $1=status text (as given to log_build)
   [ -x "$PROJECT_ROOT/bin/metrics-ledger.sh" ] || return 0
   bash "$PROJECT_ROOT/bin/metrics-ledger.sh" exec \
     --script "$LOG_NAME" --gate "${GATE_STATE:-not-run}" --result "$1" \
-    --elapsed "$(( $(date +%s) - _T0 ))" --mxbuild-errors "${GATE_ERRORS:-}" \
+    --elapsed "$(( ${EPOCHSECONDS:-$(date +%s)} - _T0 ))" --mxbuild-errors "${GATE_ERRORS:-}" \
     --lint-rc "${LINT_RC_FOR_LEDGER:-}" --restored "${RESTORED:-0}" --scored "$SCORED" 2>/dev/null || true
 }
 # `mxcli report` scores the model (0-100, ≈7 s on an 876-flow model, 2026-10-12). Taken only
@@ -594,8 +639,7 @@ SCAN_NOTE=""; HV_NOTE=""   # HV_NOTE: the ContentsHash bracket's cell text, set 
 RESTATE_NOTE=""            # the restatement warnings' cell text (#269, #261), set after the check
 if [ "$PATCH_MODE" != "1" ]; then
   _SCAN=""
-  for _s in "${MXTK_ROOT:-}/bin/mdl-scan.sh" \
-            "$(sed -nE 's/^\| *Toolkit root *\| *`([^`]+)`.*/\1/p' "$PROJECT_ROOT/CLAUDE.local.md" 2>/dev/null | head -1)/bin/mdl-scan.sh"; do
+  for _s in "${MXTK_ROOT:-}/bin/mdl-scan.sh" "$_TKR/bin/mdl-scan.sh"; do
     [ -f "$_s" ] && { _SCAN="$_s"; break; }
   done
   scan_ids() { printf '%s\n' "$_scan_out" | grep " \[$1\]\$" | sed -n 's/^\(STOP-[0-9a-z]*\) .*/\1/p' | sort -u | tr '\n' ' ' | sed 's/ $//'; }
@@ -637,6 +681,12 @@ fi
 # instruments per exec on 147 rows. No build plan, or a script that names no row: skipped.
 # Override, with a reason that lands in the BUILD-LOG row: MXTK_ROWS_OVERRIDE="<why>".
 ROWS_NOTE=""
+# Python is resolved once here and handed down (MXTK_PY_MEMO): row-groups, lint-gate and
+# metrics-ledger each probed it with a Python start of their own. Unset when there is none.
+if [ -z "${MXTK_PY_MEMO:-}" ]; then
+  MXTK_PY_MEMO="$(resolve_py 2>/dev/null || true)"
+  if [ -n "$MXTK_PY_MEMO" ]; then export MXTK_PY_MEMO; else unset MXTK_PY_MEMO; fi
+fi
 if [ "$PATCH_MODE" != "1" ] && [ -x "$PROJECT_ROOT/bin/row-groups.sh" ]; then
   _rg_rc=0; _rg_out="$("$PROJECT_ROOT/bin/row-groups.sh" check "$SCRIPT" 2>&1)" || _rg_rc=$?
   if [ "$_rg_rc" = 1 ]; then
@@ -664,10 +714,14 @@ fi
 # checkout the app lives under app/. Every mprcontents/ path below goes through
 # MODEL_DIR; see the find_model_dir header in _common.sh for what silently broke
 # when they did not.
-MODEL_DIR="$(find_model_dir 2>/dev/null || echo "$PROJECT_ROOT")"
+if MODEL_DIR="$(find_model_dir 2>/dev/null)"; then
+  export MXTK_MODEL_DIR_MEMO="$MODEL_DIR"   # the scripts exec.sh starts reuse it (find_model_dir)
+else
+  MODEL_DIR="$PROJECT_ROOT"
+fi
 
 LOCK="$PROJECT_ROOT/.mpr-snapshots/.exec.lock"
-mkdir -p "$(dirname "$LOCK")"
+mkdir -p "${LOCK%/*}"
 FORCE="${FORCE_EXEC:-0}"
 
 # 1. Studio Pro must not hold the project open (SP's in-memory model vs a direct
@@ -709,7 +763,7 @@ exec_lock_live() {  # $1 = pid from the lock; 0 iff that process is alive and pl
   case "$_args" in ""|*exec.sh*|*test-scratch.sh*) return 0 ;; esac   # test-scratch.sh holds it while copying
   return 1
 }
-exec_lock_try() { ( set -o noclobber; printf '%s %s %s\n' "$$" "$(date +%s)" "$LOG_NAME" > "$LOCK" ) 2>/dev/null; }
+exec_lock_try() { ( set -o noclobber; printf '%s %s %s\n' "$$" "${EPOCHSECONDS:-$(date +%s)}" "$LOG_NAME" > "$LOCK" ) 2>/dev/null; }
 exec_lock_release() {  # the trap: remove the lock only while it is still ours
   _own="$(cat "$LOCK" 2>/dev/null || true)"
   [ "${_own%% *}" = "$$" ] && rm -f "$LOCK"
@@ -729,13 +783,13 @@ exec_lock_release() {  # the trap: remove the lock only while it is still ours
 # (never clobbers; left on disk if that fails) if what was moved is not the one judged stale.
 # The holder removes the takeover file only while it still holds the line it wrote.
 exec_lock_takeover() {  # $1 = the stale lock line; 0 iff it was removed (or already gone)
-  _tk="$LOCK.takeover"; _mine="$$ $(date +%s)"
+  _tk="$LOCK.takeover"; _mine="$$ ${EPOCHSECONDS:-$(date +%s)}"
   if ! ( set -o noclobber; printf '%s\n' "$_mine" > "$_tk" ) 2>/dev/null; then
     _t="$(head -1 "$_tk" 2>/dev/null || true)"; _tpid="${_t%% *}"; _tsince="${_t#* }"
     case "$_tsince" in ''|*[!0-9]*) _tsince=0 ;; esac
     _tstale=0
     if [ -n "$_t" ]; then
-      { ! kill -0 "$_tpid" 2>/dev/null || [ $(( $(date +%s) - _tsince )) -gt 10 ]; } && _tstale=1
+      { ! kill -0 "$_tpid" 2>/dev/null || [ $(( ${EPOCHSECONDS:-$(date +%s)} - _tsince )) -gt 10 ]; } && _tstale=1
     elif [ -n "$(find "$_tk" -mmin +1 2>/dev/null)" ]; then
       _tstale=1   # empty for over a minute: its creator died between the create and the write
     fi
@@ -764,7 +818,7 @@ for _try in 1 2 3 4 5 6; do
   if exec_lock_live "$_hpid"; then
     _hrest="${_held#* }"; _hsince="${_hrest%% *}"; _hscript="${_hrest#* }"
     _age=""
-    case "$_hsince" in ''|*[!0-9]*) ;; *) _age=" for $(( $(date +%s) - _hsince ))s" ;; esac
+    case "$_hsince" in ''|*[!0-9]*) ;; *) _age=" for $(( ${EPOCHSECONDS:-$(date +%s)} - _hsince ))s" ;; esac
     [ "$_hrest" = "$_held" ] && _hscript="?"
     echo "✗ Another session holds this project's exec lock (PID $_hpid, running$_age, script: $_hscript)."
     echo "  → Wait for it to finish, then re-run. Nothing was written."
@@ -782,7 +836,7 @@ if [ "$LOCK_TAKEN" != 1 ]; then
   echo "  → Wait for the other exec to finish, then re-run. Nothing was written."
   exit 1
 fi
-trap 'mxtk_resume_watchers; exec_lock_release; [ "${MXTK_PROFILE:-0}" != 1 ] || _prof_report' EXIT
+trap 'mxtk_resume_watchers; exec_lock_release; [ "$_PROFILING" != 1 ] || _prof_report' EXIT
 mxtk_resume_leftover "$PROJECT_ROOT"   # a watcher an earlier, SIGKILLed exec.sh left stopped
 
 # 3. A raw `mxcli exec` elsewhere on the machine is NOT this project's business. The old guard
@@ -1022,6 +1076,45 @@ fi
 LINT_RC=0; LINT_DETAIL="lint not-run"
 run_lint_gate() {
   _noadv=""
+  # Nested on purpose: the lint fixtures extract run_lint_gate() alone, so it carries its helper.
+  # _lint_scan <lint-gate output file> — ONE awk pass that replaces the ten-odd grep / sed /
+  # awk / tr / sort / paste processes this block started per exec (a rose run: ~25 process starts).
+  # It prints shell assignments, which are eval'd: _L_RULES ("RULE (+n) " per rose line),
+  # _L_BLIND / _L_REVERTED / _L_PROJREV (the rule or file ids named in the !! sections,
+  # comma-joined; _L_BLIND sorted and unique), _L_BLIND_STOCK, _L_BLIND_PROJ, _L_PASS, _L_NOBASE
+  # (0|1 line flags) and _L_SEC014 (the note lines, each indented four spaces).
+  _lint_scan() {
+    _L_RULES=""; _L_BLIND=""; _L_REVERTED=""; _L_PROJREV=""; _L_SEC014=""
+    _L_BLIND_STOCK=0; _L_BLIND_PROJ=0; _L_PASS=0; _L_NOBASE=0
+    [ -f "$1" ] || return 0
+    eval "$(awk '
+      function q(s) { gsub(/\047/, "\047\\\047\047", s); return "\047" s "\047" }
+      function startswith(s, p) { return substr(s, 1, length(p)) == p }
+      { line = $0 }
+      inA { if (line == "") inA = 0
+            else if (match(line, /^ +[A-Z][A-Z0-9-]*[0-9]+:/)) { id = substr(line, RSTART, RLENGTH); gsub(/[ :]/, "", id); nb++; blind[nb] = id } }
+      inR { if (line == "") inR = 0
+            else if (match(line, /^ +[A-Za-z0-9_.-]+\.star:/)) { id = substr(line, RSTART, RLENGTH); gsub(/[ :]/, "", id); rev = rev (rev == "" ? "" : ",") id } }
+      inP { if (line == "") inP = 0
+            else if (match(line, /^ +[A-Za-z0-9_.-]+\.star:/)) { id = substr(line, RSTART, RLENGTH); gsub(/[ :]/, "", id); prj = prj (prj == "" ? "" : ",") id } }
+      startswith(line, "!! A RULE COULD NOT READ") { inA = 1 }
+      startswith(line, "!! LINT RULES REVERTED TO STOCK") { inR = 1 }
+      startswith(line, "!! PROJECT-EDITED LINT RULE") { inP = 1 }
+      startswith(line, "BLIND \342\200\224 lint rules reverted to stock") { bs = 1 }
+      startswith(line, "BLIND \342\200\224 reverted: a project-edited") || startswith(line, "BLIND \342\200\224 a lint rule changed since the baseline") { bp = 1 }
+      startswith(line, "PASS") { ps = 1 }
+      startswith(line, "note: SEC014") { sec = sec "    " line "\n" }
+      index(line, "no baseline yet") { nobase = 1 }
+      line ~ /^ +[A-Z][A-Z0-9-]*[0-9]+ +[a-z]+ +[0-9]+ -> [0-9]+ +\(\+[0-9]+\)/ { rules = rules $1 " " $6 " " }
+      END {
+        # sort -u : insertion sort, then drop repeats
+        for (i = 2; i <= nb; i++) { v = blind[i]; j = i - 1; while (j >= 1 && blind[j] > v) { blind[j + 1] = blind[j]; j-- } blind[j + 1] = v }
+        for (i = 1; i <= nb; i++) if (i == 1 || blind[i] != blind[i - 1]) bl = bl (bl == "" ? "" : ",") blind[i]
+        print "_L_RULES=" q(rules); print "_L_BLIND=" q(bl); print "_L_REVERTED=" q(rev); print "_L_PROJREV=" q(prj)
+        print "_L_SEC014=" q(sec); print "_L_BLIND_STOCK=" (bs + 0); print "_L_BLIND_PROJ=" (bp + 0)
+        print "_L_PASS=" (ps + 0); print "_L_NOBASE=" (nobase + 0)
+      }' "$1")"
+  }
   if [ -n "${SKIP_LINT:-}" ]; then
     LINT_DETAIL="lint SKIPPED (SKIP_LINT=$SKIP_LINT)"
     echo "  ⚠ lint ratchet skipped: SKIP_LINT=$SKIP_LINT"; return
@@ -1043,13 +1136,13 @@ run_lint_gate() {
   # what is safe (stock or receipt-matching copies are restored; a hand edit is never lost),
   # so run it, then lint once more. A rule it will not restore stays BLIND, as before.
   _restored=""
+  _lint_scan "$_lo"
   if [ "$LINT_RC" -eq 1 ] && [ "${MXTK_NO_LINT_RESTORE:-}" != "1" ] \
-     && grep -q '^BLIND — lint rules reverted to stock' "$_lo"; then
+     && [ "$_L_BLIND_STOCK" = 1 ]; then
     _tk=""
     type find_toolkit_root >/dev/null 2>&1 && _tk="$(find_toolkit_root 2>/dev/null || true)"
     if [ -n "$_tk" ] && [ -f "$_tk/bin/lib/install-lint-rules.sh" ]; then
-      _restored=$(sed -n '/^!! LINT RULES REVERTED TO STOCK/,/^$/p' "$_lo" \
-                   | grep -oE '^ +[A-Za-z0-9_.-]+\.star:' | tr -d ' :' | paste -sd, -)
+      _restored="$_L_REVERTED"
       echo "  ↻ lint rules reverted to stock (mxcli's session-start refresh?): restoring the toolkit versions from $_tk"
       # Capture to a file first: piping the installer into head can stop it after 12 lines of output.
       _io="$(mktemp)"
@@ -1058,39 +1151,34 @@ run_lint_gate() {
       rm -f "$_io"
       LINT_RC=0
       bash "$PROJECT_ROOT/bin/lint-gate.sh" >"$_lo" 2>&1 || LINT_RC=$?
+      _lint_scan "$_lo"
     fi
   fi
   # lint-gate's non-blocking SEC014 note (#312: rule installed, decision not made) is otherwise
   # visible only on a failing run, because the capture above is shown only then. Always echo it.
-  [ -f "$_lo" ] && { grep '^note: SEC014' "$_lo" 2>/dev/null | sed 's/^/    /' || true; }
+  [ -z "$_L_SEC014" ] || printf '%s' "$_L_SEC014"
   case "$LINT_RC" in
     0) LINT_DETAIL="lint unchanged vs baseline"; echo "  ✓ lint: no rule rose vs baseline" ;;
     1) # Rule ids are matched as [A-Z][A-Z0-9-]*[0-9]+, not [A-Z]+[0-9]+: mxcli's built-in
        # rules include hyphenated ids (MDL-FLOW01), and the old pattern dropped them from every
        # row — three field apps logged 475 ROSE rows and not one named MDL-FLOW01 (2026-10-12).
-       _rules=$(grep -E '^ +[A-Z][A-Z0-9-]*[0-9]+ +[a-z]+ +[0-9]+ -> [0-9]+ +\(\+[0-9]+\)' "$_lo" \
-                 | awk '{printf "%s %s ", $1, $6}')
-       _blind=$(sed -n '/^!! A RULE COULD NOT READ/,/^$/p' "$_lo" \
-                 | grep -oE '^ +[A-Z][A-Z0-9-]*[0-9]+:' | tr -d ' :' | sort -u | paste -sd, -)
-       _reverted=$(sed -n '/^!! LINT RULES REVERTED TO STOCK/,/^$/p' "$_lo" \
-                    | grep -oE '^ +[A-Za-z0-9_.-]+\.star:' | tr -d ' :' | paste -sd, -)
-       if grep -q '^BLIND — lint rules reverted to stock' "$_lo"; then
+       _rules="$_L_RULES"; _blind="$_L_BLIND"; _reverted="$_L_REVERTED"
+       if [ "$_L_BLIND_STOCK" = 1 ]; then
          # `mxcli init` re-seeded the toolkit rules (#264): lint-gate did not lint. Logging this
          # as a rise blamed the next script for CONV010 26 -> 169 on flows it never touched.
          LINT_RC=3
          LINT_DETAIL="lint BLIND: rules reverted to stock (${_reverted:-see output}) — run sync-project.sh; delta not attributable"
          echo "  ✗ lint: toolkit rules reverted to stock (${_reverted:-see output}) — not linted, not a rise"
          sed -n '/^!! LINT RULES REVERTED TO STOCK/,/^BLIND/p' "$_lo" | head -16 | sed 's/^/    /'
-       elif grep -qE '^BLIND — (reverted: a project-edited|a lint rule changed since the baseline)' "$_lo"; then
+       elif [ "$_L_BLIND_PROJ" = 1 ]; then
          # A rule the project edited moved since the baseline (#524): mxcli's session-start
          # refresh re-seeded stock over it, or someone changed it. Not linted, not a rise.
-         _projrev=$(sed -n '/^!! PROJECT-EDITED LINT RULE/,/^$/p' "$_lo" \
-                     | grep -oE '^ +[A-Za-z0-9_.-]+\.star:' | tr -d ' :' | paste -sd, -)
+         _projrev="$_L_PROJREV"
          LINT_RC=3
          LINT_DETAIL="lint BLIND: project-edited rule(s) changed since the baseline (${_projrev:-see output}) — git checkout, or re-baseline; delta not attributable"
          echo "  ✗ lint: project-edited lint rule(s) changed since the baseline (${_projrev:-see output}) — not linted, not a rise"
          sed -n '/^!! PROJECT-EDITED LINT RULE/,/^BLIND/p' "$_lo" | head -16 | sed 's/^/    /'
-       elif [ -z "$_rules" ] && grep -q '^PASS' "$_lo"; then
+       elif [ -z "$_rules" ] && [ "$_L_PASS" = 1 ]; then
          # lint-gate exits 1 for PASS-BLIND too. Logging that as "ROSE: see output" made a rule
          # that inspected nothing look like a rise with no rule named — 20 such rows in two
          # field apps whose toolkit CONV020 (now MXTK-UX003) shipped unconfigured (#229). It is an instrument fault.
@@ -1136,10 +1224,9 @@ print(len(new), len(carried), " ".join(f"{r}:{n}" for r, n in sorted(by.items())
 for r, f in new[:10]: print(f"    {r}  {f[:180]}" + ("   (carried: still unfixed)" if (r, f) in carried else ""))
 if len(new) > 10: print(f"    … {len(new) - 10} more in .claude/loop/lint-last.json")
 PY
-         _thispyexe="${PY:-$(resolve_py 2>/dev/null || true)}"
+         _thispyexe="${PY:-${MXTK_PY_MEMO:-$(resolve_py 2>/dev/null || true)}}"
          _thisnew=$([ -n "$_thispyexe" ] && "$_thispyexe" -c "$_thispy" "$PROJECT_ROOT/.claude/loop")
-         _thisn=$(printf '%s\n' "$_thisnew" | head -1 | cut -d' ' -f1)
-         _thisc=$(printf '%s\n' "$_thisnew" | head -1 | cut -d' ' -f2)
+         _first="${_thisnew%%$'\n'*}"; _thisn="${_first%% *}"; _rest="${_first#* }"; _thisc="${_rest%% *}"
          if [ -z "$_thisnew" ]; then
            _noadv=1   # undiffed rise: keep prev-exec as is, or the next exec reads these as old debt
            # No Python, or the diff failed: never read that as "0 new". Report the rise vs baseline.
@@ -1152,15 +1239,15 @@ PY
            echo "  ✓ lint: this script added no finding (older debt vs baseline unchanged)"
          else
          # "lint rose" stays the wording, as before this change (metrics and readers key on it).
-         LINT_DETAIL="lint rose: +${_thisn} new or unfixed (${_thisc:-0} carried from earlier execs): $(printf '%s\n' "$_thisnew" | head -1 | cut -d' ' -f3-)"
+         LINT_DETAIL="lint rose: +${_thisn} new or unfixed (${_thisc:-0} carried from earlier execs): ${_rest#* }"
          echo "  ✗ lint: ${_thisn} finding(s) new this script or still unfixed from an earlier one — read each one:"
-         printf '%s\n' "$_thisnew" | tail -n +2
+         case "$_thisnew" in *$'\n'*) printf '%s\n' "${_thisnew#*$'\n'}" ;; esac
          echo "    Fix the script and re-run. Accepting the debt is the user's call, made in chat:"
          echo "    bin/lint-gate.sh --update-baseline --reason \"<why>\" (a security-tier rise also"
          echo "    needs --approved-in-chat). The acceptance is logged to .claude/lint-acceptances.tsv."
          fi
        fi ;;
-    2) if grep -q 'no baseline yet' "$_lo"; then
+    2) if [ "$_L_NOBASE" = 1 ]; then
          LINT_DETAIL="lint not measured: no lint baseline yet (bin/lint-gate.sh --update-baseline)"
          echo "  ⚠ lint: no baseline yet, so nothing to compare against. Take it once, after the scaffold:"
          echo "    bin/lint-gate.sh --update-baseline"
@@ -1257,10 +1344,13 @@ fi
 # exit code is whatever the rest of the chain decides. MXTK_RESTATE_GUARD=off skips it. Cost
 # without a co-owner: one grep over mdlsource/ for the restated names, no mxcli call.
 if [ "$PATCH_MODE" != "1" ] && [ "${MXTK_RESTATE_GUARD:-}" != "off" ] && [ -f "$SCRIPT" ] \
-   && [ -f "$(dirname "$0")/script-owners.sh" ]; then
-  _so_out="$(PROJECT_ROOT="$PROJECT_ROOT" bash "$(dirname "$0")/script-owners.sh" check "$SCRIPT" "$PROJECT_ROOT" 2>/dev/null || true)"
-  _so_warn="$(printf '%s\n' "$_so_out" | grep -E '^(REVERT|UNCHECKED)	' || true)"
-  _so_note="$(printf '%s\n' "$_so_out" | grep '^NOTE	' || true)"
+   && [ -f "$_XD/script-owners.sh" ]; then
+  _so_out="$(PROJECT_ROOT="$PROJECT_ROOT" bash "$_XD/script-owners.sh" check "$SCRIPT" "$PROJECT_ROOT" 2>/dev/null || true)"
+  _so_warn=""; _so_note=""
+  if [ -n "$_so_out" ]; then   # the common case is no output at all: no two grep pipelines to say so
+    _so_warn="$(printf '%s\n' "$_so_out" | grep -E '^(REVERT|UNCHECKED)	' || true)"
+    _so_note="$(printf '%s\n' "$_so_out" | grep '^NOTE	' || true)"
+  fi
   if [ -n "$_so_note" ]; then
     echo "NOTE: new owner of $(printf '%s\n' "$_so_note" | cut -f2 | sed 's/^[A-Z]* //' | LC_ALL=C sort -u | tr '\n' ' ')— older owner(s): $(printf '%s\n' "$_so_note" | cut -f3 | LC_ALL=C sort -u | tr '\n' ' '); add '-- supersedes: <older script>' (STOP 21)"
   fi
@@ -1281,9 +1371,9 @@ fi
 # `-- baseline:` header with a fresh DESCRIBE. Opt-in: a script with no header costs one grep and
 # no mxcli call. Rows print as WARN lines; DRIFT lands in the BUILD-LOG detail.
 if [ "$PATCH_MODE" != "1" ] && [ "${MXTK_RESTATE_GUARD:-}" != "off" ] && [ -f "$SCRIPT" ] \
-   && [ -f "$(dirname "$0")/describe-baseline.sh" ] && grep -qE '^[[:space:]]*--[[:space:]]*baseline:' "$SCRIPT"; then
+   && [ -f "$_XD/describe-baseline.sh" ] && grep -qE '^[[:space:]]*--[[:space:]]*baseline:' "$SCRIPT"; then
   _db_rc=0
-  _db_out="$(PROJECT_ROOT="$PROJECT_ROOT" bash "$(dirname "$0")/describe-baseline.sh" verify "$SCRIPT" 2>&1)" || _db_rc=$?
+  _db_out="$(PROJECT_ROOT="$PROJECT_ROOT" bash "$_XD/describe-baseline.sh" verify "$SCRIPT" 2>&1)" || _db_rc=$?
   case "$_db_rc" in
     1)
       echo "WARN: stale draft: '-- baseline:' header no longer matches the model:"
@@ -1307,12 +1397,14 @@ fi
 # rules 6/7 hold — the remedy is performed, not blocked, and ALLOW_UNVERIFIED=1 says out
 # loud "write anyway"; that write then carries no verification stamp, so the pre-commit
 # hook refuses it until ./bin/verify-model.sh has seen it.
+# The version is read BEFORE mxtk_ensure_mxbuild so that call (which asks for it three times)
+# and every find_mxbuild after it hit the memo instead of starting sqlite3 each time.
+_mv="$(mxtk_model_version "$MPR" 2>/dev/null || true)"; [ -n "$_mv" ] && export MXTK_MODEL_VERSION="$_mv"
 MXBUILD="$(mxtk_ensure_mxbuild "$MPR" || true)"
 # Memo for the rest of this run and every script it starts (#584): find_mxbuild honours
 # MXBUILD_PATH, mxtk_model_version honours MXTK_MODEL_VERSION, so neither re-reads the .mpr
 # or re-probes the Studio Pro install per call. A run only ever gates one model version.
 [ -x "$MXBUILD" ] && export MXBUILD_PATH="$MXBUILD"
-_mv="$(mxtk_model_version "$MPR" 2>/dev/null || true)"; [ -n "$_mv" ] && export MXTK_MODEL_VERSION="$_mv"
 # Was: JAVA_HOME=$(/usr/libexec/java_home ...) — a macOS-only binary, so on Windows
 # JAVA_HOME came back empty, JAVA_EXE was the literal "/bin/java", the gate guard
 # below failed its -x test and the entire mxbuild block was skipped on every run.
@@ -1374,7 +1466,7 @@ RESTORE_TRIED=0
 restore_snapshot() {
   RESTORE_TRIED=1
   NEWEST_SNAP=$(ls -dt "$PROJECT_ROOT/.mpr-snapshots"/[0-9]*/ 2>/dev/null | head -1)
-  RESTORER="$(dirname "$0")/restore-mpr.sh"
+  RESTORER="$_XD/restore-mpr.sh"
   if [ -z "$NEWEST_SNAP" ] || [ ! -f "$NEWEST_SNAP/$MPR_BASE" ]; then
     echo "  ⚠  No usable snapshot to restore from — the model is left as the script wrote it."
   elif [ ! -f "$RESTORER" ]; then
@@ -1567,7 +1659,7 @@ is_subset_of() {
 # `doctor.sh --quick` here. It NEVER blocks (guard rules 6 and 7): it prints, and the exec goes on.
 _DR="$PROJECT_ROOT/.claude/.doctor-receipt"
 _DOCTOR=""
-for _c in "${MXTK_ROOT:-}/bin/doctor.sh" "$(sed -nE 's/^\| *Toolkit root *\| *`([^`]+)`.*/\1/p' "$PROJECT_ROOT/CLAUDE.local.md" 2>/dev/null | head -1)/bin/doctor.sh"; do
+for _c in "${MXTK_ROOT:-}/bin/doctor.sh" "$_TKR/bin/doctor.sh"; do
   [ -x "$_c" ] && { _DOCTOR="$_c"; break; }
 done
 if [ -n "$_DOCTOR" ] && [ "${SKIP_DOCTOR:-0}" != "1" ]; then
@@ -1618,11 +1710,22 @@ gate_kind_decide() {
   # javasource/*/proxies/ is excluded: mxbuild regenerates those from the model on every
   # full build, so counting them made each full build look like a Java change (field run).
   _gk_java_fp() { mxtk_java_fp "$PROJECT_ROOT"; }
+  # Same job as _first_match (top of file); nested because the gate-kind fixture extracts this
+  # function on its own, so it must not lean on a helper defined elsewhere in exec.sh.
+  _gk_first() {  # <file> <ERE from ^, one capture without newlines> -> _FM
+    _FM=""; [ -r "$1" ] || return 1
+    local _gkt _gknl=$'\n'; IFS= read -r -d '' _gkt < "$1" || true
+    [[ "$_gknl$_gkt" =~ $_gknl${2#^} ]] || return 1
+    _FM="${BASH_REMATCH[1]}"
+  }
   _gk_mode="${MXTK_GATE_MODE:-}"
-  [ -n "$_gk_mode" ] || _gk_mode="$(sed -n 's/^[*_ ]*Gate mode:[*_ ]*\([A-Za-z]*\).*/\1/p' "$PROJECT_ROOT/PROJECT.md" 2>/dev/null | head -1 | tr 'A-Z' 'a-z')"
+  if [ -z "$_gk_mode" ]; then
+    _gk_first "$PROJECT_ROOT/PROJECT.md" '^[*_ ]*Gate mode:[*_ ]*([A-Za-z]*)' || true
+    case "$_FM" in [Cc][Hh][Ee][Cc][Kk]) _gk_mode=check ;; *) _gk_mode="$_FM" ;; esac
+  fi
   if [ "$_gk_mode" = "check" ]; then
-    _gk_checks="$(sed -n 's/^checks //p' "$_GK_STATE" 2>/dev/null | head -1)"
-    _gk_java="$(sed -n 's/^java //p' "$_GK_STATE" 2>/dev/null | head -1)"
+    _gk_first "$_GK_STATE" '^checks ([^'$'\n'']*)' || true; _gk_checks="$_FM"
+    _gk_first "$_GK_STATE" '^java ([^'$'\n'']*)' || true; _gk_java="$_FM"
     if [ "$PATCH_MODE" = "1" ]; then GATE_KIND_WHY="--patch is opaque"
     elif ! mxtk_find_mx >/dev/null 2>&1; then GATE_KIND_WHY="no mx tool beside $MXBUILD"
     elif [ -z "$_gk_checks" ] || [ -z "$_gk_java" ]; then GATE_KIND_WHY="no full build recorded yet"
@@ -2292,7 +2395,9 @@ fi
 # is no longer the one anything verified.
 if [ -x ./bin/model-stamp.sh ]; then
   if [ "$GATE_STATE" = "pass" ] && [ "$EXEC_STATUS" -eq 0 ]; then
-    MXTK_STAMP_KIND="$GATE_KIND" MXTK_STAMP_ERRORS="$GATE_ERRORS" ./bin/model-stamp.sh write pass "exec.sh $([ "$PATCH_MODE" = 1 ] && echo '--patch ')$(basename "$SCRIPT")$([ "$GATE_KIND" = check ] && echo ' (mx check)')" || true
+    _stamp_src="exec.sh "; [ "$PATCH_MODE" != 1 ] || _stamp_src="${_stamp_src}--patch "
+    _stamp_src="${_stamp_src}${SCRIPT##*/}"; [ "$GATE_KIND" != check ] || _stamp_src="$_stamp_src (mx check)"
+    MXTK_STAMP_KIND="$GATE_KIND" MXTK_STAMP_ERRORS="$GATE_ERRORS" ./bin/model-stamp.sh write pass "$_stamp_src" || true
   else
     ./bin/model-stamp.sh clear >/dev/null 2>&1 || true
   fi
@@ -2301,7 +2406,7 @@ fi
 # Gate-kind bookkeeping (see "Gate kind" above): a passing full build resets the count and
 # records the Java fingerprint it compiled; a passing check-only gate adds one.
 if [ "$GATE_STATE" = "pass" ]; then
-  mkdir -p "$(dirname "$_GK_STATE")" 2>/dev/null || true
+  mkdir -p "${_GK_STATE%/*}" 2>/dev/null || true
   if [ "$GATE_KIND" = "full" ]; then
     printf 'checks 0\njava %s\n' "$(_gk_java_fp)" > "$_GK_STATE" 2>/dev/null || true
     touch "$PROJECT_ROOT/.claude/loop/mxbuild-warm" 2>/dev/null || true
@@ -2319,14 +2424,14 @@ fi
 # built every page and opened no screenshot of any). Written here, after the restore branch,
 # because a restored script built nothing. Never blocks this exec or the next one — only
 # gate-check.sh's Stage 5 "done" claim reads it. Not for --patch: a patch is opaque.
-if [ "$PATCH_MODE" = 0 ] && [ -f "$(dirname "$0")/look-ledger.sh" ]; then
-  bash "$(dirname "$0")/look-ledger.sh" owe "$SCRIPT" || true
+if [ "$PATCH_MODE" = 0 ] && [ -f "$_XD/look-ledger.sh" ]; then
+  bash "$_XD/look-ledger.sh" owe "$SCRIPT" || true
 fi
 # Last writer of each document this script names (script-owners.sh ledger), so a later check can
 # tell a replay that reverts nothing from one that does. Same place and reason as LOOK owed: a
 # restored or partial run exited above. No mxcli call: one awk over this script.
-if [ "$PATCH_MODE" = 0 ] && [ -f "$(dirname "$0")/script-owners.sh" ]; then
-  PROJECT_ROOT="$PROJECT_ROOT" bash "$(dirname "$0")/script-owners.sh" record "$SCRIPT" 2>/dev/null || true
+if [ "$PATCH_MODE" = 0 ] && [ -f "$_XD/script-owners.sh" ]; then
+  PROJECT_ROOT="$PROJECT_ROOT" bash "$_XD/script-owners.sh" record "$SCRIPT" 2>/dev/null || true
 fi
 
 # ── Build plan page ──────────────────────────────────────────────────────────
@@ -2334,14 +2439,14 @@ fi
 # (its only trigger used to be iterative-build-loop.md step 16, so a page written at Stage 4
 # stayed empty for the whole build). --refresh is quiet, writes only over a page that script
 # generated, and leaves the file alone when nothing but the timestamp would change.
-if [ -f "$(dirname "$0")/build-plan-status.sh" ]; then
+if [ -f "$_XD/build-plan-status.sh" ]; then
   # A crashed generator leaves one visible WARN line (the script prints it on stderr); never a failed step.
   # In the background (#584): the verdict is already known and nothing below reads the page,
   # so the exec does not wait for its python/node starts. MXTK_SYNC_REFRESH=1 waits (tests).
   if [ "${MXTK_SYNC_REFRESH:-0}" = "1" ]; then
-    { bash "$(dirname "$0")/build-plan-status.sh" "$PROJECT_ROOT" --refresh 2>&1 >/dev/null || true; } | grep -m1 '^WARN: ' || true
+    { bash "$_XD/build-plan-status.sh" "$PROJECT_ROOT" --refresh 2>&1 >/dev/null || true; } | grep -m1 '^WARN: ' || true
   else
-    ( { bash "$(dirname "$0")/build-plan-status.sh" "$PROJECT_ROOT" --refresh 2>&1 >/dev/null || true; } \
+    ( { bash "$_XD/build-plan-status.sh" "$PROJECT_ROOT" --refresh 2>&1 >/dev/null || true; } \
         | grep -m1 '^WARN: ' >&2 || true ) </dev/null >/dev/null &
   fi
 fi
@@ -2353,7 +2458,7 @@ fi
 # reference test-stack-up.sh uses). Never blocks, never changes the exit code.
 watch_theme_changes() {  # prints up to 3 theme files newer than the run --local handshake
   _hs=""
-  for _d in "$(cd "$(dirname "$MPR")" && pwd)" "$MODEL_DIR"; do
+  for _d in "$(cd "${MPR%/*}" && pwd)" "$MODEL_DIR"; do
     [ -f "$_d/.mxcli/run-local.json" ] && { _hs="$_d/.mxcli/run-local.json"; break; }
   done
   [ -n "$_hs" ] || return 0
@@ -2420,8 +2525,14 @@ if [ "$LINT_RC" -eq 1 ]; then
   # pre-#443 code. The write is still kept. Read the same way as `Context packs:`; env
   # MXTK_LINT_GATE wins (doctor.sh passes soft: its repair must not read 1 as "not kept").
   _lgm="${MXTK_LINT_GATE:-}"
-  [ -n "$_lgm" ] || _lgm="$(sed -nE 's/^[*_ -]*Lint gate:[*_ ]*[`]?([A-Za-z-]+).*/\1/p' "$PROJECT_ROOT/PROJECT.md" 2>/dev/null | head -1)"
-  _lgm="$(printf '%s' "$_lgm" | tr 'A-Z' 'a-z')"
+  if [ -z "$_lgm" ]; then _first_match "$PROJECT_ROOT/PROJECT.md" '^[*_ -]*Lint gate:[*_ ]*[`]?([A-Za-z-]+)' || true; _lgm="$_FM"; fi
+  case "$_lgm" in
+    hard|soft|default|"") ;;
+    [Hh][Aa][Rr][Dd]) _lgm=hard ;;
+    [Ss][Oo][Ff][Tt]) _lgm=soft ;;
+    [Dd][Ee][Ff][Aa][Uu][Ll][Tt]) _lgm=default ;;
+    *) _lgm="$(printf '%s' "$_lgm" | tr 'A-Z' 'a-z')" ;;
+  esac
   case "$_lgm" in hard|soft|default|"") ;; *) echo "note: 'Lint gate: $_lgm' not recognised (hard | default)" ;; esac
   if [ "$_lgm" = hard ]; then
     echo "gate passed, LINT ROSE under 'Lint gate: hard' (exit 1: write kept, do not re-apply)"
@@ -2434,7 +2545,7 @@ fi
 echo ""
 echo "✓ Script applied to $MPR_BASE."
 echo ""
-_EL=$(( $(date +%s) - _T0 ))
+_EL=$(( ${EPOCHSECONDS:-$(date +%s)} - _T0 ))
 echo "  elapsed: ${_EL}s (check + snapshot + exec + mxbuild gate)"
 if [ -n "$STEP_TIMES" ]; then echo "  steps: $STEP_TIMES"; fi
 [ -n "$CHANGE_CLASS" ] && echo "  change class: $CHANGE_CLASS — test lane: $(change_lane)"
@@ -2476,12 +2587,12 @@ echo ""
 # a second project open in another window is unaffected.
 RESTART_SP="${SP_RESTART:-0}"
 
-if [ "$RESTART_SP" = "1" ] && [ -x "$(dirname "$0")/restart-sp.sh" ]; then
+if [ "$RESTART_SP" = "1" ] && [ -x "$_XD/restart-sp.sh" ]; then
   echo "→ Reopening Studio Pro..."
   # AUTO_SP=1: reaching here now requires an explicit SP_RESTART=1, so consent
   # was given deliberately rather than inferred from a keypress, and a second
   # confirm would only be unanswerable from a non-interactive caller.
-  if AUTO_SP=1 "$(dirname "$0")/restart-sp.sh"; then
+  if AUTO_SP=1 "$_XD/restart-sp.sh"; then
     echo ""
     echo "  ▶ Studio Pro is reopening with your changes. Click Run Locally when it finishes loading."
   else

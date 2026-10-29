@@ -40,7 +40,8 @@
 # the exec that called it. Bash 3.2 compatible.
 
 set -u
-. "$(dirname "$0")/_common.sh"
+_lsd="${0%/*}"; [ "$_lsd" != "$0" ] || _lsd=.   # dirname without a process
+. "$_lsd/_common.sh"
 
 LOOK_DIR="$PROJECT_ROOT/.claude/loop/look"
 OWED="$LOOK_DIR/owed.tsv"
@@ -68,15 +69,16 @@ look_pages_in() {
       n=split(s, w, /[[:space:]]+/)
       for (i=1; i<=n; i++) if (toupper(w[i])=="PAGE") { name=w[i+1]; break }
       sub(/[(;{].*$/, "", name); gsub(/"/, "", name)
-      if (name ~ /^[A-Za-z0-9_]+\.[A-Za-z0-9_]+$/) print name
-    }' "$1" 2>/dev/null | awk '!seen[$0]++'
+      if (name ~ /^[A-Za-z0-9_]+\.[A-Za-z0-9_]+$/ && !seen[name]++) print name
+    }' "$1" 2>/dev/null
 }
 
 cmd_owe() {
   local script="${1:-}" now iso p n=0
   [ -f "$script" ] || return 0
-  mkdir -p "$LOOK_DIR" 2>/dev/null || return 0
-  now=$(date +%s); iso=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  [ -d "$LOOK_DIR" ] || mkdir -p "$LOOK_DIR" 2>/dev/null || return 0
+  if [ -n "${EPOCHSECONDS:-}" ]; then now=$EPOCHSECONDS; TZ=UTC printf -v iso '%(%Y-%m-%dT%H:%M:%SZ)T' -1   # bash 5: no date process
+  else now=$(date +%s); iso=$(date -u +%Y-%m-%dT%H:%M:%SZ); fi
   while IFS= read -r p; do
     [ -n "$p" ] || continue
     printf '%s\t%s\t%s\t%s\n' "$now" "$iso" "$p" "${script#"$PROJECT_ROOT"/}" >> "$OWED" && n=$((n+1))

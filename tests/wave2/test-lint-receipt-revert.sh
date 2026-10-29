@@ -62,6 +62,18 @@ out=$(gate 2>&1); rc=$?
 [ "$rc" -eq 0 ] && ok "unchanged run passes (rc 0)" || bad "rc=$rc" "$out"
 case "$out" in *REVERTED*) bad "false receipt alarm on untouched rules" "$out" ;; *) ok "no receipt alarm" ;; esac
 
+echo "T1b a re-seed that keeps the old mtime (cp -p, tar, rsync -t) is still caught (#590 review)"
+RF="$P/.claude/lint-rules/conv010_act_microflow_content.star"
+cp -p "$RF" "$WORK/rf.keep"
+out=$(gate 2>&1)   # clean run: leaves the skip marker
+[ -f "$P/.claude/loop/.lint-receipt-ok" ] && ok "clean run leaves the skip marker" || bad "no skip marker after a clean run"
+strip_header "$RF"; touch -r "$WORK/rf.keep" "$RF"
+out=$(gate 2>&1); rc=$?
+case "$out" in *REVERTED*) ok "header stripped with the old mtime kept -> still REVERTED (marker not trusted on mtime)" ;; *) bad "old-mtime re-seed skipped the receipt check" "$out" ;; esac
+cp -p "$WORK/rf.keep" "$RF"
+out=$(gate 2>&1)
+case "$out" in *REVERTED*) bad "restored rule still reported" "$out" ;; *) ok "restored rule: clean again" ;; esac
+
 echo "T2 re-seed: header gone on two rules, one rule removed -> BLIND, not a rise"
 strip_header "$P/.claude/lint-rules/conv010_act_microflow_content.star"
 strip_header "$P/.claude/lint-rules/data_change_microflows.star"

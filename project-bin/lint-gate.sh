@@ -312,26 +312,21 @@ for name, want, k in rows:
     print("%s\theader gone, md5 %s != receipt %s" % (name, got[:8], want[:8]))
 PY
   # The check below is a Python start whose answer only changes when one of its inputs does. A
-  # clean answer leaves .claude/loop/.lint-receipt-ok behind; while that marker is STRICTLY newer
-  # than the receipt, the disabled list, the stock list, the rules folder and every rule in it,
-  # nothing the check reads has changed, so the clean answer still stands. (Strictly: equal
-  # mtimes on a one-second-resolution filesystem count as changed.) Any mismatch is never
-  # marked, so it is always re-checked.
+  # clean answer leaves .claude/loop/.lint-receipt-ok behind, holding a content signature (one
+  # cksum pipeline) of everything the check reads: the receipt, the disabled list, the stock list
+  # and every rule file. While the signature is unchanged, the clean answer still stands. Content,
+  # not mtimes: `cp -p`, `rsync -t`, tar/unzip and in-place restores keep an old mtime (#590
+  # review). Any mismatch is never marked, so it is always re-checked.
   _okm="$ROOT/.claude/loop/.lint-receipt-ok"; _rc_skip=0
-  if [ -f "$_okm" ] && [ "$_okm" -nt "$RECEIPT" ] && [ "$_okm" -nt "$ROOT/.claude/lint-rules" ] \
-     && { [ ! -e "$ROOT/.claude/lint-rules-disabled.txt" ] || [ "$_okm" -nt "$ROOT/.claude/lint-rules-disabled.txt" ]; } \
-     && { [ -z "$STOCK_LIST" ] || [ ! -e "$STOCK_LIST" ] || [ "$_okm" -nt "$STOCK_LIST" ]; }; then
+  _rc_sig="$(cksum "$RECEIPT" ${STOCK_LIST:+"$STOCK_LIST"} "$ROOT/.claude/lint-rules-disabled.txt" "$ROOT"/.claude/lint-rules/* 2>/dev/null | cksum)"
+  if [ -f "$_okm" ] && [ -n "$_rc_sig" ] && [ "$(cat "$_okm" 2>/dev/null)" = "$_rc_sig" ]; then
     _rc_skip=1
-    for _rf in "$ROOT"/.claude/lint-rules/*; do
-      [ -e "$_rf" ] || continue
-      [ "$_okm" -nt "$_rf" ] || { _rc_skip=0; break; }
-    done
   fi
   ALLREV=""; REVERTED=""; PROJREV=""
   if [ "$_rc_skip" = 0 ]; then
     if ALLREV="$(RECEIPT="$RECEIPT" RULES_DIR="$ROOT/.claude/lint-rules" DISABLED="$ROOT/.claude/lint-rules-disabled.txt" \
         STOCK_LIST="$STOCK_LIST" ROOT="$ROOT" "$PY" -c "$_RCHK")" && [ -z "$ALLREV" ]; then
-      { mkdir -p "$ROOT/.claude/loop" && : > "$_okm"; } 2>/dev/null || true
+      { mkdir -p "$ROOT/.claude/loop" && printf '%s\n' "$_rc_sig" > "$_okm"; } 2>/dev/null || true
     fi
     if [ -n "$ALLREV" ]; then   # the two greps only have something to sort when the check printed rows
       _tab="$(printf '\t')"

@@ -1,0 +1,87 @@
+mdl 1;
+/**
+ * Decision page for one request: summary, lines and the comment; Approve and Reject while Submitted, read-only decision afterwards.
+ */
+create or modify page Approval.Approval_Decide folder 'Approvals' (
+  Title: 'Decide on request',
+  Layout: Purchasing.App_Default,
+  Url: 'decide/{Request}',
+  Params: ( $Request: Purchasing.PurchaseRequest )
+) {
+  container pageBody (Class: 'page-column') {
+    dynamictext titleDecide (Content: 'Decide on request', RenderMode: H1, Class: 'page-title')
+    layoutgrid decideGrid (Class: 'grid-flush') {
+      row {
+        column (DesktopWidth: AutoFill) {
+          dataview dvDecide (
+            DataSource: microflow Approval.DS_Approval_Decision(Request = $Request),
+            ReadOnlyStyle: Control,
+            Class: 'form-card'
+          ) {
+            -- Context: $currentObject (Approval.ApprovalRecord)
+            dataview dvRequest (DataSource: $Request, ReadOnlyStyle: Control) {
+              -- Context: $currentObject (Purchasing.PurchaseRequest)
+              textbox tbNumber (Label: 'Request no.', Attribute: RequestNumber, Editable: Never)
+              textbox tbTitle (Label: 'Title', Attribute: Title, Editable: Never)
+              textbox tbRequester (Label: 'Requested by', Attribute: RequestedBy, Editable: Never)
+              textbox tbSupplier (Label: 'Supplier', Attribute: PurchaseRequest_Supplier/Name, Editable: Never)
+              textbox tbTotal (Label: 'Total (EUR)', Attribute: TotalAmount, Editable: Never)
+            }
+            textarea taComment (
+              Label: 'Comment',
+              Attribute: Comment,
+              Visible: $currentObject/DecidedAt = empty,
+              Editable: $currentObject/DecidedAt = empty
+            )
+            dynamictext txtDecision (
+              Content: '{1} by {2} on {3}',
+              ContentParams: ({1} = Decision, {2} = DecidedBy, {3} = DecidedAt),
+              Class: 'decision-text',
+              Visible: $currentObject/DecidedAt != empty
+            )
+            dynamictext txtDecisionComment (
+              Content: 'Comment: {1}',
+              ContentParams: ({1} = Comment),
+              Class: 'muted-ds',
+              Visible: $currentObject/DecidedAt != empty
+            )
+            footer {
+              container decideActions (Class: 'actionbar') {
+                actionbutton btnApprove (
+                  Caption: 'Approve',
+                  Action: call microflow Approval.ACT_Approval_Approve(Record = $currentObject),
+                  ButtonStyle: Success,
+                  Visible: $currentObject/DecidedAt = empty
+                )
+                actionbutton btnReject (
+                  Caption: 'Reject',
+                  Action: call microflow Approval.ACT_Approval_Reject(Record = $currentObject),
+                  ButtonStyle: Danger,
+                  Visible: $currentObject/DecidedAt = empty
+                )
+                actionbutton btnBackInbox (Caption: 'Back to inbox', Action: close page)
+              }
+            }
+          }
+        }
+      }
+    }
+    dynamictext titleDecideLines (Content: 'Lines', RenderMode: H2, Class: 'section-title')
+    datagrid dgDecideLines (
+      DataSource: database from Purchasing.RequestLine where [Purchasing.RequestLine_PurchaseRequest = $Request] sort by Description asc,
+      Class: 'spacing-outer-bottom-large'
+    ) {
+      -- Context: $currentObject (Purchasing.RequestLine), $dgDecideLines (selection)
+      column (Attribute: Description, Caption: 'Description')
+      column (Attribute: Quantity, Caption: 'Qty', Alignment: right)
+      column (Caption: 'Unit price', ShowContentAs: customContent, Alignment: right) {
+        textbox tbLineUnit (Attribute: UnitPrice, GroupDigits: true, Editable: Never, Class: 'cell-money')
+      }
+      column (Caption: 'Line total', ShowContentAs: customContent, Alignment: right) {
+        textbox tbLineSum (Attribute: LineTotal, GroupDigits: true, Editable: Never, Class: 'cell-money')
+      }
+    }
+  }
+};
+
+grant view on page Approval.Approval_Decide to Approval.Approver;

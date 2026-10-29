@@ -53,7 +53,7 @@ After a script that creates or changes a page:
    Name the file after the page —
    `order-overview.png` or `Order_Overview_1280.png` for `Orders.Order_Overview`. `bin/exec.sh`
    recorded the page as owed a look when the script landed; opening a screenshot whose name
-   contains the page name, taken after that build, is what clears it. Until every built page is
+   contains the page name, taken after that build, is what clears it; so does opening a journey run's own screenshot of the page: `bin/look-ledger.sh shots` lists every owed page as OPEN (that journey step's PNG, open it) or UNREACHED (no journey got there: a short gap-fill journey, or `page-audit.js`), so OPEN pages need no separate screenshot pass. **A hand-written screenshot script that logs in must end with `helpers.logout(page)`**: a closed browser keeps its session, and six leaked ones hit a trial licence's cap, so every later journey fails login as "Sign in failed" (speed experiment E2). Until every built page is
    cleared, `gate-check.sh <project> 5` FAILs and names the pages still owed (`page-fidelity.js`
    does not clear it: a text score is not a look). Two unattended builds shipped every page
    unseen before this existed. A page that genuinely needs no look: `--waive look/<Module>

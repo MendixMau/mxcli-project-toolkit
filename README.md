@@ -782,6 +782,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Needing Studio Pro load evidence without a human at the GUI — direct-binary launch and log capture; a capture technique, NOT a validated pass/fail oracle | `skills/scriptable-sp-verification.md` |
 | A runtime test or seed reads/writes data that then is not there (the test wrote a row, the DB query shows nothing), or vice versa — three local Postgres instances can answer on this box; resolve the real port from the project's own compose file first | `skills/learned-local-db-confusion.md` |
 | gate-check.sh reports a Stage 0 file not found that plainly exists — ANALYSIS_BASE falls back to project root until Stage 1; move the file, do not debug the script | `skills/gate-check-file-locations.md` |
+| The user says the toolkit, an exec or the gate is slow, or asks to update the toolkit, run doctor and check whether it can be faster on their machine (werk de toolkit bij, draai doctor, controleer of het sneller kan) | `skills/speed-setup.md` |
 
 **Reference — lookup tables, not method**
 

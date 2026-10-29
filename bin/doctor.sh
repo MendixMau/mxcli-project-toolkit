@@ -37,6 +37,16 @@
 #                                           # that drifted mid-project (new binary, wrong-arch
 #                                           # mxbuild, a Defender policy) read as "the toolkit
 #                                           # is broken".
+#   bin/doctor.sh --bench [<project-dir>]   # ~1 minute, changes nothing: times 50 process starts, git status,
+#                                           # python/node start, one gate-check, an mxcli check of a tiny script
+#                                           # and (on a COPY of the model) mx check; prints step | this machine |
+#                                           # reference | factor and one verdict line, and writes the numbers to
+#                                           # <project>/.claude/loop/bench-<timestamp>.tsv to compare with colleagues.
+#   bin/doctor.sh --cleanup                 # list leftover mxbuild helper processes (deno from modeler/tools/deno,
+#                                           # older than 10 min, no live mxbuild parent) and stop exactly those after
+#                                           # you type y. With no terminal it prints the command and stops nothing.
+#                                           # Every normal run also has a "Machine health" section (same leftovers
+#                                           # plus free memory): mxbuild is killed with exit 137 when memory runs out.
 #   bin/doctor.sh --gate-selftest [<dir>]   # force the gate self-test section to run even
 #                                           # under --quick, or on its own. See its own header
 #                                           # (search "Gate self-test") for what it proves and
@@ -82,6 +92,8 @@ INSTALL=0
 ASSUME_YES=0
 QUICK=0
 GATE_SELFTEST=0
+BENCH=0
+CLEANUP=0
 PS_MODE=""
 PS_IF_STALE=0
 NO_DOCKER="${MXTK_DOCTOR_SKIP_DOCKER:-0}"
@@ -91,6 +103,8 @@ for _arg in "$@"; do
     --install) INSTALL=1 ;;
     --yes|-y)  ASSUME_YES=1 ;;
     --quick)   QUICK=1 ;;
+    --bench)   BENCH=1 ;;
+    --cleanup) CLEANUP=1 ;;
     --gate-selftest) GATE_SELFTEST=1 ;;
     --no-docker) NO_DOCKER=1 ;;
     --property-sets)     PS_MODE=check ;;
@@ -411,6 +425,429 @@ if [ -n "$PS_MODE" ]; then
   exit "$(ps_exit_code)"
 fi
 
+# recommended_fix — ONE block that ends both the normal run and --bench: the first option that works on THIS
+# machine, in this order. Read-only, cheap probes; never installs anything and never asks for IT's help.
+#   a. PROJECT.md says `Gate mode: full` -> remove that line: `mx check` per exec is the default, with the
+#      full build before every push (offered even when nothing is slow: it helps every machine).
+#   b. process starts are slow AND this is Git Bash AND `wsl.exe --status` succeeds -> run the toolkit in WSL.
+#   c. slow AND a docker/podman CLI is present and runs (`--version`, no daemon call) -> a dev container.
+#   d. slow, none of the above -> let Claude work in the cloud (Claude Code on the web), pull with git pull.
+# "slow" = RF_SPAWN_MS (ms per process start) over MXTK_SPAWN_WARN_MS (30), set by the caller.
+RF_SPAWN_MS=""
+recommended_fix() {
+  head_ "Recommended fix"
+  _rf_slow=0
+  [ -n "$RF_SPAWN_MS" ] && [ "$RF_SPAWN_MS" -gt "${MXTK_SPAWN_WARN_MS:-30}" ] && _rf_slow=1
+  _rf_pm=""
+  if [ -n "$PROJECT_DIR" ] && [ -f "$PROJECT_DIR/PROJECT.md" ]; then
+    _rf_pm="$(sed -n 's/^[*_ ]*Gate mode:[*_ ]*\([A-Za-z]*\).*/\1/p' "$PROJECT_DIR/PROJECT.md" 2>/dev/null | head -1 | tr 'A-Z' 'a-z')"
+    if [ "$_rf_pm" = full ]; then
+      echo "  Remove \"Gate mode: full\" from PROJECT.md (one line). Each model write is then checked with the quick"
+      echo "  mx check instead of a full build, and the full build runs before you push and at module close."
+      return 0
+    fi
+  fi
+  if [ "$_rf_slow" = 0 ] && [ "${MH_BAD:-0}" = 1 ]; then
+    echo "  Free up memory first (see Machine health): bin/doctor.sh --cleanup stops leftover mxbuild helpers,"
+    echo "  asking before it stops anything. Process starts are not slow here${RF_SPAWN_MS:+ ($RF_SPAWN_MS ms each)}."
+    return 0
+  fi
+  if [ "$_rf_slow" = 0 ]; then
+    echo "  None needed: process starts are not slow here${RF_SPAWN_MS:+ ($RF_SPAWN_MS ms each)}."
+    return 0
+  fi
+  if [ "$MH_OS" = gitbash ] && command -v wsl.exe >/dev/null 2>&1; then
+    _rf_ok=0
+    if command -v timeout >/dev/null 2>&1; then timeout 10 wsl.exe --status >/dev/null 2>&1 && _rf_ok=1
+    else wsl.exe --status >/dev/null 2>&1 && _rf_ok=1; fi
+    if [ "$_rf_ok" = 1 ]; then
+      echo "  Run the toolkit in WSL (already on this machine). Process starts there are cheap, and the project"
+      echo "  folder should live inside the WSL filesystem, not under /mnt/c."
+      return 0
+    fi
+  fi
+  _rf_rt="${MXTK_CONTAINER_RUNTIME:-}"
+  if [ -z "$_rf_rt" ]; then
+    if command -v docker >/dev/null 2>&1; then _rf_rt=docker; elif command -v podman >/dev/null 2>&1; then _rf_rt=podman; fi
+  fi
+  if [ -n "$_rf_rt" ] && "$_rf_rt" --version >/dev/null 2>&1; then
+    echo "  Use a dev container ($_rf_rt is installed here). Process starts inside it are cheap."
+    return 0
+  fi
+  echo "  Let Claude work in the cloud (Claude Code on the web), then pull the result into Studio Pro with git pull."
+  echo "  Nothing needs installing on this machine, and nobody's permission is needed."
+}
+
+# --- machine health (leftover mxbuild helpers, free memory) -- and --cleanup / --bench ---------------
+# WHY. Field, 2026-10-29, Linux 4 cores / 16 GB: mxbuild kept dying with exit 137. 47 orphaned
+# `modeler/tools/deno` processes (parent PID 1, up to 37 min old, ~270 MB each, 13 GB in total) had eaten the
+# memory. mxbuild starts one deno helper per run; when mxbuild is killed (gate timeout, `kill`, the
+# out-of-memory killer itself) the helper outlives it, and every orphan makes the next kill more likely.
+# A run that ends normally leaves none (checked, tools/deno helper gone within a second).
+#
+# A "leftover" is: a process whose program path contains modeler/tools/deno (deno / deno.exe), older than
+# MXTK_LEFTOVER_MIN_AGE_S (default 600 s), whose parent is NOT a live mxbuild / mx / dotnet / Studio Pro.
+# The parent test is why a long but healthy build (a big model builds longer than 10 minutes) is never
+# listed, and so never stopped by --cleanup. Golden input: tests/wave2/fixtures/doctor-bench/ (a real
+# `ps -eo pid,ppid,etimes,rss,args` capture that contains one live helper and four orphans).
+# Platforms: Linux/WSL: ps etimes + /proc/meminfo. macOS: ps etime + vm_stat. Git Bash: wmic (tasklist as a
+# count-only fallback). The Git Bash branch is written from wmic's documented /format:list output and has not
+# been run on Windows; the Linux branch is the one field-proven here.
+MH_MIN_AGE="${MXTK_LEFTOVER_MIN_AGE_S:-600}"
+MH_LOW_MB="${MXTK_LOW_MEMORY_MB:-2048}"
+case "$(uname -s 2>/dev/null)" in
+  Darwin) MH_OS=macos ;;
+  MINGW*|MSYS*|CYGWIN*) MH_OS=gitbash ;;
+  *) MH_OS=linux ;;
+esac
+
+# mh_rows — one line per process: pid ppid age-or-etime rss_kb program args...
+mh_rows() {
+  case "$MH_OS" in
+    macos) ps -axo pid=,ppid=,etime=,rss=,args= 2>/dev/null ;;
+    gitbash)
+      command -v wmic >/dev/null 2>&1 || return 1
+      wmic process where "name='deno.exe' or name='mxbuild.exe' or name='mx.exe' or name='dotnet.exe'" \
+        get CommandLine,CreationDate,Name,ParentProcessId,ProcessId,WorkingSetSize /format:list 2>/dev/null \
+        | tr -d '\r' | awk '
+          function flush() { if (pid != "") { age = (cd != "") ? systime() - mktime(substr(cd,1,4) " " substr(cd,5,2) " " substr(cd,7,2) " " substr(cd,9,2) " " substr(cd,11,2) " " substr(cd,13,2)) : 0
+            print pid, ppid, age, int(ws / 1024), nm, cl }
+            pid = ppid = cd = nm = cl = ""; ws = 0 }
+          { i = index($0, "="); if (i == 0) { if ($0 == "") flush(); next }
+            k = substr($0, 1, i - 1); v = substr($0, i + 1)
+            if (k == "ProcessId") pid = v; else if (k == "ParentProcessId") ppid = v
+            else if (k == "CreationDate") cd = v; else if (k == "Name") nm = v
+            else if (k == "WorkingSetSize") ws = v; else if (k == "CommandLine") cl = v }
+          END { flush() }' ;;
+    *) ps -eo pid,ppid,etimes,rss,args 2>/dev/null ;;
+  esac
+}
+
+# mh_leftovers — the leftover helpers, one line each: pid age_seconds rss_kb
+mh_leftovers() {
+  mh_rows | awk -v min="$MH_MIN_AGE" '
+    function secs(t,   a, p, n, d) {
+      if (t !~ /[:-]/) return t + 0
+      d = 0; if (index(t, "-")) { split(t, a, "-"); d = a[1]; t = a[2] }
+      n = split(t, p, ":"); return d * 86400 + ((n == 3) ? p[1] * 3600 + p[2] * 60 + p[3] : p[1] * 60 + p[2]) }
+    $1 !~ /^[0-9]+$/ { next }
+    { line = $0; gsub(/\\/, "/", line)
+      pid = $1; pp[pid] = $2; age[pid] = secs($3); rss[pid] = $4; first[pid] = $5; all[pid] = line; ord[++n] = pid }
+    END { for (i = 1; i <= n; i++) { p = ord[i]; f = first[p]; gsub(/\\/, "/", f)
+        if (!(f ~ /modeler\/tools\/deno\/.*\/deno$/ || (f == "deno.exe" && all[p] ~ /modeler\/tools\/deno/))) continue
+        if (age[p] < min) continue
+        q = pp[p]
+        if (q in first) { g = first[q]; gsub(/\\/, "/", g); sub(/.*\//, "", g)
+          if (g ~ /^(mxbuild|mx|mxutil|dotnet|MxBuild)(\.exe)?$/ || g ~ /[Ss]tudio/) continue }
+        print p, age[p], rss[p] } }'
+}
+
+# mh_free_mb — megabytes of memory a new process could get, or nothing when this platform cannot say.
+mh_free_mb() {
+  case "$MH_OS" in
+    macos) vm_stat 2>/dev/null | awk '/page size of/ { for (i = 1; i <= NF; i++) if ($i == "of") ps = $(i + 1) }
+             /^Pages free:|^Pages inactive:|^Pages speculative:/ { gsub(/\./, "", $NF); pg += $NF }
+             END { if (ps > 0 && pg > 0) print int(pg * ps / 1048576) }' ;;
+    gitbash) command -v wmic >/dev/null 2>&1 || return 0
+             wmic OS get FreePhysicalMemory /value 2>/dev/null | tr -d '\r' | awk -F= '$1 == "FreePhysicalMemory" && $2 + 0 > 0 { print int($2 / 1024) }' ;;
+    *) awk '/^MemAvailable:/ { a = $2 } /^MemFree:/ { f = $2 } /^Buffers:/ { b = $2 } /^Cached:/ { c = $2 }
+            END { if (a > 0) print int(a / 1024); else if (f > 0) print int((f + b + c) / 1024) }' "${MXTK_PROC_MEMINFO:-/proc/meminfo}" 2>/dev/null ;;
+  esac
+}
+
+# mh_fmt_mb <mb> — "1.9 GB" / "640 MB" into MH_FMT (no subshell: a process start costs 100 ms on Windows).
+mh_fmt_mb() {
+  if [ "$1" -ge 1024 ]; then MH_FMT="$(( $1 * 10 / 1024 / 10 )).$(( $1 * 10 / 1024 % 10 )) GB"; else MH_FMT="$1 MB"; fi
+}
+
+# advise — prints like warn but does not count toward the exit code: machine health is about this
+# machine's state right now, not about the toolkit install, and doctor's exit code is read by
+# callers (#591 review). session-check still shows the line, because it greps for WARN.
+advise() { printf '  WARN  %s\n' "$*"; }
+MH_BAD=0
+machine_health() {
+  head_ "Machine health"
+  _mh_free="$(mh_free_mb)"
+  _mh_can=1
+  if [ "$MH_OS" = gitbash ]; then command -v wmic >/dev/null 2>&1 || _mh_can=0; else command -v ps >/dev/null 2>&1 || _mh_can=0; fi
+  _mh_left=""; [ "$_mh_can" = 1 ] && _mh_left="$(mh_leftovers)"
+  _mh_n=0; _mh_kb=0; _mh_old=0
+  if [ -n "$_mh_left" ]; then
+    _mh_sum="$(printf '%s\n' "$_mh_left" | awk '{ n++; kb += $3; if ($2 > old) old = $2 } END { print n, kb, old }')"
+    set -- $_mh_sum; _mh_n=$1; _mh_kb=$2; _mh_old=$3
+  fi
+  _mh_bad=0
+  if [ -z "$_mh_free" ]; then
+    note "free memory: not measured on this platform"
+  elif [ "$_mh_free" -lt "$MH_LOW_MB" ]; then
+    mh_fmt_mb "$_mh_free"; advise "free memory: $MH_FMT (under $((MH_LOW_MB / 1024)) GB)"; _mh_bad=1
+  else
+    mh_fmt_mb "$_mh_free"; ok "free memory: $MH_FMT"
+  fi
+  if [ "$_mh_n" -gt 0 ]; then
+    mh_fmt_mb "$((_mh_kb / 1024))"
+    advise "$_mh_n leftover mxbuild helper process(es) (deno), $MH_FMT in total, oldest $((_mh_old / 60)) min"
+    _mh_bad=1
+  elif [ "$_mh_can" = 0 ]; then
+    note "leftover mxbuild helpers: not checked (this machine has no ps / wmic to list processes)"
+  else
+    ok "no leftover mxbuild helper processes"
+  fi
+  MH_BAD="$_mh_bad"
+  if [ "$_mh_bad" = 1 ]; then
+    note "When memory runs out the operating system kills mxbuild (exit 137), and the build gate then reads"
+    note "as a failure that is not about your model. Each mxbuild that is killed leaves its deno helper"
+    note "running, holding ~270 MB, so the problem grows by itself."
+    [ "$_mh_n" -gt 0 ] && note "Stop exactly those helpers (asks first):  bin/doctor.sh --cleanup"
+    [ "$_mh_n" -eq 0 ] && note "Close other programs, or run the toolkit on a machine with more memory."
+  fi
+}
+
+# --cleanup: list the leftovers machine_health counts, stop them ONLY after a typed y at a terminal.
+if [ "$CLEANUP" = 1 ]; then
+  head_ "Cleanup: leftover mxbuild helpers (deno)"
+  if [ "$MH_OS" = gitbash ]; then command -v wmic >/dev/null 2>&1 || { bad "cannot list processes: wmic is missing. Use Task Manager (deno.exe under modeler\\tools\\deno)."; exit 1; }
+  else command -v ps >/dev/null 2>&1 || { bad "cannot list processes: no ps on this machine."; exit 1; }; fi
+  _cl="$(mh_leftovers)"
+  if [ -z "$_cl" ]; then ok "nothing to clean up: no deno helper from modeler/tools/deno older than $((MH_MIN_AGE / 60)) min without a live mxbuild"; exit 0; fi
+  _cl_pids="$(printf '%s\n' "$_cl" | awk '{ printf "%s%s", sep, $1; sep = " " }')"
+  printf '%s\n' "$_cl" | awk '{ printf "        pid %-7s %4d min  %4d MB\n", $1, $2 / 60, $3 / 1024 }'
+  case "$MH_OS" in
+    gitbash) _cl_cmd="taskkill //F$(for _p in $_cl_pids; do printf ' //PID %s' "$_p"; done)" ;;
+    *)       _cl_cmd="kill $_cl_pids" ;;
+  esac
+  if [ ! -t 0 ] || [ ! -t 1 ]; then
+    note "No terminal to ask on, so nothing was stopped. To stop exactly these yourself:"
+    note "  $_cl_cmd"
+    exit 0
+  fi
+  printf '  Stop these %s process(es)? Type y to confirm, anything else cancels: ' "$(printf '%s\n' "$_cl" | wc -l | tr -d ' ')"
+  _cl_ans=""; read -r _cl_ans || true
+  if [ "$_cl_ans" != "y" ] && [ "$_cl_ans" != "Y" ]; then note "Cancelled. Nothing was stopped."; exit 0; fi
+  # Re-read the list: only a pid that is STILL a leftover is touched (pids get reused).
+  _cl_now=" $(mh_leftovers | awk '{ printf "%s ", $1 }')"
+  _cl_done=0
+  for _p in $_cl_pids; do
+    case "$_cl_now" in *" $_p "*) ;; *) note "pid $_p is gone or no longer a leftover: left alone"; continue ;; esac
+    if [ "$MH_OS" = gitbash ]; then taskkill //F //PID "$_p" >/dev/null 2>&1 || true; else kill "$_p" 2>/dev/null || true; fi
+    _cl_done=$((_cl_done + 1))
+  done
+  sleep 2
+  _cl_left=" $(mh_leftovers | awk '{ printf "%s ", $1 }')"
+  _cl_alive=""
+  for _p in $_cl_pids; do case "$_cl_left" in *" $_p "*) _cl_alive="$_cl_alive $_p" ;; esac; done
+  ok "asked $_cl_done process(es) to stop"
+  if [ -n "$_cl_alive" ]; then
+    warn "still running after 2 s:$_cl_alive"
+    note "Not forced. If you want them gone anyway:  kill -9$_cl_alive"
+  fi
+  exit 0
+fi
+
+# --bench: ~1 minute, changes nothing in the project. Times the things every toolkit script is made of,
+# against this table's reference column, so "the toolkit is slow here" becomes a number a colleague can
+# compare. Writes <project>/.claude/loop/bench-<timestamp>.tsv (one row per step, concatenable).
+#
+# REFERENCE (BENCH_REF_*, milliseconds): measured on 2026-10-29 on Linux 6.18 (Firecracker VM, 4 cores,
+# 16 GB, local disk), project = a copy of the purchase-requests test app (PurchaseApp, mxcli v0.28.0, mx 11.13.0, git with 6.5k
+# files): the median of 5 `bin/doctor.sh --bench` runs. Honest caveat: the machine was not freshly idle; it
+# held 46 leftover deno helpers and ~1.4 GB free memory during those runs (CPU-bound steps do not care, and
+# no step swapped: there is no swap), so treat the reference as "a Linux box, a bit loaded", not a lab figure.
+# For scale, a Windows 11 / Git Bash laptop in the field measured 103 ms per process start against ~2 ms
+# here: that one number is what makes every step below that is built from process starts (git, gate-check,
+# mxcli, the doctor itself) many times slower there.
+BENCH_REF_SPAWN50_MS=86
+BENCH_REF_GIT_MS=34
+BENCH_REF_PY_MS=28
+BENCH_REF_NODE_MS=74
+BENCH_REF_GATE_MS=3237
+BENCH_REF_MXCLI_MS=606
+BENCH_REF_MX_MS=6902
+BENCH_FIELD_SPAWN_MS=103
+BENCH_MX_MIN_MB="${MXTK_BENCH_MX_MIN_MB:-1024}"
+
+# b_clock — sets B_MS to a millisecond clock reading, or "" when this shell has none. EPOCHREALTIME (bash 5,
+# Git Bash) costs no process; `date +%s%N` does (GNU date only: macOS prints a literal N, bash 3.2 has neither).
+b_clock() {
+  B_MS=""
+  if [ -n "${EPOCHREALTIME:-}" ]; then
+    B_MS="${EPOCHREALTIME/[.,]/}"; B_MS=$((B_MS / 1000)); return 0
+  fi
+  _bc="$(date +%s%N 2>/dev/null || true)"
+  case "$_bc" in ""|*[!0-9]*) return 0 ;; esac
+  B_MS=$((_bc / 1000000))
+}
+
+# b_bounded <seconds> <cmd...> — run with output discarded, stdin closed, killed after <seconds>. B_RC = exit
+# code, 124 on timeout. No timeout(1) assumed (macOS has none). Polls every 0.2 s.
+b_bounded() {
+  _bb_max=$(( $1 * 5 )); shift
+  "$@" >/dev/null 2>&1 < /dev/null &
+  _bb_pid=$!; _bb_w=0
+  while kill -0 "$_bb_pid" 2>/dev/null; do
+    if [ "$_bb_w" -ge "$_bb_max" ]; then kill "$_bb_pid" 2>/dev/null; wait "$_bb_pid" 2>/dev/null; B_RC=124; return 0; fi
+    sleep 0.2 2>/dev/null || sleep 1
+    _bb_w=$((_bb_w + 1))
+  done
+  B_RC=0; wait "$_bb_pid" || B_RC=$?
+}
+
+b_fmt_ms() {
+  if [ "$1" -ge 10000 ]; then B_FMT="$(( $1 / 1000 )).$(( $1 % 1000 / 100 )) s"
+  elif [ "$1" -ge 1000 ]; then B_FMT="$(( $1 / 1000 )).$(( $1 % 1000 / 10 / 10 ))$(( $1 % 1000 / 10 % 10 )) s"
+  else B_FMT="$1 ms"; fi
+}
+
+# b_row <id> <label> <this-ms|""> <ref-ms> <note> — print the table row, append the TSV row, feed the verdict.
+B_SPAWN_FAC=""; B_TOP_ID=""; B_TSV=""; B_TOT_THIS=0; B_TOT_REF=0; B_NMEAS=0; B_TOP_EXCESS=0; B_TOP_LABEL=""; B_SPAWN_THIS=""; B_NOTES=""
+b_row() {
+  _r_id="$1"; _r_label="$2"; _r_this="$3"; _r_ref="$4"; _r_note="$5"
+  b_fmt_ms "$_r_ref"; _r_reffmt="$B_FMT"
+  if [ -n "$_r_this" ]; then
+    b_fmt_ms "$_r_this"; _r_thisfmt="$B_FMT"
+    if [ "$_r_ref" -gt 0 ]; then _r_f10=$(( _r_this * 10 / _r_ref )); _r_fac="$((_r_f10 / 10)).$((_r_f10 % 10))"; else _r_fac="-"; fi
+    B_TOT_THIS=$((B_TOT_THIS + _r_this)); B_TOT_REF=$((B_TOT_REF + _r_ref)); B_NMEAS=$((B_NMEAS + 1))
+    if [ $((_r_this - _r_ref)) -gt "$B_TOP_EXCESS" ]; then B_TOP_EXCESS=$((_r_this - _r_ref)); B_TOP_LABEL="$_r_label"; B_TOP_ID="$_r_id"; fi
+    [ "$_r_id" = spawn50 ] && B_SPAWN_THIS="$_r_this" && B_SPAWN_FAC="$_r_fac"
+  else
+    _r_thisfmt="not measured"; _r_fac="-"
+  fi
+  printf '  %-30s %13s %11s %8s\n' "$_r_label" "$_r_thisfmt" "$_r_reffmt" "${_r_fac}$([ "$_r_fac" = "-" ] || printf x)"
+  [ -n "$_r_note" ] && B_NOTES="$B_NOTES        $_r_label: $_r_note
+"
+  B_TSV="$B_TSV$B_STAMP	$B_PLAT	$B_CORES	${_mh_free:-NA}	$_r_id	${_r_this:-NA}	$_r_ref	$_r_fac	$_r_note
+"
+}
+
+if [ "$BENCH" = 1 ]; then
+  machine_health
+  head_ "Benchmark (changes nothing; about a minute)"
+  B_STAMP="$(date '+%Y%m%d-%H%M%S')"
+  B_PLAT="$(uname -s 2>/dev/null)-$(uname -m 2>/dev/null)"
+  B_CORES="$( (nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || printf '%s' "${NUMBER_OF_PROCESSORS:-NA}") | head -1)"
+  B_P="$PROJECT_DIR"
+  b_clock
+  if [ -z "$B_MS" ]; then note "no sub-second clock in this shell (bash 3.2 / BSD date): short steps print \"not measured\""; fi
+  printf '  %-30s %13s %11s %8s\n' "step" "this machine" "reference" "factor"
+
+  # 1. process starts
+  _bt="$(command -v true 2>/dev/null)"; case "$_bt" in /*) ;; *) _bt=/bin/true ;; esac
+  b_clock; _t0="$B_MS"; _i=0
+  while [ $_i -lt 50 ]; do "$_bt"; _i=$((_i + 1)); done
+  b_clock; _t1="$B_MS"
+  if [ -n "$_t0" ] && [ -n "$_t1" ]; then b_row spawn50 "50 process starts" "$((_t1 - _t0))" "$BENCH_REF_SPAWN50_MS" ""
+  else b_row spawn50 "50 process starts" "" "$BENCH_REF_SPAWN50_MS" "no sub-second clock"; fi
+
+  # 2. git status (GIT_OPTIONAL_LOCKS=0: git must not refresh the index of the project it measures)
+  if [ -z "$B_P" ]; then b_row git "git status" "" "$BENCH_REF_GIT_MS" "no project given"
+  elif ! command -v git >/dev/null 2>&1; then b_row git "git status" "" "$BENCH_REF_GIT_MS" "git not installed"
+  elif ! git -C "$B_P" rev-parse --git-dir >/dev/null 2>&1; then b_row git "git status" "" "$BENCH_REF_GIT_MS" "project is not a git repository"
+  else
+    b_clock; _t0="$B_MS"; GIT_OPTIONAL_LOCKS=0 git -C "$B_P" status --porcelain >/dev/null 2>&1 < /dev/null; b_clock; _t1="$B_MS"
+    if [ -n "$_t0" ] && [ -n "$_t1" ]; then b_row git "git status" "$((_t1 - _t0))" "$BENCH_REF_GIT_MS" ""
+    else b_row git "git status" "" "$BENCH_REF_GIT_MS" "no sub-second clock"; fi
+  fi
+
+  # 3. python, node
+  _bpy=""; for _c in python3 python; do command -v "$_c" >/dev/null 2>&1 && { _bpy="$_c"; break; }; done
+  if [ -z "$_bpy" ]; then b_row python "python start" "" "$BENCH_REF_PY_MS" "python not installed"
+  else
+    b_clock; _t0="$B_MS"; "$_bpy" -c pass >/dev/null 2>&1 < /dev/null; b_clock; _t1="$B_MS"
+    if [ -n "$_t0" ] && [ -n "$_t1" ]; then b_row python "python start" "$((_t1 - _t0))" "$BENCH_REF_PY_MS" ""
+    else b_row python "python start" "" "$BENCH_REF_PY_MS" "no sub-second clock"; fi
+  fi
+  if ! command -v node >/dev/null 2>&1; then b_row node "node start" "" "$BENCH_REF_NODE_MS" "node not installed"
+  else
+    b_clock; _t0="$B_MS"; node -e 0 >/dev/null 2>&1 < /dev/null; b_clock; _t1="$B_MS"
+    if [ -n "$_t0" ] && [ -n "$_t1" ]; then b_row node "node start" "$((_t1 - _t0))" "$BENCH_REF_NODE_MS" ""
+    else b_row node "node start" "" "$BENCH_REF_NODE_MS" "no sub-second clock"; fi
+  fi
+
+  # 4. gate-check, no stage. --no-html: the dashboard is not rewritten. It still refreshes
+  # analysis/source-sufficiency.html in some projects, so that one file is put back after the run.
+  if [ -z "$B_P" ]; then b_row gate "gate-check (no stage)" "" "$BENCH_REF_GATE_MS" "no project given"
+  elif [ ! -f "$TOOLKIT_ROOT/bin/gate-check.sh" ]; then b_row gate "gate-check (no stage)" "" "$BENCH_REF_GATE_MS" "gate-check.sh not found"
+  else
+    _bs="$B_P/analysis/source-sufficiency.html"; _bsave=""
+    if [ -f "$_bs" ]; then _bsave="$(mktemp "${TMPDIR:-/tmp}/doctor-bench.XXXXXX")" && cp "$_bs" "$_bsave"; fi
+    b_clock; _t0="$B_MS"; b_bounded 120 env MXTK_NO_FETCH=1 bash "$TOOLKIT_ROOT/bin/gate-check.sh" --no-html "$B_P"; b_clock; _t1="$B_MS"
+    if [ -n "$_bsave" ]; then cmp -s "$_bs" "$_bsave" || cp "$_bsave" "$_bs"; rm -f "$_bsave"; fi
+    if [ "$B_RC" = 124 ]; then b_row gate "gate-check (no stage)" "" "$BENCH_REF_GATE_MS" "gave up after 120 s"
+    elif [ -n "$_t0" ] && [ -n "$_t1" ]; then b_row gate "gate-check (no stage)" "$((_t1 - _t0))" "$BENCH_REF_GATE_MS" ""
+    else b_row gate "gate-check (no stage)" "" "$BENCH_REF_GATE_MS" "no sub-second clock"; fi
+  fi
+
+  # 5/6. mxcli check (read-only on the model) and mx check (on a COPY: mx writes into the project it checks)
+  _bmpr=""
+  if [ -n "$B_P" ]; then for _f in "$B_P"/*.mpr "$B_P"/app/*.mpr; do [ -f "$_f" ] && { _bmpr="$_f"; break; }; done; fi
+  _bmxcli=""
+  if [ -n "$B_P" ] && [ -x "$B_P/mxcli" ]; then _bmxcli="$B_P/mxcli"; elif command -v mxcli >/dev/null 2>&1; then _bmxcli="$(command -v mxcli)"; fi
+  _btmp="$(mktemp -d "${TMPDIR:-/tmp}/doctor-bench.XXXXXX")"
+  trap 'rm -rf "$_btmp"' EXIT
+  if [ -z "$_bmpr" ]; then b_row mxcli "mxcli check (tiny script)" "" "$BENCH_REF_MXCLI_MS" "no .mpr in the project"
+  elif [ -z "$_bmxcli" ]; then b_row mxcli "mxcli check (tiny script)" "" "$BENCH_REF_MXCLI_MS" "mxcli not found"
+  else
+    printf 'create module MxtkBenchProbe;\ncreate persistent entity MxtkBenchProbe.Probe (Name: String(20));\n' > "$_btmp/probe.mdl"
+    b_clock; _t0="$B_MS"; b_bounded 60 "$_bmxcli" check "$_btmp/probe.mdl" -p "$_bmpr"; b_clock; _t1="$B_MS"
+    if [ "$B_RC" = 124 ]; then b_row mxcli "mxcli check (tiny script)" "" "$BENCH_REF_MXCLI_MS" "gave up after 60 s"
+    elif [ "$B_RC" != 0 ]; then b_row mxcli "mxcli check (tiny script)" "" "$BENCH_REF_MXCLI_MS" "mxcli exited $B_RC"
+    elif [ -n "$_t0" ] && [ -n "$_t1" ]; then b_row mxcli "mxcli check (tiny script)" "$((_t1 - _t0))" "$BENCH_REF_MXCLI_MS" ""
+    else b_row mxcli "mxcli check (tiny script)" "" "$BENCH_REF_MXCLI_MS" "no sub-second clock"; fi
+  fi
+
+  PROJECT_ROOT="${PROJECT_DIR:-$TOOLKIT_ROOT}"
+  # shellcheck disable=SC1091
+  . "$TOOLKIT_ROOT/project-bin/_common.sh"
+  _bmx="$(mxtk_find_mx 2>/dev/null || true)"
+  if [ -z "$_bmpr" ]; then b_row mx "mx check (copy of model)" "" "$BENCH_REF_MX_MS" "no .mpr in the project"
+  elif [ -z "$_bmx" ]; then b_row mx "mx check (copy of model)" "" "$BENCH_REF_MX_MS" "mx not installed (it ships beside mxbuild)"
+  elif [ -n "$_mh_free" ] && [ "$_mh_free" -lt "$BENCH_MX_MIN_MB" ]; then
+    b_row mx "mx check (copy of model)" "" "$BENCH_REF_MX_MS" "not run: only ${_mh_free} MB free (needs ~${BENCH_MX_MIN_MB}); at this level mxbuild is killed with exit 137"
+  else
+    _bcp="$_btmp/model"; mkdir -p "$_bcp"; cp "$_bmpr" "$_bcp/" 2>/dev/null
+    [ -d "$(dirname "$_bmpr")/mprcontents" ] && cp -R "$(dirname "$_bmpr")/mprcontents" "$_bcp/" 2>/dev/null
+    b_clock; _t0="$B_MS"; b_bounded 180 "$_bmx" check "$_bcp/$(basename "$_bmpr")" -j "$_btmp/mx.json"; b_clock; _t1="$B_MS"
+    if [ "$B_RC" = 124 ]; then b_row mx "mx check (copy of model)" "" "$BENCH_REF_MX_MS" "gave up after 180 s (a killed mx can leave its deno helper: bin/doctor.sh --cleanup)"
+    elif [ "$B_RC" = 137 ]; then b_row mx "mx check (copy of model)" "" "$BENCH_REF_MX_MS" "KILLED (exit 137): out of memory. This is the failure Machine health warns about"
+    elif [ -n "$_t0" ] && [ -n "$_t1" ]; then b_row mx "mx check (copy of model)" "$((_t1 - _t0))" "$BENCH_REF_MX_MS" "mx exit $B_RC (errors in the copy are fine; only the time counts)"
+    else b_row mx "mx check (copy of model)" "" "$BENCH_REF_MX_MS" "no sub-second clock"; fi
+  fi
+
+  # verdict
+  [ -n "$B_NOTES" ] && printf '%s' "$B_NOTES"
+  echo
+  if [ -n "$B_SPAWN_THIS" ]; then
+    _bper10=$(( B_SPAWN_THIS * 10 / 50 ))
+    echo "  process start: $((_bper10 / 10)).$((_bper10 % 10)) ms each here; ~$((BENCH_REF_SPAWN50_MS * 10 / 50 / 10)).$((BENCH_REF_SPAWN50_MS * 10 / 50 % 10)) ms on the reference; $BENCH_FIELD_SPAWN_MS ms on the slow Windows 11 / Git Bash laptop in the field."
+  fi
+  if [ "$B_NMEAS" -lt 1 ] || [ "$B_TOT_REF" -le 0 ]; then
+    echo "  Verdict: nothing could be measured here, so there is nothing to compare."
+  else
+    _bfac=$(( (B_TOT_THIS * 10 + B_TOT_REF / 2) / B_TOT_REF ))
+    _bwhy="$B_TOP_LABEL"
+    case "$B_SPAWN_FAC" in ""|-) ;; *) _bsf="${B_SPAWN_FAC%%.*}"; [ "$_bsf" -ge 5 ] && [ "$_bfac" -ge 20 ] && _bwhy="process starts" ;; esac
+    b_fmt_ms "$B_TOT_THIS"; _bth="$B_FMT"; b_fmt_ms "$B_TOT_REF"; _brf="$B_FMT"
+    if [ "$_bfac" -le 12 ]; then
+      echo "  Verdict: this machine is about as fast as the reference ($_bth vs $_brf over $B_NMEAS measured steps)."
+    elif [ "$_bfac" -lt 20 ]; then
+      echo "  Verdict: this machine is $((_bfac / 10)).$((_bfac % 10))x slower than the reference ($_bth vs $_brf over $B_NMEAS steps), mainly ${_bwhy:-the first step}."
+    else
+      echo "  Verdict: this machine is $(( (_bfac + 5) / 10 ))x slower than the reference ($_bth vs $_brf over $B_NMEAS steps), mainly ${_bwhy:-the first step}."
+    fi
+  fi
+  [ -n "$B_SPAWN_THIS" ] && RF_SPAWN_MS=$(( B_SPAWN_THIS / 50 ))
+  if [ -n "$B_P" ] && [ -d "$B_P" ]; then
+    mkdir -p "$B_P/.claude/loop" 2>/dev/null || true
+    _btsv="$B_P/.claude/loop/bench-$B_STAMP.tsv"
+    { printf 'timestamp\tplatform\tcores\tfree_mb\tstep\tthis_ms\treference_ms\tfactor\tnote\n'; printf '%s' "$B_TSV"; } > "$_btsv" 2>/dev/null \
+      && echo "  Results: $_btsv  (send it to colleagues to compare; untracked, do not commit it)" || echo "  Results: could not write $_btsv"
+  else
+    echo "  Results: not saved (pass a project directory: bin/doctor.sh --bench <project>)."
+  fi
+  recommended_fix
+  exit 0
+fi
+
 # --- platform -------------------------------------------------------------------------------
 
 head_ "Platform"
@@ -458,9 +895,8 @@ if [ -z "$_spawn_ms" ]; then
 elif [ "$_spawn_ms" -gt "${MXTK_SPAWN_WARN_MS:-30}" ]; then
   warn "process start cost: ${_spawn_ms} ms each (fast machines: under 5 ms). Toolkit scripts start many"
   note "processes, so each exec spends roughly a minute just starting them. Usual cause on Windows:"
-  note "antivirus scanning every start. Ask IT for Microsoft Defender exclusions (processes or folders) for:"
-  note "  this project folder, Git for Windows' usr\\bin, the JDK, and ~/.mxcli; or run the toolkit in"
-  note "  WSL2 / a dev container, where starts are cheap."
+  note "antivirus scanning every start. That cannot be fixed from here; the \"Recommended fix\" at the end of"
+  note "this report names a way around it that needs nobody's permission."
 else
   ok "process start cost: ${_spawn_ms} ms each"
 fi
@@ -490,7 +926,7 @@ if [ -n "$_perf_log" ] && [ -f "$_perf_log" ] && grep -q 'steps: ' "$_perf_log" 
   _pmsg="last $_pn execs: median ${_pmed} s per exec (gate ${_pgate} s; slowest step: $_ptop ${_ptopv} s). Normal: 17-34 s, gate 9-20 s."
   if [ "$_pmed" -gt "${MXTK_PERF_EXEC_WARN:-60}" ] || [ "$_pgate" -gt "${MXTK_PERF_GATE_WARN:-45}" ]; then
     warn "slow execs — $_pmsg"
-    [ "$_pgate" -gt "${MXTK_PERF_GATE_WARN:-45}" ] && note "The gate (mxbuild) dominates: 'Gate mode: check' in PROJECT.md runs mx check per exec and the full build before push."
+    [ "$_pgate" -gt "${MXTK_PERF_GATE_WARN:-45}" ] && note "The gate (mxbuild) dominates: 'Gate mode: full' in PROJECT.md forces a full build per exec; without it, exec runs mx check and the full build before push."
     [ -n "$_spawn_ms" ] && [ "$_spawn_ms" -gt "${MXTK_SPAWN_WARN_MS:-30}" ] && note "Process starts are slow too (above): that is the machine, not the model — see the advice there."
     note "Per-command profile of one exec: MXTK_PROFILE=1 ./bin/exec.sh <script> (prints the 15 slowest lines; MXTK_PROFILE=2 traces the scripts it starts too)."
   else
@@ -501,13 +937,10 @@ elif [ -n "$PROJECT_DIR" ]; then
 else
   note "exec timings: pass a project dir (bin/doctor.sh <project>) to compare its execs with a normal machine"
 fi
-# Windows advice: the dev container / WSL2 lane is RECOMMENDED where process starts are slow, never
-# required — a machine without it keeps working, just slower.
-if [ "${PLATFORM:-}" = gitbash ] && [ -n "$_spawn_ms" ] && [ "$_spawn_ms" -gt "${MXTK_SPAWN_WARN_MS:-30}" ]; then
-  note "Recommended on this Windows machine (optional): run the toolkit in WSL2 or a dev container"
-  note "  (Docker Engine in WSL2, Rancher Desktop or Podman Desktop). Without one, the antivirus exclusions"
-  note "  above are the fix; everything keeps working either way."
-fi
+# Windows advice lives in recommended_fix (end of the report). No step in it may need IT: antivirus
+# exclusions are not on offer, so doctor never asks for them.
+
+machine_health
 
 # --- environment lane -------------------------------------------------------------------------
 # Where this session runs decides the write modes available (CONVERSION-RUNBOOK.md → "Where you
@@ -1297,8 +1730,8 @@ if [ "$PLATFORM" = gitbash ] || [ "$QUICK" = 1 ]; then
       else
         warn "~${MS_PER_FORK} ms per subprocess — gate-check.sh will feel HUNG (minutes, not seconds)."
         note "The usual causes, in order:"
-        note "  - Windows Defender real-time scanning every process start. Ask IT to exclude"
-        note "    the Git Bash install directory and this repo's folder."
+        note "  - Antivirus scanning every process start (not something you can change yourself;"
+        note "    see \"Recommended fix\" at the end)."
         note "  - The repo living under OneDrive/Dropbox (every file touch syncs)."
         note "  - Corporate endpoint agents hooking process creation."
       fi
@@ -1764,14 +2197,17 @@ if [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ]; then
   fi
 fi
 
+RF_SPAWN_MS="$_spawn_ms"
 if [ "$FAIL" -gt 0 ]; then
   printf '  %s thing(s) to sort out before the first model write (FAIL lines), %s note(s) worth reading (WARN).\n' "$FAIL" "$WARN"
   printf '  Analysis and planning stages run fine meanwhile; each FAIL line says what fixes it.\n'
-  exit 2
+  _vexit=2
 elif [ "$WARN" -gt 0 ]; then
   printf '  Ready. %s warning(s) above — read each one: some are optional, a missing .mpr or CLAUDE.local.md is not.\n' "$WARN"
-  exit 1
+  _vexit=1
 else
   printf '  Ready.\n'
-  exit 0
+  _vexit=0
 fi
+recommended_fix
+exit "$_vexit"

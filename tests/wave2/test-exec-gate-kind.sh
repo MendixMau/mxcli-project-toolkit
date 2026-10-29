@@ -80,7 +80,7 @@ echo "K6 gate_kind_decide"
 fn="$WORK/gk.sh"
 sed -n '/^_GK_STATE=/,/^}/p' "$EXEC" > "$fn"
 grep -q '^gate_kind_decide() {' "$fn" || bad "K6: gate_kind_decide not found in $EXEC"
-( cd "$P" && git init -q && git config user.email t@example.invalid && git config user.name t \
+( cd "$P" && git init -q && git config user.email tester && git config user.name t \
   && mkdir -p javasource/Mod/actions && echo 'class A {}' > javasource/Mod/actions/A.java \
   && git add -A && git commit -qm init ) >/dev/null 2>&1
 printf 'create entity Mod.E (Name: String);\n' > "$WORK/add.mdl"
@@ -118,7 +118,7 @@ mv "$T/mx.off" "$T/mx"
 
 echo "K7 stamp kind"
 S="$WORK/stamp"; mkdir -p "$S/bin" "$S/.claude"; cp "$TK/project-bin/model-stamp.sh" "$TK/project-bin/_common.sh" "$S/bin/"
-( cd "$S" && git init -q && git config user.email t@example.invalid && git config user.name t && printf 'm' > App.mpr \
+( cd "$S" && git init -q && git config user.email tester && git config user.name t && printf 'm' > App.mpr \
   && mkdir mprcontents && echo u > mprcontents/u && git add -A && git commit -qm i ) >/dev/null 2>&1
 st() { ( cd "$S" && PROJECT_ROOT="$S" "$@" ) >/dev/null 2>&1; }
 st env MXTK_STAMP_KIND=check MXTK_STAMP_ERRORS=0 bash bin/model-stamp.sh write pass "exec.sh x (mx check)"

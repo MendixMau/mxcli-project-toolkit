@@ -465,6 +465,50 @@ else
   ok "process start cost: ${_spawn_ms} ms each"
 fi
 
+# --- performance (measured, not just "is it installed") ----------------------------------------------
+# Doctor used to answer only "is it there". A machine where everything is installed can still spend
+# 64-234 s on a 1 s model write (#584/#585), and nobody saw it until a user profiled it by hand.
+# So, from the project's own docs/BUILD-LOG.md (exec.sh writes `steps: guards 0s check 1s … gate 20s
+# lint 3s score 3s` on every row): the median exec time and its slowest step over the last 20 execs,
+# against what a normal machine shows (measured 2026-10-28 on Linux: 17-34 s per exec, gate 9-20 s).
+# Thresholds: MXTK_PERF_EXEC_WARN (default 60 s per exec), MXTK_PERF_GATE_WARN (default 45 s gate).
+head_ "Performance (measured)"
+_perf_log="${PROJECT_DIR:+$PROJECT_DIR/docs/BUILD-LOG.md}"
+if [ -n "$_perf_log" ] && [ -f "$_perf_log" ] && grep -q 'steps: ' "$_perf_log" 2>/dev/null; then
+  _perf=$(grep 'steps: ' "$_perf_log" | tail -20 | awk '
+    { line=$0; sub(/.*steps: /, "", line); sub(/ *\|.*/, "", line)
+      n=split(line, w, " "); tot=0
+      for (i=1; i+1<=n; i+=2) { v=w[i+1]; sub(/s$/, "", v); if (v ~ /^[0-9]+$/) { tot+=v; st[w[i]]=st[w[i]] " " v } }
+      T[++rows]=tot }
+    function med(str,   a, k, m, i, j, t) { m=split(str, a, " "); for (i=1;i<=m;i++) for (j=i+1;j<=m;j++) if (a[j]+0<a[i]+0) { t=a[i]; a[i]=a[j]; a[j]=t }
+      return m ? a[int((m+1)/2)] : 0 }
+    END { all=""; for (i=1;i<=rows;i++) all=all " " T[i]
+      top=""; tv=-1; for (k in st) { v=med(st[k]); if (v+0>tv) { tv=v+0; top=k } }
+      printf "%d %d %s %d %d\n", rows, med(all), top, tv, med(st["gate"]) }')
+  set -- $_perf
+  _pn=${1:-0}; _pmed=${2:-0}; _ptop=${3:-?}; _ptopv=${4:-0}; _pgate=${5:-0}
+  _pmsg="last $_pn execs: median ${_pmed} s per exec (gate ${_pgate} s; slowest step: $_ptop ${_ptopv} s). Normal: 17-34 s, gate 9-20 s."
+  if [ "$_pmed" -gt "${MXTK_PERF_EXEC_WARN:-60}" ] || [ "$_pgate" -gt "${MXTK_PERF_GATE_WARN:-45}" ]; then
+    warn "slow execs — $_pmsg"
+    [ "$_pgate" -gt "${MXTK_PERF_GATE_WARN:-45}" ] && note "The gate (mxbuild) dominates: 'Gate mode: check' in PROJECT.md runs mx check per exec and the full build before push."
+    [ -n "$_spawn_ms" ] && [ "$_spawn_ms" -gt "${MXTK_SPAWN_WARN_MS:-30}" ] && note "Process starts are slow too (above): that is the machine, not the model — see the advice there."
+    note "Per-command profile of one exec: MXTK_PROFILE=1 ./bin/exec.sh <script> (prints the 15 slowest lines)."
+  else
+    ok "$_pmsg"
+  fi
+elif [ -n "$PROJECT_DIR" ]; then
+  note "no exec timings yet (docs/BUILD-LOG.md has no 'steps:' rows) — re-run doctor after a few execs"
+else
+  note "exec timings: pass a project dir (bin/doctor.sh <project>) to compare its execs with a normal machine"
+fi
+# Windows advice: the dev container / WSL2 lane is RECOMMENDED where process starts are slow, never
+# required — a machine without it keeps working, just slower.
+if [ "${PLATFORM:-}" = gitbash ] && [ -n "$_spawn_ms" ] && [ "$_spawn_ms" -gt "${MXTK_SPAWN_WARN_MS:-30}" ]; then
+  note "Recommended on this Windows machine (optional): run the toolkit in WSL2 or a dev container"
+  note "  (Docker Engine in WSL2, Rancher Desktop or Podman Desktop). Without one, the antivirus exclusions"
+  note "  above are the fix; everything keeps working either way."
+fi
+
 # --- environment lane -------------------------------------------------------------------------
 # Where this session runs decides the write modes available (CONVERSION-RUNBOOK.md → "Where you
 # run this"). It is DETECTED, never asked: the agent records the answer in PROJECT.md and moves on.

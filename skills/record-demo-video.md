@@ -5,6 +5,7 @@
 narrated product demo, not a test artifact — with a repeatable technique for
 opening on the app instead of a blank frame, and for keeping narration synced
 to what's on screen.
+**Live instead of recorded:** `live-demo-autopilot.md` (scripted demo run live, with a take-over panel).
 **Source:** field-tested on a live mxcli project's Playwright demo-recording
 script (mobile tour, two roles), 2026-09; the Node, counter, row-lookup and
 skip notes come from a requirements-driven back-office build's three-film set,

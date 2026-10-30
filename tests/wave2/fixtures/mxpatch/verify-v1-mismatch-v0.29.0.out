@@ -1,0 +1,6 @@
+Checked 20 unit(s) in App.mpr (MPR v1) against the contents stored beside them.
+  MISMATCH  5e6c513a-a0ee-4102-8da9-e2b4eb894686 [Projects$Project]
+            stored AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=, contents iGlXFo3kKfH3fEwvUl3MgmLHihJp3Mw/RNhs5P0Q5Sw=
+
+1 mismatch(es).
+Run 'mxcli fix hashes -p v1bad/App.mpr --repair' to rewrite the mismatched hashes from the stored contents.

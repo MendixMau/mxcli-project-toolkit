@@ -83,7 +83,18 @@ set -u
 # script and the repair inherits exec.sh's snapshot, mxbuild gate and restore.
 if [ "${2:-}" = "--property-sets-apply-step" ]; then
   { [ -n "${3:-}" ] && [ -x "$3" ]; } || { echo "--property-sets-apply-step: no runnable mxcli given" >&2; exit 2; }
-  exec "$3" fix property-sets -p "$1"
+  # mxcli v0.29.0+ also exits 1 while a MIXED name remains (cmd_fix_property_sets.go: "Exits 1
+  # when a unit could not be repaired, when a MIXED name remains"), even when every repair it made
+  # landed. mxcli leaves MIXED units untouched, so that exit is not a failed repair: report 0 and
+  # let the gate decide, else exec.sh --patch rolls the good repairs back. FAILED still exits 1.
+  _psa_o="$("$3" fix property-sets -p "$1" 2>&1)"; _psa_r=$?
+  printf '%s\n' "$_psa_o"
+  if [ "$_psa_r" -eq 1 ] && printf '%s\n' "$_psa_o" | grep -q '^  MIXED ' \
+     && ! printf '%s\n' "$_psa_o" | grep -qE '^  FAILED |could not be normalized'; then
+    echo "(exit 1 was for the MIXED name(s) above only — mxcli leaves those as they are; the repair stands)"
+    exit 0
+  fi
+  exit "$_psa_r"
 fi
 
 TOOLKIT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -201,6 +212,10 @@ probe_runs() {
 # What the dry-run prints and how it exits is mxcli's cmd/mxcli/cmd_fix_property_sets.go at
 # v0.26.0: exit 0 = nothing to do; exit 1 = a `  NEEDS ` or `  FAILED ` row per unit, OR an
 # error such as "project not found" (both exit 1, so the rows decide, never the code alone).
+# v0.29.0 adds `  MIXED ` rows (ako/mxcli#1505): a property name some elements of a type carry and
+# others lack — Mendix's merge engine cannot compare those revisions, and mxcli leaves them alone
+# (no measured value fills them). Exit 1 with only MIXED rows is result "mixed": a merge hazard
+# the repair cannot clear, reported, never "could not classify" (captured 2026-10-30).
 # Anything else is "could not classify", never clean. Support is read from `mxcli fix --help`
 # listing the subcommand: `mxcli fix property-sets --help` exits 0 on v0.24/v0.25 too (cobra
 # prints the parent's help for an unknown subcommand), so it cannot be the probe. Golden
@@ -209,7 +224,7 @@ probe_runs() {
 # The result is recorded in <project>/.claude/.property-sets-receipt (machine-local, like the
 # doctor receipt): line 1 "<date> <time> <result> <detail>", line 2 "mxcli: <--version line>".
 # Line 2 is what --if-stale and --quick compare: the check is owed again when mxcli changes.
-# Only a settled answer is recorded — clean, unproven, needs, failed, or unsupported (the support probe
+# Only a settled answer is recorded — clean, unproven, needs, failed, mixed, or unsupported (the support probe
 # ran and the subcommand is absent). An error or a timeout is never written, and --if-stale
 # skips the run only on a recorded clean/unproven/unsupported, so a one-off failure (locked model,
 # unreadable version, a probe that crashed) is re-checked on the next sync instead of being
@@ -250,19 +265,23 @@ ps_bounded() {
   rm -f "$_pb_f"
   return "$_pb_rc"
 }
-# ps_classify <exit> <output> — sets PS_RESULT (clean|needs|failed|error) and PS_DETAIL.
+# ps_classify <exit> <output> — sets PS_RESULT (clean|needs|failed|mixed|error) and PS_DETAIL.
 ps_classify() {
   _psc_checked="$(printf '%s\n' "$2" | grep -m1 -E '^Checked [0-9]+ unit' || true)"
   _psc_needs="$(printf '%s\n' "$2" | grep -c '^  NEEDS ' || true)"
   _psc_failed="$(printf '%s\n' "$2" | grep -c '^  FAILED ' || true)"
+  _psc_mixed="$(printf '%s\n' "$2" | grep -c '^  MIXED ' || true)"
+  _psc_mx=""; [ "$_psc_mixed" -gt 0 ] && _psc_mx=", $_psc_mixed MIXED property name(s) mxcli leaves alone"
   if [ "$1" -eq 0 ] && printf '%s\n' "$2" | grep -q 'no readable Mendix version'; then
     PS_RESULT=error; PS_DETAIL="mxcli read no Mendix version from the model, so nothing was checked"
   elif [ "$1" -eq 0 ]; then
     PS_RESULT=clean; PS_DETAIL="${_psc_checked:-exit 0}"
   elif [ "$1" -eq 1 ] && [ "$_psc_needs" -gt 0 ]; then
-    PS_RESULT=needs; PS_DETAIL="$_psc_needs unit(s) need their property set completed, $_psc_failed cannot be normalized"
+    PS_RESULT=needs; PS_DETAIL="$_psc_needs unit(s) need their property set completed, $_psc_failed cannot be normalized$_psc_mx"
   elif [ "$1" -eq 1 ] && [ "$_psc_failed" -gt 0 ]; then
-    PS_RESULT=failed; PS_DETAIL="$_psc_failed unit(s) hold a value in a key this Mendix version does not declare"
+    PS_RESULT=failed; PS_DETAIL="$_psc_failed unit(s) hold a value in a key this Mendix version does not declare$_psc_mx"
+  elif [ "$1" -eq 1 ] && [ "$_psc_mixed" -gt 0 ]; then
+    PS_RESULT=mixed; PS_DETAIL="$_psc_mixed property name(s) differ between elements of one type (MIXED) — no measured value fills them"
   else
     PS_RESULT=error
     PS_DETAIL="exit $1: $(printf '%s\n' "$2" | grep -v -e '^[[:space:]]*$' -e '^WARNING: This is a' | head -1)"
@@ -289,7 +308,7 @@ ps_unproven_warn() {
   note "the proof is Mendix's own: mx diff <base>.mpr <mine>.mpr out.json with this version's mx; exit 0 is clean."
 }
 ps_write_receipt() {
-  case "$PS_RESULT" in clean|unproven|needs|failed|unsupported) ;; *) return 0 ;; esac
+  case "$PS_RESULT" in clean|unproven|needs|failed|mixed|unsupported) ;; *) return 0 ;; esac
   [ -n "$PS_VER" ] || return 0
   [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ] || return 0
   mkdir -p "$PROJECT_DIR/.claude" 2>/dev/null || return 0
@@ -341,14 +360,16 @@ ps_check() {
       else
         ok "property sets: $PS_DETAIL — every unit has the property names Studio Pro writes"
       fi ;;
-    needs|failed)
+    needs|failed|mixed)
       warn "property sets: $PS_DETAIL — Studio Pro's merge/diff can throw on these"
-      printf '%s\n' "$PS_OUT" | grep -E '^  (NEEDS|FAILED) ' | head -10 | while IFS= read -r l; do note "$l"; done
-      _psk_rows="$(printf '%s\n' "$PS_OUT" | grep -cE '^  (NEEDS|FAILED) ' || true)"
+      printf '%s\n' "$PS_OUT" | grep -E '^  (NEEDS|FAILED|MIXED) ' | head -10 | while IFS= read -r l; do note "$l"; done
+      _psk_rows="$(printf '%s\n' "$PS_OUT" | grep -cE '^  (NEEDS|FAILED|MIXED) ' || true)"
       [ "$_psk_rows" -gt 10 ] && note "  … $((_psk_rows - 10)) more"
       [ "$PS_RESULT" = needs ] && note "repair (snapshot + mxbuild gate + restore): bin/doctor.sh --fix-property-sets ${PROJECT_DIR:-<project>}"
       [ "$(printf '%s\n' "$PS_OUT" | grep -c '^  FAILED ' || true)" -gt 0 ] && \
-        note "FAILED units are left alone by mxcli and make the guarded repair roll back — resolve them first." ;;
+        note "FAILED units are left alone by mxcli and make the guarded repair roll back — resolve them first."
+      [ "$(printf '%s\n' "$PS_OUT" | grep -c '^  MIXED ' || true)" -gt 0 ] && \
+        note "MIXED names are left alone by mxcli and --fix-property-sets cannot clear them. Report them with your Mendix version (mendixlabs/mxcli asks for exactly that); until a value is measured, a merge touching these units can throw." ;;
     *) warn "property sets: could not classify the check — $PS_DETAIL (not recorded; the next run re-checks)"
        printf '%s\n' "$PS_OUT" | grep -v '^[[:space:]]*$' | head -5 | while IFS= read -r l; do note "  $l"; done ;;
   esac
@@ -375,7 +396,7 @@ ps_apply() {
   ps_check
 }
 ps_exit_code() {
-  case "$PS_RESULT" in clean|unproven) echo 0 ;; not-run) echo 2 ;; unsupported) echo 3 ;; needs|failed) echo 1 ;; *) echo 4 ;; esac
+  case "$PS_RESULT" in clean|unproven) echo 0 ;; not-run) echo 2 ;; unsupported) echo 3 ;; needs|failed|mixed) echo 1 ;; *) echo 4 ;; esac
 }
 
 # --property-sets / --fix-property-sets: only this check, then exit. Stands alone so
@@ -409,7 +430,7 @@ if [ -n "$PS_MODE" ]; then
     PS_VER="$(ps_version "$PMXCLI_PROBE")"
     if [ -n "$PS_VER" ] && ! ps_stale; then
       PS_RESULT="$(sed -n '1s/^[^ ]* [^ ]* \([^ ]*\).*/\1/p' "$(ps_receipt)")"
-      # Only a settled "nothing to do here" short-circuits; needs/failed re-check every time.
+      # Only a settled "nothing to do here" short-circuits; needs/failed/mixed re-check every time.
       case "$PS_RESULT" in
         clean|unsupported)
           ok "already checked for $PS_VER: $(sed -n 1p "$(ps_receipt)")"
@@ -424,6 +445,52 @@ if [ -n "$PS_MODE" ]; then
   [ "$PS_MODE" = fix ] && [ "$PS_RESULT" = needs ] && ps_apply
   exit "$(ps_exit_code)"
 fi
+
+# mxcli_latest_advice <version line> — installed vs the latest mxcli release. Advice only: never a
+# FAIL, never blocks, never downloads. A pin ($MXCLI_VERSION) is respected — noted, not nagged.
+# Latest is read from the redirect of releases/latest/download/<asset> (one request, not followed,
+# 5 s cap); offline or no curl is one quiet note. MXTK_MXCLI_LATEST=vX.Y.Z supplies the
+# answer without the network (fixtures, air-gapped machines); MXTK_NO_LATEST_CHECK=1 skips it.
+# MXTK_MXCLI_FLOOR is the oldest release this toolkit's instruments are checked against.
+MXTK_MXCLI_FLOOR="${MXTK_MXCLI_FLOOR:-v0.28.0}"
+mxtk_semver_lt() {   # <a> <b> — 0 when vA.B.C < vX.Y.Z; 1 otherwise or unparseable
+  printf '%s %s\n' "${1#v}" "${2#v}" | awk '{
+    n = split($1, a, "."); m = split($2, b, ".")
+    if (n < 3 || m < 3) exit 1
+    for (i = 1; i <= 3; i++) { if (a[i] + 0 < b[i] + 0) exit 0; if (a[i] + 0 > b[i] + 0) exit 1 }
+    exit 1 }'
+}
+mxcli_latest_advice() {
+  [ "${MXTK_NO_LATEST_CHECK:-0}" = 1 ] && return 0
+  _ml_have="$(printf '%s\n' "$1" | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+  [ -n "$_ml_have" ] || return 0
+  _ml_new="${MXTK_MXCLI_LATEST:-}"
+  if [ -z "$_ml_new" ] && command -v curl >/dev/null 2>&1; then
+    # The redirect of the asset URL --install itself uses (not followed: nothing is downloaded).
+    # Not releases/latest: a proxy that allows release downloads can refuse that page (403,
+    # measured in a cloud sandbox 2026-10-30, where this redirect answered v0.29.0).
+    _ml_new="$(curl -sS --max-time 5 -o /dev/null -w '%{redirect_url}' \
+      https://github.com/mendixlabs/mxcli/releases/latest/download/mxcli-linux-amd64 2>/dev/null \
+      | sed -n 's|.*/releases/download/\(v[0-9][0-9.]*\)/.*|\1|p')"
+  fi
+  if [ -z "$_ml_new" ]; then
+    note "latest mxcli release: not checked (offline, or no curl) — installed $_ml_have"
+    return 0
+  fi
+  if ! mxtk_semver_lt "$_ml_have" "$_ml_new"; then
+    ok "mxcli $_ml_have is the latest release"
+  elif [ -n "${MXCLI_VERSION:-}" ]; then
+    note "mxcli pinned by MXCLI_VERSION=$MXCLI_VERSION; latest is $_ml_new — move when the team chooses"
+  else
+    warn "mxcli $_ml_have is behind the latest release $_ml_new (advice only — nothing is blocked)"
+    note "what's new: https://github.com/mendixlabs/mxcli/releases/tag/$_ml_new"
+    note "upgrade: move the old binary aside (mv mxcli mxcli.$_ml_have), then bin/doctor.sh --install ${PROJECT_DIR:-<project>}"
+    note "to stay on $_ml_have deliberately: set MXCLI_VERSION=$_ml_have and this becomes a note"
+  fi
+  mxtk_semver_lt "$_ml_have" "$MXTK_MXCLI_FLOOR" && \
+    note "this toolkit's instruments are checked against $MXTK_MXCLI_FLOOR and later; $_ml_have output may not parse"
+  return 0
+}
 
 # recommended_fix — ONE block that ends both the normal run and --bench: the first option that works on THIS
 # machine, in this order. Read-only, cheap probes; never installs anything and never asks for IT's help.
@@ -1333,10 +1400,10 @@ if [ "$INSTALL" -eq 1 ]; then
     # 2026-08-31): mxcli-{darwin|linux}-{amd64|arm64}, mxcli-windows-amd64.exe. Windows gets
     # the .exe name so Git Bash's transparent foo -> foo.exe mapping serves the project
     # convention ./mxcli unchanged. $MXCLI_VERSION pins a release tag (e.g. v0.16.0) for
-    # teams that standardise; default is latest. v0.25.0 froze `mdl 1`: DESCRIBE output and
-    # `-c` input changed shape (navigation, DynamicClasses, `show entity` refused). The
-    # toolkit's instruments read both shapes, so a project mid-build may stay on its version
-    # (MXCLI_VERSION=v0.24.0) and move when it chooses.
+    # teams that standardise; default is latest. The toolkit's instruments are checked against
+    # $MXTK_MXCLI_FLOOR (v0.28.0) through v0.29.0 (golden captures, 2026-10-30); a project
+    # mid-build may stay on its version (MXCLI_VERSION=<its ./mxcli --version>) and move when
+    # it chooses. The normal doctor run says when the installed mxcli is behind the latest.
     # Git Bash on Windows ARM64 runs emulated, so `uname -m` says x86_64 there. On Windows the
     # real hardware shows in the `uname -s` suffix (...-ARM64) and in PROCESSOR_ARCHITEW6432
     # (set for emulated processes) / PROCESSOR_ARCHITECTURE; those win over `uname -m`.
@@ -1395,7 +1462,7 @@ if [ "$INSTALL" -eq 1 ]; then
         note "  $_STEP. mxcli (~90 MB) -> $PROJECT_DIR/$MXCLI_DEST"
         note "     the MDL CLI every session here uses; from $MXCLI_URL"
         [ -z "${MXCLI_VERSION:-}" ] && note "     (latest release — set MXCLI_VERSION=vX.Y.Z to pin the team's version;"
-        [ -z "${MXCLI_VERSION:-}" ] && note "      a project already building on v0.24 can stay there: MXCLI_VERSION=v0.24.0)"
+        [ -z "${MXCLI_VERSION:-}" ] && note "      a project mid-build can stay on its version: MXCLI_VERSION=<its ./mxcli --version>)"
       fi
       if [ "$NEED_TOOLCHAIN" -eq 1 ]; then
         _STEP=$((_STEP + 1))
@@ -1855,6 +1922,7 @@ if [ -n "$PROJECT_DIR" ]; then
       if [ "$MXCLI_EXIT" -eq 0 ]; then
         ok "mxcli runs ($PROBE_HOW): $(probe_line)"
         note "at: $PMXCLI_PROBE"
+        [ "$QUICK" != 1 ] && mxcli_latest_advice "$(probe_line)"
       else
         bad "mxcli exists but cannot run (exit $MXCLI_EXIT): $PMXCLI_PROBE"
         printf '%s\n' "$PROBE_OUT" | grep -v '^[[:space:]]*$' | head -3 | while IFS= read -r l; do note "  $l"; done

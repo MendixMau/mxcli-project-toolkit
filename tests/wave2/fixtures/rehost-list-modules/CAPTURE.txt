@@ -17,3 +17,9 @@ field-service-template-9.24.2.txt
   not depend on a fixed number of leading lines.
   59 modules: 16 "Marketplace vX", System, and 42 with an empty Source column (own).
   (#293's capture note said "45 own"; counting the Source column gives 42.)
+
+v0.29.0 additions (2026-10-30; binary sha256 in fixtures/property-sets/CAPTURE-v0.29.txt):
+  list-modules-protected-v0.29.0.txt              `mxcli-v0.29.0 -p prot/TestApp.mpr list modules`
+  list-modules-marketplace-protected-v0.29.0.txt  the same on mkt/TestApp.mpr
+  Models: fixtures/mxpatch/model/ with MyFirstModule set Protected, and additionally marked a
+  Marketplace module v2.1.0 — exact mutations in fixtures/show-modules/CAPTURE.txt.

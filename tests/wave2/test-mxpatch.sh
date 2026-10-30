@@ -274,6 +274,14 @@ OUT="$(cd "$M" && "$PY" "$BIN/wf-add-path-terminators.py" TestApp.mpr MyFirstMod
 OUT="$(cd "$M" && "$PY" "$BIN/wf-add-path-terminators.py" TestApp.mpr MyFirstModule.Approval --expect-paths 2 --apply 2>&1)"; RC=$?
 [ "$RC" -eq 0 ] && [ "$(idx "$M")" = "checked 27" ] && ok "terminators: --expect-paths 2: applied, index clean" || bad "expect-paths rc=$RC" "$OUT"
 
+echo "== E: terminators refuse a model below Mendix 10.21 (the type does not exist there; mxcli v0.29 compat) =="
+M="$WORK/e"; model "$M"
+"$PY" -c 'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.execute("update _MetaData set _ProductVersion=?",("10.20.0",)); c.commit()' "$M/TestApp.mpr"
+F0="$(filesum "$M/$(upath $WF)")"
+OUT="$(cd "$M" && "$PY" "$BIN/wf-add-path-terminators.py" TestApp.mpr MyFirstModule.Approval --expect-paths 2 --apply 2>&1)"; RC=$?
+[ "$RC" -eq 3 ] && [ "$(filesum "$M/$(upath $WF)")" = "$F0" ] && printf '%s' "$OUT" | grep -q "Mendix 10.20.0.*arrived in 10.21.0" \
+  && ok "terminators on 10.20.0: refused, exit 3, nothing written" || bad "10.20 guard rc=$RC" "$OUT"
+
 echo ""
 echo "PASS: $PASS  FAIL: $FAIL"
 [ "$FAIL" -eq 0 ]

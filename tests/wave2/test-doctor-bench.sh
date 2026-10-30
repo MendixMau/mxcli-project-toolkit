@@ -230,6 +230,19 @@ chkno "sync folder: repo named dropbox-client is not flagged" "$WORK/rf.out" "fo
 ( PATH="$SAFEPATH" MXTK_PROC_MEMINFO="$WORK/meminfo-high" FAKE_PS_FILE="$WORK/ps-clean.txt" bash "$DOCTOR" --quick "$WORK/dev/dropbox-client" > "$WORK/q-nod.out" 2>&1 ); _rc_nod=$?
 grep -q 'folder synced by OneDrive' "$WORK/q-od.out" && [ "$_rc_od" = "$_rc_nod" ] \
   && ok "sync folder: WARN shown, exit code unchanged ($_rc_od)" || bad "sync folder: rc $_rc_nod -> $_rc_od or no WARN"
+# 8d. Older local copies of the speed scripts -> "speed fixes not active", and upgrading them is the first fix
+# (field, 2026-10-30: a project with 15 drifted scripts still ran a full mxbuild per change after the pull).
+SP="$WORK/stale"; mkdir -p "$SP/bin"; printf '# P\n\nGate mode: full\n' > "$SP/PROJECT.md"
+sed 's/gate_kind_decide/old_gate/g' "$ROOT/project-bin/exec.sh" > "$SP/bin/exec.sh"
+cp "$ROOT/project-bin/lint-gate.sh" "$SP/bin/lint-gate.sh"
+rf bash "$DOCTOR" --bench "$SP"
+chk "stale scripts: health names bin/exec.sh" "$WORK/rf.out" "speed fixes not active in this project: older local copy of bin/exec.sh"
+chkno "stale scripts: a current lint-gate.sh is not named" "$WORK/rf.out" "bin/lint-gate.sh"
+chk "stale scripts: fix upgrades exec.sh with its _common.sh, before Gate mode" "$WORK/rf.out" "\-\-only-bin exec.sh \-\-upgrade-bin exec.sh \-\-only-bin _common.sh \-\-upgrade-bin _common.sh"
+chkno "stale scripts: Gate-mode advice waits until the scripts are current" "$WORK/rf.out" 'Remove "Gate mode: full"'
+cp "$ROOT/project-bin/exec.sh" "$SP/bin/exec.sh"
+rf bash "$DOCTOR" --bench "$SP"
+chkno "current scripts: no stale warning" "$WORK/rf.out" "speed fixes not active"
 # 9. Low-memory advice offers a restart, the plain option, besides --cleanup
 rf env MXTK_PROC_MEMINFO="$WORK/meminfo-low" bash "$DOCTOR" --bench "$P"
 chk "low memory: restart offered" "$WORK/rf.out" "restart the computer"

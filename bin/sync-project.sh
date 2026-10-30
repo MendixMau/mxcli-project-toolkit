@@ -1145,6 +1145,10 @@ known_fix_note() {
     page-scope.sh)
       echo "bin/page-scope.sh predates the HEADER_WORDS fix (F-042, 2026-08-28): SHOW PAGES header columns Excluded/Folder/Params were parsed as page rows, inflating the page denominator (measured: 6 real pages counted as 13), so every consumer of page-scope.json graded against furniture. One-line fix — recommended upgrade." ;;
     _common.sh)
+      if grep -q '_mxtk_has_model' "$PROJECT_DIR/bin/_common.sh" 2>/dev/null \
+         && ! grep -q 'mxtk_mx_check_to_mxbuild' "$PROJECT_DIR/bin/_common.sh" 2>/dev/null; then
+        echo "bin/_common.sh predates the SPEED fixes (toolkit, 2026-10-29, Windows field reports): it has no quick 'mx check' gate, so every model change runs a full mxbuild (80-130 s per change on a Windows laptop). Upgrade BOTH: --upgrade-bin _common.sh --upgrade-bin exec.sh."; return
+      fi
       if ! grep -q '_mxtk_has_model' "$PROJECT_DIR/bin/_common.sh" 2>/dev/null; then
         echo "bin/_common.sh predates the MULTI-APP ROOT fix (#420, toolkit, 2026-10-20): in a multi-app folder (apps/<X>/X.mpr) its root search climbed to the first ancestor holding any .mpr, so ledgers, stamps and lint landed in another folder. A hand-edited copy also holds back every older script that depends on it. Take just this file (your copy is backed up): $0 $PROJECT_DIR --only-bin _common.sh --upgrade-bin _common.sh"
       fi
@@ -1157,6 +1161,10 @@ known_fix_note() {
       fi
       echo "bin/_common.sh predates the WINDOWS MXBUILD GATE fix (toolkit, 2026-08-25). This is where find_sp_app/find_mxbuild, JAVA_HOME resolution and mxtk_platform actually live — exec.sh only calls them. So upgrading exec.sh ALONE does not deliver the fix, and grepping exec.sh for mxtk_platform reports 0 even on a fully patched project: grep _common.sh instead. Without this file the mxbuild gate is skipped on every Windows exec and nothing checks your builds. Upgrade BOTH: --upgrade-bin _common.sh --upgrade-bin exec.sh." ;;
     exec.sh)
+      if grep -q 'fail_rc' "$PROJECT_DIR/bin/exec.sh" 2>/dev/null \
+         && ! grep -q 'gate_kind_decide' "$PROJECT_DIR/bin/exec.sh" 2>/dev/null; then
+        echo "bin/exec.sh predates the SPEED fixes (toolkit, 2026-10-29, Windows field reports): every model change runs a full mxbuild instead of the quick 'mx check' (the full build now runs before push and at module close), and each exec starts about 60% more processes, which costs most on Windows. Upgrade BOTH: --upgrade-bin _common.sh --upgrade-bin exec.sh."; return
+      fi
       if grep -q 'PATCH_MODE' "$PROJECT_DIR/bin/exec.sh" 2>/dev/null \
          && ! grep -q 'fail_rc' "$PROJECT_DIR/bin/exec.sh" 2>/dev/null; then
         echo "bin/exec.sh predates the EXIT CODES fix (#443/#448, toolkit, 2026-10-20, field project): a clean build with a lint rise exited 1 like a failed gate, and an UNVERIFIED gate exited 0 like a pass, so agents learned to ignore 1 and trust 0. Now 4 = applied, lint only; 5 = applied, unverified; 1 = not applied. Its _common.sh also retries a bundle-only mxbuild exit 3 once. Upgrade BOTH: --upgrade-bin _common.sh --upgrade-bin exec.sh."; return

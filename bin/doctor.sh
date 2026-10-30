@@ -427,6 +427,8 @@ fi
 
 # recommended_fix — ONE block that ends both the normal run and --bench: the first option that works on THIS
 # machine, in this order. Read-only, cheap probes; never installs anything and never asks for IT's help.
+#   0. MH_STALE (machine_health): the project runs older local copies of the speed scripts -> upgrade them
+#      first; every other measurement is of the old path. Then MH_SYNC (project in a sync folder) -> move it.
 #   a. PROJECT.md says `Gate mode: full` -> remove that line: `mx check` per exec is the default, with the
 #      full build before every push (offered even when nothing is slow: it helps every machine).
 #   b. process starts are slow AND this is Git Bash AND `wsl.exe --status` succeeds -> run the toolkit in WSL.
@@ -438,6 +440,17 @@ recommended_fix() {
   head_ "Recommended fix"
   _rf_slow=0
   [ -n "$RF_SPAWN_MS" ] && [ "$RF_SPAWN_MS" -gt "${MXTK_SPAWN_WARN_MS:-30}" ] && _rf_slow=1
+  if [ -n "${MH_STALE:-}" ]; then
+    # --only-bin scopes the install to the named scripts: --upgrade-bin alone runs the FULL sync (#390).
+    _rf_list="$MH_STALE"
+    case " $MH_STALE " in *" exec.sh "*) case " $MH_STALE " in *" _common.sh "*) ;; *) _rf_list="$_rf_list _common.sh" ;; esac ;; esac
+    _rf_up=""; for _rf_s in $_rf_list; do _rf_up="$_rf_up --only-bin $_rf_s --upgrade-bin $_rf_s"; done
+    echo "  Take the toolkit's current scripts into this project; the toolkit update did not reach them,"
+    echo "  because sync never overwrites a script that was edited here. Each copy is backed up first:"
+    echo "    <toolkit>/bin/sync-project.sh <project>$_rf_up"
+    echo "  Check with whoever edited them that the local change is no longer needed. Then run doctor --bench again."
+    return 0
+  fi
   _rf_pm=""
   if [ -n "$PROJECT_DIR" ] && [ -f "$PROJECT_DIR/PROJECT.md" ]; then
     _rf_pm="$(sed -n 's/^[*_ ]*Gate mode:[*_ ]*\([A-Za-z]*\).*/\1/p' "$PROJECT_DIR/PROJECT.md" 2>/dev/null | head -1 | tr 'A-Z' 'a-z')"
@@ -629,6 +642,19 @@ machine_health() {
     */"Mobile Documents"/*|*/"iCloud Drive"/*) MH_SYNC=iCloud ;;
   esac
   [ -n "$MH_SYNC" ] && advise "the project is in a folder synced by $MH_SYNC: $_mh_pd"
+  # Speed fixes not active: the project's bin/ holds an OLDER local copy of a script the 2026-10-29 speed
+  # work changed. sync-project.sh never overwrites a hand-edited copy, so after a toolkit pull these keep
+  # running the slow path (field, 2026-10-30: 15 drifted scripts, every change still ran a full mxbuild).
+  # Marker per file = a function or file name the fixed version has; absent file = not this check's business.
+  MH_STALE=""
+  if [ -n "$_mh_pd" ]; then
+    for _mh_s in "exec.sh:gate_kind_decide" "_common.sh:mxtk_mx_check_to_mxbuild" "lint-gate.sh:lint-receipt-ok"; do
+      _mh_f="$_mh_pd/bin/${_mh_s%%:*}"
+      [ -f "$_mh_f" ] && ! grep -q "${_mh_s#*:}" "$_mh_f" 2>/dev/null && MH_STALE="$MH_STALE ${_mh_s%%:*}"
+    done
+    MH_STALE="${MH_STALE# }"
+  fi
+  [ -n "$MH_STALE" ] && advise "speed fixes not active in this project: older local copy of bin/$(printf '%s' "$MH_STALE" | sed 's/ /, bin\//g')"
   MH_BAD="$_mh_bad"
   if [ "$_mh_bad" = 1 ]; then
     note "When memory runs out the operating system kills mxbuild (exit 137), and the build gate then reads"

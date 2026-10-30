@@ -441,8 +441,10 @@ recommended_fix() {
   _rf_slow=0
   [ -n "$RF_SPAWN_MS" ] && [ "$RF_SPAWN_MS" -gt "${MXTK_SPAWN_WARN_MS:-30}" ] && _rf_slow=1
   if [ -n "${MH_STALE:-}" ]; then
-    _rf_up=""; for _rf_s in $MH_STALE; do _rf_up="$_rf_up --upgrade-bin $_rf_s"; done
-    case " $MH_STALE " in *" exec.sh "*) case " $MH_STALE " in *" _common.sh "*) ;; *) _rf_up="$_rf_up --upgrade-bin _common.sh" ;; esac ;; esac
+    # --only-bin scopes the install to the named scripts: --upgrade-bin alone runs the FULL sync (#390).
+    _rf_list="$MH_STALE"
+    case " $MH_STALE " in *" exec.sh "*) case " $MH_STALE " in *" _common.sh "*) ;; *) _rf_list="$_rf_list _common.sh" ;; esac ;; esac
+    _rf_up=""; for _rf_s in $_rf_list; do _rf_up="$_rf_up --only-bin $_rf_s --upgrade-bin $_rf_s"; done
     echo "  Take the toolkit's current scripts into this project; the toolkit update did not reach them,"
     echo "  because sync never overwrites a script that was edited here. Each copy is backed up first:"
     echo "    <toolkit>/bin/sync-project.sh <project>$_rf_up"

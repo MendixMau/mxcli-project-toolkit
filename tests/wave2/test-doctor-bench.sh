@@ -238,7 +238,7 @@ cp "$ROOT/project-bin/lint-gate.sh" "$SP/bin/lint-gate.sh"
 rf bash "$DOCTOR" --bench "$SP"
 chk "stale scripts: health names bin/exec.sh" "$WORK/rf.out" "speed fixes not active in this project: older local copy of bin/exec.sh"
 chkno "stale scripts: a current lint-gate.sh is not named" "$WORK/rf.out" "bin/lint-gate.sh"
-chk "stale scripts: fix upgrades exec.sh with its _common.sh, before Gate mode" "$WORK/rf.out" "\-\-upgrade-bin exec.sh \-\-upgrade-bin _common.sh"
+chk "stale scripts: fix upgrades exec.sh with its _common.sh, before Gate mode" "$WORK/rf.out" "\-\-only-bin exec.sh \-\-upgrade-bin exec.sh \-\-only-bin _common.sh \-\-upgrade-bin _common.sh"
 chkno "stale scripts: Gate-mode advice waits until the scripts are current" "$WORK/rf.out" 'Remove "Gate mode: full"'
 cp "$ROOT/project-bin/exec.sh" "$SP/bin/exec.sh"
 rf bash "$DOCTOR" --bench "$SP"

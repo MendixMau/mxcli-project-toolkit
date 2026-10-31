@@ -39,6 +39,9 @@ lint=$("$MX" lint -p "$MPR" 2>&1 | grep -v WARNING)
 mine=$(printf '%s\n' "$lint" | grep -A1 '⚠' | grep -B1 -E "\b$mod\." | grep '⚠' || true)
 nmine=$(printf '%s' "$mine" | grep -c '⚠' || true)
 score=$(bash bin/metrics-ledger.sh score 2>&1 | tail -1)
+# mxcli v0.29.0 changed what this checks (ako/mxcli#568, #646): `docker check` now checks the
+# project as stored, so a stale widget definition (CE0463) that passed here on v0.28 is reported
+# now. That is a real finding about the model, not a toolkit regression: `mxcli fix widgets`.
 chk=$("$MX" docker check -p "$MPR" ${MXB:+--mxbuild-path "$MXB"} 2>&1 | grep -v WARNING | tail -3)
 # `Gate mode: check` (exec.sh): the module's execs were `mx check`ed, which compiles no Java. The
 # module boundary is one of the natural places for the full build, so run it here when the stamp

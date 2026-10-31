@@ -1,0 +1,31 @@
+tests/wave2/fixtures/property-sets/ — v0.28.0 / v0.29.0 additions (captured 2026-10-30, Linux x86-64)
+
+Captured, never hand-written. Binaries: the public mendixlabs/mxcli release assets
+(mxcli-linux-amd64), downloaded anonymously:
+  v0.29.0  "mxcli version v0.29.0 (2026-10-30T17:00:32Z)"  sha256 7ecb06658afb265f0e3b9ed23e3903592cc2629d53f7baa9dc0837a982c103b3
+  v0.28.0  "mxcli version v0.28.0 (2026-10-23T14:29:27Z)"  sha256 7a1cb61f9e5e28c09f3c1247446cc611f6deca781355b93c5c6a29fd29d4e3ee
+
+  version-v0.2{8,9}.0.txt                 `mxcli version`
+  fix-help-v0.2{8,9}.0.txt                `mxcli fix --help`, cut at "Global Flags:" as the others
+  fix-property-sets-help-v0.2{8,9}.0.txt  `mxcli fix property-sets --help`, same cut
+
+THE MODEL: tests/wave2/fixtures/mxpatch/model/ (provenance in its CAPTURE.txt; Mendix 11.14.0),
+rebuilt with executescript — its mprcontents/ is byte-identical to the committed one (diff -r).
+  "full"  = that model after `mxcli-v0.29.0 fix property-sets -p TestApp.mpr` (completes the
+            DomainModel unit 84776610-…, +7 keys).
+  "mixed" = "full", then the LanguageCode key removed from the FIRST Texts$Translation element of
+            unit 25d3e460-c53d-419e-a2a9-e1428f40b14f (Microflows$Microflow) with mxpatch.py's
+            Model.write_unit (ContentsHash kept in step; `fix hashes` clean). Found by trying
+            key removals until v0.29.0 reported MIXED: Studio Pro writes the same names on every
+            element of a type, so 260 of 261 Translations carrying it is the hazard.
+  "both"  = the original model (DomainModel still incomplete) with the same removal.
+
+THE CAPTURES (<name>.out = stdout, .err = stderr, .exit = exit code; each on a fresh copy):
+  ps-dryrun-mixed-v0.29.0      fix property-sets --dry-run on "mixed": only a MIXED row + its
+                               summary paragraph, exit 1 (no NEEDS, no FAILED row)
+  ps-dryrun-both-v0.29.0       --dry-run on "both": NEEDS + MIXED, exit 1
+  ps-apply-both-v0.29.0        fix property-sets (write) on "both": FIXED + "Completed 1 unit(s)"
+                               + MIXED, exit 1 — the repair landed and the command still exits 1
+  ps-after-apply-both-v0.29.0  --dry-run after that write: MIXED only, exit 1
+  For contrast (not committed): v0.28.0 on "mixed" prints "Every unit already has the property
+  names Studio Pro writes." and exits 0; on "both" it reports NEEDS only (+3 keys), exit 1.

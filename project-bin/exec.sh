@@ -1824,7 +1824,10 @@ fi
 # The contract is captured, not assumed (tests/wave2/fixtures/mxpatch/, v0.25.0 and v0.26.0
 # verbatim): exit 0 + "The ContentsHash index matches every unit file." (or "is an MPR v1
 # project") = clean; exit 1 + the "N mismatch(es), N missing file(s), N orphan file(s)."
-# summary = issues, one "  MISMATCH|MISSING|ORPHAN" row each; exit 1 WITHOUT the summary is an
+# summary = issues, one "  MISMATCH|MISSING|ORPHAN" row each. From v0.29.0 (ako/mxcli#1159) an
+# MPR v1 model is verified too: clean = "Every unit's ContentsHash matches its stored
+# contents.", issues = a bare "N mismatch(es)." summary with "  MISMATCH  <id> [<type>]" rows
+# (no file path: v1 keeps unit contents inside the .mpr); exit 1 WITHOUT the summary is an
 # error ("project not found") — never read the exit code alone. Support is read from
 # `mxcli fix --help` listing `hashes`, the way doctor.sh probes property-sets: on v0.24.0
 # `mxcli fix hashes --help` exits 0 with the parent's help, so it cannot be the probe.
@@ -1840,9 +1843,9 @@ hv_supported() {   # 0 listed, 1 absent, 2 the help itself failed
 hv_run() {         # <outfile> — sets HV_STATE clean|issues|error and HV_RC
   HV_RC=0
   "$PMXCLI" fix hashes -p "$MPR" > "$1" 2>&1 < /dev/null || HV_RC=$?
-  if [ "$HV_RC" -eq 0 ] && grep -qE 'ContentsHash index matches every unit file|is an MPR v1 project' "$1"; then
+  if [ "$HV_RC" -eq 0 ] && grep -qE "ContentsHash index matches every unit file|is an MPR v1 project|Every unit's ContentsHash matches its stored contents" "$1"; then
     HV_STATE=clean
-  elif [ "$HV_RC" -eq 1 ] && grep -qE '^[0-9]+ mismatch\(es\), [0-9]+ missing file\(s\), [0-9]+ orphan file\(s\)\.' "$1"; then
+  elif [ "$HV_RC" -eq 1 ] && grep -qE '^[0-9]+ mismatch\(es\)(, [0-9]+ missing file\(s\), [0-9]+ orphan file\(s\))?\.' "$1"; then
     HV_STATE=issues
   else
     HV_STATE=error

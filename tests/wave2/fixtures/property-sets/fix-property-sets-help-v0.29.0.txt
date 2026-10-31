@@ -1,0 +1,60 @@
+Normalize the property names of every unit already in the project.
+
+Mendix's merge and diff engine compares two revisions of an element by its
+property NAMES and throws when they differ:
+
+  Objects with ID … of type Microflows$RestOperationCallAction do not have
+  the same properties.
+
+The model is valid — mx check passes and Studio Pro opens it — but every diff,
+merge and the Version Control panel fail once Studio Pro has saved the
+document with its full property set.
+
+Every mxcli write already gives a unit that set for the project's Mendix
+version: missing keys are added with the value Mendix gives an absent one, and
+empty keys the version does not declare yet are dropped. A unit written by an
+older mxcli and never rewritten since keeps its gaps. This command applies the
+same normalization to every stored unit, and writes the units whose property
+names change. It adds and removes keys only: no element $ID moves and no
+existing GUID changes. The one GUID it adds is on a project user role that has
+none (older mxcli wrote them without): the role's own $ID, the value a role
+mxcli creates gets — without it the build invents a random GUID each time and
+the runtime can only find the role's row by name. A second run writes nothing.
+
+The repair works from its own commit on: a merge whose base is an older
+revision still fails on every document that was incomplete there and that both
+branches changed. Run it once on the main branch, in a commit of its own, and
+branch from there. To get an older branch past such a merge: abort it (git
+merge --abort); list the documents with --dry-run on a checkout of the merge
+base; put the ones your branch changed back to their merge-base version (git
+checkout <base> -- <unit file>, then mxcli fix hashes --repair) and commit;
+merge again in Studio Pro; redo those edits. Never delete and re-create an
+entity, attribute or association to get past it: its GUID is the database's
+identity for it.
+
+A unit holding a value in a key the project's version does not declare is
+reported and left alone — dropping the value would change the model. Like every
+mxcli write, the repair is refused while Studio Pro has the project open.
+
+The keys it adds come from values measured on Mendix versions. A key no
+measurement covers on the project's version is not filled, but it is found:
+Studio Pro writes the same property names on every element of a type, so a
+name some elements of a type carry and others lack is listed as MIXED, with the
+units on the smaller side, and left as it is. Report those with your Mendix
+version so the value can be measured.
+
+Exits 1 when a unit could not be repaired, when a MIXED name remains, or, with
+--dry-run, when a unit needs the repair.
+
+Usage:
+  mxcli fix property-sets [flags]
+
+Examples:
+  mxcli fix property-sets -p app.mpr --dry-run
+  mxcli fix property-sets -p app.mpr
+
+Flags:
+      --dry-run          report the units that would change, write nothing
+  -h, --help             help for property-sets
+  -p, --project string   path to the Mendix project (.mpr)
+

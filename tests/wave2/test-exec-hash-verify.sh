@@ -19,7 +19,9 @@
 # F2), the fresh-hash baseline line (C), the repaired-by-rewrite line (K), the
 # MXPATCH_BACKUP_DIR hand-off (K) and case M fail: 29 pass, 14 fail. Against 4878984 only
 # case M fails (38 pass, 5 fail): a rewritten unit left stale again was "pre-existing".
-# Exit codes alone in A, C, F, G, H, J, K, L are guards.
+# Exit codes alone in A, C, F, G, H, J, K, L are guards. Cases N-P replay v0.29.0 (captured
+# 2026-10-30, fixtures/mxpatch/CAPTURE.txt): against exec.sh before the v0.29 compat fix N's row
+# and O's exit, unit and row fail, 45 pass 4 fail (the v1 baseline read as an error: nothing verified).
 set -uo pipefail
 
 EXEC_SH="${1:?usage: test-exec-hash-verify.sh /path/to/exec.sh}"
@@ -196,6 +198,24 @@ kept && bad "M: the patch was KEPT" || ok "patch rolled back"
 grep -q '1 new issue' "$WORK/out.M" && ok "counted as 1 new issue" || bad "M: not counted new" "$(grep -n 'new\|MISMATCH' "$WORK/out.M")"
 lastrow | grep -q 'patch refused.*hashes: baseline 1 mismatch (pre-existing), verify 1 new' && ok "BUILD-LOG row: verify 1 new" || bad "M: row" "$(lastrow)"
 built && bad "M: mxbuild ran on a model the verify had already refused" || ok "gate not spent"
+
+echo "== N: v0.29.0 verifies MPR v1: its clean text is clean, not an error (mxcli v0.29 compat) =="
+# v0.28.0 said "is an MPR v1 project ... no ContentsHash index to verify"; v0.29.0 (ako/mxcli#1159)
+# checks every unit and says "Every unit's ContentsHash matches its stored contents." Read as an
+# error, the baseline went NOT RUN and every --patch on a Mendix < 10.18 project was unverified.
+RC=$(STUB_VER=v0.29.0 HV_SEQ=verify-v1-v0.29.0,verify-v1-v0.29.0 run N)
+[ "$RC" -eq 0 ] && kept && ok "exit 0, kept" || bad "N rc=$RC" "$(tail -12 "$WORK/out.N")"
+lastrow | grep -q 'hashes: baseline clean, verify clean' && ok "BUILD-LOG row: baseline clean, verify clean" || bad "N: row" "$(lastrow)"
+
+echo "== O: v0.29.0, MPR v1: clean -> a v1 MISMATCH ('N mismatch(es).', no file path): restored =="
+RC=$(STUB_VER=v0.29.0 HV_SEQ=verify-v1-v0.29.0,verify-v1-mismatch-v0.29.0 run O)
+[ "$RC" -eq 1 ] && ! kept && ok "exit 1, restored" || bad "O rc=$RC (expected 1: the patch left a stale v1 ContentsHash)" "$(tail -10 "$WORK/out.O")"
+grep -q 'MISMATCH  5e6c513a-a0ee-4102-8da9-e2b4eb894686' "$WORK/out.O" && ok "names the mismatched unit" || bad "O: unit not named"
+lastrow | grep -q 'hashes: baseline clean, verify 1 new' && ok "BUILD-LOG row: verify 1 new" || bad "O: row" "$(lastrow)"
+
+echo "== P: the v0.29.0 MPR v2 contract is unchanged: clean -> stale fails =="
+RC=$(STUB_VER=v0.29.0 HV_SEQ=verify-clean-v0.26.0,verify-stale-v0.29.0 run P)
+[ "$RC" -eq 1 ] && ! kept && ok "exit 1, restored" || bad "P rc=$RC"
 
 echo "== F2: NOT RUN is in the BUILD-LOG row too [guard] =="
 RC=$(STUB_VER=v0.24.0 HV_SEQ= run F2)

@@ -5,6 +5,9 @@
 #
 #   T1  mxcli v0.26.0 capture (WARNING + "Connected to:" lead lines): own = Billing, Orders
 #   T2  mxcli v0.25.0 capture: same result
+#   T2b/T2c mxcli v0.29.0 captures (2026-10-30): an own module whose export level is Protected
+#       ("Protected AddOn" in Source, mendixlabs/mxcli#1498) is still own; "Marketplace v2.1.0,
+#       Protected AddOn" is not. Against own-modules.awk before the v0.29 compat fix T2b fails.
 #   T3  field-service template capture (table starts on line 1, 59 modules): 42 own, none of
 #       them System or a Marketplace module. The table starts on line 1 here, so a parse that
 #       skips a fixed number of lines would drop a data row (the old `NR>3` did).
@@ -33,6 +36,8 @@ own()  { awk -F'|' -f "$LIB" "$1" | tr '\n' ' ' | sed 's/ $//'; }
 
 r=$(own "$FX/list-modules-v0.26.0.txt"); [ "$r" = "Billing Orders" ] && ok "T1 v0.26.0: $r" || bad "T1 v0.26.0: got '$r'"
 r=$(own "$FX/list-modules-v0.25.0.txt"); [ "$r" = "Billing Orders" ] && ok "T2 v0.25.0: $r" || bad "T2 v0.25.0: got '$r'"
+r=$(own "$FX/list-modules-protected-v0.29.0.txt"); [ "$r" = "MyFirstModule" ] && ok "T2b v0.29.0, own module set to Protected: still own" || bad "T2b v0.29.0 Protected: got '$r'"
+r=$(own "$FX/list-modules-marketplace-protected-v0.29.0.txt"); [ -z "$r" ] && ok "T2c v0.29.0, 'Marketplace v2.1.0, Protected AddOn': not own" || bad "T2c: got '$r'"
 
 n=$(awk -F'|' -f "$LIB" "$FX/field-service-template-9.24.2.txt" | wc -l | tr -d ' ')
 leak=$(awk -F'|' -f "$LIB" "$FX/field-service-template-9.24.2.txt" | while read -r m; do

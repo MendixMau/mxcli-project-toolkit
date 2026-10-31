@@ -157,6 +157,17 @@ column colB (ShowContentAs: customContent, Caption: 'B') {
 EOF
 rc=$(scan "$WORK/l8.mdl"); [ "$rc" = 0 ] && ok "customcontent rules ignore text inside string literals" || bad "string literal matched STOP-1: $(cat "$WORK/out")"
 
+cat > "$WORK/l9.mdl" <<'EOF'
+column colB (ShowContentAs: customContent, Caption: 'B') {
+  container c (Visible: $currentObject/State = Module.ENUM_State.Open) {
+    dynamictext t (Content: 'Open')
+  }
+  container d (Visible: true, Editable: false)
+}
+EOF
+rc=$(scan "$WORK/l9.mdl"); [ "$(grep -c 'STOP-1 ' "$WORK/out")" = 1 ] \
+  && ok "STOP-1 also fires on the bare v0.25+ form (Visible: <expr>), not on a static true/false" || bad "bare-form STOP-1: exit $rc $(cat "$WORK/out")"
+
 echo "== U: usage"
 [ "$(scan)" = 2 ] && ok "no script: exit 2" || bad "no script did not exit 2"
 [ "$(scan "$WORK/nope.mdl")" = 2 ] && ok "unreadable script: exit 2" || bad "missing script did not exit 2"

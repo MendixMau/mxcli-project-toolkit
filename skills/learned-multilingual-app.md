@@ -140,6 +140,8 @@ begin
   call javascript action NanoflowCommons.Reload();
 end;
 
+-- mxcli v0.27+ no longer creates MyModule.User for you (mendixlabs/mxcli#1474)
+create or modify module role MyModule.User;
 grant execute on microflow MyModule.SUB_SetLanguage to MyModule.User;
 grant execute on nanoflow MyModule.ACT_LanguageES to MyModule.User;
 ```

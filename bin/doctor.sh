@@ -466,10 +466,11 @@ mxcli_latest_advice() {
   [ -n "$_ml_have" ] || return 0
   _ml_new="${MXTK_MXCLI_LATEST:-}"
   if [ -z "$_ml_new" ] && command -v curl >/dev/null 2>&1; then
-    # The redirect of the asset URL --install itself uses (not followed: nothing is downloaded).
+    # The redirect of the asset URL --install itself uses (not followed: nothing is downloaded;
+    # -q first, so a ~/.curlrc with `location` cannot make curl follow it and fetch ~100 MB).
     # Not releases/latest: a proxy that allows release downloads can refuse that page (403,
     # measured in a cloud sandbox 2026-10-30, where this redirect answered v0.29.0).
-    _ml_new="$(curl -sS --max-time 5 -o /dev/null -w '%{redirect_url}' \
+    _ml_new="$(curl -q -sS --max-time 5 -o /dev/null -w '%{redirect_url}' \
       https://github.com/mendixlabs/mxcli/releases/latest/download/mxcli-linux-amd64 2>/dev/null \
       | sed -n 's|.*/releases/download/\(v[0-9][0-9.]*\)/.*|\1|p')"
   fi

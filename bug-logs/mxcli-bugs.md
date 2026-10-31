@@ -49,6 +49,8 @@ Collapsing them to "a project" throws away the corroboration.
 
 ## BUG-04: `grant execute` on microflows in modules with no roles silently fails or errors
 
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** CHANGED in v0.27.0 (mendixlabs/mxcli#1474, breaking): mxcli no longer creates a module role on its own — a new document starts with no allowed roles. Rewrite this guidance; retest.
+
 **Severity:** Low — confusing behavior  
 **Reproducible:** Yes  
 **Mendix version:** 11.10.0  
@@ -1045,6 +1047,8 @@ trigger is not covered by that existing guard because it is a different code pat
 
 ## BUG-101: mxcli-authored Gallery widget fails mxbuild CE0463 even after full regeneration ⚠️ NOT YET FILED — `add_repo` denied access to `mendixlabs/mxcli`
 
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** CHANGED in v0.29.0 (ako/mxcli#568): `docker check` checks the project as stored by default and names the CE0463s `mxcli fix widgets` clears (also v0.28.0 #1527). Retest with the new labels.
+
 **NOT YET FILED.** The filing session already had `mxcli-project-toolkit` (owner `mendixmau`)
 attached and `add_repo` refused a cross-owner attach: `cross-tier adds are not supported in v1:
 requested "mendixlabs/mxcli" but session already has repos from owner(s) [mendixmau]`. A session
@@ -1761,6 +1765,8 @@ RnD correctly qualifies a bare attribute reference in a `Visible:` expression as
 
 ### BUG-WF04: `CALL MICROFLOW` in a workflow — corrected, current guidance (supersedes BUG-WF02 and BUG-24)
 
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** CHANGED in v0.25.0 (ako/mxcli#751): arguments are named, right after the callee — `call microflow Shop.ACT_Process(Order = $WorkflowContext)`. The `WITH (…)` spelling below is the old one; update the guidance.
+
 **Discovered:** retest triggered 2026-08-03 in response to a direct user question about why this
 gap wasn't covered by the main 29-bug retest; BUG-WF02 and BUG-24 above were explicitly excluded
 from that pass and left stale/contradictory until now.
@@ -1794,6 +1800,8 @@ retest if this comes up.
 ---
 
 ## BUG-WF05: `CALL MICROFLOW` fully-qualified `WITH` writes a null `ParameterId` → **MPR will not load** on Mendix 11.13
+
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** CHANGED in v0.25.0 (ako/mxcli#751): `WITH (…)` is the old spelling; use named arguments right after the callee (see BUG-WF04). Retest.
 
 > ### ⚠️ CORRECTION (2026-08-05) — this entry is right, but incomplete, and its workaround is not sufficient
 >
@@ -3241,6 +3249,8 @@ risking the silent-drop path.
 
 ## BUG-94: `hasRole('Module.Role')` is not a valid Mendix expression-language function — MDL has no syntax to set a widget's module-role-scoped `Visible` condition
 
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED in v0.27.0 (mendixlabs/mxcli#1460): use `Visible: roles (Mod.A, …)` instead of the Studio Pro step below. `hasRole()` is still not a Mendix function — keep that warning.
+
 > **CONFIRMED STILL OPEN on v0.21.0 — verified 2026-09-14: `SET Visible = [hasRole('Module.Role')] ON widget` still passes `mxcli check`/`exec` clean and fails native mxbuild `[CE0117]`. No MDL syntax for module-role-scoped visibility exists in this release.** See [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).
 
 **Severity:** Medium — `mxcli check --references` passes clean (it doesn't validate expression-language function names, only references), so the failure is invisible until a real `mxbuild`/native `mx check` or Studio Pro open
@@ -3494,6 +3504,8 @@ real array-binding defect; nothing populated = the activity never ran (cause 1).
 ---
 
 ## BUG-100: every mxcli-scaffolded project resolves to Compose project name `docker` — unrelated projects share containers and one Postgres volume ⚠️ mechanism secondhand
+
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED in v0.26.0 (mendixlabs/mxcli#1364: every project gets its own Compose project). Projects scaffolded earlier may still share the old `docker` volume — migrate them. Retest, then archive.
 
 > **Mechanism trusted-but-unverified:** the root cause was reported by a peer session on the
 > same machine and matches observed behaviour; it was not independently verified against
@@ -3784,6 +3796,8 @@ free-text outcomes are unaffected; only the enumeration path is wrong.
 
 ## BUG-109: `JUMP TO` inside a boundary-event body writes a Jump with no Target, named after its own target
 
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** CHANGED in v0.29.0: "an interrupting boundary path ends with an End, as Studio Pro writes it". Retest the `jump to` workaround.
+
 > **NO LONGER REPRODUCES on v0.24.0 / Mendix 11.13.0 — retested 2026-09-26 (a card-disbursement requirements-driven build).** An **interrupting** boundary timer whose body calls a microflow and then does `jump to <earlier activity>;` passes `check --references`, `exec` and native `mx check` at 0 errors, and `DESCRIBE WORKFLOW` reads back a real jump to that activity — not a jump named after it. The same boundary ending in `end workflow comment '…';` also builds clean. Upstream `825873d6` (in v0.21.0) fixed the jump-named-after-its-target defect (`learned-workflow-patterns.md` §25); v0.21.0–v0.23.x were not retested for this shape. The dangling-target half (#1005) is a separate shape and was not part of this retest. Skills updated: `workflow-structure-rules.md` §11, `learned-workflow-patterns.md` §19.
 
 **Severity:** High — the only legal terminator for an interrupting boundary event is unusable
@@ -3981,6 +3995,8 @@ count/rollup attribute on the parent side, or an application-level accounting) r
 trusting either comparison's row count on its own.
 
 ## BUG-114: `ALTER PAGE ... REPLACE widget WITH {...}` re-scopes an inherited `ContentParams` reference to the page's OUTER data context — reproduced twice, independently, same project
+
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED in v0.22.0 (mendixlabs/mxcli#1076: REPLACE no longer binds the new widget to the wrong data context). The "FILED" note is stale. Retest once, then archive with BUG-118.
 
 **Severity:** High — silent CE1613 build failure, and the app is DOWN until reverted
 **Upstream:** FILED — https://github.com/mendixlabs/mxcli/issues/1076 (2026-09-09), from `bug-logs/pending-github-issues/bug114-alter-page-replace-rescopes-to-outer-context.md`; carries BUG-118 as reproduction 2
@@ -4487,6 +4503,8 @@ one-card-at-a-time paging), confirmed via `DESCRIBE PAGE` round-trip, `mxcli wid
 and a running-app screenshot before/after the `update widgets` workaround.
 
 ## BUG-118: `ALTER PAGE ... REPLACE` targeting a widget nested inside a GALLERY template's child slot drops the new widget's ContentParams/attribute binding
+
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED in v0.22.0 with BUG-114 (mendixlabs/mxcli#1076). Retest once, then archive.
 
 > **SAME DEFECT AS BUG-114 — do not file separately.** Merge-review verdict 2026-09-07, from the
 > mxcli source (`mdl/backend/pagemutator/mutator.go`, identical at v0.20.0 and HEAD `191a0c9`):
@@ -4997,6 +5015,8 @@ checker is simply not consulting it -- and add `dateFormat` / `customDateFormat`
 
 ## BUG-121: `PARALLEL SPLIT` paths are written without their terminator node, so none of them ever opens a task (2026-09-04)
 
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED in v0.22.0 — every parallel-split path now ends with `EndOfParallelSplitPathActivity`; since v0.29.0 (ako/mxcli#1163) the marker is left out below Mendix 10.21, where the type does not exist. Do NOT run `wf-add-path-terminators.py` on mxcli ≥ v0.22: it is redundant, and below 10.21 it makes the project unloadable. Retest, then archive.
+
 **This is the most expensive class of defect this project has hit: a write mxcli itself reads
 back correctly and the Mendix runtime reads as empty.** mxcli v0.20.0, Mendix 11.13.0.
 It silently voids the entire parallel design of Phase 19.
@@ -5246,6 +5266,8 @@ is the opposite and much more dangerous.
 
 ## BUG-140: full page regeneration never wires a parameterized microflow datasource on a top-level `dataview` — only implicit binding through nesting works
 
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** CHANGED in v0.25.0 (ako/mxcli#533, #751): datasource arguments are named `Param = $x` only; a positional argument is an error. Retest in the new syntax.
+
 *(number assigned at merge — 140 taken deliberately, clear of the 127+ block another branch was
 numbering the same day)*
 
@@ -5373,6 +5395,8 @@ widget's schema lacks) — same silent-drop shape; whether it is the same code p
 
 ## BUG-128: `CREATE MODULE ROLE` is not idempotent, and the abort silently discards every statement after it
 
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED: `create or modify module role` is idempotent since v0.25.0 (commit `59d6970a`, #731) and keeps the description since v0.29.0 (ako/mxcli#1218); since v0.27.0 a failed statement rolls back the whole run (#1408) instead of discarding the rest. Retest, then rewrite as "use `create or modify module role`".
+
 > **CONFIRMED STILL OPEN on v0.21.0 — verified 2026-09-14: re-running `CREATE MODULE ROLE Mod.Role;` still fails identically (`module role already exists`), no `IF NOT EXISTS`/`OR MODIFY` form exists in the current syntax reference, and a later `CREATE ... ENTITY` statement in the same failed script is confirmed never applied.** See [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).
 
 **Severity:** High — a re-run of a mixed script logs nothing about the statements it skipped
@@ -5418,6 +5442,8 @@ a fact about the model.
 
 ## BUG-130: (toolkit `bin/exec.sh`, not mxcli) the mxbuild gate passes relative to a broken BASELINE — "Gate passed (mxbuild-clean)" printed while the model carries an error
 
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** CHANGED in v0.27.0 (#1408): mxcli now rolls back its own failed run; the broken-baseline problem in exec.sh remains. Review exec.sh.
+
 **Severity:** High — the gate's whole purpose is "the model deploys after this script"; it can say yes when the answer is no
 **mxcli version:** v0.19.0-nightly.c836f01 (2026-08-27) · toolkit `exec.sh` as of 2026-09-07
 **Mendix version:** 11.14.0
@@ -5439,6 +5465,8 @@ absent file is clean, a present one is not, regardless of what the gate printed.
 post-apply error count is non-zero, and say "pre-existing" separately.
 
 ## BUG-131: `exec.sh` snapshot restore after a failed apply leaves page edits in place — further field cases of BUG-106's family
+
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** CHANGED in v0.27.0 (#1408): mxcli journals and restores the unit files of a failed run itself. Review whether exec.sh still needs this snapshot restore.
 
 **Severity:** High — the next apply then fails on its own widget names, and a baseline error can survive (BUG-130)
 **mxcli version:** v0.19.0-nightly.c836f01 (2026-08-27) · toolkit `exec.sh` as of 2026-09-07
@@ -5485,6 +5513,8 @@ re-declare a container's children (see BUG-127's family), so each leftover widge
 
 ## BUG-132: `mxcli fix design-properties` aborts on a duplicate GUID shipped inside a marketplace package — the install ritual's required step cannot run
 
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** CHANGED in v0.28.0 (#1527): install runs the widget and design-property repairs itself; a duplicate GUID is not mentioned. Retest whether the manual step is still needed.
+
 **Severity:** Medium — the step is mandatory in `download-marketplace-content` step 4, and it fails hard rather than skipping the offending unit
 **mxcli version:** v0.19.0-nightly.c836f01 (2026-08-27)
 **Mendix version:** 11.14.0
@@ -5513,6 +5543,8 @@ check the model instead.
 name the module so the finding is actionable upstream.
 
 ## BUG-133: MDL cannot author a microflow that applies entity access, so no MDL-authored flow can call one that does (CE0114) — and a marketplace module's own `_USE_ME` startup flow is unreachable
+
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** AUTHORABLE: `@applyentityaccess` exists; v0.27.0 adds MDL-SEC22 (mendixlabs/mxcli#1500) and v0.29.0 fixes CE0114 in `mxcli test --local` (ako/mxcli#1654). Retest the marketplace `_USE_ME` path, then rewrite or archive.
 
 **Severity:** High — it is not a workaround-able gap: no MDL script can call an entity-access-applying microflow from anywhere, so whole marketplace features become unreachable headlessly
 **mxcli version:** v0.19.0-nightly.c836f01 (2026-08-27)
@@ -5559,6 +5591,8 @@ callee's flag is readable in the model.
 ---
 
 ## BUG-141: workflow condition outcomes are written without a `PersistentId` — every instance paused after a decision turns `Incompatible` on the next deploy, even one that changes nothing
+
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED in v0.25.0 (commit `d2352901`, #743: "Outcomes always store a Flow and a PersistentId"); v0.29.0 mints workflow persistent IDs itself. Retest once (redeploy with a paused instance), then archive.
 
 > **NOT YET FILED** — paste-ready draft in `bug-logs/pending-github-issues/bug141-condition-outcome-no-persistent-id.md`; the fix and its test, proven on a live restart, are in `bug-logs/pending-github-issues/bug141-fix.patch`.
 
@@ -5719,6 +5753,8 @@ token. Bind every `--btn-<intent>-*` the map has a token for. Add a topbar token
 ---
 
 ## BUG-144: `create user role` writes a role without `CheckSecurity`, `GUID` and three other keys — mxbuild then skips that role's security consistency check
+
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED in v0.26.0 (mendixlabs/mxcli#1373: full property set; old roles get a GUID from `$ID`); `describe user role` states `CheckSecurity` since v0.27.0 (#1427). Retest the CheckSecurity value, then archive and retire the fixup script.
 
 **mxcli:** v0.24.0 (`mdl/backend/modelsdk/security_write.go`, `AddUserRole`) · **Mendix:** 11.13.0 ·
 **Not filed upstream.**
@@ -5917,6 +5953,8 @@ grid 2 for the StyleGallery.
 
 ## BUG-151: `rest call … body $Var` sends the literal text `$Var`, not the variable's value
 
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED in v0.29.0 source (ako/mxcli#1444, mendixlabs/mxcli#1546: an expression body or URL is sent as its value, template `{1}`), not named in the changelog. Retest, then archive.
+
 **Severity:** High. The payload is wrong and nothing says so: `check`, exec and mxbuild are green.
 **mxcli:** v0.24.0 · **Mendix:** 11.13.0 · **Not filed upstream.**
 **Discovered:** 2026-09-26, a card-disbursement requirements-driven build, on an outbound
@@ -5995,6 +6033,8 @@ With `--json`, the array goes to stdout and the alpha banner to stderr, so parse
 
 ## BUG-154: MDL surface gaps on v0.24.0 — missing `if exists` forms, and spellings the syntax reference does not state
 
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** PARTLY FIXED / CHANGED: `if exists` on every document-level `drop` since v0.25.0 (commit `78a35a63`, #531); v0.25.0 also changed datasource arguments to named form and, under `mdl 1`, stores a backslash as typed (ako/mxcli#810). Retest the drop rows and update the spellings.
+
 **mxcli:** v0.24.0 · **Mendix:** 11.13.0 · **Not filed upstream.**
 **Discovered:** 2026-09-25 to 2026-09-26, a card-disbursement requirements-driven build.
 **Reproducible:** yes. Each row is a `check` or exec result.
@@ -6063,6 +6103,8 @@ applies. The planning rule is row 28 there.
 
 ## BUG-DRAFT-loop-var-expression-typecheck: the expression type checker is skipped inside a `LOOP` body — the identical expression is caught on a parameter and missed on a loop variable (2026-09-15)
 
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED in v0.23.0 (mendixlabs/mxcli#1100: type checking covers every locally declared variable). Retest, then archive.
+
 > **FILED UPSTREAM 2026-09-15 — https://github.com/mendixlabs/mxcli/issues/1100**
 
 **Discovered:** 2026-09-15, building diagnostic microflows during the v0.22.0 workflow retest
@@ -6119,6 +6161,8 @@ over `LOOP` bodies. Worth auditing whether other block-scoped variables (`FILTER
 
 ## BUG-DRAFT-nested-aggregate-over-filter: `COUNT(FILTER(...))` writes an Aggregate activity with no List, passing `check` and failing the build with CE0012 (2026-09-15)
 
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED in v0.23.0 (mendixlabs/mxcli#1101: a list operation nested in another is now refused, MDL-LISTOP02). Retest, then archive.
+
 > **FILED UPSTREAM 2026-09-15 — https://github.com/mendixlabs/mxcli/issues/1101**
 
 **Discovered:** 2026-09-15, same session and scaffold as the entry above.
@@ -6159,6 +6203,8 @@ a build error that names a BSON property the author never wrote is not diagnosab
 ---
 
 ## BUG-DRAFT-system-enumerations-undiscoverable: `System` enumerations are invisible to `show` and `describe`, so their valid values cannot be found before the build rejects them (2026-09-15)
+
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED in v0.23.0 (mendixlabs/mxcli#1102: System module enumerations are readable). Retest, then archive.
 
 > **FILED UPSTREAM 2026-09-15 — https://github.com/mendixlabs/mxcli/issues/1102**
 
@@ -6204,6 +6250,8 @@ other direction.
 CE1613's MDL-side rule list the values that do exist.
 
 ## BUG-DRAFT-stale-init-claude-md-declare-object: a project `CLAUDE.md` written by an older `mxcli init` still teaches `DECLARE $Var Module.Entity;`, which v0.22 `check` rejects (MDL043/CE0053) — and the generated file carries no version stamp, so nothing flags it after an upgrade (2026-09-17)
+
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED in v0.25.0 (ako/mxcli#952: `mxcli init --sync-skills` refreshes the mxcli section of CLAUDE.md, and an older binary says so). Point the workaround at `init --sync-skills`; retest, then archive.
 
 **Discovered:** 2026-09-17, during the skill-freshness A/B/C run (`process/skill-freshness-2026-09-17.md`) on a scratch copy of a requirements-driven graph PoC. Nine of 33 fresh drafting runs, across every arm, wrote the form and failed `check` on it.
 **Reproducible:** yes — any project whose `CLAUDE.md` was generated by an init at or before v0.16.0 and whose binary is now v0.22.0. Check-only; no build or Mendix version exercised (the rule is validator-side).
@@ -6395,6 +6443,8 @@ Never take the exec's "applied" as proof.
 
 ## BUG-DRAFT-check-references-misses-same-script-queue: `mxcli check --references` reports a queue created earlier in the same script as "task queue not found" (2026-09-27)
 
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED in v0.25.0 (ako/mxcli#906: a queue the script creates earlier satisfies a later `in queue`). Retest, then archive.
+
 > **NOT YET FILED.**
 
 **Discovered:** 2026-09-27, on an existing-app change project, while moving a batch job onto a new task queue.
@@ -6409,6 +6459,8 @@ Never take the exec's "applied" as proof.
 **Why it matters for the toolkit.** `exec.sh` refuses a script that fails check, so the single-script form never reaches the model. It costs one extra exec-and-gate cycle, about 5 minutes on a large model.
 
 ## BUG-DRAFT-xpath-system-member-case: an XPath system member written in the wrong case (`[CreatedDate >= $Since]`) passes `check --references` and fails the build with CE0161 (2026-09-27)
+
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED in v0.25.0 (a member the entity lacks, including `CreatedDate` for `createdDate`, is a reference error). Retest, then archive.
 
 > **NOT YET FILED.** Upstream draft kept with the project's harvest.
 
@@ -6477,7 +6529,7 @@ Neither `update security` nor stripping the stale member access clears it.
 
 ## BUG-DRAFT-audit-member-access-ce0066: grants inject `System.owner` / `System.changedBy` member access on entities without those members → CE0066 (fixed upstream; record the mxcli version) (2026-09-26)
 
-> **RESOLVED upstream (mxcli `2455ee9f`, in v0.22 and later). NOT REPRODUCED on v0.23.0** — three probes, 0 errors. Kept because the lesson is about which binary ran.
+> **RESOLVED upstream (mxcli `2455ee9f`, first released in v0.23.0). NOT REPRODUCED on v0.23.0** — three probes, 0 errors. Kept because the lesson is about which binary ran.
 
 **Discovered:** 2026-09-26, on an existing-app change project. A build on one machine logged CE0066 after grant scripts.
 **Reproducible:** on older binaries only. **mxcli version:** the failing exec most likely ran v0.21.0, which was earlier on that machine's PATH, not the project's v0.23.0. **Mendix:** 11.12.2.
@@ -6529,6 +6581,8 @@ Find the affected units with `grep -rl 'ModuleA\.' mprcontents/` on the renamed 
 `SEARCH 'ModuleA.'` returned "No matches found." for the stale XPath. Run `mx check` after the rename; the success line does not replace it.
 
 ## BUG-DRAFT-rename-page-renames-folder: `rename page` renames a same-named folder instead of the page, and reports success (2026-09-25)
+
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED in v0.29.0 source (commit `63ad914b`, ako/mxcli#1443, mendixlabs/mxcli#1545; also microflows, nanoflows, constants, enumerations, Java actions, workflows). Retest, then archive and drop the pending draft.
 
 > **NOT YET FILED** — paste-ready draft in `bug-logs/pending-github-issues/rename-page-renames-folder.md`.
 
@@ -6981,6 +7035,8 @@ Three forms, as tried (placeholders are the reporter's):
 
 ## BUG-DRAFT-microflow-header-grammar: a microflow header without `()` fails `check` with three parse errors that point at `returns` and `List of`, not at the missing parentheses (2026-10-14)
 
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED in v0.28.0 (mendixlabs/mxcli#1514: a header without parentheses is one error at the mistake). Do not file. Retest, then archive.
+
 > **NOT YET FILED.** The grammar is as designed; the ask upstream is a clearer message.
 
 **Discovered:** 2026-10-14, on an existing-app change project (a connector app), while drafting a small list-transforming microflow: no parameters, returns a list, lives in a sub-folder, loops over the list and sets one attribute.
@@ -7026,6 +7082,8 @@ end;
 **Toolkit side:** `learned-microflow-patterns.md` → "Additional MDL Syntax Rules", first bullet.
 
 ## BUG-DRAFT-qual004-dg2-datasource: QUAL004 reports a `DS_` microflow as "not called from anywhere" when its only caller is a Data grid 2 datasource, and the lint ratchet fails a correct script (2026-10-14)
+
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED in v0.28.0 (mendixlabs/mxcli#1513, commit `73c5ed87`: the catalog records every document a widget names). Retest, then archive and drop the lint-baseline entry.
 
 > **Filed:** [mendixlabs/mxcli#1513](https://github.com/mendixlabs/mxcli/issues/1513) (2026-10-16, open). Upstream draft: `bug-logs/pending-github-issues/qual004-dg2-datasource-ref.md`.
 
@@ -7073,6 +7131,8 @@ Both flagged flows are Data grid 2 datasources on pages in the same module and w
 **Toolkit side (workaround):** add a new microflow and repoint the caller (the old flow stays unused); drop and recreate when nothing references it; `alter microflow ... insert after commit $X begin ... end` for additions; split one alter script into two blocks, declare in the first; snapshot before exec (`bin/exec.sh` already restores on a failed gate).
 
 ## BUG-DRAFT-microflow-create-without-commit-silent: a `create` activity with no `commit` writes nothing and nothing says so (2026-10-15)
+
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED in v0.28.0 (mendixlabs/mxcli#1518: lint rule CONV020). Retest, then archive.
 
 > **NOT YET FILED.** No upstream issue found; ask is a lint rule. Verified on v0.27.0: `check` passes, no warning.
 
@@ -7170,6 +7230,8 @@ Both flagged flows are Data grid 2 datasources on pages in the same module and w
 
 ## BUG-DRAFT-run-local-scheduled-events-off: `run --local` boots with scheduled events off and says so only in the runtime log (2026-10-15)
 
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED in v0.28.0 (mendixlabs/mxcli#1528: `run --local` boots with scheduled events running and says so). Retest, then archive.
+
 > **NOT YET FILED.** Upstream issue drafted. `--runtime-setting` exists in v0.27.0; nothing prints or defaults the setting.
 
 **Discovered:** 2026-10-14/15, a five-app lab project. **mxcli version:** v0.26.0 (checked against the v0.27.0 source). **Mendix:** 11.15.0. macOS.
@@ -7181,6 +7243,8 @@ Both flagged flows are Data grid 2 datasources on pages in the same module and w
 **Toolkit side:** the skill paragraph exists; this entry makes it findable by symptom.
 
 ## BUG-DRAFT-test-local-fixed-ports: `mxcli test --local` hard-codes ports 8081/8091 and refuses while another app holds 8081, FIXED in mxcli v0.27.0 (2026-10-15)
+
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** Agrees with the changelog: v0.27.0 adds `--app-port / --admin-port / --serve-port`. Retest, then archive.
 
 > **FIXED UPSTREAM** in v0.27.0: `mxcli test --app-port / --admin-port / --serve-port` (CHANGELOG 0.27.0, Added). No upstream issue needed.
 

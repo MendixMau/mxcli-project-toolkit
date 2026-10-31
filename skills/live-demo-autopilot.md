@@ -48,6 +48,9 @@ const BEFORE  = { 3: async () => { /* arm a fault, start a case through the API 
 ## 4. Sign-in without a password on screen
 
 1. **Best: demo sign-in tiles** in the app (one tap per persona). No password in the script at all.
+   Tiles are an authentication bypass: build them only into a demo or dev build, behind a constant
+   that is **off by default**, never in a deployed or shared environment, and check that constant
+   is off before any deploy.
 2. Else: sign in **off screen** in a headless browser and hand the session cookies to the visible
    window. Passwords from env or a gitignored `.env`, never logged. Never parse them out of model
    or seed scripts.
@@ -76,8 +79,8 @@ const BEFORE  = { 3: async () => { /* arm a fault, start a case through the API 
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| App "crashes" after a while: `ERR_EMPTY_RESPONSE`, a defunct java process | the trial licence stops the runtime ~2.5 h after start: `LicenseService: Maximum run time exceeded` in the runtime log | launcher shows minutes left (last "Runtime successfully started" line); **Fresh restart < 1 h before presenting**; the demo warns at start when < 35 min |
-| `Maximum number of sessions exceeded` | 6 concurrent sessions; tests leak them | sign out with POST `/xas/` `{"action":"logout"}` + CSRF token, only after `mx.session.getConfig().csrftoken` exists, network idle + 1.5 s (earlier returns 200 but the session row stays); count `System.Session` with OQL before starting |
+| App "crashes" after a while: `ERR_EMPTY_RESPONSE`, a defunct java process | the trial licence stops the runtime 2–4 h after start (one field run, 2026-10-30: 2.5 h): `LicenseService: Maximum run time exceeded` in the runtime log. Both trial limits: `load-test.md` §9 | launcher shows minutes left (last "Runtime successfully started" line); **Fresh restart < 1 h before presenting**; the demo warns at start when < 35 min |
+| `Maximum number of sessions exceeded` | 6 concurrent sessions; tests leak them | sign out, then **prove it**: the `System.Session` count (OQL) must drop after each logout and be 0 after the run. A 200 proves nothing: `testing-shape.md` (UI, logout helper) measured POST `/xas/` `{"action":"logout"}` returning 200 with the session alive (Mendix 11.14). In the 2026-10-30 field run the same call freed the slot only when sent with the CSRF token, after `mx.session.getConfig().csrftoken` existed, network idle + 1.5 s. If the count does not drop, use `mx.logout()`. Count sessions before starting too |
 
 ## 7. Control-path traps
 
@@ -99,7 +102,8 @@ the session count back to 0 after the run. Write the result to a report file.
 
 ## 9. Optional: change it live
 
-The strongest close: approve a small change request in the room, then show it built. Before
+The strongest close: approve a small change request in the room, then show it built, on a
+**copy or branch** of the demo model, never the one the scenes run on. Before
 screenshot → CR script → `mxcli check` → `bin/exec.sh` → restart → after screenshot. Pick a
 one-page change (a column, a caption) and keep a spare; anything needing a new attribute on a
 row object goes to the next change round, not the stage.

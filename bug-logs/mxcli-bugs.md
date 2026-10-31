@@ -7035,7 +7035,7 @@ Three forms, as tried (placeholders are the reporter's):
 
 ## BUG-DRAFT-microflow-header-grammar: a microflow header without `()` fails `check` with three parse errors that point at `returns` and `List of`, not at the missing parentheses (2026-10-14)
 
-> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED in v0.28.0/v0.29.0 (mendixlabs/mxcli#1514: a header without parentheses is one error at the mistake). Do not file. Retest, then archive.
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED in v0.28.0 (mendixlabs/mxcli#1514: a header without parentheses is one error at the mistake). Do not file. Retest, then archive.
 
 > **NOT YET FILED.** The grammar is as designed; the ask upstream is a clearer message.
 
@@ -7244,7 +7244,7 @@ Both flagged flows are Data grid 2 datasources on pages in the same module and w
 
 ## BUG-DRAFT-test-local-fixed-ports: `mxcli test --local` hard-codes ports 8081/8091 and refuses while another app holds 8081, FIXED in mxcli v0.27.0 (2026-10-15)
 
-> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** Agrees with the changelog: v0.27.0 adds `--app-port / --admin-port / --serve-port`. Archive.
+> **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** Agrees with the changelog: v0.27.0 adds `--app-port / --admin-port / --serve-port`. Retest, then archive.
 
 > **FIXED UPSTREAM** in v0.27.0: `mxcli test --app-port / --admin-port / --serve-port` (CHANGELOG 0.27.0, Added). No upstream issue needed.
 

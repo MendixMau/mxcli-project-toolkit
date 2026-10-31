@@ -416,7 +416,8 @@ The gate is all four, and 3 and 4 are the ones projects skip:
 2. the gallery module builds with 0 CE errors;
 3. the gallery home page is **in a navigation profile and granted to a role a demo user actually
    holds** — check with `SHOW MODULE ROLES IN <GalleryModule>`, because a security script that was
-   drafted and never executed leaves every grant on the auto-created `.User` role, and then the
+   drafted and never executed leaves every grant on the auto-created `.User` role (mxcli < v0.27) or,
+   on v0.27+, on no role at all (mendixlabs/mxcli#1474), and then the
    first attempt to screenshot the gallery silently measures whatever the demo user lands on
    instead;
 4. **someone opened it and wrote down what they saw.**

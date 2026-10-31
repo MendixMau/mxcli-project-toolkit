@@ -1699,7 +1699,7 @@ if [ "$WIRED" -eq 1 ] && [ -x "$SCRIPT_DIR/doctor.sh" ] \
       3) echo "   (the project's mxcli predates 'fix property-sets', v0.26.0 — upgrade it before a Team Server merge)" ;;
       4) _ps_why="$(printf '%s\n' "$_ps_out" | sed -n 's/^  WARN  property sets: //p' | head -1)"
          echo "   could not check property sets: ${_ps_why:-see above} — not recorded; the next sync re-checks" ;;
-      1) if printf '%s\n' "$_ps_out" | grep -q '  NEEDS '; then
+      1) if grep -q -- '  NEEDS ' <<<"$_ps_out"; then
            warn "property sets: Studio Pro's merge/diff can throw on this model (see above). Repair, gated:" \
                 "bin/doctor.sh --fix-property-sets '$PROJECT_DIR'"
          else  # only FAILED / MIXED rows (mxcli v0.29+): nothing the guarded repair can clear

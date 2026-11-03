@@ -121,3 +121,74 @@ something to generalise from a single session.
 vendor's docs are unreachable from the sandbox these assessments were written in. Cost
 is metered per spec run, and nobody has measured what one of this pipeline's stages
 costs. Both figures are for the field run to supply.
+
+---
+
+## RM-02 — Every toolkit release is measured for build speed and token cost, so a regression is caught in a week, not a cook-off
+
+**Status:** PARKED — the fixes the run pointed at have landed (see Assets); the per-release
+benchmark (items 1, 2, 4 and 5 below) does not exist yet. This line is as of 2026-11-03; what
+has landed since is in `CHANGELOG.md`, which is where shipped status is tracked.
+
+**The regression nobody spotted.** Between the copy a cloud build used (`247729fd`, 2026-09-21)
+and master at `6615869d` (2026-10-24), 215 commits landed on master, 36 of them in `project-bin/exec.sh` (819 → 2,289 lines). Each
+added a check after a real failure — lint per exec (`8d70fbda`), score per exec (`a7221405`), the
+chat-approval baseline refusal (`b6a13380`), the row as the unit of work (`a7653197`) — and none was
+ever removed or re-costed. No release measured what the sum did to a build. A cook-off did
+(run 2, ProcureFlow, 2026-10-26/27, arm C = mxcli + that snapshot):
+
+| Measured | Value |
+|---|---|
+| Scripts per build-plan row | 0.93 (the cloud build: 0.34) — every row paid the full exec chain |
+| Lint + score after every exec | 18.3 min; the ratchet read ROSE on 123 of 147 rows and nobody read it — while 6 real SEC010 warnings sat in it |
+| Checks that never ran | `verify-module`, `gate-check`, the LOOK ledger: 0 runs (nothing calls them) |
+| `mxcli docker reload` | failed every time (curl not in the JRE image) → a container restart per change |
+| Outcome | stopped by the user after 10 h 50 min at row 121 of 147, no acceptance test; the HAM arm finished 137/137 and 12/12 in 602 min |
+| Lead tokens | 2,878 model calls, median 139,895 tokens of context per call, 399 M input tokens in total |
+| Fixed load per call | 40,161 tokens, incl. 188 skills, 7 user plugins and 4 MCP servers — **0** Skill and **0** MCP calls in the whole run |
+
+**Assets (2026-11-03):**
+
+| Asset | Path | State |
+|---|---|---|
+| Fixes from the run (arm D of the cook-off) | `project-bin/reload.sh` (hot reload), `project-bin/module-close.sh` (lint, score, check, verify-module, LOOK once per module), `project-bin/row-groups.sh` + the `exec.sh` row-group gate, `skills/iterative-build-loop.md` (row groups), lint per exec showing only new findings | merged in #581, follow-ups #582, #586; measured in run 3 arm D (the #581 CHANGELOG lines) |
+| Exec and gate speed | `mx check` gate by default, fewer process starts per exec and per closeout, `bin/doctor.sh --bench` (a per-machine bench, not the per-release benchmark below), `skills/speed-setup.md` | merged in #587, #589, #590, #591, #596, #597 |
+| Lean session switches | `claude -p --setting-sources project,local --strict-mcp-config [--mcp-config .mcp.json]` → 37,536 tokens per call (from 40,161); with `--disable-slash-commands` 33,329 | measured once, one call; not wired into any toolkit script |
+| Run analysis | the cook-off's observer notes (O-49 … O-56) live outside this repo; the public trail is PR #581 and its CHANGELOG lines | written |
+
+**What to build:**
+
+1. **A speed benchmark per release.** A small fixed reference build (a slice of a real build plan,
+   ~10 rows, one module) run headless on each release candidate. Record: execs per row, instrument
+   seconds per exec, minutes per row, model calls, median context tokens per call, fixed load per
+   call. Compare with the previous release; a rise of more than 15% on any of these blocks the
+   release until it is explained in the CHANGELOG.
+2. **Every check carries its cost and its reader.** A new step in `exec.sh` (or any per-exec hook)
+   states in its header: seconds per exec, tokens of output per exec, and who reads the result and
+   when. A check whose output no step reads is moved to a cadence (per module, per checkpoint) or
+   removed. Review the list at each weekly toolkit review; removing is a normal outcome.
+3. **Cadence over repetition.** Per exec: what protects the model (check, apply, mxbuild gate) and
+   lint — kept per exec by decision (2026-10-27: deferring it risks missing findings), but it prints
+   only the NEW warnings in the documents this script wrote, so it is read, not skimmed past as ROSE.
+   Per module: score, verify-module, LOOK (`module-close.sh`). (Lint diff and module close: landed, #581.) Per checkpoint: docker
+   check/build, the test suite. A check that "must" run is called by a gate, never only by a prompt.
+4. **Quiet by default.** `exec.sh` prints the verdict and the errors; the long form goes to a log
+   file. Every line printed is re-read on every later model call until the next compaction.
+5. **Lean sessions by default.** Headless and build sessions start with the project's settings only:
+   the project's own MCP servers (`.mcp.json`) stay, so teams that use an MCP server keep it; user
+   plugins, user skills and connectors a build never calls are left out.
+
+**Start when:** the next toolkit release (`bin/cut-release.sh`). The other trigger, arm D's numbers,
+has fired: run 3 arm D was measured and its fixes merged (#581).
+
+**Exit bar:** the benchmark runs on every release and its table is in the release notes; `exec.sh`
+lists cost and reader for each step; new lint warnings are shown per exec and acted on; score/verify-module run at module close under a gate
+(not a prompt), with a non-zero run count in a field build; a headless build's fixed load per call
+is reported and below 35k tokens.
+
+**Explicitly out of scope:**
+
+- **Removing lint, the score or the mxbuild gate.** They find real defects (the 6 SEC010 above).
+  The fix is when they run and who reads them, not whether they exist.
+- **Tuning for one arm of the cook-off.** The benchmark measures the toolkit on a fixed plan; it is
+  not a race against HAM or the cloud build.

@@ -64,7 +64,7 @@ document in the source catalog for the modules run).
 MXCLI=<path to mxcli> pipelines/mendix-mpr/rehost-extract.sh <source.mpr> <target.mpr> <out-dir> [Module ...]
 ```
 
-Read the script header for outputs. Defaults: every own module (empty Source column), System
+Read the script header for outputs. Defaults: every own module (empty Source column, or only "Protected …"), System
 excluded. Switches:
 - `REHOST_REUSE_MDL=1` — reuse `<out>/mdl/<M>.mdl` from an earlier run; use it on every rerun after
   fixing the check/exec side, because the describes are the slow part.

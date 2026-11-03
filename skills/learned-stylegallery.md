@@ -385,7 +385,8 @@ rendered gallery home page** (via `module-review.md`'s LOOK stage) and confirm:
 gallery build ends with (a) a navigation entry in a profile, (b) a role grant, and (c) the skill
 stating **which demo user can see it**. A gallery with no menu entry and no URL is unreachable in
 the running app, and unreachable is indistinguishable from absent to everyone downstream. Check the
-grant landed on a real role, not the auto-created `.User`:
+grant landed on a real role a demo user holds. mxcli < v0.27 auto-created `<Module>.User`; v0.27+ creates
+no role at all (mendixlabs/mxcli#1474), so an ungranted document is reachable by nobody:
 
 ```
 SHOW MODULE ROLES IN <GalleryModule>

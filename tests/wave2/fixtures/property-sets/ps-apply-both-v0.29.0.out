@@ -1,0 +1,8 @@
+Checked 27 unit(s) in TestApp.mpr against the Mendix 11.14.0 property sets.
+  FIXED     84776610-13b2-48cb-a265-d5e984d63129 [DomainModels$DomainModel]: +7 key(s), -0 key(s)
+
+Completed 1 unit(s): 7 key(s) added, 0 stripped.
+
+Property names that differ between elements of one type (no value measured on Mendix 11.14.0 fills them):
+  MIXED     Texts$Translation.LanguageCode: on 260 of 261 element(s); without it: 25d3e460-c53d-419e-a2a9-e1428f40b14f [Microflows$Microflow ZzMxcliProbe_List]
+1 property name(s) left as they are. Mendix's merge engine cannot compare a revision of these elements with one that has the other set of names. mxcli fills a key only with the value Studio Pro was measured writing on a Mendix version; report the names above with your Mendix version so it can be measured.

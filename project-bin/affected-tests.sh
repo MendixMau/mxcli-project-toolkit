@@ -89,7 +89,14 @@
 #      journey file (journeys/ or tests/e2e/) that names a subject OR a transitive caller literally.
 #      A journey file that is not named <Module>.journey.json and holds no qualified Module.Name
 #      cannot be selected by name at all; the "journeys unmapped" row counts them, so an empty
-#      selection is never read as "nothing owed".
+#      selection is never read as "nothing owed". Journeys name what they walk by WIDGET and by
+#      menu caption far more often than by Module.Name, so the affected scope also reads the
+#      widget names of every changed page/snippet and of every caller that is a page (DESCRIBE
+#      PAGE, one cheap mxcli call) and selects each journey whose JSON holds one of them
+#      ("widgets measured" row). A navigation or layout change selects EVERY journey (each walks
+#      the menu). When the widgets or the callers cannot be measured ("widgets NOT MEASURED"),
+#      the selection is EVERY journey: unsure means include. (speed experiment E2: 067 changed
+#      a page J-REQ-01 walks and 090 changed navigation; both selected 0 journeys.)
 #   5. module: every test file naming the module, journeys/<M>.journey.json; the modules are the
 #      subjects' modules plus every --module. full: every test file, every journey file.
 #   6. A grant/revoke whose object (microflow, page, ...) the SAME script creates or modifies is
@@ -324,6 +331,51 @@ select_unit() {  # $1 = scope; prints "<file>\t<why>"
   esac | awk -F'\t' '!seen[$1]++'
 }
 
+# ── Widgets (which journeys walk a changed page) ─────────────────────────────
+# Journeys are written against widget names and menu captions, not Module.Name, so name matching
+# alone selects nothing for a page change. ALLWHY non-empty = select every journey (navigation or
+# layout change, or the measurement failed: unsure means include).
+: > "$WORK/widgets"; : > "$WORK/widget-pages"
+WIDGETS="not needed"; ALLWHY=""
+if [ "$J" = affected ] && [ -n "$SCRIPTS" ]; then
+  if printf '%s\n' "$SCRIPTS" | while IFS= read -r _s; do cat "$_s"; done |
+       grep -qiE '^[[:space:]]*(create|alter|drop|move)[[:space:]]([^;]*[[:space:]])?navigation([[:space:]]|$)'; then
+    ALLWHY="navigation change: every journey walks the menu"; WIDGETS="not needed ($ALLWHY)"
+  elif awk -F'\t' '$1 == "layout" { f = 1 } END { exit !f }' "$WORK/subjects"; then
+    ALLWHY="layout change: every page, so every journey, uses it"; WIDGETS="not needed ($ALLWHY)"
+  elif [ -s "$WORK/flowish" ]; then
+    if [ "$NO_MODEL" = 1 ]; then WIDGETS="NOT MEASURED (--no-model)"
+    elif case "$CALLERS" in "NOT MEASURED"*) true ;; *) false ;; esac; then WIDGETS="NOT MEASURED (callers $CALLERS)"
+    else
+      _MX="${MXCLI:-$(find_project_mxcli 2>/dev/null || true)}"; _MPR="$(find_mpr 2>/dev/null || true)"
+      if [ -z "$_MX" ] || [ ! -x "$_MX" ] || [ -z "$_MPR" ]; then WIDGETS="NOT MEASURED (no project mxcli or .mpr)"
+      else
+        "$_MX" -p "$_MPR" -c "SHOW PAGES; SHOW SNIPPETS" > "$WORK/pg.out" 2> "$WORK/pg.err"; _rc=$?
+        # the Qualified Name column of the two tables
+        awk -F'|' '$2 ~ /^ *[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]* *$/ { n = $2; gsub(/ /, "", n); print n }' "$WORK/pg.out" | sort -u > "$WORK/allpages"
+        { cat "$WORK/flowish"; cut -f1 "$WORK/callers"; } | sort -u > "$WORK/cand"
+        comm -12 "$WORK/allpages" "$WORK/cand" > "$WORK/widget-pages"
+        if [ "$_rc" -ne 0 ] || [ ! -s "$WORK/allpages" ]; then WIDGETS="NOT MEASURED (SHOW PAGES exit $_rc, $(wc -l < "$WORK/allpages" | tr -d ' ') page(s) listed)"
+        elif [ ! -s "$WORK/widget-pages" ]; then WIDGETS="measured (0 of $(wc -l < "$WORK/cand" | tr -d ' ') changed or calling element(s) is a page or snippet)"
+        else
+          # second table in the output = SHOW SNIPPETS (its header has no Title column)
+          _snip="$(awk '/^\| Qualified Name/ { h++ } h >= 2 && /^\| *[A-Za-z_]/ { split($0, c, "|"); n = c[2]; gsub(/ /, "", n); print n }' "$WORK/pg.out")"
+          _q=""; while IFS= read -r _p; do
+            if printf '%s\n' "$_snip" | grep -qxF "$_p"; then _q="${_q:+$_q; }DESCRIBE SNIPPET $_p"; else _q="${_q:+$_q; }DESCRIBE PAGE $_p"; fi
+          done < "$WORK/widget-pages"
+          "$_MX" -p "$_MPR" -c "$_q" > "$WORK/desc.out" 2> "$WORK/desc.err"; _rc=$?
+          # widget heads: "<widgettype> <name> (" or "{" at the start of a line
+          awk '/^[ \t]*[a-z][a-z0-9]*[ \t]+[A-Za-z_][A-Za-z0-9_]*[ \t]*[({]/ && $1 != "create" && $1 != "alter" { print $2 }' "$WORK/desc.out" |
+            sed 's/[({].*//' | sort -u > "$WORK/widgets"
+          if [ "$_rc" -ne 0 ] || [ ! -s "$WORK/widgets" ]; then WIDGETS="NOT MEASURED (DESCRIBE exit $_rc, $(wc -l < "$WORK/widgets" | tr -d ' ') widget name(s) read)"
+          else WIDGETS="measured ($(wc -l < "$WORK/widgets" | tr -d ' ') widget name(s) in $(wc -l < "$WORK/widget-pages" | tr -d ' ') page/snippet(s))"; fi
+        fi
+      fi
+    fi
+    case "$WIDGETS" in "NOT MEASURED"*) ALLWHY="unsure, so every journey ($WIDGETS)" ;; esac
+  fi
+fi
+
 select_journeys() {  # $1 = scope; prints "<file>\t<why>"
   case "$1" in
     none) ;;
@@ -339,6 +391,13 @@ select_journeys() {  # $1 = scope; prints "<file>\t<why>"
           _hit="$(grep -o -w -F -f "$WORK/jnames" "$f" 2>/dev/null | head -1)"
           [ -n "$_hit" ] && echo "$f	names $_hit"
         done < "$WORK/journeys"
+        if [ -n "$ALLWHY" ]; then awk -v w="$ALLWHY" '{ print $0 "\t" w }' "$WORK/journeys"
+        elif [ -s "$WORK/widgets" ]; then
+          while IFS= read -r f; do
+            _hit="$(grep -o -w -F -f "$WORK/widgets" "$f" 2>/dev/null | head -1)"
+            [ -n "$_hit" ] && echo "$f	walks widget $_hit of a changed or calling page"
+          done < "$WORK/journeys"
+        fi
       fi ;;
   esac | awk -F'\t' '!seen[$1]++'
 }
@@ -444,6 +503,7 @@ select_journeys "$J" > "$WORK/journey.sel"
 if [ -n "$UNIT_OFF_WHY" ]; then out "unit	off	$UNIT_OFF_WHY"
 elif [ -s "$WORK/unit.sel" ]; then sed 's/^/unit	/' "$WORK/unit.sel"
 else out "unit	none	scope $U: $( [ "$U" = none ] && echo 'strategy says none' || echo "0 of $(wc -l < "$WORK/tests" | tr -d ' ') .test.mdl file(s) match${FLIPPED:+ (unit on only for:$FLIPPED${LISTMODS:+; per listed flow in:$LISTMODS})}")"; fi
+[ "$J" = affected ] && [ -n "$SCRIPTS" ] && out "widgets	$WIDGETS"
 if [ -s "$WORK/journey.sel" ]; then sed 's/^/journey	/' "$WORK/journey.sel"
 else out "journey	none	scope $J: $( [ "$J" = none ] && echo 'strategy says none' || echo "0 of $(wc -l < "$WORK/journeys" | tr -d ' ') journey file(s) in $JDIR/ and tests/e2e/ match")"; fi
 

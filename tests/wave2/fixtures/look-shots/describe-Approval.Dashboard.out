@@ -1,0 +1,74 @@
+mdl 1;
+/**
+ * Approver overview: requests per state, open value and the last five decisions.
+ */
+create or modify page Approval.Dashboard folder 'Dashboard' (
+  Title: 'Dashboard',
+  Layout: Purchasing.App_Default,
+  Url: 'dashboard'
+) {
+  container pageBody (Class: 'page-column') {
+    dynamictext titleDashboard (Content: 'Dashboard', RenderMode: H1, Class: 'page-title')
+    dataview dvSummary (DataSource: microflow Approval.DS_Dashboard_Summary, ReadOnlyStyle: Control) {
+      -- Context: $currentObject (Approval.DashboardSummary)
+      container kpiGrid (Class: 'kpi-grid') {
+        container kpiDraft (Class: 'kpi') {
+          dynamictext txtDraftCount (Content: '{1}', ContentParams: ({1} = DraftCount), Class: 'kpi-n')
+          dynamictext lblDraft (Content: 'Draft', Class: 'kpi-l')
+        }
+        container kpiSubmitted (Class: 'kpi') {
+          dynamictext txtSubmittedCount (Content: '{1}', ContentParams: ({1} = SubmittedCount), Class: 'kpi-n')
+          dynamictext lblSubmitted (Content: 'Submitted', Class: 'kpi-l')
+        }
+        container kpiApproved (Class: 'kpi') {
+          dynamictext txtApprovedCount (Content: '{1}', ContentParams: ({1} = ApprovedCount), Class: 'kpi-n')
+          dynamictext lblApproved (Content: 'Approved', Class: 'kpi-l')
+        }
+        container kpiRejected (Class: 'kpi') {
+          dynamictext txtRejectedCount (Content: '{1}', ContentParams: ({1} = RejectedCount), Class: 'kpi-n')
+          dynamictext lblRejected (Content: 'Rejected', Class: 'kpi-l')
+        }
+        container kpiOpen (Class: 'kpi') {
+          dynamictext txtOpenValue (Content: '{1}', ContentParams: ({1} = OpenValue), Class: 'kpi-n')
+          dynamictext lblOpen (Content: 'Open value (EUR)', Class: 'kpi-l')
+        }
+      }
+      dynamictext titleLast (Content: 'Last 5 decisions', RenderMode: H2, Class: 'section-title')
+      dynamictext txtNoDecisions (
+        Content: 'No decisions yet',
+        Class: 'empty-ds',
+        Visible: $currentObject/ApprovedCount = 0 and $currentObject/RejectedCount = 0
+      )
+    }
+    listview lvLastDecisions (DataSource: microflow Approval.DS_Dashboard_LastDecisions) {
+      -- Context: $currentObject (Approval.ApprovalRecord), $lvLastDecisions (selection)
+      container decisionRow (Class: 'decision-row') {
+        dynamictext txtDecidedAt (Content: '{1}', ContentParams: ({1} = DecidedAt), Class: 'decision-when')
+        dataview dvDecidedRequest (
+          DataSource: $currentObject/Approval.ApprovalRecord_PurchaseRequest,
+          ReadOnlyStyle: Control
+        ) {
+          -- Context: $currentObject (Purchasing.PurchaseRequest)
+          container decisionLink (
+            Class: 'decision-row',
+            Action: show page Approval.Approval_Decide(Request = $currentObject)
+          ) {
+            dynamictext txtDecisionNumber (Content: '{1}', ContentParams: ({1} = RequestNumber))
+            dynamictext txtDecisionTitle (Content: '{1}', ContentParams: ({1} = Title))
+            dynamictext txtDecisionState (
+              Content: '{1}',
+              ContentParams: ({1} = Status),
+              Class: 'badge-ds',
+              DynamicClasses: if $currentObject/Status = Purchasing.RequestStatus.Approved then 'badge-approved' else 'badge-rejected'
+            )
+          }
+        }
+      }
+    }
+    container dashActions (Class: 'actionbar') {
+      actionbutton btnToInbox (Caption: 'Go to inbox', Action: show page Approval.Approval_Inbox, ButtonStyle: Primary)
+    }
+  }
+};
+
+grant view on page Approval.Dashboard to Approval.Approver;

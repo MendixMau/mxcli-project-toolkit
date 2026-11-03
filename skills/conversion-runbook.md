@@ -315,8 +315,8 @@ the table leaves. A dispatched unit returns **the file it wrote**, never a summa
 | 1 Analysis | source inventory descriptions — one line per file in the list `bin/source-sufficiency.sh init` wrote (the script writes the list; the agent only says what each file is) | 20–40 files per agent | cheap | → `bin/source-ledger.sh check` |
 | 1 Analysis | one source document → its KB extract (`kb-generation.md`) | 1 document per agent, ≤ 6 in flight | mid | → `bin/source-ledger.sh check` |
 | 1 Analysis | image descriptions (`image-transcription.md`); table and figure transcription out of decks and PDFs into markdown | 5–8 images per agent | cheap | `bin/images-to-md.sh` → `--check` (rule 6 cross-check on any string a rule will hang on) |
-| 2 Requirements | one module → its BRD (`brd-generation.md`) | 1 module per agent, all in parallel | mid | `bin/facts-lock.sh build` → `facts-lock.sh check`, `brd-validation.md` |
-| 3 Architecture & Design | 3a modularize → blueprint → fit-gap ∥ 3b design system + wireframes | 2 agents; wireframes ≤ 8 screens per agent | strong (3a) / mid (3b) | → `bin/gate-check.sh <p> 3` |
+| 2 Requirements | one module → its BRD (`brd-generation.md`) | 1 module per agent, all in parallel | mid | `bin/facts-lock.sh build` + `resolve` → `check`, `brd-validation.md` |
+| 3 Architecture & Design | brief, then each stage-3 `artifact-check.sh` line (`design-artifacts.md` → Running Stage 3 in parallel) | 1–2 screens per agent | strong (lead) / mid | → `bin/gate-check.sh <p> 3` |
 | 4 Build Plan | one module → its brief (`module-brief.md`) | 1 module per agent | mid | build plan first (sequential, strong) → `gate-check.sh <p> build-ready` |
 | 5 Build | one script → `mdl-agent` draft; each exec → `gate-agent`; module close → `review-agent` | draft the ready set in parallel, apply serially → `iterative-build-loop.md` → Gate cost | mid | main session runs the exec between draft and gate |
 | 5 Build | `SHOW`/`DESCRIBE` dumps → the tables a brief or review needs (page lists, entity lists, security matrix) | 1 module per agent | cheap | the gate re-reads the model, not the table (`gate-check.sh` counts real files) |

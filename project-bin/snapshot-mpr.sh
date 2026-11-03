@@ -20,7 +20,8 @@
 # Git commits at phase gates remain the real history — this only covers
 # mid-session corruption between commits.
 set -euo pipefail
-. "$(dirname "$0")/_common.sh"
+_sd="${0%/*}"; [ "$_sd" != "$0" ] || _sd=.   # dirname without a process (a start costs ~100 ms on Windows)
+. "$_sd/_common.sh"
 
 MODEL_DIR="$(find_model_dir)" || exit 1
 
@@ -36,7 +37,9 @@ MODEL_DIR="$(find_model_dir)" || exit 1
 # exists, on its next exec, instead of only the ones scaffolded after today.
 if [ -d "$PROJECT_ROOT/.git" ] || [ -f "$PROJECT_ROOT/.git" ]; then
   GI="$PROJECT_ROOT/.gitignore"
-  if ! { [ -f "$GI" ] && grep -qE '^/?\.mpr-snapshots/?$' "$GI"; }; then
+  _gitxt=""; [ ! -f "$GI" ] || IFS= read -r -d '' _gitxt < "$GI" || true   # grep -qE '^/?\.mpr-snapshots/?$', in-shell
+  _nl=$'\n'
+  if ! { [ -f "$GI" ] && [[ "$_nl$_gitxt$_nl" =~ $_nl/?\.mpr-snapshots/?$_nl ]]; }; then
     # Never fatal: this runs under set -e BEFORE the snapshot, and exec.sh calls it bare — an
     # unwritable .gitignore must not stop the snapshot (CLAUDE.md guard rule 7).
     if {
@@ -52,14 +55,14 @@ if [ -d "$PROJECT_ROOT/.git" ] || [ -f "$PROJECT_ROOT/.git" ]; then
   fi
 fi
 
-mkdir -p "$PROJECT_ROOT/.mpr-snapshots"
-DEST="$PROJECT_ROOT/.mpr-snapshots/$(date +%Y%m%d-%H%M%S)"
-mkdir -p "$DEST"
+if [ -n "${EPOCHSECONDS:-}" ]; then printf -v _stamp '%(%Y%m%d-%H%M%S)T' -1; else _stamp="$(date +%Y%m%d-%H%M%S)"; fi
+DEST="$PROJECT_ROOT/.mpr-snapshots/$_stamp"
+mkdir -p "$DEST"   # also creates .mpr-snapshots/
 
 MPR_COUNT=0
 for f in "$MODEL_DIR"/*.mpr; do
   [ -e "$f" ] || continue
-  cp "$f" "$DEST/$(basename "$f")"
+  cp "$f" "$DEST/${f##*/}"
   MPR_COUNT=$((MPR_COUNT + 1))
 done
 [ -d "$MODEL_DIR/mprcontents" ] && cp -r "$MODEL_DIR/mprcontents" "$DEST/mprcontents"
@@ -69,7 +72,7 @@ done
 # the pipeline status 1, and a bare assignment inherits it — so `set -e` killed the script
 # HERE, on the exact case the v1-aware refusal below names. That refusal was unreachable.
 if [ -d "$DEST/mprcontents" ]; then
-  UNIT_COUNT=$(find "$DEST/mprcontents" -name '*.mxunit' | wc -l | tr -d ' ')
+  UNIT_COUNT=$(( $(find "$DEST/mprcontents" -name '*.mxunit' | wc -l) ))   # arithmetic trims wc's padding
 else
   UNIT_COUNT=0
 fi
@@ -99,8 +102,13 @@ if [ "$UNIT_COUNT" -eq 0 ]; then
 fi
 
 # Prune: keep the 5 newest timestamped dirs.
-ls -dt "$PROJECT_ROOT"/.mpr-snapshots/*/ 2>/dev/null | tail -n +6 | while read -r old; do
-  rm -rf "$old"
-done
+# Count first with a glob: at five or fewer there is nothing to prune and no ls | tail needed.
+set -- "$PROJECT_ROOT"/.mpr-snapshots/*/
+if [ "$#" -gt 5 ]; then
+  ls -dt "$PROJECT_ROOT"/.mpr-snapshots/*/ 2>/dev/null | tail -n +6 | while read -r old; do
+    rm -rf "$old"
+  done
+  set -- "$PROJECT_ROOT"/.mpr-snapshots/*/
+fi
 
-echo "mpr snapshot ok [$MODEL_FORMAT] ($MPR_COUNT .mpr + $UNIT_COUNT units) — $(ls -d "$PROJECT_ROOT"/.mpr-snapshots/*/ 2>/dev/null | wc -l | tr -d ' ') kept in .mpr-snapshots/"
+echo "mpr snapshot ok [$MODEL_FORMAT] ($MPR_COUNT .mpr + $UNIT_COUNT units) — $# kept in .mpr-snapshots/"

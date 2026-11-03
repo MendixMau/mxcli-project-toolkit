@@ -17,7 +17,10 @@
 #                                          reads `fix --help` instead
 #   dry-run-not-found-v0.26.0.{txt,exit}   `fix property-sets -p <missing> --dry-run`: exit 1
 #                                          with no unit rows — why exit 1 alone is not "needs"
-# NOT captured: the clean / NEEDS / FAILED reports, which need a real model. The stub below
+#   ps-{dryrun-mixed,dryrun-both,apply-both,after-apply-both}-v0.29.0.{out,err,exit}
+#                                          REAL v0.29.0 runs on a real model with MIXED rows —
+#                                          provenance in CAPTURE.txt beside them (case P11)
+# NOT captured: the v0.26.0 clean / NEEDS / FAILED reports, which need a real model. The stub below
 # prints them from the format strings in mxcli v0.26.0 cmd/mxcli/cmd_fix_property_sets.go
 # (fixPropertySets: "Checked %d unit(s) in %s against the Mendix %d.%d.%d property sets.",
 # "  %-9s %s%s: +%d key(s), -%d key(s)", "  FAILED    %s%s: %v"). A field run owes the real ones.
@@ -61,6 +64,11 @@ case "${1:-}" in
         for a in "$@"; do [ "$a" = --dry-run ] && dry=1; [ "$prev" = -p ] && mpr="$a"; prev="$a"; done
         b="$(basename "$mpr")"
         echo "WARNING: This is a vibe-coded PoC, alpha quality, use with caution." >&2
+        # v0.29.0 states replay real captures (CAPTURE.txt); "both" -> its write leaves "mixed".
+        rp() { cat "$F/$1-v0.29.0.out"; return "$(cat "$F/$1-v0.29.0.exit")"; }
+        if [ "$dry" = 0 ] && [ "$(cat "$D/.stub-state")" = both ]; then
+          echo mixed > "$D/.stub-state"; rp ps-apply-both; exit $?
+        fi
         if [ "$dry" = 0 ]; then
           echo "Checked 3 unit(s) in $b against the Mendix 11.12.1 property sets."
           echo "  FIXED     0d6c3a3e-0000-4000-8000-000000000001 [Microflows\$Microflow Orders.ACT_Save]: +4 key(s), -0 key(s)"
@@ -78,6 +86,8 @@ case "${1:-}" in
                   echo "  FAILED    0d6c3a3e-0000-4000-8000-000000000002 [Pages\$Page Orders.Order_Edit]: key Foo holds a value"
                   echo "1 unit(s) could not be normalized and were left as they are."; exit 1 ;;
           notfound) cat "$F/dry-run-not-found-v0.26.0.txt"; exit 1 ;;
+          mixed) rp ps-dryrun-mixed; exit $? ;;
+          both)  rp ps-dryrun-both; exit $? ;;
           noversion) echo "$b has no readable Mendix version; nothing is normalized without one."; exit 0 ;;
           slow) exec sleep 6; echo "Checked 3 unit(s) in $b against the Mendix 11.12.1 property sets."; exit 0 ;;
         esac ;;
@@ -298,6 +308,31 @@ OUT="$("$SYNC" "$S4" 2>&1)"
 psl="$(printf '%s\n' "$OUT" | grep -i 'property')"
 printf '%s' "$psl" | grep -q "could not check property sets: could not classify" && ! printf '%s' "$psl" | grep -q "fix-property-sets\|⚠️\|WARN  " \
   && ok "sync, check errored (exit 4): neutral line, no repair advice, no warning" || bad "sync error case" "$psl"
+
+echo "== P11 mxcli v0.29.0 MIXED rows (real captures): a merge hazard, not 'could not classify' =="
+# Against doctor.sh before the v0.29 compat fix: the MIXED-only dry-run is rc 4 "could not
+# classify", and the repair's exit 1 (for MIXED alone) rolls the completed NEEDS repair back.
+# Measured 2026-10-30: master 74 passed, 7 failed; this fix 81 passed, 0 failed.
+P="$(mkproj mixed)"; echo v0.29.0 > "$P/.stub-ver"; echo mixed > "$P/.stub-state"
+OUT="$("$DOCTOR" --property-sets "$P" 2>&1)"; RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q "WARN  property sets: 1 property name(s) differ between elements of one type (MIXED)" \
+  && ok "MIXED only: exit 1, WARN names it" || bad "MIXED only: rc=$RC" "$OUT"
+printf '%s' "$OUT" | grep -q 'MIXED     Texts\$Translation.LanguageCode: on 260 of 261' && ok "the MIXED row is shown" || bad "MIXED row not shown" "$OUT"
+printf '%s' "$OUT" | grep -q "fix-property-sets cannot clear them" && ! printf '%s' "$OUT" | grep -q "repair (snapshot" \
+  && ok "says the repair cannot clear it, offers no repair" || bad "MIXED remedy" "$OUT"
+sed -n 1p "$P/.claude/.property-sets-receipt" 2>/dev/null | grep -q " mixed " && ok "receipt records mixed" || bad "receipt" "$(cat "$P/.claude/.property-sets-receipt" 2>&1)"
+P="$(mkproj both)"; echo v0.29.0 > "$P/.stub-ver"; echo both > "$P/.stub-state"; mkdir -p "$P/bin"; cp "$WORK/fix-noexec/bin/exec.sh" "$P/bin/"
+OUT="$("$DOCTOR" --fix-property-sets "$P" 2>&1)"; RC=$?
+printf '%s' "$OUT" | grep -q "the repair was not kept" && bad "NEEDS + MIXED: the completed repair was rolled back" "$OUT" \
+  || ok "NEEDS + MIXED: the repair step's exit 1 for MIXED alone does not fail the patch"
+printf '%s' "$OUT" | grep -q "FIXED     84776610" && printf '%s' "$OUT" | grep -q "re-checking" && ok "repair ran and was re-checked" || bad "repair/re-check" "$OUT"
+[ "$RC" -eq 1 ] && sed -n 1p "$P/.claude/.property-sets-receipt" | grep -q " mixed " && ok "after the repair: mixed left, exit 1" || bad "post-repair rc=$RC" "$(cat "$P/.claude/.property-sets-receipt" 2>&1)"
+S5="$WORK/syncmixed"; mkdir -p "$S5"; : > "$S5/App.mpr"
+MXTK_NO_GUIDE=1 "$TK/bin/init-project.sh" "$S5" >/dev/null 2>&1
+mkstub "$S5"; echo v0.29.0 > "$S5/.stub-ver"; echo mixed > "$S5/.stub-state"
+psl="$("$SYNC" "$S5" 2>&1 | grep -i 'property')"
+printf '%s' "$psl" | grep -q "⚠️  property sets: Studio Pro's merge/diff can throw" && ! printf '%s' "$psl" | grep -q "Repair, gated" \
+  && ok "sync, MIXED only: a sync warning, no repair command it cannot honour" || bad "sync MIXED" "$psl"
 
 echo "== P10 (#236) sync names a pre-fix bin/model-stamp.sh =="
 grep -v 'GIT_WORK_TREE' "$TK/project-bin/model-stamp.sh" > "$S/bin/model-stamp.sh"; chmod +x "$S/bin/model-stamp.sh"

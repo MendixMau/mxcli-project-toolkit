@@ -57,7 +57,10 @@
 # the hits, no mxcli. Producers/consumers: mdlsource/ (every build step) and the ledger (exec.sh
 # `record`, restore-mpr.sh) → exec.sh `check`, gate-check.sh `count`. bash 3.2, BSD awk, Git Bash.
 set -u
-HERE="$(cd "$(dirname "$0")" && pwd)"
+# HERE is only read by so_live (it sources _common.sh from there); resolved there, once, so
+# the cheap commands (check, record) do not pay a subshell for it.
+_so_self="${0%/*}"; [ "$_so_self" != "$0" ] || _so_self=.
+HERE=""
 
 usage() { sed -n '3,14p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
 
@@ -104,6 +107,7 @@ _SO_AWK='
       if (!match(rest, /^[A-Za-z_][A-Za-z0-9_]*[ \t]*\.[ \t]*[A-Za-z_][A-Za-z0-9_]*/)) next
       name = substr(rest, 1, RLENGTH); gsub(/[ \t]/, "", name)
       if (INDEX) { k = toupper(kind) " " name; if (!((FILENAME, k) in seen)) { seen[FILENAME, k] = 1; print k "\t" FILENAME } }
+      else if (REC != "") { r = toupper(kind) " " name; if (!(r in recseen)) { recseen[r] = 1; print T "\t" REC "\t" r } }
       else printf "%s\t%s\t%d\t%s\n", toupper(kind), name, FNR, verb
     }'
 
@@ -119,8 +123,11 @@ _SO_ORDER='
     { n = split($0, a, "/"); sub(/^done-/, "", a[n]); k = pad(a[1]); for (i = 2; i <= n; i++) k = k "/" pad(a[i]); print k "\t" $0 }'
 
 so_docs() { awk -v INDEX=0 "$_SO_AWK" "$1"; }
-so_key() { basename "$1" | sed 's/^done-//'; }                          # header-name identity
-so_sortkey() { printf '%s/%s\n' "$(dirname "$1")" "$(so_key "$1")"; }   # ledger key
+so_key() { local b="${1##*/}"; printf '%s\n' "${b#done-}"; }           # header-name identity (basename | sed, in-shell)
+so_sortkey() {                                                          # ledger key: dirname/key, in-shell
+  local d="${1%/*}"; [ "$d" != "$1" ] || d=.; [ -n "$d" ] || d=/
+  local b="${1##*/}"; printf '%s/%s\n' "$d" "${b#done-}"
+}
 so_before() {  # true when path $1 runs strictly before path $2
   printf '%s\n%s\n' "$1" "$2" | awk "$_SO_ORDER" | awk -F'\t' 'NR == 1 { a = $1 } NR == 2 { exit !(a < $1) }'
 }
@@ -161,7 +168,7 @@ so_last_writer() {  # $1 = root, $2 = "KIND Module.Name"; rows before the last R
   awk -F'\t' -v d="$2" '$2 == "RESTORE" { w = "" } $3 == d { w = $2 } END { if (w != "") print w }' "$1/$LEDGER_REL"
 }
 so_has_run() {  # $1 = root, $2 = root-relative script path → true when it has run (see header)
-  local b; b="$(basename "$2")"
+  local b="${2##*/}"
   case "$b" in done-*) return 0 ;; esac
   if [ -f "$1/$LEDGER_REL" ] && awk -F'\t' -v k="$(so_sortkey "$2")" '$2 == k { f = 1; exit } END { exit !f }' "$1/$LEDGER_REL"; then
     return 0
@@ -170,7 +177,8 @@ so_has_run() {  # $1 = root, $2 = root-relative script path → true when it has
     awk -F'|' 'index($3, ENVIRON["SO_N"]) && $5 ~ /applied/ { f = 1; exit } END { exit !f }' "$1/docs/BUILD-LOG.md"
 }
 so_rel() {  # $1 = script, $2 = root → root-relative path, or "" outside the root
-  local abs; abs="$(cd "$(dirname "$1")" 2>/dev/null && pwd)/$(basename "$1")"
+  local abs d="${1%/*}"; [ "$d" != "$1" ] || d=.; [ -n "$d" ] || d=/
+  abs="$(cd "$d" 2>/dev/null && pwd)/${1##*/}"
   case "$abs" in "$2"/*) printf '%s\n' "${abs#"$2"/}" ;; *) echo "" ;; esac
 }
 # One DESCRIBE through the project's ./mxcli. Not found (captured, mxcli v0.26.0, all four kinds,
@@ -178,6 +186,7 @@ so_rel() {  # $1 = script, $2 = root → root-relative path, or "" outside the r
 # on stderr. A parse error or "no describable document" (v0.24.0) is a failed call, never absent.
 so_live() {  # $1 = root, $2 = KIND, $3 = Doc
   local out err rc=0 all
+  [ -n "$HERE" ] || HERE="$(cd "$_so_self" && pwd)"
   out="$(cd "$1" && PROJECT_ROOT="$1" && . "$HERE/_common.sh" >/dev/null 2>&1 \
          && mx="$(find_project_mxcli)" && mpr="$(find_mpr 2>/dev/null)" \
          && "$mx" -p "$mpr" -c "DESCRIBE $2 $3" 2>&1 </dev/null; echo "rc=$?")"
@@ -215,10 +224,13 @@ case "$cmd" in
     [ -f "${2:-}" ] || usage
     ROOT="$(so_root "")"; REL="$(so_rel "$2" "$ROOT")"
     [ -n "$REL" ] || exit 0          # a scratch script outside the project owns nothing
-    LD="$(dirname "$ROOT/$LEDGER_REL")"
+    LD="$ROOT/${LEDGER_REL%/*}"
     mkdir -p "$LD" 2>/dev/null || exit 0
     [ -f "$LD/.gitignore" ] || printf '*\n' > "$LD/.gitignore"
-    so_docs "$2" | awk -F'\t' -v k="$(so_sortkey "$REL")" -v t="$(date +%s)" '!s[$1 " " $2]++ { print t "\t" k "\t" $1 " " $2 }' >> "$ROOT/$LEDGER_REL"
+    _rk="$(so_sortkey "$REL")"
+    # One awk: the lexer prints the ledger row itself in REC mode (it used to pipe into a second
+    # awk that only prefixed the epoch and the key and dropped repeats).
+    awk -v INDEX=0 -v REC="$_rk" -v T="${EPOCHSECONDS:-$(date +%s)}" "$_SO_AWK" "$2" >> "$ROOT/$LEDGER_REL"
     # Compact: the last row per (script, document) and the last RESTORE row, order kept.
     T="$(mktemp "$LD/.written.XXXXXX")" || exit 0
     awk -F'\t' '{ k = ($2 == "RESTORE") ? "RESTORE" : $2 "\t" $3; last[k] = NR; line[NR] = $0; key[NR] = k }

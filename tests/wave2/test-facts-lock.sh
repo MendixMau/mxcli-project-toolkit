@@ -165,6 +165,25 @@ case "$NCK" in *"WARN  name-keyed entities/paymentplan"*) [ "$NCKRC" -eq 0 ] && 
   *) bad "check did not report the name-keyed respelling" ;; esac
 case "$NCK" in *"agree with all"*) bad "check reads as agreement" ;; *) ok "check still does not read as agreement" ;; esac
 
+# --- resolve: an explicit majority step, never silent --------------------------------------------
+R="$WORK/resolve"; mkdir -p "$R/analysis/knowledge-base/brd"
+for i in 1 2; do printf '{ "id":"F00%s","domainEntities":[{"entity":"WIPStatus"},{"entity":"OrderLine"}] }\n' "$i" > "$R/analysis/knowledge-base/brd/F00$i.brd.json"; done
+printf '{ "id":"F003","domainEntities":[{"entity":"WipStatus"},{"entity":"Orderline"}] }\n' > "$R/analysis/knowledge-base/brd/F003.brd.json"
+printf '{ "id":"F004","domainEntities":[{"entity":"Supplier"}] }\n' > "$R/analysis/knowledge-base/brd/F004.brd.json"
+printf '{ "id":"F005","domainEntities":[{"entity":"Orderline"}] }\n' > "$R/analysis/knowledge-base/brd/F005.brd.json"
+OUT=$(bash "$SUBJECT" "$R" build 2>&1); rc=$?
+{ [ "$rc" -ne 0 ] && ! grep -q '"canonical": "WIPStatus"' "$R/analysis/facts.lock.json"; } \
+  && ok "resolve: build alone still picks nothing (exit $rc, no canonical for the casing conflict)" \
+  || bad "resolve: build picked a winner on its own" "$OUT"
+OUT=$(bash "$SUBJECT" "$R" resolve 2>&1); rc=$?
+{ grep -q 'RESOLVED .*WIPStatus.*WIPStatus 2, WipStatus 1' <<<"$OUT" && grep -q '"resolvedBy": "majority: WIPStatus 2, WipStatus 1"' "$R/analysis/facts.lock.json"; } \
+  && ok "resolve: the 2-to-1 spelling is frozen and the count is recorded in the lock" || bad "resolve: majority not frozen/recorded" "$OUT"
+{ [ "$rc" -ne 0 ] && grep -q 'CONFLICT .*rderline' <<<"$OUT"; } \
+  && ok "resolve: a 2-to-2 tie stays contested and resolve exits non-zero" || bad "resolve: tie handled wrong (rc $rc)" "$OUT"
+OUT=$(bash "$SUBJECT" "$R" check 2>&1)
+grep -q "DEVIATION .*F003.*'WipStatus'.*'WIPStatus'" <<<"$OUT" \
+  && ok "resolve: check then names the BRD that uses the minority spelling" || bad "resolve: check did not flag F003" "$OUT"
+
 # --- usage --------------------------------------------------------------------------------------------
 bash "$SUBJECT" 2>/dev/null; [ "$?" -eq 2 ] && ok "no argument exits 2" || bad "no argument did not exit 2"
 bash "$SUBJECT" "$P" nonsense 2>/dev/null; [ "$?" -eq 2 ] && ok "unknown subcommand exits 2" || bad "unknown subcommand accepted"

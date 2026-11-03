@@ -52,7 +52,14 @@ done
 [ -f "$SCRIPT" ] && [ -r "$SCRIPT" ] || { echo "mdl-scan: cannot read script: $SCRIPT" >&2; exit 2; }
 if [ -n "$MPR" ] && [ ! -f "$MPR" ]; then echo "mdl-scan: -p: no such model: $MPR" >&2; exit 2; fi
 
-RULES="${MDL_SCAN_RULES:-$(cd "$(dirname "$0")" && pwd)/lib/mdl-scan-rules.tsv}"
+# The script's own folder, as a string op when $0 is already a path (a cd | dirname | pwd was
+# three process starts per exec); an absolute path stays as it was, a relative one is anchored.
+if [ -n "${MDL_SCAN_RULES:-}" ]; then RULES="$MDL_SCAN_RULES"
+else
+  _msd="${0%/*}"; [ "$_msd" != "$0" ] || _msd=.
+  case "$_msd" in /*) ;; *) _msd="$(cd "$_msd" && pwd)" ;; esac
+  RULES="$_msd/lib/mdl-scan-rules.tsv"
+fi
 [ -r "$RULES" ] || { echo "mdl-scan: rules file missing: $RULES" >&2; exit 2; }
 
 awk -F'\t' -v file="$SCRIPT" '

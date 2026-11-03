@@ -19,8 +19,9 @@
 #   inScope   every page in the scanned modules, as Module.Page
 #               ./mxcli -p <mpr> -c "SHOW PAGES IN <Module>"     (per module)
 #   modules   the caller's arguments; with none given, first-party modules from
-#               ./mxcli -p <mpr> -c "SHOW MODULES"               (Source column empty,
-#               minus System/Administration/Atlas* — harness-architecture.md §7)
+#               ./mxcli -p <mpr> -c "SHOW MODULES"               (Source column empty
+#               or only "Protected <kind>", minus System/Administration/Atlas* —
+#               harness-architecture.md §7)
 #   roles     role -> page sets, from each page's own `grant view on page ... to ...;`
 #               ./mxcli -p <mpr> describe --format elk page <QN> (mdlSource grants —
 #               the same statements page-audit-rules.js security/grant-view parses)
@@ -54,7 +55,7 @@ NO_ROLES=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --no-roles) NO_ROLES=1; shift ;;
-    -h|--help)  sed -n '2,46p' "$0"; exit 0 ;;
+    -h|--help)  sed -n '2,47p' "$0"; exit 0 ;;
     --*) echo "unknown argument: $1" >&2; exit 2 ;;
     *)   MODULES="$MODULES $1"; shift ;;
   esac
@@ -157,6 +158,10 @@ def first_party_modules():
         src  = cell(l, m_src.start())
         if not IDENT.match(name) or name.lower() in HEADER_WORDS:
             continue
+        # mxcli v0.28+ (mendixlabs/mxcli#1498) also writes "Protected AddOn|Solution" here,
+        # comma-joined after any "Marketplace vX" — the module's export level, not where it
+        # came from. A first-party module set to Protected is still first-party.
+        src = ", ".join(p for p in src.split(", ") if not p.startswith("Protected "))
         if src:
             continue                          # marketplace/import — carries a source
         if name in ("System", "Administration") or name.startswith("Atlas"):
@@ -167,7 +172,8 @@ def first_party_modules():
 module_source = "arguments"
 if not MODULES:
     MODULES = first_party_modules()
-    module_source = ("SHOW MODULES — rows with an empty Source column, minus "
+    module_source = ("SHOW MODULES — rows with an empty Source column (or only "
+                     "\"Protected <kind>\", mxcli v0.28+), minus "
                      "System/Administration/Atlas* (harness-architecture.md §7)")
 if not MODULES:
     fault("SHOW MODULES yielded no first-party module — every row carries a Source or is "

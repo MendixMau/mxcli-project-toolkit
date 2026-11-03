@@ -26,7 +26,7 @@ v0.24.0.
 | Widget | mxcli can author it? | Use it? |
 |---|---|---|
 | **Mendix File Uploader 2.5.0** (`com.mendix.widget.web.fileuploader.FileUploader`, keyword `fileuploader`) | Yes, on stock v0.23 and v0.24, with the rules below | **Yes.** Proven end to end |
-| Classic `Forms$FileManager` (Studio Pro "File manager") | No. No keyword. A `.def.json` gives a false-green `mxcli check`, then exec fails with `template not found: filemanager` | No, until mxcli gets a native `filemanager` (upstream #151) |
+| Classic `Forms$FileManager` (Studio Pro "File manager") | **v0.27+: yes, native `filemanager` keyword** (mendixlabs/mxcli#151), inside a data view on a `System.FileDocument` specialization. Below v0.27: no keyword; a `.def.json` gives a false-green `mxcli check`, then exec fails with `template not found: filemanager` | Not yet proven end to end by the toolkit — retest before relying on it |
 | `mendix.PDSFileUploader` | Writes, but stock mxcli gives CE0463 (action variables not written). It also posts to a REST endpoint, not to a FileDocument | Only with a REST backend and a patched mxcli |
 
 ## 2. What the File Uploader needs (it is not a FileManager)

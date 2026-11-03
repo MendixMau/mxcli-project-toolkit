@@ -504,7 +504,7 @@ same properties"* — once Studio Pro has saved such a document, and the Version
 fails. Field case: 78 changed units written with v0.24 on a production app, with no gate able to
 see them. mxcli v0.26.0 completes the set on every unit it writes, but only on units it rewrites,
 so a project upgraded mid-flight still carries the old ones until the repair runs. **Not on
-Mendix 10.24 below 10.24.24, through mxcli v0.27.0:** its property table starts at 10.24.24, so on
+Mendix 10.24 below 10.24.24, through mxcli v0.28.0:** (v0.29.0 measured the table from 10.24.0, ako/mxcli#1505, and lists `MIXED` names, exiting 1.) its property table starts at 10.24.24, so on
 10.24.18 a unit it writes can still lack keys, and `fix property-sets --dry-run` (hence
 `doctor --property-sets`) calls every unit complete (mendixlabs/mxcli#1595). There, the proof is
 Mendix's own `mx diff <base>.mpr <mine>.mpr out.json` against the base branch: exit 0 is clean.

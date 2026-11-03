@@ -100,6 +100,73 @@ st="$(cd "$P" && bash bin/look-ledger.sh status | awk -F'\t' '{printf "%s=%s ", 
   && ok "L5: status — two pages seen, the one with only a stale screenshot still owed" \
   || bad "L5: status got '$st'"
 
+# ── S: journey screenshots as LOOK evidence (speed experiment E2) ──────────────────────────
+# Golden input is a real journey run: fixtures/look-shots/journey-findings.json and its PNGs were
+# written by journey-runner.js against a finished Purchasing/Approval lab app (mxcli v0.28.0), and
+# the stub mxcli replays that app's captured `SHOW PAGES IN Approval` / `DESCRIBE PAGE` output.
+FXS="$TOOLKIT_ROOT/tests/wave2/fixtures/look-shots"
+if [ -d "$FXS" ] && command -v node >/dev/null 2>&1; then
+  P="$WORK/p-shots"; mkproject "$P" root
+  cp "$TOOLKIT_ROOT/project-bin/look-shots.js" "$P/bin/"
+  mkdir -p "$P/tests/e2e/artifacts"; cp "$FXS"/tests/e2e/artifacts/*.png "$P/tests/e2e/artifacts/"; cp "$FXS/journey-findings.json" "$P/tests/e2e/artifacts/"
+  cat > "$P/mxcli" <<STUB
+#!/usr/bin/env bash
+q=""; while [ \$# -gt 0 ]; do [ "\$1" = -c ] && q="\$2"; shift; done
+case "\$q" in "SHOW PAGES IN Approval") cat "$FXS/show-pages-Approval.out"; exit 0 ;; "SHOW PAGES IN "*) exit 0 ;; esac
+printf '%s\n' "\$q" | tr ';' '\n' | sed -n 's/^ *DESCRIBE PAGE \([^ ]*\) *\$/\1/p' | while IFS= read -r n; do cat "$FXS/describe-\$n.out"; done
+exit 0
+STUB
+  chmod +x "$P/mxcli"
+  mkdir -p "$P/.claude/loop/look"
+  past=$(( $(date +%s) - 3600 ))
+  for pg in Approval.Approval_Decide Approval.Approval_Inbox Approval.Dashboard Approval.Approval_Ghost; do
+    printf '%s\t2026-01-01T00:00:00Z\t%s\tmdlsource/x.mdl\n' "$past" "$pg" >> "$P/.claude/loop/look/owed.tsv"
+  done
+  out="$(cd "$P" && bash bin/look-ledger.sh shots 2>&1)"
+  printf '%s\n' "$out" | grep -q '^owed 4 = 3 OPEN .* + 1 UNREACHED' \
+    && ok "S1: denominator — 4 owed = 3 OPEN + 1 UNREACHED (the page no journey reached is listed, not dropped)" \
+    || bad "S1: got: $out"
+  printf '%s\n' "$out" | grep -q 'UNREACHED.Approval.Approval_Ghost' && ok "S1: the unreached page is named" || bad "S1: ghost not listed: $out"
+  printf '%s\n' "$out" | grep -q 'OPEN.Approval.Dashboard.*J-DASH-01-step1.png' && printf '%s\n' "$out" | grep -q 'OPEN.Approval.Approval_Decide.*J-APP-01-step2.png' \
+    && ok "S1: a popup/parameter page (Approval_Decide, url decide/{Request}) is attributed to the step that landed on it" || bad "S1: attribution: $out"
+  # nothing is SEEN merely because a journey took the shot: the agent has to open it
+  st="$(cd "$P" && bash bin/look-ledger.sh status | awk -F'\t' '{printf "%s=%s ", $2, $1}')"
+  [ "$st" = "Approval.Approval_Decide=OWED Approval.Approval_Ghost=OWED Approval.Approval_Inbox=OWED Approval.Dashboard=OWED " ] \
+    && ok "S2: before any Read every page is still OWED (a shot on disk is not a LOOK)" || bad "S2: status '$st'"
+  hook "$P/tests/e2e/artifacts/J-DASH-01-step1.png" | (cd "$P" && bash bin/look-ledger.sh seen)
+  hook "$P/tests/e2e/artifacts/J-APP-01-step2.png" | (cd "$P" && bash bin/look-ledger.sh seen)
+  st="$(cd "$P" && bash bin/look-ledger.sh status | awk -F'\t' '{printf "%s=%s ", $2, $1}')"
+  [ "$st" = "Approval.Approval_Decide=SEEN Approval.Approval_Ghost=OWED Approval.Approval_Inbox=OWED Approval.Dashboard=SEEN " ] \
+    && ok "S3: opening a journey shot (file name carries no page name) marks exactly its page SEEN" || bad "S3: status '$st'"
+  # a read of a shot that is NOT attributed to the page does not clear it
+  hook "$P/tests/e2e/artifacts/J-APP-01-step2.png" | (cd "$P" && bash bin/look-ledger.sh seen)
+  [ "$(cd "$P" && bash bin/look-ledger.sh status | awk -F'\t' '$2 == "Approval.Approval_Inbox" {print $1}')" = OWED ] \
+    && ok "S3b: reading the Decide shot does not clear Approval_Inbox" || bad "S3b: Inbox cleared by another page's shot"
+  # a page rebuilt after the shot: the shot shows the previous build, so it is UNREACHED again
+  printf '%s\t2026-01-01T00:00:00Z\tApproval.Dashboard\tmdlsource/y.mdl\n' "$(( $(date +%s) + 3600 ))" >> "$P/.claude/loop/look/owed.tsv"
+  out="$(cd "$P" && bash bin/look-ledger.sh shots 2>&1)"
+  printf '%s\n' "$out" | grep -q 'UNREACHED.Approval.Dashboard' && ok "S4: a shot older than the page's last build is not evidence (UNREACHED)" || bad "S4: $out"
+  # no mxcli: say NOT MEASURED, every owed page listed
+  mv "$P/mxcli" "$P/mxcli.off"
+  out="$(cd "$P" && MXCLI=/nonexistent bash bin/look-ledger.sh shots 2>&1)"
+  printf '%s\n' "$out" | grep -q 'NOT MEASURED' && printf '%s\n' "$out" | grep -q '^owed [0-9]* = 0 OPEN' \
+    && ok "S5: no model to read widgets from — NOT MEASURED, all owed pages UNREACHED, never a silent pass" || bad "S5: $out"
+  mv "$P/mxcli.off" "$P/mxcli"
+  # look-shots.js directly: a widget shared by two pages is claimed only when the URL picks one
+  W="$WORK/ls"; mkdir -p "$W/img"; head -c 20000 /dev/zero > "$W/img/a.png"
+  printf 'M.A\tdgList\nM.B\tdgList\n' > "$W/widgets.tsv"
+  mkfind() { printf '{"walks":[{"journey":"J","steps":[{"n":1,"reached":true,"expects":{"landsOn":".mx-name-dgList"},"shot":{"file":"%s","url":"%s"}}]}]}' "$W/img/a.png" "$1" > "$W/f.json"; }
+  printf 'M.A\ta\nM.B\tb\n' > "$W/pages.tsv"; mkfind "http://h/p/a"
+  node "$P/bin/look-shots.js" --root "$W" --widgets "$W/widgets.tsv" --pages "$W/pages.tsv" --out "$W/o.tsv" "$W/f.json" >/dev/null
+  [ "$(cut -f3 "$W/o.tsv")" = "M.A" ] && ok "S6: two pages share the widget; the shot's URL (/p/a) picks M.A" || bad "S6: $(cat "$W/o.tsv")"
+  mkfind "http://h/p/zzz"
+  node "$P/bin/look-shots.js" --root "$W" --widgets "$W/widgets.tsv" --pages "$W/pages.tsv" --out "$W/o.tsv" "$W/f.json" >/dev/null
+  [ ! -s "$W/o.tsv" ] && ok "S6b: ambiguous and the URL picks none — claimed for no page (when unsure, do not claim)" || bad "S6b: $(cat "$W/o.tsv")"
+else
+  bad "S: fixtures/look-shots or node missing"
+fi
+P="$WORK/p-app"   # G1-G3 below run on the L-section project
+
 # ── G1-G3: Stage 5 in gate-check.sh ────────────────────────────────────────────────────────
 if [ -x "$GATE" ] || [ -f "$GATE" ]; then
   printf '# PROJECT\n\n## Decisions\n\n| Stage | Decision | Status | Notes |\n|---|---|---|---|\n' > "$P/PROJECT.md"

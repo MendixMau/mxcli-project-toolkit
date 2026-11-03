@@ -47,10 +47,16 @@ terminators added, unit 87236 -> 89486 bytes. The same definition reached 8 of 1
 before the patch and 16 of 16 after, six of them open concurrently at the split. Native
 `mx check`: 0 errors both times.
 
+MENDIX 10.21 AND LATER ONLY. Workflows$EndOfParallelSplitPathActivity was introduced in Mendix
+10.21.0 (mendixmodelsdk versionInfo; mxcli ako/mxcli#1163, #1774). Written into an older model
+it makes the project unloadable (TypeCacheUnknownTypeException) -- so below 10.21 this tool
+refuses, exit 3, nothing written. mxcli v0.22.0 and later write the terminator themselves
+(BUG-121 is fixed upstream), so on a current mxcli this tool normally finds nothing to add.
+
 NEVER run this against a model Studio Pro has open, or while the app is running -- see
 project-bin/snapshot-mpr.sh. Concurrent writers corrupt the .mpr.
 """
-import os, sys, uuid
+import os, sqlite3, sys, uuid
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import mxpatch
 from mxpatch import get, is_doc
@@ -72,6 +78,22 @@ def make_terminator(n):
         (0x02, "RelativeMiddlePoint", "0;0"),
         (0x02, "Size", "0;0"),
     ]
+
+
+TERMINATOR_SINCE = (10, 21)
+
+
+def product_version(mpr):
+    """The model's Mendix version as a tuple of ints, or None when it cannot be read."""
+    try:
+        db = sqlite3.connect("file:%s?mode=ro" % mpr, uri=True)
+        try:
+            v = db.execute("select _ProductVersion from _MetaData").fetchone()[0]
+        finally:
+            db.close()
+        return tuple(int(x) for x in str(v).split(".")[:3])
+    except Exception:
+        return None
 
 
 def walk(node, state):
@@ -119,6 +141,15 @@ def main():
         model, unit = mxpatch.resolve_unit(args, "Workflows$Workflow")
     except mxpatch.PatchError as e:
         sys.exit("wf-add-path-terminators: %s" % e)
+    pv = product_version(model.mpr)
+    if pv is not None and pv[:2] < TERMINATOR_SINCE:
+        print("REFUSED -- this model is Mendix %s; %s arrived in 10.21.0. Written here it makes the"
+              % (".".join(map(str, pv)), TERMINATOR))
+        print("project unloadable (TypeCacheUnknownTypeException). Nothing written. Below 10.21 a")
+        print("parallel split path has no terminator node at all.")
+        sys.exit(3)
+    if pv is None:
+        print("note: the model's Mendix version could not be read; this tool needs 10.21 or later.")
     doc = unit.doc
     state = {"paths": 0, "added": 0, "already": 0, "n": 0}
     walk(doc, state)

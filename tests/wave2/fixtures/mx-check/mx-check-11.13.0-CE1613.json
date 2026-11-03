@@ -1,0 +1,92 @@
+{
+  "serialization_version": 1,
+  "errors": [
+    {
+      "code": "CE1613",
+      "message": "The selected attribute 'Purchasing.PurchaseRequest.Title' no longer exists.",
+      "locations": [
+        {
+          "module-id": "619a1c75-4f23-4983-b36d-dd7a60db810c",
+          "module-name": "Approval",
+          "document-name": "Page 'Approval_Decide'",
+          "element-name": "Property 'Attribute' of text box [Title]",
+          "element-id": "7c005e3f-b927-468c-944d-01296145ec4d",
+          "unit-id": "db0af1d2-e271-42f0-975e-20de0d37a8d9"
+        }
+      ]
+    },
+    {
+      "code": "CE1613",
+      "message": "The selected attribute 'Purchasing.PurchaseRequest.Title' no longer exists.",
+      "locations": [
+        {
+          "module-id": "619a1c75-4f23-4983-b36d-dd7a60db810c",
+          "module-name": "Approval",
+          "document-name": "Page 'Approval_Inbox'",
+          "element-name": "Property 'Attribute' of columns (2/5) of data grid 2 'dgInbox'",
+          "element-id": "6be8d31d-f477-46fe-bbaf-480be80afe25",
+          "unit-id": "6f2a4b23-fe76-42f0-bd19-141e181c2a27"
+        }
+      ]
+    },
+    {
+      "code": "CE1613",
+      "message": "The selected attribute 'Purchasing.PurchaseRequest.Title' no longer exists.",
+      "locations": [
+        {
+          "module-id": "94908061-c12e-4464-87f8-532363fff439",
+          "module-name": "Purchasing",
+          "document-name": "Page 'Request_List'",
+          "element-name": "Property 'Attribute' of columns (2/6) of data grid 2 'dgRequests'",
+          "element-id": "3e970e41-6121-4897-8a4f-baf06144be09",
+          "unit-id": "48a21dc1-7e7c-46c9-ae45-3bdc55deda9a"
+        }
+      ]
+    },
+    {
+      "code": "CE1613",
+      "message": "The selected attribute 'Purchasing.PurchaseRequest.Title' no longer exists.",
+      "locations": [
+        {
+          "module-id": "94908061-c12e-4464-87f8-532363fff439",
+          "module-name": "Purchasing",
+          "document-name": "Microflow 'SUB_Request_Save'",
+          "element-name": "Property 'Attribute' of validation feedback activity 'Show validation message on member Title of Request'",
+          "element-id": "aa60fd7a-ea4a-428b-9909-250db77f2619",
+          "unit-id": "5db787da-4e68-41ec-ac7a-e05b3e39f7d7"
+        }
+      ]
+    },
+    {
+      "code": "CE1613",
+      "message": "The selected attribute 'Purchasing.PurchaseRequest.Title' no longer exists.",
+      "locations": [
+        {
+          "module-id": "94908061-c12e-4464-87f8-532363fff439",
+          "module-name": "Purchasing",
+          "document-name": "Page 'Request_Edit'",
+          "element-name": "Property 'Attribute' of text box [Title]",
+          "element-id": "709713b8-fc05-46b7-aeec-405e7f683562",
+          "unit-id": "bec76f01-90e2-4e6c-a182-2f6fc1dcc2fd"
+        }
+      ]
+    },
+    {
+      "code": "CE1613",
+      "message": "The selected attribute 'Purchasing.PurchaseRequest.Title' no longer exists.",
+      "locations": [
+        {
+          "module-id": "619a1c75-4f23-4983-b36d-dd7a60db810c",
+          "module-name": "Approval",
+          "document-name": "Page 'Dashboard'",
+          "element-name": "Property 'Attribute' of text 'txtDecisionTitle'",
+          "element-id": "d8eeb945-2b42-439d-9c29-48ec95e3a88b",
+          "unit-id": "616136ed-085a-495c-ae25-23864554f729"
+        }
+      ]
+    }
+  ],
+  "warnings": [],
+  "deprecations": [],
+  "total-problems": 6
+}

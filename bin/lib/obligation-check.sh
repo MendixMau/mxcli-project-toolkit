@@ -453,10 +453,20 @@ mxtk_obligations_report() {
   local modules; modules="$(_ob_modules "$root")"
   local ob performer scope match artifact denom degradable from_stage skill
 
+  # Stage limit (#583): rows owed from a stage AFTER the one asked about are not evaluated —
+  # they cannot change the requested stage's verdict, and each one walks every module's
+  # reports. gate-check.sh exports MXTK_ROWS_UPTO (a stage token); unset = every row.
+  local limit_rank=99 skipped_n=0 from_rank
+  [ -n "${MXTK_ROWS_UPTO:-}" ] && limit_rank="$(_ob_rank "$MXTK_ROWS_UPTO")"
+
   while IFS=$'\t' read -r ob performer scope match artifact denom degradable from_stage skill; do
     case "$ob" in ''|'#'*|obligation) continue ;; esac
 
-    if [ "$(_ob_rank "$from_stage")" -lt "$adopted_rank" ]; then
+    # _ob_rank inline: it was a command substitution (a fork) three times per row.
+    case "$from_stage" in P|p) from_rank=0 ;; [0-7]) from_rank=$(( from_stage + 1 )) ;; *) from_rank=99 ;; esac
+    if [ "$from_rank" -gt "$limit_rank" ]; then skipped_n=$((skipped_n+1)); continue; fi
+
+    if [ "$from_rank" -lt "$adopted_rank" ]; then
       printf 'Obligation %-10s ADOPTED — project joined at stage %s, above this pass'"'"'s stage %s (%s)\n' \
         "$ob" "$adopted" "$from_stage" "$skill"
       continue
@@ -466,7 +476,7 @@ mxtk_obligations_report() {
     # keeps its verdict whatever the readout says — an early stale FAIL holds the derived
     # readout back while the build goes on, and a general rule would hide owed passes behind it
     # (review of #321).
-    if [ "$ob" = "final-look" ] && [ "$(_ob_rank "$from_stage")" -gt "$current_rank" ]; then
+    if [ "$ob" = "final-look" ] && [ "$from_rank" -gt "$current_rank" ]; then
       printf 'Obligation %-10s NOT YET DUE — owed from stage %s; the register'"'"'s Current stage is %s (%s)\n' \
         "$ob" "$from_stage" "$current" "$skill"
       continue
@@ -576,6 +586,10 @@ mxtk_obligations_report() {
       "$ob" "$noproof"
   done < "$OBLIGATIONS_TSV"
 
+  if [ "$skipped_n" -gt 0 ]; then
+    printf 'Obligations: %s row(s) owed from stages after %s not evaluated — a stage query reads its own stage and earlier; run without a stage for every row\n' \
+      "$skipped_n" "$MXTK_ROWS_UPTO"
+  fi
   return 0
 }
 
@@ -597,16 +611,19 @@ mxtk_obligations_reverse_check() {
   [ -f "$OBLIGATIONS_TSV" ] || {
     printf '⚠ Obligations reverse check: FAULT — %s not found; no skill was checked\n' "$OBLIGATIONS_TSV" >&2
     return 0; }
-  local named unnamed="" name path when agents stages tier group
+  local named unnamed="" name path when agents stages tier group noroute
   named="$(awk -F'\t' '!/^#/ && NF>=9 && $1!="obligation"{print $9}' "$OBLIGATIONS_TSV")"
+  # Both lists once, tested with case below — two grep processes per routing row before (#583).
+  noroute="$(awk '{print $1}' <<<"$MXTK_OBLIGATIONS_NOROUTE")"
+  named=$'\n'"$named"$'\n'; noroute=$'\n'"$noroute"$'\n'
   while IFS=$'\t' read -r name path when agents stages tier group; do
     case "$name" in ''|'#'*) continue ;; esac
     # Per-module passes live in the `verify` group. Filtering on stage 5/6 alone caught 46
     # skills — an MDL cookbook and a datagrid note among them — and a warning listing 46
     # names is one nobody reads, which is the same as no check at all.
     [ "$group" = "verify" ] || continue
-    grep -qxF -- "$path" <<<"$named" && continue
-    grep -qxF -- "$name" <<<"$(awk '{print $1}' <<<"$MXTK_OBLIGATIONS_NOROUTE")" && continue
+    case "$named" in *$'\n'"$path"$'\n'*) continue ;; esac
+    case "$noroute" in *$'\n'"$name"$'\n'*) continue ;; esac
     unnamed="$unnamed $name"
   done < "$tsv"
   if [ -n "$unnamed" ]; then

@@ -78,6 +78,16 @@ OUT=$(run_in "$P" "$T/user-home" "" 'echo "$MENDIX_APP"')
 [ "$OUT" = "/c/Program Files/Mendix/11.11.0" ] && ok "converted (-> $OUT)" || fail "not converted (-> $OUT)"
 rm -f "$P/.claude/toolkit.env"
 
+# ── 4b: mxtk_load_env — `export KEY=value` lines, quoted values (#579) ───────
+# The key used to be read with all whitespace squeezed out, so `export MENDIX_APP=...` set a
+# variable named exportMENDIX_APP and MENDIX_APP stayed empty. Quotes after `= ` were kept too.
+echo "== 4b: mxtk_load_env — export KEY=value, quoted, and spaced forms =="
+printf 'export MENDIX_APP=/from/export\n  export\tMXCLI_VERSION="0.29.0"\nPYTHON = "/q/py"\nexportX=1\n' > "$P/.claude/toolkit.env"
+OUT=$(run_in "$P" "$T/user-home" "" 'echo "${MENDIX_APP:-}|${MXCLI_VERSION:-}|${PYTHON:-}|${exportX:-}|${exportMENDIX_APP:-}"')
+[ "$OUT" = "/from/export|0.29.0|/q/py|1|" ] && ok "export/quoted/spaced keys read (-> $OUT)" \
+  || fail "export/quoted/spaced keys misread, want '/from/export|0.29.0|/q/py|1|' (-> $OUT)"
+rm -f "$P/.claude/toolkit.env"
+
 # ── 5: mxtk_is_elf — a real ELF binary is reported true ──────────────────────
 echo "== 5: mxtk_is_elf — a real ELF binary =="
 OUT=$(run_in "$P" "$T/user-home" "" "mxtk_is_elf '$REAL_ELF' && echo yes || echo no")

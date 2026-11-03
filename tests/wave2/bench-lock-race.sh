@@ -90,10 +90,12 @@ chmod +x "$WORK/pause.sh"
 cat > "$WORK/contender-exec.sh" <<'C'
 LOCK="$1"; ROUND="$2"; RETRY="$RETRY_SECS"; MXTK_LOCK_RETRY_SLEEP="$RETRY_SECS"
 . "$WORK/impl.sh"
-alive() {  # same rule as the lock: alive, not a zombie, one of ours
+alive() {  # same rule as the lock: alive, not a zombie, one of ours — and where `ps -o args=`
+  # says nothing (Git Bash) kill -0 alone decides, as in mxtk_lock_live; treating empty as dead
+  # there would make every overlap invisible (review of #379).
   kill -0 "$1" 2>/dev/null || return 1
   case "$(sed 's/.*) //' "/proc/$1/stat" 2>/dev/null | cut -d' ' -f1)" in Z) return 1 ;; esac
-  case "$(ps -o args= -p "$1" 2>/dev/null || true)" in *contender-exec.sh*) return 0 ;; esac
+  case "$(ps -o args= -p "$1" 2>/dev/null || true)" in ""|*contender-exec.sh*) return 0 ;; esac
   return 1
 }
 check() {

@@ -174,6 +174,16 @@ dead_pid > "$LOCK"
 OUT="$(run "$P" mdlsource/test.mdl)"; RC=$?
 [ "$RC" -eq 0 ] && has "pre-change lock format taken over" "$OUT" "taking it over" || bad "old-format stale lock blocked (rc $RC)"
 
+echo "-- lock: an empty lock file under a minute old (a crashed take) — said so, not 'keeps re-taking it'"
+: > "$LOCK"
+OUT="$(MXTK_LOCK_RETRY_SLEEP=0.05 run "$P" mdlsource/test.mdl)"; RC=$?
+[ "$RC" -ne 0 ] && ok "a fresh empty lock refuses (rc $RC)" || bad "a fresh empty lock was taken over (rc 0)"
+has  "  the refusal says the lock file is empty" "$OUT" "lock file is empty"
+has  "  and names the remedy: re-run in a minute, or delete it" "$OUT" "rm -- \"$LOCK\""
+hasnt "  not the misleading 'keeps re-taking it'" "$OUT" "keeps re-taking it"
+hasnt "  and it did not execute" "$OUT" "fake mxcli exec"
+rm -f "$LOCK"
+
 echo "-- lock: pid reused by an unrelated live process"
 sleep 30 & S=$!; BG_PIDS="$BG_PIDS $S"
 if [ -n "$(ps -o args= -p "$S" 2>/dev/null)" ]; then

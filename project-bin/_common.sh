@@ -1547,11 +1547,13 @@ _mxtk_lock_reap() {
 }
 
 # _mxtk_lock_gc <lock> <our line> — run by a new holder: tickets of every other key, temp files of
-# dead pids, and a stale old-style takeover file.
+# dead pids, and a stale old-style takeover file. The uncontended take has no tickets: a glob test
+# sees that without starting a process, and the cksum/awk key is computed only when one exists.
 _mxtk_lock_gc() {
-  local L="$1" mine f
-  mine="$(_mxtk_lock_key "$2")"
+  local L="$1" mine="" f
   for f in "$L".reap.*; do
+    [ -e "$f" ] || continue
+    [ -n "$mine" ] || mine="$(_mxtk_lock_key "$2")"
     case "$f" in "$L.reap.$mine."*) continue ;; esac
     rm -f "$f"
   done
@@ -1566,8 +1568,9 @@ _mxtk_lock_gc() {
 # mxtk_lock_take <lockfile> <label> [tries=6] — 0 taken (MXTK_LOCK_REAPED = the dead holder's line
 # when we reaped one, else ""); 1 a live holder has it (MXTK_LOCK_HELD = its line); 2 gave up after
 # <tries> attempts (others kept taking it, or MXTK_LOCK_BLOCKER = "<pid> <file>": a live reaper's
-# ticket, or an old-style takeover file, that never finished — mxtk_lock_blocked_text says what to
-# do). Call it directly, not in $( ): it sets variables.
+# ticket, or an old-style takeover file, that never finished; "empty <lock>": the lock file itself
+# was empty and under a minute old — mxtk_lock_blocked_text says what to do). Call it directly, not
+# in $( ): it sets variables.
 mxtk_lock_take() {
   local L="$1" label="$2" tries="${3:-6}" i=0 held line slp="${MXTK_LOCK_RETRY_SLEEP:-1}"
   MXTK_LOCK_HELD=""; MXTK_LOCK_REAPED=""; MXTK_LOCK_BLOCKER=""
@@ -1585,7 +1588,7 @@ mxtk_lock_take() {
       [ -e "$L" ] || continue   # released between our create and our read
       # Empty: the pre-ticket code writes after its O_EXCL create — wait, unless it is over a
       # minute old (its writer died between the two) and so a stale line like any other.
-      if [ -z "$(find "$L" -mmin +1 2>/dev/null)" ]; then sleep "$slp"; continue; fi
+      if [ -z "$(find "$L" -mmin +1 2>/dev/null)" ]; then MXTK_LOCK_BLOCKER="empty $L"; sleep "$slp"; continue; fi
     elif mxtk_lock_live "${held%% *}"; then
       MXTK_LOCK_HELD="$held"; return 1
     fi
@@ -1596,21 +1599,32 @@ mxtk_lock_take() {
   return 2
 }
 
-# mxtk_lock_blocked_text — after rc 2, when a live reaper blocked the reap: which pid and which file,
+# mxtk_lock_blocked_text — after rc 2, when something blocked the take: which pid and which file,
 # and what to do. A reaper normally holds its ticket for milliseconds; one that does not is stopped
-# (Ctrl+Z / SIGSTOP), hung, or a dead reaper's pid reused by another exec.sh-named process where
-# `ps -o args=` cannot tell them apart (Git Bash). Prints nothing when MXTK_LOCK_BLOCKER is empty.
+# (Ctrl+Z / SIGSTOP), hung, or a dead reaper whose pid the OS gave to another process where
+# `ps -o args=` cannot tell them apart (Git Bash). The two get different remedies: a stopped or hung
+# exec.sh / test-scratch.sh is resumed or ended; a reused pid is never killed (it is someone else's
+# process) — its ticket file is deleted instead. Prints nothing when MXTK_LOCK_BLOCKER is empty.
 mxtk_lock_blocked_text() {
   local p="${MXTK_LOCK_BLOCKER%% *}" f="${MXTK_LOCK_BLOCKER#* }"
   [ -n "${MXTK_LOCK_BLOCKER:-}" ] || return 0
+  if [ "$p" = "empty" ]; then
+    echo "  The lock file is empty: a take that crashed between creating it and writing its line:"
+    echo "    $f"
+    echo "  → It counts as stale once it is a minute old: re-run in a minute, or delete it now: rm -- \"$f\""
+    return 0
+  fi
   echo "  The dead holder's lock is being reaped by PID $p, which is alive but has not finished:"
   echo "    $f"
   if [ "$p" = "?" ]; then
     echo "  → Its creator died mid-write; it stops counting a minute after it was created. Re-run then."
-  else
-    echo "  → If PID $p is stopped (Ctrl+Z), resume it: kill -CONT $p (or fg in its terminal)."
-    echo "    If it is hung, or not an exec.sh / test-scratch.sh at all (a reused pid), end it: kill $p — then re-run."
+    return 0
   fi
+  echo "  → First check what PID $p is: ps -o args= -p $p   (Git Bash: ps -p $p; Windows: Task Manager)"
+  echo "    a) It IS an exec.sh / test-scratch.sh (a stopped or hung reaper) — leave its ticket alone:"
+  echo "       stopped (Ctrl+Z): resume it: kill -CONT $p (or fg in its terminal); hung: end it: kill $p — then re-run."
+  echo "    b) It is NOT an exec.sh / test-scratch.sh (the dead reaper's pid was reused) — do not kill it;"
+  echo "       delete the dead reaper's ticket instead: rm -- \"$f\" — then re-run."
 }
 
 # mxtk_lock_release <lockfile> — remove it only while it holds our own line (pid AND nonce).

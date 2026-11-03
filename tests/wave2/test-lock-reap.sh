@@ -79,6 +79,15 @@ OUT="$(lk 'mxtk_lock_take "$L" me 3; echo "rc=$? blocker=$MXTK_LOCK_BLOCKER"; mx
 case "$OUT" in *rc=2*) ok "a live reaper's ticket (dated 2000) blocks: gave up (rc 2)" ;; *) bad "an old live ticket was overtaken: $OUT" ;; esac
 case "$OUT" in *"blocker=$LP $L.reap.$K.1"*) ok "  MXTK_LOCK_BLOCKER names the reaper's pid and ticket file" ;; *) bad "  blocker not named: $OUT" ;; esac
 case "$OUT" in *"kill -CONT $LP"*"kill $LP"*) ok "  and the message says to resume or end that pid (review of #379)" ;; *) bad "  no remedy in: $OUT" ;; esac
+# A reused pid belongs to an unrelated process: the remedy for it is deleting the ticket, never a
+# kill; and the kill is offered only for a pid that IS a reaper (2nd review of #379).
+KL="$(printf '%s\n' "$OUT" | grep -n "kill $LP" | head -1 | cut -d: -f1)"
+NL="$(printf '%s\n' "$OUT" | grep -n 'NOT an exec.sh / test-scratch.sh' | head -1 | cut -d: -f1)"
+RL="$(printf '%s\n' "$OUT" | grep -nF "rm -- \"$L.reap.$K.1\"" | head -1 | cut -d: -f1)"
+[ -n "$RL" ] && ok "  a reused pid's remedy names the ticket: rm -- \"<ticket>\"" || bad "  no rm of the ticket in: $OUT"
+[ -n "$KL" ] && [ -n "$NL" ] && [ -n "$RL" ] && [ "$KL" -lt "$NL" ] && [ "$NL" -le "$RL" ] \
+  && ok "  the kill sits under 'is an exec.sh' and the rm under 'is NOT' — two separate cases" || bad "  cases mixed (kill@$KL not@$NL rm@$RL): $OUT"
+printf '%s\n' "$OUT" | grep -i 'reused' | grep -q "kill $LP" && bad "  a reused pid is still told to be killed: $OUT" || ok "  a reused pid is never told to be killed"
 [ "$(cat "$L")" = "$X" ] && ok "the stale line was left to the live reaper" || bad "lock changed: $(cat "$L")"
 [ ! -e "$L.reap.$K.2" ] && ok "no ticket 2 taken while ticket 1 lives" || bad "ticket 2 taken over a live ticket 1"
 kill -KILL "$LP" 2>/dev/null; wait "$LP" 2>/dev/null
@@ -144,9 +153,12 @@ reset
 
 echo "-- an empty lock: fresh = being written (wait); over a minute old = stale"
 : > "$L"
-OUT="$(lk 'mxtk_lock_take "$L" me 2; echo "rc=$?"')"
+OUT="$(lk 'mxtk_lock_take "$L" me 2; echo "rc=$? blocker=$MXTK_LOCK_BLOCKER"; mxtk_lock_blocked_text')"
 case "$OUT" in *rc=2*) ok "a fresh empty lock is waited on, not reaped" ;; *) bad "$OUT" ;; esac
 [ -e "$L" ] && [ ! -s "$L" ] && ok "  and left alone" || bad "  the fresh empty lock was touched"
+# The give-up must say why: an empty lock file (a crashed take), not "someone keeps re-taking it".
+case "$OUT" in *"blocker=empty $L"*) ok "  MXTK_LOCK_BLOCKER says the lock file is empty (2nd review of #379)" ;; *) bad "  blocker not set: $OUT" ;; esac
+case "$OUT" in *"lock file is empty"*"re-run in a minute"*"rm -- \"$L\""*) ok "  and the message says: re-run in a minute, or rm -- \"<lock>\"" ;; *) bad "  no empty-lock remedy in: $OUT" ;; esac
 touch -t 200001010000 "$L"
 OUT="$(lk 'mxtk_lock_take "$L" me 2; echo "rc=$?"; mxtk_lock_release "$L"')"
 case "$OUT" in *rc=0*) ok "an empty lock over a minute old is reaped" ;; *) bad "$OUT" ;; esac

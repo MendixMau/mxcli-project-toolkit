@@ -299,7 +299,8 @@ The build-vs-buy-vs-workaround decision, one row per source capability. **This i
 |---|---|---|---|
 | e.g. CRUD grid | Data Grid 2 (native) | **Native** | — |
 | e.g. role-based access | Built-in Administration module | **Config** | — |
-| e.g. charts/dashboard | Charts (marketplace, Mendix-supported) | **Buy** — decide if needed | maybe |
+| e.g. charts/dashboard | `Charts` widget (marketplace, Mendix-supported) | **Buy** — decide if needed | maybe |
+| e.g. field encryption | `Encryption` module (marketplace) | **Buy** | — |
 | e.g. signed-quantity convention | Explicit enum + sign-deriving microflow | **Build (changed behavior)** | resolved decision |
 | e.g. feature never built in source | new page over existing logic | **Build (new)** | design from BRD |
 
@@ -314,6 +315,8 @@ Cost the **inclusive gateway (OR)** explicitly rather than letting it pass as on
 Verdict vocabulary: **Native** (ships with Mendix/Atlas) · **Config** (native, needs setup) · **Buy** (marketplace) · **Build** (we script it) · **Workaround** (mxcli limitation → Studio Pro or manual) · **Gap** (unresolved — goes to Step 5's register rows in `PROJECT.md`).
 
 **Marketplace rule of thumb:** for a small CRUD app, import almost nothing — the Administration module and Atlas/Data Grid ship by default. Only "Buy" when a capability is real, reusable, and cheaper than building. Over-importing adds upgrade surface; note every "Buy" as a dependency in Step 5.
+
+**A confirmed Buy names its package in backticks** in the Mendix approach cell — the module name as `SHOW MODULES` will list it, or the widget's `.mpk` basename — and its Verdict cell reads plain **Buy** (an open one keeps "decide if needed"). `gate-check.sh` Stage 5 reads exactly that: each confirmed Buy must show Source `Marketplace v…` in `SHOW MODULES`, or exist as `widgets/<Name>.mpk`, or carry `--waive marketplace/<Name> --reason "..."`.
 
 **Deciding "Buy" here is not the same as installing it.** The actual `mxcli marketplace search/install` step happens later, as `brd-to-build-plan.md` Step 0 — before any domain-model script, so the module's real entities/microflows exist for MDL scripts to reference and validate against. This step only produces the decision; don't stop partway and leave a confirmed "Buy" un-imported going into the build.
 

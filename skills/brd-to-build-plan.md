@@ -64,14 +64,14 @@ Per-module detail (domain summary, UI pointers, validation rules, the access-tab
 If `architecture/fit-gap.md` has any confirmed **Buy** verdicts, resolve them now — before Step 1, before any domain-model script, before the skeleton build begins:
 
 ```bash
-mxcli auth login                              # once per machine, see download-marketplace-content.md
+mxcli auth login                              # once per machine; the PAT: learned-constants-and-secrets.md § "Creating a PAT for Marketplace installs"
 mxcli marketplace search "<capability>"       # find the content id
 mxcli marketplace install <content-id> -p app.mpr
 ```
 
 Full search/download/install mechanics (auth, version pinning, the "module already present → not auto-updated" caveat) are in the project's own `.ai-context/skills/download-marketplace-content.md` — that's an mxcli built-in skill, not something this toolkit re-documents.
 
-**Verify each install by what it is.** A module package shows up in `SHOW MODULES`. A **widget-only package** (Charts, for example) installs as `widgets/<Name>.mpk` and **never** appears in `SHOW MODULES`, so a plan row verified that way never passes. Verify it by the file instead: `ls widgets/Charts.mpk` (or the widget's own `.mpk` name), and say which check applies in the row's acceptance line.
+**Verify each install by what it is.** A module package shows up in `SHOW MODULES`. A **widget-only package** (Charts, for example) installs as `widgets/<Name>.mpk` and **never** appears in `SHOW MODULES`, so a plan row verified that way never passes. Verify it by the file instead: `ls widgets/Charts.mpk` (or the widget's own `.mpk` name), and say which check applies in the row's acceptance line. `gate-check.sh` Stage 5 runs both checks for every confirmed Buy and FAILs on one that is missing.
 
 **Why this has to happen before scripting, not during it:**
 - `mxcli check <script> --references` validates that referenced entities/microflows/associations actually exist — it can't validate a reference into a marketplace module that isn't imported yet.

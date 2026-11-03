@@ -9,7 +9,7 @@
 #
 # Usage: bin/gate-check.sh [--html|--no-html] [--ack-protocol [--approved-in-chat]|--force-stale] [--verbose]
 #                          [--adopt <stage> --reason "..."]
-#                          [--waive <stage|obligation[/module]|source/<file>> --reason "..."]
+#                          [--waive <stage|obligation[/module]|source/<file>|marketplace/<Name>> --reason "..."]
 #                          <project-dir> [stage]
 #   - With a stage-number, additionally exits non-zero if that specific stage's check fails.
 #   - Without one, evaluates and reports all stages, exits 0 regardless (informational run).
@@ -41,6 +41,8 @@
 #   - --waive source/<rel-or-basename> --reason "..." waives one SOURCE FILE of the Stage 0
 #     inventory (bin/source-ledger.sh): deliberately not extracted, says who and why. The
 #     ledger otherwise BLOCKS Stages 1 and 2 while any file has no disposition that holds up.
+#   - --waive marketplace/<Name> --reason "..." waives one confirmed fit-gap Buy that is
+#     deliberately not installed (bin/lib/marketplace-check.sh); bare `marketplace` waives all.
 #
 # VERDICT VOCABULARY (four, and the difference between the first two is the whole point):
 #   PASS    — checked, and it holds.
@@ -197,6 +199,8 @@ for opt_pair in "--adopt:$ADOPT_STAGE" "--waive:$WAIVE_STAGE"; do
     P|p|[0-7]) continue ;;
   esac
   if [ "$opt_name" = "--waive" ] && _gc_is_obligation "$opt_val"; then continue; fi
+  # A confirmed Marketplace Buy that is deliberately not installed (bin/lib/marketplace-check.sh).
+  case "$opt_val" in marketplace|marketplace/?*) [ "$opt_name" = "--waive" ] && continue ;; esac
   # A SOURCE FILE is the third waivable thing: `--waive source/<rel-path-or-basename>` records
   # that a file in the Stage 0 inventory is deliberately not extracted (bin/source-ledger.sh
   # reads the line). Same flag, same mandatory reason, same register — the user's "if I agree
@@ -1370,7 +1374,19 @@ stage4_closing_rows() {
 # citation in design/ui-reviews/ui-review-*.html whose screenshot is newer than the build and
 # at least 10KB, and a `Waived obligation look/<Module>` (or look/<Module.Page>) register line.
 # No owed.tsv — a project built before this, or one whose exec.sh predates it — stays MANUAL.
+# Stage 5 also fails on a confirmed Marketplace Buy that is not installed (bin/lib/
+# marketplace-check.sh, evaluated once above the stage loop). Only its FAIL is folded in: PENDING
+# there (no model, no mxcli, nothing confirmed) leaves Stage 5 exactly as the LOOK check left it.
 check_stage_5() {
+  local r; r="$(check_stage_5_look)"
+  if [ "${MXTK_MKT_STATUS:-}" = FAIL ]; then
+    echo "FAIL|marketplace: $MXTK_MKT_NOTE · ${r#*|}"
+  else
+    echo "$r"
+  fi
+}
+
+check_stage_5_look() {
   local owed="$PROJECT_DIR/.claude/loop/look/owed.tsv" rows proofs="" n=0 n_seen=0 n_proof=0 n_waived=0
   local unseen="" n_unseen=0 st page epoch mod rep line shot f sz mt
   if [ ! -s "$owed" ] || [ ! -f "$TOOLKIT_DIR/project-bin/look-ledger.sh" ]; then
@@ -2248,6 +2264,15 @@ if [ -n "$ADOPT_STAGE" ] || [ -n "$WAIVE_STAGE" ]; then
     #     --waive sweep       --reason "QA runs in the client's own suite"  (every module)
     # The obligation form is recognised by the target naming a row in obligations.tsv.
     case "$WAIVE_STAGE" in
+      marketplace|marketplace/?*)
+        MKT_NAME="${WAIVE_STAGE#marketplace}"; MKT_NAME="${MKT_NAME#/}"
+        register_set_line "Waived marketplace${MKT_NAME:+ $MKT_NAME}" "$WAIVER_REASON" \
+          || { echo "Could not write to $REGISTER" >&2; exit 1; }
+        build_log_append "MARKETPLACE-WAIVED ${MKT_NAME:-all} reason: $WAIVER_REASON"
+        echo "Recorded in $REGISTER:  Waived marketplace${MKT_NAME:+ $MKT_NAME}: $WAIVER_REASON"
+        echo "That confirmed Buy now reports WAIVED in the Marketplace install check instead of"
+        echo "FAIL/PENDING. It does NOT report installed — the register says who decided that."
+        exit 0 ;;
       source/?*)
         SRC_REL="${WAIVE_STAGE#source/}"
         register_set_line "Waived source $SRC_REL" "$WAIVER_REASON" \
@@ -2692,6 +2717,25 @@ else
   # Same discipline the table itself enforces: the checker failing is not the project passing.
   printf 'Obligations: FAULT — bin/lib/obligation-check.sh missing from %s; no pass was checked\n' "$TOOLKIT_DIR"
 fi
+
+# ---------------------------------------------------------------------------
+# Marketplace installs — is every confirmed fit-gap "Buy" in the model?
+#
+# architecture-blueprint.md Step 4 decides Buy; brd-to-build-plan.md Step 0 installs it. Both
+# were prose, and confirmed Buys too often never got installed. bin/lib/marketplace-check.sh
+# compares the two. Informational on its own line; only its FAIL (Buy confirmed, model present,
+# SHOW MODULES read, package absent) reaches a verdict, by failing Stage 5 (check_stage_5).
+# Owed from Stage 5, so a stage query below 5 does not evaluate it (#583: it may run mxcli).
+MXTK_MKT_STATUS=""; MXTK_MKT_NOTE=""
+case "${MXTK_ROWS_UPTO:-}" in P|p|0|1|2|3|4) ;; *)
+  if [ -r "$TOOLKIT_DIR/bin/lib/marketplace-check.sh" ]; then
+    # shellcheck source=lib/marketplace-check.sh
+    . "$TOOLKIT_DIR/bin/lib/marketplace-check.sh"
+    mxtk_mkt_report "$PROJECT_DIR" "${REGISTER:-$PROJECT_DIR/PROJECT.md}" "$(resolve_artifact_nonempty "architecture/fit-gap.md")"
+  else
+    printf 'Marketplace installs: NOT CHECKED — bin/lib/marketplace-check.sh missing from %s\n' "$TOOLKIT_DIR"
+  fi ;;
+esac
 
 # ---------------------------------------------------------------------------
 # Artifacts — did the stages that promise a file actually leave one?

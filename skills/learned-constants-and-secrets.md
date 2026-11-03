@@ -122,6 +122,26 @@ nothing, and told the user the token was gone and would have to be re-provided. 
 the session environment the whole time; one `env | grep` would have returned it. The user's
 correction was four words long. **Absence from the files you happened to grep is not absence.**
 
+### Creating a PAT for Marketplace installs
+
+Asked at kickoff (intake Q14) so that a confirmed Stage 3 "Buy" is not blocked at build time;
+`gate-check.sh` Stage 5 FAILs on a confirmed Buy missing from the model.
+
+1. **Create it** at `https://user-settings.mendix.com` → Developer Settings → Personal Access
+   Tokens. The host is the one `platform-link.md` uses; the menu path is the text mxcli's own
+   `auth login` prompt prints — UNVERIFIED against the portal itself.
+2. **Scope:** the Marketplace one — scope name UNVERIFIED (no capture in this repo). mxcli checks
+   a token against the Marketplace content API (`marketplace-api.mendix.com`) before storing it
+   and refuses one that is rejected there (mxcli source, not a captured run — UNVERIFIED).
+3. **Give it to mxcli:** `mxcli auth login` (prompts, no echo) or
+   `mxcli auth login --token "$MX_PAT"` → `~/.mxcli/auth.json` (rung 2 above). mxcli also reads
+   a `MENDIX_PAT` environment variable directly (mxcli source — UNVERIFIED by a run); note the
+   name differs from this toolkit's `MX_PAT`. `mxcli auth status --offline` should show the stored
+   credential without a network call — UNVERIFIED, which is why `bin/doctor.sh` reports
+   "Marketplace login: not checked" instead of reading it.
+4. **Cannot create one** (policy, no Developer Settings): ask your Mendix admin for a token with
+   the Marketplace scope, record who in `PROJECT.md`, and never paste it into chat.
+
 ### Feeding it to git — `pat` is the username, the token is the password
 
 Team Server (`https://git.api.mendix.com/<appId>.git`) authenticates with the **literal string

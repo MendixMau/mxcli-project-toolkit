@@ -105,7 +105,8 @@ IM_EOF
 #                              "Homes and inboxes")
 #   INBOX<TAB>line             every non-blank line (table row, bullet, prose) under any heading
 #                              naming "Inbox" — the skill's own Step 2 writes inboxes as bullets.
-#                              A heading naming both ("Homes and inboxes") is read both ways.
+#                              "Homes and inboxes" is read both ways; a "Role homes" heading is
+#                              never an inbox, even when it also names "inbox".
 # Cells are trimmed and stripped of backticks and bold. CRLF files read like LF ones. The Role /
 # Home page (or Home) columns are found by header name, so a reordered table still reads.
 _im_tables() {
@@ -116,7 +117,7 @@ _im_tables() {
       h = tolower($0)
       sec = ""
       if (h ~ /homes/) sec = "home"
-      if (h ~ /inbox/) sec = (sec == "home" ? "both" : "inbox")
+      if (h ~ /inbox/ && h !~ /role homes/) sec = (sec == "home" ? "both" : "inbox")
       hdr = 0; next
     }
     sec == "" { next }

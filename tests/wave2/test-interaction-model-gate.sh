@@ -332,6 +332,11 @@ printf '# Interaction model\n\n## Role homes\n\n| Role | Home | Comes to do |\n|
 OUT="$(run "$P")"
 case "$OUT" in *"FAIL   task F001/UC002"*) ok "a homes-only heading is still not an inbox" ;; *) bad "Role homes table counted as an inbox: $(imline "$OUT")" ;; esac
 
+P="$(mkproj t18c)"; B="$(base_of "$P")"
+printf '# Interaction model\n\n## Role homes and inbox notes\n\n| Role | Home | Comes to do |\n|---|---|---|\n| Manager | `Order_Overview` | x |\n| Reviewer | `Review_Inbox` | UC002 Approve order |\n\n%s' "$PAGES" > "$B/design/interaction-model.md"
+OUT="$(run "$P")"
+case "$OUT" in *"FAIL   task F001/UC002"*) ok "a 'Role homes ... inbox' heading is still not an inbox" ;; *) bad "Role homes + inbox heading counted as an inbox: $(imline "$OUT")" ;; esac
+
 rm -rf "$WORK"
 echo ""
 echo "test-interaction-model-gate: $PASS passed, $FAIL failed"

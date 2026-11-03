@@ -97,13 +97,13 @@ Every mxbuild/`mx` red belongs to exactly one lane, and the fix is lane-specific
 | Lane | Where the binary comes from | Runs on | What red means |
 |---|---|---|---|
 | **Studio Pro bundled** | the install's own `modeler/mx` (`Contents/modeler/mx` on macOS, `modeler/mx.exe` on Windows) | macOS, Windows | The install is missing, or is a build that ships no bundled `mx` — list the installs and look for the file |
-| **Standalone CDN toolchain** | `mxcli setup mxbuild` / `doctor.sh --install` (add `--yes` with no terminal), cached under `~/.mxcli/mxbuild/` | **Linux only** — it is an ELF | On macOS or Windows this lane is simply unavailable; no Mendix version changes that |
+| **Standalone CDN toolchain** | `mxcli setup mxbuild` / `doctor.sh --install` (add `--yes` with no terminal), cached under `~/.mxcli/mxbuild/` | Linux; macOS only when the cached build is Mach-O | Run `file ~/.mxcli/mxbuild/<ver>/modeler/mx` first: an ELF (seen on macOS for 10.24 and 11.12) cannot run natively, a Mach-O arm64 build (seen for 11.14.0, #525) does. Windows: unverified |
 | **Container** | the same Linux toolchain, inside a container | anywhere a container runtime runs | See the limitation below before believing this one |
 
 **macOS: Mendix 11 is a platform requirement, not a toolkit preference.** macOS Studio Pro was Beta
 throughout 10.x and those builds ship **no** bundled `mx`; Mendix 11 is the first macOS build that
-carries one. So on a Mac, the bundled-`mx` lane does not exist below 11 — and the CDN lane never
-existed there at all. Verify by listing the installs and testing for the file (Step 1), **never**
+carries one. So on a Mac, the bundled-`mx` lane does not exist below 11 — and the cache lane works
+there only for a version whose cached build `file` reports as Mach-O. Verify by listing the installs and testing for the file (Step 1), **never**
 from a remembered version number: version lists rot, and two people in the 2026-09-22 thread had the
 toolkit itself checked out at two different paths.
 

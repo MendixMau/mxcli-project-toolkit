@@ -131,7 +131,7 @@ benchmark (items 1, 2, 4 and 5 below) does not exist yet. This line is as of 202
 has landed since is in `CHANGELOG.md`, which is where shipped status is tracked.
 
 **The regression nobody spotted.** Between the copy a cloud build used (`247729fd`, 2026-09-21)
-and the toolkit of 2026-10-26 (a local snapshot, `c9dedb11`, not in the public history), 184 commits landed, 36 of them in `project-bin/exec.sh` (819 → 2,289 lines). Each
+and master at `6615869d` (2026-10-24), 215 commits landed on master, 36 of them in `project-bin/exec.sh` (819 → 2,289 lines). Each
 added a check after a real failure — lint per exec (`8d70fbda`), score per exec (`a7221405`), the
 chat-approval baseline refusal (`b6a13380`), the row as the unit of work (`a7653197`) — and none was
 ever removed or re-costed. No release measured what the sum did to a build. A cook-off did
@@ -151,7 +151,7 @@ ever removed or re-costed. No release measured what the sum did to a build. A co
 
 | Asset | Path | State |
 |---|---|---|
-| Fixes from the run (arm D of the cook-off) | `project-bin/reload.sh` (hot reload), `project-bin/module-close.sh` (lint, score, check, verify-module, LOOK once per module), `project-bin/row-groups.sh` + the `exec.sh` row-group gate, `skills/iterative-build-loop.md` (row groups), lint per exec showing only new findings | merged in #581, follow-ups #582, #586; measured in run 3 arm D (CHANGELOG `## Unreleased`) |
+| Fixes from the run (arm D of the cook-off) | `project-bin/reload.sh` (hot reload), `project-bin/module-close.sh` (lint, score, check, verify-module, LOOK once per module), `project-bin/row-groups.sh` + the `exec.sh` row-group gate, `skills/iterative-build-loop.md` (row groups), lint per exec showing only new findings | merged in #581, follow-ups #582, #586; measured in run 3 arm D (the #581 CHANGELOG lines) |
 | Exec and gate speed | `mx check` gate by default, fewer process starts per exec and per closeout, `bin/doctor.sh --bench` (a per-machine bench, not the per-release benchmark below), `skills/speed-setup.md` | merged in #587, #589, #590, #591, #596, #597 |
 | Lean session switches | `claude -p --setting-sources project,local --strict-mcp-config [--mcp-config .mcp.json]` → 37,536 tokens per call (from 40,161); with `--disable-slash-commands` 33,329 | measured once, one call; not wired into any toolkit script |
 | Run analysis | the cook-off's observer notes (O-49 … O-56) live outside this repo; the public trail is PR #581 and its CHANGELOG lines | written |

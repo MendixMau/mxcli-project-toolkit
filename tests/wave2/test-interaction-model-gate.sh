@@ -289,6 +289,49 @@ OUT="$(run "$P")"
 case "$(imline "$OUT")" in *"2 of 2 BRD actors"*) ok "Reviewer (note) covers Reviewer" ;; *) bad "$(imline "$OUT")" ;; esac
 case "$(stage3 "$OUT")" in *": PASS"*) ok "stage 3 passes" ;; *) bad "stage 3: $(stage3 "$OUT")" ;; esac
 
+echo "== T15: Module.Entity with a trailing (note) is valid; prose around the entity is not =="
+P="$(mkproj t15)"; W="$(base_of "$P")/design/wireframes"
+wf "$W/note.html"  '  <p>Page parameter: Sales.Order (new, Customer set)</p>'
+wf "$W/space.html" '  <p>Page parameter: Sales Order</p>'
+wf "$W/or.html"    '  <p>Page parameter: Sales.Order or none</p>'
+OUT="$(run "$P")"
+case "$OUT" in *"FAIL   wireframe note.html"*) bad "trailing (note) rejected" ;; *) ok "Sales.Order (note) accepted" ;; esac
+case "$OUT" in *"FAIL   wireframe space.html"*) ok "'Sales Order' rejected" ;; *) bad "'Sales Order' accepted" ;; esac
+case "$OUT" in *"FAIL   wireframe or.html"*) ok "'Sales.Order or none' rejected" ;; *) bad "'Sales.Order or none' accepted" ;; esac
+case "$(imline "$OUT")" in *"3 of 5 wireframes"*) ok "3 of 5 wireframes valid" ;; *) bad "$(imline "$OUT")" ;; esac
+
+echo "== T16: a malformed value gets the write-it-bare remedy; a missing line keeps the add remedy =="
+P="$(mkproj t16)"; wf "$(base_of "$P")/design/wireframes/Bad.html" '  <p>Page parameter: the order</p>'
+OUT="$(run "$P")"
+case "$OUT" in *"remedy: "*"malformed"*"bare Module.Entity"*"(note)"*"none — <reason>"*) ok "malformed remedy says write the bare value" ;; *) bad "no malformed remedy: $(printf '%s\n' "$OUT" | grep 'remedy:')" ;; esac
+case "$OUT" in *"remedy: add <p>Page parameter:"*) bad "add-the-line remedy printed for a line that exists" ;; *) ok "add remedy not printed for a malformed-only project" ;; esac
+P="$(mkproj t16b)"; wf "$(base_of "$P")/design/wireframes/NoLine.html" '  <p>Parameter: Sales.Order</p>'
+OUT="$(run "$P")"
+case "$OUT" in *"remedy: add <p>Page parameter:"*) ok "missing line keeps the add remedy" ;; *) bad "add remedy lost" ;; esac
+case "$OUT" in *"malformed"*) bad "malformed remedy printed for a missing line" ;; *) ok "no malformed remedy for a missing line" ;; esac
+
+echo "== T17: an interaction-model FAIL also names a missing Stage-3 CONFIRMED decision =="
+P="$(mkproj t17)"; B="$(base_of "$P")"
+grep -v '^| UC002' "$B/design/interaction-model.md" > "$B/x" && mv "$B/x" "$B/design/interaction-model.md"
+sed 's/CONFIRMED 2026-10-14/ASSUMED 2026-10-14/' "$P/PROJECT.md" > "$P/x" && mv "$P/x" "$P/PROJECT.md"
+OUT="$(run "$P")"
+case "$(stage3 "$OUT")" in *": FAIL"*"interaction model"*"also: no Stage-3 CONFIRMED decision"*) ok "both problems in the verdict" ;; *) bad "stage 3: $(stage3 "$OUT")" ;; esac
+P="$(mkproj t17b)"; B="$(base_of "$P")"
+grep -v '^| UC002' "$B/design/interaction-model.md" > "$B/x" && mv "$B/x" "$B/design/interaction-model.md"
+OUT="$(run "$P")"
+case "$(stage3 "$OUT")" in *"also: no Stage-3"*) bad "suffix printed with a CONFIRMED decision" ;; *": FAIL"*) ok "no suffix when the decision is there" ;; *) bad "stage 3: $(stage3 "$OUT")" ;; esac
+
+echo "== T18: a 'Homes and inboxes' heading with a Home column reads as homes and inboxes =="
+P="$(mkproj t18)"; B="$(base_of "$P")"
+printf '# Interaction model\n\n## Homes and inboxes\n\n| Role | Home | Inbox |\n|---|---|---|\n| Manager | `Order_Overview` | none |\n| Reviewer | `Review_Inbox` | UC002 Approve order |\n\n%s' "$PAGES" > "$B/design/interaction-model.md"
+OUT="$(run "$P")"
+case "$(imline "$OUT")" in *"2 of 2 BRD actors"*"1 of 1 BRD approval"*) ok "homes and inbox both read from the combined table" ;; *) bad "$(imline "$OUT")" ;; esac
+case "$(stage3 "$OUT")" in *": PASS"*) ok "stage 3 passes" ;; *) bad "stage 3: $(stage3 "$OUT")" ;; esac
+P="$(mkproj t18b)"; B="$(base_of "$P")"
+printf '# Interaction model\n\n## Role homes\n\n| Role | Home | Comes to do |\n|---|---|---|\n| Manager | `Order_Overview` | x |\n| Reviewer | `Review_Inbox` | UC002 Approve order |\n\n%s' "$PAGES" > "$B/design/interaction-model.md"
+OUT="$(run "$P")"
+case "$OUT" in *"FAIL   task F001/UC002"*) ok "a homes-only heading is still not an inbox" ;; *) bad "Role homes table counted as an inbox: $(imline "$OUT")" ;; esac
+
 rm -rf "$WORK"
 echo ""
 echo "test-interaction-model-gate: $PASS passed, $FAIL failed"

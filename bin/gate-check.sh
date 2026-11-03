@@ -1278,7 +1278,9 @@ check_stage_3() {
   # that) and ADOPTED/WAIVED leave this verdict alone; a finding is something examined and wrong.
   # A FAIL returns here; a MANUAL only replaces a PASS, so it never hides the register FAIL below.
   if [ "${MXTK_IM_STATUS:-}" = "FAIL" ]; then
-    echo "FAIL|interaction model: ${MXTK_IM_NOTE} — each finding is listed under 'Interaction model (stage 3 facts)' (skills/interaction-model.md)"; return
+    local im_also=""
+    if ! reg_unavailable && ! has_confirmed_decision 3; then im_also="; also: no Stage-3 CONFIRMED decision"; fi
+    echo "FAIL|interaction model: ${MXTK_IM_NOTE} — each finding is listed under 'Interaction model (stage 3 facts)' (skills/interaction-model.md)${im_also}"; return
   fi
   if reg_unavailable; then reg_unavailable_note; return; fi
   if has_confirmed_decision 3; then

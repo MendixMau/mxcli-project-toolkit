@@ -101,11 +101,13 @@ IM_EOF
 }
 
 # _im_tables <interaction-model.md> — one awk pass over the artifact:
-#   HOME<TAB>role<TAB>home     rows of the table under a "Role homes" heading
+#   HOME<TAB>role<TAB>home     rows of the table under a heading naming "homes" ("Role homes",
+#                              "Homes and inboxes")
 #   INBOX<TAB>line             every non-blank line (table row, bullet, prose) under any heading
-#                              naming "Inbox" — the skill's own Step 2 writes inboxes as bullets
+#                              naming "Inbox" — the skill's own Step 2 writes inboxes as bullets.
+#                              A heading naming both ("Homes and inboxes") is read both ways.
 # Cells are trimmed and stripped of backticks and bold. CRLF files read like LF ones. The Role /
-# Home page columns are found by header name, so a reordered table still reads.
+# Home page (or Home) columns are found by header name, so a reordered table still reads.
 _im_tables() {
   awk '
     function clean(s) { gsub(/`/, "", s); gsub(/\*\*/, "", s); gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
@@ -113,12 +115,13 @@ _im_tables() {
     /^#+[ \t]/ {
       h = tolower($0)
       sec = ""
-      if (h ~ /role homes/) sec = "home"
-      else if (h ~ /inbox/) sec = "inbox"
+      if (h ~ /homes/) sec = "home"
+      if (h ~ /inbox/) sec = (sec == "home" ? "both" : "inbox")
       hdr = 0; next
     }
     sec == "" { next }
-    sec == "inbox" { if ($0 ~ /[^ \t]/) printf "INBOX\t%s\n", clean($0); next }
+    sec != "home" && /[^ \t]/ { printf "INBOX\t%s\n", clean($0) }
+    sec == "inbox" { next }
     !/^[ \t]*\|/ { hdr = 0; next }
     {
       line = $0
@@ -128,7 +131,7 @@ _im_tables() {
         for (i = 2; i < n; i++) {
           c = tolower(clean(cell[i]))
           if (c == "role") rc = i
-          if (c == "home page") hc = i
+          if (c == "home page" || c == "home") hc = i
         }
         next
       }
@@ -302,7 +305,7 @@ IM_EOF
   fi
 
   # ── (c): every wireframe carries its page-parameter line ──────────────────────────────────
-  local wfs=() wf n_wf=0 n_wf_ok=0 n_wf_fail=0 state val name why
+  local wfs=() wf n_wf=0 n_wf_ok=0 n_wf_fail=0 n_wf_bad=0 state val name why
   for wf in "$base"/design/wireframes/*.html; do [ -s "$wf" ] && wfs+=("$wf"); done
   if [ "${#wfs[@]}" -gt 0 ]; then
     while IFS= read -r row; do
@@ -315,9 +318,9 @@ IM_EOF
         NOBLOCK) why="no wf-contract block" ;;
         NOLINE)  why="its wf-contract block has no \"Page parameter:\" line" ;;
         VALUE)
-          if printf '%s' "$val" | grep -Eq '^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$'; then :
+          if printf '%s' "$val" | grep -Eq '^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*( \(.*\))?$'; then :
           elif printf '%s' "$val" | grep -Eq '^none (—|–|-) [^ ]'; then :
-          else why="\"Page parameter: $val\" is neither Module.Entity nor \"none — <reason>\""
+          else why="\"Page parameter: $val\" is neither Module.Entity (optionally with a trailing (note)) nor \"none — <reason>\""
           fi ;;
       esac
       if [ -z "$why" ]; then n_wf_ok=$((n_wf_ok+1))
@@ -328,13 +331,17 @@ IM_EOF
         n_fail=$((n_fail+1))
         lines="$lines  FAIL   wireframe $name — $why (design-artifacts.md Step 3)"$'\n'
         n_wf_fail=$((n_wf_fail+1))
+        [ "$state" = VALUE ] && n_wf_bad=$((n_wf_bad+1))
       fi
     done <<IM_EOF
 $(_im_wireframes "${wfs[@]}")
 IM_EOF
   fi
 
-  if [ "$n_wf_fail" -gt 0 ]; then
+  if [ "$n_wf_bad" -gt 0 ]; then
+    lines="$lines  remedy: a Page parameter line that is there but malformed takes the bare Module.Entity, optionally with a trailing (note), or none — <reason> (design-artifacts.md Step 3)"$'\n'
+  fi
+  if [ "$n_wf_fail" -gt "$n_wf_bad" ]; then
     lines="$lines  remedy: add <p>Page parameter: Module.Entity</p> (or: none — <reason>) to each wireframe's wf-contract block (design-artifacts.md Step 3), or waive one in the register: \"Waived artifact interaction-model/<file>.html: <reason>\" — wireframes drawn before the interaction model existed are expected to land here"$'\n'
   fi
 

@@ -162,12 +162,16 @@ mxtk_load_env() {
       line=${line%$'\r'}
       case "$line" in ''|'#'*) continue ;; esac
       case "$line" in *=*) ;; *) continue ;; esac
-      key=$(printf '%s' "${line%%=*}" | tr -d '[:space:]'); val=${line#*=}
+      # Drop a leading `export ` before squeezing whitespace, or the key reads as exportKEY.
+      key=${line%%=*}; key=${key#"${key%%[![:space:]]*}"}
+      case "$key" in export[[:space:]]*) key=${key#export} ;; esac
+      key=$(printf '%s' "$key" | tr -d '[:space:]'); val=${line#*=}
       case "$key" in [A-Za-z_]*) ;; *) continue ;; esac
       case "$key" in *[!A-Za-z0-9_]*) continue ;; esac
       # export KEY=value and "KEY = value" both work; surrounding quotes are stripped.
-      case "$val" in \"*\") val=${val#\"}; val=${val%\"} ;; \'*\') val=${val#\'}; val=${val%\'} ;; esac
+      # Trim first, so `KEY = "value"` still has its quotes at the edges when they are stripped.
       val=$(printf '%s' "$val" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+      case "$val" in \"*\") val=${val#\"}; val=${val%\"} ;; \'*\') val=${val#\'}; val=${val%\'} ;; esac
       val=$(mxtk_posix_path "$val")
       # Already set (by the shell, or by the project file on the previous pass) — keep it.
       eval "[ -n \"\${$key:-}\" ]" && continue

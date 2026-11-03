@@ -68,6 +68,12 @@ Use plain `create module` / `create enumeration`, not `create or modify`. The sc
 **refuses to run against a dirty target**, which is the behaviour you want: it guarantees the
 model matches the script exactly, with no residue from a previous shape.
 
+**Idempotence per object type (mxcli v0.26.0).** `create enumeration` is refused on a second
+`exec` ("already exists"; `check` says so, nothing is written), which is the intended behaviour
+above. Entities, module roles, user roles and constants accept `create or modify`, so a re-run of
+a domain script is safe for those but not for the enumerations. If a layer script must be
+re-runnable, `drop enumeration` first or keep enumerations in their own script that you run once.
+
 The cost is that iterating means `drop module X` → re-exec. Accept that. It is two commands and
 it is always correct.
 

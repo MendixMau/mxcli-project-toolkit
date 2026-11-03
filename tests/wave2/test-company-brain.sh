@@ -14,6 +14,9 @@
 #      block each, and a surface the project does not have is not created. Added 2026-09-20
 #      after an eval session read AGENTS.md/CLAUDE.md/PROJECT.md, never opened CLAUDE.local.md,
 #      and so never saw the company brain at all (retrieval 2/3 → 3/3 once this was fixed).
+#   T2c a re-point under BSD-awk rules (no newline in -v, as macOS awk) still rewrites in place,
+#      and a rewrite that fails prints FAILED, not Updated, leaves the file alone and is not
+#      counted (#598)
 #   T3 wire refuses an unshaped folder; wire on a project without CLAUDE.local.md refuses
 #   T4 check-no-private-citations: positive control (planted pointer) exits 1, clean tree exits 0,
 #      the toolkit's own templates/company-brain/ path is not a hit
@@ -61,6 +64,38 @@ n=$(grep -c 'COMPANY-BRAIN:BEGIN' "$CL"); [ "$n" -eq 1 ] && ok "re-wire: still o
 r=$(grep -c "^$P	" "$B/projects.tsv"); [ "$r" -eq 1 ] && ok "re-wire: still registered once" || bad "re-wire registry rows: $r"
 B2="$WORK/acme-brain-2"; "$INIT" "$B2" >/dev/null 2>&1; "$BIN/wire-company-brain.sh" "$P" "$B2" >/dev/null 2>&1
 grep -qF "$B2/ROUTING.md" "$CL" && ! grep -qF "$B/ROUTING.md" "$CL" && ok "re-point rewrites in place" || bad "re-point left the old path"
+
+echo "== T2c: re-point under BSD-awk rules; a failed rewrite never says Updated (#598) =="
+# macOS awk (one-true-awk 20200816) refuses a newline in a -v value ("newline in string"); gawk
+# and mawk accept it, so the re-point above passes on Linux whatever the script does. This stub
+# enforces the BSD rule and otherwise hands over to the real awk.
+REAL_AWK="$(command -v awk)"; SB="$WORK/bsd-awk"; mkdir -p "$SB"
+cat > "$SB/awk" <<STUB
+#!/usr/bin/env bash
+prev=""
+for a in "\$@"; do
+  if [ "\$prev" = "-v" ]; then case "\$a" in *\$'\n'*) echo "awk: newline in string" >&2; exit 2;; esac; fi
+  prev="\$a"
+done
+exec "$REAL_AWK" "\$@"
+STUB
+chmod +x "$SB/awk"
+B3="$WORK/acme-brain-3"; "$INIT" "$B3" >/dev/null 2>&1
+out=$(PATH="$SB:$PATH" "$BIN/wire-company-brain.sh" "$P" "$B3" 2>&1)
+grep -qF "$B3/ROUTING.md" "$CL" && ! grep -qF "$B2/ROUTING.md" "$CL" \
+  && ok "re-point under BSD-awk rules rewrites in place" || bad "re-point under BSD-awk rules left the old path: $out"
+# A rewrite that fails must not report success, and must leave the file and the count alone.
+cat > "$SB/awk" <<'STUB'
+#!/usr/bin/env bash
+echo "awk: simulated failure" >&2; exit 2
+STUB
+chmod +x "$SB/awk"
+before=$(cksum < "$CL")
+out=$(PATH="$SB:$PATH" "$BIN/wire-company-brain.sh" "$P" "$B" 2>&1)
+echo "$out" | grep -q "^Updated: CLAUDE.local.md" && bad "failed rewrite still printed Updated: $out" || ok "failed rewrite does not print Updated"
+echo "$out" | grep -q "^FAILED: CLAUDE.local.md" && ok "failed rewrite is reported as FAILED" || bad "no FAILED line: $out"
+[ "$(cksum < "$CL")" = "$before" ] && ok "failed rewrite leaves the file unchanged" || bad "file changed after a failed rewrite"
+echo "$out" | grep -q "written to 0 instruction surface" && ok "failed surface is not counted" || bad "count wrong: $(echo "$out" | grep 'written to')"
 
 echo "== T2b: the pointer reaches every instruction surface that exists =="
 M="$WORK/multi"; mkdir -p "$M"

@@ -1,0 +1,7 @@
+{
+  "schema": "process-anchors/1",
+  "anchors": [
+    { "id": "F001:Q04", "kind": "question", "anchoredBy": "judged", "targets": [ { "type": "global", "bucket": "Money" } ], "basis": "Applies to every amount in the app", "fingerprint": "Which currency do amounts use?" },
+    { "id": "D3-02", "kind": "decision", "anchoredBy": "judged", "targets": [ { "type": "global", "bucket": "Hosting" } ], "basis": "Not tied to a screen", "fingerprint": "Hosting: one environment for the demo" }
+  ]
+}

@@ -84,7 +84,8 @@ for f in bin/lib/skill-routing.sh bin/lib/obligation-check.sh bin/lib/triage-tem
          bin/gate-check.sh bin/check-portability.sh \
          project-bin/_common.sh project-bin/check-design-portability.sh project-bin/check-page-shell.sh \
          project-bin/close-task.sh project-bin/check-sp-health.sh project-bin/app-restart.sh \
-         project-bin/test-stack-up.sh; do
+         project-bin/test-stack-up.sh \
+         bin/sync-project.sh project-bin/review-module.sh project-bin/conformance-check.sh; do
   [ -f "$TK/$f" ] || { hits="$hits
 $f: missing"; continue; }
   h="$(grep -nE '(^|[^|])\|[[:space:]]*grep[[:space:]]+(-[A-Za-z]*q|[^|]*[[:space:]]-[A-Za-z]*q)' "$TK/$f" \
@@ -92,7 +93,7 @@ $f: missing"; continue; }
   [ -n "$h" ] && hits="$hits
 $h"
 done
-if [ -z "$hits" ]; then ok "0 pipelines into grep -q across 12 scripts"
+if [ -z "$hits" ]; then ok "0 pipelines into grep -q across 15 scripts"
 else bad "pipeline into grep -q found (use a here-string: grep -q -- PAT <<<\"\$x\")" "${hits#?}"; fi
 
 echo

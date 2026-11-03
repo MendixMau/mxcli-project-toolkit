@@ -1,0 +1,2 @@
+mdl 1;
+alter entity MyFirstModule."Item" rename attribute "Unused" to "Unused2";

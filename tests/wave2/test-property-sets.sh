@@ -17,7 +17,10 @@
 #                                          reads `fix --help` instead
 #   dry-run-not-found-v0.26.0.{txt,exit}   `fix property-sets -p <missing> --dry-run`: exit 1
 #                                          with no unit rows — why exit 1 alone is not "needs"
-# NOT captured: the clean / NEEDS / FAILED reports, which need a real model. The stub below
+#   ps-{dryrun-mixed,dryrun-both,apply-both,after-apply-both}-v0.29.0.{out,err,exit}
+#                                          REAL v0.29.0 runs on a real model with MIXED rows —
+#                                          provenance in CAPTURE.txt beside them (case P11)
+# NOT captured: the v0.26.0 clean / NEEDS / FAILED reports, which need a real model. The stub below
 # prints them from the format strings in mxcli v0.26.0 cmd/mxcli/cmd_fix_property_sets.go
 # (fixPropertySets: "Checked %d unit(s) in %s against the Mendix %d.%d.%d property sets.",
 # "  %-9s %s%s: +%d key(s), -%d key(s)", "  FAILED    %s%s: %v"). A field run owes the real ones.
@@ -61,6 +64,11 @@ case "${1:-}" in
         for a in "$@"; do [ "$a" = --dry-run ] && dry=1; [ "$prev" = -p ] && mpr="$a"; prev="$a"; done
         b="$(basename "$mpr")"
         echo "WARNING: This is a vibe-coded PoC, alpha quality, use with caution." >&2
+        # v0.29.0 states replay real captures (CAPTURE.txt); "both" -> its write leaves "mixed".
+        rp() { cat "$F/$1-v0.29.0.out"; return "$(cat "$F/$1-v0.29.0.exit")"; }
+        if [ "$dry" = 0 ] && [ "$(cat "$D/.stub-state")" = both ]; then
+          echo mixed > "$D/.stub-state"; rp ps-apply-both; exit $?
+        fi
         if [ "$dry" = 0 ]; then
           echo "Checked 3 unit(s) in $b against the Mendix 11.12.1 property sets."
           echo "  FIXED     0d6c3a3e-0000-4000-8000-000000000001 [Microflows\$Microflow Orders.ACT_Save]: +4 key(s), -0 key(s)"
@@ -78,6 +86,8 @@ case "${1:-}" in
                   echo "  FAILED    0d6c3a3e-0000-4000-8000-000000000002 [Pages\$Page Orders.Order_Edit]: key Foo holds a value"
                   echo "1 unit(s) could not be normalized and were left as they are."; exit 1 ;;
           notfound) cat "$F/dry-run-not-found-v0.26.0.txt"; exit 1 ;;
+          mixed) rp ps-dryrun-mixed; exit $? ;;
+          both)  rp ps-dryrun-both; exit $? ;;
           noversion) echo "$b has no readable Mendix version; nothing is normalized without one."; exit 0 ;;
           slow) exec sleep 6; echo "Checked 3 unit(s) in $b against the Mendix 11.12.1 property sets."; exit 0 ;;
         esac ;;
@@ -117,6 +127,37 @@ sed -n 1p "$R" 2>/dev/null | grep -q " clean " && sed -n 2p "$R" | grep -qx "mxc
 grep -qx '/.claude/.property-sets-receipt' "$P/.gitignore" 2>/dev/null && ok "receipt is gitignored (machine-local)" || bad "receipt not gitignored"
 printf '%s' "$OUT" | grep -q "added /.claude/.property-sets-receipt to the project's .gitignore" && ok "the .gitignore append is announced" || bad "silent .gitignore append" "$OUT"
 grep -q -- 'property-sets -p .*/App.mpr --dry-run' "$P/.stub-log" && ok "the check is the --dry-run" || bad "dry-run not used" "$(cat "$P/.stub-log")"
+
+echo "== P2b a clean dry-run below Mendix 10.24.24 is not proof (mendixlabs/mxcli#1595) =="
+. "$TK/bin/lib/portable.sh"; require_py
+setver() {   # <project> <version> — give the stub project's .mpr a readable _ProductVersion
+  rm -f "$1/App.mpr"
+  "$PY" -c 'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.execute("create table _MetaData (_ProductVersion text)"); c.execute("insert into _MetaData values (?)",(sys.argv[2],)); c.commit()' "$1/App.mpr" "$2"
+}
+P="$(mkproj below)"; echo clean > "$P/.stub-state"; setver "$P" 10.24.18.103793
+OUT="$("$DOCTOR" --property-sets "$P" 2>&1)"; RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q "WARN  property sets:.*NOT PROOF.*Mendix 10.24.18.103793.*mxcli#1595" \
+  && ok "10.24.18 clean: exit 0 but a WARN saying it proves nothing" || bad "10.24.18 clean: rc=$RC" "$OUT"
+printf '%s' "$OUT" | grep -q "every unit has the property names Studio Pro writes" && bad "10.24.18 still prints the false green" "$OUT" || ok "10.24.18: no 'every unit has the property names' line"
+printf '%s' "$OUT" | grep -q "mx diff <base>.mpr <mine>.mpr" && ok "names mx diff as the proof" || bad "no mx diff pointer" "$OUT"
+sed -n 1p "$P/.claude/.property-sets-receipt" | grep -q " unproven " && ok "receipt records unproven, not clean" || bad "receipt" "$(cat "$P/.claude/.property-sets-receipt" 2>&1)"
+n1="$(grep -c -- '--dry-run' "$P/.stub-log")"
+OUT="$("$DOCTOR" --property-sets --if-stale "$P" 2>&1)"; n2="$(grep -c -- '--dry-run' "$P/.stub-log")"
+[ "$n1" -eq "$n2" ] && printf '%s' "$OUT" | grep -q "WARN  property sets: already checked.*NOT PROOF" && ! printf '%s' "$OUT" | grep -q "ok    already checked" \
+  && ok "--if-stale: not re-run, and still a WARN, never an ok" || bad "--if-stale unproven ($n1 -> $n2)" "$OUT"
+OUT="$("$DOCTOR" --quick "$P" 2>&1)"
+printf '%s' "$OUT" | grep -q "WARN  property sets: last check for this mxcli was clean, but the model is below Mendix 10.24.24" && ok "--quick: WARN, not the ok line" || bad "--quick unproven" "$(printf '%s' "$OUT" | grep -i -A2 'property')"
+for v in 10.24.23 9.24.2; do
+  P="$(mkproj below-$v)"; echo clean > "$P/.stub-state"; setver "$P" "$v"
+  OUT="$("$DOCTOR" --property-sets "$P" 2>&1)"
+  printf '%s' "$OUT" | grep -q "NOT PROOF" && ok "$v: below the floor, warned" || bad "$v not warned" "$OUT"
+done
+for v in 10.24.24 10.25.1 11.12.1; do
+  P="$(mkproj at-$v)"; echo clean > "$P/.stub-state"; setver "$P" "$v"
+  OUT="$("$DOCTOR" --property-sets "$P" 2>&1)"
+  printf '%s' "$OUT" | grep -q "ok    property sets: Checked 3 unit(s).*every unit has the property names" && ! printf '%s' "$OUT" | grep -q "NOT PROOF" \
+    && ok "$v: at or above the floor, still ok" || bad "$v wrongly warned" "$OUT"
+done
 
 echo "== P3 units need completing =="
 P="$(mkproj needs)"
@@ -212,6 +253,14 @@ grep -qx "fix property-sets -p $P/App.mpr" "$P/.stub-log" && ok "the patch step 
 P="$(mkproj fix-clean)"; echo clean > "$P/.stub-state"; mkdir -p "$P/bin"; cp "$WORK/fix-noexec/bin/exec.sh" "$P/bin/"
 "$DOCTOR" --fix-property-sets "$P" >/dev/null 2>&1; RC=$?
 [ "$RC" -eq 0 ] && [ ! -f "$P/.exec-log" ] && ok "clean model: no repair dispatched" || bad "clean model dispatched a repair (rc=$RC)"
+# exec.sh exit 4 (#443): the patch was kept on a passed gate and only lint rose. Not a failed repair.
+P="$(mkproj fix-lint4)"; mkdir -p "$P/bin"
+sed 's/^bash "\$s" "\$(pwd)\/App.mpr" "\$@"$/bash "$s" "$(pwd)\/App.mpr" "$@" || exit 1; exit 4/' "$WORK/fix-noexec/bin/exec.sh" > "$P/bin/exec.sh"
+chmod +x "$P/bin/exec.sh"; grep -q 'exit 4$' "$P/bin/exec.sh" || bad "P7b stub was not rewritten"
+OUT="$("$DOCTOR" --fix-property-sets "$P" 2>&1)"; RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q "repair kept; exec.sh reports a lint rise" && printf '%s' "$OUT" | grep -q "re-checking" \
+  && ! printf '%s' "$OUT" | grep -q "the repair was not kept" \
+  && ok "exec.sh exit 4: repair reported kept, re-checked, exit 0" || bad "exit-4 repair rc=$RC" "$OUT"
 
 echo "== P8 --quick compares the receipt with the installed mxcli =="
 P="$(mkproj quick)"; echo clean > "$P/.stub-state"
@@ -259,6 +308,31 @@ OUT="$("$SYNC" "$S4" 2>&1)"
 psl="$(printf '%s\n' "$OUT" | grep -i 'property')"
 printf '%s' "$psl" | grep -q "could not check property sets: could not classify" && ! printf '%s' "$psl" | grep -q "fix-property-sets\|⚠️\|WARN  " \
   && ok "sync, check errored (exit 4): neutral line, no repair advice, no warning" || bad "sync error case" "$psl"
+
+echo "== P11 mxcli v0.29.0 MIXED rows (real captures): a merge hazard, not 'could not classify' =="
+# Against doctor.sh before the v0.29 compat fix: the MIXED-only dry-run is rc 4 "could not
+# classify", and the repair's exit 1 (for MIXED alone) rolls the completed NEEDS repair back.
+# Measured 2026-10-30: master 74 passed, 7 failed; this fix 81 passed, 0 failed.
+P="$(mkproj mixed)"; echo v0.29.0 > "$P/.stub-ver"; echo mixed > "$P/.stub-state"
+OUT="$("$DOCTOR" --property-sets "$P" 2>&1)"; RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q "WARN  property sets: 1 property name(s) differ between elements of one type (MIXED)" \
+  && ok "MIXED only: exit 1, WARN names it" || bad "MIXED only: rc=$RC" "$OUT"
+printf '%s' "$OUT" | grep -q 'MIXED     Texts\$Translation.LanguageCode: on 260 of 261' && ok "the MIXED row is shown" || bad "MIXED row not shown" "$OUT"
+printf '%s' "$OUT" | grep -q "fix-property-sets cannot clear them" && ! printf '%s' "$OUT" | grep -q "repair (snapshot" \
+  && ok "says the repair cannot clear it, offers no repair" || bad "MIXED remedy" "$OUT"
+sed -n 1p "$P/.claude/.property-sets-receipt" 2>/dev/null | grep -q " mixed " && ok "receipt records mixed" || bad "receipt" "$(cat "$P/.claude/.property-sets-receipt" 2>&1)"
+P="$(mkproj both)"; echo v0.29.0 > "$P/.stub-ver"; echo both > "$P/.stub-state"; mkdir -p "$P/bin"; cp "$WORK/fix-noexec/bin/exec.sh" "$P/bin/"
+OUT="$("$DOCTOR" --fix-property-sets "$P" 2>&1)"; RC=$?
+printf '%s' "$OUT" | grep -q "the repair was not kept" && bad "NEEDS + MIXED: the completed repair was rolled back" "$OUT" \
+  || ok "NEEDS + MIXED: the repair step's exit 1 for MIXED alone does not fail the patch"
+printf '%s' "$OUT" | grep -q "FIXED     84776610" && printf '%s' "$OUT" | grep -q "re-checking" && ok "repair ran and was re-checked" || bad "repair/re-check" "$OUT"
+[ "$RC" -eq 1 ] && sed -n 1p "$P/.claude/.property-sets-receipt" | grep -q " mixed " && ok "after the repair: mixed left, exit 1" || bad "post-repair rc=$RC" "$(cat "$P/.claude/.property-sets-receipt" 2>&1)"
+S5="$WORK/syncmixed"; mkdir -p "$S5"; : > "$S5/App.mpr"
+MXTK_NO_GUIDE=1 "$TK/bin/init-project.sh" "$S5" >/dev/null 2>&1
+mkstub "$S5"; echo v0.29.0 > "$S5/.stub-ver"; echo mixed > "$S5/.stub-state"
+psl="$("$SYNC" "$S5" 2>&1 | grep -i 'property')"
+printf '%s' "$psl" | grep -q "⚠️  property sets: Studio Pro's merge/diff can throw" && ! printf '%s' "$psl" | grep -q "Repair, gated" \
+  && ok "sync, MIXED only: a sync warning, no repair command it cannot honour" || bad "sync MIXED" "$psl"
 
 echo "== P10 (#236) sync names a pre-fix bin/model-stamp.sh =="
 grep -v 'GIT_WORK_TREE' "$TK/project-bin/model-stamp.sh" > "$S/bin/model-stamp.sh"; chmod +x "$S/bin/model-stamp.sh"

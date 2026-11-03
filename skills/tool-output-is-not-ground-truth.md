@@ -54,25 +54,18 @@ was used.
 
 ## Three real instances from one session
 
+Full narratives: `process/baseline-incident-history.md` § TO1.
+
 ### 1. "All your work is gone" — read during a write
 
-Read the `.mpr` while Studio Pro was mid-rewrite, saw 6 microflows instead of 13, and told the user
-the whole session's work was lost. It was not; the file was simply being written at that instant.
+Read the `.mpr` while Studio Pro was mid-rewrite and declared the session's work lost. It was not.
 
-**Antidote:** confirm against an independent source before declaring loss.
-```bash
-git hash-object Project.mpr            # working tree
-git rev-parse <commit>:Project.mpr     # committed
-```
-Identical hashes mean the tree *is* the checkpoint, whatever a stale read said. Also re-run the
-query — caches (`.mxcli/catalog.db`) lag.
+**Antidote:** confirm against an independent source before declaring loss → see
+`mpr-corruption-and-sp-load-errors.md` § RULE 3 (the git hash check).
 
 ### 2. "mxcli converts v2→v1 on read" — correlation asserted as cause
 
-The project kept flipping from MPR v2 to a single-file form. Noticed the conversions happened
-around read-only `mxcli` commands and reported mxcli as the culprit — plausible, and wrong. A
-subagent later checked mtime before and after its own mxcli calls: unchanged. Something else was
-doing it.
+Format flips coincided with read-only `mxcli` calls; mtime before and after showed mxcli was not the writer.
 
 **Antidote:** to claim tool T causes effect E, run T in isolation and observe E. Timing correlation
 in a tree with multiple concurrent writers is not evidence. Instrument (record state before/after
@@ -80,21 +73,10 @@ your own calls) rather than infer.
 
 ### 3. "These filters are unbound" — a lossy DESCRIBE
 
-`DESCRIBE PAGE` emitted `dropdownfilter fEquipType` with no `Attributes:` property. Reported as a
-live shipping bug across two pages, and a corrective script was drafted. The user pushed back:
-the filters had been tested working many times. They were right.
-
-Two compounding errors:
-- **`grep` flattened the hierarchy**, hiding that the filters sat in a deliberately built filter bar
-  with paired labels.
-- **Disconfirming evidence was already in hand and ignored.** `mxcli check` on the corrective script
-  emitted `MDL-WIDGET07: property columnsFilterable is not recognized and will be silently dropped`
-  — an explicit admission that mxcli's model of that widget family is incomplete. A tool that does
-  not understand a sibling property cannot be trusted to round-trip a child one.
-
-Had it been executed, it would have rebuilt a working page containing `customContent` columns —
-the single highest-risk construct for load-time BSON corruption in this stack. **All risk, zero
-benefit, from a finding that never existed.**
+`DESCRIBE PAGE` showed a `dropdownfilter` with no `Attributes:`; the filters worked, and the drafted
+fix would have rebuilt a working page with `customContent` columns. `mxcli check` had already
+warned `property columnsFilterable is not recognized and will be silently dropped`: a tool that does
+not understand a sibling property cannot be trusted to round-trip a child one.
 
 ---
 
@@ -232,13 +214,7 @@ measuring**, and replaces it with a constant 0. A failing gate reads as passing.
 It is worse than a plain wrong answer, because the failure mode is *biased toward green*. You will
 never see a spurious failure from this; you will only ever see spurious success.
 
-Real instances from the one session:
-
-| Observed | Concluded | Actually |
-|---|---|---|
-| `coverage-check ... \| tail; exit=0` with 323 UNCLAIMED | "exit 0 on a dirty ledger — new bug!" | exit **1**, correct |
-| `gate-check ... \| head; exit=0` printing "Gate BLOCKED" | "a blocked gate passes — 5th false-PASS!" | exit **1**, correct |
-| `exec.sh ... \| tail; EXIT=` (empty) | inconclusive | exit **3**, correct |
+Three real instances from that session: `process/baseline-incident-history.md` § TO2.
 
 **THE RULE: measure the exit code on an unpiped run.**
 
@@ -289,30 +265,14 @@ that runs correctly, reports honestly, and is simply **not sensitive to the defe
 
 ## The instance
 
-Scripted a Mendix workflow with five `CALL MICROFLOW` activities.
-
-- `mxcli check --references` → `Check passed!`
-- `mxcli exec` → `Created workflow`
-- `mx check` (Studio Pro's own validator) → **`0 errors`**
-- Studio Pro **opened the model** without complaint
-
-Four green signals. Every activity was a **red pin** that could not be clicked, and the app would
-have refused to boot: `Class 'Workflows$CallMicroflowTask' could not be found`.
-
-mxcli `v0.16.0` writes a `$Type` that Mendix renamed at 11.9. `mx check` does not validate that
-name. The upstream fix commit states this outright — *"Both checkers passed... the runtime refused
-to load the ENTIRE model at boot."*
-
-## Why it cost a day rather than an hour
-
-A six-variant probe had been run to find the trigger boundary, varying `WITH`-clause forms. **Every
-arm was graded by `mx check`.** All six passed, so the conclusion was "syntax X is safe" — and all
-six were broken in exactly the same way, because the variable that mattered was never varied.
+A scripted workflow with five `CALL MICROFLOW` activities passed `mxcli check --references`,
+`mxcli exec`, `mx check` (**0 errors**) and Studio Pro's load; every activity was a red pin and the
+runtime would have refused to boot (`Workflows$CallMicroflowTask`, renamed at Mendix 11.9). A
+six-arm probe graded by `mx check` passed all six arms, all broken the same way.
 
 > A control that cannot distinguish your arms will confirm whichever hypothesis you brought.
 
-The probe was well-designed in every respect except the one that counted: nobody asked *what is
-this gate actually sensitive to?*
+Full story: `process/baseline-incident-history.md` § TO3.
 
 ## The rule
 

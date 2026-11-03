@@ -105,6 +105,23 @@ mkdir -p "$R/bug-logs"
 printf 'The 9-step retest:\n\n1. a\n' > "$R/bug-logs/notes.md"
 [ "$(rc_of)" -eq 0 ] && ok "bug-logs/ ignored" || bad "reached outside skills/ agents/ process/"
 
+echo "== T11: a merge commit examines only files it changed relative to both parents =="
+reset_docs
+M="$WORK/merge"; rm -rf "$M"; mkdir -p "$M/skills" "$M/bin"
+cp "$CHECK" "$M/bin/check-docs-numbering.sh"; chmod +x "$M/bin/check-docs-numbering.sh"
+(
+  cd "$M" && git init -q . && git config user.email t@t && git config user.name t
+  printf 'base\n' > skills/ok.md; git add -A; git commit -qm base
+  git checkout -qb side
+  printf 'A 7-step claim.\n\n1. a\n2. b\n' > skills/bad.md; git add -A; git commit -qm side
+  git checkout -q - ; printf 'more\n' >> skills/ok.md; git commit -qam main
+  git merge --no-commit --no-ff side
+) >/dev/null 2>&1
+( cd "$M" && ./bin/check-docs-numbering.sh >/dev/null 2>&1 ); RC=$?
+[ "$RC" -eq 0 ] && ok "unchanged-by-merge bad doc not examined (exit 0)" || bad "merge examined the other side's doc (exit $RC)"
+( cd "$M" && printf 'A 7-step claim.\n\n1. a\n2. b\n' > skills/ok.md && git add skills/ok.md && ./bin/check-docs-numbering.sh >/dev/null 2>&1 ); RC=$?
+[ "$RC" -ne 0 ] && ok "a doc edited in the merge itself is still checked" || bad "merge-edited bad doc passed"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL   ($WORK)"
 [ "$FAIL" -eq 0 ]

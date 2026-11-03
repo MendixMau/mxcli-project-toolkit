@@ -1,0 +1,4 @@
+-- STOP-16, corrected form: the token bare, the whole path on the left (same entry, "Confirmed
+-- working fix"; module names generalised).
+-- key: = '[%CurrentUser%]']
+grant Module.User on Module.Order (read *) where '[Module.Order_Other/Module.Other/Module.Other_Account = ''[%CurrentUser%]'']';

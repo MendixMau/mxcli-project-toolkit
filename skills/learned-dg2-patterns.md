@@ -24,9 +24,10 @@ inserts corrupt too — BUG-96). So:
 
 **Decision rule**
 
-1. **Never insert columns into any grid via `ALTER PAGE`.** New/changed columns go through
-   `CREATE OR REPLACE PAGE` with the full tree written out. This retires the reason for the
-   "never native DATAGRID" ban.
+1. **Never insert, replace or re-attribute columns in any grid via `ALTER PAGE`.** New/changed
+   columns go through `CREATE OR REPLACE PAGE` with the full tree written out. This retires the
+   reason for the "never native DATAGRID" ban. A `REPLACE … column` with a new `Attribute:`
+   passes `check` and fails mxbuild (#356).
 2. **Need per-column filters written in MDL → native `DATAGRID`.** `TEXTFILTER` inside a
    column `{}` is auto-wired to the column's attribute; the pluggable form's textfilter
    binding is not persisted correctly (CE1613).

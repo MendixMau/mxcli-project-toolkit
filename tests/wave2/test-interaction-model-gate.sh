@@ -274,6 +274,21 @@ sed 's/$/\r/' "$B/design/interaction-model.md" > "$B/x" && mv "$B/x" "$B/design/
 OUT="$(run "$P")"
 case "$(stage3 "$OUT")" in *": PASS"*) ok "CRLF artifact passes" ;; *) bad "stage 3: $(stage3 "$OUT") / $(imline "$OUT")" ;; esac
 
+echo "== T13: a MANUAL role finding does not hide a missing Stage-3 CONFIRMED decision =="
+P="$(mkproj t13)"; B="$(base_of "$P")"
+grep -v '^| Reviewer |' "$B/design/interaction-model.md" > "$B/x" && mv "$B/x" "$B/design/interaction-model.md"
+sed 's/CONFIRMED 2026-10-14/ASSUMED 2026-10-14/' "$P/PROJECT.md" > "$P/x" && mv "$P/x" "$P/PROJECT.md"
+OUT="$(run "$P")"; RC=$?
+case "$(stage3 "$OUT")" in *": FAIL"*"CONFIRMED"*) ok "stage 3 FAIL on the register, not softened to MANUAL" ;; *) bad "stage 3: $(stage3 "$OUT")" ;; esac
+[ "$RC" -eq 1 ] && ok "exit 1" || bad "exit $RC"
+
+echo "== T14: a role cell with a trailing note in parentheses names the role =="
+P="$(mkproj t14)"; B="$(base_of "$P")"
+sed 's/^| Reviewer |/| Reviewer (signed-in, sees only own reviews) |/' "$B/design/interaction-model.md" > "$B/x" && mv "$B/x" "$B/design/interaction-model.md"
+OUT="$(run "$P")"
+case "$(imline "$OUT")" in *"2 of 2 BRD actors"*) ok "Reviewer (note) covers Reviewer" ;; *) bad "$(imline "$OUT")" ;; esac
+case "$(stage3 "$OUT")" in *": PASS"*) ok "stage 3 passes" ;; *) bad "stage 3: $(stage3 "$OUT")" ;; esac
+
 rm -rf "$WORK"
 echo ""
 echo "test-interaction-model-gate: $PASS passed, $FAIL failed"

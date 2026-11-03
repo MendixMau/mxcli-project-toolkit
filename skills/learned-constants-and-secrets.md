@@ -165,10 +165,48 @@ GenAI problem: an empty string is a legal value that downstream code accepts and
 several layers away, in someone else's error message. A sentinel fails at the first use, with
 your constant's name in the message.
 
+**A sentinel needs a guard wherever code acts on it** — e.g. create the API account at startup
+only when the password constant is not `__SET_ME__`. **One integration secret, two stores:** an
+app-to-app service password lives in both apps' machine-local stores; rotate both together.
+**API account passwords must satisfy the Mendix password policy** — a policy failure inside the
+after-startup account create aborts the boot (`M2EE: Starting Mendix Runtime failed.`;
+`mendix-service-seam.md` P11).
+
 For `Encryption.EncryptionKey` specifically: **exactly 32 characters**. 31 or 33 fails at
 runtime inside the same misleading error family.
 
 ---
+
+## Secret-bearing files and commands — never print them, never stage them
+
+Six leak events in one five-app lab run (mxcli v0.26.0, Mendix 11.15) reached agent transcripts, and a
+rendered login page with the demo password reached git. Every one started with a reasonable
+request: "check how the app was started", "see the constant", "list the run state". A transcript is
+a place a secret cannot be taken back from, so the rule is about what an agent **prints**, not what
+it stores.
+
+| Never print or paste | Why it holds a secret | Read this instead |
+|---|---|---|
+| `.mxcli/run-local.json` | `bootConfig` holds the database password and every constant passed at start, in clear. A key filter that looks at top-level keys still prints them | One named field (`app port`, `admin port`, `pid`), or print only a length or an equality result |
+| The `mxcli run --local` command line: `ps -o args=`, `start.cmd`, a start script | `--db-password` and `--constant Module.Name=<value>` carry the values | `./bin/app-restart.sh --dry-run` (masks flag values; a `--constant` value is a separate fix, see the toolkit issue list) |
+| `.mxcli/run-state.json` and other run records | Same bootConfig copy | Fields by name |
+| `describe constant`, `show constants` on a secret constant | They print the default value, which is the secret on a demo | `bin/constants-audit.sh` (verdicts, not values) |
+| `.env`, `.env.*` | The values themselves | `grep -c KEY .env`, or test presence with `[ -n "$VAR" ]` |
+| Rendered files that interpolate a secret (a login page with the demo password filled in) | Tracked by accident, it puts the value in HEAD | Track only the `*.template.*` file; git-ignore the rendered one |
+
+Three habits that make it hold:
+
+1. **Read a secret by testing it, not showing it.** `[ "${#VAR}" -ge 12 ]`, `[ "$A" = "$B" ] && echo same`, an HTTP status from `curl -u "$USER:$PASS"` with output discarded. Never `echo`, never `set -x`.
+2. **Put the ban in the lane rules** of any multi-agent build: one line naming these files. An agent that was not told will `cat` them to be helpful.
+3. **Scan what git will store.** `bin/check-staged-secrets.sh` (staged blobs) and `--tree` (everything tracked at HEAD) compare your real `.env`, `.docker/.env` and `bootConfig` values against the blobs and print only the file and the key name. It skips values under 8 characters, well-known defaults such as `mendix`, a value equal to the same key in `.env.example`, and a `bootConfig.MicroflowConstants` value that is already in the committed model (`run --local` writes every constant's model default there; a credential in a model default is `bin/constants-audit.sh`'s job), so a weak demo password like `mendix` is NOT protected by it (the default sits in thousands of tracked files, and a check that fails every commit gets turned off). It is not wired into the generated pre-commit hook; add it yourself. `git commit -- <path>` re-adds an ignored tracked file at commit time, so a `.gitignore` entry is not a guard.
+
+A value that reached a transcript or a remote is spent: **rotate it.** Deleting the commit or the
+transcript does not un-leak it. The demo password on a free-node sandbox is the lowest stakes; a
+shared database or API credential is not.
+
+---
+
+**`describe constant` and `show constants` print the stored default verbatim (mxcli v0.26.0 and v0.27.0, no masking).** Never run them on a project whose constants may hold a credential: the value lands in the transcript. Keep secret constants empty in the model and pass them with `--constant Module.Name=value`.
 
 ## Step 4 — Write the decision down where the next session will read it
 

@@ -42,7 +42,7 @@ project convention splits security out.
 The skeleton is done when the following are pasted in chat, each with its artifact:
 
 1. `exec.sh` gate `pass` for `00-skeleton.mdl` (row in `docs/BUILD-LOG.md`, not `skipped` or
-   `unverified`). On a cloud container this is the moment `doctor.sh --install` is proven.
+   `unverified`). On a cloud container this is the moment `doctor.sh --install --yes` is proven (`--yes` because no terminal can answer).
 2. The app is up: boot log line, or `curl … /login.html → 200`, after a `snapshot-mpr.sh`.
 3. The journey **passes**, and a deliberately broken copy of it **fails** (rename the nav
    item in the journey file and re-run). A journey that cannot fail is not evidence

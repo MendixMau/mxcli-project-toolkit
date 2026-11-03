@@ -39,6 +39,11 @@
 #       --json, a `done-` script reads done-, and a row whose State says built while its script
 #       is not done- is flagged. --refresh leaves an unchanged page byte-identical, never writes
 #       over a page this script did not generate, and writes nothing without a build-plan.md.
+#   T11 --refresh keeps an existing build-plan.json current (a State flipped in the md shows in
+#       the json), rewrites nothing when only generatedAt would differ, and never creates a json.
+#
+#       Since the progress report (this PR) the page is architecture/progress-report.html; the
+#       older build-plan.html is no longer written. test-progress-report.sh pins the rest.
 #
 # Usage: bash tests/wave2/test-build-plan-json.sh /path/to/build-plan-status.sh
 
@@ -287,7 +292,7 @@ J6="$P6/architecture/build-plan.json"
 
 # ── T7: --json with --html ────────────────────────────────────────────────
 OUT7="$(bash "$SCRIPT" "$P1" --json --html --quiet 2>&1)"; RC7=$?
-[ "$RC7" -eq 0 ] && [ -f "$P1/architecture/build-plan.html" ] && [ -f "$J1" ] && ok "T7 --json and --html both write" || bad "T7 rc=$RC7" "$OUT7"
+[ "$RC7" -eq 0 ] && [ -f "$P1/architecture/progress-report.html" ] && [ -f "$J1" ] && ok "T7 --json and --html both write" || bad "T7 rc=$RC7" "$OUT7"
 
 # ── T8: a build product is gitignored by its producer ─────────────────────
 GI1="$P1/.gitignore"
@@ -343,7 +348,7 @@ cat > "$P10/architecture/build-plan.md" <<'MD'
 MD
 : > "$P10/mdlsource/done-01-app-scaffold.mdl"
 : > "$P10/mdlsource/02-enums.mdl"
-H10="$P10/architecture/build-plan.html"
+H10="$P10/architecture/progress-report.html"
 OUT10="$(bash "$SCRIPT" "$P10" --html --quiet 2>&1)"; RC10=$?
 [ "$RC10" -eq 0 ] && [ -f "$H10" ] && ok "T10 --html writes the page" || bad "T10 rc=$RC10" "$OUT10"
 grep -q 'App Scaffold' "$H10" 2>/dev/null && grep -q 'Orders' "$H10" && grep -q '10-orders-domain.mdl' "$H10" \
@@ -354,7 +359,7 @@ grep -q 'State says built, but not every script it names is done-' "$H10" 2>/dev
   && ok "T10 a built row whose script is not done- is flagged" || bad "T10 State/disk drift not flagged"
 SUM_A="$(cksum < "$H10")"
 bash "$SCRIPT" "$P10" --refresh >/dev/null 2>&1
-[ "$(cksum < "$H10")" = "$SUM_A" ] && ok "T10 --refresh leaves an unchanged page byte-identical" || bad "T10 --refresh rewrote a page whose content did not change"
+[ "$(cksum < "$H10")" = "$SUM_A" ] && ok "T10 --refresh leaves an unchanged page byte-identical (stamp lines excluded)" || bad "T10 --refresh rewrote a page whose content did not change"
 mv "$P10/mdlsource/02-enums.mdl" "$P10/mdlsource/done-02-enums.mdl"
 bash "$SCRIPT" "$P10" --refresh >/dev/null 2>&1
 grep -q 'State says built, but not every script' "$H10" && bad "T10 --refresh did not pick up a done- rename" || ok "T10 --refresh picks up a done- rename"
@@ -363,7 +368,34 @@ bash "$SCRIPT" "$P10" --refresh >/dev/null 2>&1
 [ "$(cat "$H10")" = "<html>written by hand</html>" ] && ok "T10 --refresh never overwrites a page it did not generate" || bad "T10 --refresh overwrote a foreign page"
 P10B="$(new_project htmlnoplan)"
 bash "$SCRIPT" "$P10B" --refresh >/dev/null 2>&1
-[ ! -f "$P10B/architecture/build-plan.html" ] && ok "T10 --refresh writes nothing without build-plan.md" || bad "T10 --refresh wrote a page with no plan"
+[ ! -f "$P10B/architecture/progress-report.html" ] && ok "T10 --refresh writes nothing without build-plan.md" || bad "T10 --refresh wrote a page with no plan"
+
+# ── T11: --refresh keeps an existing build-plan.json current, never creates one ──
+P11="$(new_project jsonrefresh)"
+cat > "$P11/architecture/build-plan.md" <<'MD'
+# Build Plan
+
+### Phase 1 — Alpha
+
+| # | Kind | Step | Produces/Proves | Depends on | Skills | State |
+|---|---|---|---|---|---|---|
+| 1.1 | script | `01-alpha.mdl` | Alpha entity | — | — | not built |
+MD
+J11="$P11/architecture/build-plan.json"
+bash "$SCRIPT" "$P11" --json --quiet >/dev/null 2>&1
+q "$J11" "json.dumps(d)" | grep -q 'not built' && ok "T11 --json snapshot shows the row not built" || bad "T11 setup: snapshot not 'not built'" "$(cat "$J11" 2>/dev/null)"
+sed 's/| not built |/| built |/' "$P11/architecture/build-plan.md" > "$P11/md.tmp" && mv "$P11/md.tmp" "$P11/architecture/build-plan.md"
+bash "$SCRIPT" "$P11" --refresh >/dev/null 2>&1
+S11="$(q "$J11" "d['phases'][0]['steps'][0]")"
+case "$S11" in *"'not built'"*|*PARSE-ERROR*) bad "T11 --refresh left the json stale" "$S11" ;; *built*) ok "T11 --refresh updates the existing json to built" ;; *) bad "T11 unexpected step" "$S11" ;; esac
+SUM11="$(cksum < "$J11")"
+sleep 1
+bash "$SCRIPT" "$P11" --refresh >/dev/null 2>&1
+[ "$(cksum < "$J11")" = "$SUM11" ] && ok "T11 --refresh rewrites nothing when only the timestamp would change" || bad "T11 --refresh rewrote an unchanged json"
+P11B="$(new_project jsonrefreshnone)"
+cp "$P11/architecture/build-plan.md" "$P11B/architecture/build-plan.md"
+bash "$SCRIPT" "$P11B" --refresh >/dev/null 2>&1
+[ ! -f "$P11B/architecture/build-plan.json" ] && ok "T11 --refresh does not create a json when there is none" || bad "T11 --refresh created build-plan.json"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL   ($WORK)"

@@ -140,6 +140,34 @@ says a role is external. Lint Batch 4 shipped both rows; the field-run counts ar
 | 49 | External role (configured) can write all members, a state enumeration (`Status`/`State`/`Result`/`Stage`/`Phase`), an audit `…At`/`…By` attribute, or the association its own XPath scopes ownership on (SEC014) | security | #268: a partner role held `create, read *, write *` on two self-owned entities with a state attribute; lint showed only CONV006 +4, re-baselined; a manual review found it five days later | `permissions_for()` `MEMBER_WRITE` rows, `attributes_for().data_type` (`Enumeration`), `user_roles()` / `role_mappings()`; `external_roles` option, text not list; absent = sync NOTE, not a `_rule` finding. Probed 2026-10-13 | drafted (Batch 4) |
 | 50 | CONV009 threshold read from `lint-config.yaml` (`maxObjects`, `countLoopBodies`) instead of the stock hard-coded 15 | quality | #267: the generated config's own example does nothing; three apps at 36 / 30 / 5 findings, one app split flows only to satisfy the 15 | `get_option()`; `total_activity_count` (mxcli >= 0.25.0) for loop bodies. Default kept at 15: raising it for every project is a maintainer call | drafted (Batch 4) |
 
+## Batch 7 — modelling errors that hit both arms, and stock-rule false positives
+
+Source: issue #169, from a field comparison on 2026-09-29: an mxcli + toolkit build and a Studio Pro
+MCP build of the same frozen spec, about 75 defects between them. Four or five modelling errors
+appeared in both builds independently, so they come from the spec or the platform, not the authoring
+tool. Hypothesis: these rules would have prevented 6–8 of the 75. The page-button refresh candidate
+is row 7. The other four are below.
+
+| # | Rule | Category | Evidence | Needs | Status |
+|---|---|---|---|---|---|
+| 51 | Reference-selector / picker XPath that reads rows the current role cannot read under entity access (e.g. through `System.UserRoles` or an account association) | security | #169: a reassign picker listed only the user, or nothing, in both builds | widget selectable-objects XPath; `permissions()` per entity and role (probe) | idea |
+| 52 | `change` with no later `commit` in a microflow reached from a scheduled event or a workflow (no client to commit it) | correctness | #169: an escalation change was lost, found only by a timer run | `activities_for()` order and `commit` targets; callers from `scheduled_events()` / workflow refs (probe) | idea |
+| 53 | `addDays`/`addHours`/`trim`/`length` on an attribute that can be empty, with no empty guard before it | correctness | #169: a null runtime error | expression text in the catalog: same blocker as row 36 | blocked: expressions not indexed (upstream) |
+| 54 | Navigation profile with no logout item, or a home page whose role has no read access to its entity (CE2729) | security | #169: caught late in both builds | navigation in projection (row 12's blocker) | blocked: field unconfirmed |
+
+Two spec-level items from the same comparison are not lint rules: legal-suffix matching on company
+names, and workflow admin-centre access for an approver role.
+
+**Stock-rule false positives.** These are not candidates. They are findings on the toolkit's own conventions. The
+answer for each is in `skills/lint-that-actually-runs.md` → "Stock rules against the toolkit's own
+conventions". The rules are mxcli's own, so any Starlark change waits for fixtures and a toolkit replacement rule (rollout rule 1).
+
+| Rule | Issue | Disposition |
+|---|---|---|
+| QUAL004 on a `DS_` Data grid 2 datasource | #360 | baseline with reason; upstream `bug-logs/pending-github-issues/qual004-dg2-datasource-ref.md`; BUG-DRAFT-qual004-dg2-datasource |
+| QUAL004 on `TEST_` helpers; CUSTOM002 on `TEST_`/`GET_`/`PRS_`/`STUB_` | #241 | CUSTOM002 `enabled: false` (user decision, recorded in `PROJECT.md`) or baseline with reason; QUAL004 baseline with reason; upstream `lint-naming-prefixes-as-options.md` |
+| QUAL002 on import mappings / published REST services (MDL089) | #246 | QUAL002 per-kind options in `lint-config.yaml`; upstream `qual002-skip-mdl089-types.md` |
+
 ## Cheap extras (one afternoon each, when a batch has room)
 
 Microflow not in a folder · non-persistent entity committed to the database · many-to-many
@@ -171,6 +199,8 @@ a second backlog section. Forum only to weight by incident frequency.
 
 ## History
 
+- 2026-10-14 — Batch 7 added from #169 (rows 51–54), plus dispositions for the stock-rule false
+  positives in #360, #241 and #246. The 2026-09-29 inbox file for #169 was promoted here and deleted.
 - 2026-10-13 — Batch 6 added from #268 / #267 (rows 49–50). Lint Batch 4 shipped them as `SEC014`
   and a toolkit-owned `CONV009` (status `drafted`, 32 unit cases). First field run, mxcli 0.26.0:
   SEC014 1 finding with the one external role configured, positive control 7 that a SQL replay

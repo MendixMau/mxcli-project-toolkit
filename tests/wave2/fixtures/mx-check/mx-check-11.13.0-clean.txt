@@ -1,0 +1,7 @@
+Checking your app for issues...
+Checking the version of the mpr file.
+The mpr file version is '11.13.0'.
+Loading the mpr file.
+The mpr file version is '11.13.0'.
+Checking app for errors...
+The app contains: 0 errors.

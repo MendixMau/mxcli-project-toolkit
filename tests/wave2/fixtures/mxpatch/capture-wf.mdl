@@ -1,0 +1,25 @@
+create persistent entity MyFirstModule.ApprovalContext (
+  Title: string(200)
+);
+create microflow MyFirstModule.ACT_Approval_Review ($ApprovalContext: MyFirstModule.ApprovalContext)
+begin
+  @position(200,200) return;
+end;
+create microflow MyFirstModule.ACT_Approval_Notify ($ApprovalContext: MyFirstModule.ApprovalContext)
+begin
+  @position(200,200) return;
+end;
+create microflow MyFirstModule.SE_Cleanup()
+begin
+  return;
+end;
+create workflow MyFirstModule.Approval
+  parameter $WorkflowContext: MyFirstModule.ApprovalContext
+  display 'Approval'
+begin
+  call microflow MyFirstModule.ACT_Approval_Review;
+  parallel split
+    path 1 { call microflow MyFirstModule.ACT_Approval_Review; }
+    path 2 { call microflow MyFirstModule.ACT_Approval_Notify; }
+  ;
+end workflow;

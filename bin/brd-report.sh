@@ -40,7 +40,7 @@
 # this instrument never judges whether the CONTENT is right, only whether it is there.
 #
 # Usage:
-#   brd-report.sh <project-dir> [--html PATH] [--json] [--quiet]
+#   brd-report.sh <project-dir> [--html PATH] [--stage N] [--json] [--quiet]
 #
 # exit 0 rendered (faults included — a fault is information, and the gate is gate-check's job)
 #      2 usage   3 no BRDs found (never a pass)   4 a BRD is not valid JSON
@@ -60,12 +60,13 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() {
   cat >&2 <<'USAGE'
-usage: brd-report.sh <project-dir> [--html PATH] [--json] [--quiet]
+usage: brd-report.sh <project-dir> [--html PATH] [--stage N] [--json] [--quiet]
 
   Renders the Stage 2 BRD surface from every BRD in the project, whatever produced them —
   a pipeline extractor, kb-generation.md, an SME interview, or a text editor.
 
   --html PATH   where to write (default: <project-dir>/analysis/brd-report.html)
+  --stage N     open questions up to stage N (the gate passes its own stage)
   --json        machine-readable summary on stdout instead of prose
   --quiet       render, say nothing
 
@@ -80,11 +81,13 @@ shift 2>/dev/null || true
 case "$PROJECT_DIR" in -h|--help|'') usage ;; esac
 
 HTML_OUT=""
+STAGE_ARG=""
 AS_JSON=0
 QUIET=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --html)  HTML_OUT="${2:-}"; shift 2 ;;
+    --stage) STAGE_ARG="${2:-}"; shift 2 ;;
     --json)  AS_JSON=1; shift ;;
     --quiet) QUIET=1; shift ;;
     -h|--help) usage ;;
@@ -93,6 +96,9 @@ while [ $# -gt 0 ]; do
 done
 
 [ -d "$PROJECT_DIR" ] || { echo "brd-report: not a directory: $PROJECT_DIR" >&2; exit 2; }
+# Git Bash hands the interpreter /c/work/proj, which native Windows Python cannot open.
+PROJECT_DIR="$(native_path "$PROJECT_DIR")"
+[ -z "$HTML_OUT" ] || HTML_OUT="$(native_path "$HTML_OUT")"
 
 # Was: `command -v python3` in the scripts this one is modelled on — which succeeds on the
 # Windows Store alias stub. require_py probes by running the interpreter.
@@ -101,7 +107,17 @@ require_py
 BRD_FILES=$(discover_brds "$PROJECT_DIR")
 BRD_COUNT=$(count_lines "$BRD_FILES")
 
-if [ "$BRD_COUNT" = "0" ]; then
+# Stage 0/1 has no BRDs yet, but the gate can still block on sme-questions.md questions and must
+# hand the user a page. With no BRDs and no questions found, nothing is rendered (exit 3).
+SME_ONLY=0
+if [ "$BRD_COUNT" = "0" ] && [ -x "$HERE/open-questions.sh" ]; then
+  _n=$(bash "$HERE/open-questions.sh" "$PROJECT_DIR" ${STAGE_ARG:+--stage "$STAGE_ARG"} --json 2>/dev/null | "$PY" -c 'import json,sys
+try: print(json.load(sys.stdin)["counts"]["total"])
+except Exception: print(0)' 2>/dev/null)
+  [ "${_n:-0}" -gt 0 ] 2>/dev/null && SME_ONLY=1
+fi
+
+if [ "$BRD_COUNT" = "0" ] && [ "$SME_ONLY" = "0" ]; then
   # An empty result set is never a pass (report-schema.md). Distinct exit code so no caller
   # can read "found nothing" as "nothing to find".
   echo "brd-report: no BRDs found under $PROJECT_DIR — nothing rendered." >&2
@@ -114,7 +130,7 @@ fi
 mkdir -p "$(dirname "$HTML_OUT")" 2>/dev/null || true
 
 BRD_FILES="$BRD_FILES" BRD_COUNT="$BRD_COUNT" HTML_OUT="$HTML_OUT" AS_JSON="$AS_JSON" \
-QUIET="$QUIET" PROJECT_DIR="$PROJECT_DIR" "$PY" <<'PY'
+QUIET="$QUIET" PROJECT_DIR="$PROJECT_DIR" TOOLKIT_BIN="$HERE" STAGE_ARG="$STAGE_ARG" "$PY" <<'PY'
 import json, os, sys, html, datetime
 
 files      = [f for f in os.environ['BRD_FILES'].splitlines() if f.strip()]
@@ -749,12 +765,8 @@ for a in analysed:
             note='<p class="note">Rules found inside extracted logic that the domain model does '
                  'not show. Derived from <code>microflows[].hiddenRules</code>.</p>'),
         section_block(a, 'openQuestions', 'Open questions',
-            '<ul class="oq">'
-            + ''.join('<li>' + esc(q.get('question') if isinstance(q, dict) else q)
-                      + (f' <span class="tag">{esc(q.get("status"))}</span>'
-                         if isinstance(q, dict) and q.get('status') else '')
-                      + '</li>' for q in a['raw']['openQuestions'])
-            + '</ul>'),
+            '<p class="note">Listed with their state, drafting position and process step in '
+            '<a href="#pm-list">Requirements and open questions</a> at the top of this page.</p>'),
     ]
 
     chips = ''.join(f'<span class="chip">{esc(m)}</span>' for m in a['modules']) \
@@ -767,6 +779,331 @@ for a in analysed:
         + prov_note + quality + unread + legacy + ''.join(blocks) +
         f'<p class="src">{esc(a["path"])}</p>'
         '</section>')
+
+# --- process map + open questions, fused (2026-10-16) -----------------------------------------
+#
+# The page opens with the process map (pass 1: no screens needed) and lists, under it, every
+# requirement (use case) and every open question or assumption. A click on a step filters that
+# list to the rows about the step. Rows tied to no step stay listed under "whole app".
+#
+# The map is NOT drawn here: `project-bin/process-map.js build --embed` renders it (the one
+# renderer, also used for the Stage 3 map beside the wireframes) and this page frames it. The
+# open questions are NOT collected here either: `bin/open-questions.sh --json` is the one
+# collector. This block only joins the two onto the BRDs. It replaces docs/open-questions.html.
+import subprocess, shutil, tempfile, re
+
+toolkit_bin = os.environ['TOOLKIT_BIN']
+stage_arg   = os.environ.get('STAGE_ARG', '')
+proj_abs    = os.path.abspath(project)
+
+def _find_model():
+    cands = [os.path.join(proj_abs, 'design', 'process-model.json')]
+    adir = os.path.join(proj_abs, 'analysis')
+    if os.path.isdir(adir):
+        for d in sorted(os.listdir(adir)):
+            cands.append(os.path.join(adir, d, 'design', 'process-model.json'))
+    for c in cands:
+        if os.path.isfile(c):
+            return c
+    return None
+
+def _find_pm():
+    for c in (os.path.join(toolkit_bin, '..', 'project-bin', 'process-map.js'),
+              os.path.join(proj_abs, 'bin', 'process-map.js')):
+        if os.path.isfile(c):
+            return os.path.normpath(c)
+    return None
+
+pm_data, pm_frame, pm_note = None, '', ''
+_model, _pm, _node = _find_model(), _find_pm(), shutil.which('node')
+if not _model:
+    pm_note = ('No process map yet. Draw it at Stage 2 close (skills/process-map.md, pass 1); '
+               'until then every requirement and question is listed under "whole app".')
+elif not (_pm and _node):
+    pm_note = ('A process model exists (' + os.path.relpath(_model, proj_abs) + ') but the map '
+               'could not be drawn: ' + ('node is not on PATH' if not _node else 'process-map.js not found') + '.')
+else:
+    _tmp = tempfile.mkdtemp(prefix='brdmap.')
+    try:
+        _r = subprocess.run([_node, _pm, 'build', '--embed', '--project', proj_abs, '--model', _model,
+                             '--out', os.path.join(_tmp, 'embed.html'),
+                             '--data-out', os.path.join(_tmp, 'data.json')],
+                            capture_output=True, text=True, timeout=120)
+        if _r.returncode == 0 and os.path.isfile(os.path.join(_tmp, 'data.json')):
+            with open(os.path.join(_tmp, 'data.json')) as fh:
+                pm_data = json.load(fh)
+            with open(os.path.join(_tmp, 'embed.html')) as fh:
+                pm_frame = fh.read()
+        else:
+            _errs = [l for l in (_r.stdout + _r.stderr).splitlines() if l.startswith(('ERROR', 'process-map:'))]
+            pm_note = ('The process model (' + os.path.relpath(_model, proj_abs) + ') did not build: '
+                       + ' | '.join(_errs[:4]) + '. Fix the model (skills/process-map.md) and re-run.')
+    except Exception as e:
+        pm_note = 'The process map could not be drawn: ' + str(e)
+    finally:
+        shutil.rmtree(_tmp, ignore_errors=True)
+
+# open questions: the one collector
+oq, oq_note = None, ''
+try:
+    _c = subprocess.run(['bash', os.path.join(toolkit_bin, 'open-questions.sh'), project]
+                        + (['--stage', stage_arg] if stage_arg else []) + ['--json'],
+                        capture_output=True, text=True, timeout=120)
+    oq = json.loads(_c.stdout)
+except Exception as e:
+    oq_note = ('The open-questions collector did not run (' + str(e)[:120] + '), so states are unknown. '
+               'The questions below are read straight from the BRDs.')
+    oq = None
+
+brd_of_base = {os.path.basename(a['path']): a['id'] for a in analysed}
+BIG = 1 << 30
+step_ord, step_meta = {}, {}
+if pm_data:
+    for _p in pm_data['processes']:
+        for _s in _p['steps']:
+            step_ord[_s['id']] = len(step_ord)
+            step_meta[_s['id']] = {'label': f"{_p['id']} step {_s['n']}: {_s['title']}", 'proc': _p['id'], 'n': _s['n']}
+steps_of_ref = {}                # "F001:Q01" -> {step ids}, from the map's items
+if pm_data:
+    for _it in pm_data['items']:
+        for _ref in _it['refs']:
+            steps_of_ref.setdefault(_ref, set()).update(_it['steps'])
+
+def _order(steps):
+    return sorted(steps, key=lambda s: step_ord.get(s, BIG))
+
+def _first(steps):
+    return min([step_ord.get(s, BIG) for s in steps] or [BIG])
+
+def step_chips(steps):
+    if not steps:
+        return '<span class="whole">whole app</span>'
+    return ''.join(f'<a class="stepchip" href="#step={esc(s)}" data-step="{esc(s)}" '
+                   f'title="{esc(step_meta[s]["label"])}">{esc(step_meta[s]["proc"])} &middot; {step_meta[s]["n"]}</a>'
+                   for s in _order(steps))
+
+def _attr_steps(steps):
+    return esc(' '.join(_order(steps)))
+
+# rows: (..., steps, html). The second-last element is always the step list.
+req_rows, q_rows = [], []
+for a in analysed:
+    for u in a['raw']['useCases']:
+        if not isinstance(u, dict) or not u.get('id'):
+            continue
+        ref = f"{a['id']}:{u['id']}"
+        info = (pm_data or {}).get('useCases', {}).get(ref)
+        steps = info['steps'] if info else []
+        actors, _ = alist(u, 'actors', 'actor')
+        why = ''
+        if info and info.get('standalone'):
+            why = f'<div class="pmsub">Not part of a process: {esc(info["standalone"])}</div>'
+        actor_html = f'<div class="pmsub">{esc("; ".join(str(x) for x in actors))}</div>' if actors else ''
+        req_rows.append(('req', 'req', (_first(steps), ref), steps,
+            f'<div class="pmrow req" id="req-{esc(a["id"])}-{esc(u["id"])}" data-kind="req" data-steps="{_attr_steps(steps)}">'
+            f'<div class="pmhead"><span class="mono">{esc(ref)}</span> <strong>{esc(u.get("title"))}</strong></div>'
+            + actor_html + why + f'<div class="pmchips">{step_chips(steps)} <a class="pmdetail" href="#{esc(a["id"])}">BRD detail</a></div></div>'))
+
+STATE_NOTE = {
+    'UNRAISED':     'Never put to you. These block the gate.',
+    'UNRECOGNISED': 'Status text no rule could map. Treated as unraised.',
+    'RAISED':       'Put to you, awaiting your reply.',
+    'ASSUMED':      'A position was taken and you consented to it. Recorded, not blocking.',
+    'ANSWERED':     'Settled with a recorded answer.',
+    'MOOT':         'Descoped, not silently dropped.',
+}
+STATE_ORDER = ['UNRECOGNISED', 'UNRAISED', 'RAISED', 'ASSUMED', 'ANSWERED', 'MOOT']
+BLOCKING = ('UNRAISED', 'UNRECOGNISED')
+
+def q_row(state, qid, origin, text, prop, steps, meta, rid):
+    cls = 'block' if state in BLOCKING else 'ok'
+    if prop:
+        prophtml = ('<div class="prop"><span class="lbl">Drafting position: confirm or overturn</span>'
+                    f'<div>{esc(prop)}</div></div>')
+    elif state in BLOCKING:
+        prophtml = ('<div class="gap"><span class="lbl">No proposed answer</span>'
+                    '<div>Handed over bare. The stage that raised it should propose two named options '
+                    'and a recommendation before it goes to the user.</div></div>')
+    else:
+        prophtml = ''
+    meta_html = f'<div class="pmsub">{meta}</div>' if meta else ''
+    return ('q', state, (_first(steps), str(qid)), steps,
+        f'<div class="pmrow q {cls}" id="{esc(rid)}" data-kind="q" data-steps="{_attr_steps(steps)}">'
+        f'<div class="pmhead"><span class="mono">{esc(qid)}</span> <span class="st st-{cls}">{esc(state)}</span> '
+        f'<span class="src">{esc(origin)}</span></div><div class="qtext">{esc(text)}</div>{prophtml}{meta_html}'
+        f'<div class="pmchips">{step_chips(steps)}</div></div>')
+
+if oq is not None:
+    for q in oq.get('questions', []):
+        base = os.path.basename(str(q.get('origin', '')))
+        bid = brd_of_base.get(base)
+        steps = sorted(steps_of_ref.get(f"{bid}:{q.get('id')}", [])) if bid else []
+        meta = ' &middot; '.join(x for x in [
+            (f'recorded as <code>{esc(str(q.get("rawStatus"))[:120])}</code>' if q.get('rawStatus') else ''),
+            esc(q.get('reason') or ''), (f'stage {esc(q.get("stage"))}' if q.get('stage') is not None else '')] if x)
+        rid = f"q-{bid}-{q.get('id')}" if bid else 'q-' + re.sub('[^A-Za-z0-9_-]', '-', base) + '-' + str(q.get('id'))
+        q_rows.append(q_row(q.get('state', 'UNRECOGNISED'), q.get('id', '?'), q.get('origin', ''), q.get('question', ''),
+                            (q.get('assumption') or '').strip(), steps, meta, rid))
+else:
+    for a in analysed:
+        for q in a['raw']['openQuestions']:
+            if not isinstance(q, dict):
+                continue
+            steps = sorted(steps_of_ref.get(f"{a['id']}:{q.get('id')}", []))
+            q_rows.append(q_row('NOT COLLECTED', q.get('id', '?'), os.path.basename(a['path']), q.get('question', ''),
+                                (q.get('assumption') or '').strip(), steps, '', f"q-{a['id']}-{q.get('id')}"))
+for it in (pm_data or {}).get('items', []):
+    if it['kind'] != 'decision':
+        continue
+    steps = it['steps']
+    q_rows.append(('q', 'ASSUMED', (_first(steps), it['id']), steps,
+        f'<div class="pmrow q ok" id="a-{esc(it["id"])}" data-kind="q" data-steps="{_attr_steps(steps)}">'
+        f'<div class="pmhead"><span class="mono">{esc(it["id"])}</span> <span class="st st-ok">ASSUMPTION</span> '
+        f'<span class="src">decision register</span></div><div class="qtext">{esc(it["text"])}</div>'
+        f'<div class="pmchips">{step_chips(steps)}</div></div>'))
+
+def _srank(r):
+    return STATE_ORDER.index(r[1]) if r[1] in STATE_ORDER else 9
+
+def _pick(rows, whole):
+    sel = [r for r in rows if (not r[-2]) == whole]
+    if rows is q_rows:
+        sel.sort(key=(lambda r: (_srank(r), r[2])) if whole else (lambda r: (r[2], _srank(r))))
+    else:
+        sel.sort(key=lambda r: r[2])
+    return sel
+
+def _group(title, rows):
+    if not rows:
+        return ''
+    return (f'<div class="pmgroup"><h4>{esc(title)} <span class="cnt">{len(rows)}</span></h4>'
+            + ''.join(r[-1] for r in rows) + '</div>')
+
+n_blocking = (oq or {}).get('blocking', 0)
+if oq is None:
+    q_banner = f'<div class="banner warn">{esc(oq_note)}</div>'
+else:
+    _bare = [q for q in oq.get('questions', []) if q.get('state') in BLOCKING and not (q.get('assumption') or '').strip()]
+    q_banner = ((f'<div class="banner fail">{n_blocking} question(s) have never been put to the user: this gate is blocked.</div>')
+                if n_blocking else '<div class="banner pass">No unraised questions. Every question on record has been seen by the user.</div>')
+    if _bare:
+        q_banner += (f'<div class="banner warn"><b>{len(_bare)} of {n_blocking} blocking questions arrive with no proposed answer.</b> '
+                     'They are marked below. Fix them in the stage that raised them.</div>')
+    _cnt = oq.get('counts', {})
+    _rows_t = ''.join(f'<tr><td><code>{s}</code></td><td class="num">{_cnt.get(s, 0)}</td>'
+                      f'<td>{esc(STATE_NOTE[s])}</td></tr>' for s in STATE_ORDER if _cnt.get(s, 0))
+    if _rows_t:
+        q_banner += ('<details class="more"><summary>What was found, by state</summary><div class="scroll"><table>'
+                     '<tr><th>State</th><th class="num">Count</th><th>Meaning</th></tr>' + _rows_t + '</table></div></details>')
+
+n_by_step = len([r for r in req_rows + q_rows if r[-2]])
+n_whole = len(req_rows) + len(q_rows) - n_by_step
+by_step_html = ''
+if n_by_step:
+    by_step_html = (f'<h3 class="pmh">About the steps of the map ({n_by_step})</h3>'
+                    + _group('Requirements', _pick(req_rows, False)) + _group('Open questions and assumptions', _pick(q_rows, False)))
+whole_html = _group('Requirements', _pick(req_rows, True)) + _group('Open questions and assumptions', _pick(q_rows, True))
+
+# First paint height: the frame reports its real height once it has a width, but a screenshot or a slow
+# frame must not show a clipped map in the meantime. About 105 px per lane row, plus legend and title.
+pm_h0 = 70 + sum(120 + 105 * len({st.get('lane') for st in pr.get('steps', [])}) for pr in (pm_data or {}).get('processes', [])) if pm_frame else 120
+if pm_frame:
+    map_html = ('<section class="pmmap" id="pm-map"><h2>Process map</h2>'
+                '<p class="lede">One map per business process. Rows are the people and the system, cards are the steps in order. '
+                'Click a step to see the requirements and open questions about it below.</p>'
+                f'<iframe id="pm-frame" title="Process map" sandbox="allow-scripts" scrolling="no" style="height:{pm_h0}px" '
+                f'srcdoc="{html.escape(pm_frame, quote=True)}"></iframe></section>')
+else:
+    map_html = f'<section class="pmmap" id="pm-map"><h2>Process map</h2><div class="banner warn">{esc(pm_note)}</div></section>'
+
+list_html = ('<section id="pm-list"><div class="pmbar" id="pm-bar" hidden><span id="pm-bar-text"></span>'
+             '<button type="button" id="pm-clear">Show all</button></div>'
+             '<h2 id="pm-title">Requirements and open questions</h2>' + q_banner + by_step_html
+             + f'<div id="pm-whole"><h3 class="pmh">Whole app ({n_whole})</h3>'
+             '<p class="note">Not tied to one step: they apply to the whole app or to one kind of data, or no map is drawn yet.</p>'
+             + (f'<details class="more"><summary>Show the {n_whole} whole-app items</summary>{whole_html}</details>' if n_whole > 8 else whole_html)
+             + '</div></section>')
+
+PM_JS = """
+(function(){
+var META = %s;
+var list = document.getElementById('pm-list'); if (!list) return;
+var frame = document.getElementById('pm-frame'), bar = document.getElementById('pm-bar'),
+    txt = document.getElementById('pm-bar-text'), whole = document.getElementById('pm-whole');
+var current = '';
+function post(){ if (frame && frame.contentWindow) frame.contentWindow.postMessage({pm:'select', step:current}, '*'); }
+function apply(id){
+  current = id || '';
+  var rows = list.querySelectorAll('.pmrow'), n = {req:0, q:0};
+  Array.prototype.forEach.call(rows, function(r){
+    var on = !current || (' ' + r.getAttribute('data-steps') + ' ').indexOf(' ' + current + ' ') >= 0;
+    r.hidden = !on; if (on && current) n[r.getAttribute('data-kind') === 'req' ? 'req' : 'q']++;
+  });
+  Array.prototype.forEach.call(list.querySelectorAll('.pmgroup'), function(g){
+    var v = g.querySelectorAll('.pmrow:not([hidden])').length; g.hidden = !!current && !v;
+    var c = g.querySelector('.cnt'); if (c) c.textContent = String(v); });
+  Array.prototype.forEach.call(list.querySelectorAll('.pmh'), function(e){ e.hidden = !!current; });
+  if (whole) whole.hidden = !!current;
+  if (bar){ bar.hidden = !current; if (current && META[current]) txt.textContent = META[current] + ': ' + n.req + ' requirement(s), ' + n.q + ' question(s) or assumption(s)'; }
+  post();
+}
+function pick(id, scroll){
+  apply(id);
+  try{ history.replaceState(null, '', id ? '#step=' + id : location.pathname + location.search); }catch(e){}
+  if (scroll) { var t = document.getElementById('pm-title'); if (t) t.scrollIntoView({behavior:'smooth', block:'start'}); }
+}
+window.addEventListener('message', function(e){
+  if (!frame || e.source !== frame.contentWindow) return;
+  var d = e.data || {};
+  if (d.pm === 'height') { if (d.h > 80) frame.style.height = d.h + 'px'; }
+  else if (d.pm === 'step') pick(d.step, true);
+  else if (d.pm === 'ready') post();
+});
+list.addEventListener('click', function(e){
+  var a = e.target.closest ? e.target.closest('a.stepchip') : null;
+  if (a){ e.preventDefault(); pick(a.getAttribute('data-step'), false); var m = document.getElementById('pm-map'); if (m) m.scrollIntoView({behavior:'smooth', block:'start'}); }
+});
+document.getElementById('pm-clear').addEventListener('click', function(){ pick('', false); });
+var m = /#step=([^&]+)/.exec(location.hash); if (m && META[decodeURIComponent(m[1])]) apply(decodeURIComponent(m[1]));
+})();
+""" % json.dumps({k: v['label'] for k, v in step_meta.items()})
+
+PM_CSS = """
+  .pmmap iframe { width: 100%; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); min-height: 120px; display: block; }
+  .banner { border-radius: var(--radius); padding: 11px 15px; margin: 12px 0; font-size: 14px; }
+  .banner.pass { background: var(--pass-bg); color: var(--pass-ink); }
+  .banner.fail { background: var(--fail-bg); color: var(--fail-ink); }
+  .banner.warn { background: var(--warn-bg); color: var(--warn-ink); }
+  .pmh { font-size: 15px; margin: 26px 0 4px; }
+  .pmgroup h4 { margin: 18px 0 8px; }
+  .pmrow { background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--ink-faint);
+           border-radius: var(--radius); padding: 11px 14px; margin: 8px 0; overflow-wrap: anywhere; }
+  .pmrow[hidden], .pmgroup[hidden], .pmh[hidden], #pm-whole[hidden], .pmbar[hidden] { display: none; }
+  .pmrow.q.block { border-left-color: #dc2626; }
+  .pmrow.req { border-left-color: var(--accent); }
+  .pmhead { font-size: 14px; }
+  .pmsub, .pmrow .src { font-size: 12.5px; color: var(--ink-soft); margin-top: 3px; }
+  .qtext { font-size: 14.5px; margin-top: 4px; }
+  .prop, .gap { margin-top: 8px; padding: 8px 11px; border-radius: 8px; font-size: 13.5px; }
+  .prop { background: var(--warn-bg); color: var(--warn-ink); }
+  .gap { background: #f1f5f9; color: var(--ink-soft); }
+  .lbl { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; margin-bottom: 2px; }
+  .st { font-size: 10.5px; font-weight: 700; letter-spacing: .05em; padding: 1px 8px; border-radius: 999px; }
+  .st-block { background: var(--fail-bg); color: var(--fail-ink); }
+  .st-ok { background: #eef2f7; color: var(--ink-soft); }
+  .pmchips { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .stepchip { font-size: 11.5px; text-decoration: none; color: var(--accent); background: #eef4fb; border: 1px solid #cfe0f3;
+              border-radius: 999px; padding: 2px 10px; }
+  .stepchip:hover { background: #dde9f7; }
+  .whole { font-size: 11.5px; color: var(--ink-faint); border: 1px dashed var(--line); border-radius: 999px; padding: 2px 10px; }
+  .pmdetail { font-size: 11.5px; color: var(--ink-faint); margin-left: auto; }
+  .pmbar { position: sticky; top: 0; z-index: 5; display: flex; gap: 12px; align-items: center; justify-content: space-between;
+           background: var(--accent); color: #fff; border-radius: var(--radius); padding: 9px 14px; margin: 0 0 10px; font-size: 14px; }
+  .pmbar button { font: inherit; color: var(--accent); background: #fff; border: 0; border-radius: 6px; padding: 4px 12px; cursor: pointer; flex: none; }
+  details.more { margin: 8px 0; font-size: 13.5px; }
+  details.more summary { cursor: pointer; color: var(--ink-soft); }
+  @media (max-width: 560px) { body { padding: 20px 16px 60px; } .brd { padding: 16px 14px; } h1 { font-size: 23px; } }
+"""
 
 stat = lambda val, lbl: (f'<div class="stat-card"><div class="val">{esc(val)}</div>'
                          f'<div class="lbl">{esc(lbl)}</div></div>')
@@ -882,15 +1219,17 @@ page = f"""<!DOCTYPE html>
   .risk-medium {{ color: var(--warn-ink); font-weight: 700; }}
   .footer {{ margin-top: 56px; font-size: 12px; color: var(--ink-faint);
              border-top: 1px solid var(--line); padding-top: 14px; }}
-</style>
+{PM_CSS}</style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Stage 2 — what the BRDs actually say</h1>
-  <p class="lede">Rendered {esc(datetime.datetime.now().strftime('%Y-%m-%d'))} from
-     {len(analysed)} BRD(s) in {len(kb_dirs)} knowledge-base director(ies) — whatever produced
-     them. Every section carries a verdict, so a section that is empty because this kind of BRD
-     has nothing to put there reads differently from one that is empty because something broke.</p>
+  <h1>{'Open questions, stage ' + stage_arg + ' view' if (not analysed and stage_arg) else ('Open questions' if not analysed else 'Stage 2 — what the BRDs actually say')}</h1>
+  <p class="lede">{('Rendered ' + esc(datetime.datetime.now().strftime('%Y-%m-%d')) + '. No BRDs exist yet: these are the questions collected from analysis/sme-questions.md.') if not analysed else ('Rendered ' + esc(datetime.datetime.now().strftime('%Y-%m-%d')) + ' from ' + str(len(analysed)) + ' BRD(s) in ' + str(len(kb_dirs)) + ' knowledge-base director(ies), whatever produced them. Every section carries a verdict, so a section that is empty because this kind of BRD has nothing to put there reads differently from one that is empty because something broke.')}
+     {esc('Questions shown: up to stage ' + stage_arg + '.') if stage_arg else ''}</p>
+
+  {map_html}
+
+  {list_html}
 
   <div class="stat-grid">
     {stat(len(analysed), 'BRDs')}
@@ -940,6 +1279,7 @@ page = f"""<!DOCTYPE html>
     directory, not the first one.
   </div>
 </div>
+<script>{PM_JS}</script>
 </body>
 </html>
 """

@@ -8,7 +8,7 @@ and configure the marked constants — **after** running `mxcli init`, never bef
 |---|---|---|
 | `conv009_max_microflow_objects.star` | CONV009 — a microflow over the object threshold. Replaces the stock rule, which hard-codes 15 and ignores the `maxObjects` option its own generated `lint-config.yaml` advertises | in `.claude/lint-config.yaml`, never in the file: `rules: CONV009: options: maxObjects: 20`, `countLoopBodies: true` (default 15 / false) |
 | `conv010_act_microflow_content.star` | `ACT_` page-action microflows holding business logic instead of delegating to `SUB_` | if your prefixes differ — `ACTION_PREFIX`, `DELEGATE_PREFIX` |
-| `conv020_action_user_feedback.star` | Page-triggered microflows that commit / import / delete but tell the user nothing | no — `PROJECT_MODULES` defaults to `"*"` (all modules the lint run includes, minus `.claude/lint-vendor-modules.txt`); `ACTION_PREFIX` if your prefixes differ |
+| `mxtk_ux003_action_user_feedback.star` | MXTK-UX003 (was CONV020, see "Rule IDs" below) — page-triggered microflows that commit / import / delete but tell the user nothing | no — `PROJECT_MODULES` defaults to `"*"` (all modules the lint run includes, minus `.claude/lint-vendor-modules.txt`); `ACTION_PREFIX` if your prefixes differ |
 | `data_change_microflows.star` | ARCH002 — persistent entities written from pages instead of microflows | no |
 | `entity_business_key.star` | ARCH003 — persistent entities with no UNIQUE NOT NULL business key | no |
 | `ux001_confirm_before_destructive.star` | UX001 — a button that deletes, approves, rejects, submits or archives (direct delete action, or a flow that deletes / is named so) without "Ask confirmation" | `DESTRUCTIVE_NAME_PATTERN` if your verbs differ |
@@ -116,22 +116,45 @@ Candidates that are not rules yet, and the order they ship in: `process/lint-bac
 
 ## A rule that matches nothing now says so
 
-`CONV010` and `CONV020` can only identify a page action by its name — `refs_to()` reports the
+`CONV010` and `MXTK-UX003` can only identify a page action by its name — `refs_to()` reports the
 same `ref_kind` for a button click and a datasource, so the `ACT_` prefix is the only available
 signal. That prefix is Mendix's own Development Best Practices convention, but it is a
 convention: on a project that names things differently both rules matched nothing, found
 nothing, and reported a clean pass.
 
 Both now emit a `_rule` finding when the prefix matches zero microflows (CONV010 guards on the
-project having any microflows at all; CONV020 on `PROJECT_MODULES` being non-empty and containing any). Verified by
+project having any microflows at all; MXTK-UX003 on `PROJECT_MODULES` being non-empty and containing any). Verified by
 fixture on TestCLIApp — setting `ACTION_PREFIX` to an unused string produces the finding, and
 the real prefix produces none. `bin/lint-gate.sh` treats `module == "_rule"` as blindness, so
 this turns a silent pass into a gate failure rather than a line in a report nobody reads.
 
 Set `ACTION_PREFIX` / `DELEGATE_PREFIX` to your project's prefixes. CONV010 cannot be opted out
 (`mxcli init` seeds that file name, see below), so on a project without the `ACT_` convention set
-`ACTION_PREFIX` to the prefix its page-action microflows do use. CONV020 can be opted out, as a
+`ACTION_PREFIX` to the prefix its page-action microflows do use. MXTK-UX003 can be opted out, as a
 user decision, if the project has no such convention (see "Opting out of a rule").
+
+## Rule IDs
+
+A toolkit rule whose `RULE_ID` equals an mxcli built-in runs **beside** it, not instead of it:
+mxcli has no duplicate-ID guard (`mdl/linter/linter.go`, `AddRule`). One `lint-config.yaml` entry
+then switches both, `-r <ID>` runs both, and `bin/lint-gate.sh` sums their findings into one count.
+That happened on 2026-10-23: mxcli v0.28.0 shipped a built-in CONV020 ("Created object never
+persisted", mendixlabs/mxcli#1518). The toolkit's user-feedback rule had the same id; it is now
+**MXTK-UX003** (`mxtk_ux003_action_user_feedback.star`).
+
+- A **new** toolkit-authored rule takes an `MXTK-` id (`MXTK-<family><nnn>`). mxcli never uses
+  that prefix. The older ones (`SEC014`, `PERF00x`, `UX00x`, `ERR001`, `LOOP001`, `TXT00x`,
+  `UI001`) sit in or beside mxcli's own families and can collide the same way; check
+  `mxcli lint --list-rules` after every mxcli upgrade.
+- The **stock replacements** (`CONV009`, `CONV010`, `ARCH002`, `ARCH003`) keep the stock id on
+  purpose: they replace the file `mxcli init` seeds, so only one rule runs.
+- A rename is migrated by `bin/sync-project.sh` (`MXTK_LINT_RENAMES` in
+  `bin/lib/install-manifest.sh`). An unedited project copy is replaced and the
+  `lint-baseline.json` findings whose message is the toolkit rule's are rekeyed. A
+  `lint-config.yaml` `enabled: false` under the old id is carried over to a
+  `lint-rules-disabled.txt` line for the new file, so an opted-out rule stays off. An edited copy
+  is left in place with a warning and manual steps. `lint-config.yaml` keys and `PROJECT.md`
+  lines that name the old id get a NOTE, because their text cannot say which rule they meant.
 
 ## Opting out of a rule
 
@@ -193,7 +216,7 @@ set, SEC014 reports nothing on exec, and `bin/sync-project.sh` prints a NOTE on 
 lines to add (`bin/lib/sec014-notice.sh`), and `bin/lint-gate.sh` prints one uncounted note line
 on every run (no exit-code change, no lint row). It is not a `_rule` finding, because that would make
 lint-gate exit PASS-BLIND on every exec of every synced project until someone answered, which is
-the #229 pattern an unconfigured CONV020 caused. Which roles are external is the user's answer,
+the #229 pattern an unconfigured toolkit CONV020 (now MXTK-UX003) caused. Which roles are external is the user's answer,
 asked in chat. `external_roles: "none"` switches off a security rule, and so does
 `rules: SEC014: enabled: false`. Either one is set only on the user's answer and recorded as a
 decision row in `PROJECT.md`. An agent never sets one to make the NOTE go away. The first run after configuring raises SEC014 from 0 to N at once, and lint-gate
@@ -218,9 +241,9 @@ therefore carries a `# mxtk-lint-rule:` header ending in an explicit terminator 
 `STOCK-HASHES.txt` records the md5 of each rule as mxcli seeds it. Together those let a copy
 path tell six states apart: ours; ours-but-older (refresh); ours-without-the-header, from a
 project that applied the fixes by hand before this path existed (refresh, and say so);
-untouched-stock (safe to replace); a configured `conv020` (never touch); and a file the project
+untouched-stock (safe to replace); a configured `mxtk_ux003` (never touch); and a file the project
 wrote (report, never overwrite). `install-manifest.sh` names the rules in two lists —
-`MXTK_LINT_RULES` for the toolkit-owned ones and `MXTK_LINT_RULES_CONFIGURABLE` for `conv020`,
+`MXTK_LINT_RULES` for the toolkit-owned ones and `MXTK_LINT_RULES_CONFIGURABLE` for `mxtk_ux003`,
 which is installed once and never refreshed because refreshing it would silently discard the
 `PROJECT_MODULES` a project had configured.
 
@@ -282,7 +305,7 @@ failure shape as `[].every()` passing on an empty span set — the instrument re
 because it measured nothing.
 
 Both rules here carry a self-check: if they inspected candidate microflows and *not one*
-yielded a single activity, they emit a violation saying the rule checked nothing. `CONV020`
+yielded a single activity, they emit a violation saying the rule checked nothing. `MXTK-UX003`
 additionally refuses to run while `PROJECT_MODULES` is still the empty toolkit default.
 
 Apply the same guard to any new rule. The test is one question:
@@ -295,7 +318,7 @@ If yes, it needs a self-check before it is worth installing.
 
 ## Narrow beats comprehensive
 
-`CONV020` deliberately ignores retrieves, changes without commit, non-page-reachable
+`MXTK-UX003` deliberately ignores retrieves, changes without commit, non-page-reachable
 microflows, and validation-only paths. It flags roughly what a reviewer would flag by hand.
 Show-page, close-page and show-home-page actions count as feedback (presence only, not order). Refresh-in-client is not visible to the Starlark API, so a flow that only refreshes is still flagged until mxcli exposes it.
 A rule that fires on everything gets switched off, and a switched-off rule catches nothing —
@@ -303,6 +326,6 @@ which is how `CONV010` and the lint gate both ended up idle.
 
 Known limitation, documented in the rule rather than hidden: `refs_to()` reports
 `ref_kind == "action"` for *every* page reference, so a button click and a grid datasource
-are indistinguishable. `CONV020` therefore filters on the `ACT_` naming convention. A real
+are indistinguishable. `MXTK-UX003` therefore filters on the `ACT_` naming convention. A real
 user action named something else is missed. That is a deliberate false-negative, chosen over
 firing a notification warning on every page load.

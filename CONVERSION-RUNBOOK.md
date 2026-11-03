@@ -15,7 +15,7 @@ git clone https://github.com/MendixMau/mxcli-project-toolkit.git ~/Mendix/mxcli-
 
 `<project-root>` is your project's own folder (usually its git repo) — scaffolding, analysis output, architecture, and the `.mpr` all live **inside** it. Never create a sibling `analysis/<project>/` next to the project.
 
-Then open your agent (Claude Code or equivalent) in the workspace and say what you're starting from. The agent picks the **entry mode** (`skills/conversion-runbook.md` → "Entry Modes"):
+Then open your agent (Claude Code or equivalent) in `<project-root>` and say what you're starting from. The agent picks the **entry mode** (`skills/conversion-runbook.md` → "Entry Modes"):
 
 | Starting from | Mode | Stages |
 |---|---|---|

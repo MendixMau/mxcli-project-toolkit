@@ -1,0 +1,72 @@
+{
+ "capturedWith": "axe-core 4.10.2 via Playwright chromium",
+ "violations": [
+  {
+   "id": "button-name",
+   "impact": "critical",
+   "help": "Buttons must have discernible text",
+   "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/button-name?application=axeAPI",
+   "nodes": [
+    {
+     "target": [
+      ".mx-button"
+     ],
+     "html": "<button class=\"btn mx-button btn-default mx-name-actionButton3\" type=\"button\"><span class=\"glyphicon glyphicon-plus\"></span></button>",
+     "impact": "critical",
+     "failureSummary": "Fix any of the following:\n  Element does not have inner text that is visible to screen readers\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element does not have an implicit (wrapped) <label>\n  Element does not have an explicit <label>\n  Element's default semantics were not overridden with role=\"none\" or role=\"presentation\""
+    },
+    {
+     "target": [
+      ".btn-primary"
+     ],
+     "html": "<button class=\"btn btn-primary widget-datagrid-load-more\" type=\"button\"></button>",
+     "impact": "critical",
+     "failureSummary": "Fix any of the following:\n  Element does not have inner text that is visible to screen readers\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element does not have an implicit (wrapped) <label>\n  Element does not have an explicit <label>\n  Element's default semantics were not overridden with role=\"none\" or role=\"presentation\""
+    }
+   ]
+  },
+  {
+   "id": "image-alt",
+   "impact": "critical",
+   "help": "Images must have alternative text",
+   "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/image-alt?application=axeAPI",
+   "nodes": [
+    {
+     "target": [
+      "img"
+     ],
+     "html": "<img src=\"x.png\" class=\"mx-image mx-name-image1\">",
+     "impact": "critical",
+     "failureSummary": "Fix any of the following:\n  Element does not have an alt attribute\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element's default semantics were not overridden with role=\"none\" or role=\"presentation\""
+    }
+   ]
+  }
+ ],
+ "passes": [
+  {
+   "id": "aria-hidden-body"
+  },
+  {
+   "id": "bypass"
+  },
+  {
+   "id": "color-contrast"
+  },
+  {
+   "id": "document-title"
+  },
+  {
+   "id": "html-has-lang"
+  },
+  {
+   "id": "html-lang-valid"
+  },
+  {
+   "id": "link-name"
+  },
+  {
+   "id": "nested-interactive"
+  }
+ ],
+ "incomplete": []
+}

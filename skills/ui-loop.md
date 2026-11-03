@@ -58,6 +58,12 @@ After a script that creates or changes a page:
    does not clear it: a text score is not a look). Two unattended builds shipped every page
    unseen before this existed. A page that genuinely needs no look: `--waive look/<Module>
    --reason "..."`.
+   Opening a journey run's own screenshot of the page clears it too: `bin/look-ledger.sh shots`
+   lists every owed page as OPEN (that journey step's PNG, open it) or UNREACHED (no journey got
+   there: a short gap-fill journey, or `page-audit.js`), so OPEN pages need no separate pass.
+   **A hand-written screenshot script that logs in must end with `helpers.logout(page)`**: a
+   closed browser keeps its session, and six leaked ones hit a trial licence's cap, so every
+   later journey fails login as "Sign in failed" (speed experiment E2).
 3. **Ask four questions** against the page's wireframe (or the design system if there is no
    wireframe):
    - **What's missing?** A field, button, column or whole section that should be there and isn't.
@@ -238,6 +244,14 @@ original's), or when it cannot recover the start command. On Windows, pass `--cm
 started it>'` once; it is remembered after that. `--dry-run` says what it would do. A Docker-hosted
 app uses `bin/test-stack-up.sh --restart` instead. This is the one restart an implementer may run
 without the lead (`dispatching.md`).
+
+**Under `mxcli run --local`, restarts matched every "it signs me out" report** in one field app,
+and the trial licence's own 2–4 h stop is a restart too. If a human may be using the app, say so
+in chat **before** restarting. When a human reports "it keeps signing me out", compare the runtime
+log's `successfully started` lines with the times first: 7 starts in ~90 min of theme work lined up
+with the reports (#337). That is a **timing match**; no session table was inspected, and sessions
+do persist in `System.Session` across a container restart (`measured-claims.md`), so the
+mechanism is open.
 
 ## When it finds something — which side is actually wrong
 

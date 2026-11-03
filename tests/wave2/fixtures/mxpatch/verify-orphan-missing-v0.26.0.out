@@ -1,0 +1,7 @@
+Checked 27 unit(s) in TestApp.mpr against 27 .mxunit file(s).
+  MISSING   3f64baa2-b85c-4999-9a3c-3cc38382eb54  mprcontents/3f/64/3f64baa2-b85c-4999-9a3c-3cc38382eb54.mxunit (indexed, no file)
+  ORPHAN    mprcontents/84/77/11111111-2222-3333-4444-555555555555.mxunit [DomainModels$DomainModel] (file, not indexed)
+
+0 mismatch(es), 1 missing file(s), 1 orphan file(s).
+Orphan files are not indexed by the .mpr; 'mxcli diag --check-units -p orph/TestApp.mpr --fix' removes them.
+Missing files cannot be repaired from here: restore them from version control.

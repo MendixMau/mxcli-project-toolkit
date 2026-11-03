@@ -88,6 +88,12 @@ _art_register_lines() {
 _art_field() {
   local reg="$1" want="$2" out
   [ -f "$reg" ] || return 1
+  # Loaded register (see _art_kv_load): a lookup is parameter expansion, not an awk process.
+  if [ "$_ART_KV_REG" = "$reg" ]; then
+    _art_kv_get "$want" || return 1
+    printf '%s\n' "$_ART_KV_VAL"
+    return 0
+  fi
   out="$(awk -v want="$want" '
     /<!--/ { c = 1 } c { if ($0 ~ /-->/) c = 0; next }
     {
@@ -102,11 +108,84 @@ _art_field() {
   printf '%s\n' "$out"
 }
 
+# The register parsed ONCE per run (#583). _art_field above is called two or three times per
+# manifest row, and each call was an awk process that re-read the whole register: 58 awk
+# starts in one Stage 3 query, each ~100 ms under Git Bash. _art_kv_load runs the very same
+# awk body once, emitting "key<TAB>value" lines (key lower-cased and trimmed, empty values
+# dropped, comments skipped, first line per key wins at lookup) into one string; _art_kv_get
+# answers from it with parameter expansion. Loaded only between mxtk_artifacts_report /
+# mxtk_closeout_report entry and exit, so a caller that edits the register between two bare
+# _art_field calls still gets the awk path and a fresh read.
+_ART_KV=""; _ART_KV_REG=""; _ART_KV_VAL=""
+_art_kv_load() {
+  local reg="$1"
+  _ART_KV_REG=""; _ART_KV=""
+  [ -f "$reg" ] || return 0
+  _ART_KV="$(awk '
+    /<!--/ { c = 1 } c { if ($0 ~ /-->/) c = 0; next }
+    {
+      l = $0; gsub(/^[ \t>*_-]+/, "", l); gsub(/\*/, "", l)
+      i = index(l, ":"); if (i == 0) next
+      key = tolower(substr(l, 1, i - 1)); gsub(/^[ \t]+|[ \t]+$/, "", key)
+      val = substr(l, i + 1);              gsub(/^[ \t]+|[ \t]+$/, "", val)
+      if (val == "") next
+      if (index(key, "\t")) next   # no lookup label contains a TAB; keep the record format unambiguous
+      print "\n" key "\t" val
+    }' "$reg")"
+  # Leading newline so every record, the first included, is preceded by one.
+  _ART_KV=$'\n'"$_ART_KV"
+  _ART_KV_REG="$reg"
+}
+_art_kv_unload() { _ART_KV_REG=""; _ART_KV=""; }
+# _art_kv_get <lower-cased label> — sets _ART_KV_VAL; rc 1 when absent. Values never contain a
+# newline (awk works per line), so "up to the next newline" is exactly the value. A key never
+# contains a TAB it could be confused with: split at the first colon, trimmed.
+_art_kv_get() {
+  local want="$1" rest
+  case "$_ART_KV" in
+    *$'\n'"$want"$'\t'*) ;;
+    *) return 1 ;;
+  esac
+  rest="${_ART_KV#*$'\n'"$want"$'\t'}"
+  _ART_KV_VAL="${rest%%$'\n'*}"
+  [ -n "$_ART_KV_VAL" ]
+}
+
+# Lower-case a label without a process in the common case (sets _ART_LC). Manifest ids are
+# lower-case ASCII; only the stage letter ("P") needs mapping, and tr stays as the fallback
+# for anything else with an upper-case letter.
+_ART_LC=""
+_art_lc() {
+  case "$1" in
+    *[A-Z]*) _ART_LC="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')" ;;
+    *) _ART_LC="$1" ;;
+  esac
+}
+
 # _art_waiver <register> <artifact-id> <stage> — prints the reason, exits 0 if waived.
 # Case-insensitive for the same reason obligation-check documents: a waiver that silently
 # missed on capitalisation is one the author believes is in force and the gate does not.
+# Loaded-register form: sets _ART_WAIVER_REASON, prints nothing, forks nothing. Same two
+# lookups, same order, same text as the printing form below.
+_ART_WAIVER_REASON=""
+_art_waiver_set() {
+  local reg="$1" id="$2" st="$3" lst="$3"
+  _ART_WAIVER_REASON=""
+  [ "$_ART_KV_REG" = "$reg" ] || return 2
+  case "$st" in P) lst=p ;; esac
+  _art_lc "waived artifact $id"
+  _art_kv_get "$_ART_LC" && { _ART_WAIVER_REASON="$_ART_KV_VAL"; return 0; }
+  _art_lc "waived stage $lst"
+  _art_kv_get "$_ART_LC" \
+    && { _ART_WAIVER_REASON="with its whole stage (Waived stage $st: $_ART_KV_VAL)"; return 0; }
+  return 1
+}
 _art_waiver() {
   local reg="$1" id="$2" st="$3" r
+  if [ "$_ART_KV_REG" = "$reg" ]; then
+    _art_waiver_set "$reg" "$id" "$st" && { printf '%s\n' "$_ART_WAIVER_REASON"; return 0; }
+    return 1
+  fi
   r="$(_art_field "$reg" "$(printf 'waived artifact %s' "$id" | tr '[:upper:]' '[:lower:]')")" \
     && { printf '%s\n' "$r"; return 0; }
   r="$(_art_field "$reg" "$(printf 'waived stage %s' "$st" | tr '[:upper:]' '[:lower:]')")" \
@@ -178,8 +257,10 @@ _art_register_rank() {
 # names it), mtime as the fallback for dateless names. Returns 0 for yes.
 _art_newer() {
   local ad bd am bm
-  ad="$(basename "$1" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -1)"; ad="${ad:-0000-00-00}"
-  bd="$(basename "$2" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -1)"; bd="${bd:-0000-00-00}"
+  # Pure bash: this ran basename + grep + head per file, twice, per comparison.
+  ad="${1##*/}"; bd="${2##*/}"
+  if [[ "$ad" =~ [0-9]{4}-[0-9]{2}-[0-9]{2} ]]; then ad="${BASH_REMATCH[0]}"; else ad="0000-00-00"; fi
+  if [[ "$bd" =~ [0-9]{4}-[0-9]{2}-[0-9]{2} ]]; then bd="${BASH_REMATCH[0]}"; else bd="0000-00-00"; fi
   [[ "$ad" > "$bd" ]] && return 0
   [[ "$ad" < "$bd" ]] && return 1
   # GNU first, BSD second — on GNU `stat -f` succeeds with the wrong meaning.
@@ -270,6 +351,15 @@ mxtk_artifacts_report() {
     return 0
   fi
 
+  # Parse the register once for every lookup below (#583); unloaded at the end.
+  _art_kv_load "$reg"
+
+  # Stage limit (#583): rows for stages AFTER the one asked about are not evaluated. They can
+  # not change a verdict for the requested stage, and on a Stage 3 query they were most of the
+  # 120-row manifest. gate-check.sh exports MXTK_ROWS_UPTO (a stage token); unset = every row.
+  local limit_rank=99 skipped_n=0
+  [ -n "${MXTK_ROWS_UPTO:-}" ] && limit_rank="$(_art_rank "$MXTK_ROWS_UPTO")"
+
   local adopted adopted_rank=0 mode
   adopted="$(_art_adopted_stage "$reg" 2>/dev/null || true)"
   [ -n "$adopted" ] && adopted_rank="$(_art_rank "$adopted")"
@@ -318,6 +408,8 @@ mxtk_artifacts_report() {
       MXTK_ART_STATUS="FAULT"; MXTK_ART_N_FAULT=$((MXTK_ART_N_FAULT+1)); continue
     fi
 
+    if [ "$r" -gt "$limit_rank" ]; then skipped_n=$((skipped_n+1)); continue; fi
+
     # Entry mode: excused stages are said out loud, never skipped silently. An unknown mode
     # (young register, no line yet) excuses nothing.
     if [ -n "$mode" ]; then
@@ -352,8 +444,8 @@ mxtk_artifacts_report() {
     fi
 
     local reason
-    if reason="$(_art_waiver "$reg" "$id" "$stage")"; then
-      printf 'Artifact %-24s WAIVED — %s\n' "$id" "$reason"
+    if _art_waiver_set "$reg" "$id" "$stage"; then
+      printf 'Artifact %-24s WAIVED — %s\n' "$id" "$_ART_WAIVER_REASON"
       continue
     fi
 
@@ -385,12 +477,18 @@ mxtk_artifacts_report() {
     fi
   done < "$ARTIFACT_TSV"
 
+  if [ "$skipped_n" -gt 0 ]; then
+    printf 'Artifacts: %s row(s) for stages after %s not evaluated — a stage query reads its own stage and earlier; run without a stage for every row\n' \
+      "$skipped_n" "$MXTK_ROWS_UPTO"
+  fi
+
   # The one line for everything on offer and untaken — said once so it is not silent, said
   # once so eight optional rows do not read as eight things missing.
   if [ -n "$_art_offered" ]; then
     printf 'Artifacts optional, not opted in: %s — offered at each stage open by gate-check.sh --closeout; opt in with a register line "Opt-in artifact <id>: <why>"\n' "$_art_offered"
   fi
 
+  _art_kv_unload
   return 0
 }
 

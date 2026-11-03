@@ -305,6 +305,29 @@ screen, and a builder can still see the checklist.
 
 ---
 
+## Running Stage 3 in parallel (the default)
+
+Stage 3 is documents that do not depend on each other once three things are fixed, so it fans
+out. Measured 2026-10-28 on one project (2 modules, 8 screens, Sonnet, single runs): serial 13 min,
+parallel 10 min, parallel with a shared brief 6 min; the parallel runs had **0** name mismatches
+(the serial run dropped 3 entities from its ERD) and cost about 20% more. Both parallel runs also
+**forgot whole artifacts** (process map, swimlanes): the lead split the work from memory. So:
+
+1. **Lead fixes the shared facts first:** module boundaries, the canonical names (from the BRDs and
+   `analysis/facts.lock.json`), the design tokens (`design/ds.css`).
+2. **Lead writes one brief**, `docs/progress/stage3-brief.md`: those facts, the screen list with its
+   BRD use cases, and the **task list taken from `bin/lib/artifact-check.sh <project>`**: every
+   `Artifact … stage 3` line not PRESENT is a task, with the skill section it names. Per task, the
+   sections the output must hold (fit-gap columns, NFRs, roles and access) — not whole skill files.
+3. **Fan out** one subagent per task group: 1–2 wireframes each; blueprint + fit-gap + ERD + NFRs;
+   module definitions + module design; process model + swimlanes + process map. Every prompt opens
+   with the same line ("Read docs/progress/stage3-brief.md first and follow it"), then its task, so
+   the shared start is cached. Mechanical tasks (prototype assembly, renders, link checks) run on the
+   cheap tier (`conversion-runbook.md` → Three tiers).
+4. Subagents write their own files and reply in at most 5 lines. **The lead is the only writer of
+   `PROJECT.md`**, checks every output against the brief, re-runs `artifact-check.sh` (0 stage-3
+   lines PENDING) and then `bin/gate-check.sh <project> 3`.
+
 ## Step 3b: Scope Crosscheck — Every Wireframed Element Needs a Requirement
 
 Wireframing invents structure the BRD never asked for — breadcrumbs, a back button, a filter chip, a "clear all" link. None of these are source *fields*, so they never earn a row in the binding-annotation table above, which means they never reach `iterative-build-loop.md`'s checklist either. The result ships as static chrome: it renders, but no microflow, datasource, or navigation action stands behind it — a breadcrumb with no trail logic, a button with no on-click.
@@ -393,7 +416,8 @@ The gate is all four, and 3 and 4 are the ones projects skip:
 2. the gallery module builds with 0 CE errors;
 3. the gallery home page is **in a navigation profile and granted to a role a demo user actually
    holds** — check with `SHOW MODULE ROLES IN <GalleryModule>`, because a security script that was
-   drafted and never executed leaves every grant on the auto-created `.User` role, and then the
+   drafted and never executed leaves every grant on the auto-created `.User` role (mxcli < v0.27) or,
+   on v0.27+, on no role at all (mendixlabs/mxcli#1474), and then the
    first attempt to screenshot the gallery silently measures whatever the demo user lands on
    instead;
 4. **someone opened it and wrote down what they saw.**
@@ -410,7 +434,8 @@ for the facts behind each check.
 **The property that makes this worth gating: a design-system defect is dormant until some widget
 carries the class.** So the defects are all present from the first build and surface one at a time,
 much later, as UI work attaches classes to pages. "The build is green and the pages look fine" is
-not evidence that the design system is correct — it is evidence that it is not being exercised yet.
+not evidence that the design system is correct — it is evidence that it is not being exercised yet,
+and it reads identically either way.
 
 ---
 
@@ -450,7 +475,7 @@ mdlsource/gallery/
 ## Anti-Patterns This Skill Prevents
 
 - **Wireframes before a design system.** Produces inconsistent screens with no shared tokens; the Atlas theme becomes a per-page cleanup job.
-- **Embedding tokens in `design-system.html` instead of a separate `ds.css`.** Wireframes must redeclare tokens → drift and inconsistency between screens.
+- **Embedding tokens in `design-system.html` instead of a separate `ds.css`** → see `learned-stylegallery.md` § Anti-Patterns This Skill Prevents.
 - **Skipping `brand.md` and `target-ui.md`.** Design decisions end up undocumented; deliberate inversions (primary/CTA swap) look like mistakes to future maintainers.
 - **Hand-picking chart/KPI colors.** Bypasses the `dataviz` validator — ship colorblind-unsafe data. Use the validated palette.
 - **Generative design for screens that have a source screenshot.** Invents divergence you then correct back toward the source.

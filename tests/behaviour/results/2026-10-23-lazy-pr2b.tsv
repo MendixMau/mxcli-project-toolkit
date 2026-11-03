@@ -1,0 +1,60 @@
+# 2026-10-23 lazy-load PR 2b A/B. Arm M = master 87676f8 pack (mdl role, Stage 5, 14 baseline files, 29,388 routed words). Arm L = 2b head 59bc033 pack (7 files, 14,600 routed words) plus bin/mdl-rules.sh output for the task's kinds (page task: "page access"; mf: "microflow access"; traps: per trap), since a pack agent cannot run the script. Pack contents byte-identical to the ones rebuilt at 87676f8 / 59bc033 except the header ref. One model (claude-opus-5-5) every rep, fresh `claude -p` per rep with Read/Write only, from an empty cwd with no CLAUDE.md above it; arms interleaved.
+# Run 1 (r1-r5 page/mf, trap rows): earlier the same day. Run 2 (page r6-r15): added because run 1 had L page uixref 4/5 vs M 5/5.
+# Scorer: score.sh with the mfpre separator fix (accepts ':', em/en dash, ' - '); re-scoring run 1 changed only L-mf-r3 mfpre 0->1, no M row moved. Trap rows: the session's trap scorer (not committed) with trap-18 counted per script (fenced block OR a `-- FILE n of m:` / `-- Script n:` header inside one block); re-scoring changed only L-trap-18-r1/r2 planted 0->1, no M row moved; a negative control (L-trap-18-r1 with its FILE 2 header deleted) still scores planted=0.
+# Findings: page over 15 reps per arm: uixref L 14/15 vs M 11/15 (misses in both arms are the same shape: Step 5 checks posted as NOT RUN, no named block); crumbs median 2/3 both, 3/3 in M 2/15 vs L 1/15 (one-rep difference, reported); quoted at 100 M 9/15 vs L 14/15; every other page metric equal. mf 5 reps: L equal or better on every metric. Traps: planted 8/8 both arms after the trap-18 scorer fix; trap-29 exposed M 2 vs L 1 (both pass). read_all 1 on every rep. tool_calls M 7 / L 6; tokens median page M 341k / L 292k.
+L-page-r1	arm=L	task=page	sections=4/4	report=1	wmode=7/6	quoted=100	folder=1/3	scan=0	check=NA	planted=1	crumbs=2/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=6	tokens=292053
+L-page-r2	arm=L	task=page	sections=4/4	report=1	wmode=7/6	quoted=100	folder=1/3	scan=0	check=NA	planted=1	crumbs=2/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=6	tokens=289429
+L-page-r3	arm=L	task=page	sections=4/4	report=1	wmode=7/6	quoted=100	folder=1/3	scan=0	check=NA	planted=1	crumbs=2/3	txtcrumb=0	h1=2/2	empty=1	uixref=0	read_all=1	tool_calls=6	tokens=346150
+L-page-r4	arm=L	task=page	sections=4/4	report=1	wmode=7/6	quoted=100	folder=1/3	scan=0	check=NA	planted=1	crumbs=2/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=6	tokens=291475
+L-page-r5	arm=L	task=page	sections=4/4	report=1	wmode=7/6	quoted=100	folder=1/3	scan=0	check=NA	planted=1	crumbs=2/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=6	tokens=350214
+L-page-r6	arm=L	task=page	sections=4/4	report=1	wmode=7/6	quoted=100	folder=1/3	scan=0	check=NA	planted=1	crumbs=2/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=6	tokens=345562
+L-page-r7	arm=L	task=page	sections=4/4	report=1	wmode=7/6	quoted=100	folder=1/3	scan=0	check=NA	planted=1	crumbs=2/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=6	tokens=294635
+L-page-r8	arm=L	task=page	sections=4/4	report=1	wmode=7/6	quoted=100	folder=1/3	scan=0	check=NA	planted=1	crumbs=2/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=6	tokens=346834
+L-page-r9	arm=L	task=page	sections=4/4	report=1	wmode=7/6	quoted=85	folder=1/3	scan=0	check=NA	planted=1	crumbs=2/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=6	tokens=287799
+L-page-r10	arm=L	task=page	sections=4/4	report=1	wmode=7/6	quoted=100	folder=1/3	scan=0	check=NA	planted=1	crumbs=2/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=6	tokens=289031
+L-page-r11	arm=L	task=page	sections=4/4	report=1	wmode=8/6	quoted=100	folder=1/3	scan=0	check=NA	planted=1	crumbs=2/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=6	tokens=346294
+L-page-r12	arm=L	task=page	sections=4/4	report=1	wmode=7/6	quoted=100	folder=1/3	scan=0	check=NA	planted=1	crumbs=2/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=6	tokens=290333
+L-page-r13	arm=L	task=page	sections=4/4	report=1	wmode=7/6	quoted=100	folder=1/3	scan=0	check=NA	planted=1	crumbs=2/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=6	tokens=292281
+L-page-r14	arm=L	task=page	sections=4/4	report=1	wmode=7/6	quoted=100	folder=1/3	scan=0	check=NA	planted=1	crumbs=2/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=6	tokens=344890
+L-page-r15	arm=L	task=page	sections=4/4	report=1	wmode=7/6	quoted=100	folder=1/3	scan=0	check=NA	planted=1	crumbs=3/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=6	tokens=287737
+M-page-r1	arm=M	task=page	sections=4/4	report=1	wmode=8/6	quoted=100	folder=1/3	scan=0	check=NA	planted=1	crumbs=2/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=7	tokens=379252
+M-page-r2	arm=M	task=page	sections=4/4	report=1	wmode=7/6	quoted=100	folder=1/3	scan=0	check=NA	planted=1	crumbs=2/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=7	tokens=341481
+M-page-r3	arm=M	task=page	sections=4/4	report=1	wmode=7/6	quoted=100	folder=1/3	scan=0	check=NA	planted=1	crumbs=2/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=7	tokens=397176
+M-page-r4	arm=M	task=page	sections=4/4	report=1	wmode=7/6	quoted=62	folder=1/3	scan=0	check=NA	planted=1	crumbs=2/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=7	tokens=250159
+M-page-r5	arm=M	task=page	sections=4/4	report=1	wmode=7/6	quoted=95	folder=1/3	scan=0	check=NA	planted=1	crumbs=2/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=7	tokens=246061
+M-page-r6	arm=M	task=page	sections=4/4	report=1	wmode=7/6	quoted=92	folder=1/3	scan=0	check=NA	planted=1	crumbs=2/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=7	tokens=342477
+M-page-r7	arm=M	task=page	sections=4/4	report=1	wmode=5/4	quoted=100	folder=0/2	scan=0	check=NA	planted=1	crumbs=2/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=7	tokens=389586
+M-page-r8	arm=M	task=page	sections=4/4	report=1	wmode=5/4	quoted=94	folder=0/2	scan=0	check=NA	planted=1	crumbs=2/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=7	tokens=467581
+M-page-r9	arm=M	task=page	sections=4/4	report=1	wmode=7/6	quoted=89	folder=1/3	scan=0	check=NA	planted=1	crumbs=3/3	txtcrumb=0	h1=2/2	empty=1	uixref=0	read_all=1	tool_calls=7	tokens=246875
+M-page-r10	arm=M	task=page	sections=4/4	report=1	wmode=7/6	quoted=100	folder=1/3	scan=0	check=NA	planted=1	crumbs=2/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=7	tokens=251877
+M-page-r11	arm=M	task=page	sections=4/4	report=1	wmode=7/6	quoted=100	folder=1/3	scan=0	check=NA	planted=1	crumbs=2/3	txtcrumb=0	h1=2/2	empty=1	uixref=0	read_all=1	tool_calls=7	tokens=465569
+M-page-r12	arm=M	task=page	sections=4/4	report=1	wmode=7/6	quoted=90	folder=1/3	scan=0	check=NA	planted=1	crumbs=2/3	txtcrumb=0	h1=2/2	empty=1	uixref=0	read_all=1	tool_calls=7	tokens=247165
+M-page-r13	arm=M	task=page	sections=4/4	report=1	wmode=7/6	quoted=100	folder=1/3	scan=0	check=NA	planted=1	crumbs=2/3	txtcrumb=0	h1=2/2	empty=1	uixref=0	read_all=1	tool_calls=7	tokens=247349
+M-page-r14	arm=M	task=page	sections=4/4	report=1	wmode=7/6	quoted=100	folder=1/3	scan=0	check=NA	planted=1	crumbs=3/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=7	tokens=245429
+M-page-r15	arm=M	task=page	sections=4/4	report=1	wmode=6/6	quoted=100	folder=1/3	scan=0	check=NA	planted=1	crumbs=2/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=7	tokens=374944
+L-mf-r1	arm=L	task=mf	sections=4/4	report=1	wmode=4/3	quoted=100	folder=2/2	scan=0	check=NA	planted=1	mfpre=1	cinloop=0	rinloop=0	pos=0	vfb=1	read_all=1	tool_calls=6	tokens=220975
+L-mf-r2	arm=L	task=mf	sections=4/4	report=1	wmode=4/4	quoted=100	folder=2/2	scan=0	check=NA	planted=1	mfpre=1	cinloop=0	rinloop=0	pos=0	vfb=1	read_all=1	tool_calls=6	tokens=344445
+L-mf-r3	arm=L	task=mf	sections=4/4	report=1	wmode=5/4	quoted=95	folder=2/2	scan=0	check=NA	planted=1	mfpre=1	cinloop=0	rinloop=0	pos=0	vfb=1	read_all=1	tool_calls=6	tokens=291212
+L-mf-r4	arm=L	task=mf	sections=4/4	report=1	wmode=4/4	quoted=95	folder=2/2	scan=0	check=NA	planted=1	mfpre=1	cinloop=0	rinloop=0	pos=0	vfb=1	read_all=1	tool_calls=6	tokens=209349
+L-mf-r5	arm=L	task=mf	sections=4/4	report=1	wmode=4/4	quoted=100	folder=2/2	scan=0	check=NA	planted=1	mfpre=1	cinloop=0	rinloop=0	pos=0	vfb=1	read_all=1	tool_calls=6	tokens=295864
+M-mf-r1	arm=M	task=mf	sections=4/4	report=1	wmode=4/4	quoted=89	folder=2/2	scan=0	check=NA	planted=1	mfpre=1	cinloop=0	rinloop=0	pos=0	vfb=1	read_all=1	tool_calls=7	tokens=251825
+M-mf-r2	arm=M	task=mf	sections=4/4	report=1	wmode=3/3	quoted=90	folder=2/2	scan=0	check=NA	planted=1	mfpre=1	cinloop=0	rinloop=0	pos=0	vfb=1	read_all=1	tool_calls=7	tokens=342295
+M-mf-r3	arm=M	task=mf	sections=4/4	report=1	wmode=4/3	quoted=95	folder=2/2	scan=0	check=NA	planted=1	mfpre=1	cinloop=0	rinloop=0	pos=0	vfb=1	read_all=1	tool_calls=7	tokens=247133
+M-mf-r4	arm=M	task=mf	sections=4/4	report=1	wmode=3/3	quoted=83	folder=2/2	scan=0	check=NA	planted=1	mfpre=1	cinloop=0	rinloop=0	pos=0	vfb=1	read_all=1	tool_calls=7	tokens=469193
+M-mf-r5	arm=M	task=mf	sections=4/4	report=1	wmode=3/2	quoted=93	folder=1/1	scan=0	check=NA	planted=1	mfpre=1	cinloop=0	rinloop=0	pos=0	vfb=1	read_all=1	tool_calls=7	tokens=242585
+L-trap-12-r1	arm=L	task=trap-12	planted=1	flagged=1	scan12=0 badparams=0	read_all=1
+L-trap-16-r1	arm=L	task=trap-16	planted=1	flagged=1	scan16=0 pathtoken=0 baretoken=1	read_all=1
+L-trap-18-r1	arm=L	task=trap-18	planted=1	flagged=1	callee_and_wf_same_script=0 wf_written=1	read_all=1
+L-trap-18-r2	arm=L	task=trap-18	planted=1	flagged=1	callee_and_wf_same_script=0 wf_written=1	read_all=1
+L-trap-1b-r1	arm=L	task=trap-1b	planted=1	flagged=1	quoted=0 expr=1	read_all=1
+L-trap-26-r1	arm=L	task=trap-26	planted=1	flagged=1	scan26=0 assocpath=2	read_all=1
+L-trap-29-r1	arm=L	task=trap-29	planted=1	flagged=1	exposed=1	read_all=1
+L-trap-33-r1	arm=L	task=trap-33	planted=1	flagged=1	caller_same_script=1	read_all=1
+M-trap-12-r1	arm=M	task=trap-12	planted=1	flagged=1	scan12=0 badparams=0	read_all=1
+M-trap-16-r1	arm=M	task=trap-16	planted=1	flagged=1	scan16=0 pathtoken=0 baretoken=1	read_all=1
+M-trap-18-r1	arm=M	task=trap-18	planted=1	flagged=1	callee_and_wf_same_script=0 wf_written=0	read_all=1
+M-trap-18-r2	arm=M	task=trap-18	planted=1	flagged=1	callee_and_wf_same_script=0 wf_written=0	read_all=1
+M-trap-1b-r1	arm=M	task=trap-1b	planted=1	flagged=1	quoted=0 expr=1	read_all=1
+M-trap-26-r1	arm=M	task=trap-26	planted=1	flagged=1	scan26=0 assocpath=2	read_all=1
+M-trap-29-r1	arm=M	task=trap-29	planted=1	flagged=1	exposed=2	read_all=1
+M-trap-33-r1	arm=M	task=trap-33	planted=1	flagged=1	caller_same_script=1	read_all=1

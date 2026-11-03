@@ -70,20 +70,29 @@ BUGS_OUT="$INBOX/$STAMP-$PROJECT_NAME-bugs.md"
 FOUND_BUGS=0
 if [ -d "$PROJECT_DIR/bug-logs" ]; then
   TMP="$(mktemp)"
+  # A heading is stripped of ~ * ` before it is matched (below), so the log it is matched against is
+  # stripped the same way. Without that, a heading the toolkit log carries with a backtick in its
+  # first 30 characters never matched, and was drafted again.
+  BUGLOG_PLAIN="$(mktemp)"
+  tr -d '~*`' < "$TOOLKIT_BUGLOG" > "$BUGLOG_PLAIN" 2>/dev/null
   find "$PROJECT_DIR/bug-logs" -name '*.md' -type f | sort | while IFS= read -r f; do
     # Split the file on '## ' headings; test each heading's distinctive text against the
     # toolkit log. awk emits candidate sections whole, delimited for the outer loop.
+    # printf, not print: print appends a newline AFTER the \x01, so every section but the
+    # first began with an empty line, its heading read as empty, and it was skipped, so each
+    # bug-log file drafted one entry.
     awk '
-      /^## /   { if (buf != "") print buf "\x01"; buf = "" ; head = 1 }
+      /^## /   { if (buf != "") printf "%s\x01", buf; buf = "" ; head = 1 }
                 { if (head) buf = buf $0 "\n" }
-      END      { if (buf != "") print buf "\x01" }
+      END      { if (buf != "") printf "%s\x01", buf }
     ' "$f" | while IFS= read -r -d $'\x01' section; do
       heading="$(printf '%s' "$section" | head -1 | sed 's/^## *//; s/[~*`]//g')"
       # Distinctive slice: strip a leading BUG-nnn tag (numbering diverges across repos —
       # measured: personal-toolkit and the toolkit disagree from 82 up), then take 30 chars.
       slice="$(printf '%s' "$heading" | sed -E 's/^BUG-[0-9]+[: ]*//' | cut -c1-30)"
       [ -n "$slice" ] || continue
-      if ! grep -qiF "$slice" "$TOOLKIT_BUGLOG" 2>/dev/null; then
+      # -e: stripping can leave a slice that starts with "-", which grep would read as an option.
+      if ! grep -qiF -e "$slice" "$BUGLOG_PLAIN" 2>/dev/null; then
         { printf '## [candidate — from %s] %s\n' "${f#$PROJECT_DIR/}" "$heading"
           printf '%s' "$section" | tail -n +2
           printf '\n'; } >> "$TMP"
@@ -96,7 +105,7 @@ if [ -d "$PROJECT_DIR/bug-logs" ]; then
     FOUND_BUGS=1; WROTE=$((WROTE + 1))
     echo "  wrote ${BUGS_OUT#$TOOLKIT_ROOT/}"
   fi
-  rm -f "$TMP"
+  rm -f "$TMP" "$BUGLOG_PLAIN"
 fi
 [ "$FOUND_BUGS" -eq 1 ] || echo "  bug-logs: nothing the toolkit log doesn't already carry (or no bug-logs/)"
 
@@ -190,8 +199,8 @@ COMMITSEOF
       STALE_N=$((STALE_N + 1))
       # <project-root>, never $PROJECT_DIR: the draft is destined for the public inbox and an
       # absolute path is a home-directory leak the pre-commit guard refuses (caught 2026-09-14).
-      printf -- '- bin/%s — STALE: identical to shipped %s (%s); fix: bin/sync-project.sh <project-root> --upgrade-bin %s\n\n' \
-        "$base" "$MATCH_SHORT" "$MATCH_DATE" "$base" >> "$TMP"
+      printf -- '- bin/%s — STALE: identical to shipped %s (%s); fix: bin/sync-project.sh <project-root> --only-bin %s --upgrade-bin %s\n\n' \
+        "$base" "$MATCH_SHORT" "$MATCH_DATE" "$base" "$base" >> "$TMP"
       continue
     fi
 

@@ -7,10 +7,8 @@ Re-probed on mxcli v0.24.0 / Mendix 11.13.0 (2026-09-30); rules that now work or
 
 ## Microflow Size — Split Into Sub-Microflows Before Drafting, Not After
 
-Decide this **before** writing a microflow, not after a lint pass catches it. A single seed/stub
-microflow with dozens of create-object-per-record blocks (e.g. one CREATE+COMMIT per row of a
-16-row dataset) balloons past any reasonable size fast — this project hit ~93 activities in one
-microflow (`PLM_GetExclusiveParts`, a PLM parts-flow project, 2026-07-23) before anyone noticed.
+Decide this **before** writing a microflow, not after a lint pass catches it. A seed/stub microflow with one
+CREATE+COMMIT per record balloons fast: one project hit ~93 activities in a single microflow.
 
 **Guideline, not a hard cap:** the Mendix docs limit is 25 elements; lint's `QUAL003` warns at 25 and
 `CONV009` (mxcli-bundled `assess-quality` skill) flags at 15 — but both count **top-level activities
@@ -114,6 +112,17 @@ the check; the pair is. It is the argument for keeping the journey rung and the 
 separate rungs rather than trusting whichever one is cheaper to run.
 
 **Rollback semantics.** A rollback does not undo REST/SOAP/Java calls already made. Do not commit an object the error flow just rolled back, because Mendix no longer sees it as changed. Continue is only allowed on a call-microflow or a loop, and the failing activity's own changes are always lost. Scheduled-event flows: see `microflow-loop-antipatterns.md` -> "Scheduled-event flows".
+
+**An object saved only in a separate transaction is still new in your request.** If a page-triggered microflow creates an object and saves it only with `CommunityCommons.commitInSeparateDatabaseTransaction` (or any own-transaction commit), the request's copy was never committed. It goes back to the browser in the page's client state; after browser **Back**, the runtime treats it as an object the client is creating and checks **Create** on the entity. A role without Create (the normal setup for a run log or audit row) gets `Attempt to illegally add an object to the state` (HTTP 560 on `/xas/`), and every server-backed widget on that page fails while the frame still renders. Fix: roll the request's copy back with `refresh` before the microflow ends; the database row is untouched.
+
+```sql
+$Run = call microflow MyModule.ACT_Job_Start(...);
+if $Run != empty then
+  rollback $Run refresh;
+end if;
+```
+
+Do not grant the role Create on the log entity (that lets the browser create log rows), and do not `commit $Run` in the request. Only a browser-Back journey run as a role without Create finds this; admin test users have Create, and every model-side gate is green. Review search: microflows that call `commitInSeparateDatabaseTransaction` on an object they created, are reachable from a page, and do not end with a rollback or delete of it.
 
 ---
 
@@ -252,6 +261,7 @@ An `@annotation` sits immediately before the statement it explains — an activi
 
 ## Additional MDL Syntax Rules
 
+- **Microflow header:** `create microflow M.N ()` keeps its `()` even when empty, then `returns`, then `folder '…'` (not `in`). The `check` errors point at `returns`/`List of`. BUG-DRAFT-microflow-header-grammar.
 - **Cross-module association `change` from the non-owner side (CE0854):** `check` and `exec` pass it; `mx check` gives `[CE0854] Cross-module association 'Mod.Assoc' is not reachable from entity 'ModB.Entity'`. Change from the owner side — see "Association Direction — Setting in Microflows".
 - **`validation feedback $Obj message '...'` with no attribute → CE0091:** `check` and `exec` pass it; `mx check` gives `[CE0091] No member selected.` Always name the attribute: `validation feedback $Obj/Attr message '...'` (that form builds at 0 errors). **Where it goes:** in a `VAL_`/`SUB_` microflow, never an `ACT_` one — see the next section.
 - **Microflow canvas layout — omit layout annotations (LESSON-01+02, corrected 2026-09-25):**
@@ -358,6 +368,10 @@ submit of an empty form tells them apart.
 **GRANT syntax:** qualify the module role — `Module.Admin`, never bare `Admin`. `mxcli check` refuses the bare name (MDL-GRANT02).
 
 ---
+
+## The current time is a token, not a function
+
+`mxcli check` (v0.26.0) rejects `currentDateTime()`. Write `[%CurrentDateTime%]`, e.g. `addDays([%CurrentDateTime%], 3)`.
 
 ## Enum Attribute in String Context — Use `toString($Obj/Attr)`
 

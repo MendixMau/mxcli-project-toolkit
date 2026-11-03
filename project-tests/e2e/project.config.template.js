@@ -586,6 +586,11 @@ module.exports = {
   mxcli: process.env.MXCLI || './mxcli',
   credentials,
   readySelectors: READY_SELECTORS,
+  // Sign-out captions monkey.js must never click, ADDED to its built-in list (English, Dutch,
+  // German, French, Spanish, Portuguese, Italian). Set it when the app's sign-out control
+  // reads otherwise, e.g. /\bkirjaudu ulos\b/i — a monkey that signs itself out scores the
+  // login page as a crash and fuzzes nothing more (#469).
+  signOutPattern: null,
   dsCss: DS_CSS,
   NAV,
   TARGETS,

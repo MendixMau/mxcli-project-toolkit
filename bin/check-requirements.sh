@@ -6,7 +6,7 @@
 #
 # WHY MOST THINGS DO NOT NEED INSTALLING
 # Skills are read in place from $MXTK_ROOT and never copied. Shell helpers resolve through
-# _common.sh tier 3 (walk up from $PWD for the .mpr) plus verify-module.sh's _tool search
+# _common.sh tier 3 (walk up from $PWD for the .mpr, stopping at the project folder) plus verify-module.sh's _tool search
 # (project bin -> script dir -> toolkit), so the shared copy works from inside any wired
 # project. That leaves exactly one thing that must physically exist in the repo: the
 # tests/e2e engine, because node resolves require() paths relative to the file.
@@ -26,14 +26,14 @@ for a in "$@"; do case "$a" in
 esac; done
 
 # --- where are we, and where is the toolkit? ------------------------------------------
-ROOT=""
-d=$(pwd)
-while [ "$d" != "/" ]; do
-  if ls "$d"/*.mpr >/dev/null 2>&1; then ROOT="$d"; break; fi
-  d=$(dirname "$d")
-done
-if [ -z "$ROOT" ]; then
-  echo "✗ no .mpr found walking up from $(pwd) — not inside a Mendix project" >&2
+# The same walk _common.sh tier 3 makes (mxtk_walk_root): a model at the root, under app/ or
+# under apps/<X>/, and never past the project's own folder. This loop used to be a private copy
+# that probed the root only, so on a two-tree or multi-app project it climbed to the first
+# ancestor holding any .mpr, and --fix installed tests/e2e into that folder (#420).
+. "$(cd "$(dirname "$0")/.." && pwd)/project-bin/_common.sh" || { echo "cannot load _common.sh" >&2; exit 2; }
+ROOT="$(mxtk_walk_root "$(pwd)")" || ROOT=""
+if [ -z "$ROOT" ] || ! _mxtk_has_model "$ROOT"; then
+  echo "✗ no .mpr found walking up from $(pwd)${ROOT:+ (stopped at the project folder $ROOT)} — not inside a Mendix project" >&2
   exit 2
 fi
 
@@ -107,8 +107,16 @@ else
   gone "playwright" "not installed — every browser rung will fault (rc 2)"
   note "fix: (cd $ROOT && npm i -D playwright && npx playwright install chromium)"
 fi
-command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1 \
-  && ok "docker" "responding" || gone "docker" "not responding — no app, no DB, no Jaeger"
+# The app needs a runtime, not a container: `mxcli run --local` serves it with none, so a missing
+# container runtime is a note, never a missing requirement. Same CLI choice as mxcli
+# (MXCLI_CONTAINER_CLI, else docker — Docker Desktop, colima, OrbStack — else podman).
+_ctr="${MXCLI_CONTAINER_CLI:-}"; [ -n "$_ctr" ] || { command -v docker >/dev/null 2>&1 && _ctr=docker; } || { command -v podman >/dev/null 2>&1 && _ctr=podman; }
+if [ -n "$_ctr" ] && "$_ctr" info >/dev/null 2>&1; then
+  ok "container runtime" "$_ctr responding (optional: mxcli docker, Jaeger)"
+else
+  ok "container runtime" "${_ctr:-none} not responding — fine: the app runs with mxcli run --local"
+  note "Jaeger trace assertions need one; test-stack-up.sh starts the app on the local lane without it"
+fi
 
 # --- the work itself ---------------------------------------------------------------------
 jn=$(ls "$ROOT"/journeys/*.journey.json 2>/dev/null | wc -l | tr -d ' ')

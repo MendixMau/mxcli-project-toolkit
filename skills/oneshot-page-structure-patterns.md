@@ -59,7 +59,11 @@ column "headerCol" {
 
 -- ✅ Each element has room to be spaced
 column "headerCol" {
-  container "cBreadcrumb" { dynamictext "txtBreadcrumb" (Content: 'Home / List') }
+  container "cBreadcrumb" (Class: 'crumbs') {   -- crumbs are links: design-spacing.md §3
+    linkbutton  "lnkCrumbHome" (Caption: 'Home', Action: SHOW_PAGE "Module"."Home", Class: 'btn-link')
+    dynamictext "txtCrumbSep"  (Content: '›', Class: 'crumb-sep')
+    dynamictext "txtCrumbHere" (Content: 'List')
+  }
   container "cTitle"      { dynamictext "txtTitle"      (Content: 'My List') }
   container "cSubtext"    { dynamictext "txtSubtext"    (Content: 'A short description') }
 }

@@ -33,6 +33,14 @@ if [ "${1:-}" = "--all" ]; then
 else
   files=$(git -C "$root" diff --cached --name-only --diff-filter=ACM -- \
             'skills/*.md' 'agents/*.md' 'process/*.md')
+  # A merge commit stages every file the other side changed, so the diff against HEAD lists
+  # docs this commit never touched. Only a file that differs from BOTH parents is this
+  # commit's own work (a conflict resolution or hand edit); the rest were already committed.
+  if mh=$(git -C "$root" rev-parse -q --verify MERGE_HEAD 2>/dev/null) && [ -n "$files" ]; then
+    other=$(git -C "$root" diff --cached --name-only --diff-filter=ACM "$mh" -- \
+              'skills/*.md' 'agents/*.md' 'process/*.md')
+    files=$(printf '%s\n' "$files" | grep -Fxf <(printf '%s\n' "$other") || true)
+  fi
 fi
 # A scan that examined nothing must not read like a scan that found nothing wrong — that is
 # the exact shape of the leak guard's silent CJK skip. No tick mark, and the count is always

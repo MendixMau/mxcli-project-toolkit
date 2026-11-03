@@ -2,7 +2,7 @@
 # Fixture for wave-2 #3: the unanchored substring CONTENT gates — Stage 0 (triage sign-off),
 # Stage 2 (validation stop condition) and Stage 7 (cutover decision row); T12 adds the
 # existing-app-change parked state (Stage 0) and that mode's Stage 1 hint; T16 the Stage 4
-# closing rows (brd-to-build-plan.md, #163).
+# closing rows (brd-to-build-plan.md, #163); T19 the facts lock at Stage 2.
 #
 # Stage P is covered by test-stage-p.sh and is deliberately not retested here.
 #
@@ -281,6 +281,110 @@ printf "# Plan\n\n$HDR| 1 | BUILD | 10.mdl | | | none | |\n| 2 | RUN | gate-chec
 V="$(verdict "$P" 4)"
 case "$V" in *FAIL*'no module has one'*) ok "with no briefs yet, a plan still owes at least one module close row" ;;
              *) bad "a plan with no module dirs and no close row passed: $V" ;; esac
+
+echo "== T17: a mid-stage decision is not the stage approval (#477) =="
+# #207 prefixes a FAIL with APPROVED OVER A FAILING GATE when the register says the stage was
+# approved. It read ANY CONFIRMED row of that stage as the approval, so the field project's
+# mid-Stage-5 "| 5 | Sub-agents run on Sonnet | CONFIRMED | user in chat |" (verbatim from the
+# issue) raised it on a stage still being built, and status.sh told the lead to re-open an
+# approval nobody gave. Stage 4 stands in for 5 here: its FAIL needs only a plan with no closing
+# rows (T16), so no harness obligations have to be staged. The approval must still be flagged
+# when it is real: an explicit exit row, or the project having moved on to a later stage.
+# Positive control: on the pre-fix script t17a and t17f print the flag.
+t17() {  # t17 <name> <register rows...> -> the Stage 4 line, and the summary line if any
+  local P; P="$(mkproj "$1")"; shift
+  printf '%s\n' "$@" >> "$P/PROJECT.md"
+  mkdir -p "$P/architecture/modules/Orders"
+  printf "# Plan\n\n$HDR| 1 | BUILD | 10-orders.mdl | | | none | built |\n" > "$P/architecture/build-plan.md"
+  "$GATE" --no-html "$P" 2>&1 | grep -E '^Stage 4 |^Approved over a failing gate:'
+}
+flagged() { case "$1" in *'APPROVED OVER A FAILING GATE'*'Approved over a failing gate: Stage 4'*) return 0 ;; esac; return 1; }
+MID='| 4 | Sub-agents run on Sonnet | CONFIRMED | user in chat |'
+V="$(t17 t17a "$MID")"
+case "$V" in *FAIL*) ;; *) bad "t17a setup: Stage 4 did not FAIL: $V" ;; esac
+case "$V" in *'APPROVED OVER'*|*'Approved over'*) bad "a mid-stage decision raised APPROVED OVER A FAILING GATE (#477): $V" ;;
+             *) ok "a mid-stage CONFIRMED decision does not read as the stage approval" ;; esac
+V="$(t17 t17b "| 4 | Purchase requests above 5k need approval | CONFIRMED | |")"
+case "$V" in *'APPROVED OVER'*) bad "a domain decision mentioning approval raised the flag: $V" ;;
+             *) ok "a domain decision that mentions approval is not a stage approval" ;; esac
+V="$(t17 t17c "$MID" "| 4 | Stage 4 approved | CONFIRMED | user in chat |")"
+flagged "$V" && ok "an explicit 'Stage 4 approved' row over a FAIL is still flagged, in the note and the summary" \
+  || bad "an explicit Stage-4 approval over a FAIL was not flagged: $V"
+V="$(t17 t17d "| 4 | Stage 4 gate: signed off | CONFIRMED 2026-10-20 | |")"
+flagged "$V" && ok "'Stage 4 gate: signed off' with a dated CONFIRMED is an approval" || bad "dated gate sign-off not flagged: $V"
+V="$(t17 t17e "| 4 | Build plan approved | CONFIRMED | |")"
+flagged "$V" && ok "a short '<artifact> approved' row is an approval" || bad "'Build plan approved' not flagged: $V"
+V="$(t17 t17f "$MID" "| 5 | Test depth: journeys per module | CONFIRMED | |")"
+flagged "$V" && ok "a CONFIRMED decision for a later stage means the project moved past Stage 4: flagged" \
+  || bad "moving on to Stage 5 over a failing Stage 4 was not flagged: $V"
+V="$(t17 t17g "| 4 | Stage 4 approved | ASSUMED | |" "| 3 | Stage 4 approved | CONFIRMED | |")"
+case "$V" in *'APPROVED OVER'*) bad "an ASSUMED exit row, or another stage's row, raised the flag: $V" ;;
+             *) ok "only a CONFIRMED exit row of Stage 4 itself counts" ;; esac
+V="$(t17 t17h "$MID" "## Open questions" "" "| # | Question | Raised at | Status |" "|---|---|---|---|" "| 5 | Stage 4 approved? | Stage 4 | CONFIRMED |")"
+case "$V" in *'APPROVED OVER'*) bad "an Open-questions row stood in for the approval: $V" ;;
+             *) ok "an Open-questions row is not a stage approval (same table scoping as T13)" ;; esac
+
+# Review of #483: the exit wordings people actually write, and rows that must not count.
+V="$(t17 t17i "| 4 | Stage 4 — approved with conditions | CONFIRMED | |")"
+flagged "$V" && ok "'Stage 4 — approved with conditions' (em dash) is an approval" || bad "em-dash exit row not flagged: $V"
+V="$(t17 t17j "| 4 | Approved: Stage 4 build plan | CONFIRMED | |")"
+flagged "$V" && ok "'Approved: Stage 4 build plan' is an approval" || bad "'Approved: Stage N' form not flagged: $V"
+for d in 'Status values: draft, submitted, approved' 'Requests over 5k must be approved' 'Approval gate closed after 30 days' 'Stage 40 approved'; do
+  V="$(t17 t17k "| 4 | $d | CONFIRMED | |")"
+  case "$V" in *'APPROVED OVER'*) bad "a domain decision raised the flag: '$d'" ;;
+               *) ok "domain wording is not an approval: '$d'" ;; esac
+done
+# A failing Stage 5 with no rows of its own: the LOOK obligation owes one unseen page.
+t17s5() {  # t17s5 <name> <register rows...> -> the Stage 5 line, and the summary line if any
+  local P; P="$(mkproj "$1")"; shift
+  printf '%s\n' "$@" >> "$P/PROJECT.md"
+  mkdir -p "$P/.claude/loop/look"
+  printf '%s\t%s\t%s\t%s\n' "$(date +%s)" "2026-10-20T10:00:00Z" "Orders.Order_Overview" "10-orders.mdl" > "$P/.claude/loop/look/owed.tsv"
+  "$GATE" --no-html "$P" 2>&1 | grep -E '^Stage 5 |^Approved over a failing gate:'
+}
+V="$(t17s5 t17l "| 7 | No legacy system, no cutover | CONFIRMED | |")"
+case "$V" in *FAIL*) ;; *) bad "t17l setup: Stage 5 did not FAIL: $V" ;; esac
+case "$V" in *'APPROVED OVER'*|*'Approved over'*) bad "an early 'no cutover' Stage-7 row flagged a mid-build Stage 5: $V" ;;
+             *) ok "a Stage-7 'No legacy system, no cutover' row is not evidence Stage 5 was approved" ;; esac
+V="$(t17s5 t17m "| 6 | Test depth: journeys per module | CONFIRMED | |")"
+case "$V" in *'APPROVED OVER'*|*'Approved over'*) bad "a forward-filed Stage-6 row flagged a Stage 5 with no rows of its own: $V" ;;
+             *) ok "a forward-filed Stage-6 decision does not approve a Stage 5 with no rows of its own" ;; esac
+
+echo "== T18: build-ready names a multi-line {{PLACEHOLDER}} left in an agent stub (#509) =="
+# The real templates: mdl-agent.md carries PROJECT_LOCAL_SOURCES_OF_TRUTH over four lines. The
+# per-line grep never saw it, so an untouched stub read "no unfilled placeholders". WARN only.
+TK="$(cd "$(dirname "$GATE")/.." && pwd)"
+P="$(mkproj t18)"; mkdir -p "$P/.claude/agents"
+for a in ba-agent architect-agent mdl-agent gate-agent test-agent review-agent; do
+  # Fill every single-line placeholder so only the multi-line one is left.
+  sed -E 's/\{\{[A-Z][A-Z0-9_]*[^}]*\}\}/filled/g' "$TK/agents/$a.md" > "$P/.claude/agents/$a.md"
+done
+OUT="$("$GATE" --no-html "$P" build-ready 2>&1)"
+case "$OUT" in *'multi-line placeholder(s) still unfilled: {{PROJECT_LOCAL_SOURCES_OF_TRUTH'*) ok "names the multi-line placeholder" ;;
+  *) bad "multi-line placeholder not named: $(printf '%s' "$OUT" | grep -i placeholder)" ;; esac
+case "$OUT" in *'no unfilled placeholders'*) bad "still claims no unfilled placeholders" ;; *) ok "does not claim the stubs are complete" ;; esac
+case "$OUT" in *'still have unfilled placeholders'*) bad "the multi-line case FAILs (WARN expected): $(printf '%s' "$OUT" | grep -i placeholder)" ;; *) ok "a multi-line placeholder is a WARN, not a FAIL" ;; esac
+# Filled: the warning is gone.
+perl -0777 -pi -e 's/\{\{PROJECT_LOCAL_SOURCES_OF_TRUTH.*?\}\}/filled/s' "$P/.claude/agents/mdl-agent.md"
+OUT="$("$GATE" --no-html "$P" build-ready 2>&1)"
+case "$OUT" in *'no unfilled placeholders'*) ok "a filled stub reads clean" ;; *) bad "filled stub not clean: $(printf '%s' "$OUT" | grep -i placeholder)" ;; esac
+
+echo "== T19: Stage 2 reads the facts lock once there are 2+ BRDs =="
+P="$(mkproj t19)"
+printf '# Validation\n\n## Stop condition\n\nClean.\n' > "$P/knowledge-base/reports/validation-report.md"
+V="$(verdict "$P" 2)"
+case "$V" in *PASS*) case "$V" in *'facts lock'*) bad "1 BRD already gets a facts-lock note: $V" ;; *) ok "1 BRD: unchanged, no facts-lock note" ;; esac ;; *) bad "1 BRD: $V" ;; esac
+printf '{ "id":"F001","domainEntities":[{"entity":"WIPStatus"}] }\n' > "$P/knowledge-base/brd/F001.brd.json"
+printf '{ "id":"F002","domainEntities":[{"entity":"WIPStatus"}] }\n' > "$P/knowledge-base/brd/F002.brd.json"
+V="$(verdict "$P" 2)"
+case "$V" in *PASS*'no facts lock'*) ok "2 BRDs, no lock: still PASS, with a note naming facts-lock build" ;; *) bad "2 BRDs, no lock: $V" ;; esac
+TK="$(cd "$(dirname "$GATE")/.." && pwd)"
+mkdir -p "$P/analysis"; bash "$TK/bin/facts-lock.sh" "$P" build >/dev/null 2>&1
+V="$(verdict "$P" 2)"
+case "$V" in *PASS*) case "$V" in *'facts lock'*) bad "agreeing BRDs with a lock still noted: $V" ;; *) ok "lock built, BRDs agree: plain PASS" ;; esac ;; *) bad "lock built, BRDs agree: $V" ;; esac
+printf '{ "id":"F002","domainEntities":[{"entity":"WipStatus"}] }\n' > "$P/knowledge-base/brd/F002.brd.json"
+V="$(verdict "$P" 2)"
+case "$V" in *FAIL*'WipStatus'*) ok "a BRD that contradicts a frozen name FAILs Stage 2 and quotes it" ;; *) bad "contradicted frozen name not caught: $V" ;; esac
 
 printf '\n%s: %d ok, %d FAIL\n' "$(basename "$0")" "$PASS" "$FAIL"
 rm -rf "$WORK"

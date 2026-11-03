@@ -47,6 +47,10 @@ open-ended search without a specific term in mind.
      `Home`/`Login`/`Index`/`Dashboard`-pattern pages — excluded). Run it before anything else; it
      is the exact shape of the 2026-08-13 originating defect (a correctly built, correctly granted
      microflow with zero references anywhere).
+     Two kinds of finding are not orphans: a `TEST_` helper called only from `tests/*.test.mdl`
+     (lint cannot see test files) and a `DS_` flow used only as a Data grid 2 datasource (seen on
+     v0.26.0). Check `describe page` or grep `tests/` before removing either
+     (`lint-that-actually-runs.md` → "Stock rules against the toolkit's own conventions").
    - `mxcli` graph tables (`REFRESH CATALOG FULL` then `REFRESH CATALOG COMMUNITIES`, once):
      `GRAPH_DEAD_ASSETS` for unreachable elements project-wide, `GRAPH_INTEGRATION_SURFACE` for
      what actually crosses module boundaries, `GRAPH_MODULE_COUPLING`/`GRAPH_CENTRALITY` for the

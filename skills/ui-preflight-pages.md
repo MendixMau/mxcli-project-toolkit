@@ -20,8 +20,8 @@ Not needed for pure microflow/domain/security scripts.
 per arm on the same page, 2026-08-31, `process/preflight-skill-baseline-2026-08-31.md`): with
 this file inlined in the drafting agent's context, 5/5 reps chose the correct layout shell,
 5/5 opened with an H1, 0/5 wrote an inline style or invented a class; without it, 0/5, 2/5 and
-3/5+1/5 respectively — the exact ToeicBuddy field defects. The failed field run *cited this
-file by name* while producing the without-arm's numbers: a citation is not a read. So when
+3/5+1/5 respectively, the field defects. The failed field run *cited this file by name* while
+producing the without-arm's numbers: a citation is not a read. So when
 page-drafting is dispatched to a subagent, the dispatch prompt must include this file's text
 (or the subagent must read it as its first action) — a one-line "follow ui-preflight-pages.md"
 reproduces the baseline.
@@ -113,14 +113,8 @@ Write the report block to **`docs/design-reaches-app.md`**, first line carrying 
 path) — that file is the mark that discharges the `design-reaches-app` obligation in
 `bin/lib/obligations.tsv`; without it the pass reads as never performed.
 
-Measured 2026-09-09: 55 tokens were ported into the right file at the right stage, 0 of 35
-framework knobs were bound, 0 of 20 component classes existed in the built stylesheet, and two
-build phases of pages were written on top of it. The pages were structurally correct. `mx
-check`, `mxcli lint`, the MDL suite and two e2e journeys were all green, because none of them
-reads a stylesheet. It was found by a human opening a screenshot and asking why the UI was
-poor. The three failures were a bridge written against the wrong layer (SCSS variables where
-the theme runs `$use-css-variables: true`), component classes never ported at all, and a theme
-module whose `:root` loses the cascade to the framework's own customization file.
+(2026-09-09 field build: 0 of 35 framework knobs bound and 0 of 20 component classes built,
+while `mx check`, lint and e2e stayed green. Full story: `process/baseline-incident-history.md` § UI1.)
 
 If there is no build yet, say so in the report block — "binding UNPROVEN, no build" is a legal
 answer and silence is not.
@@ -186,6 +180,7 @@ For each widget group in your planned MDL, verify every row:
 | **Displayed facts** | Every status, count or freshness value the page shows is read from the source its `Displayed fact:` row in `PROJECT.md` names, never from the raw stored attribute behind it (`process-coherence-pass.md` pass 5). The field case: a badge added in a later task read the stored status and brought back "Notified" on four pages that an earlier fix had made read "Stopped" |
 | **Conditional visibility** | Any `visible:` expression on the widget is legal under the STOP table (safe on regular widgets; MCP-only inside `datagrid customContent` columns — BUG-18) |
 | **Class carrier** | Every `class:` value is on the widget its design-system entry names as the carrier. A class alone does not win the cascade: CONTAINER → a bare `<div>` with no competing rule, but ACTIONBUTTON carries Atlas's compound `.mx-button.btn` (0-2-0) which **beats a single class (0-1-0) and overrides it only partially** — background applies, `display`/`padding`/`font-size` do not. See `learned-stylegallery.md` → "The Mendix DOM contract" |
+| **Atlas carriers** | Rules for list view items, the page body or a timeline strip use the selectors in `learned-css-that-never-applied.md` § "Atlas carriers" |
 | **Computed class names** | Every `DynamicClasses` expression's **complete output set** exists in the stylesheet. Work out every string the expression can emit and confirm each has a rule — one that does not fails silently, as an empty or unstyled element beside a caption asserting otherwise. Note: **Mendix `div` is float division** (`63 div 10 = 6.3`), so `(x div 10) * 10` does not bucket |
 
 If a wireframe element cannot be expressed in MDL at all (e.g. association-mode COMBOBOX, cross-module
@@ -253,43 +248,16 @@ gate waiver: if you didn't declare it a stub at scoring time, it scores as what
 it is. "It was meant as a stub" after a bad score is not a category — it is the
 bad score.
 
-**Measured, ToeicBuddy field run 2026-08-25/26** (`process/first-build-page-fidelity-2026-08-27.md`):
-first-build fidelity across 10 pages was **32% median** against a target of 80%. All 14
-wireframes declared a 900px page column and **0 of 10** pages capped their width — repaired
-wholesale at script 67, fifty-five scripts later, after rendering at 1360px. All 10 were
-built on a sidebar layout against wireframes drawing a top bar — repaired at script 20.
-The script's header carries the full evidence for each check.
-
 **A fidelity score is not a LOOK pass, and must never be accepted as one.**
 `page-fidelity.js` matches identifiers in the page MDL against the wireframe's text. It
-cannot see where an element sits, only that the name occurs. Measured on a
-field build of 2026-09-19, scoring
-seven screens both ways on the same commit:
-
-| Screen | Fidelity (text match) | Element checklist (present / placed / behaves) |
-|---|---:|---:|
-| S1 Requests overview | 100% | 58% |
-| S4 Approval queue | 100% | 40% |
-| S3 Request detail | 55% | 69% |
-
-Two screens scored a perfect 100 while missing more than half their wireframe: the elements
-were named in the MDL and laid out wrongly. S3 runs the other way, because its grid's decimal
-formatting is not expressible as text the instrument greps for. So a high fidelity score
+cannot see where an element sits, only that the name occurs (2026-09-19: two screens scored
+100% fidelity with 58% and 40% of their wireframe elements in place). So a high fidelity score
 closes nothing — the `look` obligation is discharged by a person or an agent opening the
 rendered page, at 1280px and at 390px, and writing down what it saw. Use the fidelity score
 for the rework curve between LOOK passes, never in place of one.
 
-**Measured again, controlled A/B, 2026-08-31** (`process/preflight-skill-baseline-2026-08-31.md`):
-5 fresh drafting agents with this file inlined produced **zero** judgement-step violations
-(layout, H1, inline styles, invented classes) across all 5 reps; 5 without it reproduced every
-field defect. The content works when read — the failure mode is dispatching a page build with
-a *reference* to this file instead of its text (see the delivery rule at the top).
-
-The build script that produced those pages **cited this file's Step 3 by name**. That is
-the point: the pre-flight was run, and its output was a paragraph nobody could fail. A
-shell defect is uniform across every page built the same way, so no page stands out as a
-diff and per-page review does not surface it — which is exactly what a mechanical check
-is for, and exactly what human judgement is worst at.
+The measurements behind this step — first-build fidelity, fidelity vs. element checklist, the
+2026-08-31 A/B — are in `process/baseline-incident-history.md` § UI2–UI4.
 
 ---
 

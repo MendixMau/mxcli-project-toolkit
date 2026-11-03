@@ -1,0 +1,36 @@
+Verify that every unit's ContentsHash in the .mpr matches its .mxunit file.
+
+In an MPR v2 project the .mpr indexes each mprcontents/**/*.mxunit file by
+base64(SHA-256(file)). mxcli and Studio Pro keep the two in step, but anything
+that changes a .mxunit behind their back does not: restoring a unit with
+'git checkout', 'git restore' or a merge leaves the index describing bytes that
+are no longer on disk. 'mx check' does not notice; Studio Pro uses the index to
+decide what changed.
+
+Reported:
+  MISMATCH  the file's hash differs from the stored one (repairable)
+  MISSING   the .mpr indexes a unit whose file does not exist
+  ORPHAN    a .mxunit file that no unit in the .mpr indexes
+
+--repair rewrites every mismatched hash from the file on disk, in one
+transaction, and leaves the files untouched — the files are the source of
+truth. MISSING and ORPHAN have no correct hash to write and are only reported
+('mxcli diag --check-units --fix' removes orphan files). Like every mxcli
+write, the repair is refused while Studio Pro has the project open.
+
+Exits 1 when an issue remains after the command (so the verify can gate CI).
+An MPR v1 project keeps unit contents inside the .mpr and has no index to
+drift; the command says so and exits 0.
+
+Usage:
+  mxcli fix hashes [flags]
+
+Examples:
+  mxcli fix hashes -p app.mpr
+  mxcli fix hashes -p app.mpr --repair
+
+Flags:
+  -h, --help             help for hashes
+  -p, --project string   path to the Mendix project (.mpr)
+      --repair           rewrite mismatched ContentsHash values from the files on disk
+

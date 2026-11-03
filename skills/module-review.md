@@ -19,21 +19,22 @@ looking. That is how a module ships with 31/31 green checks and a broken grid on
             — conformance-check + graph-sweep + coverage-check (model-side, parallel) +
             journeys (UI/Playwright + Data/OQL + Trace/OTel, one ordered walk via
             journey-runner.js) + journeys-control (positive control — proves the journey
-            could have failed) + monkey (crash net). This IS the UI (Playwright) + Data
-            (OQL/DB) + monkey rungs named above, run as one instrument, not a second pass
-            alongside them. wiring-sweep.md (every clickable element on the page, not just
+            could have failed) + monkey (crash net). This IS the UI, Data and monkey rungs
+            named above, run as one instrument. wiring-sweep.md (every clickable element on the page, not just
             what a journey visits) runs alongside it but by hand, deliberately outside
-            verify-module.sh — skills-over-scripts.md: the verdict on an ambiguous click
-            stays a judgement call, not a script. It is NOT optional and it leaves a file:
+            verify-module.sh (a judgement call, skills-over-scripts.md). It is NOT optional and it leaves a file:
             test-agent writes .claude/loop/sweep/<Module>/sweep.md, first line the
             denominator "N of N interactive elements swept across P of P pages". No file
             means the sweep did not happen, and the gate says so. Deep form when an
             instrument is green and you cannot say what would have made it red:
             journey-proof.md
+            Module close also runs the strategy row: `./bin/affected-tests.sh --moment module
+            --module <M>`, then its `run` rows (unit only if on). Source `default`: ask the
+            developer once, record `## Test strategy`.
 4. LOOK     THE INTELLIGENCE CHECK — a human-equivalent pass over every screen in
             the module. Is it logical? Does it look right? Does it match our design?
-            Stages 1-3 cannot answer any of those. This is the stage that gets
-            skipped, and it is the stage the escaped defects come from.
+            Stages 1-3 cannot answer those. It gets skipped, and the
+            escaped defects come from it.
 5. CONFIRM  one report, explicit denominator, a human look, then next module
 ```
 
@@ -87,6 +88,13 @@ lists **all N pages**, its header says so, and the denominator does not change. 
 bottom with zero findings still gets its look: the rules cannot see layout, and "the audit was
 clean" is exactly the "looked fine" this stage exists to refuse.
 
+**A journey run's screenshots are the LOOK's screenshots.** `bin/look-ledger.sh shots` (journey-runner
+runs it after every run) maps each reached step's PNG to the one page whose widgets it landed on and
+lists every owed page as `OPEN` (open that PNG; cite it in `PROOF-OF-LOOK`) or `UNREACHED`. The line
+`owed N = A OPEN + B UNREACHED` is the denominator: no owed page is in neither list. An `UNREACHED`
+page gets a short gap-fill journey (the first steps of a journey that gets there, ending on a step whose
+`ui.ready` is a widget of the page) or a `page-audit.js` pass; do not re-shoot the `OPEN` ones.
+
 ### 4b. Run the mechanical sweep first, then look at what it cannot see
 
 ```bash
@@ -138,6 +146,9 @@ For each page, ask and answer in writing:
   heights cover them (`learned-detection-gaps.md`).
 - **Submit every New/Edit form with required fields empty.** A visible validation message must
   appear. A 4xx/5xx with no user-facing feedback is high-severity silent failure, not a pass.
+- **Can I get back?** Without the browser's Back button, per `design-spacing.md` §3 crumbs.
+- **Does every tile go somewhere?** `wiring-sweep.md` proves each click does something; judge
+  where it lands: a "Tasks" menu entry opens a list of tasks, not one record's page.
 - **Does every View/Edit/action button point at the *current* page?** Confirm with
   `DESCRIBE PAGE Module.Page` — superseded pages from an earlier build script survive as live
   targets and nothing mechanical notices.
@@ -323,7 +334,8 @@ the render was broken) becomes mechanically impossible to repeat, not just prohi
 A report may carry addenda: each re-look adds its own `VALID AT:` and its own `PROOF-OF-LOOK:`
 lines below it. Each citation is checked against the nearest stamp above it, and the report is
 stale only when the model has been built past its newest stamp (by commit time). Keep earlier
-sections; do not delete their proof lines.
+sections; do not delete their proof lines. Stamp an addendum with the model commit its shots were
+taken on, never a later commit that only adds the screenshots or the report: that commit postdates the shots.
 Reports dated before 2026-08-23 predate the rule and are left alone.
 
 **A LOOK report expires when the module changes.** Any BUILD/GATE commit that touches the module

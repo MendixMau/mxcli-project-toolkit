@@ -1,0 +1,6 @@
+Connected to: /path/to/copy/TestApp.mpr (Mendix 11.14.0)
+Created entity: MyFirstModule.Customer
+Created microflow: MyFirstModule.ACT_Customer_Rename
+Created microflow: MyFirstModule.ACT_Customer_Merge
+Created microflow: MyFirstModule.ACT_Customer_MergeColumn
+Created microflow: MyFirstModule.ACT_Customer_Check

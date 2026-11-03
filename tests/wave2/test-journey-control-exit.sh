@@ -69,6 +69,19 @@ say('NONE', true, { results: [{ rung: 'ui', name: 'login', verdict: 'INVALID' }]
 // 6. the walk keeps its rule: one FAIL, then one INVALID, each exits 1.
 let w = clone(walk); w.results[0].verdict = 'FAIL'; say('WFAIL', false, w);
 w = clone(walk); w.results[0].verdict = 'INVALID'; say('WINV', false, w);
+// 7. #560 — one mutant's control row. Rows are the captured control run's; the seeds row is the
+// shape the issue's field run recorded ("<id>-CTL-<rung>: seeds resolved" = INVALID).
+if (typeof R.judgeMutant !== 'function') console.log('JM NOFN');
+else {
+  const rows = clone(ctl.results);
+  const outcomeRow = rows.find(r => r.rung === 'outcome' && r.verdict === 'FAIL');
+  const isOutcome = r => r.rung === 'outcome';
+  const J = (k, produced) => { const v = R.judgeMutant(produced, isOutcome); console.log(`JM:${k} ${v.verdict} ${v.proven} | ${v.detail}`); };
+  J('caught', [{ rung: 'ui', name: 'Open: reached', verdict: 'PASS' }, outcomeRow]);
+  J('elsewhere', [{ rung: 'ui', name: 'Open: reached', verdict: 'FAIL' }, { rung: 'ui', name: 'Open: downstream rungs', verdict: 'INVALID' }]);
+  J('seeds', [{ rung: 'data', name: 'MockServices-CTL-data-delta: seeds resolved', verdict: 'INVALID' }]);
+  J('green', clone(walk.results));
+}
 EOF
 OUT="$(cd "$WORK/tests/e2e" && printf '%s' "$JS" | APP_PORT=1 node - "$FIX" 2>&1)"
 line() { printf '%s\n' "$OUT" | sed -n "s/^$1 //p"; }
@@ -86,6 +99,18 @@ fi
 [ "$(line NONE)" = 1 ] && ok "a control where no mutant ran (login refused) fails" || bad "zero-mutant control exits 0" "$(line NONE)"
 [ "$(line WFAIL)" = 1 ] && [ "$(line WINV)" = 1 ] && ok "the walk still exits 1 on a FAIL and on an INVALID" \
                        || bad "the walk's rule changed" "FAIL→$(line WFAIL) INVALID→$(line WINV)"
+
+jm() { printf '%s\n' "$OUT" | sed -n "s/^JM:$1 //p"; }
+if [ "$(line JM)" = NOFN ]; then bad "#560 journey-runner.js exports no judgeMutant"; else
+  case "$(jm caught)" in 'PASS true |'*) ok "#560 a mutant caught on its targeted check → PASS, proven" ;; *) bad "#560 caught mutant" "$(jm caught)" ;; esac
+  case "$(jm elsewhere)" in 'FAIL false |'*'NOT on the targeted check'*) ok "#560 failed elsewhere → FAIL, unproven (unchanged)" ;; *) bad "#560 failed-elsewhere case" "$(jm elsewhere)" ;; esac
+  case "$(jm seeds)" in 'INVALID false | mutant not run: "MockServices-CTL-data-delta: seeds resolved"'*) ok "#560 seeds INVALID, nothing FAIL → INVALID \"mutant not run\", never \"went green\"" ;;
+    *) bad "#560 a mutant that never ran reads as a FAIL / went green" "$(jm seeds)" ;; esac
+  case "$(jm green)" in 'FAIL false | BROKEN PRECONDITION WENT GREEN'*) ok "#560 an all-PASS walk (captured) is still \"went green\"" ;; *) bad "#560 went-green case" "$(jm green)" ;; esac
+fi
+grep -qF 'const v = judgeMutant(results.slice(before), m.expectFail);' "$SUT" \
+  && ok "#560 the mutant loop records judgeMutant()'s verdict (the tested function is the one that runs)" \
+  || bad "#560 the mutant loop does not use judgeMutant()"
 
 if awk '/process\.exit\(/ && /runExitCode\(POSITIVE_CONTROL/ {f=1} END{exit !f}' "$SUT"; then
   ok "main exits through runExitCode(POSITIVE_CONTROL, …)"

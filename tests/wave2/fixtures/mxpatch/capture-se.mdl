@@ -1,0 +1,8 @@
+create scheduled event MyFirstModule.NightlyCleanup (
+  Microflow: MyFirstModule.SE_Cleanup,
+  Repeat: Daily,
+  HourOfDay: 4,
+  MinuteOfHour: 0,
+  TimeZone: Server,
+  Enabled: true
+);

@@ -1,0 +1,363 @@
+{
+ "bidirectional_pairs": [
+  {
+   "a": "Billing",
+   "a_to_b": 3,
+   "a_to_b_kinds": {
+    "associate": 1,
+    "call": 1,
+    "parameter": 1
+   },
+   "b": "Orders",
+   "b_to_a": 1,
+   "b_to_a_kinds": {
+    "call": 1
+   }
+  }
+ ],
+ "cohesion": [
+  {
+   "cohesion_pct": 0.0,
+   "inbound_edges": 0,
+   "intra_edges": 0,
+   "module": "MyFirstModule",
+   "outbound_edges": 1
+  },
+  {
+   "cohesion_pct": 0.0,
+   "inbound_edges": 0,
+   "intra_edges": 0,
+   "module": "Reporting",
+   "outbound_edges": 4
+  },
+  {
+   "cohesion_pct": 55.6,
+   "inbound_edges": 3,
+   "intra_edges": 5,
+   "module": "Billing",
+   "outbound_edges": 4
+  },
+  {
+   "cohesion_pct": 72.7,
+   "inbound_edges": 3,
+   "intra_edges": 16,
+   "module": "Orders",
+   "outbound_edges": 6
+  },
+  {
+   "cohesion_pct": 100.0,
+   "inbound_edges": 2,
+   "intra_edges": 2,
+   "module": "Util",
+   "outbound_edges": 0
+  },
+  {
+   "cohesion_pct": null,
+   "inbound_edges": 4,
+   "intra_edges": 0,
+   "module": "Core",
+   "outbound_edges": 0
+  }
+ ],
+ "counts": {
+  "bidirectional_pairs": 1,
+  "dead_assets_own": 6,
+  "largest_tangle": 2,
+  "modules_in_tangles": 2,
+  "own_edge_weight": 12,
+  "own_edges": 7,
+  "tangles": 1,
+  "three_cycles": 0
+ },
+ "dead_assets_own": [
+  {
+   "ModuleName": "MyFirstModule",
+   "ObjectType": "MICROFLOW",
+   "QualifiedName": "MyFirstModule.MyFirstLogic"
+  },
+  {
+   "ModuleName": "Orders",
+   "ObjectType": "MICROFLOW",
+   "QualifiedName": "Orders.ACT_Order_Close"
+  },
+  {
+   "ModuleName": "Orders",
+   "ObjectType": "MICROFLOW",
+   "QualifiedName": "Orders.ACT_Order_Create"
+  },
+  {
+   "ModuleName": "Orders",
+   "ObjectType": "PAGE",
+   "QualifiedName": "Orders.Order_Overview"
+  },
+  {
+   "ModuleName": "Reporting",
+   "ObjectType": "MICROFLOW",
+   "QualifiedName": "Reporting.CAL_Invoice_Totals"
+  },
+  {
+   "ModuleName": "Reporting",
+   "ObjectType": "PAGE",
+   "QualifiedName": "Reporting.Report_Overview"
+  }
+ ],
+ "edges": [
+  {
+   "edges": 3,
+   "from": "Billing",
+   "kinds": {
+    "associate": 1,
+    "call": 1,
+    "parameter": 1
+   },
+   "to": "Orders"
+  },
+  {
+   "edges": 3,
+   "from": "Orders",
+   "kinds": {
+    "associate": 2,
+    "parameter": 1
+   },
+   "to": "Core"
+  },
+  {
+   "edges": 2,
+   "from": "Reporting",
+   "kinds": {
+    "datasource": 1,
+    "retrieve": 1
+   },
+   "to": "Billing"
+  },
+  {
+   "edges": 1,
+   "from": "Billing",
+   "kinds": {
+    "call": 1
+   },
+   "to": "Util"
+  },
+  {
+   "edges": 1,
+   "from": "Orders",
+   "kinds": {
+    "call": 1
+   },
+   "to": "Billing"
+  },
+  {
+   "edges": 1,
+   "from": "Orders",
+   "kinds": {
+    "call": 1
+   },
+   "to": "Util"
+  },
+  {
+   "edges": 1,
+   "from": "Reporting",
+   "kinds": {
+    "datasource": 1
+   },
+   "to": "Core"
+  }
+ ],
+ "edges_to_marketplace": [
+  {
+   "edges": 1,
+   "from": "MyFirstModule",
+   "to": "Atlas_Core"
+  },
+  {
+   "edges": 1,
+   "from": "Orders",
+   "to": "Atlas_Core"
+  },
+  {
+   "edges": 1,
+   "from": "Reporting",
+   "to": "Atlas_Core"
+  }
+ ],
+ "god_nodes": [
+  {
+   "asset": "Orders.Order",
+   "degree": 12,
+   "in_degree": 12,
+   "module": "Orders",
+   "out_degree": 0,
+   "type": "ENTITY"
+  },
+  {
+   "asset": "Billing.ACT_Invoice_Create",
+   "degree": 11,
+   "in_degree": 1,
+   "module": "Billing",
+   "out_degree": 10,
+   "type": "MICROFLOW"
+  },
+  {
+   "asset": "Reporting.Report_Overview",
+   "degree": 8,
+   "in_degree": 0,
+   "module": "Reporting",
+   "out_degree": 8,
+   "type": "PAGE"
+  },
+  {
+   "asset": "Orders.ACT_Order_Create",
+   "degree": 8,
+   "in_degree": 0,
+   "module": "Orders",
+   "out_degree": 8,
+   "type": "MICROFLOW"
+  },
+  {
+   "asset": "Util.SUB_Log",
+   "degree": 7,
+   "in_degree": 2,
+   "module": "Util",
+   "out_degree": 5,
+   "type": "MICROFLOW"
+  },
+  {
+   "asset": "Orders.Order_Overview",
+   "degree": 6,
+   "in_degree": 0,
+   "module": "Orders",
+   "out_degree": 6,
+   "type": "PAGE"
+  },
+  {
+   "asset": "Billing.Invoice",
+   "degree": 6,
+   "in_degree": 6,
+   "module": "Billing",
+   "out_degree": 0,
+   "type": "ENTITY"
+  },
+  {
+   "asset": "Orders.SUB_Order_GetLines",
+   "degree": 5,
+   "in_degree": 1,
+   "module": "Orders",
+   "out_degree": 4,
+   "type": "MICROFLOW"
+  },
+  {
+   "asset": "Orders.ACT_Order_Close",
+   "degree": 5,
+   "in_degree": 0,
+   "module": "Orders",
+   "out_degree": 5,
+   "type": "MICROFLOW"
+  },
+  {
+   "asset": "Orders.OrderLine_Order",
+   "degree": 4,
+   "in_degree": 2,
+   "module": "Orders",
+   "out_degree": 2,
+   "type": "ASSOCIATION"
+  },
+  {
+   "asset": "Reporting.CAL_Invoice_Totals",
+   "degree": 3,
+   "in_degree": 0,
+   "module": "Reporting",
+   "out_degree": 3,
+   "type": "MICROFLOW"
+  },
+  {
+   "asset": "Orders.Order_Customer",
+   "degree": 3,
+   "in_degree": 1,
+   "module": "Orders",
+   "out_degree": 2,
+   "type": "ASSOCIATION"
+  },
+  {
+   "asset": "Orders.OrderLine",
+   "degree": 3,
+   "in_degree": 3,
+   "module": "Orders",
+   "out_degree": 0,
+   "type": "ENTITY"
+  },
+  {
+   "asset": "MyFirstModule.Home_Web",
+   "degree": 3,
+   "in_degree": 2,
+   "module": "MyFirstModule",
+   "out_degree": 1,
+   "type": "PAGE"
+  },
+  {
+   "asset": "Core.Customer",
+   "degree": 3,
+   "in_degree": 3,
+   "module": "Core",
+   "out_degree": 0,
+   "type": "ENTITY"
+  },
+  {
+   "asset": "Billing.Invoice_Order",
+   "degree": 3,
+   "in_degree": 1,
+   "module": "Billing",
+   "out_degree": 2,
+   "type": "ASSOCIATION"
+  },
+  {
+   "asset": "Util.LogEntry",
+   "degree": 2,
+   "in_degree": 2,
+   "module": "Util",
+   "out_degree": 0,
+   "type": "ENTITY"
+  },
+  {
+   "asset": "Orders.OrderLine_Product",
+   "degree": 2,
+   "in_degree": 0,
+   "module": "Orders",
+   "out_degree": 2,
+   "type": "ASSOCIATION"
+  },
+  {
+   "asset": "Core.Product",
+   "degree": 1,
+   "in_degree": 1,
+   "module": "Core",
+   "out_degree": 0,
+   "type": "ENTITY"
+  }
+ ],
+ "scope": {
+  "own_modules": [
+   "Billing",
+   "Core",
+   "MyFirstModule",
+   "Orders",
+   "Reporting",
+   "Util"
+  ],
+  "rule": "own = Source blank and not System/Atlas_*; marketplace = Source set; framework = System, Atlas_*"
+ },
+ "tangles": {
+  "count": 1,
+  "list": [
+   [
+    "Billing",
+    "Orders"
+   ]
+  ],
+  "modules_in_tangles": 2,
+  "note": "strongly connected components of the own-module graph with >1 module; every module in one can reach every other"
+ },
+ "three_cycles": {
+  "count": 0,
+  "list": []
+ }
+}

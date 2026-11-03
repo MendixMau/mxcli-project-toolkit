@@ -1,0 +1,5 @@
+-- STOP-16, bad form. captured: bug-logs/mxcli-bugs.md, "Any GRANT/REVOKE exec in a module fails once
+-- ANY entity there has an Account_Supplier-style cross-module XPath", Correction (2026-07-23).
+-- key: `[Assoc = '[%CurrentUser/Module.OtherAssoc%]']`
+-- evidence: `CE0161` was Mendix correctly rejecting it every time
+grant Module.User on Module.Order (read *) where '[Assoc = ''[%CurrentUser/Module.OtherAssoc%]'']';

@@ -1,0 +1,9 @@
+-- STOP-12, corrected forms: the two rows of BUG-142's probe that build clean.
+-- key: `CaseRef` (bare attribute) | clean | clean
+-- key: | `'literal'` | clean | clean |
+create or modify snippet Module.Case_Row (Params: { $Case: Module.Case }) {
+  dataview dvCase (DataSource: $Case) {
+    dynamictext txtRef (Content: '{1}', ContentParams: [{1} = CaseRef])
+    dynamictext txtLit (Content: '{1} {2}', ContentParams: [{1} = 'literal', {2} = CaseRef])
+  }
+}

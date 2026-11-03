@@ -309,10 +309,12 @@ USER TASK "Review" 'Review'
     CALL MICROFLOW MyModule."SUB_Remind" WITH ("Request" = '$WorkflowContext');
   };
 
--- wait for timer / wait for notification. WAIT FOR NOTIFICATION takes NO name --
--- 'WAIT FOR NOTIFICATION ''Ping'';' is a parse error; the name is a Studio Pro property.
+-- wait for timer / wait for notification.
+-- SUPERSEDED on v0.26.0: WAIT FOR NOTIFICATION takes a name (`wait for notification waitDone;`),
+-- and a NOTIFY WORKFLOW that targets it needs `TARGET Module.Workflow.waitDone`. On v0.20.0
+-- the named form was a parse error; the bare form still parses on v0.26.0. Name every wait.
 WAIT FOR TIMER 'addDays([%CurrentDateTime%], 1)';
-WAIT FOR NOTIFICATION;
+WAIT FOR NOTIFICATION waitDone;
 ```
 
 **The two signatures a workflow's own gates check and `mxcli check` does not** (v0.21.0,
@@ -445,7 +447,7 @@ manual Studio Pro steps built around a blocker that never existed.
 | Open an instance | `OPEN WORKFLOW $Wf;` (client action) |
 | Open a task | `OPEN USER TASK $Task;` (client action) |
 | Lock / unlock | `LOCK WORKFLOW $Wf;` · `UNLOCK WORKFLOW $Wf;` · `LOCK WORKFLOW ALL;` · `UNLOCK WORKFLOW ALL;` |
-| Release a wait | `$R = NOTIFY WORKFLOW $Wf;` (releases a *wait for notification* activity) |
+| Release a wait | `$R = NOTIFY WORKFLOW $Wf TARGET Module.Workflow.waitDone;` (releases a *wait for notification* activity; on mxcli v0.26.0 `TARGET` is required, without it `check` refuses: CE0166 / MDL-WF16. The target may be a named wait, a notification activity or a notification boundary event.) |
 | Instances for a context object | `$Wfs = GET WORKFLOWS FOR $Ctx;` |
 | Instance metadata | `$D = GET WORKFLOW DATA $Wf AS Mod."Entity";` |
 | Audit trail | `$Recs = GET WORKFLOW ACTIVITY RECORDS $Wf;` |
@@ -651,6 +653,9 @@ varying **only** the suspected cause — see [[sandbox-ab-tool-defect-probe]].
 | **CE0053 / MDL040** | `DECLARE $L List of Mod.Entity = empty;` | Use `$L = CREATE LIST OF Mod."Entity";` |
 | **CE0108** | A `RETRIEVE` inside an `IF` shadows the named return variable, leaving it out of scope on the `ELSE` path | Use early `RETURN empty;` on failure branches so only the success path reaches the named-return retrieve |
 | **MDL-WF04** | Standalone `ANNOTATION` in a workflow activity flow (produces an unloadable model) | Use a plain MDL comment |
+| **CE0117** at a *Call microflow* whose microflow takes a `System.Workflow` parameter | You passed a variable the workflow does not have (`Workflow = $Workflow`). `check --references` passes it. Only native `mx check` refuses it (mxcli v0.26.0, Mendix 11.15.0, probed 2026-10-15; upstream mendixlabs/mxcli#1529) | Map it to `$WorkflowInstance`: `call microflow M.ACT_X(Workflow = $WorkflowInstance, Ctx = $WorkflowContext)`, which builds clean (same probe). Don't look the instance up through `System.Workflow_ParentWorkflow` instead. That lookup has to guess when more than one child is in progress |
+| **CE1613** "The selected parameter '…' no longer exists" at a *Call workflow* | The called workflow's parameter is named something other than `$WorkflowContext` (`parameter $Task: …` with `(Task = …)`). `check --references` passes it. `describe workflow` drops every call workflow mapping, correct ones included (mendixlabs/mxcli#1531), and `mxcli syntax workflow call-workflow` still prints the failing form (`Request = $WorkflowContext`, v0.27.0; #1530), so do not copy that example (mxcli v0.26.0, probed 2026-10-15) | Every workflow that is called declares `parameter $WorkflowContext: …`, and the call maps `(WorkflowContext = …)`. Keep the `.mdl` file as the source; don't round-trip the call through `describe` |
+| parse error on a workflow call microflow: `mismatched input 'returns' expecting BEGIN` (v0.26.0) or `mismatched input 'returns' expecting STRING_LITERAL` (v0.27.0, mendixlabs/mxcli#1533) | `exposed as workflow action …` written before `returns …` | Write `returns Boolean as $Ok` first, then `folder` and `exposed as workflow action`. A called microflow *can* return a value: a Boolean gives the activity `true`/`false` outcomes and an enumeration one outcome per value plus empty (Mendix docs, *Call microflow*). "Exposed call microflows return nothing" is a wrong reading of this parse error (probed 2026-10-15) |
 | **MPR006** | Empty container — compiles, crashes at runtime | Give every container content, or drop it |
 | **MPR010** | Widgets not wrapped in a `LAYOUTGRID` | Wrap them |
 | Workflow stuck | No `complete_task` button for one of the task's outcomes | Add the missing outcome button |
@@ -1013,6 +1018,16 @@ already exists.
 
 ## 19. `BOUNDARY EVENT TIMER` — don't add one without a documented business trigger
 
+> **SUPERSEDED on mxcli v0.26.0 (Mendix 11.15.0, 2026-10-15): the boundary terminator is no longer
+> a hand-add.** mxcli writes the end-of-boundary-path marker itself
+> (`Workflows$EndOfBoundaryEventPathActivity`), so a boundary path may end in a plain
+> `call microflow`; the notification boundary event exists too (`boundary event interrupting
+> notification Name 'Caption' { ... }`). Source: mxcli's own `write-workflows` skill and
+> `docs-site/src/language/workflow-activities.md`, and a five-app lab field run. A boundary
+> terminator pass is not needed; the **parallel split** terminator (§18, §23) is a separate
+> node and this note does not change it (not re-probed on v0.26.0). Re-test the notes below
+> against your pinned mxcli before relying on them.
+
 > **CORRECTION, 2026-09-03 (probed, mxcli v0.20.0 / Mendix 11.14.0).** The `'P3D'` form below
 > is **wrong** and was recorded here as proven on a `mxcli check` alone. The timer takes a
 > Mendix **expression**, not an ISO 8601 period: `'P3D'` passes `mxcli check` and `exec`, then
@@ -1274,7 +1289,7 @@ here. This section is only how to run the repair and keep it applied.
 
 ```
 bin/wf-add-path-terminators.py <workflow>.mxunit          # dry run: paths found / to add
-bin/wf-add-path-terminators.py <workflow>.mxunit --apply  # patches, leaves a .bak
+bin/wf-add-path-terminators.py <workflow>.mxunit --apply  # patches; backup goes outside mprcontents/
 ```
 
 It walks the unit, appends the terminator to every unterminated `ParallelSplitOutcome` flow, and
@@ -1343,7 +1358,7 @@ project-bin/wf-set-call-captions.py <workflow>.mxunit --captions-file captions.t
 It walks the unit, finds every `Workflows$CallMicroflowActivity` whose `Microflow` matches a
 name you gave it, and replaces only that activity's `Caption` — `Name` (the flow-internal
 identifier every `Flow` element references to reach the activity) is never touched, so nothing
-that points at the activity can break. Defaults to a dry run; `--apply` writes, after a `.bak`.
+that points at the activity can break. Defaults to a dry run; `--apply` writes, after a backup kept outside `mprcontents/` (`$MXPATCH_BACKUP_DIR`, which `exec.sh --patch` points into its snapshot).
 
 **Two things worth deciding before scripting a workflow, given this gap:**
 

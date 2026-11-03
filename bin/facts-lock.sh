@@ -30,6 +30,13 @@
 #   facts-lock.sh <project-dir> build      harvest, freeze what is unanimous, report conflicts
 #   facts-lock.sh <project-dir> check      fail any BRD that deviates from the frozen lock
 #   facts-lock.sh <project-dir> show       what is frozen and what is still contested
+#   facts-lock.sh <project-dir> resolve    build, then freeze each casing conflict whose majority
+#                                          spelling is used by strictly more BRD sources than any
+#                                          other; record the count in the lock; ties stay contested
+#
+# resolve is an explicit step an agent runs, never part of build: build must not pick silently.
+# WHY (2026-10-28): conflicts are always casing (WIPStatus/WipStatus); asking the user is wrong
+# (it is research, not a decision), but every resolution by hand was the same majority count.
 #
 # Exit: 0 clean · 1 conflicts or deviations · 2 usage/no BRDs
 
@@ -45,10 +52,10 @@ PROJECT_DIR="${1:-}"
 CMD="${2:-show}"
 
 [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ] || {
-  echo "usage: facts-lock.sh <project-dir> [build|check|show]" >&2; exit 2; }
+  echo "usage: facts-lock.sh <project-dir> [build|check|show|resolve]" >&2; exit 2; }
 
-case "$CMD" in build|check|show) ;; *)
-  echo "usage: facts-lock.sh <project-dir> [build|check|show]" >&2; exit 2 ;; esac
+case "$CMD" in build|check|show|resolve) ;; *)
+  echo "usage: facts-lock.sh <project-dir> [build|check|show|resolve]" >&2; exit 2 ;; esac
 
 # Discovery is SHARED, not re-derived here. This script originally had its own copy and the
 # copy was wrong: it matched analysis/source (2 BRDs), silently skipped analysis/alt-source
@@ -59,6 +66,7 @@ case "$CMD" in build|check|show) ;; *)
 # shellcheck disable=SC1091
 . "$(cd "$(dirname "$0")" && pwd)/lib/discover-brds.sh"
 
+PROJECT_DIR="$(native_path "$PROJECT_DIR")"  # newline-joined KBS goes to Python via env; MSYS converts only line 1
 KBS=$(discover_brds "$PROJECT_DIR" | sed 's|/brd/[^/]*$||' | sort -u)
 [ -n "$KBS" ] || { echo "facts-lock: no <kb>/brd directory found under $PROJECT_DIR" >&2; exit 2; }
 
@@ -96,17 +104,27 @@ KEYED = {
 # in these corpora and the key varies too much to enumerate.
 CODESET_RE = re.compile(r"\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*_CODE_SET\b")
 
-def walk(node, key, out, src):
+# `name` inside an identifier-bearing array (domainEntities[].name, pages[].name, the shape
+# coverage-check.sh enumerates) is read too, but WARN-only (#519): it is collected apart from the
+# lock, never frozen, and its disagreements change no exit code, so no project that passes today
+# fails after a sync. Whether these become facts is a maintainer call.
+NAME_PARENTS = {"domainentities": "entities", "entities": "entities", "pages": "pages",
+                "microflows": "microflows", "nanoflows": "microflows", "integrations": "operations"}
+names = {}
+
+def walk(node, key, out, src, parent=""):
     if isinstance(node, dict):
         for k, v in node.items():
-            walk(v, k.lower(), out, src)
+            walk(v, k.lower(), out, src, key)
     elif isinstance(node, list):
         for v in node:
-            walk(v, key, out, src)
+            walk(v, key, out, src, parent)
     elif isinstance(node, str):
         s = node.strip()
         if not s:
             return
+        if key == "name" and parent in NAME_PARENTS and len(s) <= 80 and " " not in s:
+            names.setdefault(NAME_PARENTS[parent], {}).setdefault(s.lower(), {}).setdefault(s, set()).add(src)
         for ns, keys in KEYED.items():
             # Identifiers only: a sentence under an `entity` key is prose, not a name.
             if key in keys and len(s) <= 80 and " " not in s:
@@ -211,7 +229,23 @@ for ns, clusters in sorted(harvest.items()):
             conflicts.append((ns, ck, {v: sorted(spellings[v]) for v in variants}))
 
 # --- act ----------------------------------------------------------------------------------------
-if CMD == "build":
+EMPTY_MSG = ("PENDING facts-lock: 0 identifiers found under any known key in %d BRD(s): the lock is empty "
+             "and check proves nothing (keys read: " + ", ".join(k for ks in KEYED.values() for k in ks) + ", *_CODE_SET)")
+resolved = []
+if CMD == "resolve":
+    keep = []
+    for ns, ck, sp in conflicts:
+        ranked = sorted(sp.items(), key=lambda kv: (-len(kv[1]), kv[0]))
+        if len(ranked) > 1 and len(ranked[0][1]) > len(ranked[1][1]):
+            win = ranked[0][0]
+            frozen.setdefault(ns, {})[ck] = {
+                "canonical": win, "sources": sorted({x for v in sp.values() for x in v}),
+                "resolvedBy": "majority: %s" % ", ".join("%s %d" % (v, len(x)) for v, x in ranked)}
+            resolved.append((ns, ck, win, ranked))
+        else:
+            keep.append((ns, ck, sp))
+    conflicts = keep
+if CMD in ("build", "resolve"):
     for ns, ck, canon, srcs in new_facts:
         frozen.setdefault(ns, {})[ck] = {"canonical": canon, "sources": srcs}
     lock["conflicts"] = [
@@ -228,11 +262,16 @@ if CMD == "build":
     total = sum(len(v) for v in frozen.values())
     print("facts-lock: %d fact(s) frozen across %d namespace(s), from %d BRD(s)" % (total, len(frozen), len(brds)))
     print("            %s" % LOCK)
+    if total == 0 and not conflicts:
+        print(EMPTY_MSG % len(brds))
 
 for src, err in unreadable:
     print("  UNREADABLE  %s — %s (its facts are NOT in the lock)" % (src, err))
 
-if CMD in ("build", "show"):
+for ns, ck, win, ranked in resolved:
+    print("  RESOLVED  %s/%s -> %s (majority of BRD sources: %s); run check and fix the BRDs it lists"
+          % (ns, ck, win, ", ".join("%s %d" % (v, len(x)) for v, x in ranked)))
+if CMD in ("build", "show", "resolve"):
     if CMD == "show":
         total = sum(len(v) for v in frozen.values())
         print("facts-lock: %d frozen, %d contested, %d BRD(s) read" % (total, len(conflicts), len(brds)))
@@ -252,7 +291,30 @@ if CMD == "check":
         print("  UNFROZEN   %s/%s is contested (%s) — build has not resolved it" % (ns, ck, "/".join(sorted(sp))))
     if not deviations and not conflicts:
         total = sum(len(v) for v in frozen.values())
-        print("facts-lock: %d BRD(s) agree with all %d frozen fact(s)" % (len(brds), total))
+        if total == 0:
+            # 0 compared is not agreement (#519): a lock with no facts proves nothing.
+            print(EMPTY_MSG % len(brds) if not harvest else
+                  "PENDING facts-lock: the lock holds 0 facts while %d identifier(s) were found in %d BRD(s): run build first; check compared nothing"
+                  % (sum(len(c) for c in harvest.values()), len(brds)))
+        else:
+            print("facts-lock: %d BRD(s) agree with all %d frozen fact(s)" % (len(brds), total))
+
+# WARN-only: name-keyed spellings that disagree (#519). Same "two mixed-case spellings" test as a
+# CONFLICT; reported for build/check/show, never frozen, never counted in the exit code.
+name_warns = []
+for ns, clusters in sorted(names.items()):
+    for ck, spellings in sorted(clusters.items()):
+        if canonical_of(ns, ck) or ck in harvest.get(ns, {}):
+            continue   # already a keyed fact: the lock and the CONFLICT/DEVIATION lines own it
+        variants = contestable(sorted(spellings.keys()))
+        if len(variants) > 1:
+            name_warns.append((ns, ck, {v: sorted(spellings[v]) for v in variants}))
+for ns, ck, sp in name_warns:
+    print("  WARN  name-keyed %s/%s — %d spellings (not frozen; WARN only): %s" % (
+        ns, ck, len(sp), "; ".join("%s (%s)" % (v, ", ".join(srcs)) for v, srcs in sorted(sp.items()))))
+if names and not sum(len(v) for v in frozen.values()):
+    print("            %d identifier(s) found under `name` in %s arrays: read WARN-only, not in the lock"
+          % (sum(len(c) for c in names.values()), "/".join(sorted(names))))
 
 if unreadable:
     sys.exit(1)

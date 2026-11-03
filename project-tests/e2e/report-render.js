@@ -301,7 +301,7 @@ function pct(n, total) {
  * above the verdict word, echoed on stdout, and reused verbatim wherever a run is
  * summarised, so two summaries on one page can never disagree.
  * Vocabulary reused, not invented: "NOTHING EXAMINED" is bin/open-questions.sh's
- * rc-3 state, and bin/questions-report.sh:72 refuses outright to render a clean
+ * rc-3 state, and bin/brd-report.sh (exit 3) refuses outright to render a clean
  * zero over it. This renderer does not refuse — nothing here blocks — but it says
  * the same words in the same place a refusal would have gone. */
 function executionLine(c) {
@@ -570,6 +570,10 @@ function evidenceTable(evs, rebase) {
               (has(e.value) ? ' \u2192 <b class="mono">' + esc(e.value) + '</b>' : '');
     } else if (has(e.command)) {
       cellv = '<span class="mono">' + esc(e.command) + '</span>';
+    } else if (has(e.target)) {
+      // An element a check failed on (design-audit a11y, #561): the Mendix widget name first.
+      cellv = '<span class="mono">' + esc((has(e.rule) ? e.rule + ': ' : '') + (has(e.widget) ? e.widget + ' \u2014 ' : '') + e.target) +
+              '</span>' + (has(e.html) ? '<div class="muted mono">' + esc(e.html) + '</div>' : '');
     } else if (has(e.spanCount)) {
       cellv = '<span class="mono">' + esc(e.spanCount) + ' spans captured</span>';
     } else {

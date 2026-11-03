@@ -30,6 +30,15 @@ set -uo pipefail
 TOOLKIT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_DIR="${1:-}"
 
+# macOS ships bash 3.2 as /bin/bash and its $(...) scanner rejects things bash 5 accepts. When
+# the bash on PATH is a different one, parse with /bin/bash too — script-owners.sh shipped
+# unparseable on a Mac this way. `bash -n` there catches an apostrophe in a comment inside
+# $(...); it does not catch a case pattern without a leading "(" (that fails only when run).
+SYS_BASH=""
+if [ -x /bin/bash ] && [ "$(/bin/bash -c 'printf %s "$BASH_VERSION"' 2>/dev/null)" != "$BASH_VERSION" ]; then
+  SYS_BASH=/bin/bash
+fi
+
 FAIL=0
 SH_OK=0; SH_N=0
 JS_OK=0; JS_N=0
@@ -42,11 +51,11 @@ check_sh() { # check_sh LABEL GLOB...
   for f in "$@"; do
     [ -f "$f" ] || continue
     n=$((n + 1)); SH_N=$((SH_N + 1))
-    if OUT="$(bash -n "$f" 2>&1)"; then
+    if OUT="$(bash -n "$f" 2>&1)" && { [ -z "$SYS_BASH" ] || OUT="$("$SYS_BASH" -n "$f" 2>&1)"; }; then
       SH_OK=$((SH_OK + 1))
     else
       FAIL=$((FAIL + 1))
-      printf '  FAIL  %s does not parse under this bash:\n' "$f"
+      printf '  FAIL  %s does not parse under this bash (or /bin/bash):\n' "$f"
       printf '%s\n' "$OUT" | head -3 | sed 's/^/        /'
       if ! tr -d '\r' < "$f" | cmp -s - "$f"; then
         printf '        (file carries CRLF line endings — see doctor.sh "Line endings" for the fix)\n'

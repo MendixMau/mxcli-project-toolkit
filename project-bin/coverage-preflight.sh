@@ -457,10 +457,51 @@ if [ -d "$LEDGER" ]; then
     RC=2
   fi
 else
-  for b in $BRDS; do
+  # A per-MODULE ledger file (architecture/modules/<M>/coverage-ledger.md or <M>-coverage-ledger.md)
+  # was measured against every BRD in the project, so a BRD only other modules claim read fully
+  # UNCLAIMED — thousands of false leaves on a multi-module project (#543). When every pointer in
+  # it carries a BRD prefix (F001/...), only the BRDs those prefixes name are measured here; the
+  # rest are listed as another module's, the same as the directory form. A ledger with any
+  # /slash pointer applies to every BRD and is measured against all of them, as before; so is the
+  # project-wide ledger, and so is a per-module one whose prefixes name no BRD (the engine then
+  # reports them PHANTOM). Leaves of a shared BRD that another module claims still read
+  # UNCLAIMED here: judging across all ledgers is a separate decision (#543 option 2).
+  SCOPED=0; MEAS_BRDS="$BRDS"; OTHERS=""
+  if [ -n "$MODULE" ] && { [ "$LEDGER" = "$LEDGER_CANON" ] || [ "$LEDGER" = "$LEDGER_FLAT" ]; } && [ "$NBRD" -gt 1 ]; then
+    PTRS="$(awk '
+      function trim(s) { gsub(/[\140]/, "", s); gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
+      { t = $0; gsub(/^[ \t]+|[ \t]+$/, "", t) }
+      t !~ /^\|.*\|$/ { next }
+      { sub(/^\|/, "", t); split(t, c, "|"); f = trim(c[1])
+        if (tolower(f) == "pointer" || f ~ /^:?-+:?$/ || f == "") next
+        sub(/[ \t]*\([0-9]+\)[ \t]*$/, "", f)
+        n = split(f, tok, ","); for (i = 1; i <= n; i++) print trim(tok[i]) }' "$LEDGER")"
+    if [ -n "$PTRS" ] && ! printf '%s\n' "$PTRS" | grep -q '^/'; then
+      PREFIXES=" $(printf '%s\n' "$PTRS" | sed 's|/.*||' | sort -u | tr '\n' ' ') "
+      _meas=""
+      for b in $BRDS; do
+        bb="$(basename "$b" .brd.json)"; hit=0
+        for id in "$bb" "${bb%%-*}" $(jq -r '.id? // empty | strings' "$b" 2>/dev/null || true); do
+          case "$PREFIXES" in *" $id "*) hit=1; break ;; esac
+        done
+        if [ "$hit" -eq 1 ]; then _meas="$_meas $b"; else OTHERS="$OTHERS $bb"; fi
+      done
+      [ -n "$_meas" ] && { SCOPED=1; MEAS_BRDS="$_meas"; }
+    fi
+  fi
+  [ "$SCOPED" -eq 1 ] || OTHERS=""
+  NMEAS=0
+  for b in $MEAS_BRDS; do
+    NMEAS=$((NMEAS + 1))
     # shellcheck disable=SC2086
     "$ENGINE" $ENGINE_ARGS "$b" "$LEDGER" || raise_rc $?
   done
+  if [ "$SCOPED" -eq 1 ]; then
+    NOTHERS=0; [ -n "$OTHERS" ] && NOTHERS=$(printf '%s\n' $OTHERS | grep -c .)
+    echo ""
+    echo "  module ledger: $NMEAS of $NBRD BRD(s) measured against $LEDGER (the BRDs its pointers name);"
+    echo "  $NOTHERS BRD(s) it does not claim (another module's, not measured):${OTHERS:- none}"
+  fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -471,25 +512,48 @@ fi
 # ledger — no second leaf enumeration here. A /slash claim is phantom only if it is phantom in
 # EVERY BRD (it names none); a prefixed claim is only ever measured by its own BRD.
 # ---------------------------------------------------------------------------
+#
+# Each BRD gets only the claims it can resolve (#446): every /slash claim, a claim whose prefix is
+# its file name (F003/... -> F003.brd.json or F003-*.brd.json), and any prefixed claim that names
+# no BRD file (left to the engine everywhere: it may name a BRD by its .id). The engine skipped other BRDs' claims
+# anyway, one claim at a time: 12 BRDs x every claim in the plan was ~290 s in the field, after
+# the measurement itself, and the rung timed out with a clean log. A BRD with nothing to resolve
+# is not run at all. Side effect, wanted: a named claim is no longer judged by a BRD in another
+# source folder (the engine's OTHER-BRD test only looks in its own folder), and a claim naming a
+# BRD only by .id is no longer PHANTOM for being absent from every other BRD.
 if [ "$NCLAIMS" -gt 0 ]; then
-  PC="$TMPD/plan-claims.md"
-  {
-    echo "| pointer | type | title | slice | writeMode | acceptance | status |"
-    echo "|---|---|---|---|---|---|---|"
-    printf '%s\n' "$CLAIMS" | while IFS=$'\t' read -r _row ptr; do
-      [ -n "$ptr" ] && printf '| %s | claim | - | - | - | - | - |\n' "$ptr"
-    done
-  } > "$PC"
+  BASES="$(for b in $BRDS; do basename "$b" .brd.json; done | tr '\n' ' ')"
   : > "$TMPD/phantoms.tsv"
   for b in $BRDS; do
+    PC="$TMPD/plan-claims.md"
+    printf '%s\n' "$CLAIMS" | awk -F'\t' -v me="$(basename "$b" .brd.json)" -v bases="$BASES" '
+      BEGIN { nb = split(bases, base, " ") }
+      function mine(pre, b) { return b == pre || index(b, pre "-") == 1 }
+      $2 == "" { next }
+      { p = $2; ok = 1
+        if (p !~ /^\// && p !~ /,/) {
+          pre = p; sub(/\/.*/, "", pre); named = 0
+          for (i = 1; i <= nb; i++) if (mine(pre, base[i])) named = 1
+          if (named) ok = mine(pre, me)
+        }
+        if (ok) print "| " p " | claim | - | - | - | - | - |" }' > "$PC.rows"
+    [ -s "$PC.rows" ] || continue
+    { echo "| pointer | type | title | slice | writeMode | acceptance | status |"
+      echo "|---|---|---|---|---|---|---|"
+      cat "$PC.rows"; } > "$PC"
     COVERAGE_CHECK_CAP=1000000 "$ENGINE" "$b" "$PC" 2>/dev/null \
       | awk -v b="$b" '/^  -- PHANTOM pointers --/ { on = 1; next } /^  -- / { on = 0 } on { sub(/^ +/, ""); print $0 "\t" b }' \
       >> "$TMPD/phantoms.tsv"
   done
-  PHANTOM_CLAIMS="$(awk -F'\t' -v n="$NBRD" '
+  # A claim sent to every BRD (a /slash claim, or a prefix that names no BRD file: it may name a
+  # BRD by its .id) is phantom only if it is phantom in all of them; a named one, in its own.
+  PHANTOM_CLAIMS="$(awk -F'\t' -v n="$NBRD" -v bases="$BASES" '
+    BEGIN { nb = split(bases, base, " ") }
+    function named(c,    pre, i) { if (c ~ /^\//) return 0; pre = c; sub(/\/.*/, "", pre)
+      for (i = 1; i <= nb; i++) if (base[i] == pre || index(base[i], pre "-") == 1) return 1; return 0 }
     { if (!($1 in hit)) order[++k] = $1; hit[$1]++; if (!($1 in where)) where[$1] = $2 }
     END { for (i = 1; i <= k; i++) { c = order[i]
-            if (c !~ /^\//) print "PHANTOM CLAIM: " c " matches no leaf in " where[c]
+            if (named(c)) print "PHANTOM CLAIM: " c " matches no leaf in " where[c]
             else if (hit[c] >= n) print "PHANTOM CLAIM: " c " matches no leaf in any of the " n " BRD(s)" } }
   ' "$TMPD/phantoms.tsv")"
   if [ -n "$PHANTOM_CLAIMS" ]; then

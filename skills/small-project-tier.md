@@ -65,7 +65,7 @@ not a ceiling. Exceeding one silently is the defect.
 | 4 | `build-plan.md` | | ≤ 12 numbered scripts; §9 regression ledger stays |
 | 4 | module brief | one per module | one |
 | 4 | coverage ledger | per module | the single-file form `architecture/coverage-ledger.md` (`coverage-ledger.md` → "Where the ledger lives") |
-| 4 | `build-plan.html` | derived render | **waived**: `Waived artifact build-plan-html: small tier — status read from build-plan.md` |
+| 4 | `progress-report.html` | derived render | **waived**: `Waived artifact build-plan-html: small tier — status read from build-plan.md` |
 | 5 | `improvement-register.html` | render | **waived**: `Waived artifact improvement-register-html: small tier — the .md is the register` |
 | 5–6 | everything else | | unchanged: `exec.sh`, gate-agent after every exec, one ui-review, journeys, `report.json` |
 

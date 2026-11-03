@@ -1,0 +1,21 @@
+Run Mendix's own model-fixing tools and keep the project's storage format.
+
+'mx update-widgets' and 'mx rename-design-properties' both do work that only
+Mendix can do, and both rewrite an MPR v2 project into the single-file v1 format
+as a side effect — measured on 11.12.1, rename-design-properties turned 1,866
+.mxunit files into 0 and a 69 KB index into 39 MB.
+
+These subcommands run the tool, read its result back out, restore the v2
+storage, and write the changed units into it with mxcli's own writer. The fix
+persists; the format survives. An MPR v1 project is passed straight through.
+
+Usage:
+  mxcli fix [command]
+
+Available Commands:
+  design-properties Update renamed design properties (clears CE6087) without collapsing MPR v2
+  widgets           Resync widget definitions (clears CE0463) without collapsing MPR v2
+
+Flags:
+  -h, --help   help for fix
+

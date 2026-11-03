@@ -1,0 +1,8 @@
+-- STOP-26, bad form. captured: bug-logs/mxcli-bugs.md BUG-DRAFT-dg2-association-path-bindings (Repro).
+-- key: column colX (Attribute: "Assoc_A_B/Name", Caption: 'B')        -- quoted: CE1613 at build
+-- evidence: Quoted column path: stored as **one attribute whose name contains a slash**, which gives CE1613.
+create or modify page ModuleA.EntityA_Overview (Title: 'A', Layout: Atlas_Core.Atlas_Default) {
+  datagrid dg (DataSource: database ModuleA.EntityA) {
+    column colX (Attribute: "Assoc_A_B/Name", Caption: 'B')
+  }
+}

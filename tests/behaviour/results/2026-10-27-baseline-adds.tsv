@@ -1,0 +1,40 @@
+# 2026-10-27 short A/B for three proposed baseline additions (#565, #511, #567). Arm M = origin/master 6615869d pack; arm T = master + one addition (ab/t565 cced8185, ab/t511 f7ddefb2, ab/t567 1208128b). Packs: build-packs.sh --role gate (t565) / --role test (t567); the lead has no stub, so the lead pack (t511) is routing_baseline_pack 5 lead with the same expansion, built by hand. AGENT-PROMPT.txt with "mdl drafting agent" replaced by the role. One model (claude-opus-5-5), fresh `claude -p` per rep with Read/Write only, empty cwd, no CLAUDE.md above it; arms interleaved, 6 parallel. 6 reps per arm per addition (36 reps).
+# Tasks: tests/behaviour/tasks/t565.md, t511.md, t567.md (committed after the run so it can be re-run; t565: gate sign-off of a page-triggered microflow that commits via commitInSeparateDatabaseTransaction, role without Create, forward-only journeys as admin; t511: lead about to dispatch a gate-agent stub filled mid-session; t567: test-agent review of a hand-written acceptance script whose step() treats a returned defect string as PASS). Scorer: tests/behaviour/score-baseline-adds.sh (regex fields per task below; AB_WORK = the run scratch dir), spot-checked by reading outputs.
+# Findings. t565: M back 1/6, illegal-state 0/6, rollback-refresh fix 0/6; T 6/6 on all three (and 6/6 run-as-Customer vs M 4/6). t567: both arms catch the returned-string defect 6/6 (ceiling); T recommends journey-runner.js 6/6 vs M 0/6. t511: both arms restart/reload 6/6 (ceiling, the model already knows); T dispatches general-purpose now 6/6 vs M 3/6, and 3/6 M reps refused general-purpose because it carries Write/Edit, breaking gate-agent's read-only scope — the addition pushes toward that. read_all 1 on all 36 reps; tokens comparable (median t565 M 250k / T 179k).
+# Verdict: ship #565 (+81 baseline words) and #567 (+51); do not ship #511 as written (+36, no gain over ceiling, and it promotes a dispatch that drops the read-only tool scope).
+M-511-r1	arm=M	task=t511	ok=1	restart=1	gpread=0	read_all=1	turns=7	tokens=250894
+M-511-r2	arm=M	task=t511	ok=1	restart=1	gpread=0	read_all=1	turns=7	tokens=178909
+M-511-r3	arm=M	task=t511	ok=1	restart=1	gpread=0	read_all=1	turns=7	tokens=249688
+M-511-r4	arm=M	task=t511	ok=1	restart=1	gpread=0	read_all=1	turns=7	tokens=282058
+M-511-r5	arm=M	task=t511	ok=1	restart=1	gpread=0	read_all=1	turns=7	tokens=177907
+M-511-r6	arm=M	task=t511	ok=1	restart=1	gpread=0	read_all=1	turns=7	tokens=250376
+T-511-r1	arm=T	task=t511	ok=1	restart=1	gpread=0	read_all=1	turns=7	tokens=281480
+T-511-r2	arm=T	task=t511	ok=1	restart=1	gpread=0	read_all=1	turns=7	tokens=281707
+T-511-r3	arm=T	task=t511	ok=1	restart=1	gpread=0	read_all=1	turns=7	tokens=281462
+T-511-r4	arm=T	task=t511	ok=1	restart=1	gpread=0	read_all=1	turns=7	tokens=249796
+T-511-r5	arm=T	task=t511	ok=1	restart=1	gpread=0	read_all=1	turns=7	tokens=281526
+T-511-r6	arm=T	task=t511	ok=1	restart=1	gpread=0	read_all=1	turns=7	tokens=249944
+M-565-r1	arm=M	task=t565	back=0	illegal=0	fix=0	role=1	cites=1	read_all=1	turns=6	tokens=299953
+M-565-r2	arm=M	task=t565	back=1	illegal=0	fix=0	role=1	cites=1	read_all=1	turns=6	tokens=250547
+M-565-r3	arm=M	task=t565	back=0	illegal=0	fix=0	role=1	cites=0	read_all=1	turns=6	tokens=181800
+M-565-r4	arm=M	task=t565	back=0	illegal=0	fix=0	role=0	cites=0	read_all=1	turns=6	tokens=249299
+M-565-r5	arm=M	task=t565	back=0	illegal=0	fix=0	role=1	cites=0	read_all=1	turns=6	tokens=251760
+M-565-r6	arm=M	task=t565	back=0	illegal=0	fix=0	role=0	cites=0	read_all=1	turns=6	tokens=250297
+T-565-r1	arm=T	task=t565	back=1	illegal=1	fix=1	role=1	cites=1	read_all=1	turns=6	tokens=246746
+T-565-r2	arm=T	task=t565	back=1	illegal=1	fix=1	role=1	cites=1	read_all=1	turns=6	tokens=227245
+T-565-r3	arm=T	task=t565	back=1	illegal=1	fix=1	role=1	cites=1	read_all=1	turns=6	tokens=179796
+T-565-r4	arm=T	task=t565	back=1	illegal=1	fix=1	role=1	cites=1	read_all=1	turns=6	tokens=179264
+T-565-r5	arm=T	task=t565	back=1	illegal=1	fix=1	role=1	cites=1	read_all=1	turns=6	tokens=179350
+T-565-r6	arm=T	task=t565	back=1	illegal=1	fix=1	role=1	cites=1	read_all=1	turns=6	tokens=179206
+M-567-r1	arm=M	task=t567	ret=1	throw=1	runner=0	cites=1	read_all=1	turns=6	tokens=233736
+M-567-r2	arm=M	task=t567	ret=1	throw=1	runner=0	cites=1	read_all=1	turns=6	tokens=282417
+M-567-r3	arm=M	task=t567	ret=1	throw=1	runner=0	cites=1	read_all=1	turns=6	tokens=232216
+M-567-r4	arm=M	task=t567	ret=1	throw=1	runner=0	cites=0	read_all=1	turns=6	tokens=233348
+M-567-r5	arm=M	task=t567	ret=1	throw=1	runner=0	cites=1	read_all=1	turns=6	tokens=219965
+M-567-r6	arm=M	task=t567	ret=1	throw=1	runner=0	cites=1	read_all=1	turns=6	tokens=233530
+T-567-r1	arm=T	task=t567	ret=1	throw=1	runner=1	cites=1	read_all=1	turns=6	tokens=168535
+T-567-r2	arm=T	task=t567	ret=1	throw=1	runner=1	cites=1	read_all=1	turns=6	tokens=219705
+T-567-r3	arm=T	task=t567	ret=1	throw=1	runner=1	cites=1	read_all=1	turns=6	tokens=233825
+T-567-r4	arm=T	task=t567	ret=1	throw=1	runner=1	cites=1	read_all=1	turns=6	tokens=233673
+T-567-r5	arm=T	task=t567	ret=1	throw=1	runner=1	cites=1	read_all=1	turns=6	tokens=284059
+T-567-r6	arm=T	task=t567	ret=1	throw=1	runner=1	cites=1	read_all=1	turns=6	tokens=168421

@@ -1,0 +1,7 @@
+-- Not a STOP row (a preflight gotcha). captured: bug-logs/mxcli-bugs.md BUG-75, "A third position".
+-- key: SET DynamicCellClass = 'if ($currentObject/"BusState" = "Mod"."ENUM_BusState"."Error") then '
+-- evidence: Native `mx check`/`docker build`: **CE0117** on the page's dynamic-class
+alter page Mod.Foo_Overview {
+  SET DynamicCellClass = 'if ($currentObject/"BusState" = "Mod"."ENUM_BusState"."Error") then '
+    + '"danger" else "plain" endif' ON "col1";
+}

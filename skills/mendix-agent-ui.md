@@ -183,6 +183,19 @@ row so it does not stretch with the content below. Detail pages reuse the same s
 a different subtitle — per-page subtitle text, per-page starters from the datasource, one
 snippet.
 
+## Stock popup variant (`layout-chat-popup`)
+
+Many apps use ConversationalUI's stock popup page (layout `layout-chat-popup`) instead of a custom panel. Three traps, reported from a Mendix 11.x field run and read from the module's theme source in two generations (not re-verified here):
+
+1. **The header text is the popup page's Title.** The `<h4>` in `.mx-window-header` renders the Title of the popup page (e.g. `<Module>.ConversationalUI_PopUp`). Change it there, not in the layout or snippet.
+2. **The header title is invisible by default.** `themesource/conversationalui/web/components/_popup-chat.scss` sets the header background *and* the `h4` colour to `var(--chat-header-color)`. Fix it in `theme/web/main.scss` with a token, never a literal or `!important` (`main.scss` compiles last, so the scoped selector wins):
+   ```scss
+   .layout-chat-popup .mx-window-header h4 { color: var(--header-text-color); }
+   ```
+3. **Width is a shared `!default` SCSS variable.** Override it as a declaration in `theme/web/custom-variables.scss` (`$pop-up-chat-width: 40vw;`; also `$pop-up-chat-height` and the offsets) — a rule in `main.scss` does not take. The same variable sets the **sidebar chat** width, so widening one widens both. Module versions that bridge the variables to CSS custom properties also accept `:root { --pop-up-chat-width: 40vw; }`; the `custom-variables.scss` route works on both. Variables-vs-rules is the general rule in `learned-stylegallery.md`.
+
+Recompile the theme (re-run in Studio Pro) before judging either change.
+
 ## Checklist
 
 - [ ] Wireframe exists and the snippet was built against it
@@ -196,4 +209,5 @@ snippet.
 - [ ] The panel's ActionMicroflow is one that reads the ProviderConfig prompt
 - [ ] Proven by a probe that prints the reply text, not a bubble count
 - [ ] `ped_check_errors` → 0 on every patched page, then saved
+- [ ] Popup variant: header colour and width overridden via tokens (title on the popup page)
 - [ ] Each MCP patch recorded as a comment-only `.mdl`, deferrals included

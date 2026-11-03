@@ -119,6 +119,71 @@ esac
 bash "$SUBJECT" "$P" show >/dev/null 2>&1
 [ "$?" -ne 0 ] && ok "an unreadable BRD makes the run non-zero" || bad "exited 0 despite not reading a BRD"
 
+# --- 0 facts is not agreement (#519) -------------------------------------------------------------------
+# The issue's repro: BRDs that carry identifiers only under `name` keys give the harvest nothing.
+# check used to print "2 BRD(s) agree with all 0 frozen fact(s)", which reads as a pass over a
+# comparison that never happened. Exit codes are unchanged; the line must say PENDING, not agree.
+Z="$WORK/zero"; mkdir -p "$Z/analysis/x/knowledge-base/brd"
+echo '{"id":"F001","domainEntities":[{"name":"PaymentPlan"}],"pages":[{"name":"PaymentPlan_Overview"}]}' > "$Z/analysis/x/knowledge-base/brd/F001-a.brd.json"
+echo '{"id":"F002","domainEntities":[{"name":"Paymentplan"}],"pages":[{"name":"PaymentPlan_Overview"}]}' > "$Z/analysis/x/knowledge-base/brd/F002-b.brd.json"
+ZC=$(bash "$SUBJECT" "$Z" check 2>&1)
+case "$ZC" in
+  *"agree with all 0"*) bad "check over 0 harvested facts still reads as agreement"; echo "        $ZC" | head -2 ;;
+  *"PENDING facts-lock: 0 identifiers found under any known key in 2 BRD(s)"*) ok "check over 0 harvested facts says PENDING, not agree" ;;
+  *) bad "check over 0 harvested facts printed neither agree nor PENDING"; echo "        $ZC" | head -2 ;;
+esac
+ZB=$(bash "$SUBJECT" "$Z" build 2>&1)
+case "$ZB" in
+  *"PENDING facts-lock: 0 identifiers found"*) ok "build that freezes 0 facts says the lock is empty" ;;
+  *) bad "build froze 0 facts and did not say the lock is empty"; echo "        $ZB" | head -3 ;;
+esac
+# A lock not yet built over a corpus that does have identifiers: check says build first.
+N="$WORK/notbuilt"; mkdir -p "$N/analysis/x/knowledge-base/brd"
+echo '{"id":"F001","domainEntities":[{"entity":"PaymentPlan"}]}' > "$N/analysis/x/knowledge-base/brd/F001-a.brd.json"
+NC=$(bash "$SUBJECT" "$N" check 2>&1)
+case "$NC" in
+  *"run build first"*) ok "check with no lock built says run build first, not agree" ;;
+  *) bad "check with no lock built did not say run build first"; echo "        $NC" | head -2 ;;
+esac
+
+# --- name-keyed identifiers are read WARN-only (#519) -----------------------------------------------
+# The issue's repro: domainEntities[].name respelled across two BRDs. Named in a WARN line, never
+# frozen, exit code unchanged (0) for build and check.
+NK="$WORK/namekeyed"; mkdir -p "$NK/analysis/x/knowledge-base/brd"
+echo '{"id":"F001","domainEntities":[{"name":"PaymentPlan"}],"pages":[{"name":"PaymentPlan_Overview"}]}' > "$NK/analysis/x/knowledge-base/brd/F001-a.brd.json"
+echo '{"id":"F002","domainEntities":[{"name":"Paymentplan"}],"pages":[{"name":"PaymentPlan_Overview"}]}' > "$NK/analysis/x/knowledge-base/brd/F002-b.brd.json"
+NB=$(bash "$SUBJECT" "$NK" build 2>&1); NBRC=$?
+case "$NB" in
+  *"WARN  name-keyed entities/paymentplan"*"PaymentPlan (F001-a.brd.json)"*"Paymentplan (F002-b.brd.json)"*)
+    ok "a name-keyed respelling is named in a WARN line" ;;
+  *) bad "name-keyed respelling not reported"; echo "        $NB" | head -4 ;;
+esac
+[ "$NBRC" -eq 0 ] && ok "build exit unchanged (0): WARN only" || bad "build exit $NBRC on a name-keyed WARN"
+grep -q '"facts": {}' "$NK/analysis/facts.lock.json" && ok "nothing name-keyed is frozen" || bad "name-keyed spelling was frozen"
+NCK=$(bash "$SUBJECT" "$NK" check 2>&1); NCKRC=$?
+case "$NCK" in *"WARN  name-keyed entities/paymentplan"*) [ "$NCKRC" -eq 0 ] && ok "check names it too, exit 0" || bad "check exit $NCKRC" ;;
+  *) bad "check did not report the name-keyed respelling" ;; esac
+case "$NCK" in *"agree with all"*) bad "check reads as agreement" ;; *) ok "check still does not read as agreement" ;; esac
+
+# --- resolve: an explicit majority step, never silent --------------------------------------------
+R="$WORK/resolve"; mkdir -p "$R/analysis/knowledge-base/brd"
+for i in 1 2; do printf '{ "id":"F00%s","domainEntities":[{"entity":"WIPStatus"},{"entity":"OrderLine"}] }\n' "$i" > "$R/analysis/knowledge-base/brd/F00$i.brd.json"; done
+printf '{ "id":"F003","domainEntities":[{"entity":"WipStatus"},{"entity":"Orderline"}] }\n' > "$R/analysis/knowledge-base/brd/F003.brd.json"
+printf '{ "id":"F004","domainEntities":[{"entity":"Supplier"}] }\n' > "$R/analysis/knowledge-base/brd/F004.brd.json"
+printf '{ "id":"F005","domainEntities":[{"entity":"Orderline"}] }\n' > "$R/analysis/knowledge-base/brd/F005.brd.json"
+OUT=$(bash "$SUBJECT" "$R" build 2>&1); rc=$?
+{ [ "$rc" -ne 0 ] && ! grep -q '"canonical": "WIPStatus"' "$R/analysis/facts.lock.json"; } \
+  && ok "resolve: build alone still picks nothing (exit $rc, no canonical for the casing conflict)" \
+  || bad "resolve: build picked a winner on its own" "$OUT"
+OUT=$(bash "$SUBJECT" "$R" resolve 2>&1); rc=$?
+{ grep -q 'RESOLVED .*WIPStatus.*WIPStatus 2, WipStatus 1' <<<"$OUT" && grep -q '"resolvedBy": "majority: WIPStatus 2, WipStatus 1"' "$R/analysis/facts.lock.json"; } \
+  && ok "resolve: the 2-to-1 spelling is frozen and the count is recorded in the lock" || bad "resolve: majority not frozen/recorded" "$OUT"
+{ [ "$rc" -ne 0 ] && grep -q 'CONFLICT .*rderline' <<<"$OUT"; } \
+  && ok "resolve: a 2-to-2 tie stays contested and resolve exits non-zero" || bad "resolve: tie handled wrong (rc $rc)" "$OUT"
+OUT=$(bash "$SUBJECT" "$R" check 2>&1)
+grep -q "DEVIATION .*F003.*'WipStatus'.*'WIPStatus'" <<<"$OUT" \
+  && ok "resolve: check then names the BRD that uses the minority spelling" || bad "resolve: check did not flag F003" "$OUT"
+
 # --- usage --------------------------------------------------------------------------------------------
 bash "$SUBJECT" 2>/dev/null; [ "$?" -eq 2 ] && ok "no argument exits 2" || bad "no argument did not exit 2"
 bash "$SUBJECT" "$P" nonsense 2>/dev/null; [ "$?" -eq 2 ] && ok "unknown subcommand exits 2" || bad "unknown subcommand accepted"

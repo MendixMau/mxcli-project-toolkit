@@ -46,6 +46,15 @@ This is not defensive decoration. On one measured occasion a published `stack.en
 that belonged to a *different* project's Mendix, which answered 200 with a real login page. Every
 downstream rung then measured a foreign app and reported plausibly. See `measured-claims.md` §3.
 
+Two field traps when several apps share one host, both of which make the harness measure the
+wrong app:
+
+- **Port offsets overlap.** App = base+off and admin = base+10+off, so off=10 lands on another
+  instance's admin port: `INFRA port 8090 in use by ...`. Use offsets that are multiples of 20.
+- **A container named from a label two apps share.** Removing one removed the other mid-run:
+  every role `login INVALID`, `Timeout navigating to login.html`. Use app-specific labels, and
+  check the landing text names the right app (a screenshot run once silently hit the old app).
+
 ---
 
 ## 1. The layers
@@ -285,15 +294,8 @@ engine uniformly testable.
 
 ## 6. Rungs 6 and 7 are a separate instrument, not part of the journey
 
-**The journey ships FIVE rungs and SEVEN mutants** (rungs 3 and 4 each carry two independent
-claims). `design-audit.js` produces artifacts labelled *rung 6* and *rung 7*; those labels refer to
-**that separate instrument**, not to a sixth and seventh rung of the journey.
-
-Do **not** merge them into one 1-7 table. Do **not** cite rung 6 or 7 in a gate, a module brief or
-a report as though they were part of the shipped spec — `journey-proof.md` forbids exactly this,
-and the reason is the discipline the whole harness rests on: they pass their own positive control
-but have not yet gone red on real work a human then agreed was a real defect. Promoting an
-instrument on a green run is the move this harness exists to forbid.
+→ see `journey-proof.md` § "Rungs 6 and 7" (top of the file) — five rungs, seven mutants; `design-audit.js`'s
+*rung 6/7* labels name that separate instrument.
 
 Run them, read them, report what they say. They are not verdicts.
 
@@ -339,7 +341,7 @@ the one place the value is configured.
 |---|---|
 | The model file | the single `*.mpr` in the project root, via `find_mpr()`; zero or many = hard fail, `MPR_FILE` overrides |
 | App port + ownership | `APP_PORT` / `APP_OWNERSHIP` from `.claude/loop/stack.env`, published by `test-stack-up.sh`; refuse `unverified` unless `ALLOW_UNVERIFIED_APP=1` |
-| First-party modules | `SHOW MODULES`, take rows whose **Source column is empty**, then subtract the Mendix-shipped set (System, Administration, Atlas/theme modules, and any marketplace module carrying a source) |
+| First-party modules | `SHOW MODULES`, take rows whose **Source column is empty** or reads only "Protected AddOn/Solution" (mxcli v0.28+: the export level, not an origin), then subtract the Mendix-shipped set (System, Administration, Atlas/theme modules, and any marketplace module carrying a source) |
 | Personas / roles | the navigation profile's roots plus page permissions — the roles that can actually reach a page. Never a role-name list carried from another project |
 | Selectors | `.mx-name-<widgetName>`, where `<widgetName>` comes from `DESCRIBE PAGE` on **this** project's page. Never invented, never carried between projects — a widget name is whatever the page's author typed |
 | Journey preconditions | measured by `fixture-manifest.sh` (0 sufficient · 1 short · 2 could not measure), then the residue interviewed per `fixture-seeding.md` |

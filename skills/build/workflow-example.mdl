@@ -348,7 +348,7 @@ END;
 --    OPEN WORKFLOW $Wf;
 --    OPEN USER TASK $Task;
 --    LOCK WORKFLOW $Wf;   UNLOCK WORKFLOW $Wf;   UNLOCK WORKFLOW ALL;
---    $R     = NOTIFY WORKFLOW $Wf;
+--    $R     = NOTIFY WORKFLOW $Wf TARGET Mod.Wf.waitDone;   -- v0.26.0: TARGET required (CE0166)
 --    $Wfs   = GET WORKFLOWS FOR $Ctx;
 --    $D     = GET WORKFLOW DATA $Wf AS Mod."Entity";
 --    $Recs  = GET WORKFLOW ACTIVITY RECORDS $Wf;
@@ -432,10 +432,12 @@ END;
 --         };
 
 --  4. WAIT FOR TIMER / WAIT FOR NOTIFICATION.
---     WAIT FOR NOTIFICATION takes NO name -- the name is a Studio Pro property.
+--     v0.26.0: WAIT FOR NOTIFICATION takes a name (the bare form still parses);
+--     a NOTIFY WORKFLOW needs TARGET Module.Workflow.<name>. On v0.20.0 the name
+--     was a parse error.
 --
 --       WAIT FOR TIMER 'addDays([%CurrentDateTime%], 1)';
---       WAIT FOR NOTIFICATION;
+--       WAIT FOR NOTIFICATION waitDone;
 
 --  5. TARGETING XPATH, token form -- now proven alongside the three-segment
 --     path form. Double the inner quotes.

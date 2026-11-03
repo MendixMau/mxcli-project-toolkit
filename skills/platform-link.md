@@ -86,11 +86,16 @@ per deploy.
 > On the field run, `POST .../runs` with a deliberately-zeros UUID returned **`404`, not `401`** —
 > which is how we learned the PAT authenticated fine and only the pipeline was missing.
 
-### 3. A first cloud environment cannot be created from any API
+### 3. A first cloud environment: Deploy API **v1**, not v4
 
 An app created through the Projects API has a repository and **no deployment target**.
-`GET /api/v4/apps/<id>/environments` returns `404 Application not found` until someone deploys once
-from the Developer Portal. `POST /api/v4/apps` → `405`. Plan for one human action here.
+`GET /api/v4/apps/<id>/environments` returns `404 Application not found`, and `POST /api/v4/apps`
+→ `405`. The v1 Deploy API does create one: with a PAT, `POST /api/1/apps` with body
+`{"ProjectId": "<project id>"}` created the **Free App sandbox** (environment listed, URL assigned;
+mxcli v0.26.0, Mendix 11.12.5). This is the "Create Free App environment" call quoted under
+[Free App](#on-a-free-app--none-of-it-is-automatable-and-the-limits-go-further-than-deploy).
+Deploying to it stays manual: `POST /api/1/apps/<app>/packages` returned `500 BUILD_FAILED` for every
+revision on a Free App, so publish from Studio Pro.
 
 ### 4. Chromium cannot reach external hosts through an agent proxy
 
@@ -193,11 +198,41 @@ ref — which on a fresh app is the template's. On the field run an 11.13.0 mode
 note and 11.13 refused it, insisting the project was "on 11.14", because 11.14.0 was what the
 template's note said.
 
+The same note is also where Studio Pro's **History → Model changes** pane gets its list of changed
+documents: a `ModelChanges` array, one entry per changed document
+(`{"Status":"Added|Modified|Deleted","UnitID":…,"UnitType":"Forms$Page","UnitName":…,"Module":…}`).
+Studio Pro fills it when it commits; a note hand-written with `"ModelChanges":[]` shows
+**Model changes 0** for every CLI commit. That was this skill's own template until 2026-10-12. The
+field project then had 270 of 270 notes empty, and the "which microflow, which page" history was
+gone. Do not hand-write the note. `bin/install-project-hooks.sh` installs post-commit and post-rewrite
+hooks that write the note after every commit, amend and rebase. With mxcli v0.26 or later in the
+project root they call `./mxcli git note -p App.mpr --write <commit>` (mendixlabs/mxcli#1337, the
+better engine: it also notes the root commit and `Moved` units). An older pin falls back to
+`bin/mx-metadata-note.py write <commit>`; on 160 field commits both produced the same 3,594 entries.
+The fallback keeps every key an existing note has, reads `ModelerVersion` from the commit's own `.mpr`,
+and computes `ModelChanges` from the commit's changed `.mxunit` files. A note that already lists
+changes (Studio Pro's) is left alone unless you pass `--force`.
+
+`git push` never carries the notes; the toolkit leaves push config alone. **After you push your
+branch, publish the notes with `sync`.** It fetches, merges (a colleague's non-empty note wins) and
+pushes, with no force. A Studio Pro push does not carry CLI notes either, until someone runs sync. Never
+`git notes remove` a note by hand: sync merges the removal and pushes it, so the note is gone
+for everyone. To correct a note, rewrite it with `write <commit> --force`; to drop one, ask the team
+first.
+
 ```bash
-git notes --ref=mx_metadata add -f -m \
-  '{"BranchName":"main","ModelerVersion":"11.13.0","ModelChanges":[],"RelatedStories":[],"isWebModelerCommit":false}' HEAD
-git push teamserver refs/notes/mx_metadata:refs/notes/mx_metadata   # notes are NOT pushed by default
+./bin/install-project-hooks.sh                 # once; init-project.sh / sync-project.sh run it too
+PY="$(PROJECT_ROOT=. bash -c '. bin/_common.sh >/dev/null 2>&1 && resolve_py')"   # never the shebang (Windows)
+"$PY" bin/mx-metadata-note.py backfill --dry-run   # history from before the hook: what it would write
+"$PY" bin/mx-metadata-note.py backfill             # fill it; skips notes that already list changes
+                                               # mxcli v0.26+: ./mxcli git note -p App.mpr --write <commits>
+git push teamserver                            # the branch, exactly as before
+"$PY" bin/mx-metadata-note.py sync teamserver  # then publish the History notes
 ```
+
+Field proof (2026-10-12, Mendix 11.15.0): 158 notes backfilled and pushed on a 357-commit app, and
+Studio Pro History lists the documents per revision. Against Studio Pro's own notes on 51 Studio Pro
+commits in 5 apps, 3387 of 3389 entries reproduce exactly.
 
 Read the version out of the model rather than trusting the dialog that just lied to you:
 
@@ -206,7 +241,7 @@ python3 -c "import sqlite3;print(list(sqlite3.connect('App.mpr').execute('select
 # (2, '11.13.0', '11.13.0', '{SHA256}...')   -> storage format 2, ModelerVersion 11.13.0
 ```
 
-**The check:** before any push, assert (a) and (b) from the tree and write (c) from the `.mpr`.
+**The check:** before any push, assert (a) and (b) from the tree; (c) is the hook's job — `./bin/install-project-hooks.sh --check` says whether it is installed.
 
 ```bash
 [ -f App.mpr ] || exit 1
@@ -386,7 +421,7 @@ whether any of this is automatable at all.
 
 ### On a licensed app
 
-First time: a human, in the portal (see trap 3). After that: create a pipeline once in the portal,
+First time: a human, in the portal (trap 3's v1 call creates only a Free App sandbox). After that: create a pipeline once in the portal,
 then `POST /apps/{appId}/runs` with its `pipelineId` on every change.
 
 ### On a Free App — none of it is automatable, and the limits go further than deploy
@@ -460,7 +495,7 @@ Each has a read-only form; run that first and read it before anything writes.
 |---|---|---|
 | After every mxcli upgrade, and before any merge or Studio Pro pull of CLI-written history | `bin/doctor.sh --property-sets <project>` — wraps `mxcli fix property-sets -p <app>.mpr --dry-run` (v0.26.0+) | `bin/doctor.sh --fix-property-sets <project>` — runs `mxcli fix property-sets` through `exec.sh --patch` (snapshot, mxbuild gate, restore) |
 | After a `git checkout`, `git restore` or merge touched `mprcontents/` | `./mxcli fix hashes -p <app>.mpr` (v0.25.0+; exits 1 on any mismatch) | `./mxcli fix hashes -p <app>.mpr --repair` — rewrites the `.mpr` hash index from the files, never the files |
-| After committing model changes with git | `./mxcli git note -p <app>.mpr` (v0.26.0+) prints the `mx_metadata` note per unpushed commit | `--write` attaches it; push `refs/notes/mx_metadata` with the branch (trap 6c) |
+| After committing model changes with git | `./mxcli git note -p <app>.mpr` (v0.26.0+) prints the `mx_metadata` note per unpushed commit | `--write` attaches it; after the branch push, publish it with `mx-metadata-note.py sync <remote>` (trap 6c) |
 
 **Property sets, the one no gate sees.** mxcli up to v0.25 wrote units without part of the
 property set Studio Pro writes for the project's Mendix version. `mx check`, the build and the
@@ -468,7 +503,11 @@ runtime all pass. Studio Pro's merge and diff then throw — *"Objects with ID �
 same properties"* — once Studio Pro has saved such a document, and the Version Control panel
 fails. Field case: 78 changed units written with v0.24 on a production app, with no gate able to
 see them. mxcli v0.26.0 completes the set on every unit it writes, but only on units it rewrites,
-so a project upgraded mid-flight still carries the old ones until the repair runs.
+so a project upgraded mid-flight still carries the old ones until the repair runs. **Not on
+Mendix 10.24 below 10.24.24, through mxcli v0.28.0:** (v0.29.0 measured the table from 10.24.0, ako/mxcli#1505, and lists `MIXED` names, exiting 1.) its property table starts at 10.24.24, so on
+10.24.18 a unit it writes can still lack keys, and `fix property-sets --dry-run` (hence
+`doctor --property-sets`) calls every unit complete (mendixlabs/mxcli#1595). There, the proof is
+Mendix's own `mx diff <base>.mpr <mine>.mpr out.json` against the base branch: exit 0 is clean.
 `sync-project.sh` runs the read-only check after every toolkit pull until it comes back clean
 for the installed mxcli. After that it runs again only when mxcli changes. Errors and timeouts
 are never recorded, so the next run re-checks. `doctor --quick`, which exec.sh runs when the mxcli

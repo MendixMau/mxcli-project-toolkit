@@ -106,9 +106,11 @@ unprompted. "Nothing further" is a valid answer — but it has to be the user's,
 
 ## 9. Interview mode: attended (default) or unattended?
 
-_Not yet asked._ How to verify: ask the user; default is attended. Attended = every gate
-question is asked in chat and the agent waits for the answer. Unattended (opt-in only, explicit
-request required) = recommended options are applied as ASSUMED and logged for reconciliation.
+_Not yet asked._ How to verify: ask the user; default is `steering`. Record it as
+`Interview mode:` in PROJECT.md: `steering` = every gate question is asked in chat and the agent
+waits; `assist` = questions batched at gates, low-consequence ones assumed and reported; `auto`
+(opt-in only, explicit request required) = nothing blocks, positions recorded as ASSUMED for
+reconciliation. `attended` / `unattended` are accepted aliases for `steering` / `auto`.
 
 ## 10. Is any of this already done outside the toolkit — and where does the pipeline pick up?
 

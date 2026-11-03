@@ -81,6 +81,9 @@ echo "== T5: headline section cites a shot older than ITS stamp -> FAULT (contro
 printf '<p>ModuleX: 2 of 2 pages reviewed</p>\nVALID AT: %s\n<pre>PROOF-OF-LOOK: ModuleX.Home = shots/before.png</pre>\n<h2>Addendum</h2>\nVALID AT: %s\n<pre>PROOF-OF-LOOK: ModuleX.Edit = shots/after.png</pre>\n' "$S1" "$S2" > "$QREP"
 out="$("$OBCHECK" "$Q" 2>&1 | grep -A3 'Obligation look ')"
 case "$out" in *FAULT*ModuleX.Home*) ok "a shot older than its own section's stamp still FAULTs" ;; *) bad "stale shot in section 1 not caught: $out" ;; esac
+# #357: the FAULT names its remedy (append an addendum), or a partial re-take reads as
+# "re-shoot every page" or "accept the FAULT".
+case "$out" in *"keep the old section and its original stamp (restore it if bumped)"*"VALID AT: <model commit the shots were taken on>"*"PROOF-OF-LOOK for the re-shot pages"*) ok "the old-shots FAULT names the addendum remedy" ;; *) bad "old-shots FAULT gives no remedy: $out" ;; esac
 
 echo "== T6: addendum cites a shot older than the addendum's stamp -> FAULT (not judged by the min stamp) =="
 printf '<p>ModuleX: 2 of 2 pages reviewed</p>\nVALID AT: %s\n<pre>PROOF-OF-LOOK: ModuleX.Home = shots/mid.png</pre>\n<h2>Addendum</h2>\nVALID AT: %s\n<pre>PROOF-OF-LOOK: ModuleX.Edit = shots/mid.png</pre>\n' "$S1" "$S2" > "$QREP"
@@ -98,6 +101,20 @@ printf '<p>ModuleX: 1 of 1 pages reviewed</p>\nVALID AT: %s\n<h2>Original</h2>\n
   > "$Q/design/ui-reviews/ui-review-2026-01-01.html"
 n="$("$OBCHECK" "$Q" 2>&1 | grep -c 'STALE')"
 [ "$n" -eq 0 ] && ok "newest stamp chosen by commit time" || bad "last-in-file stamp was used (STALE)"
+
+echo "== T9: addendum stamped with a LATER commit that only adds the shots -> FAULT stays (#357 review) =="
+# The trap the FAULT's remedy must not set: stamp the commit that adds the screenshots and the
+# shots predate their own stamp. The remedy says "the model commit the shots were taken on".
+rm -f "$Q/design/ui-reviews/ui-review-2026-01-01.html"   # T8's pre-rule report would be judged instead
+mkdir -p "$Q/docs"; echo shots > "$Q/docs/shots-added.txt"; git -C "$Q" add docs/shots-added.txt
+GIT_AUTHOR_DATE="2026-05-01T00:00:00Z" GIT_COMMITTER_DATE="2026-05-01T00:00:00Z" git -C "$Q" commit -qm "add shots"
+S3="$(git -C "$Q" rev-parse --short HEAD)"
+printf '<p>ModuleX: 2 of 2 pages reviewed</p>\nVALID AT: %s\n<pre>PROOF-OF-LOOK: ModuleX.Home = shots/mid.png</pre>\n<h2>Addendum</h2>\nVALID AT: %s\n<pre>PROOF-OF-LOOK: ModuleX.Edit = shots/after.png</pre>\n' "$S1" "$S3" > "$QREP"
+out="$("$OBCHECK" "$Q" 2>&1 | grep -A3 'Obligation look ')"
+case "$out" in *FAULT*ModuleX.Edit*) ok "stamping the shots-adding commit still FAULTs" ;; *) bad "addendum stamped after its shots was accepted: $out" ;; esac
+printf '<p>ModuleX: 2 of 2 pages reviewed</p>\nVALID AT: %s\n<pre>PROOF-OF-LOOK: ModuleX.Home = shots/mid.png</pre>\n<h2>Addendum</h2>\nVALID AT: %s\n<pre>PROOF-OF-LOOK: ModuleX.Edit = shots/after.png</pre>\n' "$S1" "$S2" > "$QREP"
+out="$(look)"
+case "$out" in *"look       PASS"*) ok "the same addendum stamped with the model commit PASSes" ;; *) bad "model-commit stamp not PASS after a shots-only commit: $out" ;; esac
 
 echo "pass=$PASS fail=$FAIL"
 [ "$FAIL" -eq 0 ]

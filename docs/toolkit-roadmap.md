@@ -321,8 +321,10 @@ Ideas with a reason and no design. Listed so they are not rediscovered.
   forbidden by the coverage skill, and generating a picture of a screen that already exists is
   exactly that. Wireframe what has no implementation yet, never draw one backwards from running
   code.
-- A load testing capability. Measured as theatre without production data volumes, and the static
-  index audit answers the same question more honestly and in about a minute.
+- A shipped load testing instrument. The method is now a skill (`skills/load-test.md`, added
+  2026-10-16 from a field implementation); a generic `project-tests/e2e/loadtest.js` waits until
+  a second project runs the recipe. The theatre objection stands for empty databases, which is
+  why the skill makes the report state the data volume.
 - A randomised browser walker. The client has documented traps that make an untuned walker thrash
   rather than explore. The model level equivalent above is the version worth building.
 - Anything requiring a graph database or a vector store. The activity level schema is a good idea

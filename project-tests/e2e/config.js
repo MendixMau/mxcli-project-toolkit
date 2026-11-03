@@ -206,6 +206,9 @@ const cfg = {
   // this app has no nav tree, so '.mx-navigationtree, .mx-page' alone is not
   // enough to prove it routed).
   readySelectors: PROJ.readySelectors || ['.mx-navigationtree', '.mx-page'],
+  // Extra sign-out captions for monkey.js, ADDED to its multilingual default (#469): a RegExp
+  // or regex string from project.config.js `signOutPattern`, or SIGN_OUT_PATTERN in the env.
+  signOutPattern: process.env.SIGN_OUT_PATTERN || PROJ.signOutPattern || null,
   // This project runs natively under Studio Pro (no Docker), so `mxcli oql -p`
   // alone would try to route through `docker compose exec` and fail. --direct
   // connects straight to the M2EE admin API on the host instead.

@@ -247,6 +247,55 @@ hasnt "no layout hint when no missed class looks like chrome" "$OUT19" "is not i
 hasnt "no layout hint for page classes (seg-tabs, dg-*)"     "$OUT6"  "is not in the input"
 has   "the hint names the layout when region-* is missed"   "$OUT16" "layout LayoutTest.App_Default is not in the input"
 
+echo "  -- a popup wireframe scores the dialog, not the caller's page behind it (#471)"
+# fixtures/page-fidelity-popup/CAPTURE.md: the MDL is a verbatim mxcli v0.23.0 describe of a
+# popup page; the wireframe draws it in the issue's shape, .popup-stage > .shell-behind +
+# .dialog-scrim > .dialog, with the caller's overview (div.main, h1, card) behind the scrim.
+PF="$TOOLKIT/tests/wave2/fixtures/page-fidelity-popup"
+OUT20=$(cd "$TMP" && node "$SUT" --no-log "$PF/product-newedit-popup.html" Product_NewEdit "$PF/product-newedit-describe-v023.mdl" 2>&1)
+echo "$OUT20" | sed 's/^/    | /'
+hasnt "the caller's h1 behind the scrim is not scored"      "$OUT20" "heading: Product catalog"
+hasnt "the caller's card behind the scrim is not scored"    "$OUT20" "heading: Active items"
+hasnt "the caller's button is not an owed action"           "$OUT20" "action:  New item"
+has   "the dialog's fields and buttons all match"           "$OUT20" "text-match 100%"
+sed 's/class="dialog" /class="sheet" /' "$PF/product-newedit-popup.html" > "$TMP/stage-only.html"
+OUT21=$(cd "$TMP" && node "$SUT" --no-log "$TMP/stage-only.html" Product_NewEdit "$PF/product-newedit-describe-v023.mdl" 2>&1)
+hasnt "a .popup-stage with no .dialog still drops the shell" "$OUT21" "heading: Product catalog"
+has   "...and still scores what is in front of it"           "$OUT21" "headings 1/1"
+sed 's/class="dialog" /class="panel" /; s/class="popup-stage"/class="stage"/' "$PF/product-newedit-popup.html" > "$TMP/no-popup.html"
+OUT22=$(cd "$TMP" && node "$SUT" --no-log "$TMP/no-popup.html" Product_NewEdit "$PF/product-newedit-describe-v023.mdl" 2>&1)
+has   "popup evidence but no .dialog and no stage: the old div.main boundary, as before" "$OUT22" "heading: Product catalog"
+# Popup evidence from the page alone: no stage, no scrim, but the MDL names Atlas_Core.PopupLayout.
+sed 's/class="popup-stage"/class="stage"/; s/class="dialog-scrim"/class="scrim"/' "$PF/product-newedit-popup.html" > "$TMP/layout-only.html"
+OUT23=$(cd "$TMP" && node "$SUT" --no-log "$TMP/layout-only.html" Product_NewEdit "$PF/product-newedit-describe-v023.mdl" 2>&1)
+hasnt "a popup layout in the MDL is evidence enough: the shell is not scored" "$OUT23" "heading: Product catalog"
+has   "...and the dialog is"                                                    "$OUT23" "text-match 100%"
+echo "  -- a full-page wireframe with an inline .dialog scores as before (review of #482)"
+# .dialog is the design system's component; a full page may draw an open confirm with it. On
+# master this wireframe scored 39% (the confirm counted as page content); the first cut of #471
+# scored the confirm alone, 5%. No stage, no scrim, a full-page layout: no popup evidence.
+sed 's#<div class="wf-screen">#&<div class="dialog" role="dialog"><div class="dialog-head"><h2>Delete project?</h2></div><p>This cannot be undone.</p><div class="dialog-foot"><button class="btn">Cancel</button><button class="btn btn-danger">Delete</button></div></div>#' \
+  "$FIX/grouped-overview.html" > "$TMP/inline-dialog.html"
+grep -q 'Delete project' "$TMP/inline-dialog.html" || bad "inline-dialog setup: the sed did not insert the confirm" ""
+OUT24=$(cd "$TMP" && node "$SUT" --no-log "$TMP/inline-dialog.html" Demo_Overview "$FIX/demo-overview.mdl" 2>&1)
+echo "$OUT24" | sed 's/^/    | /'
+has   "an inline confirm does not become the boundary: the master score, unchanged" "$OUT24" "text-match 39%   headings 1/2  actions 1/3  content 1/2  classes 1/5"
+
+echo "  -- a grid mimic's widget-datagrid-content is not the page's .content block (#537)"
+# The issue's four-line wireframe: no <main>, no wf-screen/shell, no .main, no .content. On master
+# `\bcontent\b` matched `widget-datagrid-content`, the scorer read only the grid, and the h1 and
+# button outside it were never counted: UNMEASURED, headings 0/0, actions 0/0.
+printf '<html><body>\n  <h1>Orders</h1>\n  <button>New order</button>\n  <div class="widget-datagrid-content"><table><tr><td>No rows</td></tr></table></div>\n</body></html>\n' > "$TMP/grid-mimic.html"
+OUT25=$(cd "$TMP" && node "$SUT" --no-log "$TMP/grid-mimic.html" Demo_List "$FIX/demo-list.mdl" 2>&1)
+echo "$OUT25" | sed 's/^/    | /'
+has   "the heading outside the grid is counted"         "$OUT25" "headings 0/1"
+has   "the button outside the grid is counted"          "$OUT25" "actions 0/1"
+hasnt "the page is not reduced to the grid"             "$OUT25" "UNMEASURED"
+printf '<html><body><h1>Shell title</h1><div class="x content"><h1>Orders</h1><button>New order</button></div></body></html>\n' > "$TMP/content-word.html"
+OUT26=$(cd "$TMP" && node "$SUT" --no-log "$TMP/content-word.html" Demo_List "$FIX/demo-list.mdl" 2>&1)
+has   "a real .content class word is still the boundary" "$OUT26" "headings 0/1"
+hasnt "...and the shell outside it is not scored"       "$OUT26" "heading: Shell title"
+
 echo
 printf 'test-page-fidelity-mocks: %d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

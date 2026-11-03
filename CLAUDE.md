@@ -28,11 +28,11 @@ Every stage and module build follows the **Live Checklist Protocol** (`skills/co
 ## One decision register
 All gate decisions land in the consuming project's `PROJECT.md`, marked `CONFIRMED` or `ASSUMED`. The `skills/checkpoints/` CAC files are the packaged mechanism that runs the runbook's interview protocol at the six busiest transitions — they write to `PROJECT.md`, never to a separate state file.
 
-**Ask, then stop.** Gate questions are actually asked in chat — on Claude Code via `AskUserQuestion` (clickable options), on any other harness as plain numbered markdown with "something else" always available — and **either way the agent ends its turn and waits for the answer**. `AskUserQuestion` is a Claude Code built-in, not something a Copilot/Cursor/Windsurf session can install; the rendering is tool-specific, the asking and the stopping are not. `skills/interview-protocol.md` §3 → "Asking on a non-Claude agent" is the single source of that rule; every other mention defers there. `ASSUMED` is earned by asking (user said "you decide"), never by skipping the question — finding the answer in the source justifies the *recommendation*, not silence. Unattended runs are opt-in only (`Interview mode: unattended` in `PROJECT.md`, at the user's explicit request).
+**Ask, then stop.** Gate questions are actually asked in chat — on Claude Code via `AskUserQuestion` (clickable options), on any other harness as plain numbered markdown with "something else" always available — and **either way the agent ends its turn and waits for the answer**. `AskUserQuestion` is a Claude Code built-in, not something a Copilot/Cursor/Windsurf session can install; the rendering is tool-specific, the asking and the stopping are not. `skills/interview-protocol.md` §3 → "Asking on a non-Claude agent" is the single source of that rule; every other mention defers there. `ASSUMED` is earned by asking (user said "you decide"), never by skipping the question — finding the answer in the source justifies the *recommendation*, not silence. Unattended runs are opt-in only (`Interview mode: auto` in `PROJECT.md`, alias `unattended`, at the user's explicit request; modes in `skills/interview-protocol.md`).
 
 ## Key skills and when to load them
 
-Load skill files **on demand when the task calls for it** — not all upfront. Full routing table: `README.md` → "When to use which skill". The always-on set (`README.md` → "Baseline routing"): `query-the-model.md`, `learned-mdl-preflight.md`, `learned-microflow-patterns.md`, and `bin/bug-lookup.sh` (a CE code, BUG-n or keyword → the matching ledger entries; `bug-logs/mxcli-bugs.md` itself is read on demand — it outgrew the always-on budget).
+Load skill files **on demand when the task calls for it** — not all upfront. Full routing table: `README.md` → "When to use which skill". The always-on set (`README.md` → "Baseline routing"): `query-the-model.md`, `learned-mdl-preflight.md` (the mdl helper instead runs `bin/mdl-rules.sh` for the statement kinds it writes; `learned-microflow-patterns.md` is on demand), and `bin/bug-lookup.sh` (a CE code, BUG-n, keyword or the whole pasted error message → the matching ledger entries; `bug-logs/mxcli-bugs.md` itself is read on demand — it outgrew the always-on budget).
 
 | Task | Read this file |
 |------|---------------|
@@ -67,6 +67,7 @@ Migration assessment (`assess-migration`) is **bundled with mxcli** (`.ai-contex
 | OutSystems | `pipelines/outsystems/` | `cd pipelines/outsystems/pipeline && npm install` — see its `README.md` / `pipeline-guide.html` |
 | Java + Angular / Spring Boot | `pipelines/java-angular/` | `cd pipelines/java-angular/pipeline && npm install` — see its `README.md` |
 | Node/Express + React | `pipelines/node-express-react/` — **regex-based, proven on one source shape only; read its README's "Known gap" sections first** | `cd pipelines/node-express-react/pipeline && npm install` |
+| Mendix (an existing `.mpr`, rehost or move a module) | `pipelines/mendix-mpr/` — **build-green on a small app only; read its README's "Field runs" first** | `MXCLI=/path/to/mxcli pipelines/mendix-mpr/rehost-extract.sh <source.mpr> <target.mpr> <out-dir>` — Python 3 stdlib, no `npm install`; see its `README.md` |
 
 `node_modules/` is gitignored — `npm install` locally per pipeline. Set local paths in `pipelines/<x>/pipeline/config.json`; **never commit real local paths**. Curated sample outputs live under each pipeline.
 
@@ -285,6 +286,8 @@ Create `skills/{topic}.md` with `# Title`, `**Applies to:** migration | any mxcl
    produce (rule 1 makes the row a trigger condition; this rule is the check that the trigger
    works). The coverage audit in `render-routing.sh --check` catches the unrouted case
    mechanically; wrong-trigger routing it cannot see.
+   `tests/advisory/authoring-audit.py routing` is that check (BM25 over trigger text vs the
+   labelled `routing-phrasings.tsv`); its `dupes` lists rules stated twice. Advisory, never a gate.
 
 (Rules 6–8 adapted 2026-08-31 from public skill-authoring guidance in obra/superpowers
 `writing-skills` and Matt Pocock's `writing-for-agents` — patterns only. Their fourth

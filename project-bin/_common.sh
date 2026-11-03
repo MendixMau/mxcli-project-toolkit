@@ -16,7 +16,8 @@
 #   1. $PROJECT_ROOT, if the caller set it — always wins.
 #   2. The sourcing script's location (bin/ -> ..), when that parent IS a project.
 #      This is the installed-copy case: <project>/bin/verify-module.sh.
-#   3. The current directory's project root, found by walking up for an .mpr.
+#   3. The current directory's project root, found by walking up for an .mpr (at the root,
+#      under app/, or under apps/<X>/) and never past the first project folder (#420).
 #
 # Tier 3 is why this is not a one-liner any more. The toolkit's own copy of these
 # scripts used to resolve tier 2 to the TOOLKIT, so running
@@ -26,28 +27,102 @@
 # obvious thing, that it was aimed at the wrong directory. Copying the script into
 # every project was the workaround. Tier 3 removes the need for it: the shared
 # toolkit copy now works from inside any wired project, no env var, no install.
+#
+# Where a model may sit under a project root — the three layouts, probed one level each, the
+# same probe find_mpr makes: <root>/*.mpr (single tree), <root>/app/*.mpr (two-tree), and
+# <root>/apps/<X>/*.mpr (multi-app folder, one app per subfolder).
+_mxtk_has_model() {
+  ls "$1"/*.mpr >/dev/null 2>&1 || ls "$1"/app/*.mpr >/dev/null 2>&1 || ls "$1"/apps/*/*.mpr >/dev/null 2>&1
+}
+# A folder that is a project whether or not a model was found in it: it holds an installed
+# bin/_common.sh (init-project.sh installs one into every project), or a .claude/ beside a
+# PROJECT.md (the wired-project pair init-project.sh writes). A bare .claude/ is NOT enough:
+# Claude Code creates one in whatever folder it runs in (a stray /tmp/.claude stopped the walk
+# in testing), and $HOME's is the user config. The toolkit's own copy lives in project-bin/
+# and the toolkit has no PROJECT.md, so the toolkit is not a project folder.
+_mxtk_is_project_dir() {
+  [ -f "$1/bin/_common.sh" ] && return 0
+  [ -d "$1/.claude" ] && [ -f "$1/PROJECT.md" ] && [ "$1" != "${HOME:-/nonexistent}" ]
+}
+# mxtk_walk_root <dir> — walk up from <dir>; print the first folder that holds a model (any of
+# the three layouts) or is a project folder, whichever comes first. rc 1 when neither is found
+# below /. The marker stop is what keeps the walk inside the project (#420): a multi-app folder
+# (apps/<X>/X.mpr) failed the root/app probe, the walk climbed on, and the first ancestor with
+# ANY .mpr became PROJECT_ROOT, so look-ledger rows landed in another folder's ledger.
+# A stop at an app folder (<p>/app or <p>/apps/<X>, any letter case) whose project folder <p>
+# is marked returns <p> (#489): the installed copy (tier 2) already resolves <p> from there, and
+# two answers for one cwd split the ledgers. An unmarked app folder is still returned as itself,
+# and so is an app folder that is a project folder of its own (its own install, or .claude/
+# beside PROJECT.md): a project nested at apps/<X>/ or app/ keeps its own root.
+mxtk_walk_root() {
+  local d="$1" p
+  while [ -n "$d" ] && [ "$d" != "/" ]; do
+    if _mxtk_has_model "$d" || _mxtk_is_project_dir "$d"; then
+      if ! _mxtk_is_project_dir "$d"; then
+        p="${d%/*}"
+        case "$d" in
+          */[Aa][Pp][Pp])  [ -n "$p" ] && _mxtk_is_project_dir "$p" && d="$p" ;;
+          */[Aa][Pp][Pp][Ss]/*)
+            case "$p" in */[Aa][Pp][Pp][Ss]) p="${p%/*}"; [ -n "$p" ] && _mxtk_is_project_dir "$p" && d="$p" ;; esac ;;
+        esac
+      fi
+      printf '%s\n' "$d"; return 0
+    fi
+    p="${d%/*}"; [ "$p" != "$d" ] || break   # dirname without a process
+    d="$p"
+  done
+  return 1
+}
 _mxtk_resolve_root() {
-  local self_parent d
-  self_parent=$(cd "$(dirname "${BASH_SOURCE[2]:-${BASH_SOURCE[1]:-${BASH_SOURCE[0]}}}")/.." 2>/dev/null && pwd)
-  # tier 2: the script sits in a real project's bin/ (model at the root, or under app/ on a
-  # two-tree checkout — the same one-level probe find_mpr makes)
-  if [ -n "$self_parent" ] && { ls "$self_parent"/*.mpr >/dev/null 2>&1 || ls "$self_parent"/app/*.mpr >/dev/null 2>&1; }; then
+  local self_parent _src _sd
+  _src="${BASH_SOURCE[2]:-${BASH_SOURCE[1]:-${BASH_SOURCE[0]}}}"
+  _sd="${_src%/*}"; [ "$_sd" != "$_src" ] || _sd=.
+  self_parent=$(cd "$_sd/.." 2>/dev/null && pwd)
+  # tier 2: the script sits in a real project's bin/ (a model in any of the three layouts)
+  if [ -n "$self_parent" ] && _mxtk_has_model "$self_parent"; then
     printf '%s\n' "$self_parent"; return 0
   fi
-  # tier 3: walk up from $PWD looking for the .mpr (root or app/).
+  # tier 3: walk up from $PWD (mxtk_walk_root).
   # WHY app/ (2026-09-26, card-disbursement requirements-driven build): on a two-tree checkout
   # with no root .mpr, tiers 2 and 3 used to find nothing AT the project and kept climbing — and
   # the first stray .mpr in any ancestor directory became PROJECT_ROOT. A scratch copy under a
   # folder holding one unrelated .mpr pointed model-stamp.sh at that file and its hook passed.
-  d=$(pwd)
-  while [ "$d" != "/" ]; do
-    if ls "$d"/*.mpr >/dev/null 2>&1 || ls "$d"/app/*.mpr >/dev/null 2>&1; then printf '%s\n' "$d"; return 0; fi
-    d=$(dirname "$d")
-  done
+  # WHY apps/*/ and the project-folder stop (#420): the same climb, for a multi-app folder.
+  mxtk_walk_root "$(pwd)" && return 0
   # nothing found: keep the old behaviour so the caller's own error is the one seen
   printf '%s\n' "${self_parent:-$(pwd)}"
 }
 PROJECT_ROOT="${PROJECT_ROOT:-$(_mxtk_resolve_root)}"
+# Multi-app folder, MPR_FILE unset, the session inside one app's folder: pick that app HERE,
+# at source time, and export it (#489 review). Since #489 the root from apps/<X>/ is the
+# project, and a pick made later inside find_mpr did not survive exec.sh's cd "$PROJECT_ROOT"
+# or reach its children (snapshot-mpr.sh refused and set -e aborted the run mid-way). Only
+# when the root holds no *.mpr and no app/*.mpr, and exactly one apps/<X>/*.mpr sits in a
+# folder holding $PWD. Globs and builtins only. Outside any one app nothing is picked, so
+# find_mpr still refuses and names MPR_FILE.
+# An auto-pick is marked MXTK_MPR_PICKED (both exported). A child that inherits it while its own
+# cwd sits inside a DIFFERENT apps/<X>/ re-derives; at the project root it keeps the pick (that
+# is exec.sh's cd, the case this exists for). A pick inherited from ANOTHER project is dropped.
+# A MPR_FILE the user set is never touched.
+if [ -n "${MXTK_MPR_PICKED:-}" ] && [ "${MPR_FILE:-}" = "$MXTK_MPR_PICKED" ]; then
+  case "$MPR_FILE" in "$PROJECT_ROOT"/*) ;; *) unset MPR_FILE MXTK_MPR_PICKED ;; esac
+  case "$PWD/" in
+    "${MPR_FILE%/*}"/*) ;;
+    "$PROJECT_ROOT"/apps/?*/*) unset MPR_FILE MXTK_MPR_PICKED ;;
+  esac
+fi
+if [ -z "${MPR_FILE:-}" ] && [ -d "$PROJECT_ROOT/apps" ]; then
+  _mxtk_n=0; _mxtk_pick=""
+  for _mxtk_f in "$PROJECT_ROOT"/*.mpr "$PROJECT_ROOT"/app/*.mpr; do [ -e "$_mxtk_f" ] && _mxtk_n=2; done
+  if [ "$_mxtk_n" -eq 0 ]; then
+    for _mxtk_f in "$PROJECT_ROOT"/apps/*/*.mpr; do
+      [ -e "$_mxtk_f" ] || continue
+      case "$PWD/" in "${_mxtk_f%/*}"/*) _mxtk_n=$((_mxtk_n + 1)); _mxtk_pick="$_mxtk_f" ;; esac
+    done
+  fi
+  if [ "$_mxtk_n" -eq 1 ]; then MPR_FILE="$_mxtk_pick"; MXTK_MPR_PICKED="$_mxtk_pick"; export MPR_FILE MXTK_MPR_PICKED; fi
+  unset _mxtk_n _mxtk_pick _mxtk_f
+fi
 
 # mxtk_posix_path — a Windows-form path (C:\Program Files\Mendix) as Git Bash addresses it
 # (/c/Program Files/Mendix). Anything already POSIX passes through untouched. Used for every
@@ -108,13 +183,26 @@ mxtk_load_env
 # Refuses to guess between two .mpr files: picking the wrong one means writing
 # to, or restoring over, the wrong model. $MPR_FILE overrides.
 # ---------------------------------------------------------------------------
+# True when exec.sh's exported model path (MXTK_MPR_MEMO) was resolved for THIS project root and
+# MPR_FILE and still exists: a single model was found there, so the layout probes can be skipped.
+_mxtk_mpr_memo_ok() {
+  [ -n "${MXTK_MPR_MEMO:-}" ] && [ "${MXTK_MPR_MEMO_KEY:-}" = "$PROJECT_ROOT|${MPR_FILE:-}" ] && [ -f "$MXTK_MPR_MEMO" ]
+}
 find_mpr() {
+  # Run-scope memo: exec.sh resolves the model once and exports it, keyed on the project root
+  # and MPR_FILE, so the scripts it starts (and its own later calls) skip the glob probes.
+  if _mxtk_mpr_memo_ok; then printf '%s\n' "$MXTK_MPR_MEMO"; return 0; fi
   if [ -n "${MPR_FILE:-}" ]; then
     if [ ! -f "$PROJECT_ROOT/$MPR_FILE" ] && [ ! -f "$MPR_FILE" ]; then
       echo "ERROR: MPR_FILE='$MPR_FILE' does not exist" >&2
       return 1
     fi
-    [ -f "$MPR_FILE" ] && { echo "$MPR_FILE"; return 0; }
+    # Always an absolute path (#489 review): a caller that later does `cd "$PROJECT_ROOT"`
+    # (exec.sh) would otherwise resolve a cwd-relative MPR_FILE against the wrong folder.
+    if [ -f "$MPR_FILE" ]; then
+      case "$MPR_FILE" in /*|[A-Za-z]:*) echo "$MPR_FILE" ;; *) echo "$(pwd)/$MPR_FILE" ;; esac
+      return 0
+    fi
     echo "$PROJECT_ROOT/$MPR_FILE"
     return 0
   fi
@@ -135,15 +223,32 @@ find_mpr() {
       found="$f"
     done
   fi
+  # Multi-app folder: one app per apps/<X>/ (#420). The root resolver accepts this layout, so
+  # the model lookup must too; with more than one app it refuses to guess, like any other pair.
+  local multi=0
+  if [ "$count" -eq 0 ] && [ -d "$PROJECT_ROOT/apps" ]; then
+    for f in "$PROJECT_ROOT"/apps/*/*.mpr; do
+      [ -e "$f" ] || continue
+      count=$((count + 1)); multi=1
+      found="$f"
+    done
+  fi
 
   if [ "$count" -eq 0 ]; then
     echo "ERROR: no .mpr found in $PROJECT_ROOT" >&2
     return 1
   fi
+  # (A session inside one app's folder never gets here: _common.sh exported MPR_FILE for
+  # that app at source time, #489 review.)
   if [ "$count" -gt 1 ]; then
     echo "ERROR: $count .mpr files in $PROJECT_ROOT — refusing to guess which model to write." >&2
     for f in "$PROJECT_ROOT"/*.mpr; do [ -e "$f" ] && echo "  $(basename "$f")" >&2; done
-    echo "Set MPR_FILE=<name>.mpr to choose." >&2
+    if [ "$multi" = 1 ]; then
+      for f in "$PROJECT_ROOT"/apps/*/*.mpr; do [ -e "$f" ] && echo "  ${f#"$PROJECT_ROOT"/}" >&2; done
+      echo "Set MPR_FILE=apps/<X>/<X>.mpr (relative to $PROJECT_ROOT) to choose." >&2
+    else
+      echo "Set MPR_FILE=<name>.mpr to choose." >&2
+    fi
     return 1
   fi
   echo "$found"
@@ -171,8 +276,13 @@ find_mpr() {
 # Resolve from the .mpr itself (which honours MPR_FILE) instead of from the repo.
 find_model_dir() {
   local mpr
+  # exec.sh exports the answer it already computed (MXTK_MODEL_DIR_MEMO) for the same model.
+  if _mxtk_mpr_memo_ok && [ -n "${MXTK_MODEL_DIR_MEMO:-}" ] && [ -d "$MXTK_MODEL_DIR_MEMO" ]; then
+    printf '%s\n' "$MXTK_MODEL_DIR_MEMO"; return 0
+  fi
   mpr=$(find_mpr) || return 1
-  (cd "$(dirname "$mpr")" && pwd)
+  local d="${mpr%/*}"; [ "$d" != "$mpr" ] || d=.; [ -n "$d" ] || d=/
+  (cd "$d" && pwd)
 }
 
 # ---------------------------------------------------------------------------
@@ -218,7 +328,7 @@ mxtk_platform() {
 # all accept and which survives being quoted inside a -c string.
 # ---------------------------------------------------------------------------
 native_path() {
-  case "$(mxtk_platform)" in
+  case "${MXTK_PLATFORM:-$(mxtk_platform)}" in
     windows) cygpath -m "$1" 2>/dev/null || printf '%s\n' "$1" ;;
     *)       printf '%s\n' "$1" ;;
   esac
@@ -254,7 +364,7 @@ find_sp_app() {
 # picks the newest; find_mxbuild first looks for the one matching the model's version).
 mxtk_sp_list() {
   local list="" root seen=""
-  case "$(mxtk_platform)" in
+  case "${MXTK_PLATFORM:-$(mxtk_platform)}" in
     macos)
       list=$(ls -d /Applications/Mendix\ Studio\ Pro*.app 2>/dev/null) || true
       [ -z "$list" ] && { echo "ERROR: no 'Mendix Studio Pro *.app' in /Applications" >&2; return 1; }
@@ -327,7 +437,7 @@ mxtk_is_elf() { [ -f "$1" ] && [ "$(head -c 4 "$1" 2>/dev/null | tr -d '\177')" 
 # So on Windows, mxcli.exe is looked for first, explicitly.
 find_project_mxcli() {
   local c
-  if [ "$(mxtk_platform)" = windows ]; then
+  if [ "${MXTK_PLATFORM:-$(mxtk_platform)}" = windows ]; then
     for c in "$PROJECT_ROOT/mxcli.exe" "$PROJECT_ROOT/mxcli"; do
       [ -x "$c" ] && ! mxtk_is_elf "$c" && { echo "$c"; return 0; }
     done
@@ -362,6 +472,22 @@ find_mxcli_cache() {
 }
 
 # ---------------------------------------------------------------------------
+# mxtk_sqlite_ro_uri <path> — print a read-only SQLite URI for <path>: absolute, URI-escaped,
+# ending in ?mode=ro. Hand it to Python as sqlite3.connect(uri, uri=True).
+# Escaping is the point: a plain "file:%s?mode=ro" cuts the path at a '#' or '?' in any folder
+# name ("a #2", "b?c"), drops mode=ro with it, and SQLite then CREATES an empty file at the
+# truncated path (a zero-byte "a " beside the model folder) and opens that instead.
+# Uses $PY when set, else resolve_py. Returns 1 when there is no Python. The caller decides
+# whether to pass the path through native_path first; this does no platform conversion.
+# ---------------------------------------------------------------------------
+mxtk_sqlite_ro_uri() {
+  local py="${PY:-${MXTK_PY_MEMO:-$(resolve_py 2>/dev/null || true)}}"
+  [ -n "$py" ] || return 1
+  "$py" -c "import os,sys,urllib.request as u
+print('file:'+u.pathname2url(os.path.abspath(sys.argv[1]))+'?mode=ro')" "$1" | tr -d '\r'
+}
+
+# ---------------------------------------------------------------------------
 # mxtk_model_version [mpr] — the model's Mendix version (e.g. 11.12.2), read from the
 # .mpr's own SQLite _MetaData._ProductVersion. v1 and v2 models both carry it (v2's .mpr
 # is still the SQLite index). sqlite3 CLI if present (read-only), else Python's sqlite3.
@@ -372,16 +498,29 @@ find_mxcli_cache() {
 # ---------------------------------------------------------------------------
 mxtk_model_version() {
   local mpr="${1:-}" v="" py
+  # Memo: exec.sh exports MXTK_MODEL_VERSION once per run, so the many find_mxbuild calls
+  # in one exec (and the scripts it starts) do not each spawn sqlite3/python (#584: a
+  # process start costs 58-94 ms on a Defender-scanned Windows machine).
+  # Also for the run's own model path: exec.sh passes it explicitly (mxtk_ensure_mxbuild, the
+  # gate), and without this each of those calls started sqlite3 | head | tr again.
+  if [ -n "${MXTK_MODEL_VERSION:-}" ] && { [ -z "$mpr" ] || [ "$mpr" = "${MXTK_MPR_MEMO:-}" ]; }; then printf '%s\n' "$MXTK_MODEL_VERSION"; return 0; fi
   [ -n "$mpr" ] || mpr="$(find_mpr 2>/dev/null)" || return 1
   [ -f "$mpr" ] || return 1
   if command -v sqlite3 >/dev/null 2>&1; then
-    v=$(sqlite3 -readonly "$mpr" 'select _ProductVersion from _MetaData' 2>/dev/null | head -1 | tr -d '\r')
+    v=$(sqlite3 -readonly "$mpr" 'select _ProductVersion from _MetaData' 2>/dev/null) || true
+    v="${v%%$'\n'*}"; v="${v//$'\r'/}"   # head -1 | tr -d '\r' without two more processes
   fi
   if [ -z "$v" ]; then
-    py="${PY:-$(resolve_py 2>/dev/null || true)}"
-    [ -n "$py" ] && v=$("$py" -c "import sqlite3,sys,os,urllib.request as u
+    py="${PY:-${MXTK_PY_MEMO:-$(resolve_py 2>/dev/null || true)}}"
+    # One Python start, not two: the read-only URI (what mxtk_sqlite_ro_uri prints) is built
+    # in the same interpreter that opens it. On Windows there is usually no sqlite3 CLI, so
+    # this is the path, and a Python start costs more than any other process there.
+    if [ -n "$py" ]; then
+      v=$("$py" -c "import sqlite3,sys,os,urllib.request as u
 c=sqlite3.connect('file:'+u.pathname2url(os.path.abspath(sys.argv[1]))+'?mode=ro',uri=True)
-print(c.execute('select _ProductVersion from _MetaData').fetchone()[0])" "$(native_path "$mpr")" 2>/dev/null | head -1 | tr -d '\r')
+print(c.execute('select _ProductVersion from _MetaData').fetchone()[0])" "$(native_path "$mpr")" 2>/dev/null) || true
+      v="${v%%$'\n'*}"; v="${v//$'\r'/}"
+    fi
   fi
   case "$v" in
     [0-9]*.[0-9]*) printf '%s\n' "$v"; return 0 ;;
@@ -393,12 +532,15 @@ print(c.execute('select _ProductVersion from _MetaData').fetchone()[0])" "$(nati
 # <version> (compared on major.minor.patch). Matches "11.12.2", "11.12.2.83245",
 # "Mendix Studio Pro 11.12.2.app", "Mendix Studio Pro 11.12.2 Beta.app"; never "11.12.20".
 mxtk_version_in_name() {
-  local base v3 re
-  base=$(basename "$1")
-  v3=$(printf '%s' "$2" | cut -d. -f1-3)
+  # In-shell (was basename + cut + sed + grep: four process starts per installed Studio Pro).
+  local base="$1" v3 re a b c _rest
+  while [ "${base%/}" != "$base" ] && [ -n "${base%/}" ]; do base="${base%/}"; done
+  base="${base##*/}"
+  IFS=. read -r a b c _rest <<< "$2"
+  v3="$a${b:+.$b}${c:+.$c}"
   [ -n "$v3" ] || return 1
-  re=$(printf '%s' "$v3" | sed 's/\./\\./g')
-  grep -Eq -- "(^|[^0-9.])${re}(\.[0-9]+)?([^0-9.]|\.[^0-9]|\$)" <<<"$base"
+  re="(^|[^0-9.])${v3//./\\.}(\\.[0-9]+)?([^0-9.]|\\.[^0-9]|\$)"
+  [[ $base =~ $re ]]
 }
 
 # mxtk_mxbuild_for_version <version> — an executable mxbuild whose install (Studio Pro
@@ -445,13 +587,16 @@ EOF_SP
 # is loud in mxtk_ensure_mxbuild (this function is always called with stderr discarded).
 find_mxbuild() {
   if [ -n "${MXBUILD_PATH:-}" ]; then echo "$MXBUILD_PATH"; return 0; fi
+  # Per-run memo exec.sh exports (#584) — its own name, so the explicit-override semantics of
+  # MXBUILD_PATH (no version match, mxtk_ensure_mxbuild's warning) never reach child scripts.
+  if [ -n "${MXTK_MXBUILD_MEMO:-}" ] && [ -x "$MXTK_MXBUILD_MEMO" ]; then echo "$MXTK_MXBUILD_MEMO"; return 0; fi
   local ver m
   if ver=$(mxtk_model_version 2>/dev/null) && m=$(mxtk_mxbuild_for_version "$ver"); then
     echo "$m"; return 0
   fi
   local app cand="" cache
   if app=$(find_sp_app 2>/dev/null); then
-    case "$(mxtk_platform)" in
+    case "${MXTK_PLATFORM:-$(mxtk_platform)}" in
       windows) cand="$app/modeler/mxbuild.exe" ;;
       *)       cand="$app/Contents/modeler/mxbuild" ;;
     esac
@@ -459,7 +604,7 @@ find_mxbuild() {
   fi
   if cache=$(find_mxcli_cache); then
     local cmxb
-    case "$(mxtk_platform)" in
+    case "${MXTK_PLATFORM:-$(mxtk_platform)}" in
       windows) cmxb="$cache/modeler/mxbuild.exe" ;;
       *)       cmxb="$cache/modeler/mxbuild" ;;
     esac
@@ -467,6 +612,32 @@ find_mxbuild() {
   fi
   [ -n "$cand" ] && { echo "$cand"; return 0; }
   return 1
+}
+
+# _mxtk_java_want — the JDK major the model's Mendix version needs: 25 for 11.14 and above,
+# else 21 (also when the version cannot be read).
+_mxtk_java_want() {
+  local mver mmaj mmin want=21
+  if mver=$(mxtk_model_version 2>/dev/null); then
+    mmaj="${mver%%.*}"; mmin="${mver#*.}"; mmin="${mmin%%.*}"
+    if [ "$mmaj" -gt 11 ] 2>/dev/null || { [ "$mmaj" -eq 11 ] && [ "$mmin" -ge 14 ]; } 2>/dev/null; then want=25; fi
+  fi
+  echo "$want"
+}
+
+# find_java_note — prints ONE line when find_java had to use a JDK other than the one the
+# model needs (macOS, JAVA_HOME unset, wanted JDK not installed); prints nothing otherwise.
+# find_java runs in a $(...) whose stderr every caller discards, so the warning has to be a
+# separate call the caller prints:
+#   _n="$(find_java_note || true)"; [ -n "$_n" ] && echo "WARN: $_n" >&2
+find_java_note() {
+  [ -n "${JAVA_HOME:-}" ] && [ -d "$JAVA_HOME" ] && return 0
+  local jhbin="${MXTK_JAVA_HOME_BIN:-/usr/libexec/java_home}" want used
+  [ "${MXTK_PLATFORM:-$(mxtk_platform)}" = macos ] && [ -x "$jhbin" ] || return 0
+  want=$(_mxtk_java_want)
+  "$jhbin" -F -v "$want" >/dev/null 2>&1 && return 0
+  used=$(find_java 2>/dev/null) || used="none found"
+  echo "wanted JDK $want (for this model's Mendix version) is not installed, using $used; mxbuild may fail with a Java version error. Install JDK $want or set JAVA_HOME in toolkit.env."
 }
 
 # find_java — JAVA_HOME for the mxbuild invocation. $JAVA_HOME wins if already set.
@@ -478,11 +649,22 @@ find_mxbuild() {
 find_java() {
   if [ -n "${JAVA_HOME:-}" ] && [ -d "$JAVA_HOME" ]; then echo "$JAVA_HOME"; return 0; fi
   local app jh
-  # JDK 21 first on macOS: with JDK 25 as the default, the Mendix 11 deploy build's gradle
-  # 8.5 fails ("Unsupported class file major version 69", mxbuild exit 3, empty problems[])
-  # — field project 2026-09-26, Mendix 11.12.2. Platform-guarded: java_home is mac-only.
-  if [ "$(mxtk_platform)" = macos ] && [ -x /usr/libexec/java_home ]; then
-    jh=$(/usr/libexec/java_home -v 21 2>/dev/null || /usr/libexec/java_home 2>/dev/null) && [ -n "$jh" ] && { echo "$jh"; return 0; }
+  # macOS: the JDK that matches the model. Studio Pro 11.13 and below build with JDK 21 (with
+  # JDK 25 as the default, the deploy build's gradle 8.5 fails: "Unsupported class file major
+  # version 69", mxbuild exit 3, empty problems[] — field project 2026-09-26, Mendix 11.12.2);
+  # 11.14 and above need JDK 25 (Gradle 9.1+; "release version 25 not supported" on JDK 21 —
+  # field report, Mendix 11.15; docs.mendix.com/refguide/system-requirements). The model's
+  # version is read from the .mpr; unreadable → want 21 as before.
+  # Plain `java_home -v N` NEVER fails on macOS: when N is not installed it prints the default
+  # JDK and exits 0. Only `-F -v N` fails, so detection uses -F. A missing wanted JDK still
+  # falls back to the default (nothing new blocks), and find_java_note says so, because every
+  # caller discards find_java's stderr. Platform-guarded: java_home is mac-only.
+  # MXTK_JAVA_HOME_BIN overrides the binary (tests).
+  local jhbin="${MXTK_JAVA_HOME_BIN:-/usr/libexec/java_home}" want
+  if [ "${MXTK_PLATFORM:-$(mxtk_platform)}" = macos ] && [ -x "$jhbin" ]; then
+    want=$(_mxtk_java_want)
+    jh=$("$jhbin" -F -v "$want" 2>/dev/null) && [ -n "$jh" ] && { echo "$jh"; return 0; }
+    jh=$("$jhbin" 2>/dev/null) && [ -n "$jh" ] && { echo "$jh"; return 0; }
   fi
   # Studio Pro's bundled JRE.
   if app=$(find_sp_app 2>/dev/null); then
@@ -510,10 +692,199 @@ find_java() {
 find_java_exe() {
   local jh
   jh=$(find_java) || return 1
-  case "$(mxtk_platform)" in
+  case "${MXTK_PLATFORM:-$(mxtk_platform)}" in
     windows) echo "$jh/bin/java.exe" ;;
     *)       echo "$jh/bin/java" ;;
   esac
+}
+
+# ---------------------------------------------------------------------------
+# Watcher pause and infra retry around the exec gate's mxbuild.
+#
+# Field (a migration project, 12 modules, 2026-10-16/17): the gate's mxbuild and a live
+# `mxcli run --local --watch` on the SAME project both write deployment/. One of the two dies
+# part-way ("Directory not empty: .../deployment/web", mxbuild exit 1 or 3, no errors file):
+# 17 of 27 failed gates, against 0 of 22 gates run in watcher-free copies of the same project.
+#
+# Chosen fix: pause the watcher for the length of the gate (SIGSTOP, then SIGCONT). mxbuild
+# has no option that moves the deploy target's output out of <project>/deployment, so a
+# separate output dir is not available; a pause needs no mxbuild support and no change to the
+# watcher. Only the watcher process itself is stopped. Its runtime keeps serving, and a rebuild
+# the watcher already started before the pause can still collide, which is what the retry below
+# is for. exec.sh resumes the watcher in its EXIT trap too, so an interrupted run does not leave
+# it stopped. A SIGKILL runs no trap, so the paused pids are also written to
+# .mpr-snapshots/.watcher-paused; the next exec.sh resumes them once it holds the lock. The file
+# is a dot FILE: the `*/` snapshot globs in restore-mpr.sh and snapshot-mpr.sh never match it.
+# ---------------------------------------------------------------------------
+MXTK_PAUSED_PIDS=""
+MXTK_PAUSED_FILE=""
+MXTK_GATE_RETRY_NOTE=""
+MXTK_GATE_FIRST_OUT=""
+MXTK_GATE_FIRST_EXIT=""
+MXTK_GATE_INFRA_PERSISTENT=""   # errors[] text that already failed a build AND its retry this run
+
+# mxtk_watcher_pids <project-root> - pids of `mxcli run --local --watch` that belong to this
+# project. Exact match only: the watcher's project dir (the directory of its -p argument,
+# resolved against its cwd, or its cwd when it has no -p) must equal the root after pwd -P. A
+# substring test also hit a sibling `<App>-copy` and a nested `.claude/worktrees/x` watcher.
+mxtk_watcher_pids() {
+  local _root _pid _cmd _cwd _p _dir
+  _root="$(cd "$1" 2>/dev/null && pwd -P)" || return 0
+  for _pid in $(pgrep -f 'run --local' 2>/dev/null || true); do  # portability-ok: pgrep -f ships with Linux procps and macOS; Windows has no watcher to pause here
+    [ "$_pid" = "$$" ] && continue
+    _cmd="$(ps -o command= -p "$_pid" 2>/dev/null)" || continue
+    case "$_cmd" in *mxcli*"run --local"*--watch*) ;; *) continue ;; esac
+    _cwd="$(readlink "/proc/$_pid/cwd" 2>/dev/null || lsof -a -p "$_pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p')"
+    [ -n "$_cwd" ] && _cwd="$(cd "$_cwd" 2>/dev/null && pwd -P)"
+    _p=""
+    case "$_cmd" in
+      *" -p "*) _p="${_cmd#* -p }" ;;
+      *" --project "*) _p="${_cmd#* --project }" ;;
+    esac
+    if [ -n "$_p" ]; then
+      case "$_p" in /*) ;; *) [ -n "$_cwd" ] || continue; _p="$_cwd/$_p" ;; esac
+      # ps drops the quotes, so "-p /x/App copy/App.mpr" must not read as /x/App: keep the
+      # longest run of words that exists on disk (it also drops any flags after the path).
+      while [ ! -e "$_p" ]; do case "$_p" in *" "*) _p="${_p% *}" ;; *) continue 2 ;; esac; done
+      if [ -d "$_p" ]; then _dir="$_p"; else _dir="$(dirname "$_p")"; fi
+      _dir="$(cd "$_dir" 2>/dev/null && pwd -P)" || continue
+    else
+      _dir="$_cwd"
+    fi
+    [ -n "$_dir" ] && [ "$_dir" = "$_root" ] && echo "$_pid"
+  done
+  return 0
+}
+
+# mxtk_pause_watchers <project-root> - SIGSTOP every watcher of this project, remember the pids
+# (in memory, and in <root>/.mpr-snapshots/.watcher-paused for a SIGKILL of this process).
+mxtk_pause_watchers() {
+  local _pid _cands
+  MXTK_PAUSED_PIDS=""
+  MXTK_PAUSED_FILE="$1/.mpr-snapshots/.watcher-paused"
+  _cands="$(mxtk_watcher_pids "$1" | tr '\n' ' ')"
+  [ -n "$_cands" ] || return 0
+  # Record before stopping: a SIGKILL between kill -STOP and the record would leave a stopped
+  # watcher nobody resumes. Resuming a pid that was never stopped is harmless.
+  { mkdir -p "$1/.mpr-snapshots" && echo "$$ $_cands" > "$MXTK_PAUSED_FILE"; } 2>/dev/null || true
+  for _pid in $_cands; do
+    if kill -STOP "$_pid" 2>/dev/null; then
+      MXTK_PAUSED_PIDS="$MXTK_PAUSED_PIDS $_pid"
+      echo "  → paused the run --local --watch watcher (pid $_pid) for the gate; it resumes right after" >&2
+    fi
+  done
+  if [ -n "$MXTK_PAUSED_PIDS" ]; then
+    { mkdir -p "$1/.mpr-snapshots" && echo "$$$MXTK_PAUSED_PIDS" > "$MXTK_PAUSED_FILE"; } 2>/dev/null || true
+  fi
+  return 0
+}
+
+# mxtk_resume_watchers - SIGCONT whatever mxtk_pause_watchers stopped. Safe to call twice.
+mxtk_resume_watchers() {
+  local _pid
+  for _pid in $MXTK_PAUSED_PIDS; do kill -CONT "$_pid" 2>/dev/null || true; done
+  [ -n "$MXTK_PAUSED_FILE" ] && rm -f "$MXTK_PAUSED_FILE"
+  MXTK_PAUSED_PIDS=""
+  return 0
+}
+
+# mxtk_resume_leftover <project-root> - call once the exec lock is held. A watcher left stopped
+# by an exec.sh that was SIGKILLed (its record is still on disk) is resumed when its pid still
+# exists and is still a watcher of this project; the record is then cleared.
+mxtk_resume_leftover() {
+  local _f="$1/.mpr-snapshots/.watcher-paused" _rec _pid _live _n=0
+  [ -f "$_f" ] || return 0
+  _rec="$(head -1 "$_f" 2>/dev/null || true)"
+  _live="$(mxtk_watcher_pids "$1")"
+  for _pid in ${_rec#* }; do
+    case "$_pid" in ''|*[!0-9]*) continue ;; esac
+    if grep -Fxq -- "$_pid" <<<"$_live" && kill -CONT "$_pid" 2>/dev/null; then _n=$((_n+1)); fi
+  done
+  rm -f "$_f"
+  [ "$_n" -gt 0 ] && echo "  → resumed $_n watcher(s) left stopped by an exec.sh that was killed during the gate"
+  return 0
+}
+
+# mxtk_mxbuild_infra_only <errors-file> - true when mxbuild's errors file reports no Error
+# problem and every errors[] message is a generic deploy-stage failure, never a reason about the
+# model. Verbatim messages from a field build (#448, 2026-10-16, Mendix 11.15, exit 3, problems[]
+# empty), each of which passed on the next build with no model change:
+#   "Compilation of the app bundle failed."  ·  "An error occurred while compiling Theme files"
+#   "An error occurred while cleaning excluded jar files & copying files."
+#   "An error occurred while compiling Java actions"
+# A version mismatch ("The MPR file located at ... could not be opened: Project version ...")
+# matches neither form, so it is still never retried. No Python 3: false (no retry, as before).
+mxtk_mxbuild_infra_only() {
+  local _py="${PY:-${MXTK_PY_MEMO:-$(resolve_py 2>/dev/null || true)}}"
+  [ -s "$1" ] && [ -n "$_py" ] || return 1
+  "$_py" -c '
+import json, re, sys
+d = json.load(open(sys.argv[1]))
+if any(isinstance(p, dict) and p.get("severity") == "Error" for p in d.get("problems") or []): sys.exit(1)
+m = [(e.get("message", "") if isinstance(e, dict) else str(e)).strip() for e in d.get("errors") or []]
+ok = re.compile(r"^(Compilation of the app bundle failed\.?|An error occurred while [^:]*)$")
+sys.exit(0 if m and all(ok.match(x) and not re.search(r"CE[0-9]{4}", x) for x in m) else 1)
+' "$(native_path "$1")" 2>/dev/null
+}
+
+# _mxtk_slurp <var> <file> — what `var=$(cat file)` does (whole file, trailing newlines
+# stripped), without the subshell and the cat process. Empty when the file is unreadable.
+_mxtk_slurp() {
+  local _s=""
+  IFS= read -r -d '' _s < "$2" 2>/dev/null || true
+  while [ "${_s%$'\n'}" != "$_s" ]; do _s="${_s%$'\n'}"; done
+  printf -v "$1" '%s' "$_s"
+}
+
+# mxtk_gate_mxbuild <mpr> <timeout-seconds> <errors-file> - the exec gate's way to run
+# mxbuild: mxtk_mxbuild_error_count with this project's watcher paused around it, and ONE
+# retry when mxbuild exits 1 or 3 and left no sign of a model problem (no CE code in its
+# output, nothing in the errors file). That shape is an infrastructure failure, not a verdict
+# on the model; a real model error always names a CE code. An errors file with content (for
+# example a version mismatch in errors[]) is deterministic and is not retried, with one
+# exception (#448): a file whose only content is a generic deploy-stage message is the same
+# infra shape (mxtk_mxbuild_infra_only, above). The retry check runs only after exit 1 or 3,
+# so a clean build never pays for it.
+# Prints nothing on stdout (callers discard the count); sets the same MXTK_MXBUILD_* globals as
+# mxtk_mxbuild_error_count, plus MXTK_GATE_RETRY_NOTE ("retry after infra exit" or empty); after a
+# retry MXTK_GATE_FIRST_OUT / MXTK_GATE_FIRST_EXIT hold the FIRST attempt's output and exit code
+# (the MXTK_MXBUILD_* globals describe the final attempt only).
+# Returns mxtk_mxbuild_error_count's code for the final attempt.
+mxtk_gate_mxbuild() {
+  local _mpr="$1" _timeout="${2:-0}" _ef="$3" _rc=0
+  MXTK_GATE_RETRY_NOTE=""; MXTK_GATE_FIRST_OUT=""; MXTK_GATE_FIRST_EXIT=""
+  # MXTK_GATE_KIND=check (set by exec.sh's gate-kind decision): `mx check` instead of a
+  # deploy build. No infra retry: mx check has no deploy stage to collide on.
+  if [ "${MXTK_GATE_KIND:-full}" = "check" ]; then
+    mxtk_mx_check_error_count "$_mpr" "$_timeout" "$_ef" >/dev/null || _rc=$?
+    return "$_rc"
+  fi
+  mxtk_pause_watchers "${PROJECT_ROOT:-$(dirname "$_mpr")}"
+  mxtk_mxbuild_error_count "$_mpr" "$_timeout" "$_ef" >/dev/null || _rc=$?
+  case "${MXTK_MXBUILD_EXIT:-}" in
+    1|3)
+      # A deploy-stage message that already survived one retry in this run (the baseline's)
+      # is persistent, not a collision: building a 4th time would only cost time.
+      if [ -n "$MXTK_GATE_INFRA_PERSISTENT" ] && [ "${MXTK_MXBUILD_WHY:-}" = "$MXTK_GATE_INFRA_PERSISTENT" ]; then
+        echo "  ⚠ no retry: mxbuild failed with the same deploy-stage message on the earlier build and its retry (${MXTK_MXBUILD_WHY})" >&2
+      elif ! grep -Eq -- 'CE[0-9]{4}' <<<"${MXTK_MXBUILD_OUT:-}" \
+         && { [ ! -s "$_ef" ] || mxtk_mxbuild_infra_only "$_ef"; }; then
+        echo "  ⚠ retry after infra exit: mxbuild exited $MXTK_MXBUILD_EXIT with no CE code and no model problem${MXTK_MXBUILD_WHY:+ ($MXTK_MXBUILD_WHY)}; building once more" >&2
+        MXTK_GATE_RETRY_NOTE="retry after infra exit"
+        MXTK_GATE_FIRST_OUT="${MXTK_MXBUILD_OUT:-}"; MXTK_GATE_FIRST_EXIT="$MXTK_MXBUILD_EXIT"
+        : > "$_ef"
+        _rc=0
+        mxtk_mxbuild_error_count "$_mpr" "$_timeout" "$_ef" >/dev/null || _rc=$?
+        # Same deploy-stage failure twice: remember its text, so a later build in this run
+        # (the gate after the baseline) does not retry it again (#494 review).
+        case "${MXTK_MXBUILD_EXIT:-}" in
+          1|3) [ -n "${MXTK_MXBUILD_WHY:-}" ] && mxtk_mxbuild_infra_only "$_ef" \
+                 && MXTK_GATE_INFRA_PERSISTENT="$MXTK_MXBUILD_WHY" ;;
+        esac
+      fi ;;
+  esac
+  mxtk_resume_watchers
+  return "$_rc"
 }
 
 # ---------------------------------------------------------------------------
@@ -572,9 +943,17 @@ mxtk_mxbuild_error_count() {
   local _mb _jh _je _out _pid _waited=0 _exit=0 _py _count
 
   MXTK_MXBUILD_OUT=""; MXTK_MXBUILD_EXIT=""; MXTK_MXBUILD_WHY=""
-  _mb="$(find_mxbuild 2>/dev/null || true)"
-  _jh="$(find_java 2>/dev/null || true)"
-  _je="$(find_java_exe 2>/dev/null || true)"
+  # The overrides find_mxbuild / find_java answer first are read directly: exec.sh exports
+  # MXBUILD_PATH for the run, and a set JAVA_HOME is what find_java returns, so the common
+  # case starts no subshell (three before, each with its own probes behind it).
+  if [ -n "${MXBUILD_PATH:-}" ]; then _mb="$MXBUILD_PATH"; else _mb="$(find_mxbuild 2>/dev/null || true)"; fi
+  if [ -n "${JAVA_HOME:-}" ] && [ -d "$JAVA_HOME" ]; then
+    _jh="$JAVA_HOME"
+    case "${MXTK_PLATFORM:-$(mxtk_platform)}" in windows) _je="$_jh/bin/java.exe" ;; *) _je="$_jh/bin/java" ;; esac
+  else
+    _jh="$(find_java 2>/dev/null || true)"
+    _je="$(find_java_exe 2>/dev/null || true)"
+  fi
   if [ ! -x "$_mb" ] || [ ! -x "$_je" ]; then
     echo "?"; return 2
   fi
@@ -593,18 +972,22 @@ mxtk_mxbuild_error_count() {
   # because a large model's deploy build legitimately runs past any fixed default, and a
   # timed-out gate reads as "non-zero exit, no errors file" = FAIL = auto-restore of work
   # that was fine. doctor's self-test is the one caller that wants a bound (300s default).
-  while kill -0 "$_pid" 2>/dev/null; do
-    if [ "$_timeout" -gt 0 ] && [ "$_waited" -ge "$_timeout" ]; then
-      kill "$_pid" 2>/dev/null; wait "$_pid" 2>/dev/null
-      MXTK_MXBUILD_OUT=$(cat "$_out" 2>/dev/null); rm -f "$_out"
-      MXTK_MXBUILD_EXIT=124
-      [ "$_own_ef" -eq 1 ] && rm -f "$_ef"
-      echo "?"; return 3
-    fi
-    sleep 1; _waited=$((_waited + 1))
-  done
+  # Unbounded (the exec gate's default): nothing to poll for, so `wait` — a poll loop started a
+  # `sleep 1` process per second of build (10 on a warm Linux build, 150+ on a cold Windows one).
+  if [ "$_timeout" -gt 0 ]; then
+    while kill -0 "$_pid" 2>/dev/null; do
+      if [ "$_waited" -ge "$_timeout" ]; then
+        kill "$_pid" 2>/dev/null; wait "$_pid" 2>/dev/null
+        _mxtk_slurp MXTK_MXBUILD_OUT "$_out"; rm -f "$_out"
+        MXTK_MXBUILD_EXIT=124
+        [ "$_own_ef" -eq 1 ] && rm -f "$_ef"
+        echo "?"; return 3
+      fi
+      sleep 1; _waited=$((_waited + 1))
+    done
+  fi
   wait "$_pid" || _exit=$?
-  MXTK_MXBUILD_OUT=$(cat "$_out" 2>/dev/null); rm -f "$_out"
+  _mxtk_slurp MXTK_MXBUILD_OUT "$_out"; rm -f "$_out"
   MXTK_MXBUILD_EXIT="$_exit"
 
   if [ ! -s "$_ef" ] && [ "$_exit" -eq 0 ]; then
@@ -612,7 +995,7 @@ mxtk_mxbuild_error_count() {
     echo 0; return 0
   fi
 
-  _py="${PY:-$(resolve_py 2>/dev/null || true)}"
+  _py="${PY:-${MXTK_PY_MEMO:-$(resolve_py 2>/dev/null || true)}}"
   if [ -z "$_py" ]; then
     [ "$_own_ef" -eq 1 ] && rm -f "$_ef"
     echo "?"; return 1
@@ -630,16 +1013,119 @@ mxtk_mxbuild_error_count() {
 }
 
 # mxtk_mxbuild_why <errors-file> [python] — mxbuild's own errors[] messages, joined and
-# capped at 300 chars, or nothing. errors[] is where mxbuild says why it did NOT check the
+# capped at 300 chars, or nothing. A message whose details carry a compiler "error: ..." line
+# gets that line appended: "An error occurred while compiling Java actions" alone does not say
+# "release version 25 not supported" (JDK 21 on an 11.15 model, #576). errors[] is where mxbuild says why it did NOT check the
 # model; problems[] is only the model's findings. Verbatim errors[] captured on
 # A field project (2026-09-26, mxbuild 11.14.0 vs an 11.12.2 model, exit 3):
 #   {"errors":[{"message":"The MPR file located at …/Marketplace.mpr could not be opened:
 #    Project version '11.12.2' does not exactly match MxBuild version '11.14.0'. Use loose
 #    version check option for less strict version checking.","details":""}],"problems":[]}
 mxtk_mxbuild_why() {
-  local _py="${2:-${PY:-$(resolve_py 2>/dev/null || true)}}"
+  local _py="${2:-${PY:-${MXTK_PY_MEMO:-$(resolve_py 2>/dev/null || true)}}}"
   [ -s "$1" ] && [ -n "$_py" ] || return 0
-  "$_py" -c "import json;d=json.load(open('$(native_path "$1")'));print('; '.join((e.get('message','') if isinstance(e,dict) else str(e)) for e in d.get('errors',[]) or [])[:300])" 2>/dev/null || true
+  "$_py" -c "import json,re
+d=json.load(open('$(native_path "$1")'))
+def one(e):
+  if not isinstance(e,dict): return str(e)
+  m=re.search(r'error: ([^\\n]+)',e.get('details','') or '')
+  return e.get('message','')+(' ('+m.group(1).strip()+')' if m else '')
+print('; '.join(one(e) for e in d.get('errors',[]) or [])[:300])" 2>/dev/null || true
+}
+
+# ---------------------------------------------------------------------------
+# Check-only gate (opt-in: `Gate mode: check` in PROJECT.md; exec.sh decides per exec).
+#
+# `mx check` ships next to mxbuild and runs the same model consistency checks (CE codes) in
+# ~12 s where a deploy build takes 18-165 s, because it skips the Java compile and the deploy
+# packaging. What it cannot see is exactly that: Java compile errors, including a model change
+# that breaks a generated proxy a Java action uses. exec.sh therefore still runs the full build
+# when those can change (mxtk_gate_kind_decide in exec.sh) — this is the cheap path only.
+# WHY (#584/#585, Windows field reports): mxbuild was the largest single cost per exec there.
+#
+# mxtk_java_fp <project-root> — content fingerprint of the files only a full build compiles
+# (javasource/ javascriptsource/ theme/ userlib/ widgets/). Content, not git state: committing an
+# unchanged file must not read as a change. javasource/*/proxies/ is excluded: mxbuild regenerates
+# it from the model on every full build. exec.sh (gate kind) and verify-model.sh record it.
+mxtk_java_fp() {
+  ( cd "$1" 2>/dev/null || exit 0
+    _l="$(git ls-files -co --exclude-standard -- javasource javascriptsource theme userlib widgets 2>/dev/null \
+          | grep -v '^javasource/[^/]*/proxies/' || true)"
+    { printf '%s\n' "$_l"; [ -z "$_l" ] || printf '%s\n' "$_l" | git hash-object --stdin-paths 2>/dev/null; } \
+      | cksum | { read -r _ck _; printf '%s\n' "$_ck"; } )
+}
+
+# mxtk_find_mx — the `mx` tool beside the resolved mxbuild (same version by construction).
+mxtk_find_mx() {
+  local _mb _d _c
+  _mb="${MXBUILD_PATH:-$(find_mxbuild 2>/dev/null || true)}"
+  [ -n "$_mb" ] || return 1
+  _d="${_mb%/*}"; [ "$_d" != "$_mb" ] || _d=.
+  for _c in "$_d/mx" "$_d/mx.exe"; do [ -x "$_c" ] && { echo "$_c"; return 0; }; done
+  return 1
+}
+
+# mxtk_mx_check_to_mxbuild <mx-check.json> <out.json> [python] — rewrite `mx check -j` output
+# into the mxbuild --write-errors shape exec.sh's err_set/err_report/err_codes read:
+#   {"errors":[...],"problems":[{"severity":"Error","errorCode","message","locations":[{module,document,element}]}]}
+# Golden input: tests/wave2/fixtures/mx-check/mx-check-11.13.0-CE1613.json (captured, mx 11.13.0).
+mxtk_mx_check_to_mxbuild() {
+  local _py="${3:-${PY:-${MXTK_PY_MEMO:-$(resolve_py 2>/dev/null || true)}}}"
+  [ -n "$_py" ] || return 1
+  "$_py" -c "import json,sys
+d=json.load(open(sys.argv[1]))
+def loc(l): return {'module':l.get('module-name',''),'document':l.get('document-name',''),'element':l.get('element-name','')}
+probs=[{'severity':'Error','errorCode':e.get('code',''),'message':e.get('message',''),
+        'locations':[loc(l) for l in e.get('locations') or []]} for e in d.get('errors') or []]
+json.dump({'errors':[],'problems':probs,'source':'mx check'},open(sys.argv[2],'w'))
+print(len(probs))" "$(native_path "$1")" "$(native_path "$2")" 2>/dev/null
+}
+
+# mxtk_mx_check_error_count <mpr> <timeout-seconds> [errors-file] — mxtk_mxbuild_error_count's
+# contract (same globals, same return codes, same printed count), backed by `mx check -j`.
+# The errors file it leaves is in mxbuild's shape (mxtk_mx_check_to_mxbuild), so every reader
+# downstream is unchanged. A run that produced no JSON is "?" with the output tail in
+# MXTK_MXBUILD_WHY — never 0.
+mxtk_mx_check_error_count() {
+  local _mpr="$1" _timeout="${2:-300}" _ef="${3:-}" _own_ef=0
+  local _mx _out _js _pid _waited=0 _exit=0 _count
+  MXTK_MXBUILD_OUT=""; MXTK_MXBUILD_EXIT=""; MXTK_MXBUILD_WHY=""
+  _mx="$(mxtk_find_mx)" || { echo "?"; return 2; }
+  if [ -z "$_ef" ]; then _ef=$(mktemp /tmp/mxcheck-errors.XXXXXX) || { echo "?"; return 2; }; _own_ef=1; fi
+  _out=$(mktemp /tmp/mxcheck-out.XXXXXX) || { echo "?"; return 2; }
+  _js=$(mktemp /tmp/mxcheck-json.XXXXXX) || { rm -f "$_out"; echo "?"; return 2; }
+  rm -f "$_js"   # mx writes the file itself; an empty pre-existing one would read as "no output"
+  "$_mx" check "$_mpr" -j "$(native_path "$_js")" > "$_out" 2>&1 < /dev/null &
+  _pid=$!
+  if [ "$_timeout" -gt 0 ]; then   # unbounded: `wait`, no per-second sleep process
+    while kill -0 "$_pid" 2>/dev/null; do
+      if [ "$_waited" -ge "$_timeout" ]; then
+        kill "$_pid" 2>/dev/null; wait "$_pid" 2>/dev/null
+        _mxtk_slurp MXTK_MXBUILD_OUT "$_out"; rm -f "$_out" "$_js"
+        MXTK_MXBUILD_EXIT=124; [ "$_own_ef" -eq 1 ] && rm -f "$_ef"
+        echo "?"; return 3
+      fi
+      sleep 1; _waited=$((_waited + 1))
+    done
+  fi
+  wait "$_pid" || _exit=$?
+  _mxtk_slurp MXTK_MXBUILD_OUT "$_out"; rm -f "$_out"
+  MXTK_MXBUILD_EXIT="$_exit"
+  if [ -s "$_js" ]; then _count=$(mxtk_mx_check_to_mxbuild "$_js" "$_ef"); fi
+  rm -f "$_js"
+  [ "$_own_ef" -eq 1 ] && rm -f "$_ef"
+  case "${_count:-}" in
+    ''|*[!0-9]*)
+      MXTK_MXBUILD_WHY="mx check wrote no readable JSON (exit $_exit): $(printf '%s' "$MXTK_MXBUILD_OUT" | tail -3 | tr '\n' ' ' | cut -c1-240)"
+      echo "?"; return 1 ;;
+  esac
+  # exit 1 with errors is the normal "model has errors" answer; any other non-zero exit
+  # with 0 errors means mx did not check the model.
+  if [ "$_count" = "0" ] && [ "$_exit" -ne 0 ]; then
+    MXTK_MXBUILD_WHY="mx check exited $_exit with no errors listed: $(printf '%s' "$MXTK_MXBUILD_OUT" | tail -3 | tr '\n' ' ' | cut -c1-240)"
+    echo "?"; return 1
+  fi
+  echo "$_count"; return 0
 }
 
 # project_name — the .mpr basename without extension, for user-facing messages.
@@ -670,6 +1156,9 @@ _py_is_store_stub() {
 # and snapshots your changes when the mxbuild gate cannot read its results — it just has to say
 # so instead of dying. $PYTHON overrides the search.
 resolve_py() {
+  # Run-scope memo (exec.sh exports it): the probe below STARTS Python, which is the single
+  # costliest process start on Windows, and lint-gate / metrics-ledger / row-groups each did it.
+  if [ -n "${MXTK_PY_MEMO:-}" ]; then echo "$MXTK_PY_MEMO"; return 0; fi
   _c=""
   for _c in "${PYTHON:-}" python3 python py; do  # portability-ok: this IS the interpreter probe
     [ -n "$_c" ] || continue
@@ -742,7 +1231,7 @@ mxtk_ensure_mxbuild() {
     mxcli=""
   done
   if [ -z "$mxcli" ]; then
-    echo "  mxbuild not found and no project ./mxcli to download it with (bin/doctor.sh --install fetches both)." >&2
+    echo "  mxbuild not found and no project ./mxcli to download it with (bin/doctor.sh --install --yes fetches both)." >&2
     [ -n "$found" ] && printf '%s\n' "$found"
     return 1
   fi
@@ -782,8 +1271,9 @@ find_toolkit_root() {
 # mxtk_sha256 — SHA-256 of stdin, whichever tool this machine has (sha256sum on
 # Linux/Git Bash, shasum on macOS, openssl as the last resort).
 mxtk_sha256() {
-  if command -v sha256sum >/dev/null 2>&1; then sha256sum | cut -d' ' -f1
-  elif command -v shasum >/dev/null 2>&1; then shasum -a 256 | cut -d' ' -f1
+  local _h _
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum | { read -r _h _; printf '%s\n' "$_h"; }
+  elif command -v shasum >/dev/null 2>&1; then shasum -a 256 | { read -r _h _; printf '%s\n' "$_h"; }
   else openssl dgst -sha256 | sed 's/^.*= //'
   fi
 }
@@ -800,7 +1290,7 @@ mxtk_sha256() {
 # Per platform: lsof (macOS, Linux), then ss (Linux without lsof), netstat -ano + tasklist (Windows).
 mxtk_port_holder() {
   local p="$1" out pid="" name=""
-  case "$(mxtk_platform)" in
+  case "${MXTK_PLATFORM:-$(mxtk_platform)}" in
     windows)
       pid="$(netstat -ano 2>/dev/null | tr -d '\r' | awk -v p=":$p" '$1=="TCP" && $4=="LISTENING" && substr($2, length($2)-length(p)+1)==p { print $5; exit }')"
       [ -n "$pid" ] && name="$(tasklist //FI "PID eq $pid" //FO CSV //NH 2>/dev/null | tr -d '\r' | head -1 | cut -d'"' -f2)" ;;
@@ -855,7 +1345,7 @@ mxtk_pid_in_tree() {
 mxtk_pid_args() {
   local pid="$1" out=""
   case "$pid" in ''|*[!0-9]*) return 1 ;; esac
-  case "$(mxtk_platform)" in
+  case "${MXTK_PLATFORM:-$(mxtk_platform)}" in
     linux)
       if [ -r "/proc/$pid/cmdline" ]; then out="$(tr '\0' '\n' < "/proc/$pid/cmdline" 2>/dev/null)"
       else out="$(ps -o args= -p "$pid" 2>/dev/null)"; fi ;;
@@ -903,15 +1393,133 @@ EOF_ARGS
   # the rest of a longer, spaced path: "/work/a" must not match "…runtimelauncher.jar /work/a b/x"
   # (a foreign checkout read as ours, PR #319 review). Each <dir> arrives as ONE argument.
   line="$(printf '%s' "$args" | head -1 | tr -d '"')"
-  [ "$(mxtk_platform)" = windows ] && line="$(printf '%s' "$line" | tr '\\' '/' | tr '[:upper:]' '[:lower:]')"
+  [ "${MXTK_PLATFORM:-$(mxtk_platform)}" = windows ] && line="$(printf '%s' "$line" | tr '\\' '/' | tr '[:upper:]' '[:lower:]')"
   for d in "$@"; do
     for cand in "${d%/}" "$(cd "$d" 2>/dev/null && pwd -P)"; do
       [ -n "$cand" ] || continue
-      [ "$(mxtk_platform)" = windows ] && cand="$(native_path "$cand" | tr '\\' '/' | tr '[:upper:]' '[:lower:]')"
+      [ "${MXTK_PLATFORM:-$(mxtk_platform)}" = windows ] && cand="$(native_path "$cand" | tr '\\' '/' | tr '[:upper:]' '[:lower:]')"
       case "$line" in
         *"runtimelauncher.jar $cand"|*"runtimelauncher.jar $cand/"|*"runtimelauncher.jar $cand -"*|*"runtimelauncher.jar $cand/ -"*) return 0 ;;
       esac
     done
   done
   return 1
+}
+
+# ---------------------------------------------------------------------------
+# mxcli run / test identity — shared by app-restart.sh and test-scratch.sh (one copy each until
+# 2026-10-14; they had drifted only in a branch test-scratch never took). A caller whose installed
+# _common.sh predates this section stops with the sync remedy (`command -v mxtest_left`).
+# ---------------------------------------------------------------------------
+
+# mxtk_pid_is_mxcli_run <pid> — 0 when the process IS an `mxcli run` (#304 review). A SIGKILLed
+# mxcli leaves its run --local record behind and the OS hands its pid to an unrelated process;
+# `kill -0` cannot tell the difference. Linux with /proc: argv one per line (mxtk_pid_args), so
+# `run` must be a whole argument after one naming mxcli. macOS (and Linux without /proc): the
+# joined `ps -o args=` line, " run " as a word after mxcli. Windows: the image name is mxcli.exe
+# (tasklist — Git Bash's ps cannot show a Windows process's arguments, and PowerShell per call is
+# slow). Unreadable → 1.
+mxtk_pid_is_mxcli_run() {
+  local a="" nl='
+'
+  if [ "${MXTK_PLATFORM:-$(mxtk_platform)}" = windows ]; then
+    a="$(tasklist //FI "PID eq $1" //FO CSV //NH 2>/dev/null | tr -d '\r' | head -1 | cut -d'"' -f2)"
+    case "$(printf '%s' "$a" | tr '[:upper:]' '[:lower:]')" in mxcli.exe|mxcli) return 0 ;; esac
+    return 1
+  fi
+  a="$(mxtk_pid_args "$1")" || return 1
+  if [ "$(mxtk_platform)" = linux ] && [ -r "/proc/$1/cmdline" ]; then
+    case "$nl$a$nl" in *mxcli*"${nl}run${nl}"*) return 0 ;; esac
+    return 1
+  fi
+  case " $a " in *mxcli*" run "*) return 0 ;; esac
+  return 1
+}
+
+# ── After-startup left on an mxcli test injection (#244, BUG-157) ───────────
+# `mxcli test` and `mxcli run --test-endpoint` point the model's after-startup microflow at
+# MxTest.RegisterEndpoint (MxTest.TestRunner for a plain test run) and chain the original; only a
+# clean exit puts it back. A run stopped by a signal leaves it, and the next injection then chains
+# RegisterEndpoint to itself: StackOverflowError in the after-startup, the runtime never starts.
+# Read straight from the model bytes — no mxcli, no running app: the setting is the BSON string
+# element 0x02 "AfterStartupMicroflow" 0x00 of the project-settings unit (mprcontents/**/*.mxunit;
+# inside the .mpr itself on a v1 model). Layout checked against real settings units (mxcli's own
+# test models). A unit or .mpr without the bytes "MxTest." anywhere is not scanned at all (an 8 MB
+# v1 .mpr costs a grep, not an 8 s od). MXTK_SKIP_MXTEST_GUARD=1 skips the check, out loud.
+mxtest_after_startup() (  # $1 = file, or - for stdin. Prints the value ('' = none); 1 = no such element
+  # A subshell with pipefail OFF: awk exits at the first match and od then dies of SIGPIPE; under
+  # the caller's pipefail that 141 would hide the answer and switch the guard off on a large .mpr.
+  set +o pipefail
+  { if [ "$1" = - ]; then od -An -v -tx1; else od -An -v -tx1 "$1"; fi; } 2>/dev/null | awk '
+    BEGIN { for (i = 0; i < 256; i++) hv[sprintf("%02x", i)] = i
+            for (i = 32; i < 127; i++) { c = sprintf("%c", i); ch[sprintf("%02x", i)] = c; hx[c] = sprintf("%02x", i) }
+            s = "AfterStartupMicroflow"; T = length(s) + 2; t[1] = "02"; t[T] = "00"
+            for (i = 1; i <= length(s); i++) t[i + 1] = hx[substr(s, i, 1)]
+            k = 0; st = 0; found = 0 }
+    { for (f = 1; f <= NF; f++) { b = $f
+        if (st == 0) { if (b == t[k + 1]) k++; else k = (b == t[1]) ? 1 : 0
+                       if (k == T) { st = 1; L = 0; m = 1; n = 0; v = "" } }
+        else if (st == 1) { L += hv[b] * m; m *= 256
+                            if (++n == 4) { if (L < 1 || L > 1024) { st = 0; k = 0 } else if (L == 1) { found = 1; exit } else { st = 2; n = 0 } } }
+        else { if (++n < L) v = v ((b in ch) ? ch[b] : "?"); else { found = 1; exit } } } }
+    END { if (!found) exit 1; print v }'
+)
+MXTEST_LEFT=""; MXTEST_UNIT=""; MXTEST_HEAD=""
+mxtest_left() {  # $1 = model dir, $2 = .mpr. 0 = after-startup is an mxcli test injection (sets MXTEST_*)
+  local unit val cands
+  MXTEST_LEFT=""; MXTEST_UNIT=""; MXTEST_HEAD=""
+  if [ "${MXTK_SKIP_MXTEST_GUARD:-0}" = 1 ]; then
+    echo "  ! MXTK_SKIP_MXTEST_GUARD=1 — NOT checking for a leftover mxcli test after-startup (#244). If the app" >&2
+    echo "    then dies with StackOverflowError in MxTest.RegisterEndpoint, that is what this check was for." >&2
+    return 1
+  fi
+  if [ -d "$1/mprcontents" ]; then
+    cands="$(LC_ALL=C grep -rla --include='*.mxunit' 'AfterStartupMicroflow' "$1/mprcontents" 2>/dev/null)"
+  else cands="$2"; fi
+  # Every unit holding the text, not the first: a doc string elsewhere can mention the setting by
+  # name. Only the BSON element counts, and only a unit that contains "MxTest." can hold the value.
+  while IFS= read -r unit; do
+    [ -n "$unit" ] && [ -f "$unit" ] || continue
+    LC_ALL=C grep -qa 'MxTest\.' "$unit" 2>/dev/null || continue
+    val="$(mxtest_after_startup "$unit")" || continue
+    case "$val" in MxTest.RegisterEndpoint|MxTest.TestRunner) ;; *) continue ;; esac
+    MXTEST_LEFT="$val"; MXTEST_UNIT="$unit"
+    case "$unit" in *.mxunit)   # what HEAD has, so the repair can name it; "?" = not tracked / no git
+      MXTEST_HEAD="$(git -C "$(dirname "$unit")" show "HEAD:./$(basename "$unit")" 2>/dev/null | mxtest_after_startup -)" || MXTEST_HEAD="?" ;;
+    *) MXTEST_HEAD="?" ;; esac
+    return 0
+  done <<CANDS
+$cands
+CANDS
+  return 1
+}
+mxtest_refusal() {  # $1 = tool name. Prints the refusal and the repair to stderr. test-scratch gets the
+  # test-a-copy advice; any other caller (app-restart) the stop-the-live-app advice.
+  local was="$MXTEST_HEAD" rel="${MXTEST_UNIT#"$PROJECT_ROOT"/}"
+  echo "✗ $1: this model's after-startup microflow is $MXTEST_LEFT — left behind by an mxcli test or" >&2
+  echo "  run --test-endpoint that did not exit cleanly (stopped by a signal or killed; BUG-157)," >&2
+  echo "  or held right now by a live run --test-endpoint of this project." >&2
+  echo "  Starting on it recurses (the next injection chains $MXTEST_LEFT to itself: StackOverflowError)," >&2
+  echo "  or fails the build with CE1613 if the MxTest module is already gone. Either way the app never starts." >&2
+  echo "  set in: $rel" >&2
+  case "$was" in '?') was="<your own after-startup microflow, or '' for none>"
+                      echo "  HEAD: not readable (no git, or the unit is untracked)" >&2 ;;
+                 '')  echo "  HEAD: no after-startup microflow" >&2 ;;
+                 *)   echo "  HEAD: $was" >&2 ;; esac
+  if [ "$1" = test-scratch ]; then
+    echo "  → If this project's app runs with --test-endpoint right now (skills/cloud-dev-environment.md), the" >&2
+    echo "    live model is fine as it is — test a copy whose settings unit comes from HEAD instead (#244's" >&2
+    echo "    workaround): git worktree add <dir> HEAD, copy the units under test into it, run mxcli test there" >&2
+    echo "    on free ports. Or stop the live app with Ctrl+C in its own terminal (a clean stop restores it)." >&2
+  else
+    echo "  → If this project's app is running with --test-endpoint right now, this is its live injection:" >&2
+    echo "    stop it with Ctrl+C in its own terminal (a clean stop restores the setting), then retry." >&2
+  fi
+  echo "  → Otherwise restore it, then retry:" >&2
+  echo "      git checkout -- '$rel'      (then git status: the run may have left an MxTest module too)" >&2
+  echo "    or through ./bin/exec.sh (an ALTER SETTINGS — say so in chat; it is what mxcli's own cleanup runs):" >&2
+  echo "      mdl 1;" >&2
+  echo "      alter settings runtime (AfterStartupMicroflow: '$was');" >&2
+  echo "    or Studio Pro: App Settings → Runtime → After startup." >&2
+  echo "  A false refusal? MXTK_SKIP_MXTEST_GUARD=1 skips this check (and says so)." >&2
 }

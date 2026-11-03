@@ -1,0 +1,21 @@
+# HELD-OUT set — written 2026-10-15 before the ranker was run on any of these. Same columns as golden.tsv.
+# id	query	expected (|-separated header keys; NONE = no entry should match)	source
+h01	CE0463: "The definition of this widget has changed. Update this widget by right-clicking it and selecting 'Update widget', or select 'Update all widgets' to update all widgets in the app." at Gallery 'galleryProducts'	BUG-101:|BUG-117:|BUG-150:	ledger L1068 (verbatim, widget name added; generic, any CE0463 entry)
+h02	System.InvalidCastException: Unable to cast object of type 'System.DBNull' to type 'System.Byte[]'. at MprV1UnitRepository.GetUnitContents(...)	BUG-25:	ledger L1323 (verbatim)
+h03	System.InvalidCastException: Unable to find 'system' property in 'system' at Core.State.PropertyBag.GetProperty[T](String key, String path) at VersionControl.Git.VersionControlAnalyticScopeFactory.OnProjectOpened(IProject project)	Studio Pro Git integration crashes	ledger L1117 (verbatim, frames joined)
+h04	[error] [CE0109] "Undefined variable 'Customer'." at Microflow 'Sales.ACT_Customer_Save'	BUG-104:	ledger L3613 (verbatim, names varied)
+h05	[error] [CE0402] "No value specified." at Text 'txtProductName'	BUG-118:|BUG-114:	ledger L4520 (verbatim, widget varied)
+h06	[error] [CE0012] "The 'List' property is required." at Aggregate list activity 'Count'	BUG-DRAFT-nested-aggregate-over-filter	ledger L6134 (verbatim, ASCII quotes)
+h07	[error] [CE1613] "The selected enumeration value 'System.WorkflowState.Completed' no longer exists."	BUG-DRAFT-system-enumerations-undiscoverable	ledger L6189 (verbatim, enum value varied)
+h08	Unrecognised tokens at this position. The parser skipped to the next safe boundary so the rest of the expression could be parsed [E007]	BUG-148:	ledger L5836 (verbatim)
+h09	Error: line 1:61 mismatched input 'HAVING' expecting <EOF>	BUG-153:	ledger L5979 (quoted fragment, ANTLR line prefix added)
+h10	[error] [CE0163] "Parameter 'TargetEntity' fills in a type parameter and cannot be optional."	BUG-87:	ledger L3029 (verbatim, parameter varied)
+h11	[error] [CE0114] "A microflow that does not apply entity access can only call microflows that also do not apply entity access." at Call microflow activity 'Importer.ASu_StartupCheck'	BUG-133:	ledger L5521 (verbatim rule text, names varied)
+h12	[error] [CE0495] "Duplicate name 'btnSubmit'." at Action button 'btnSubmit', Action button 'btnSubmit'	BUG-92:|BUG-105:|BUG-106:	ledger L3150 (verbatim, widget varied)
+h13	[error] [CE0068] "End events cannot be placed inside a loop." at End event	NONE	mxcli mdl-examples/bug-tests/captrack-19-return-in-loop-as-clause.fail.mdl:6
+h14	[error] [CE0111] "Duplicate variable name 'Order'." at Create object activity 'Create Order'	NONE	mxcli mdl-examples/bug-tests/ledger-63-string-find.mdl:10 (name varied)
+h15	[error] [CE7033] "A microflow used for background execution must have a Microflow return type of 'Nothing'."	NONE	mxcli mdl-examples/bug-tests/1064-queued-microflow-must-return-nothing.fail.mdl:6
+# h16-h18 added 2026-10-15 after review (no-match rows with no CE code, so the 40% coverage floor is tested), written before the ranker ran on them.
+h16	Error: no debug session — run 'mxcli debug enable' first	NONE	mxcli cmd/mxcli/docker/debugger.go:277
+h17	Error: managed block in postgresql.conf is missing its end marker	NONE	mxcli cmd/mxcli/docker/ensuredb.go:440
+h18	Error: the query returned no rows; @verify needs exactly one row and one column	NONE	mxcli cmd/mxcli/testrunner/verify.go:190

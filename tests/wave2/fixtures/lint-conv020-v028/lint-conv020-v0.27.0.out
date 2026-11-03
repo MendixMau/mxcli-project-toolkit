@@ -1,0 +1,30 @@
+{
+  "violations": [
+    {
+      "ruleId": "SEC001",
+      "severity": "warning",
+      "message": "Persistent entity 'Shop.Item' has no access rules",
+      "module": "Shop",
+      "document": "Item",
+      "documentType": "entity",
+      "documentId": "d910235b-6e6e-44e1-ad58-fcc40295ee28",
+      "suggestion": "GRANT \u003cRole\u003e ON Shop.Item (READ *)"
+    },
+    {
+      "ruleId": "CONV020",
+      "severity": "warning",
+      "message": "'ACT_SaveItem' is triggered from a page and commits/imports/deletes data, but gives no outcome signal at all.",
+      "module": "Shop",
+      "document": "Shop.ACT_SaveItem",
+      "documentType": "Microflow",
+      "suggestion": "Add a Show Message (type Information -- 'Success' silently degrades to Information) stating what completed. If the work is handed to an async integration, say it was submitted, not that it arrived."
+    }
+  ],
+  "summary": {
+    "total": 2,
+    "errors": 0,
+    "warnings": 2,
+    "infos": 0,
+    "hints": 0
+  }
+}

@@ -1,0 +1,14 @@
+-- Clean corpus: valid MDL that an earlier scanner flagged as STOP-1 (independent review of #355).
+-- The LAST datagrid column is customContent with no body; a Visible condition after the grid
+-- (here nested in the next container) is not inside any customContent column.
+create or modify page Module.Item_Overview (Title: 'Items', Layout: Atlas_Core.Atlas_Default) {
+  datagrid dg (DataSource: database Module.Item) {
+    column colName (Attribute: Name, Caption: 'Name')
+    column colBadge (ShowContentAs: customContent, Caption: 'Badge')
+  }
+  container ctnFooter {
+    container ctnNote (Visible: [true]) {
+      dynamictext txtFooter (Content: 'End of list')
+    }
+  }
+}

@@ -196,6 +196,11 @@ ${TOOLKIT_COMMIT_LINE}
 Exec approval: auto
 Permission profile: project
 Unit tests default: no
+Gate mode: check
+
+<!-- Gate mode: check (the default, also without this line) = bin/exec.sh runs \`mx check\` per
+     script and the full mxbuild before every push, at module close and when Java/theme files
+     change (mxcli's own advice). \`Gate mode: full\` = a full mxbuild on every exec. -->
 
 <!-- The bold line above is a READOUT: bin/gate-check.sh rewrites it on every full run from the
      verdicts it just produced (first stage neither PASS nor WAIVED). Do not edit it by hand.
@@ -309,7 +314,8 @@ This project uses the shared toolkit at \`$TOOLKIT_ROOT\`. For ANY pipeline work
 1. **Read \`$TOOLKIT_ROOT/skills/conversion-runbook.md\` §1b plus your own stage's section FIRST —
    every session; not the whole file** (\`bin/gate-check.sh <project-root> <stage>\` prints the line
    spans). It is the executable spec. The toolkit README and toolkit-guide.html are orientation only; stage
-   summaries anywhere are routing, not deliverable lists.
+   summaries anywhere are routing, not deliverable lists. A helper agent (mdl, gate, test, review)
+   runs \`$TOOLKIT_ROOT/bin/runbook-slice.sh <stage>\` instead, which prints exactly those lines.
 2. **Before producing any stage artifact, open that stage's owning skill** and follow its
    full output list (e.g. Stage 3 design work = \`design-artifacts.md\`, incl. one wireframe
    per screen — not just a design system).
@@ -435,7 +441,7 @@ fi
 # ── Starlark lint rules ──────────────────────────────────────────────────────────────────
 # mxcli seeds .claude/lint-rules/ with its own copies; three of them are broken as shipped
 # (two match no entity at all and report a clean pass forever). Install the toolkit's fixed
-# versions over the stock ones, and conv020 — which mxcli does not ship — alongside them.
+# versions over the stock ones, and mxtk_ux003 (MXTK-UX003) — which mxcli does not ship — alongside them.
 # Nothing a human edited is overwritten: see bin/lib/install-lint-rules.sh.
 #
 # THIS MUST RUN AFTER wire-agents.sh. That script runs `mxcli init`, and `mxcli init` re-seeds
@@ -471,7 +477,7 @@ fi
 # analysis/ — THE OUTPUT SIDE, and it was never scaffolded (fixed 2026-08-20).
 #
 # Every rendered surface in the pipeline lands here: triage.html (bin/triage-report.sh),
-# source-sufficiency.html, brd-report.html (bin/brd-report.sh), open-questions.html. gate-check.sh
+# source-sufficiency.html, brd-report.html (bin/brd-report.sh; the open questions live in it). gate-check.sh
 # resolves $ANALYSIS_BASE against it. sources/ was created here from day one; analysis/ was not,
 # on the unstated assumption that an extraction pipeline would `mkdir -p` it on its way past.
 #
@@ -503,8 +509,7 @@ and the honest way to change one is to re-run its producer.
 | `source-sufficiency.html` | `bin/source-sufficiency.sh report` | 0 |
 | `triage.html` | `bin/triage-report.sh <project>` | 0 |
 | `extraction-report.html` | the extraction pipeline, or `kb-generation.md` for a document corpus | 1 |
-| `brd-report.html` | `bin/brd-report.sh <project>` | 2 |
-| `open-questions.html` | `bin/questions-report.sh <project> --stage N` | any gate |
+| `brd-report.html` | `bin/brd-report.sh <project> [--stage N]`: process map, requirements and open questions | 2, any gate |
 
 **This folder exists in every entry mode.** A requirements-driven or greenfield project runs no
 extraction pipeline, but it still produces a sufficiency grade, a scope decision and a BRD report
@@ -611,6 +616,18 @@ else
   fi
   printf '# Per-machine Claude Code permissions (absolute toolkit-root paths) — never shared\n.claude/settings.local.json\n' >> "$GITIGNORE"
   echo "Created/updated: .gitignore (.claude/settings.local.json ignored)"
+fi
+
+# The progress report caches which session logs belong to this project: absolute paths with a
+# user name and session ids. Machine-local, never tracked.
+if [ -f "$GITIGNORE" ] && grep -qE '^/?\.claude/progress-report-sessions\.txt$' "$GITIGNORE"; then
+  echo "Skip: .claude/progress-report-sessions.txt already listed in .gitignore."
+else
+  if [ -f "$GITIGNORE" ] && [ -s "$GITIGNORE" ] && [ -n "$(tail -c 1 "$GITIGNORE")" ]; then
+    printf '\n' >> "$GITIGNORE"
+  fi
+  printf '# Machine-local progress report session cache (absolute session-log paths) — never shared\n/.claude/progress-report-sessions.txt\n' >> "$GITIGNORE"
+  echo "Created/updated: .gitignore (.claude/progress-report-sessions.txt ignored)"
 fi
 
 # ---------------------------------------------------------------------------

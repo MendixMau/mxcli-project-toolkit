@@ -1,0 +1,14 @@
+Capture, mxcli v0.26.0 (2026-10-11), scratch copy of a stock Mendix 11 app, 2026-10-16.
+Question: does SHOW CALLERS after an exec see a caller that exec created (cached catalog)?
+
+1) mxcli -p App.mpr -c "SHOW CALLERS OF Administration.ChangePassword TRANSITIVE"
+   (first call: "Catalog cached to .mxcli/catalog.db", Microflows: 20, References: 506)
+   Found 4 caller(s): ChangePasswordForm 1, ShowPasswordForm 2, Account_Edit 3, Account_Overview 4
+
+2) mxcli exec -p App.mpr new-caller.mdl     (create microflow Administration.ZZ_Probe_Caller, which calls ChangePassword)
+   Created microflow: Administration.ZZ_Probe_Caller
+
+3) the same SHOW CALLERS again, 3.6 s (catalog rebuilt because the .mpr changed: Microflows: 21, References: 507)
+   Found 5 caller(s): ChangePasswordForm 1, ZZ_Probe_Caller 1, ShowPasswordForm 2, Account_Edit 3, Account_Overview 4
+
+Result: not stale. The new caller is listed at depth 1.

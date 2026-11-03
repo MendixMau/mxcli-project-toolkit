@@ -10,7 +10,8 @@
 #
 # Input: journey files shaped like the toolkit's own journeys (the validator's selftest base),
 # written here and checked through the real CLI. Also runs the validator's --selftest, which
-# watches every rule go red.
+# watches every rule go red. T4 (#520): --brd prefers the .brd.json over a derived
+# .mx-brd.json with the same id; a derived file alone still answers for its id.
 
 set -uo pipefail
 
@@ -71,6 +72,20 @@ run livepos; { [ "$RC" -eq 1 ] && grep -q 'only read for a negative-only claim' 
   && ok "liveness beside ordered → problem (never read)" || bad "unread liveness accepted" "$OUT"
 run badre; { [ "$RC" -eq 1 ] && grep -q 'not a valid regex' <<< "$OUT"; } \
   && ok "mustNotFire that is not a regex → problem" || bad "invalid regex accepted" "$OUT"
+
+echo "== T4: --brd with a derived .mx-brd.json of the same id beside the .brd.json (#520) =="
+# The issue's three-file repro. The .mx-brd.json lists after the .brd.json, which is how it used to win.
+B="$WORK/brd"; mkdir -p "$B"
+printf '%s\n' '{"id":"F101","useCases":[{"mainFlow":["1. go"]}]}' > "$B/F101-x.brd.json"
+printf '%s\n' '{"id":"F101","kind":"mx","generated":"2026-10-21"}' > "$B/F101-x.mx-brd.json"
+printf '%s\n' '{"id":"F102","kind":"mx","useCases":[{"mainFlow":["1. only derived"]}]}' > "$B/F102-y.mx-brd.json"
+printf '%s\n' '{"id":"J","requirement":["F101#/useCases/0/mainFlow/0","F102#/useCases/0/mainFlow/0"],"steps":[{"name":"s","actions":[{"do":"wait","ms":1}]}]}' > "$WORK/ptr.journey.json"
+printf '%s\n' '{"id":"J2","requirement":["F101#/useCases/3/mainFlow/0"],"steps":[{"name":"s","actions":[{"do":"wait","ms":1}]}]}' > "$WORK/dangling.journey.json"
+OUT="$(node "$SUT" --brd "$B" "$WORK/ptr.journey.json" 2>&1)"; RC=$?
+{ [ "$RC" -eq 0 ] && ! grep -q DANGLING <<< "$OUT"; } && ok "valid pointer into the .brd.json resolves with the .mx-brd.json beside it" || bad "pointer read DANGLING with a .mx-brd.json beside the BRD" "$OUT"
+grep -q '1 .mx-brd.json file(s) not read' <<< "$OUT" && ok "one notice names the derived file left unread" || bad "no notice for the derived file left unread" "$OUT"
+OUT="$(node "$SUT" --brd "$B" "$WORK/dangling.journey.json" 2>&1)"; RC=$?
+{ [ "$RC" -eq 1 ] && grep -q 'DANGLING' <<< "$OUT"; } && ok "a pointer that does not resolve in the BRD is still DANGLING" || bad "real DANGLING pointer not reported" "$OUT"
 
 echo "== T3: the validator's own selftest =="
 ST="$(node "$SUT" --selftest 2>&1)"; RC=$?

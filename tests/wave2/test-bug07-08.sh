@@ -16,11 +16,15 @@
 #
 # Run it against the PRE-fix script and cases C, E, F, I, J and the #7 block
 # must FAIL — that is the positive control. A suite that has only ever seen the
-# fix cannot show that it discriminates. Cases A, B, D, G, H2 pass on both; they
-# are regression guards, not discriminators, and are labelled [guard]. Case H
+# fix cannot show that it discriminates. Cases A, B, G pass on both; they
+# are regression guards, not discriminators, and are labelled [guard]. H2's and K's exit 5
+# (applied, unverified) discriminate against every script before 2026-10-20 (#443), which
+# exited 0; D's and D2's exit 1 against every script that passed mxcli's code through. Case H
 # (gate cannot run -> refuse) discriminates against every script before 2026-09-17.
 # Case K (mxbuild refused the model: exit 3, errors[], empty problems[]) discriminates
 # against every script before 2026-09-27 — the pre-fix row reads "pass · mxbuild clean".
+# Case A2 (#540: a changed javasource/ prints one staging hint) discriminates against every
+# exec.sh before 2026-10-22; A3 is its guard.
 # Case L (failed gate on a v1 single-file model is rolled back) discriminates against every
 # exec.sh with the inline mprcontents/-only restore.
 #
@@ -124,6 +128,17 @@ RC=$(MODE_BUILD=clean run A)
 [ "$RC" -eq 0 ] && ok "[guard] exit 0" || bad "[guard] exit $RC, expected 0"
 [ "$(rows)" -gt "$BEFORE" ] && ok "[guard] row logged" || bad "no row logged"
 
+# ── A2: #540 an action source beside the model gets a staging hint ───────────
+echo "== A2: #540 javasource/ changed -> one staging hint, still exit 0 =="
+mkdir -p "$P/javasource/fixture/actions"; printf 'class JA_Go {}\n' > "$P/javasource/fixture/actions/JA_Go.java"
+RC=$(MODE_BUILD=clean run A2)
+[ "$RC" -eq 0 ] && ok "[guard] exit 0 with an action source changed" || bad "exit $RC, expected 0"
+grep -q 'Action sources changed outside the model' "$WORK/out.A2" && grep -q '?? javasource/' "$WORK/out.A2" \
+  && ok "staging hint names javasource/" || bad "no staging hint for a changed javasource/"
+rm -rf "$P/javasource"
+RC=$(MODE_BUILD=clean run A3)
+grep -q 'Action sources changed outside the model' "$WORK/out.A3" && bad "hint printed with no action source changed" || ok "[guard] no hint when javasource/ is clean"
+
 # ── B: mxbuild reports a real error ──────────────────────────────────────────
 echo "== B: mxbuild errors -> gate fails, errors file written =="
 BEFORE=$(rows)
@@ -147,11 +162,16 @@ fi
                     || bad "no .prev archive of the failure detail"
 
 # ── D: mxcli exec fails, gate still runs ─────────────────────────────────────
-echo "== D: exec exit 3 -> PARTIAL, gate still runs =="
+# Exit 1, not mxcli's own 3 (exec.sh "Exit codes", #494 review): a passed-through 2 would read
+# as "nothing touched" and a 4 or 5 as "applied". D2 is the 4 case.
+echo "== D: exec exit 3 -> PARTIAL, gate still runs, exit 1 =="
 BEFORE=$(rows)
 RC=$(MODE_EXEC=3 MODE_BUILD=clean run D)
-[ "$RC" -eq 3 ] && ok "[guard] exit 3 propagated" || bad "[guard] exit $RC, expected 3"
+[ "$RC" -eq 1 ] && ok "exit 1 (PARTIAL), not mxcli's 3" || bad "exit $RC, expected 1"
 [ "$(rows)" -gt "$BEFORE" ] && ok "[guard] PARTIAL row logged" || bad "no PARTIAL row"
+echo "== D2: exec exit 4 -> PARTIAL exits 1, never the lint-only 4 =="
+RC=$(MODE_EXEC=4 MODE_BUILD=clean run D2)
+[ "$RC" -eq 1 ] && ok "exit 1, not 4" || bad "exit $RC, expected 1"
 
 # ── E/F: #7b — the clean paths that write no errors file ─────────────────────
 echo "== E: #7b empty (0-byte) errors file is still a logged clean build =="
@@ -187,11 +207,12 @@ grep -q 'refused' "$LOG" 2>/dev/null && ok "row says refused" || bad "no 'refuse
 grep -q 'REFUSING' "$WORK/out.H" && ok "refusal named on screen" || bad "no REFUSING line on screen"
 grep -q 'Snapshot saved' "$WORK/out.H" && bad "snapshot taken despite refusal" || ok "no snapshot taken"
 
-# ── H2: ALLOW_UNVERIFIED=1 is the explicit "write anyway" — exit 0, UNVERIFIED row
-echo "== H2: mxbuild missing + ALLOW_UNVERIFIED=1 -> UNVERIFIED, exit 0 =="
+# ── H2: ALLOW_UNVERIFIED=1 is the explicit "write anyway" — exit 5 (applied, unverified;
+# exec.sh "Exit codes", #443 — it was 0, which read as a verified pass), UNVERIFIED row
+echo "== H2: mxbuild missing + ALLOW_UNVERIFIED=1 -> UNVERIFIED, exit 5 =="
 BEFORE=$(rows)
 RC=$(ALLOW_UNVERIFIED=1 MXB_OVERRIDE="$WORK/no-such-mxbuild" run H2)
-[ "$RC" -eq 0 ] && ok "[guard] exit 0" || bad "[guard] exit $RC, expected 0"
+[ "$RC" -eq 5 ] && ok "exit 5 (applied, unverified)" || bad "exit $RC, expected 5"
 [ "$(rows)" -gt "$BEFORE" ] && ok "[guard] UNVERIFIED row logged" || bad "no row logged"
 grep -q 'UNVERIFIED' "$LOG" 2>/dev/null && ok "row says UNVERIFIED" || bad "no UNVERIFIED row"
 
@@ -273,6 +294,7 @@ rm -f "$P/.mpr-snapshots/.exec.lock"
 BEFORE=$(rows)
 RC=$(MODE_BUILD=refused MODE_BUILD_EXIT=3 run K)
 LAST=$(grep '^| [0-9]' "$LOG" 2>/dev/null | tail -1)
+[ "$RC" -eq 5 ] && ok "exit 5 (unverified), not 0" || bad "K exit $RC, expected 5"
 [ "$(rows)" -gt "$BEFORE" ] && ok "row logged" || bad "no row logged"
 case "$LAST" in
   *"mxbuild clean"*|*"| pass |"*) bad "FALSE GREEN: a refused build logged as clean: $LAST" ;;

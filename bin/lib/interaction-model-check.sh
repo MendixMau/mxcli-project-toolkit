@@ -134,7 +134,10 @@ _im_tables() {
       }
       if (line ~ /^[ \t]*\|[ \t:|-]+\|?[ \t]*$/) next
       if (rc == 0) next
-      printf "HOME\t%s\t%s\n", clean(cell[rc]), (hc ? clean(cell[hc]) : "")
+      # "Owner (signed-in User who owns dashboards)" names the role Owner: a trailing note in
+      # parentheses is dropped before the match (Stage-3 worker output, 2026-11-03).
+      role = clean(cell[rc]); sub(/[ \t]*\([^()]*\)[ \t]*$/, "", role)
+      printf "HOME\t%s\t%s\n", role, (hc ? clean(cell[hc]) : "")
     }' "$1"
 }
 

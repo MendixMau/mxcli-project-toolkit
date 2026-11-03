@@ -1,0 +1,23 @@
+{
+  "id": "F001",
+  "title": "Orders and approval",
+  "useCases": [
+    { "id": "UC001", "title": "Submit an order", "actors": ["Requester"], "screens": ["Order_NewEdit"], "microflows": ["ACT_Order_Submit"], "openQuestions": ["Q01"], "source": "src/orders/submit.ts:10-40" },
+    { "id": "UC002", "title": "Approve or reject an order", "actors": ["Approver"], "screens": ["Order_Approve"], "microflows": ["ACT_Order_Approve", "ACT_Order_Reject"], "openQuestions": [], "source": "src/orders/approve.ts:5-60" },
+    { "id": "UC003", "title": "Notify the requester", "actors": ["System"], "microflows": ["SUB_Order_Notify"], "openQuestions": [], "source": "src/orders/notify.ts:1-30" },
+    { "id": "UC004", "title": "Find past orders", "actors": ["Requester"], "screens": ["Order_Overview"], "openQuestions": [], "source": "src/orders/list.ts:1-20" },
+    { "id": "UC005", "title": "Nightly cleanup of abandoned drafts", "actors": ["System"], "openQuestions": [], "source": "src/jobs/cleanup.ts:1-15" }
+  ],
+  "openQuestions": [
+    { "id": "Q01", "question": "Is there a maximum order amount a requester may submit?", "assumption": "No maximum.", "blocking": true, "source": "src/orders/submit.ts:22" },
+    { "id": "Q02", "question": "May an approver approve their own order?", "assumption": "No, the approver must be someone else.", "source": "src/orders/approve.ts:30-34" },
+    { "id": "Q03", "question": "Should the history list on Order_Overview show cancelled orders?", "assumption": "Hidden by default." },
+    { "id": "Q04", "question": "Which currency do amounts use?", "assumption": "One currency for the whole app." }
+  ],
+  "businessRules": [],
+  "pages": [
+    { "name": "Order_NewEdit", "route": "order-new-edit" },
+    { "name": "Order_Approve", "route": "order-approve" },
+    { "name": "Order_Overview", "route": "order-overview" }
+  ]
+}

@@ -1,0 +1,6 @@
+Checked 27 unit(s) in TestApp.mpr against 27 .mxunit file(s).
+  MISMATCH  84776610-13b2-48cb-a265-d5e984d63129  mprcontents/84/77/84776610-13b2-48cb-a265-d5e984d63129.mxunit [DomainModels$DomainModel]
+            stored AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=, file 1tF/YLIYmzkcB4ZkTyr7T0ENwLh+koaNmllfUhr+1Yg=
+
+1 mismatch(es), 0 missing file(s), 0 orphan file(s).
+Run 'mxcli fix hashes -p stale/TestApp.mpr --repair' to rewrite the mismatched hashes from the files.

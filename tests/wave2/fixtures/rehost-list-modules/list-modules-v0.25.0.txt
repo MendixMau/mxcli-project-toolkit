@@ -1,0 +1,10 @@
+WARNING: This is a vibe-coded PoC, alpha quality, use with caution.
+Connected to: App.mpr (Mendix 9.24.30.51827)
+| Module          | Source             | Entities | Enums | Pages | Snippets | Microflows | Nanoflows | Workflows | Constants | JavaActions | PubREST | PubOData | ConOData | BizEvents | ExtDB |
+|-----------------|--------------------|----------|-------|-------|----------|------------|-----------|-----------|-----------|-------------|---------|----------|----------|-----------|-------|
+| Billing         |                    | 0        | 0     | 0     | 0        | 0          | 0         | 0         | 0         | 0           | 0       | 0        | 0        | 0         | 0     |
+| NanoflowCommons | Marketplace v3.0.0 | 2        | 0     | 0     | 0        | 0          | 0         | 0         | 0         | 0           | 0       | 0        | 0        | 0         | 0     |
+| Orders          |                    | 0        | 0     | 0     | 0        | 0          | 0         | 0         | 0         | 0           | 0       | 0        | 0        | 0         | 0     |
+| System          |                    | 39       | 15    | 0     | 0        | 0          | 0         | 0         | 0         | 1           | 0       | 0        | 0        | 0         | 0     |
+
+(4 modules)

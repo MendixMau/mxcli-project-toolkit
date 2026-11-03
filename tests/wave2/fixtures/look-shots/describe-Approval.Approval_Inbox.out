@@ -1,0 +1,41 @@
+mdl 1;
+/**
+ * Approver home: the submitted requests waiting for a decision, oldest first; Review opens Approval_Decide.
+ */
+create or modify page Approval.Approval_Inbox folder 'Approvals' (
+  Title: 'Approval inbox',
+  Layout: Purchasing.App_Default,
+  Url: 'inbox'
+) {
+  container pageBody (Class: 'page-column') {
+    dynamictext titleInbox (Content: 'Approval inbox', RenderMode: H1, Class: 'page-title')
+    container inboxActions (Class: 'actionbar') {
+      actionbutton btnToDashboard (Caption: 'Dashboard', Action: show page Approval.Dashboard)
+    }
+    datagrid dgInbox (
+      DataSource: microflow Approval.DS_Approval_Inbox,
+      showEmptyPlaceholder: 'custom',
+      Class: 'spacing-outer-bottom-large'
+    ) {
+      -- Context: $currentObject (Purchasing.PurchaseRequest), $dgInbox (selection)
+      emptyplaceholder {
+        dynamictext txtNothing (Content: 'Nothing to approve', Class: 'empty-ds')
+      }
+      column (Attribute: RequestNumber, Caption: 'No.')
+      column (Attribute: Title, Caption: 'Title')
+      column (Attribute: RequestedBy, Caption: 'Requester')
+      column (Caption: 'Total', ShowContentAs: customContent, Alignment: right) {
+        textbox tbInboxTotal (Attribute: TotalAmount, GroupDigits: true, Editable: Never, Class: 'cell-money')
+      }
+      column (Caption: 'Actions', ShowContentAs: customContent, allowEventPropagation: false) {
+        actionbutton btnReview (
+          Caption: 'Review',
+          Action: show page Approval.Approval_Decide(Request = $currentObject),
+          ButtonStyle: Primary
+        )
+      }
+    }
+  }
+};
+
+grant view on page Approval.Approval_Inbox to Approval.Approver;

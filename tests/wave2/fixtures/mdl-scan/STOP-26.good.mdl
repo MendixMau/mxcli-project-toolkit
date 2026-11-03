@@ -1,0 +1,8 @@
+-- STOP-26, corrected form (same entry, Repro).
+-- key: column colY (Attribute: Assoc_A_B/Name,   Caption: 'B')        -- unquoted: builds
+create or modify page ModuleA.EntityA_Overview (Title: 'A', Layout: Atlas_Core.Atlas_Default) {
+  datagrid dg (DataSource: database ModuleA.EntityA) {
+    column colY (Attribute: Assoc_A_B/Name,   Caption: 'B')
+    column colZ (Attribute: "Name", Caption: 'Name')
+  }
+}

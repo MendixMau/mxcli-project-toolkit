@@ -47,9 +47,11 @@ printf '%s\n' "$OUT" | grep -q 'Would install: bin/exec.sh' \
 printf '%s\n' "$OUT" | grep -qE 'artifact\(s\) would be updated|All copied artifacts up to date' \
   && ok "T3 no heading: sync reaches its summary line" \
   || bad "T3 no heading: sync reaches its summary line"
-printf '%s\n' "$OUT" | grep -q 'cites Baseline-only skills' \
-  && ok "T4 no heading: the duplicate-routing warning is still raised" \
-  || bad "T4 no heading: the duplicate-routing warning is still raised"
+if printf '%s\n' "$OUT" | grep -q 'cites Baseline-only skills'; then
+  bad "T4 no heading: no duplicate-routing warning (nothing to name or size, #382)"
+else
+  ok "T4 no heading: no duplicate-routing warning (nothing to name or size, #382)"
+fi
 
 # --- heading present: the case the check was written for keeps working ------------------
 P2="$(mkproj withheading)"
@@ -59,6 +61,24 @@ OUT2="$("$SYNC" "$P2" --dry-run 2>&1)"; RC2=$?
 printf '%s\n' "$OUT2" | grep -qE 'section \(~[0-9]+ word' \
   && ok "T6 heading: warning sizes the section" \
   || bad "T6 heading: warning sizes the section"
+
+# --- #382: a citation inside the toolkit's own wiring block is not the adopter's duplicate ---
+P3="$(mkproj wiringonly)"
+printf '\n<!-- mxtk:wiring:start -->\nsee skills/learned-mdl-preflight.md STOP table\n<!-- mxtk:wiring:end -->\n' >> "$P3/CLAUDE.md"
+OUT3="$("$SYNC" "$P3" --dry-run 2>&1)"; RC3=$?
+[ "$RC3" -eq 0 ] && ok "T7 wiring block only: sync exits 0" || bad "T7 wiring block only: sync exits 0 (got $RC3)"
+if printf '%s\n' "$OUT3" | grep -q 'cites Baseline-only skills'; then
+  bad "T8 wiring block only: no duplicate-routing warning"
+else
+  ok "T8 wiring block only: no duplicate-routing warning"
+fi
+# the same text OUTSIDE the block, under the heading, still warns
+P4="$(mkproj wiringplusheading)"
+printf '\n<!-- mxtk:wiring:start -->\nsee skills/learned-mdl-preflight.md\n<!-- mxtk:wiring:end -->\n\n## mxcli-project-toolkit Integration\n\nRead skills/query-the-model.md.\n' >> "$P4/CLAUDE.md"
+OUT4="$("$SYNC" "$P4" --dry-run 2>&1)"
+printf '%s\n' "$OUT4" | grep -qE 'section \(~[0-9]+ word' \
+  && ok "T9 block + heading: warning still raised, sized from the heading" \
+  || bad "T9 block + heading: warning still raised, sized from the heading"
 
 echo ""
 echo "test-sync-dup-heading-exit: $PASS passed, $FAIL failed"

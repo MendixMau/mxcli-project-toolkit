@@ -1,0 +1,35 @@
+# mxcli lint -p PedApp.mpr --format json -m Shop, one run per lint config; ruleIds of the violations.
+# binary: mxcli version v0.28.0 (2026-10-23T14:29:27Z) (7a1cb61f9e5e28c09f3c1247446cc611f6deca781355b93c5c6a29fd29d4e3ee)
+# model: the lint-conv020-*.cmd capture model (pedapp + conv020-setup.mdl, toolkit conv020_action_user_feedback.star installed)
+# captured 2026-10-23T21:49Z, Linux x86-64. 'CONV020 CONV020 SEC001' = both CONV020 rules run; 'SEC001' = both off.
+# [files]: the config text went into the first; any others got "rules: {}". Config texts: the labels,
+# as written into tests/wave2/test-lint-rule-rename.sh T1c. config-load-error = mxcli printed
+# "Warning: failed to load lint config" and ran with defaults.
+none                               [.claude/lint-config.yaml]                       CONV020 CONV020 SEC001
+enabled: false                     [.claude/lint-config.yaml]                       SEC001
+enabled: False                     [.claude/lint-config.yaml]                       SEC001
+enabled: FALSE                     [.claude/lint-config.yaml]                       SEC001
+enabled: fAlse                     [.claude/lint-config.yaml]                       config-load-error CONV020 CONV020 SEC001
+enabled: no                        [.claude/lint-config.yaml]                       SEC001
+enabled: No                        [.claude/lint-config.yaml]                       SEC001
+enabled: NO                        [.claude/lint-config.yaml]                       SEC001
+enabled: n                         [.claude/lint-config.yaml]                       SEC001
+enabled: N                         [.claude/lint-config.yaml]                       SEC001
+enabled: off                       [.claude/lint-config.yaml]                       SEC001
+enabled: Off                       [.claude/lint-config.yaml]                       SEC001
+enabled: OFF                       [.claude/lint-config.yaml]                       SEC001
+enabled: nO                        [.claude/lint-config.yaml]                       config-load-error CONV020 CONV020 SEC001
+enabled: 'no'                      [.claude/lint-config.yaml]                       SEC001
+enabled: "false"                   [.claude/lint-config.yaml]                       config-load-error CONV020 CONV020 SEC001
+enabled: 0                         [.claude/lint-config.yaml]                       config-load-error CONV020 CONV020 SEC001
+enabled: true                      [.claude/lint-config.yaml]                       CONV020 CONV020 SEC001
+severity+enabled: no               [.claude/lint-config.yaml]                       SEC001
+single-quoted key                  [.claude/lint-config.yaml]                       SEC001
+double-quoted key                  [.claude/lint-config.yaml]                       SEC001
+flow { enabled: False, severity }  [.claude/lint-config.yaml]                       SEC001
+options: enabled: false (nested)   [.claude/lint-config.yaml]                       CONV020 CONV020 SEC001
+flow nested options                [.claude/lint-config.yaml]                       CONV020 CONV020 SEC001
+root lint-config.yaml              [lint-config.yaml]                               SEC001
+root .lint-config.yaml             [.lint-config.yaml]                              SEC001
+.claude empty, root off            [lint-config.yaml .claude/lint-config.yaml]      CONV020 CONV020 SEC001
+root empty, .lint-config off       [.lint-config.yaml lint-config.yaml]             CONV020 CONV020 SEC001

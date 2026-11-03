@@ -373,6 +373,8 @@ For every integration point the fit-gap flagged (Step 4) as needing a live conne
 
 Record each as a row in `PROJECT.md` (Step 5's register) with its `CONFIRMED`/`ASSUMED` status, not as a separate untracked list — it's a dependency like any other.
 
+An integration between two Mendix apps (one publishes, the other consumes) also needs keys, auth roles, error contract, ownership and external-entity limits decided → `mendix-service-seam.md`.
+
 ---
 
 ## Step 7: Render the Checkpoint Surface (`architecture/blueprint.html`)

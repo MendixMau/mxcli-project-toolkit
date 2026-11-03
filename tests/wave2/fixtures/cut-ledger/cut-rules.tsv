@@ -1,0 +1,48 @@
+# cut-rules.tsv — decisions for the NativeNote slice (increment 3). direction<TAB>pattern<TAB>resolution<TAB>evidence
+# pattern: fnmatch on the far-side doc, or 'SliceDoc -> FarDoc'. First match wins. Scripts: mdl/edges-*.mdl
+# ---- OUT: the slice uses something that stays in the monolith
+out	NanoflowCommons.*	resolved:marketplace	NanoflowCommons 7.2.1 ships in the Blank Native Mobile App starter (captures/14); mx check 0 (captures/21)
+out	NativeMobileResources.*	resolved:marketplace	NativeMobileResources 12.2.2 ships in the starter; mx check 0
+out	CommunityCommons.*	resolved:marketplace	marketplace install 170 -> 11.5.1 (captures/15)
+out	Utils.*	resolved:mpk	Utils moved by export-module-mpk.py + install --file (captures/16); cut-score says copy Utils to mobile; its own edges are --extra rows
+out	FSM_Specific.NativePhone_*	resolved:copy-drift	layout copied from describe; SafeAreaView wrapper dropped (mxcli refuses placeholders inside a pluggable-widget slot) — edges-B.mdl; iOS safe-area padding lost
+out	NativeMobile.StorageItem_*	resolved:copy	2-activity nanoflow copied verbatim (deps NanoflowCommons, Utils present) — edges-B.mdl
+out	NativeMobile.ENUM_LoadingType	resolved:copy	enumeration copied verbatim — edges-B.mdl
+out	NativeMobile.NativeWorkorder_AppointmentDetailsHelper_AddNoteCount	resolved:copy	nanoflow copied verbatim; runs against the stub AppointmentDetailsHelper/NativeWorkOrder — edges-B.mdl
+out	NativeMobile.JS_GetOriginalValue	stub	JS action copied, generic type parameter narrowed to NativeNote.NativeNote (describe output Name<Entity>(Entity: "Entity") does not parse; entity-type form fails CE0115) — same JS body, original .js file copied
+out	Note.JS_CloneFileDocument	resolved:copy-retarget	JS action copied into Synchronization (web module Note stays behind), the one call in OfflineImageAction_Create retargeted; original .js copied (describe drops the EXTRA CODE import of react-native Platform)
+out	NativeMobile.LoadHelper_*	stub	CUT STUB nanoflow, signature verbatim: StartLoading creates a LoadHelper, StopLoading returns — the monolith loading/all-done/error pages are NOT shown
+out	NativeMobile.NativeWorkOrder	stub	CUT STUB entity (SystemID only of 24 attributes); the slice has no work orders: synced to the device in the monolith (sync profile), here empty until a REST feed exists — HANDOFF to the landscape (NativeMobile co-locates in the Mobile app per cut-score)
+out	NativeMobile.NativeTicket	stub	CUT STUB entity (DisplayEnd only); *_DeleteOld XPath runs against an empty table
+out	NativeMobile.AppointmentDetailsHelper*	stub	CUT STUB non-persistent entity (NoteCount) + association; appointment details screen stays in the monolith
+out	NativeMobile.NativeWorkOrder_NativeTicket	stub	CUT STUB association (XPath in *_DeleteOld)
+out	NativeMobile._NativeWorkOrder_NativeTechnician_EditMy	stub	CUT STUB association used by NativeNote/NativeImage access-rule XPath; with no work orders, EditMy users see no notes — security HANDOFF with the data feed
+out	NativeTechnician.NativeTechnician	stub	CUT STUB entity (SystemID, TechnicianName); technician master data stays in the monolith — needs a REST/OData read or a synced copy
+out	Administration.Account_NativeTechnician	stub	CUT STUB association added to the starter's Administration 4.5.0 (FSM had modified its Administration module); a local edit to a marketplace module — re-apply after any Administration update
+out	Synchronization.Synchronize	stub	CUT STUB nanoflow (ShowMessageIfOffline): the monolith's app-wide sync is not carried; the slice's offline actions are created but never pushed — HANDOFF: a slice-local synchronize + server processing
+# ---- CHECK-ONLY: names mx check reports that the catalog never recorded
+check	General.ACT_DoNothing_NF	resolved:copy	App events widget action (catalog blind spot) — copied, edges-B.mdl
+check	FSM_Specific.Material_Design_Icons	resolved:copy	page/layout icon images (catalog blind spot) — edges-A-icons.mdl
+# ---- IN: the monolith uses something that moves (strangler work on the monolith side; nothing executed in this increment)
+in	Synchronization.OfflineAction* -> *	resolved:copy	generic offline-action base (entity, save, list commit) is used by all 16 offline action types: copied into the slice, the monolith keeps its own — no rewire
+in	Synchronization.UploadHelper* -> *	resolved:copy	generic upload bookkeeping, copied; the monolith keeps its own — no rewire
+in	Synchronization.* -> Synchronization.Offline*Action_Process*	handoff	server-side processing of uploaded note/image offline actions stays in the monolith (it writes web Note records): the slice must forward OfflineNoteAction/OfflineImageAction to it — REST push slice->monolith (the seam, device->web direction)
+in	Synchronization.* -> Synchronization.Offline*Action_Validate	handoff	server-side validation of uploaded note/image actions — goes with the processing seam above
+in	Synchronization.* -> Synchronization.Offline*Action_NewNote	handoff	creates the web Note from an offline note action — processing seam
+in	Synchronization.* -> Synchronization.Offline*Action_UpdateNote	handoff	updates the web Note from an offline note action — processing seam
+in	Synchronization.* -> NativeMobile.DS_GetObjectCounts	resolved:copy	device-side object counts over the offline-action types; the monolith keeps its copies of those entities (dead for notes once NativeNote retires there)
+in	Synchronization.* -> Navigation.NativePhone	resolved:copy	monolith profile syncs its own copies of NoteImage/Offline{Note,Image}Action; the slice profile syncs the slice copies (edges-C-app.mdl)
+in	Synchronization.* -> Synchronization.*	resolved:copy	monolith Synchronization docs referencing the generic offline-action types the slice copied; the monolith keeps its own copy — no rewire for this slice
+in	NativeNote.* -> Synchronization.Note_*NativeNote	handoff	Note->NativeNote server-side push (web note edited -> device copy updated) — becomes a REST/OData action into the slice (the intended seam)
+in	NativeNote.* -> Synchronization.NoteImage_*Native*	handoff	NoteImage->NativeImage server-side push — same seam as Note->NativeNote
+in	NativeNote.* -> Synchronization.Native*List_*	handoff	initial/periodic server-side fill of NativeNote/NativeImage from web notes — same seam (REST pull or push)
+in	NativeNote.* -> Synchronization.Rule_Note_HasChanged	handoff	change detection for the Note->NativeNote push — moves with the seam
+in	NativeNote.* -> Synchronization.*	handoff	monolith sync flow (work-order tree, other offline actions) naming NativeNote — rewire when NativeNote leaves the monolith (strangler step 5)
+in	NativeNote.* -> NativeModelCheck.*	retire	NativeModelCheck is test tooling (cut-score-findings: retire, 1 inbound edge)
+in	NativeNote.* -> MasterData.*	handoff	the one MasterData admin page (Note_NewEdit_MxAdmin + its 3 flows) stays in the monolith: needs an OData read/write of NativeNote from the slice
+in	NativeNote.* -> Navigation.NativePhone	handoff	monolith NativePhone profile syncs NativeNote/NativeImage: drop those lines when NativeNote retires there; the slice profile has them (edges-C-app.mdl)
+in	NativeNote.* -> NativeMobile.*	handoff	NativeMobile (work-order screens, counts, cleanup) opens/counts NativeNote: co-locate in the Mobile app (cut-score landscape) or deep-link into the slice
+in	NativeNote.* -> NativeMobileRelated.*	handoff	related-work tree reads NativeNote: same as NativeMobile
+in	NativeNote.* -> NativeTechnician.*	handoff	technician XPath to NativeNote: same as NativeMobile
+in	NativeNote.* -> Note.*	handoff	web Note delete cascades into NativeNote/NativeImage lists: becomes a REST delete into the slice (same seam)
+in	NativeNote.* -> General.*	handoff	General.TurnSoftDeleteToHard (scheduled cleanup) calls NativeNote cleanup: schedule it in the slice instead

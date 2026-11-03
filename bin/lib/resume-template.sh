@@ -64,6 +64,11 @@ resume doc is worse than none. Step 1 below is how to find out.
 3. Overwrite this file before the session ends (\`bin/close-task.sh\` prints the checklist), so
    the next one does not have to repeat step 1.
 
+## Waiting changes
+
+None recorded. A closing session lists the agreed change requests that are not built yet, as
+\`Waiting changes: CR-07, CR-09\` (\`none\` when there are none), so the overwrite cannot drop them.
+
 ## Do not lose
 
 Nothing recorded yet. This section is where a closing session puts the thing that would be

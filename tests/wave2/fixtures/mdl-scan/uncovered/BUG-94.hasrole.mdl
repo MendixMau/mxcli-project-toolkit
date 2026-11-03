@@ -1,0 +1,6 @@
+-- No STOP row. captured: bug-logs/mxcli-bugs.md BUG-94 (Symptom), still open on v0.21.0.
+-- key: SET Visible = [hasRole('Module.SomeRole')] ON someTile;
+-- evidence: CE0117: Error(s) in expression '[hasRole('Module.SomeRole')]'
+ALTER PAGE Module.Page {
+  SET Visible = [hasRole('Module.SomeRole')] ON someTile;
+};

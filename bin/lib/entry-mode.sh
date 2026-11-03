@@ -34,14 +34,14 @@ entry_mode_token() {
   # doing it after would let that stripping treat "(2026-09-01)" as if it opened at the
   # start of the value and eat everything from "assumed (" onward, value included. The
   # register's bare value ("migration") has no such prefix and passes through untouched.
-  v="$(printf '%s' "$v" | sed -E 's/^[ \t>*_-]*(answered|answer|a|decision|assumed)[ \t]*(\([^)]*\))?[ \t]*:[ \t]*//')"
+  v="$(printf '%s' "$v" | sed -E 's/^[[:blank:]>*_-]*(answered|answer|a|decision|assumed)[[:blank:]]*(\([^)]*\))?[[:blank:]]*:[[:blank:]]*//')"
   v="${v%%(*}"          # drop a trailing parenthetical: "migration (not greenfield)"
   v="${v%%,*}"          # drop anything after the first comma
   v="${v%%;*}"          # ...or semicolon
   # Trim leading/trailing noise, INCLUDING markdown emphasis markers on both ends
   # ("**migration**", "_greenfield_") — the old trailing trim only stripped spaces,
   # tabs and a period, so a bolded or italicised value never matched anything.
-  v="$(printf '%s' "$v" | sed 's/^[ \t>*_-]*//; s/[ \t.*_-]*$//')"
+  v="$(printf '%s' "$v" | sed 's/^[[:blank:]>*_-]*//; s/[[:blank:].*_-]*$//')"
   full="$v"
   # Documented multi-word phrases resolve on the WHOLE value, before the first-word
   # truncation below: the runbook's own label for the fourth mode is "Change an existing

@@ -1,0 +1,17 @@
+-- STOP-1, corrected form: the enum caption bound as an attribute (preflight row 1, "Safe CLI
+-- alternative"); a Visible condition OUTSIDE a customContent column is not row 1.
+-- key: dynamictext (Attribute: "State")
+create or modify page Module."PageName" (Title: 'Orders', Layout: Atlas_Core.Atlas_Default) {
+  container ctnHead (Visible: [true]) {
+    dynamictext txtHead (Content: 'Orders')
+  }
+  datagrid dgName (DataSource: database from Module.Entity) {
+    column colCustom (
+      Caption: 'Label',
+      ShowContentAs: customContent,
+      Sortable: false
+    ) {
+      dynamictext txtState (Attribute: "State")
+    }
+  }
+}

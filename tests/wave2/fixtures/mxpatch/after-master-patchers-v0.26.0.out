@@ -1,0 +1,6 @@
+Checked 27 unit(s) in TestApp.mpr against 27 .mxunit file(s).
+  MISMATCH  056b39ea-2e14-4d12-8ae1-87fa4b3c038a  mprcontents/05/6b/056b39ea-2e14-4d12-8ae1-87fa4b3c038a.mxunit [Workflows$Workflow Approval]
+            stored Ux6EeBbxCPMJjiYdq0Sn0OlMgYWnqkD+d9j4yO9t3Zg=, file YdvXcbkEBv+GtyBvuHpweTAZxhqqSMapf29U/C9MMuE=
+
+1 mismatch(es), 0 missing file(s), 0 orphan file(s).
+Run 'mxcli fix hashes -p pm/TestApp.mpr --repair' to rewrite the mismatched hashes from the files.

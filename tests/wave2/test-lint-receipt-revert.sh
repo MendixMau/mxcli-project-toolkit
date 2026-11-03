@@ -52,7 +52,7 @@ n=$(grep -cv '^#' "$R" 2>/dev/null || echo 0)
 [ "$n" -ge 3 ] && ok "receipt lists $n rules" || bad "receipt lists $n rules"
 grep -q '^conv010_act_microflow_content.star  [0-9a-f]\{32\}  stock$' "$R" && ok "conv010 row: name + md5 + kind stock" || bad "conv010 row missing" "$(cat "$R")"
 grep -q '^ux001_confirm_before_destructive.star  [0-9a-f]\{32\}  toolkit$' "$R" && ok "ux001 row: kind toolkit" || bad "ux001 row kind wrong" "$(cat "$R")"
-grep -q '^conv020_action_user_feedback.star  [0-9a-f]\{32\}  configurable$' "$R" && ok "conv020 row: kind configurable" || bad "conv020 row kind wrong" "$(cat "$R")"
+grep -q '^mxtk_ux003_action_user_feedback.star  [0-9a-f]\{32\}  configurable$' "$R" && ok "mxtk_ux003 row: kind configurable" || bad "mxtk_ux003 row kind wrong" "$(cat "$R")"
 
 echo "T1 rules as installed: no receipt complaint, normal ratchet"
 mk "$(v CONV010 warning 26)"
@@ -61,6 +61,22 @@ out=$(gate --update-baseline 2>&1); rc=$?
 out=$(gate 2>&1); rc=$?
 [ "$rc" -eq 0 ] && ok "unchanged run passes (rc 0)" || bad "rc=$rc" "$out"
 case "$out" in *REVERTED*) bad "false receipt alarm on untouched rules" "$out" ;; *) ok "no receipt alarm" ;; esac
+
+echo "T1b a re-seed that keeps the old mtime (cp -p, tar, rsync -t) is still caught (#590 review)"
+RF="$P/.claude/lint-rules/conv010_act_microflow_content.star"
+cp -p "$RF" "$WORK/rf.keep"
+out=$(gate 2>&1)   # clean run: leaves the skip marker
+[ -f "$P/.claude/loop/.lint-receipt-ok" ] && ok "clean run leaves the skip marker" || bad "no skip marker after a clean run"
+touch -r "$P/.claude/lint-rules" "$WORK/dir.keep"
+# In place (same inode, no rename), then both the file's and the folder's old mtimes back:
+# exactly what cp -p / tar / rsync -t leave behind.
+sed '1,/^# --- end mxtk-lint-rule header ---$/d' "$RF" > "$WORK/rf.new" && cat "$WORK/rf.new" > "$RF"
+touch -r "$WORK/rf.keep" "$RF"; touch -r "$WORK/dir.keep" "$P/.claude/lint-rules"
+out=$(gate 2>&1); rc=$?
+case "$out" in *REVERTED*) ok "header stripped with the old mtime kept -> still REVERTED (marker not trusted on mtime)" ;; *) bad "old-mtime re-seed skipped the receipt check" "$out" ;; esac
+cat "$WORK/rf.keep" > "$RF"; touch -r "$WORK/rf.keep" "$RF"
+out=$(gate 2>&1)
+case "$out" in *REVERTED*) bad "restored rule still reported" "$out" ;; *) ok "restored rule: clean again" ;; esac
 
 echo "T2 re-seed: header gone on two rules, one rule removed -> BLIND, not a rise"
 strip_header "$P/.claude/lint-rules/conv010_act_microflow_content.star"
@@ -204,13 +220,13 @@ out=$(inst2 "$P13")
 case "$out" in *"ux001_confirm_before_destructive.star is LOCALLY MODIFIED"*) ok "installer reports LOCALLY MODIFIED" ;; *) bad "not reported as a local edit" "$out" ;; esac
 [ "$(portable_md5 "$U1")" = "$um" ] && ok "ux001 not overwritten" || bad "ux001 overwritten"
 
-echo "T14 a configured, headerless conv020 is not overwritten and not BLIND"
-C2="$P13/.claude/lint-rules/conv020_action_user_feedback.star"
+echo "T14 a configured, headerless mxtk_ux003 is not overwritten and not BLIND"
+C2="$P13/.claude/lint-rules/mxtk_ux003_action_user_feedback.star"
 strip_header "$C2"; printf 'PROJECT_MODULES = "Orders"\n' >> "$C2"; cm=$(portable_md5 "$C2")
 out=$(gate2 "$P13" 2>&1); rc=$?
-[ "$rc" -eq 0 ] && ok "lint-gate: rc 0 for a configured conv020" || bad "configured conv020 called a re-seed (rc $rc)" "$out"
+[ "$rc" -eq 0 ] && ok "lint-gate: rc 0 for a configured mxtk_ux003" || bad "configured mxtk_ux003 called a re-seed (rc $rc)" "$out"
 out=$(inst2 "$P13")
-[ "$(portable_md5 "$C2")" = "$cm" ] && ok "conv020 not overwritten" || bad "conv020 overwritten" "$out"
+[ "$(portable_md5 "$C2")" = "$cm" ] && ok "mxtk_ux003 not overwritten" || bad "mxtk_ux003 overwritten" "$out"
 
 echo "T11 a rule the toolkit stops shipping: its receipt row is pruned, no permanent 'gone'"
 P11=$(newproj p11); inst2 "$P11" >/dev/null
@@ -222,6 +238,106 @@ case "$out" in *"dropped row"*ui001*) ok "installer says so" ;; *) bad "prune no
 [ ! -f "$P11/.claude/lint-rules/ui001_widget_layout_traps.star" ] && ok "dropped rule not reinstalled" || bad "dropped rule reinstalled"
 out=$(gate2 "$P11" 2>&1); rc=$?
 [ "$rc" -eq 0 ] && ok "lint-gate: rc 0 after the prune" || bad "permanent 'gone' (rc $rc)" "$out"
+
+echo "T15 #524: a project-edited bundled rule overwritten by init --sync-skills reads BLIND — reverted"
+# Golden input: the stock example_microflow.star captured from `mxcli init` v0.27.0 in an empty
+# dir (fixtures/lint-receipt-524/), which is also what v0.27's --sync-skills writes back over an
+# edit (verified on the release binary). The hash list is the toolkit's real one.
+STOCKEX="$TK/tests/wave2/fixtures/lint-receipt-524/example_microflow.stock-v0.27.0.star"
+SL="$TK/lint-rules/STOCK-HASHES-BUNDLED.txt"
+P15="$WORK/p15"; mkdir -p "$P15/bin" "$P15/.claude/lint-rules"
+cp "$GATE" "$P15/bin/lint-gate.sh"; [ -f "$TK/project-bin/_common.sh" ] && cp "$TK/project-bin/_common.sh" "$P15/bin/"
+printf 'mpr' > "$P15/App.mpr"; printf '#!/bin/sh\necho "mxcli version v0.27.0"\n' > "$P15/mxcli"; chmod +x "$P15/mxcli"
+( . "$TK/bin/lib/install-lint-rules.sh"; mxtk_install_lint_rules "$TK" "$P15" 0 "" ) >/dev/null 2>&1
+EX="$P15/.claude/lint-rules/example_microflow.star"
+cp "$STOCKEX" "$EX"; printf '# project tweak: our prefixes\n' >> "$EX"; em=$(portable_md5 "$EX")
+cp "$STOCKEX" "$P15/.claude/lint-rules/example_unedited.star"   # a stock copy under another name: still not stock-listed
+g15() { (cd "$P15" && MXTK_LINT_STOCK_LIST="$SL" LINT_JSON="$WORK/lint.json" bash bin/lint-gate.sh "$@"); }
+git15() { git -C "$P15" -c user.name=t -c user.email=t@t "$@" >/dev/null 2>&1; }
+git15 init -q; git15 add -A; git15 commit -qm base
+mk "$(v CUSTOM002 warning 3)"
+out=$(g15 --update-baseline 2>&1); rc=$?
+R15="$P15/.claude/.mxtk-lint-receipt"
+[ "$rc" -eq 0 ] && ok "baseline written" || bad "rc=$rc" "$out"
+grep -q "^example_microflow.star  $em  project$" "$R15" && ok "edited bundled rule receipted: kind project" || bad "no project row" "$(cat "$R15")"
+grep -q '^conv001_boolean_naming.star ' "$R15" && bad "a stock rule got a project row" || ok "stock rules get no row"
+grep -q '^conv010_act_microflow_content.star  [0-9a-f]\{32\}  stock$' "$R15" && ok "toolkit rows untouched" || bad "toolkit rows lost" "$(cat "$R15")"
+git15 add -A; git15 commit -qm baseline
+cp "$STOCKEX" "$EX"                                   # what --sync-skills does at session start
+mk "$(v CUSTOM002 warning 40)"
+out=$(g15 2>&1); rc=$?
+[ "$rc" -eq 1 ] && ok "exit 1 (the blind code)" || bad "rc=$rc" "$out"
+case "$out" in *"BLIND — reverted"*) ok "says BLIND — reverted" ;; *) bad "no BLIND — reverted" "$out" ;; esac
+case "$out" in *"FAIL —"*|*"got worse"*) bad "charged as a rise" "$out" ;; *) ok "CUSTOM002 3 -> 40 not reported as a rise" ;; esac
+case "$out" in *"git checkout -- .claude/lint-rules/example_microflow.star"*) ok "names the remedy: git checkout -- <file>" ;; *) bad "no git checkout remedy" "$out" ;; esac
+d=$( (cd "$P15" && PROJECT_ROOT="$P15" MXTK_LINT_STOCK_LIST="$SL" LINT_JSON="$WORK/lint.json" bash -c ". '$fn'; LINT_RC=0; run_lint_gate >/dev/null; echo \"\$LINT_RC|\$LINT_DETAIL\"") )
+case "$d" in "3|lint BLIND: project-edited rule(s) changed since the baseline (example_microflow.star)"*) ok "exec: LINT BLIND rc 3, names the file" ;; *) bad "exec did not log it as BLIND" "$d" ;; esac
+out=$(g15 --update-baseline --reason x 2>&1); rc=$?
+[ "$rc" -eq 2 ] && ok "--update-baseline over the overwritten copy refused" || bad "update not refused (rc $rc)" "$out"
+git -C "$P15" checkout -- .claude/lint-rules/example_microflow.star
+mk "$(v CUSTOM002 warning 3)"
+out=$(g15 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "after git checkout: rc 0 (remedy clears it)" || bad "still blind after the remedy (rc $rc)" "$out"
+( . "$TK/bin/lib/install-lint-rules.sh"; mxtk_install_lint_rules "$TK" "$P15" 0 "" ) >/dev/null 2>&1
+grep -q "^example_microflow.star  $em  project$" "$R15" && ok "sync keeps the project row" || bad "sync pruned the project row" "$(cat "$R15")"
+printf '# second tweak\n' >> "$EX"; git15 commit -qam "tune rule"
+out=$(g15 2>&1); rc=$?
+[ "$rc" -eq 1 ] && case "$out" in *"--update-baseline"*"BLIND — a lint rule changed since the baseline"*) true ;; *) false ;; esac \
+  && ok "a committed change: BLIND, asks for a re-baseline" || bad "committed change not reported (rc $rc)" "$out"
+out=$(g15 --update-baseline --reason "tuned prefixes" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "re-baseline allowed for a deliberate change" || bad "re-baseline refused (rc $rc)" "$out"
+grep -q "^example_microflow.star  $(portable_md5 "$EX")  project$" "$R15" && ok "receipt now holds the new md5" || bad "receipt not rewritten" "$(cat "$R15")"
+out=$(g15 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "next run clean" || bad "rc=$rc" "$out"
+out=$( (cd "$P15" && MXTK_ROOT=/nonexistent LINT_JSON="$WORK/lint.json" bash bin/lint-gate.sh --update-baseline 2>&1) ); rc=$?
+[ "$rc" -eq 0 ] && case "$out" in *"not receipted"*) true ;; *) false ;; esac && ok "no hash list in reach: baseline still written, with a note" || bad "no-list case (rc $rc)" "$out"
+
+echo "T16 #524 review: CRLF checkouts, a project's own rule, and an uncaptured mxcli write no project rows"
+mk16() {   # $1 dir, $2 the version the mxcli stub reports
+  mkdir -p "$1/bin" "$1/.claude/lint-rules"
+  cp "$GATE" "$1/bin/lint-gate.sh"; [ -f "$TK/project-bin/_common.sh" ] && cp "$TK/project-bin/_common.sh" "$1/bin/"
+  printf 'mpr' > "$1/App.mpr"; printf '#!/bin/sh\necho "mxcli version %s"\n' "$2" > "$1/mxcli"; chmod +x "$1/mxcli"
+  ( . "$TK/bin/lib/install-lint-rules.sh"; mxtk_install_lint_rules "$TK" "$1" 0 "" ) >/dev/null 2>&1
+}
+g16() { local d="$1"; shift; (cd "$d" && MXTK_LINT_STOCK_LIST="$SL" LINT_JSON="$WORK/lint.json" bash bin/lint-gate.sh "$@"); }
+git16() { local d="$1"; shift; git -C "$d" -c user.name=t -c user.email=t@t "$@" >/dev/null 2>&1; }
+# (a) Git Bash with core.autocrlf: the unedited stock rule is checked out with CRLF line ends.
+P16="$WORK/p16a"; mk16 "$P16" v0.27.0
+sed 's/$/\r/' "$STOCKEX" > "$P16/.claude/lint-rules/example_microflow.star"
+git16 "$P16" init -q; git16 "$P16" add -A; git16 "$P16" commit -qm base
+mk "$(v CUSTOM002 warning 3)"
+out=$(g16 "$P16" --update-baseline 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ! grep -q ' project$' "$P16/.claude/.mxtk-lint-receipt" \
+  && ok "(a) a CRLF copy of a stock rule is stock: no project row" || bad "(a) CRLF stock copy receipted as project-edited (rc $rc)" "$(cat "$P16/.claude/.mxtk-lint-receipt")"
+cp "$STOCKEX" "$P16/.claude/lint-rules/example_microflow.star"   # --sync-skills writes LF stock back
+mk "$(v CUSTOM002 warning 3)"
+out=$(g16 "$P16" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "(a) LF stock written over the CRLF copy: rc 0, no BLIND" || bad "(a) false BLIND on a line-end change (rc $rc)" "$out"
+# (a2) an edited rule receipted from a CRLF checkout still reads reverted when LF stock is written back.
+sed 's/$/\r/' "$STOCKEX" > "$P16/.claude/lint-rules/example_microflow.star"; printf '# tweak\r\n' >> "$P16/.claude/lint-rules/example_microflow.star"
+git16 "$P16" add -A; git16 "$P16" commit -qm edit
+out=$(g16 "$P16" --update-baseline --reason edit 2>&1)
+grep -q '^example_microflow.star  [0-9a-f]\{32\}  project$' "$P16/.claude/.mxtk-lint-receipt" && ok "(a2) a real edit in a CRLF checkout is receipted" || bad "(a2) edit not receipted" "$out"
+cp "$STOCKEX" "$P16/.claude/lint-rules/example_microflow.star"
+out=$(g16 "$P16" 2>&1); rc=$?
+[ "$rc" -eq 1 ] && case "$out" in *"BLIND — reverted"*) true ;; *) false ;; esac && ok "(a2) overwrite of a CRLF-committed edit reads BLIND — reverted" || bad "(a2) rc=$rc" "$out"
+# (b) a project's own custom rule: mxcli never overwrites it, so it gets no row and an edit stays a plain lint change.
+P16="$WORK/p16b"; mk16 "$P16" v0.27.0
+printf 'def check(m):\n    return []\n' > "$P16/.claude/lint-rules/acme_own_rule.star"
+git16 "$P16" init -q; git16 "$P16" add -A; git16 "$P16" commit -qm base
+out=$(g16 "$P16" --update-baseline 2>&1)
+grep -q '^acme_own_rule.star ' "$P16/.claude/.mxtk-lint-receipt" && bad "(b) custom rule got a receipt row" "$(cat "$P16/.claude/.mxtk-lint-receipt")" || ok "(b) a project's own rule gets no project row"
+printf '# tightened\n' >> "$P16/.claude/lint-rules/acme_own_rule.star"; git16 "$P16" commit -qam tune
+out=$(g16 "$P16" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && case "$out" in *BLIND*) false ;; *) true ;; esac && ok "(b) editing it later is not BLIND (rc 0)" || bad "(b) custom-rule edit read BLIND (rc $rc)" "$out"
+# (c) an mxcli version the list has not captured: no rows at all, and a note that says why.
+P16="$WORK/p16c"; mk16 "$P16" v0.29.0
+cp "$STOCKEX" "$P16/.claude/lint-rules/example_microflow.star"; printf '# tweak\n' >> "$P16/.claude/lint-rules/example_microflow.star"
+git16 "$P16" init -q; git16 "$P16" add -A; git16 "$P16" commit -qm base
+out=$(g16 "$P16" --update-baseline 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ! grep -q ' project$' "$P16/.claude/.mxtk-lint-receipt" && case "$out" in *"0.29.0 is not a captured version"*) true ;; *) false ;; esac \
+  && ok "(c) uncaptured mxcli v0.29.0: no project rows, the note names the version" || bad "(c) rc=$rc" "$out
+$(cat "$P16/.claude/.mxtk-lint-receipt")"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"

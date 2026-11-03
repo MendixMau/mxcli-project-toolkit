@@ -1,0 +1,4 @@
+model scope vs HEAD: 3 unit file(s) changed, 1 real, 2 noise
+  real changes by module: MyFirstModule 1
+  noise: 2 unit(s) in 2 module(s), XPath whitespace only
+  restored 2 noise unit(s) from HEAD, ContentsHash rows updated

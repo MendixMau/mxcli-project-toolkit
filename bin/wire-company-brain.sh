@@ -65,14 +65,24 @@ while IFS= read -r CL; do
   tmp="$(mktemp)"
   if grep -q "$BEGIN" "$CL"; then
     grep -q "$END" "$CL" || { echo "$(basename "$CL") has a BEGIN marker but no END — fix by hand" >&2; rm -f "$tmp"; continue; }
-    awk -v b="$BEGIN" -v e="$END" -v blk="$block" '
-      index($0,b)==1 { print blk; skip=1; next }
+    # The block goes in through the environment, not -v: BSD awk (macOS) refuses a newline in a
+    # -v value, so every re-run failed there while still printing "Updated" (#598).
+    if BLK="$block" awk -v b="$BEGIN" -v e="$END" '
+      index($0,b)==1 { print ENVIRON["BLK"]; skip=1; next }
       index($0,e)==1 { skip=0; next }
-      !skip { print }' "$CL" > "$tmp" && mv "$tmp" "$CL"
-    echo "Updated: ${CL#$PROJECT/} — company brain block rewritten in place."
+      !skip { print }' "$CL" > "$tmp" && mv "$tmp" "$CL"; then
+      echo "Updated: ${CL#$PROJECT/} — company brain block rewritten in place."
+    else
+      echo "FAILED: ${CL#$PROJECT/} — company brain block not rewritten; file left unchanged." >&2
+      rm -f "$tmp"; continue
+    fi
   else
-    { cat "$CL"; printf '\n%s\n' "$block"; } > "$tmp" && mv "$tmp" "$CL"
-    echo "Updated: ${CL#$PROJECT/} — company brain block appended."
+    if { cat "$CL"; printf '\n%s\n' "$block"; } > "$tmp" && mv "$tmp" "$CL"; then
+      echo "Updated: ${CL#$PROJECT/} — company brain block appended."
+    else
+      echo "FAILED: ${CL#$PROJECT/} — company brain block not appended; file left unchanged." >&2
+      rm -f "$tmp"; continue
+    fi
   fi
   rm -f "$tmp"
   written=$((written+1))

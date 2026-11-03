@@ -1,0 +1,21 @@
+{
+  "violations": [
+    {
+      "ruleId": "SEC001",
+      "severity": "warning",
+      "message": "Persistent entity 'Shop.Item' has no access rules",
+      "module": "Shop",
+      "document": "Item",
+      "documentType": "entity",
+      "documentId": "d910235b-6e6e-44e1-ad58-fcc40295ee28",
+      "suggestion": "GRANT \u003cRole\u003e ON Shop.Item (READ *)"
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "errors": 0,
+    "warnings": 1,
+    "infos": 0,
+    "hints": 0
+  }
+}

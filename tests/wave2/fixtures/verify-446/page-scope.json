@@ -1,0 +1,31 @@
+{
+  "counts": {
+    "modules": 2,
+    "pagesTotal": 1,
+    "perModule": {
+      "MyFirstModule": 1,
+      "Svc": 0
+    }
+  },
+  "generatedAt": "2026-10-21T04:57:45Z",
+  "inScope": [
+    "MyFirstModule.Home_Web"
+  ],
+  "orphans": [],
+  "provenance": {
+    "commands": {
+      "pages": "<mxcli> -p <App.mpr> -c \"SHOW PAGES IN <Module>\"",
+      "roles": null
+    },
+    "describeFailed": [],
+    "droppedTableRows": 4,
+    "generator": "bin/page-scope.sh",
+    "moduleSource": "SHOW MODULES \u2014 rows with an empty Source column, minus System/Administration/Atlas* (harness-architecture.md \u00a77)",
+    "modulesScanned": [
+      "MyFirstModule",
+      "Svc"
+    ],
+    "rolesDerived": false
+  },
+  "roles": []
+}

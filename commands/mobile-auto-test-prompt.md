@@ -89,7 +89,7 @@ For each module:
 8. After every module, run project-bin/coherence-cadence.sh — when it reports DUE, run the
    full skills/process-coherence-pass.md sweep before moving to the next module, then run
    coherence-cadence.sh --record.
-9. Run project-bin/build-plan-status.sh --html periodically to keep architecture/build-plan.html
+9. Run project-bin/build-plan-status.sh --html periodically to keep architecture/progress-report.html
    current — it shows built (done- prefixes) vs proven (verify-module.sh + improvement-register.md)
    as two separate views on purpose.
 

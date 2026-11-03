@@ -77,8 +77,7 @@ the browser, and only one of them is a specificity problem:
 grep -c '<a probe selector from your partial>' deployment/web/theme.compiled.css
 ```
 
-The app-level partial belongs in `theme/web/main.scss`, which compiles **last** — after Atlas Core
-and every module theme source — so it overrides Atlas with no `!important`.
+The app-level partial belongs in `theme/web/main.scss` → see `learned-stylegallery.md` § The Mendix DOM contract (why it overrides Atlas with no `!important`).
 
 **3. Build or wire up the StyleGallery, even retroactively.** If the module exists, put it in a
 navigation profile and grant it to a role a demo user holds. If it does not, build one page with one

@@ -29,10 +29,16 @@ carry them all across.
 
 ## Procedure
 
-1. **Collect.** `bin/app-facts.sh` in the project root. First run on a big app takes minutes:
-   a full catalog rebuild plus 1-2 s per loop-containing microflow (300 of them at 4 workers
-   is 2-3 minutes). Exit 2 means the facts are not trustworthy; read the message, fix the
-   cause, rerun. Do not write a dossier from a run that exited 2.
+1. **Collect.** `bin/app-facts.sh` in the project root. The first run describes every
+   loop-containing microflow, and each describe loads the model, so cost grows with app size.
+   Measured on a 17,500-unit app (127 modules): catalog 7 min, inventory 2 min, and 1,917
+   describes in 2 h 45 at 6 workers, about 31 s each. Tell the user before a first run on a
+   large app. A refresh re-describes only units whose hash, module or folder changed since
+   their output was written (`manifest.json` → `sections.loops.sweep`); `--full` forces all.
+   Run `--full` after edits made outside Studio Pro (a scripted rename, say): a describe can
+   show another document's name, and only the described unit's own hash is compared.
+   Exit 2 means the facts are not trustworthy; read the message, fix the cause, rerun. Do not
+   write a dossier from a run that exited 2.
 2. **Read `manifest.json` first.** Check `sections.*.status`. Note `parse_mismatch`, `failed`
    and `rules_not_describable` under loops: each one is a document the loop section says
    nothing about. `catalog_undercount` is not in that list; it is the catalog's blind spot.
@@ -292,8 +298,9 @@ Refresh at every milestone and before every review, not on every commit. The ins
 rewrites the catalog, which every other mxcli command shares, so run it when nobody is
 mid-edit. Commit `architecture/app-dossier.md` and `analysis/app-facts/manifest.json`,
 `inventory.json`, `dependencies.json`, `loops.json`. Do not commit `analysis/app-facts/mdl/`
-(hundreds of files that regenerate in minutes) or the HTML render, unless the project has
-decided otherwise.
+or the HTML render, unless the project has decided otherwise, but keep `mdl/` on disk between
+refreshes: a refresh reuses those files, and a clone without them describes every candidate
+again. `bin/status.sh` shows how many units changed since the map was built.
 
 ## Related
 

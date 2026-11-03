@@ -44,13 +44,14 @@ topics at once.
 | What you have | Goes to | Test that it belongs there |
 |---|---|---|
 | A script was executed against the `.mpr` | `docs/BUILD-LOG.md` | Append-only. One entry per exec: what it did · exec result · mxbuild result · manual SP work after |
-| A build-plan step is now done, blocked, or descoped | `architecture/build-plan.md` (+ the module's own plan) | Someone reading only the plan would otherwise redo it or skip it |
+| A build-plan step is now done, blocked, or descoped | `architecture/build-plan.md` (+ the module's own plan) | A plan-only reader would redo or skip it |
 | A gate answer — stage, entry mode, `CONFIRMED`/`ASSUMED`, waiver, opt-in | `PROJECT.md` | `gate-check.sh` and `checkpoint.sh` read it |
 | Feedback or a change the user asked for — typed, relayed from a stakeholder, or said over a screenshot | `PROJECT.md` → `## Change log`, before any edit (`change-intake.md`) | `gate-check.sh` counts the rows not yet applied or proven |
 | A decision a session learned — a pattern chosen and why, a disposition, an open question outside a gate, a slice requirement | `mxcli brain capture … -a @Module.Element`, then `promote` | Without the *why*, a future session could reasonably decide the opposite. Anchors into the model; `brain check` fails when they stop resolving, which `PROJECT.md` rows never do |
 | A lesson that transfers to another Mendix project | the shared toolkit's `skills/` | Still true with a different client, different module, different .mpr |
 | A confirmed, reproducible tool defect | `bug-logs/mxcli-bugs.md` | You could hand the repro to the tool's author |
 | A P1/P2 finding from `module-review.md`, `process-coherence-pass.md`, `monkey-test.md`, or `wiring-sweep.md` | `docs/improvement-register.md` (`improvement-register.md`) | You need to know later whether this defect class recurred — a single pass's own report cannot answer that |
+| Re-shot screenshots for some pages of a module whose LOOK report already exists | that report, as an appended addendum: its own `VALID AT:` and `PROOF-OF-LOOK:` lines for the re-shot pages only (`module-review.md` stage 5) | Editing the original section's stamp makes its untouched pages' shots "older than VALID AT", and the obligation check FAULTs the whole report: restore the original stamp if you bumped it |
 | How the user wants me to work; project context not derivable from code | memory dir + one line in `MEMORY.md` | It's about the collaboration, not the codebase |
 | Where we are, what's next, what's unfiled | `docs/progress/checkpoints.md` | It expires. Nobody will want it in a month |
 
@@ -110,6 +111,9 @@ forgotten* — they are on disk, not in working memory.
 3. **Drain the `UNFILED:` lines** from the previous checkpoint — route or delete.
 4. **Checkpoint**: `checkpoint.sh --write`, fill the Narrative, including any new
    `UNFILED:` lines. This file is append-only history.
+   `close-task.sh` prints the full path it found (PATH, then `~/.claude/bin`, then the
+   toolkit's `claude-hooks/bin/`). If it says `checkpoint.sh not installed`: run
+   `<toolkit>/bin/install-claude-hooks.sh --basic`, or skip this step: `RESUME.md` is the resume source.
 5. **`mxcli brain check -p <app.mpr>`** — `capture` and `promote` do not validate anchors;
    only `check` does. Exit 1 means a promoted entry points at something the model no longer
    has: fix the anchor or `brain drop` the entry before anything is committed.
@@ -146,10 +150,10 @@ So keep two:
 | `docs/progress/checkpoints.md` | Append-only, unbounded | Auditing why a past claim was made. **Never to resume** |
 | `docs/progress/RESUME.md` | **Overwritten**, hard cap ~60 lines | Always, and first, after `/clear` |
 
-`RESUME.md` holds four things and nothing else: where we are (3–4 lines), the next actions in
-order, do-not-lose, and a **pointer table** — "read this larger file only if you are doing that
-specific thing." Pointers, not content. The whole value is that it replaces a 31k read with a
-1.5k one.
+`RESUME.md` holds five things and nothing else: where we are (3–4 lines), the next actions in
+order, `Waiting changes:` (agreed, unbuilt CR ids), do-not-lose, and a
+**pointer table** — "read this larger file only if you are doing that specific thing." Pointers, not content. It replaces a 31k read
+with a 1.5k one.
 
 Wire it by putting the instruction in the project's `CLAUDE.md`, which is auto-loaded: *resuming?
 read `RESUME.md` and nothing else yet.* A resume convention that lives anywhere else is a

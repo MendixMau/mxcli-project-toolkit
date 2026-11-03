@@ -517,14 +517,17 @@ function collectJourney(input, contracts, ctx) {
       }
     }
     if (j.outcome && j.outcome.sql) {
-      const id = journeyCheckId(j.id, null, `${j.id} end state`);
+      // Same name as journey-runner.js outcomeCheckName() (#538), so the ids agree.
+      const oLabel = typeof j.outcome.label === 'string' ? j.outcome.label.trim() : '';
+      const oName = oLabel ? `${j.id} end state: ${oLabel}` : `${j.id} end state`;
+      const id = journeyCheckId(j.id, null, oName);
       if (!seen.has(id)) {
         const c = {
           id, instrument: 'journey-runner', kind: 'outcome',
           module: ctx.journeyModule.get(g.hit.file) || null, journey: j.id,
           stepIndex: null, stepName: null,
           requirement: normReq((j.requirement || []).join(', ')),
-          title: `${j.id} end state`,
+          title: oName,
           verdict: 'fault', provenance: 'declared', notRun: true,
           detail: `the journey's end-state query never ran — stopped at step ${from}. ` +
                   `Expectation: ${j.outcome.expect !== undefined ? '= ' + j.outcome.expect : '>= ' + j.outcome.atLeast}`,
@@ -1317,7 +1320,8 @@ function collectLoop(summaries) {
       continue;
     }
     const lines = s.file.text.split('\n').map(l => l.trim()).filter(Boolean)
-      .filter(l => !/^instrument\t/i.test(l));
+      .filter(l => !/^instrument\t/i.test(l))
+      .filter(l => !/^verdict\t/.test(l));   // verify-module's closing row: the run's verdict, not an instrument (#446)
     if (!lines.length) {
       instruments.push({ name: `verify-loop/${s.module}`, verdict: 'fault',
                          reason: `${s.file.path} is empty — the verify loop wrote a summary with no rows`,

@@ -1,0 +1,10 @@
+mdl 1;
+create module "Other";
+create persistent entity MyFirstModule."Item" ("Code": String(20), "Status": String(20), "Unused": String(20));
+create persistent entity Other."Thing" ("Label": String(20), "Flag": String(20));
+create microflow MyFirstModule."ACT_Item_Fetch" () begin
+  retrieve $Items from MyFirstModule."Item" where [Status = 'Open'][Code = 'X'];
+end;
+create microflow Other."ACT_Thing_Fetch" () begin
+  retrieve $Things from Other."Thing" where [Label = 'A'][Flag != 'B'];
+end;

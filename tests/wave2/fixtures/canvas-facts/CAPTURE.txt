@@ -1,0 +1,32 @@
+tests/wave2/fixtures/canvas-facts/ — provenance (captured 2026-10-16, macOS arm64)
+
+Every file here is captured output or captured model units. Nothing was hand-written except this
+file and capture-canvas.mdl, the script that told mxcli what to create.
+
+BINARY: "mxcli version v0.27.0 (2026-10-15T13:45:04Z)", Mach-O arm64,
+  sha256 3650571f1e71dc4905033e07cbb6d72877ca56ec14cfbbd94428d872cde3d563
+
+THE MODEL. Base: tests/wave2/fixtures/mxpatch/model/ (see its CAPTURE.txt), rebuilt from its
+sqlite dump. On that copy:
+    mxcli-v0.27.0 check capture-canvas.mdl -p TestApp.mpr     # Check passed!
+    mxcli-v0.27.0 exec  capture-canvas.mdl -p TestApp.mpr     # exec-v0.27.0.out, exit 0
+The exec changed five units (the domain model and four new microflows); only those five are
+stored, under overlay/mprcontents/, plus the whole .mpr as its sqlite dump
+(overlay/TestApp.mpr.sql; *.mpr is gitignored). The fixture rebuilds the model as: the mxpatch
+model's mprcontents/, these five units over it, the .mpr from overlay/TestApp.mpr.sql. Rebuilt,
+`mxpatch.py verify` is clean (27 unit rows plus the new ones, no mismatch, no orphan).
+
+WHAT THE FOUR MICROFLOWS CARRY (as mxcli v0.27.0 wrote them, no hand edits):
+  ACT_Customer_Rename       an @annotation note: mxcli stores its line with connection indexes
+                            (2, 0), out of the note's LEFT side, while the note sits above the
+                            activity -> NOTE-SIDE (BUG-DRAFT-note-line-side), and the line runs
+                            back over the note's own box -> LINE
+  ACT_Customer_Merge        two parameters with long names and no @position: mxcli lays them out
+                            100 units apart in a row, so their labels overlap -> OVERLAP
+  ACT_Customer_MergeColumn  the same parameters with @position in a column 80 apart -> no fact
+                            (the negative control for OVERLAP)
+  ACT_Customer_Check        `if $Customer = empty` captioned 'Customer found?' -> SENSE; the same
+                            test captioned 'No customer?' -> no fact (the negative control)
+
+facts-v0.27.0.out / .exit: `mf-canvas-facts.py <copy> --module MyFirstModule` on the result, as
+first run (2026-10-16). The fixture compares the fact lines, not the whole file.

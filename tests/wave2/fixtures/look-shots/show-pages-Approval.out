@@ -1,0 +1,7 @@
+| Qualified Name           | Module   | Name            | Excluded | Folder    | Title             | url              | Params |
+|--------------------------|----------|-----------------|----------|-----------|-------------------|------------------|--------|
+| Approval.Approval_Decide | Approval | Approval_Decide | false    | Approvals | Decide on request | decide/{Request} | 1      |
+| Approval.Approval_Inbox  | Approval | Approval_Inbox  | false    | Approvals | Approval inbox    | inbox            | 0      |
+| Approval.Dashboard       | Approval | Dashboard       | false    | Dashboard | Dashboard         | dashboard        | 0      |
+
+(3 pages)

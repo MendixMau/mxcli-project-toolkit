@@ -33,10 +33,12 @@ ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # The surfaces. Anything listed here MUST carry at least one ROUTING:BEGIN marker; a surface
 # that has lost its markers is a structural error (exit 1), not silence — that silent-drop is
 # precisely how the old six-copy arrangement lost track of a table.
+# skills/conversion-runbook.md left this list 2026-10-14: it carried a fourth rendered copy of the
+# baseline table (~1,800 words) inside a baseline file every role reads, the same rows already in
+# README, ROUTING.md and every project's CLAUDE.local.md. It now points at those instead.
 SURFACES="
 ROUTING.md
 README.md
-skills/conversion-runbook.md
 agents/ba-agent.md
 agents/architect-agent.md
 agents/mdl-agent.md
@@ -216,6 +218,9 @@ fi
 # `lead` (the main session) is a valid token with no stub: a lead-only row reaches the project
 # baseline view's Role(s) column, and no helper — that is its point (2026-10-05).
 AGENT_NAMES="lead $(for f in "$ROOT"/agents/*-agent.md; do [ -f "$f" ] || continue; basename "$f" | sed 's/-agent\.md$//'; done | tr '\n' ' ')"
+# "<role>?" (2026-10-14) is the per-role on-demand token: the name part is checked like any
+# other token, and it is refused on a non-baseline row (nothing to demote) and beside its own
+# plain form ("mdl,mdl?" says two things at once). "all" may lead a list of "?" tokens.
 BAD_AGENT="$(awk -F'\t' -v ok="$AGENT_NAMES" '
   /^#/ || NF < 6 { next }
   $4 == "all" { next }
@@ -223,16 +228,21 @@ BAD_AGENT="$(awk -F'\t' -v ok="$AGENT_NAMES" '
     n = split($4, toks, ",")
     m = split(ok, agents, " ")
     for (i = 1; i <= n; i++) {
+      t = toks[i]; od = 0
+      if (t ~ /\?$/) { od = 1; t = substr(t, 1, length(t) - 1) }
+      if (t == "all" && !od) continue
       hit = 0
-      for (j = 1; j <= m; j++) if (agents[j] == toks[i]) { hit = 1; break }
+      for (j = 1; j <= m; j++) if (agents[j] == t) { hit = 1; break }
       if (!hit) { printf "%s (agents: %s, bad token: %s)\n", $1, $4, toks[i]; next }
+      if (od && $6 != "baseline") { printf "%s (agents: %s, bad token: %s — on-demand token on a %s row)\n", $1, $4, toks[i], $6; next }
+      if (od) for (k = 1; k <= n; k++) if (toks[k] == t) { printf "%s (agents: %s, bad token: %s — also listed plain)\n", $1, $4, toks[i]; next }
     }
   }
 ' "$MXTK_ROUTING_TSV")"
 if [ -n "$BAD_AGENT" ]; then
   echo "UNKNOWN AGENT: routing row(s) whose agents column no agent stub renders — the skill is routed into no stub:"
   printf '%s\n' "$BAD_AGENT" | sed 's/^/    /'
-  echo "    → agents must be \"all\" or a comma-list of: $AGENT_NAMES"
+  echo "    → agents must be \"all\" or a comma-list of: $AGENT_NAMES — each may carry \"?\" (on demand for that role, baseline rows only)"
 fi
 
 # Baseline budget: the baseline tier is read by EVERY session of EVERY project before it

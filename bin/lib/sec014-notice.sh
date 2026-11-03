@@ -6,7 +6,7 @@
 # .claude/lint-config.yaml (`rules: SEC014: options: external_roles: "A, B"`). Until it does,
 # the rule reports nothing on exec — a `_rule` blindness finding there would make lint-gate
 # exit PASS-BLIND on every exec of every synced project until someone edits a config file,
-# which is the #229 pattern (an unconfigured CONV020 logged 20 LINT BLIND rows in two apps).
+# which is the #229 pattern (an unconfigured toolkit CONV020, now MXTK-UX003, logged 20 LINT BLIND rows in two apps).
 # The not-yet-decided state is said HERE instead, on every sync, as a NOTE (not a counted
 # warning: a fresh scaffold has not decided yet, and a pristine sync must pass --strict), until
 # the option is set. A misconfigured value (a list, an unknown role) is still a `_rule` finding.

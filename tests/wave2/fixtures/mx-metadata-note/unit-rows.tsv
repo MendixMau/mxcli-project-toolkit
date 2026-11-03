@@ -1,0 +1,5 @@
+# UnitID_blob_hex	ContainerID_blob_hex	ContainmentName -- captured verbatim from a real Mendix 11.15.0 App.mpr Unit table (2026-10-12)
+c67d7416b7b6ae42aabf255dca2aeeaf	4d827743a25b514b800e658754fc369b	Modules
+b375844acb140041896358f2fd3a0be8	c67d7416b7b6ae42aabf255dca2aeeaf	Documents
+10667784b213cb48a265d5e984d63129	c67d7416b7b6ae42aabf255dca2aeeaf	DomainModel
+a2ba643f5cb899499a3c3cc38382eb54	c67d7416b7b6ae42aabf255dca2aeeaf	ModuleSecurity

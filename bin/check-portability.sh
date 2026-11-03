@@ -56,7 +56,9 @@ is_meta() {
 report() { printf '%s:%s: %s\n     %s\n' "$1" "$2" "$3" "$4"; VIOLATIONS=$((VIOLATIONS + 1)); }
 
 # Strip comment lines and blank lines before matching, but keep original line numbers.
-code_lines() { grep -n '' "$1" | grep -v ':[[:space:]]*#' ; }
+# Anchored on the line number: unanchored, any code line holding ":#" (a sed matching "N:## ")
+# was dropped as a comment and never checked (#488).
+code_lines() { grep -n '' "$1" | grep -v '^[0-9]*:[[:space:]]*#' ; }
 
 while IFS= read -r f; do
   [ -f "$f" ] || continue
@@ -66,6 +68,21 @@ while IFS= read -r f; do
   if ! tr -d '\r' < "$f" | cmp -s - "$f"; then
     report "$f" 1 "CRLF line endings" "bash fails on line 1. Ensure .gitattributes has *.sh text eol=lf."
   fi
+
+  # 2. A bare $NAME followed directly by a non-ASCII byte (an em-dash, an ellipsis). In a
+  # single-byte locale bash reads that byte as part of the variable NAME (macOS bash 3.2 did
+  # it under en_US.UTF-8 too), so set -u aborts with "NAME<byte>: unbound variable" (#467:
+  # status.sh --brief died before printing NEXT). Checked before is_meta: no file is exempt
+  # from this one. Matched byte-wise (LC_ALL=C) so the result does not depend on the locale
+  # it is meant to guard against. Fix: brace it, ${NAME}—.
+  while IFS= read -r hit; do
+    [ -n "$hit" ] || continue
+    case "$hit" in *portability-ok:*) continue ;; esac
+    report "$f" "${hit%%:*}" "bare \$NAME followed by a non-ASCII character" \
+      'Brace the name: ${NAME}. A single-byte locale (and bash 3.2) reads the first byte as part of the name; set -u then aborts.'
+  done <<EOF
+$(code_lines "$f" | LC_ALL=C grep -E '^[0-9]+:.*\$[A-Za-z_][A-Za-z0-9_]*[^[:print:][:cntrl:]]')
+EOF
 
   is_meta "$f" && continue
 
@@ -154,6 +171,33 @@ while IFS= read -r f; do
         if grep -Eq -- '-v [A-Za-z_][A-Za-z_0-9]*="[^"]*\\' <<<"$(printf '%s' "$txt" | sed 's/\$([^)]*)//g')"; then
           report "$f" "$ln" "backslash inside an awk -v value (gawk rewrites escapes, mawk does not)" \
             'Pass patterns without backslashes: [|] for a literal pipe, [.] for a dot, or read the regex from ENVIRON["re"].'
+        fi ;;
+    esac
+
+    # \t inside a sed/grep bracket expression is not a tab. BSD/macOS sed reads [ \t] as
+    # "space, backslash or t" (GNU sed alone expands it), and grep reads it that way on
+    # every platform, so a trim stripped a trailing "t": Mod.ENUM_Product became
+    # Mod.ENUM_Produc in context-pack.sh (#468). awk expands \t in a regex everywhere, so
+    # only a bracket that FOLLOWS sed/grep on the line counts; a bracket inside a $'...'
+    # string holds a real tab and is skipped.
+    case "$txt" in
+      *sed*'\t'*|*grep*'\t'*)
+        if grep -Eq -- '(^|[^[:alnum:]_])(sed|grep)([[:space:]]|$)[^|]*\[[^]]*\\t' <<<"$txt" \
+           && ! grep -Eq -- "\\\$'[^']*\\[[^]]*\\\\t" <<<"$txt"; then
+          report "$f" "$ln" "\\t inside a sed/grep bracket expression (BSD: backslash or t, not tab)" \
+            'Use [[:blank:]] (space or tab) or [[:space:]], or a real tab via $'"'"'\t'"'"'.'
+        # The same \t outside a bracket, in a sed pattern or replacement (#488): BSD sed reads
+        # it as a literal t, so bug-lookup.sh's s/^([0-9]+):## /\1\t/ fed awk -F'\t' no tab
+        # and --index printed nothing on macOS. A $'...' string or a $(printf '\t') is a real
+        # tab and is dropped first; an escaped \\t is a printed backslash, not a sed escape. The
+        # span ends at | ; or &, so a later awk -F'\t' on the line is not blamed on the sed.
+        # Known false negatives: a double-quoted "\\t" (the shell hands sed \t), a sed script
+        # continued onto the next line with a backslash, and a \t after a ; or & inside the sed
+        # script itself.
+        elif grep -Eq -- '(^|[^[:alnum:]_])sed([[:space:]]|$)[^|;&]*(^|[^\\])\\t' \
+               <<<"$(printf '%s' "$txt" | sed -e "s/\\\$'[^']*'//g" -e "s/\\\$(printf '[^']*')//g")"; then
+          report "$f" "$ln" "\\t in a sed pattern or replacement (BSD sed: a literal t, not tab)" \
+            'Put a real tab in the script: TAB=$'"'"'\t'"'"' and "s/a/${TAB}/", or do the edit in awk, which expands \t everywhere.'
         fi ;;
     esac
 

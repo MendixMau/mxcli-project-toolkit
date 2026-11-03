@@ -107,7 +107,18 @@ _co_checkpoints() {
   esac
 }
 
-_co_trim() { printf '%s' "$1" | sed -E 's/^[ \t]+//; s/[ \t]+$//; s/^\*+//; s/\*+$//; s/^[ \t]+//; s/[ \t]+$//'; }
+_co_trim() {
+  # Pure bash for the one-line case (a sed process per cell: 114 starts in one Stage 3 close-out,
+  # #583); same six steps as the sed script kept below for multi-line input, where sed works per line.
+  case "$1" in
+    *$'\n'*) printf '%s' "$1" | sed -E 's/^[[:blank:]]+//; s/[[:blank:]]+$//; s/^\*+//; s/\*+$//; s/^[[:blank:]]+//; s/[[:blank:]]+$//'; return ;;
+  esac
+  _CO_T="$1"
+  _CO_T="${_CO_T#"${_CO_T%%[![:blank:]]*}"}"; _CO_T="${_CO_T%"${_CO_T##*[![:blank:]]}"}"
+  _CO_T="${_CO_T#"${_CO_T%%[!*]*}"}";         _CO_T="${_CO_T%"${_CO_T##*[!*]}"}"
+  _CO_T="${_CO_T#"${_CO_T%%[![:blank:]]*}"}"; _CO_T="${_CO_T%"${_CO_T##*[![:blank:]]}"}"
+  printf '%s' "$_CO_T"
+}
 # Truncate to N chars on a word boundary, with an ellipsis. Cells in a real register run to
 # 2,000 characters; the block is a recap, the register is the record.
 _co_trunc() {
@@ -117,7 +128,7 @@ _co_trunc() {
 }
 # Stage cell → bare stage token ("Stage 3" → 3, "P" → P). Empty when it is not a stage.
 _co_stage_of() {
-  local s; s="$(_co_trim "$1" | sed -E 's/^[Ss]tage[ \t]*//')"
+  local s; s="$(_co_trim "$1" | sed -E 's/^[Ss]tage[[:blank:]]*//')"
   case "$s" in P|p) echo P ;; [0-7]) echo "$s" ;; *) echo "" ;; esac
 }
 # First word of a status cell, upper-cased, punctuation stripped — the same "controlled
@@ -166,7 +177,7 @@ _co_plain_artifact() {
     wireframes) echo "one wireframe per screen" ;;
     module-definition) echo "one definition document per module" ;;
     build-plan) echo "the numbered build plan" ;;
-    build-plan-html) echo "the build progress board" ;;
+    build-plan-html) echo "the progress report" ;;
     module-brief) echo "the first module's brief (what the builder gets)" ;;
     coverage-ledger) echo "the ledger proving every requirement is claimed by a build step" ;;
     ui-reviews) echo "the page review report" ;;
@@ -216,7 +227,9 @@ _co_owed() { [ -z "$2" ] && return 0; case ",$1," in *",$2,"*) return 0 ;; esac;
 # technical text carries that has a known plain translation, then what is still missing on
 # the manifest for this stage. Written for the person in the chat, not the agent.
 mxtk_plain_verdict() {
-  local st="$1" v="$2" root="$3" reg="${4:-$3/PROJECT.md}" status low
+  local st="$1" v="$2" root="$3" reg="${4:-$3/PROJECT.md}" status low _own_kv=0
+  # Own the register parse unless the close-out wrapper already holds one (#583).
+  [ "$_ART_KV_REG" = "$reg" ] || { _art_kv_load "$reg"; _own_kv=1; }
   status="$(printf '%s' "$v" | sed -E 's/^Stage [P0-7]: *//' | awk '{print toupper($1)}' | tr -d ':,;—-')"
   low="$(printf '%s' "$v" | tr '[:upper:]' '[:lower:]')"
   printf '**In plain words:** '
@@ -271,12 +284,22 @@ mxtk_plain_verdict() {
     PASS|WAIVED) [ "$said" -eq 0 ] && printf 'Nothing is holding it.\n' ;;
     *) [ "$said" -eq 0 ] && printf 'The technical line above names the exact file or row; nothing in it has a plainer translation yet — say so and one gets added.\n' ;;
   esac
+  [ "$_own_kv" = 1 ] && _art_kv_unload
   return 0
 }
 
 # ── the block ───────────────────────────────────────────────────────────────
 # mxtk_closeout_report <project-dir> <stage> [register]
+# Wrapper: parse the register ONCE for the many _art_waiver / _art_field lookups below (#583),
+# then drop it again so a later caller that edits the register is never answered from a stale parse.
 mxtk_closeout_report() {
+  local _co_rc
+  _art_kv_load "${3:-$1/PROJECT.md}"
+  _mxtk_closeout_report_body "$@"; _co_rc=$?
+  _art_kv_unload
+  return "$_co_rc"
+}
+_mxtk_closeout_report_body() {
   local root="$1" st="$2" reg="${3:-$1/PROJECT.md}"
   local next title ntitle
   case "$st" in P|p) st=P ;; [0-7]) ;; *) echo "closeout: stage must be P or 0-7 (got '$st')" >&2; return 2 ;; esac

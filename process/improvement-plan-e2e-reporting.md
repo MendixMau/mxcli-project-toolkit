@@ -270,7 +270,7 @@ These close options left open in Findings 1–4 and set the constraints for the 
 2. **The number stops lying instead.** The report leads with coverage, not pass-rate: *"58% of
    checks did not run"* above the fold, and no percentage anywhere may use a denominator that
    excludes faults. This blocks nobody and is the only thing that actually failed.
-   Precedent already in-repo: `bin/questions-report.sh:72` refuses to render a clean-looking zero.
+   Precedent already in-repo: `bin/brd-report.sh` (exit 3) refuses to render a clean-looking zero (it took over from the retired `questions-report.sh`).
 3. **Plumbing before gating.** Findings 5–8 are fixed first, so that any later signal fires on
    instruments that are actually present.
 4. **Four fallback levels for the ledger check**, keyed on what is present rather than declared

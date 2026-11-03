@@ -53,6 +53,9 @@ if git -C "$SRC" show "$BASE_REF:bin/status.sh" > "$W/tk/bin/status-baseline.sh"
   chmod +x "$W/tk/bin/status-baseline.sh"; HAVE_BASE=1
 fi
 NEW="$W/tk/bin/status.sh"; OLD="$W/tk/bin/status-baseline.sh"
+# Run from the project root, as a session does: from anywhere else status.sh adds a CWD line
+# (#447), which is not what these cases compare.
+in_proj() { local sut="$1" p="$2"; shift 2; ( cd "$p" && "$sut" "$p" "$@" ); }
 
 mkproj() {  # mkproj <name> <entry mode text>
   local d="$W/$1"; mkdir -p "$d/mdlsource" "$d/docs"; : > "$d/Fixture.mpr"
@@ -83,7 +86,7 @@ echo "== bin/status.sh — existing-app-change rounds (#301) + manual steps (#29
 P="$(mkproj pipe "migration")"
 if [ "$HAVE_BASE" = 1 ]; then
   for mode in --brief ""; do
-    o="$("$OLD" "$P" $mode 2>&1 | norm)"; n="$("$NEW" "$P" $mode 2>&1 | norm)"
+    o="$(in_proj "$OLD" "$P" $mode 2>&1 | norm)"; n="$(in_proj "$NEW" "$P" $mode 2>&1 | norm)"
     [ "$o" = "$n" ] && ok "T1 pipeline project ${mode:-full}: byte-identical to baseline" \
                     || bad "T1 pipeline project ${mode:-full} output changed" "$(diff <(echo "$o") <(echo "$n"))"
   done
@@ -91,7 +94,7 @@ if [ "$HAVE_BASE" = 1 ]; then
     *) bad "T1 control: expected both WATCH items on the pipeline project (fixture no longer exercises them)" "$o";; esac
   printf '| Round | Title | Stories | State |\n|---|---|---|---|\n| 1 | Export fixes | S-1 | in test |\n' | add_rounds "$P"
   for mode in --brief ""; do
-    o="$("$OLD" "$P" $mode 2>&1 | norm)"; n="$("$NEW" "$P" $mode 2>&1 | norm)"
+    o="$(in_proj "$OLD" "$P" $mode 2>&1 | norm)"; n="$(in_proj "$NEW" "$P" $mode 2>&1 | norm)"
     [ "$o" = "$n" ] && ok "T2 pipeline project with a Rounds section ${mode:-full}: byte-identical" \
                     || bad "T2 Rounds section changed a pipeline screen (${mode:-full})" "$(diff <(echo "$o") <(echo "$n"))"
   done
@@ -104,17 +107,17 @@ E="$(mkproj eac "Change an existing app")"
 printf '%s\n' '| Round | Title | Stories | State |' '|---|---|---|---|' \
   '| 1 | Export fixes | S-101, S-102 | delivered |' \
   '| 2 | Approval rework | S-110, S-111 | in test |' | add_rounds "$E"
-b="$("$NEW" "$E" --brief 2>&1)"
+b="$(in_proj "$NEW" "$E" --brief 2>&1)"
 exp='ROUND   Round 2: Approval rework — in test · stories: S-110, S-111 · 1 of 2 round(s) delivered'
 printf '%s\n' "$b" | grep -qxF "$exp" && ok "T3 --brief ROUND line is the last row, with stories and delivered count" \
   || bad "T3 --brief ROUND line" "$b"
 [ "$(printf '%s\n' "$b" | sed -n 2p | cut -c1-5)" = "ROUND" ] && ok "T3 ROUND sits right under WHERE" || bad "T3 ROUND line position" "$b"
-f="$("$NEW" "$E" 2>&1)"
+f="$(in_proj "$NEW" "$E" 2>&1)"
 printf '%s\n' "$f" | grep -qF 'ROUND     Round 2: Approval rework — in test' && ok "T3 full screen carries the ROUND line" || bad "T3 full screen ROUND line" "$f"
 case "$b$f" in *"agent slots unfilled"*) bad "T4 agent-slot noise still printed in existing-app mode" "$b";; *) ok "T4 no agent-slot WATCH item";; esac
 case "$b" in *"done- stalled"*) ok "T4 done- stall still reported (Stages 5-6 run the build loop unchanged in this mode)";; *) bad "T4 done- stall dropped in existing-app mode — it must stay" "$b";; esac
 if [ "$HAVE_BASE" = 1 ]; then
-  o="$("$OLD" "$E" --brief 2>&1)"
+  o="$(in_proj "$OLD" "$E" --brief 2>&1)"
   case "$o" in *"agent slots unfilled"*) ok "T4 control: the baseline printed the agent-slot noise on this same project";;
     *) bad "T4 control: baseline did not print agent-slot noise — case cannot fail" "$o";; esac
   case "$o" in *ROUND*) bad "T4 control: baseline already has a ROUND line?" "$o";; *) ok "T4 control: the baseline has no ROUND line";; esac
@@ -122,18 +125,18 @@ fi
 
 # --- T5: no Rounds section -------------------------------------------------------------------
 E2="$(mkproj eac-none "existing-app-change")"
-b="$("$NEW" "$E2" --brief 2>&1)"
+b="$(in_proj "$NEW" "$E2" --brief 2>&1)"
 printf '%s\n' "$b" | grep -q '^ROUND   none recorded — add a row to PROJECT.md "## Rounds"' && ok "T5 no rounds: says none recorded and where" || bad "T5 no-rounds line" "$b"
 
 # --- T6: no Stories column ------------------------------------------------------------------
 E3="$(mkproj eac-nostories "Change an existing app")"
 printf '%s\n' '| Round | Title | State |' '|---|---|---|' '| 1 | Login tweak | building |' | add_rounds "$E3"
-b="$("$NEW" "$E3" --brief 2>&1)"
+b="$(in_proj "$NEW" "$E3" --brief 2>&1)"
 printf '%s\n' "$b" | grep -qxF 'ROUND   Round 1: Login tweak — building · 0 of 1 round(s) delivered' && ok "T6 no Stories column: no stories part" || bad "T6 no-Stories-column ROUND line" "$b"
 
 # --- T6b: a "## Rounds of review" heading is a different section ------------------------------
 printf '\n## Rounds of review\n\n| Round | Title | State |\n|---|---|---|\n| 9 | Peer review | done |\n' >> "$E3/PROJECT.md"
-b="$("$NEW" "$E3" --brief 2>&1)"
+b="$(in_proj "$NEW" "$E3" --brief 2>&1)"
 printf '%s\n' "$b" | grep -qxF 'ROUND   Round 1: Login tweak — building · 0 of 1 round(s) delivered' && ok "T6b \"## Rounds of review\" is not read as the Rounds table" || bad "T6b a look-alike heading was read" "$b"
 
 # --- T7: manual steps count ----------------------------------------------------------------
@@ -152,14 +155,14 @@ cat > "$E/docs/manual-steps.md" <<'EOF'
 - [ ] **Done** — pending
 Not a step: - [ ] Done mid-line
 EOF
-b="$("$NEW" "$E" --brief 2>&1)"
+b="$(in_proj "$NEW" "$E" --brief 2>&1)"
 printf '%s\n' "$b" | grep '^STATE' | grep -qF '· manual steps pending 2 of 3' && ok "T7 --brief STATE: manual steps pending 2 of 3" || bad "T7 --brief manual count" "$b"
-f="$("$NEW" "$E" 2>&1)"
+f="$(in_proj "$NEW" "$E" 2>&1)"
 printf '%s\n' "$f" | grep -qF 'manual steps pending 2 of 3 (docs/manual-steps.md)' && ok "T7 full screen: manual count with its file" || bad "T7 full manual count" "$f"
 
 # --- T8: the shipped template counts nothing ------------------------------------------------
 cp "$W/tk/templates/manual-steps.md" "$E2/docs/manual-steps.md" 2>/dev/null
-b="$("$NEW" "$E2" --brief 2>&1)"
+b="$(in_proj "$NEW" "$E2" --brief 2>&1)"
 printf '%s\n' "$b" | grep -qF 'manual steps pending 0 of 0' && ok "T8 template copied as-is: 0 of 0" || bad "T8 template count" "$b"
 
 # --- T9: final-look leaves NEXT only on a derived readout below Stage 6 (reviews of #303, #326) --

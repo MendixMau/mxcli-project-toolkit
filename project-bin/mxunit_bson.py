@@ -4,14 +4,18 @@
 # byte-identically requires preserving key ORDER and the exact element types, which a
 # dict-based reader does not: hence [(type, key, value)] triples rather than dicts.
 #
-# Used by wf-add-path-terminators.py. Only for model surgery mxcli genuinely cannot express
-# -- it bypasses every validation mxcli and mxbuild perform.
+# Used by mxpatch.py (the shared patch core: find a unit, set a value, write + ContentsHash)
+# and, through it, by the wf-*.py patchers. Only for model surgery mxcli genuinely cannot
+# express -- it bypasses every validation mxcli and mxbuild perform.
 #
 # COVERAGE, measured rather than assumed: 1068 of the 1069 units in a real 16-module project
-# re-encode byte-identically (the approval app, 2026-09-14). The one miss carries BSON type 0x09
-# (UTC datetime), which no workflow unit uses; the codec raises on it rather than guessing.
-# Extend enc_val/dec_val together, and re-measure against a real project, before relying on
-# it for a unit type outside workflows.
+# re-encode byte-identically (the approval app, 2026-09-14). The one miss carried BSON type 0x09
+# (UTC datetime). 0x09 is read and written since 2026-10-14 (#294): an int64 of milliseconds
+# since the Unix epoch, kept as a plain int -- the triple's type byte is what round-trips it.
+# Measured on tests/wave2/fixtures/mxpatch/ (a ScheduledEvents$ScheduledEvent unit, whose
+# StartDateTime is 0x09, written by mxcli v0.26.0) plus two of mxcli's own test models (pedapp,
+# expr-checker, 369 units each): 765 of 765 units re-encode byte-identically. Any other unknown type still raises rather than guessing.
+# Extend enc_val/dec_val together, and re-measure against a real project.
 
 import struct
 class Bin:
@@ -39,6 +43,7 @@ def dec_val(b,i,t):
         n=struct.unpack_from('<i',b,i)[0]; sub=b[i+4]
         return Bin(sub,b[i+5:i+5+n]), i+5+n
     if t==0x08: return (b[i]!=0), i+1
+    if t==0x09: return struct.unpack_from('<q',b,i)[0], i+8
     if t==0x0A: return None, i
     if t==0x10: return struct.unpack_from('<i',b,i)[0], i+4
     if t==0x12: return struct.unpack_from('<q',b,i)[0], i+8
@@ -50,6 +55,7 @@ def enc_val(t,v):
     if t in (0x03,0x04): return enc_doc(v)
     if t==0x05: return struct.pack('<i',len(v.data))+bytes([v.sub])+v.data
     if t==0x08: return b'\x01' if v else b'\x00'
+    if t==0x09: return struct.pack('<q',v)
     if t==0x0A: return b''
     if t==0x10: return struct.pack('<i',v)
     if t==0x12: return struct.pack('<q',v)

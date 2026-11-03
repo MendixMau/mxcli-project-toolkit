@@ -43,7 +43,7 @@ git mv mdlsource/<NN-name>.mdl mdlsource/done-<NN-name>.mdl
 - The file stays in place and re-runnable — if a later phase invalidates it, rename back (drop the `done-` prefix), fix, re-exec, re-done.
 - Do **not** rename a script that only passed `mxcli check` or only exec'd without the happy-path/coverage check — `done-` means the *feature* works, not just that the MDL ran (mirrors the Core Principle: CE-error-free ≠ done).
 
-`build-plan.html` phase status and the `done-` prefixes should agree — when every script for a phase is `done-`, that phase flips to ✓ in the tracker.
+`progress-report.html` phase status and the `done-` prefixes should agree — when every script for a phase is `done-`, that phase flips to ✓ in the tracker.
 
 `project-bin/exec.sh` prints this rename reminder at the moment a script's gate passes clean.
 `project-bin/done-drift-check.sh` (surfaced automatically by `close-task.sh`) is the backstop for
@@ -96,9 +96,7 @@ assumption.
 **Do not trigger** for decisions a BRD never made a claim about (internal naming, layout choice, an
 enum's internal value set) — there's nothing to drift, and syncing anyway is noise.
 
-**Wireframes follow the same trigger, filtered further:** only re-render a wireframe when the decision
-changes something visually observable (new field, new button, changed flow, different state/color) —
-not for logic/microflow changes invisible in the UI.
+**Wireframes** → see `conversion-runbook.md` § 3b "Wireframes" (same trigger, visually observable changes only).
 
 **User feedback mid-build** ("also add X", a remark on a screenshot) starts one step earlier, in
 `change-intake.md`. It gets a `## Change log` row before any edit, the BRD or wireframe is edited
@@ -286,9 +284,9 @@ is the part worth stating twice.
 |---|---|
 | Branch on the **parsed error count**, never on the errors file's existence or size | `--write-errors` writes `{"problems":[]}` on success; "file is non-empty" reports every clean build as broken |
 | `mxbuild` exit ≠ 0 **with no errors file** is a distinct failure — bad args, JVM crash, missing Java home | Treating it as "no file ⇒ clean" lets an unverified model through |
-| `mxcli exec`'s status is **captured**, never allowed to trip `set -e` | mxcli is not transactional across statements; aborting skips the gate, the restore and the log while partial changes are already live |
+| `mxcli exec`'s status is **captured**, never allowed to trip `set -e` | Aborting skips the gate, the restore and the log. Before mxcli v0.27 exec was not transactional, so partial changes were already live; v0.27+ rolls the run back, and the gate still owes its log row |
 | The pre-exec `mxcli check … --references` runs **before** the snapshot | The only gate that can reject a script before it mutates the `.mpr` |
-| On mxcli ≥ v0.19.0, `exec` **also** runs its own pre-flight and refuses a script whose checks report an error — "Refusing to execute … Nothing was written." — including **MDL-ORDER01** (a statement referencing a document a *later* statement creates) | Read that refusal as the gate working, not a regression; the fix for ORDER01 is reordering the create above its first reference, and it matters because exec is not transactional — pre-v0.19 the same script half-applied before dying |
+| On mxcli ≥ v0.19.0, `exec` **also** runs its own pre-flight and refuses a script whose checks report an error — "Refusing to execute … Nothing was written." — including **MDL-ORDER01** (a statement referencing a document a *later* statement creates) | Read that refusal as the gate working, not a regression; the fix for ORDER01 is reordering the create above its first reference — pre-v0.19 the same script half-applied before dying (v0.27+ rolls back any write-time failure) |
 | Every outcome writes exactly one build-log row, carrying an ISO-8601 stamp and an explicit gate verdict | A clean build that logs nothing makes "no row" mean nothing at all — see the build log section below |
 | `last-mxbuild-errors.json` is cleared at the **start** of a run, not on success | An interrupted run must not leave a previous failure's file looking like its own report |
 | Studio Pro is never auto-killed; the reopen is offered, then done on a yes | See the SP Lifecycle Rule above |
@@ -322,7 +320,9 @@ Every MDL script, and every one-off model patch (`--patch`), is applied with `./
 A raw `./mxcli exec` writes no BUILD-LOG row, takes no snapshot and runs no gate, so the change
 shows as "not recorded" to everything that reads the build log (status, done-drift, proof views).
 
-When a guard refuses, the script's change is not in the model, unless exec.sh says the write is kept (LINT ROSE/BLIND, ⚠️ PARTIAL) — then do not re-apply it. Most refusals also write a
+When a guard refuses, the script's change is not in the model, unless exec.sh says the write is kept (exit 4 or 5, exit 1 under `Lint gate: hard`, ⚠️ PARTIAL) — then do not re-apply it.
+Exit codes (defined in the `exec.sh` header): `0` applied, gate passed · `1` not applied or rolled back, or ⚠️ PARTIAL (kept: a LINT ROSE under `Lint gate: hard`) · `2` usage ·
+`4` applied, gate passed, lint only (LINT ROSE/BLIND) · `5` applied, UNVERIFIED: run `./bin/verify-model.sh` before the next exec. Most refusals also write a
 BUILD-LOG row (uncommitted model, `--commit-first`, a failed pre-exec check, a gate that could
 not run, PRE-EXISTING errors, a NEW gate error); the plain Studio Pro refusal, the lock refusal and argument errors only print.
 Your move is one of three — **commit, wait, or stop and report** — never an override:
@@ -335,6 +335,8 @@ Your move is one of three — **commit, wait, or stop and report** — never an 
 | The mxbuild gate cannot run, even after its own download | Stop and report; run `bin/doctor.sh`. `ALLOW_UNVERIFIED=1` only when the person says so |
 | Pre-exec check or a NEW mxbuild error | Fix the script. That is the gate working |
 | `PRE-EXISTING <codes>` — errors already in the model before this script | Not the script's cause. Stop and report: it needs Studio Pro (e.g. "Update security") or a separate fix script, not a retry |
+| `lint could not run` with "no baseline yet" (the first exec, usually the scaffold) | Take the first baseline now, with the person: `bin/lint-gate.sh --update-baseline`. Later rises then measure the build, not the template |
+| `LINT ROSE` after a clean mxbuild (exit 4, or 1 under `Lint gate: hard`; write kept) | Expected often in a growing app, and not a broken script: do not re-apply it. Fix the new lint findings, or stop and report; only the person accepts a rise, with `bin/lint-gate.sh --update-baseline --reason "<why>"` |
 | Any other refusal | Read the remedy exec.sh prints and do that; the table above is not the full list of guards |
 
 **Never set `FORCE_EXEC=1` on your own initiative** — only when the person tells you to, naming
@@ -378,8 +380,51 @@ re-run it after the other apply finishes.
 `FORCE_EXEC` or raw `mxcli exec` runs between gates — each of those is an unrecorded or
 unverified write. If gate time dominates, reduce the number of applies at the granularity level
 (see "Iterative Granularity": layer scripts rather than per-page ones where partial recovery is
-unlikely, fewer stub-then-fill passes), keep parallel **drafting**, and let the exec lock
-refuse overlapping applies — re-run a refused one after the other finishes.
+unlikely, fewer stub-then-fill passes) — never by drafting less in parallel.
+
+Why there is no check-only gate yet (#444, probe 2026-10-26, Mendix 11.13.0 / mxcli v0.28.0, a
+blank `mxcli new` app plus one entity and microflow, 4 cores, 3 runs each): `mx check` took
+11–14 s where `mxbuild --target=deploy` took 24–33 s, and both reported the same model error
+(CE0117 after a dropped attribute). But with the model clean and one broken file under
+`javasource/`, `mx check` said **0 errors, exit 0**, while the deploy build failed in
+"compiling Java actions" with an **empty** `problems[]` list. A check-only gate would have
+passed a Java compile error. So a check-only gate needs a full deploy whenever `javasource/` or
+`theme/` changed and at module close — a gate redesign, parked on #444.
+
+**Draft the ready set in parallel, apply serially.** The unit is the build-plan row, and a script may
+carry several rows: low-risk rows of one module that are ready together (enumerations, entities and
+associations, CRUD pages over them, simple sub-microflows) go in **one script**, so the per-apply loop
+(check, apply, mxbuild gate, commit) is paid once for the group. Rows that touch security (roles, access
+rules), workflows, AI agents, REST, Java actions or a STOP rule 21 target stay **one row per script**:
+those are where a failed apply must roll back the least. `bin/row-groups.sh` prints the groups
+from the build plan; a script names its rows in a `-- rows: 16,17` header (its file name, `16-19-….mdl`,
+counts only with `Row groups: on` in PROJECT.md: `brd-to-build-plan.md` numbers scripts on their own
+sequence), and exec.sh refuses such a script when it splits a low-risk group or mixes a high-risk row in
+(override: `MXTK_ROWS_OVERRIDE="<why>"`, logged) (run 2, 2026-10-26: arm C wrote 0.93 scripts per row against the cloud's 0.34,
+and paid a 22-128 s loop per script). The same gate refuses the first such script past a module's last row
+until `docs/progress/module-close/<Module>.md` exists: run `bin/module-close.sh <Module>` and act on it
+(run 2, arm D skipped the Procurement close when it was only a prompt rule). The ready
+set is every `BUILD` row whose "Depends on" rows are all applied, minus overlapping writers: two
+rows whose scripts `create or replace`, `alter` or drop+create the same document (the row's
+written documents are listed in Produces, `brd-to-build-plan.md`) are never in one ready set,
+whatever "Depends on" says, and no row is drafted while its Produces overlaps a drafted but
+unapplied row. Rows in the ready set run at once; within a row, its scripts go in
+order, one `mdl-agent` per script. Applies go one at a time through `exec.sh` (the exec lock
+refuses a second); after each apply, recompute the ready set. The failure this prevents: a run
+that drafted one script at a time and sat idle while each draft finished. The risk it adds: a
+queued draft can restate a document as it was before a sibling apply — STOP rule 21's incident,
+where the second of two drop+creates of a shared seed aggregator silently dropped a seed call
+with `mx check` at 0 errors. So before applying a draft, if an apply that landed since it was
+drafted **wrote a document this draft also writes** (compare the `create or replace` / `alter` / `drop`
+targets of both scripts; a `grep` of the qualified names is enough), or the draft touches a STOP rule 21
+target, run `mxcli diff -p <mpr> <script> --format struct`. Drafts with no shared target skip the diff:
+it is the slowest read verb (14-21 s on a 21-module model; 53.5 s lead median late in run 2) and found
+0 stale restatements in 98 runs there (`learned-mdl-preflight.md` STOP
+rule 23; check each `-` line against `describe` per its BUG-146 note before re-drafting): any
+confirmed `-` line, or any target STOP rule 21 covers (aggregator, after-startup chain, navigation), means
+re-draft from a fresh `describe` — never patch. `exec.sh`'s own
+`check --references` cannot see this: a stale restatement still resolves. Report
+`ready set N, drafted N, applied k`.
 
 ### Pre-exec sequence when MCP work was done
 
@@ -387,7 +432,7 @@ Before running exec.sh after any MCP session:
 
 ```
 1. Cmd+S in Studio Pro (or run save-sp.sh)
-2. git add MyProject.mpr mprcontents/ && git commit -m "MCP: <what changed>"
+2. git add MyProject.mpr mprcontents/ javasource/ javascriptsource/ && git commit -m "MCP: <what changed>"
 3. Close the project in Studio Pro
 4. ./bin/exec.sh mdlsource/my-script.mdl
 ```
@@ -410,12 +455,15 @@ Resolve it by enumerating first, then naming:
 ```
 mxcli exec mdlsource/my-script.mdl -p App.mpr
 git status --short                      # <- the list of what exec actually wrote
-git add App.mpr mprcontents/ mdlsource/my-script.mdl
+git add App.mpr mprcontents/ javasource/ javascriptsource/ mdlsource/my-script.mdl
 git commit -m "..."
 ```
 
 `mprcontents/` as a directory pathspec is the right grain: it catches every unit the exec
-rewrote without reaching outside the model. This is still not `add -A` — every path is named.
+rewrote. `javasource/` and `javascriptsource/` catch the action bodies exec writes beside the
+model (`create java action ... as $$`): left out, the app builds here and not in a clone.
+Drop one the app does not have: git refuses the whole add on a missing pathspec.
+This is still not `add -A` — every path is named.
 
 **Why this is written down (2026-09-16, a MOC/PSSR app replacement).** A commit named
 `App.mpr` and the script, and left the exploded navigation unit behind. Git reported
@@ -521,7 +569,7 @@ numbered: a gate inserted in the middle used to leave every ordinal behind it wr
       - Wait for the user to confirm SP is running — never assume
       - Confirm the app is actually serving the new build: `curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/login.html` → `200`. The browser shows the old JS bundle until SP recompiles; screenshots taken before this check show stale state.
       - Log in as demo user (not Administrator)
-      - **Navigate by clicking the nav item / button — not a direct URL** (this exercises real navigation; an overlay or stray toggle can silently swallow every click on one page)
+      - **Navigate by clicking the nav item / button — not a direct URL** (→ see `module-review.md` § 4c)
       - Fill minimum required fields
       - Click save / next
       - Confirm record created or navigation succeeded — **and confirm the demo user actually reached the page** (a blank screen or unclickable nav is a failure, not a pass)
@@ -563,7 +611,7 @@ numbered: a gate inserted in the middle used to leave every ordinal behind it wr
     ```
 
     At minimum, stage 3/4 must confirm for each page this module added:
-      - **Every displayed field shows its value** — especially DateTime/enum/calculated fields. A blank where data must exist (e.g. a system `createdDate`) is a render bug (P1), not missing data — confirm the binding in MDL, then treat a persistent blank as a finding.
+      - **Every displayed field shows its value** → see `module-review.md` § 4c (a persistent blank is P1).
       - **Every grid/gallery** shows rows or a proper empty-state message — never nothing.
       - **Every action/View button** points at the *current* page, not a superseded one (`DESCRIBE PAGE`).
       - **Every nav item, breadcrumb, and button actually reaches working logic** — a wired affordance with no microflow behind it, or one that dead-ends, is a P1, not a cosmetic finding.
@@ -574,11 +622,9 @@ numbered: a gate inserted in the middle used to leave every ordinal behind it wr
       Diagnostic only: findings go to the punch-list, fixes are a separate approved pass.
 15. **Gate: COVERAGE — business-rule coverage checklist (mandatory, never skip):** `gate-agent` walks the confirmed checklist from the Pre-Module Checklist step — every mandatory/read-only/conditional/validation item — against the built module, item by item. A module with 0 CE errors and a working happy path but an unchecked validation rule is **not done**. Document any gap as an explicit sub-task; don't mark the module done with open items on this list.
 16. Mark module done ✅ — only if Gate: UI's per-module review produced no open P1. Then flip the
-    module's rows in `build-plan.md` to `built`. `architecture/build-plan.html` refreshes itself
-    after every `exec.sh` and every full `gate-check.sh` run, so the `done-` renames and the State
-    column show on the next of either; run `project-bin/build-plan-status.sh --html` only to see
-    it now. Mechanical, not judged: it reads `build-plan.md`, `done-` prefixes and verify-module.sh
-    summaries, and flags a row whose State disagrees with its scripts — it decides nothing.
+    module's rows in `build-plan.md` to `built`. `architecture/progress-report.html` refreshes after
+    every `exec.sh` and full `gate-check.sh` run (mechanical, decides nothing). Per PROJECT.md
+    `Progress report:` (`brd-to-build-plan.md` Step 10), `ask` offers it once here: `build-plan-status.sh --open`.
 17. **Every N=2–3 modules, run `process-coherence-pass.md`** on the cluster just closed — a
     cross-module seam check (does the persona journey actually chain across these modules, not
     just within each). This is not a per-module step and does not gate an individual module, but
@@ -602,9 +648,9 @@ step.
 **Verification is scoped — once per gate, not once per script.** Gate: SYNTAX and Gate: BUILD run
 inside every `exec.sh`, and they are the only per-script checks. The test passes (happy path, journeys, LOOK) run **once
 per gate round** over what that round changed, and `bin/gate-check.sh` runs **once per gate round**,
-not after every exec. What re-runs after a change, by whom, and when the full suite runs (module
-close only, never batch close) is `testing-shape.md` §3 — the single source; `exec.sh` prints the
-run's lane (`ui-only` / `logic`). Repeating a pass the artifacts already prove is the over-testing
+not after every exec. What re-runs after a change, by whom, and when the full suite runs (per
+PROJECT.md `## Test strategy`; never batch close) is `testing-shape.md` §3; `exec.sh` prints
+the run's lane (`ui-only` / `logic`). Repeating a pass the artifacts already prove is the over-testing
 toolkit issue #274 measured: UI-only changes re-proven 5–10×.
 
 > **Older ordinals, for anyone arriving from a document that still cites them:** Gate 2 = Gate:
@@ -726,7 +772,7 @@ Some operations cannot be done via mxcli. Plan for these explicitly in each modu
 | Drop attribute with access rules | Delete in Studio Pro (BUG-01 — mxcli corrupts MPR) | 2 min |
 | After XPath retrieves written by mxcli | Run binary patch script + reload Studio Pro (BUG-15b) | 3 min |
 
-**Cross-module associations can be created via mxcli** using `CREATE ASSOCIATION` — BUG-02 is fixed in v0.13.0. No Studio Pro handoff needed.
+Cross-module associations: `CREATE ASSOCIATION` via mxcli. No Studio Pro handoff needed (`bin/bug-lookup.sh BUG-02`).
 
 ---
 

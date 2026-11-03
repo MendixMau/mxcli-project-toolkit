@@ -62,7 +62,7 @@ BEFORE_RC=$RC
 # The verdict word is whatever the gate says today (PENDING since 40c63ac; FAIL before). What
 # is pinned is that it is the SAME word before and after the surface appears.
 V4_BEFORE="$(printf '%s' "$OUT" | sed -n 's/^Stage 4 (Build Plan): \([A-Z]*\).*/\1/p')"
-touch "$P/test-report.html" "$P/build-plan.html"
+touch "$P/test-report.html" "$P/progress-report.html"
 OUT2="$("$GATE" "$P" 2>&1)"; RC2=$?
 [ "$RC2" = "$BEFORE_RC" ] && ok "adding surfaces did not change the exit code" \
   || bad "exit code moved $BEFORE_RC -> $RC2 — a surface must not be a gate"

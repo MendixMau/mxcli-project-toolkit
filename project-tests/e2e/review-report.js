@@ -344,8 +344,10 @@ if (graphParsed) {
         verdict: 'manual', provenance: 'judged',
         detail: (f[2] || '?') + ' activities, and no inbound call / action / menu_item / ' +
           'show_page / datasource edge. Entry-point prefixes are already excluded. ' +
-          'SHOW REFERENCES TO misses layout snippetcalls, so this is strong evidence of ' +
-          'deadness, not proof.',
+          'The catalog records no edge for some pluggable-widget properties (a datasource or ' +
+          'action set there) and SHOW REFERENCES TO misses layout snippetcalls, so this is ' +
+          'evidence of deadness, not proof: find the page that holds the flow (a source-catalog search) ' +
+          'before deleting it.',
         measuredAt: STARTED,
         nonVacuity: { controlRan: false, note: 'graph sweep has no positive control' },
         evidence: [{ type: 'query', sql: 'microflows_data LEFT JOIN refs (catalog.db)',

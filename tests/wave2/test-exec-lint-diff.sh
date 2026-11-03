@@ -54,7 +54,14 @@ lint "$debt"; out=$(run_exec)
 printf '%s' "$out" | grep -q 'RESULT 0|' && ok "D3: fixed → clean" || bad "D3" "$out"
 echo "D4 the user accepts it"
 lint "$debt,$newf"; run_exec >/dev/null
-(cd "$P" && LINT_JSON="$WORK/lint.json" REASON="accepted in chat" bash bin/lint-gate.sh --update-baseline --reason "accepted in chat" >/dev/null 2>&1)
+# The user types `loosen` at their own terminal (#348); a pty stands in. No pty (Git Bash): take
+# the same baseline fresh, which is what the accepted state is.
+if "$PY" -c 'import pty' 2>/dev/null; then
+  (cd "$P" && LINT_JSON="$WORK/lint.json" "$PY" "$TK/tests/wave2/fixtures/baseline-loosen/at-terminal.py" loosen \
+     bash bin/lint-gate.sh --update-baseline --reason "accepted by the user" >/dev/null 2>&1)
+else
+  rm -f "$P/.claude/lint-baseline.json"; (cd "$P" && LINT_JSON="$WORK/lint.json" bash bin/lint-gate.sh --update-baseline >/dev/null 2>&1)
+fi
 out=$(run_exec)
 printf '%s' "$out" | grep -q 'RESULT 0|' && ok "D4: accepted into the baseline → clean" || bad "D4" "$out"
 echo "D5 metrics ledger"

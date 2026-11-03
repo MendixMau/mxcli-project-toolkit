@@ -1248,9 +1248,9 @@ PY
          LINT_DETAIL="lint rose: +${_thisn} new or unfixed (${_thisc:-0} carried from earlier execs): ${_rest#* }"
          echo "  ✗ lint: ${_thisn} finding(s) new this script or still unfixed from an earlier one — read each one:"
          case "$_thisnew" in *$'\n'*) printf '%s\n' "${_thisnew#*$'\n'}" ;; esac
-         echo "    Fix the script and re-run. Accepting the debt is the user's call, made in chat:"
-         echo "    bin/lint-gate.sh --update-baseline --reason \"<why>\" (a security-tier rise also"
-         echo "    needs --approved-in-chat). The acceptance is logged to .claude/lint-acceptances.tsv."
+         echo "    Fix the script and re-run. Accepting the debt is the user's call: THE USER runs"
+         echo "    bin/lint-gate.sh --update-baseline --reason \"<why>\" in their own terminal and types"
+         echo "    \`loosen\` (#348). The acceptance is logged to .claude/lint-acceptances.tsv."
          fi
        fi ;;
     2) if [ "$_L_NOBASE" = 1 ]; then

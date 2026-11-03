@@ -425,7 +425,30 @@ KEYED="$(printf '%s\n' "$RESULTS" | awk -F'\t' '{print $1"\t"$2"\t"$5}')"
 # whole dropped every other module's baseline, and their regressions went unmeasured with
 # nothing said (card-disbursement build, 2026-09-26: `--update-baseline --module MockServices`
 # dropped the 127 Disbursement rows).
+#
+# LOOSENING IS THE USER'S OWN COMMAND (#348). A rewrite that turns an OK row into a non-OK one
+# accepts a regression, so it asks for `loosen` typed at a terminal; an agent's tool call has none
+# and is refused with the command to hand the user. A baseline deleted from the tree is compared
+# with git HEAD's. Seeding new rows and rewrites that loosen nothing are unchanged.
 if [ "$UPDATE_BASELINE" -eq 1 ] || [ ! -f "$BASELINE" ]; then
+  _was="$(cat "$BASELINE" 2>/dev/null || git show "HEAD:./$BASELINE" 2>/dev/null || true)"
+  LOOSENED="$(printf '%s\n' "$KEYED" | awk -F'\t' 'NR==FNR { if ($3=="OK") ok[$1"\t"$2]=1; next }
+    ($1"\t"$2) in ok && $3!="OK" { print "    " $1 "  " $2 "  was OK, now " $3 }' <(printf '%s\n' "$_was") -)"
+  if [ -n "$LOOSENED" ]; then
+    echo "conformance-check: this baseline write LOOSENS it — rows that were OK and are not now:" >&2
+    printf '%s\n' "$LOOSENED" >&2
+    if [ ! -t 0 ]; then
+      echo "conformance-check: REFUSED — accepting a regression is the user's call, and there is no terminal here." >&2
+      echo "  User: run this yourself in your own terminal window (not through the agent, not via" >&2
+      echo "  Claude Code's ! prefix), then type \`loosen\` when asked:" >&2
+      echo "    bin/conformance-check.sh${MODULE:+ --module $MODULE} --update-baseline" >&2
+      echo "  Or fix the build so these rows are OK again. Tightening never asks." >&2
+      exit 2
+    fi
+    printf "Type 'loosen' to accept these regressions (anything else cancels): " >&2
+    read -r _ans || _ans=""
+    [ "$_ans" = loosen ] || { echo "conformance-check: not accepted; baseline unchanged." >&2; exit 2; }
+  fi
   if [ -n "$MODULE" ] && [ -f "$BASELINE" ]; then
     { awk -F'\t' -v m="$MODULE" '$1!=m' "$BASELINE"; printf '%s\n' "$KEYED"; } \
       | sed '/^$/d' | sort > "$BASELINE.tmp" && mv "$BASELINE.tmp" "$BASELINE"

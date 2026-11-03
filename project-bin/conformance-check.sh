@@ -429,7 +429,10 @@ KEYED="$(printf '%s\n' "$RESULTS" | awk -F'\t' '{print $1"\t"$2"\t"$5}')"
 # LOOSENING IS THE USER'S OWN COMMAND (#348). A rewrite that turns an OK row into a non-OK one
 # accepts a regression, so it asks for `loosen` typed at a terminal; an agent's tool call has none
 # and is refused with the command to hand the user. A baseline deleted from the tree is compared
-# with git HEAD's. Seeding new rows and rewrites that loosen nothing are unchanged.
+# with git HEAD's (a check run then says `git checkout -- <baseline>` first). The prompt times out
+# after 300s (MXTK_LOOSEN_TIMEOUT) and refuses. No terminal (cloud/web session): the user edits
+# the baseline and commits it; the commit is the approval, and the committed file is the bar with
+# no prompt. Seeding new rows and rewrites that loosen nothing are unchanged.
 if [ "$UPDATE_BASELINE" -eq 1 ] || [ ! -f "$BASELINE" ]; then
   _was="$(cat "$BASELINE" 2>/dev/null || git show "HEAD:./$BASELINE" 2>/dev/null || true)"
   LOOSENED="$(printf '%s\n' "$KEYED" | awk -F'\t' 'NR==FNR { if ($3=="OK") ok[$1"\t"$2]=1; next }
@@ -437,16 +440,26 @@ if [ "$UPDATE_BASELINE" -eq 1 ] || [ ! -f "$BASELINE" ]; then
   if [ -n "$LOOSENED" ]; then
     echo "conformance-check: this baseline write LOOSENS it — rows that were OK and are not now:" >&2
     printf '%s\n' "$LOOSENED" >&2
-    if [ ! -t 0 ]; then
-      echo "conformance-check: REFUSED — accepting a regression is the user's call, and there is no terminal here." >&2
+    _conf_refuse() {  # $1 = why there is no answer (no terminal / no answer in time)
+      if [ "$UPDATE_BASELINE" -eq 0 ] && [ ! -f "$BASELINE" ]; then
+        echo "conformance-check: REFUSED — $BASELINE was deleted; restore it first:" >&2
+        echo "    git checkout -- $BASELINE" >&2
+        echo "  then re-run. If the regressions above are really to be accepted:" >&2
+      else
+        echo "conformance-check: REFUSED — accepting a regression is the user's call, and $1." >&2
+      fi
       echo "  User: run this yourself in your own terminal window (not through the agent, not via" >&2
       echo "  Claude Code's ! prefix), then type \`loosen\` when asked:" >&2
       echo "    bin/conformance-check.sh${MODULE:+ --module $MODULE} --update-baseline" >&2
+      echo "  No terminal (cloud/web session)? You edit the baseline file yourself and commit it;" >&2
+      echo "  the commit is the approval ($BASELINE, the rows named above)." >&2
       echo "  Or fix the build so these rows are OK again. Tightening never asks." >&2
       exit 2
-    fi
+    }
+    [ -t 0 ] || _conf_refuse "there is no terminal here"
     printf "Type 'loosen' to accept these regressions (anything else cancels): " >&2
-    read -r _ans || _ans=""
+    # -t 300: a pty-backed agent harness (Cursor / VS Code terminal) has a terminal nobody answers.
+    read -r -t "${MXTK_LOOSEN_TIMEOUT:-300}" _ans || { [ $? -gt 128 ] && _conf_refuse "nobody answered within ${MXTK_LOOSEN_TIMEOUT:-300}s"; _ans=""; }
     [ "$_ans" = loosen ] || { echo "conformance-check: not accepted; baseline unchanged." >&2; exit 2; }
   fi
   if [ -n "$MODULE" ] && [ -f "$BASELINE" ]; then

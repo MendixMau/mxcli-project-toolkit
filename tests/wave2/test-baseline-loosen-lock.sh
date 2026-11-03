@@ -50,6 +50,8 @@ out=$(agent --update-baseline --reason "x" --approved-in-chat); rc=$?
 [ "$(total)" = 3 ] && ok "baseline still 3" || bad "baseline moved to $(total)"
 case "$out" in *"own terminal"*loosen*"--update-baseline --reason"*) ok "refusal tells the user the exact command and the word" ;;
   *) bad "refusal does not say how the user loosens it" "$out" ;; esac
+case "$out" in *"No terminal (cloud/web session)"*"commit is the approval"*) ok "refusal names the no-terminal route (edit + commit)" ;;
+  *) bad "refusal has no route for a session without a terminal" "$out" ;; esac
 
 echo "L3 the agent tightens: unchanged, no question"
 mk "$(v CONV009 1)"; out=$(agent --update-baseline); rc=$?
@@ -72,7 +74,30 @@ if command -v git >/dev/null 2>&1; then
   rm -f "$P/.claude/lint-baseline.json"; mk "$(v CONV009 5)"
   out=$(agent --update-baseline --reason x); rc=$?
   [ "$rc" -eq 2 ] && [ ! -f "$P/.claude/lint-baseline.json" ] && ok "refused; nothing re-created" || bad "rm + update loosened silently (rc $rc, total $(total))" "$out"
-else echo "  skip L5 (no git)"; fi
+
+  echo "L6 no terminal (cloud/web): the user edits the baseline and commits it — accepted, no prompt"
+  (cd "$P" && git checkout -q -- .claude/lint-baseline.json)
+  "$PY" - "$P/.claude/lint-baseline.json" <<'PYE'
+import json, sys
+b = json.load(open(sys.argv[1])); b["counts"]["CONV009"] = 5; b["total"] = sum(b["counts"].values())
+json.dump(b, open(sys.argv[1], "w"), indent=2)
+PYE
+  (cd "$P" && git -c user.email=u@u -c user.name=user commit -qam "accept CONV009 rise") >/dev/null 2>&1
+  out=$(agent); rc=$?
+  [ "$rc" -eq 0 ] && ok "check run passes against the committed looser baseline" || bad "check run vs committed baseline rc=$rc" "$out"
+  out=$(agent --update-baseline); rc=$?
+  case "$out" in *LOOSENS*|*REFUSED*) bad "re-baseline at the committed counts asked or refused" "$out" ;;
+    *) [ "$rc" -eq 0 ] && ok "re-baseline at the committed counts: no prompt (rc 0)" || bad "re-baseline rc=$rc" "$out" ;; esac
+else echo "  skip L5/L6 (no git)"; fi
+
+echo "L7 a terminal nobody answers (pty-backed agent harness): times out and refuses"
+mk "$(v CONV009 7)"
+if [ "$HAVE_PTY" = 1 ]; then
+  before=$(total)
+  out=$(MXTK_LOOSEN_TIMEOUT=2 user --silent --update-baseline --reason x); rc=$?
+  [ "$rc" -eq 2 ] && [ "$(total)" = "$before" ] && ok "refused after the timeout (rc 2, baseline still $before)" || bad "unanswered prompt rc=$rc total=$(total)" "$out"
+  case "$out" in *"nobody answered"*"commit"*) ok "timeout refusal names the terminal and commit routes" ;; *) bad "timeout refusal wording" "$out" ;; esac
+else skip "L7 unanswered terminal"; fi
 
 # --- conformance-check -----------------------------------------------------------------------
 C="$WORK/conf"; mkdir -p "$C/architecture/modules/Orders"; : > "$C/Shop.mpr"
@@ -104,6 +129,8 @@ rc=$(crun --update-baseline)
 [ "$rc" = 2 ] && [ "$(nok)" = 2 ] && ok "refused, baseline keeps 2 OK rows" || bad "regression baselined silently (rc $rc, ok $(nok))" "$(cat "$WORK/out")"
 grep -q "own terminal" "$WORK/out" && grep -q "conformance-check.sh --update-baseline" "$WORK/out" && grep -q loosen "$WORK/out" \
   && ok "refusal names the user's command" || bad "refusal does not say how the user loosens it" "$(cat "$WORK/out")"
+grep -q "No terminal (cloud/web session)" "$WORK/out" && grep -q "commit is the approval" "$WORK/out" \
+  && ok "refusal names the no-terminal route (edit + commit)" || bad "no route without a terminal" "$(cat "$WORK/out")"
 
 echo "C3 the user accepts it at a terminal"
 if [ "$HAVE_PTY" = 1 ]; then
@@ -114,6 +141,32 @@ else skip "C3 user at a terminal"; fi
 echo "C4 the agent re-baselines after a fix (tightening): no question"
 mv "$C/PRESENT.bak" "$C/PRESENT"
 rc=$(crun --update-baseline); [ "$rc" = 0 ] && [ "$(nok)" = 2 ] && ok "tightening written (2 OK rows)" || bad "tightening rc=$rc ok=$(nok)" "$(cat "$WORK/out")"
+
+echo "C5 a terminal nobody answers: times out and refuses"
+sed -i.bak '/^Orders.Order$/d' "$C/PRESENT"
+if [ "$HAVE_PTY" = 1 ]; then
+  rc=$(MXTK_LOOSEN_TIMEOUT=2 curun --silent --update-baseline)
+  [ "$rc" = 2 ] && [ "$(nok)" = 2 ] && grep -q "nobody answered" "$WORK/out" \
+    && ok "refused after the timeout (baseline keeps 2 OK rows)" || bad "unanswered prompt rc=$rc ok=$(nok)" "$(cat "$WORK/out")"
+else skip "C5 unanswered terminal"; fi
+
+if command -v git >/dev/null 2>&1; then
+  (cd "$C" && git init -q && git add docs/conformance/baseline.tsv && git -c user.email=t@t -c user.name=t commit -qm b) >/dev/null 2>&1
+  echo "C6 a check run (verify-module) with the baseline deleted: refused, says git checkout first"
+  rm -f "$C/docs/conformance/baseline.tsv"
+  rc=$(crun)
+  [ "$rc" = 2 ] && [ ! -f "$C/docs/conformance/baseline.tsv" ] && grep -q "git checkout -- docs/conformance/baseline.tsv" "$WORK/out" \
+    && ok "refused; names git checkout -- <baseline>" || bad "deleted-baseline check run rc=$rc" "$(cat "$WORK/out")"
+  echo "C7 no terminal (cloud/web): the user edits the baseline and commits it — accepted, no prompt"
+  (cd "$C" && git checkout -q -- docs/conformance/baseline.tsv)
+  # The row the refusal named (`/domainEntities/0` = Orders.Order), set to the status it reported.
+  now=$(sed -n 's/.*domainEntities\/0.*was OK, now \([A-Z_]*\).*/\1/p' "$WORK/out" | head -1)
+  awk -F'\t' -v OFS='\t' -v s="${now:-STALE}" '$2 ~ /domainEntities\/0/ { $3=s } 1' "$C/docs/conformance/baseline.tsv" > "$C/b.tmp" \
+    && mv "$C/b.tmp" "$C/docs/conformance/baseline.tsv"
+  (cd "$C" && git -c user.email=u@u -c user.name=user commit -qam "accept Order regression") >/dev/null 2>&1
+  rc=$(crun); [ "$rc" = 0 ] && ! grep -q "LOOSENS\|REFUSED" "$WORK/out" && ok "check run passes against the committed baseline" || bad "check vs committed baseline rc=$rc" "$(cat "$WORK/out"; cat "$C/docs/conformance/baseline.tsv")"
+  rc=$(crun --update-baseline); [ "$rc" = 0 ] && ! grep -q "LOOSENS\|REFUSED" "$WORK/out" && ok "re-baseline at the committed rows: no prompt" || bad "re-baseline rc=$rc" "$(cat "$WORK/out")"
+else echo "  skip C6/C7 (no git)"; fi
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP"

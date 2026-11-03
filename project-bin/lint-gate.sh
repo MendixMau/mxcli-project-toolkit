@@ -70,7 +70,12 @@
 # refused with the command to hand the user. A baseline deleted from the working tree is
 # compared with the one git HEAD holds, so rm + update is a rise too. Tightening, a first
 # baseline and a check run are unchanged. --approved-in-chat still parses and is ignored.
-# Not covered: a pty wrapper faking a terminal, or a hand edit of the baseline file (git shows it).
+# The prompt times out after 300s (MXTK_LOOSEN_TIMEOUT) and refuses: a pty-backed harness has a
+# terminal nobody answers. No terminal at all (cloud/web session): the user edits the baseline
+# file and commits it — the commit is the approval. The reference is always the baseline file as
+# it stands (HEAD's only when it was deleted), so a committed looser baseline is simply the bar:
+# no prompt (guard rule 6, evidence the guard did not create). Not covered: a pty wrapper faking
+# a terminal, or an uncommitted hand edit of the baseline file (git shows it).
 #
 # PRODUCES .claude/loop/lint-ledger.tsv (append-only, one row per rule per run; read with
 # project-bin/lint-trend.sh) and .claude/loop/lint-last.json on every run that actually gets as far as computing
@@ -746,17 +751,21 @@ sys.exit(1)
 PY
 }
 _lint_py; _RC=$?
+_lint_refuse() {  # $1 = why there is no answer (no terminal / no answer in time)
+  echo "lint-gate: REFUSED — loosening a baseline is the user's call, and $1." >&2
+  echo "           User: run this yourself in your own terminal window (not through the agent," >&2
+  echo "           not via Claude Code's ! prefix), then type \`loosen\` when asked:" >&2
+  echo "             bin/lint-gate.sh --update-baseline --reason \"$REASON\"" >&2
+  echo "           No terminal (cloud/web session)? You edit the baseline file yourself and commit it;" >&2
+  echo "           the commit is the approval (.claude/lint-baseline.json, raise the counts named above)." >&2
+  echo "           Or fix the script so the counts do not rise. Tightening never asks." >&2
+  exit 2
+}
 if [ "$_RC" -eq 10 ]; then
-  if [ ! -t 0 ]; then
-    echo "lint-gate: REFUSED — loosening a baseline is the user's call, and there is no terminal here." >&2
-    echo "           User: run this yourself in your own terminal window (not through the agent," >&2
-    echo "           not via Claude Code's ! prefix), then type \`loosen\` when asked:" >&2
-    echo "             bin/lint-gate.sh --update-baseline --reason \"$REASON\"" >&2
-    echo "           Or fix the script so the counts do not rise. Tightening never asks." >&2
-    exit 2
-  fi
+  [ -t 0 ] || _lint_refuse "there is no terminal here"
   printf "Type 'loosen' to accept these rises (anything else cancels): " >&2
-  read -r _ans || _ans=""
+  # -t 300: a pty-backed agent harness (Cursor / VS Code terminal) has a terminal nobody answers.
+  read -r -t "${MXTK_LOOSEN_TIMEOUT:-300}" _ans || { [ $? -gt 128 ] && _lint_refuse "nobody answered within ${MXTK_LOOSEN_TIMEOUT:-300}s"; _ans=""; }
   [ "$_ans" = loosen ] || { echo "lint-gate: not accepted; baseline unchanged." >&2; exit 2; }
   _MXTK_LOOSEN_OK=1; export _MXTK_LOOSEN_OK
   _lint_py; _RC=$?

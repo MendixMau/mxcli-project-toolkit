@@ -1,0 +1,397 @@
+{
+  "capturedAt": "2026-10-29T09:50:37.165Z",
+  "configuredUser": "approver_test_user",
+  "actualUser": "approver_test_user",
+  "usedFallback": false,
+  "baseUrl": "http://localhost:8086",
+  "device": "desktop (default 1440x900 window)",
+  "positiveControl": false,
+  "mutants": {
+    "expectedPerJourney": 7,
+    "expected": 0,
+    "supported": 0,
+    "proven": 0,
+    "unsupported": []
+  },
+  "results": [
+    {
+      "rung": "ui",
+      "name": "login",
+      "verdict": "PASS",
+      "detail": "approver_test_user",
+      "requirement": ""
+    },
+    {
+      "rung": "ui",
+      "name": "open the inbox: reached",
+      "verdict": "PASS",
+      "detail": ".mx-name-dgInbox",
+      "requirement": "F002#/useCases/0/mainFlow/1, F002#/useCases/1/mainFlow/3"
+    },
+    {
+      "rung": "ui",
+      "name": "open the inbox: page says \"Journey chairs\"",
+      "verdict": "PASS",
+      "detail": "",
+      "requirement": "F002#/useCases/0/mainFlow/1, F002#/useCases/1/mainFlow/3"
+    },
+    {
+      "rung": "ui",
+      "name": "open the request: reached",
+      "verdict": "PASS",
+      "detail": ".mx-name-dvDecide",
+      "requirement": "F002#/useCases/0/mainFlow/1, F002#/useCases/1/mainFlow/3"
+    },
+    {
+      "rung": "ui",
+      "name": "open the request: widget btnApprove",
+      "verdict": "PASS",
+      "detail": "",
+      "requirement": "F002#/useCases/0/mainFlow/1, F002#/useCases/1/mainFlow/3"
+    },
+    {
+      "rung": "ui",
+      "name": "open the request: widget btnReject",
+      "verdict": "PASS",
+      "detail": "",
+      "requirement": "F002#/useCases/0/mainFlow/1, F002#/useCases/1/mainFlow/3"
+    },
+    {
+      "rung": "ui",
+      "name": "approve: reached",
+      "verdict": "PASS",
+      "detail": ".mx-name-dgInbox",
+      "requirement": "F002#/useCases/1/mainFlow/3"
+    },
+    {
+      "rung": "ui",
+      "name": "approve: page does NOT say \"1016\"",
+      "verdict": "PASS",
+      "detail": "",
+      "requirement": "F002#/useCases/1/mainFlow/3"
+    },
+    {
+      "rung": "trace",
+      "name": "approve: spans",
+      "verdict": "INVALID",
+      "detail": "zero spans captured — Jaeger down or OTel off. Trace rung did NOT run.",
+      "requirement": "F002#/useCases/1/mainFlow/3"
+    },
+    {
+      "rung": "data",
+      "name": "approve: Approval.ApprovalRecord +1",
+      "verdict": "PASS",
+      "detail": "before=14 after=15 delta=1",
+      "requirement": "F002#/useCases/1/mainFlow/3"
+    },
+    {
+      "rung": "outcome",
+      "name": "J-APP-01 end state",
+      "verdict": "PASS",
+      "detail": "got 1, need >= 1",
+      "requirement": "F002#/useCases/0/mainFlow/1, F002#/useCases/1/mainFlow/3"
+    },
+    {
+      "rung": "data",
+      "name": "J-APP-02: seeds resolved",
+      "verdict": "INVALID",
+      "detail": "\"reqTitle\" returned nothing — the DB has no row to drive this journey, or the admin API is unreachable. Journey NOT run; this is not a feature failure.",
+      "requirement": "F002#/useCases/2/alternateFlows/0, F002#/useCases/2/mainFlow/3"
+    },
+    {
+      "rung": "ui",
+      "name": "open dashboard: reached",
+      "verdict": "PASS",
+      "detail": ".mx-name-dvSummary",
+      "requirement": "F002#/useCases/4/mainFlow/1"
+    },
+    {
+      "rung": "ui",
+      "name": "open dashboard: widget txtSubmittedCount",
+      "verdict": "PASS",
+      "detail": "",
+      "requirement": "F002#/useCases/4/mainFlow/1"
+    },
+    {
+      "rung": "ui",
+      "name": "open dashboard: widget txtOpenValue",
+      "verdict": "PASS",
+      "detail": "",
+      "requirement": "F002#/useCases/4/mainFlow/1"
+    },
+    {
+      "rung": "ui",
+      "name": "open dashboard: widget lvLastDecisions",
+      "verdict": "PASS",
+      "detail": "",
+      "requirement": "F002#/useCases/4/mainFlow/1"
+    },
+    {
+      "rung": "ui",
+      "name": "open dashboard: page says \"Last 5 decisions\"",
+      "verdict": "PASS",
+      "detail": "",
+      "requirement": "F002#/useCases/4/mainFlow/1"
+    }
+  ],
+  "walks": [
+    {
+      "journey": "J-APP-01",
+      "title": "Approver approves a submitted request",
+      "persona": "approver_test_user",
+      "device": "desktop (default 1440x900 window)",
+      "requirement": [
+        "F002#/useCases/0/mainFlow/1",
+        "F002#/useCases/1/mainFlow/3"
+      ],
+      "seeds": {
+        "reqTitle": "Journey chairs",
+        "reqNo": "1016"
+      },
+      "steps": [
+        {
+          "n": 1,
+          "name": "open the inbox",
+          "requirement": [
+            "F002#/useCases/0/mainFlow/1",
+            "F002#/useCases/1/mainFlow/3"
+          ],
+          "actions": [
+            {
+              "verb": "Navigate",
+              "target": "Approval › Approval inbox",
+              "selector": null
+            }
+          ],
+          "expects": {
+            "landsOn": ".mx-name-dgInbox",
+            "pageSays": [
+              "{{reqTitle}}"
+            ],
+            "pageDoesNotSay": [],
+            "microflows": [],
+            "writes": null
+          },
+          "shot": {
+            "file": "tests/e2e/artifacts/J-APP-01-step1.png",
+            "title": "Mendix - Approval inbox",
+            "url": "http://localhost:8086/p/inbox",
+            "at": "2026-10-29T09:50:13.715Z"
+          },
+          "reached": true,
+          "checks": [
+            {
+              "rung": "ui",
+              "name": "open the inbox: reached",
+              "verdict": "PASS",
+              "detail": ".mx-name-dgInbox"
+            },
+            {
+              "rung": "ui",
+              "name": "open the inbox: page says \"Journey chairs\"",
+              "verdict": "PASS",
+              "detail": ""
+            }
+          ],
+          "ms": 3093
+        },
+        {
+          "n": 2,
+          "name": "open the request",
+          "requirement": [
+            "F002#/useCases/0/mainFlow/1",
+            "F002#/useCases/1/mainFlow/3"
+          ],
+          "actions": [
+            {
+              "verb": "Click",
+              "target": "Review",
+              "selector": ".mx-name-btnReview"
+            }
+          ],
+          "expects": {
+            "landsOn": ".mx-name-dvDecide",
+            "pageSays": [],
+            "pageDoesNotSay": [],
+            "microflows": [],
+            "writes": null
+          },
+          "shot": {
+            "file": "tests/e2e/artifacts/J-APP-01-step2.png",
+            "title": "Mendix - Decide on request",
+            "url": "http://localhost:8086/p/decide/18577348462929245",
+            "at": "2026-10-29T09:50:15.843Z"
+          },
+          "reached": true,
+          "checks": [
+            {
+              "rung": "ui",
+              "name": "open the request: reached",
+              "verdict": "PASS",
+              "detail": ".mx-name-dvDecide"
+            },
+            {
+              "rung": "ui",
+              "name": "open the request: widget btnApprove",
+              "verdict": "PASS",
+              "detail": ""
+            },
+            {
+              "rung": "ui",
+              "name": "open the request: widget btnReject",
+              "verdict": "PASS",
+              "detail": ""
+            }
+          ],
+          "ms": 2132
+        },
+        {
+          "n": 3,
+          "name": "approve",
+          "requirement": [
+            "F002#/useCases/1/mainFlow/3"
+          ],
+          "actions": [
+            {
+              "verb": "Click",
+              "target": "Approve",
+              "selector": ".mx-name-btnApprove"
+            }
+          ],
+          "expects": {
+            "landsOn": ".mx-name-dgInbox",
+            "pageSays": [],
+            "pageDoesNotSay": [
+              "{{reqNo}}"
+            ],
+            "microflows": [
+              "Approval.ACT_Approval_Approve"
+            ],
+            "writes": {
+              "entity": "Approval.ApprovalRecord",
+              "delta": 1,
+              "associations": []
+            }
+          },
+          "shot": {
+            "file": "tests/e2e/artifacts/J-APP-01-step3.png",
+            "title": "Mendix - Approval inbox",
+            "url": "http://localhost:8086/p/inbox",
+            "at": "2026-10-29T09:50:18.980Z"
+          },
+          "reached": true,
+          "checks": [
+            {
+              "rung": "ui",
+              "name": "approve: reached",
+              "verdict": "PASS",
+              "detail": ".mx-name-dgInbox"
+            },
+            {
+              "rung": "ui",
+              "name": "approve: page does NOT say \"1016\"",
+              "verdict": "PASS",
+              "detail": ""
+            },
+            {
+              "rung": "trace",
+              "name": "approve: spans",
+              "verdict": "INVALID",
+              "detail": "zero spans captured — Jaeger down or OTel off. Trace rung did NOT run."
+            },
+            {
+              "rung": "data",
+              "name": "approve: Approval.ApprovalRecord +1",
+              "verdict": "PASS",
+              "detail": "before=14 after=15 delta=1"
+            }
+          ],
+          "ms": 15222
+        }
+      ]
+    },
+    {
+      "journey": "J-DASH-01",
+      "title": "Approver reads the dashboard",
+      "persona": "approver_test_user",
+      "device": "desktop (default 1440x900 window)",
+      "requirement": [
+        "F002#/useCases/4/mainFlow/1"
+      ],
+      "seeds": {},
+      "steps": [
+        {
+          "n": 1,
+          "name": "open dashboard",
+          "requirement": [
+            "F002#/useCases/4/mainFlow/1"
+          ],
+          "actions": [
+            {
+              "verb": "Navigate",
+              "target": "Approval › Dashboard",
+              "selector": null
+            }
+          ],
+          "expects": {
+            "landsOn": ".mx-name-dvSummary",
+            "pageSays": [
+              "Last 5 decisions"
+            ],
+            "pageDoesNotSay": [],
+            "microflows": [],
+            "writes": null
+          },
+          "shot": {
+            "file": "tests/e2e/artifacts/J-DASH-01-step1.png",
+            "title": "Mendix - Dashboard",
+            "url": "http://localhost:8086/p/dashboard",
+            "at": "2026-10-29T09:50:37.096Z"
+          },
+          "reached": true,
+          "checks": [
+            {
+              "rung": "ui",
+              "name": "open dashboard: reached",
+              "verdict": "PASS",
+              "detail": ".mx-name-dvSummary"
+            },
+            {
+              "rung": "ui",
+              "name": "open dashboard: widget txtSubmittedCount",
+              "verdict": "PASS",
+              "detail": ""
+            },
+            {
+              "rung": "ui",
+              "name": "open dashboard: widget txtOpenValue",
+              "verdict": "PASS",
+              "detail": ""
+            },
+            {
+              "rung": "ui",
+              "name": "open dashboard: widget lvLastDecisions",
+              "verdict": "PASS",
+              "detail": ""
+            },
+            {
+              "rung": "ui",
+              "name": "open dashboard: page says \"Last 5 decisions\"",
+              "verdict": "PASS",
+              "detail": ""
+            }
+          ],
+          "ms": 3095
+        }
+      ]
+    }
+  ],
+  "appDown": [],
+  "appDiedIn": [],
+  "namedControlGaps": [
+    "J-APP-01: no named control — no *.control.json beside it (or in controls/) with control.of = \"J-APP-01\"; write one and run named-controls.js",
+    "J-APP-02: no named control — no *.control.json beside it (or in controls/) with control.of = \"J-APP-02\"; write one and run named-controls.js",
+    "J-DASH-01: no named control — no *.control.json beside it (or in controls/) with control.of = \"J-DASH-01\"; write one and run named-controls.js"
+  ],
+  "partial": null
+}

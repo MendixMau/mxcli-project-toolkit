@@ -37,6 +37,16 @@
 #                                           # that drifted mid-project (new binary, wrong-arch
 #                                           # mxbuild, a Defender policy) read as "the toolkit
 #                                           # is broken".
+#   bin/doctor.sh --bench [<project-dir>]   # ~1 minute, changes nothing: times 50 process starts, git status,
+#                                           # python/node start, one gate-check, an mxcli check of a tiny script
+#                                           # and (on a COPY of the model) mx check; prints step | this machine |
+#                                           # reference | factor and one verdict line, and writes the numbers to
+#                                           # <project>/.claude/loop/bench-<timestamp>.tsv to compare with colleagues.
+#   bin/doctor.sh --cleanup                 # list leftover mxbuild helper processes (deno from modeler/tools/deno,
+#                                           # older than 10 min, no live mxbuild parent) and stop exactly those after
+#                                           # you type y. With no terminal it prints the command and stops nothing.
+#                                           # Every normal run also has a "Machine health" section (same leftovers
+#                                           # plus free memory): mxbuild is killed with exit 137 when memory runs out.
 #   bin/doctor.sh --gate-selftest [<dir>]   # force the gate self-test section to run even
 #                                           # under --quick, or on its own. See its own header
 #                                           # (search "Gate self-test") for what it proves and
@@ -73,7 +83,18 @@ set -u
 # script and the repair inherits exec.sh's snapshot, mxbuild gate and restore.
 if [ "${2:-}" = "--property-sets-apply-step" ]; then
   { [ -n "${3:-}" ] && [ -x "$3" ]; } || { echo "--property-sets-apply-step: no runnable mxcli given" >&2; exit 2; }
-  exec "$3" fix property-sets -p "$1"
+  # mxcli v0.29.0+ also exits 1 while a MIXED name remains (cmd_fix_property_sets.go: "Exits 1
+  # when a unit could not be repaired, when a MIXED name remains"), even when every repair it made
+  # landed. mxcli leaves MIXED units untouched, so that exit is not a failed repair: report 0 and
+  # let the gate decide, else exec.sh --patch rolls the good repairs back. FAILED still exits 1.
+  _psa_o="$("$3" fix property-sets -p "$1" 2>&1)"; _psa_r=$?
+  printf '%s\n' "$_psa_o"
+  if [ "$_psa_r" -eq 1 ] && printf '%s\n' "$_psa_o" | grep -q '^  MIXED ' \
+     && ! printf '%s\n' "$_psa_o" | grep -qE '^  FAILED |could not be normalized'; then
+    echo "(exit 1 was for the MIXED name(s) above only — mxcli leaves those as they are; the repair stands)"
+    exit 0
+  fi
+  exit "$_psa_r"
 fi
 
 TOOLKIT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -82,6 +103,8 @@ INSTALL=0
 ASSUME_YES=0
 QUICK=0
 GATE_SELFTEST=0
+BENCH=0
+CLEANUP=0
 PS_MODE=""
 PS_IF_STALE=0
 NO_DOCKER="${MXTK_DOCTOR_SKIP_DOCKER:-0}"
@@ -91,6 +114,8 @@ for _arg in "$@"; do
     --install) INSTALL=1 ;;
     --yes|-y)  ASSUME_YES=1 ;;
     --quick)   QUICK=1 ;;
+    --bench)   BENCH=1 ;;
+    --cleanup) CLEANUP=1 ;;
     --gate-selftest) GATE_SELFTEST=1 ;;
     --no-docker) NO_DOCKER=1 ;;
     --property-sets)     PS_MODE=check ;;
@@ -187,6 +212,10 @@ probe_runs() {
 # What the dry-run prints and how it exits is mxcli's cmd/mxcli/cmd_fix_property_sets.go at
 # v0.26.0: exit 0 = nothing to do; exit 1 = a `  NEEDS ` or `  FAILED ` row per unit, OR an
 # error such as "project not found" (both exit 1, so the rows decide, never the code alone).
+# v0.29.0 adds `  MIXED ` rows (ako/mxcli#1505): a property name some elements of a type carry and
+# others lack — Mendix's merge engine cannot compare those revisions, and mxcli leaves them alone
+# (no measured value fills them). Exit 1 with only MIXED rows is result "mixed": a merge hazard
+# the repair cannot clear, reported, never "could not classify" (captured 2026-10-30).
 # Anything else is "could not classify", never clean. Support is read from `mxcli fix --help`
 # listing the subcommand: `mxcli fix property-sets --help` exits 0 on v0.24/v0.25 too (cobra
 # prints the parent's help for an unknown subcommand), so it cannot be the probe. Golden
@@ -195,7 +224,7 @@ probe_runs() {
 # The result is recorded in <project>/.claude/.property-sets-receipt (machine-local, like the
 # doctor receipt): line 1 "<date> <time> <result> <detail>", line 2 "mxcli: <--version line>".
 # Line 2 is what --if-stale and --quick compare: the check is owed again when mxcli changes.
-# Only a settled answer is recorded — clean, unproven, needs, failed, or unsupported (the support probe
+# Only a settled answer is recorded — clean, unproven, needs, failed, mixed, or unsupported (the support probe
 # ran and the subcommand is absent). An error or a timeout is never written, and --if-stale
 # skips the run only on a recorded clean/unproven/unsupported, so a one-off failure (locked model,
 # unreadable version, a probe that crashed) is re-checked on the next sync instead of being
@@ -236,19 +265,23 @@ ps_bounded() {
   rm -f "$_pb_f"
   return "$_pb_rc"
 }
-# ps_classify <exit> <output> — sets PS_RESULT (clean|needs|failed|error) and PS_DETAIL.
+# ps_classify <exit> <output> — sets PS_RESULT (clean|needs|failed|mixed|error) and PS_DETAIL.
 ps_classify() {
   _psc_checked="$(printf '%s\n' "$2" | grep -m1 -E '^Checked [0-9]+ unit' || true)"
   _psc_needs="$(printf '%s\n' "$2" | grep -c '^  NEEDS ' || true)"
   _psc_failed="$(printf '%s\n' "$2" | grep -c '^  FAILED ' || true)"
+  _psc_mixed="$(printf '%s\n' "$2" | grep -c '^  MIXED ' || true)"
+  _psc_mx=""; [ "$_psc_mixed" -gt 0 ] && _psc_mx=", $_psc_mixed MIXED property name(s) mxcli leaves alone"
   if [ "$1" -eq 0 ] && printf '%s\n' "$2" | grep -q 'no readable Mendix version'; then
     PS_RESULT=error; PS_DETAIL="mxcli read no Mendix version from the model, so nothing was checked"
   elif [ "$1" -eq 0 ]; then
     PS_RESULT=clean; PS_DETAIL="${_psc_checked:-exit 0}"
   elif [ "$1" -eq 1 ] && [ "$_psc_needs" -gt 0 ]; then
-    PS_RESULT=needs; PS_DETAIL="$_psc_needs unit(s) need their property set completed, $_psc_failed cannot be normalized"
+    PS_RESULT=needs; PS_DETAIL="$_psc_needs unit(s) need their property set completed, $_psc_failed cannot be normalized$_psc_mx"
   elif [ "$1" -eq 1 ] && [ "$_psc_failed" -gt 0 ]; then
-    PS_RESULT=failed; PS_DETAIL="$_psc_failed unit(s) hold a value in a key this Mendix version does not declare"
+    PS_RESULT=failed; PS_DETAIL="$_psc_failed unit(s) hold a value in a key this Mendix version does not declare$_psc_mx"
+  elif [ "$1" -eq 1 ] && [ "$_psc_mixed" -gt 0 ]; then
+    PS_RESULT=mixed; PS_DETAIL="$_psc_mixed property name(s) differ between elements of one type (MIXED) — no measured value fills them"
   else
     PS_RESULT=error
     PS_DETAIL="exit $1: $(printf '%s\n' "$2" | grep -v -e '^[[:space:]]*$' -e '^WARNING: This is a' | head -1)"
@@ -275,7 +308,7 @@ ps_unproven_warn() {
   note "the proof is Mendix's own: mx diff <base>.mpr <mine>.mpr out.json with this version's mx; exit 0 is clean."
 }
 ps_write_receipt() {
-  case "$PS_RESULT" in clean|unproven|needs|failed|unsupported) ;; *) return 0 ;; esac
+  case "$PS_RESULT" in clean|unproven|needs|failed|mixed|unsupported) ;; *) return 0 ;; esac
   [ -n "$PS_VER" ] || return 0
   [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ] || return 0
   mkdir -p "$PROJECT_DIR/.claude" 2>/dev/null || return 0
@@ -327,14 +360,16 @@ ps_check() {
       else
         ok "property sets: $PS_DETAIL — every unit has the property names Studio Pro writes"
       fi ;;
-    needs|failed)
+    needs|failed|mixed)
       warn "property sets: $PS_DETAIL — Studio Pro's merge/diff can throw on these"
-      printf '%s\n' "$PS_OUT" | grep -E '^  (NEEDS|FAILED) ' | head -10 | while IFS= read -r l; do note "$l"; done
-      _psk_rows="$(printf '%s\n' "$PS_OUT" | grep -cE '^  (NEEDS|FAILED) ' || true)"
+      printf '%s\n' "$PS_OUT" | grep -E '^  (NEEDS|FAILED|MIXED) ' | head -10 | while IFS= read -r l; do note "$l"; done
+      _psk_rows="$(printf '%s\n' "$PS_OUT" | grep -cE '^  (NEEDS|FAILED|MIXED) ' || true)"
       [ "$_psk_rows" -gt 10 ] && note "  … $((_psk_rows - 10)) more"
       [ "$PS_RESULT" = needs ] && note "repair (snapshot + mxbuild gate + restore): bin/doctor.sh --fix-property-sets ${PROJECT_DIR:-<project>}"
       [ "$(printf '%s\n' "$PS_OUT" | grep -c '^  FAILED ' || true)" -gt 0 ] && \
-        note "FAILED units are left alone by mxcli and make the guarded repair roll back — resolve them first." ;;
+        note "FAILED units are left alone by mxcli and make the guarded repair roll back — resolve them first."
+      [ "$(printf '%s\n' "$PS_OUT" | grep -c '^  MIXED ' || true)" -gt 0 ] && \
+        note "MIXED names are left alone by mxcli and --fix-property-sets cannot clear them. Report them with your Mendix version (mendixlabs/mxcli asks for exactly that); until a value is measured, a merge touching these units can throw." ;;
     *) warn "property sets: could not classify the check — $PS_DETAIL (not recorded; the next run re-checks)"
        printf '%s\n' "$PS_OUT" | grep -v '^[[:space:]]*$' | head -5 | while IFS= read -r l; do note "  $l"; done ;;
   esac
@@ -361,7 +396,7 @@ ps_apply() {
   ps_check
 }
 ps_exit_code() {
-  case "$PS_RESULT" in clean|unproven) echo 0 ;; not-run) echo 2 ;; unsupported) echo 3 ;; needs|failed) echo 1 ;; *) echo 4 ;; esac
+  case "$PS_RESULT" in clean|unproven) echo 0 ;; not-run) echo 2 ;; unsupported) echo 3 ;; needs|failed|mixed) echo 1 ;; *) echo 4 ;; esac
 }
 
 # --property-sets / --fix-property-sets: only this check, then exit. Stands alone so
@@ -395,7 +430,7 @@ if [ -n "$PS_MODE" ]; then
     PS_VER="$(ps_version "$PMXCLI_PROBE")"
     if [ -n "$PS_VER" ] && ! ps_stale; then
       PS_RESULT="$(sed -n '1s/^[^ ]* [^ ]* \([^ ]*\).*/\1/p' "$(ps_receipt)")"
-      # Only a settled "nothing to do here" short-circuits; needs/failed re-check every time.
+      # Only a settled "nothing to do here" short-circuits; needs/failed/mixed re-check every time.
       case "$PS_RESULT" in
         clean|unsupported)
           ok "already checked for $PS_VER: $(sed -n 1p "$(ps_receipt)")"
@@ -409,6 +444,543 @@ if [ -n "$PS_MODE" ]; then
   ps_check
   [ "$PS_MODE" = fix ] && [ "$PS_RESULT" = needs ] && ps_apply
   exit "$(ps_exit_code)"
+fi
+
+# mxcli_latest_advice <version line> — installed vs the latest mxcli release. Advice only: never a
+# FAIL, never blocks, never downloads. A pin ($MXCLI_VERSION) is respected — noted, not nagged.
+# Latest is read from the redirect of releases/latest/download/<asset> (one request, not followed,
+# 5 s cap); offline or no curl is one quiet note. MXTK_MXCLI_LATEST=vX.Y.Z supplies the
+# answer without the network (fixtures, air-gapped machines); MXTK_NO_LATEST_CHECK=1 skips it.
+# MXTK_MXCLI_FLOOR is the oldest release this toolkit's instruments are checked against.
+MXTK_MXCLI_FLOOR="${MXTK_MXCLI_FLOOR:-v0.28.0}"
+mxtk_semver_lt() {   # <a> <b> — 0 when vA.B.C < vX.Y.Z; 1 otherwise or unparseable
+  printf '%s %s\n' "${1#v}" "${2#v}" | awk '{
+    n = split($1, a, "."); m = split($2, b, ".")
+    if (n < 3 || m < 3) exit 1
+    for (i = 1; i <= 3; i++) { if (a[i] + 0 < b[i] + 0) exit 0; if (a[i] + 0 > b[i] + 0) exit 1 }
+    exit 1 }'
+}
+mxcli_latest_advice() {
+  [ "${MXTK_NO_LATEST_CHECK:-0}" = 1 ] && return 0
+  _ml_have="$(printf '%s\n' "$1" | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+  [ -n "$_ml_have" ] || return 0
+  _ml_new="${MXTK_MXCLI_LATEST:-}"
+  if [ -z "$_ml_new" ] && command -v curl >/dev/null 2>&1; then
+    # The redirect of the asset URL --install itself uses (not followed: nothing is downloaded;
+    # -q first, so a ~/.curlrc with `location` cannot make curl follow it and fetch ~100 MB).
+    # Not releases/latest: a proxy that allows release downloads can refuse that page (403,
+    # measured in a cloud sandbox 2026-10-30, where this redirect answered v0.29.0).
+    _ml_new="$(curl -q -sS --max-time 5 -o /dev/null -w '%{redirect_url}' \
+      https://github.com/mendixlabs/mxcli/releases/latest/download/mxcli-linux-amd64 2>/dev/null \
+      | sed -n 's|.*/releases/download/\(v[0-9][0-9.]*\)/.*|\1|p')"
+  fi
+  if [ -z "$_ml_new" ]; then
+    note "latest mxcli release: not checked (offline, or no curl) — installed $_ml_have"
+    return 0
+  fi
+  if ! mxtk_semver_lt "$_ml_have" "$_ml_new"; then
+    ok "mxcli $_ml_have is the latest release"
+  elif [ -n "${MXCLI_VERSION:-}" ]; then
+    note "mxcli pinned by MXCLI_VERSION=$MXCLI_VERSION; latest is $_ml_new — move when the team chooses"
+  else
+    warn "mxcli $_ml_have is behind the latest release $_ml_new (advice only — nothing is blocked)"
+    note "what's new: https://github.com/mendixlabs/mxcli/releases/tag/$_ml_new"
+    note "upgrade: move the old binary aside (mv mxcli mxcli.$_ml_have), then bin/doctor.sh --install ${PROJECT_DIR:-<project>}"
+    note "to stay on $_ml_have deliberately: set MXCLI_VERSION=$_ml_have and this becomes a note"
+  fi
+  mxtk_semver_lt "$_ml_have" "$MXTK_MXCLI_FLOOR" && \
+    note "this toolkit's instruments are checked against $MXTK_MXCLI_FLOOR and later; $_ml_have output may not parse"
+  return 0
+}
+
+# recommended_fix — ONE block that ends both the normal run and --bench: the first option that works on THIS
+# machine, in this order. Read-only, cheap probes; never installs anything and never asks for IT's help.
+#   0. MH_STALE (machine_health): the project runs older local copies of the speed scripts -> upgrade them
+#      first; every other measurement is of the old path. Then MH_SYNC (project in a sync folder) -> move it.
+#   a. PROJECT.md says `Gate mode: full` -> remove that line: `mx check` per exec is the default, with the
+#      full build before every push (offered even when nothing is slow: it helps every machine).
+#   b. process starts are slow AND this is Git Bash AND `wsl.exe --status` succeeds -> run the toolkit in WSL.
+#   c. slow AND a docker/podman CLI is present and runs (`--version`, no daemon call) -> a dev container.
+#   d. slow, none of the above -> let Claude work in the cloud (Claude Code on the web), pull with git pull.
+# "slow" = RF_SPAWN_MS (ms per process start) over MXTK_SPAWN_WARN_MS (30), set by the caller.
+RF_SPAWN_MS=""
+recommended_fix() {
+  head_ "Recommended fix"
+  _rf_slow=0
+  [ -n "$RF_SPAWN_MS" ] && [ "$RF_SPAWN_MS" -gt "${MXTK_SPAWN_WARN_MS:-30}" ] && _rf_slow=1
+  if [ -n "${MH_STALE:-}" ]; then
+    # --only-bin scopes the install to the named scripts: --upgrade-bin alone runs the FULL sync (#390).
+    _rf_list="$MH_STALE"
+    case " $MH_STALE " in *" exec.sh "*) case " $MH_STALE " in *" _common.sh "*) ;; *) _rf_list="$_rf_list _common.sh" ;; esac ;; esac
+    _rf_up=""; for _rf_s in $_rf_list; do _rf_up="$_rf_up --only-bin $_rf_s --upgrade-bin $_rf_s"; done
+    echo "  Take the toolkit's current scripts into this project; the toolkit update did not reach them,"
+    echo "  because sync never overwrites a script that was edited here. Each copy is backed up first:"
+    echo "    <toolkit>/bin/sync-project.sh <project>$_rf_up"
+    echo "  Check with whoever edited them that the local change is no longer needed. Then run doctor --bench again."
+    return 0
+  fi
+  _rf_pm=""
+  if [ -n "$PROJECT_DIR" ] && [ -f "$PROJECT_DIR/PROJECT.md" ]; then
+    _rf_pm="$(sed -n 's/^[*_ ]*Gate mode:[*_ ]*\([A-Za-z]*\).*/\1/p' "$PROJECT_DIR/PROJECT.md" 2>/dev/null | head -1 | tr 'A-Z' 'a-z')"
+    if [ "$_rf_pm" = full ]; then
+      echo "  Remove \"Gate mode: full\" from PROJECT.md (one line). Each model write is then checked with the quick"
+      echo "  mx check instead of a full build, and the full build runs before you push and at module close."
+      return 0
+    fi
+  fi
+  if [ -n "${MH_SYNC:-}" ]; then
+    echo "  Move the project out of $MH_SYNC to a plain local folder (for example C:\\dev\\<project> or ~/dev/<project>),"
+    echo "  then reopen it there. A sync client re-reads and uploads every file git and the build touch, which"
+    echo "  slows every step and can lock the model file mid-write."
+    return 0
+  fi
+  if [ "$_rf_slow" = 0 ] && [ "${MH_BAD:-0}" = 1 ]; then
+    echo "  Free up memory first (see Machine health). Simplest: restart the computer, which also ends Mendix"
+    echo "  build processes that were left running. Or, without a restart: bin/doctor.sh --cleanup, which asks"
+    echo "  before it stops anything. Process starts are not slow here${RF_SPAWN_MS:+ ($RF_SPAWN_MS ms each)}."
+    return 0
+  fi
+  # One step far slower than the reference while process starts are fine: name that step, never "None needed".
+  # Threshold: the slowest step is 5x+ the reference AND costs 2 s+ extra (B_TOP_* from --bench; 0 otherwise).
+  if [ "$_rf_slow" = 0 ] && [ "${B_TOP_F10:-0}" -ge 50 ] && [ "${B_TOP_EXCESS:-0}" -ge 2000 ]; then
+    case "$B_TOP_ID" in
+      git)
+        echo "  git is slow in this project (git status: $(( (B_TOP_EXCESS + BENCH_REF_GIT_MS) / 100 / 10 )).$(( (B_TOP_EXCESS + BENCH_REF_GIT_MS) / 100 % 10 )) s; normal is well under 1 s)."
+        echo "  Turn on git's own file cache for this project (no install, no admin rights):"
+        echo "    git config core.untrackedCache true"
+        [ "$MH_OS" != linux ] && echo "    git config core.fsmonitor true"
+        echo "  Then run doctor --bench again. Still slow: check that no large build output or source dump is"
+        echo "  tracked in git (git count-objects -vH)." ;;
+      *)
+        echo "  One step is much slower than the reference: $B_TOP_LABEL. Process starts are fine, so this is"
+        echo "  probably a one-off (first run after a restart or an update). Run doctor --bench once more; if"
+        echo "  the same step is still slow, send the results file to the toolkit maintainers." ;;
+    esac
+    return 0
+  fi
+  if [ "$_rf_slow" = 0 ]; then
+    echo "  None needed: process starts are not slow here${RF_SPAWN_MS:+ ($RF_SPAWN_MS ms each)}."
+    return 0
+  fi
+  if [ "$MH_OS" = gitbash ] && command -v wsl.exe >/dev/null 2>&1; then
+    _rf_ok=0
+    if command -v timeout >/dev/null 2>&1; then timeout 10 wsl.exe --status >/dev/null 2>&1 && _rf_ok=1
+    else wsl.exe --status >/dev/null 2>&1 && _rf_ok=1; fi
+    if [ "$_rf_ok" = 1 ]; then
+      echo "  Run the toolkit in WSL (already on this machine). Process starts there are cheap, and the project"
+      echo "  folder should live inside the WSL filesystem, not under /mnt/c."
+      return 0
+    fi
+  fi
+  _rf_rt="${MXTK_CONTAINER_RUNTIME:-}"
+  if [ -z "$_rf_rt" ]; then
+    if command -v docker >/dev/null 2>&1; then _rf_rt=docker; elif command -v podman >/dev/null 2>&1; then _rf_rt=podman; fi
+  fi
+  if [ -n "$_rf_rt" ] && "$_rf_rt" --version >/dev/null 2>&1; then
+    echo "  Use a dev container ($_rf_rt is installed here). Process starts inside it are cheap."
+    return 0
+  fi
+  echo "  Let Claude work in the cloud (Claude Code on the web), then pull the result into Studio Pro with git pull."
+  echo "  Nothing needs installing on this machine, and nobody's permission is needed."
+}
+
+# --- machine health (leftover mxbuild helpers, free memory) -- and --cleanup / --bench ---------------
+# WHY. Field, 2026-10-29, Linux 4 cores / 16 GB: mxbuild kept dying with exit 137. 47 orphaned
+# `modeler/tools/deno` processes (parent PID 1, up to 37 min old, ~270 MB each, 13 GB in total) had eaten the
+# memory. mxbuild starts one deno helper per run; when mxbuild is killed (gate timeout, `kill`, the
+# out-of-memory killer itself) the helper outlives it, and every orphan makes the next kill more likely.
+# A run that ends normally leaves none (checked, tools/deno helper gone within a second).
+#
+# A "leftover" is: a process whose program path contains modeler/tools/deno (deno / deno.exe), older than
+# MXTK_LEFTOVER_MIN_AGE_S (default 600 s), whose parent is NOT a live mxbuild / mx / dotnet / Studio Pro.
+# The parent test is why a long but healthy build (a big model builds longer than 10 minutes) is never
+# listed, and so never stopped by --cleanup. Golden input: tests/wave2/fixtures/doctor-bench/ (a real
+# `ps -eo pid,ppid,etimes,rss,args` capture that contains one live helper and four orphans).
+# Platforms: Linux/WSL: ps etimes + /proc/meminfo. macOS: ps etime + vm_stat. Git Bash: wmic (tasklist as a
+# count-only fallback). The Git Bash branch is written from wmic's documented /format:list output and has not
+# been run on Windows; the Linux branch is the one field-proven here.
+MH_MIN_AGE="${MXTK_LEFTOVER_MIN_AGE_S:-600}"
+MH_LOW_MB="${MXTK_LOW_MEMORY_MB:-2048}"
+case "$(uname -s 2>/dev/null)" in
+  Darwin) MH_OS=macos ;;
+  MINGW*|MSYS*|CYGWIN*) MH_OS=gitbash ;;
+  *) MH_OS=linux ;;
+esac
+
+# mh_rows — one line per process: pid ppid age-or-etime rss_kb program args...
+mh_rows() {
+  case "$MH_OS" in
+    macos) ps -axo pid=,ppid=,etime=,rss=,args= 2>/dev/null ;;
+    gitbash)
+      command -v wmic >/dev/null 2>&1 || return 1
+      wmic process where "name='deno.exe' or name='mxbuild.exe' or name='mx.exe' or name='dotnet.exe'" \
+        get CommandLine,CreationDate,Name,ParentProcessId,ProcessId,WorkingSetSize /format:list 2>/dev/null \
+        | tr -d '\r' | awk '
+          function flush() { if (pid != "") { age = (cd != "") ? systime() - mktime(substr(cd,1,4) " " substr(cd,5,2) " " substr(cd,7,2) " " substr(cd,9,2) " " substr(cd,11,2) " " substr(cd,13,2)) : 0
+            print pid, ppid, age, int(ws / 1024), nm, cl }
+            pid = ppid = cd = nm = cl = ""; ws = 0 }
+          { i = index($0, "="); if (i == 0) { if ($0 == "") flush(); next }
+            k = substr($0, 1, i - 1); v = substr($0, i + 1)
+            if (k == "ProcessId") pid = v; else if (k == "ParentProcessId") ppid = v
+            else if (k == "CreationDate") cd = v; else if (k == "Name") nm = v
+            else if (k == "WorkingSetSize") ws = v; else if (k == "CommandLine") cl = v }
+          END { flush() }' ;;
+    *) ps -eo pid,ppid,etimes,rss,args 2>/dev/null ;;
+  esac
+}
+
+# mh_leftovers — the leftover helpers, one line each: pid age_seconds rss_kb
+mh_leftovers() {
+  mh_rows | awk -v min="$MH_MIN_AGE" '
+    function secs(t,   a, p, n, d) {
+      if (t !~ /[:-]/) return t + 0
+      d = 0; if (index(t, "-")) { split(t, a, "-"); d = a[1]; t = a[2] }
+      n = split(t, p, ":"); return d * 86400 + ((n == 3) ? p[1] * 3600 + p[2] * 60 + p[3] : p[1] * 60 + p[2]) }
+    $1 !~ /^[0-9]+$/ { next }
+    { line = $0; gsub(/\\/, "/", line)
+      pid = $1; pp[pid] = $2; age[pid] = secs($3); rss[pid] = $4; first[pid] = $5; all[pid] = line; ord[++n] = pid }
+    END { for (i = 1; i <= n; i++) { p = ord[i]; f = first[p]; gsub(/\\/, "/", f)
+        if (!(f ~ /modeler\/tools\/deno\/.*\/deno$/ || (f == "deno.exe" && all[p] ~ /modeler\/tools\/deno/))) continue
+        if (age[p] < min) continue
+        q = pp[p]
+        if (q in first) { g = first[q]; gsub(/\\/, "/", g); sub(/.*\//, "", g)
+          if (g ~ /^(mxbuild|mx|mxutil|dotnet|MxBuild)(\.exe)?$/ || g ~ /[Ss]tudio/) continue }
+        print p, age[p], rss[p] } }'
+}
+
+# mh_free_mb — megabytes of memory a new process could get, or nothing when this platform cannot say.
+mh_free_mb() {
+  case "$MH_OS" in
+    macos) vm_stat 2>/dev/null | awk '/page size of/ { for (i = 1; i <= NF; i++) if ($i == "of") ps = $(i + 1) }
+             /^Pages free:|^Pages inactive:|^Pages speculative:/ { gsub(/\./, "", $NF); pg += $NF }
+             END { if (ps > 0 && pg > 0) print int(pg * ps / 1048576) }' ;;
+    gitbash) command -v wmic >/dev/null 2>&1 || return 0
+             wmic OS get FreePhysicalMemory /value 2>/dev/null | tr -d '\r' | awk -F= '$1 == "FreePhysicalMemory" && $2 + 0 > 0 { print int($2 / 1024) }' ;;
+    *) awk '/^MemAvailable:/ { a = $2 } /^MemFree:/ { f = $2 } /^Buffers:/ { b = $2 } /^Cached:/ { c = $2 }
+            END { if (a > 0) print int(a / 1024); else if (f > 0) print int((f + b + c) / 1024) }' "${MXTK_PROC_MEMINFO:-/proc/meminfo}" 2>/dev/null ;;
+  esac
+}
+
+# mh_fmt_mb <mb> — "1.9 GB" / "640 MB" into MH_FMT (no subshell: a process start costs 100 ms on Windows).
+mh_fmt_mb() {
+  if [ "$1" -ge 1024 ]; then MH_FMT="$(( $1 * 10 / 1024 / 10 )).$(( $1 * 10 / 1024 % 10 )) GB"; else MH_FMT="$1 MB"; fi
+}
+
+# advise — prints like warn but does not count toward the exit code: machine health is about this
+# machine's state right now, not about the toolkit install, and doctor's exit code is read by
+# callers (#591 review). session-check still shows the line, because it greps for WARN.
+advise() { printf '  WARN  %s\n' "$*"; }
+MH_BAD=0
+machine_health() {
+  head_ "Machine health"
+  _mh_free="$(mh_free_mb)"
+  _mh_can=1
+  if [ "$MH_OS" = gitbash ]; then command -v wmic >/dev/null 2>&1 || _mh_can=0; else command -v ps >/dev/null 2>&1 || _mh_can=0; fi
+  _mh_left=""; [ "$_mh_can" = 1 ] && _mh_left="$(mh_leftovers)"
+  _mh_n=0; _mh_kb=0; _mh_old=0
+  if [ -n "$_mh_left" ]; then
+    _mh_sum="$(printf '%s\n' "$_mh_left" | awk '{ n++; kb += $3; if ($2 > old) old = $2 } END { print n, kb, old }')"
+    set -- $_mh_sum; _mh_n=$1; _mh_kb=$2; _mh_old=$3
+  fi
+  _mh_bad=0
+  if [ -z "$_mh_free" ]; then
+    note "free memory: not measured on this platform"
+  elif [ "$_mh_free" -lt "$MH_LOW_MB" ]; then
+    mh_fmt_mb "$_mh_free"; advise "free memory: $MH_FMT (under $((MH_LOW_MB / 1024)) GB)"; _mh_bad=1
+  else
+    mh_fmt_mb "$_mh_free"; ok "free memory: $MH_FMT"
+  fi
+  if [ "$_mh_n" -gt 0 ]; then
+    mh_fmt_mb "$((_mh_kb / 1024))"
+    advise "$_mh_n leftover mxbuild helper process(es) (deno), $MH_FMT in total, oldest $((_mh_old / 60)) min"
+    _mh_bad=1
+  elif [ "$_mh_can" = 0 ]; then
+    note "leftover mxbuild helpers: not checked (this machine has no ps / wmic to list processes)"
+  else
+    ok "no leftover mxbuild helper processes"
+  fi
+  # Project inside a file-sync folder (OneDrive is where Windows puts Documents and Desktop by default).
+  MH_SYNC=""; _mh_pd=""
+  [ -n "${PROJECT_DIR:-}" ] && _mh_pd="$(cd "$PROJECT_DIR" 2>/dev/null && pwd)"
+  # Whole path components only: ~/dev/dropbox-client or a repo named OneDrive-connector must not match.
+  case "$_mh_pd/" in
+    */OneDrive/*|*/"OneDrive - "*/*) MH_SYNC=OneDrive ;;
+    */Dropbox/*|*/"Dropbox ("*/*) MH_SYNC=Dropbox ;;
+    */"Google Drive"/*|*/GoogleDrive/*|*/"My Drive"/*) MH_SYNC="Google Drive" ;;
+    */"Mobile Documents"/*|*/"iCloud Drive"/*) MH_SYNC=iCloud ;;
+  esac
+  [ -n "$MH_SYNC" ] && advise "the project is in a folder synced by $MH_SYNC: $_mh_pd"
+  # Speed fixes not active: the project's bin/ holds an OLDER local copy of a script the 2026-10-29 speed
+  # work changed. sync-project.sh never overwrites a hand-edited copy, so after a toolkit pull these keep
+  # running the slow path (field, 2026-10-30: 15 drifted scripts, every change still ran a full mxbuild).
+  # Marker per file = a function or file name the fixed version has; absent file = not this check's business.
+  MH_STALE=""
+  if [ -n "$_mh_pd" ]; then
+    for _mh_s in "exec.sh:gate_kind_decide" "_common.sh:mxtk_mx_check_to_mxbuild" "lint-gate.sh:lint-receipt-ok"; do
+      _mh_f="$_mh_pd/bin/${_mh_s%%:*}"
+      [ -f "$_mh_f" ] && ! grep -q "${_mh_s#*:}" "$_mh_f" 2>/dev/null && MH_STALE="$MH_STALE ${_mh_s%%:*}"
+    done
+    MH_STALE="${MH_STALE# }"
+  fi
+  [ -n "$MH_STALE" ] && advise "speed fixes not active in this project: older local copy of bin/$(printf '%s' "$MH_STALE" | sed 's/ /, bin\//g')"
+  MH_BAD="$_mh_bad"
+  if [ "$_mh_bad" = 1 ]; then
+    note "When memory runs out the operating system kills mxbuild (exit 137), and the build gate then reads"
+    note "as a failure that is not about your model. Each mxbuild that is killed leaves its deno helper"
+    note "running, holding ~270 MB, so the problem grows by itself."
+    [ "$_mh_n" -gt 0 ] && note "Stop exactly those helpers (asks first):  bin/doctor.sh --cleanup"
+    [ "$_mh_n" -eq 0 ] && note "Close other programs, or run the toolkit on a machine with more memory."
+  fi
+}
+
+# --cleanup: list the leftovers machine_health counts, stop them ONLY after a typed y at a terminal.
+if [ "$CLEANUP" = 1 ]; then
+  head_ "Cleanup: leftover mxbuild helpers (deno)"
+  if [ "$MH_OS" = gitbash ]; then command -v wmic >/dev/null 2>&1 || { bad "cannot list processes: wmic is missing. Use Task Manager (deno.exe under modeler\\tools\\deno)."; exit 1; }
+  else command -v ps >/dev/null 2>&1 || { bad "cannot list processes: no ps on this machine."; exit 1; }; fi
+  _cl="$(mh_leftovers)"
+  if [ -z "$_cl" ]; then ok "nothing to clean up: no deno helper from modeler/tools/deno older than $((MH_MIN_AGE / 60)) min without a live mxbuild"; exit 0; fi
+  _cl_pids="$(printf '%s\n' "$_cl" | awk '{ printf "%s%s", sep, $1; sep = " " }')"
+  printf '%s\n' "$_cl" | awk '{ printf "        pid %-7s %4d min  %4d MB\n", $1, $2 / 60, $3 / 1024 }'
+  case "$MH_OS" in
+    gitbash) _cl_cmd="taskkill //F$(for _p in $_cl_pids; do printf ' //PID %s' "$_p"; done)" ;;
+    *)       _cl_cmd="kill $_cl_pids" ;;
+  esac
+  if [ ! -t 0 ] || [ ! -t 1 ]; then
+    note "No terminal to ask on, so nothing was stopped. To stop exactly these yourself:"
+    note "  $_cl_cmd"
+    exit 0
+  fi
+  printf '  Stop these %s process(es)? Type y to confirm, anything else cancels: ' "$(printf '%s\n' "$_cl" | wc -l | tr -d ' ')"
+  _cl_ans=""; read -r _cl_ans || true
+  if [ "$_cl_ans" != "y" ] && [ "$_cl_ans" != "Y" ]; then note "Cancelled. Nothing was stopped."; exit 0; fi
+  # Re-read the list: only a pid that is STILL a leftover is touched (pids get reused).
+  _cl_now=" $(mh_leftovers | awk '{ printf "%s ", $1 }')"
+  _cl_done=0
+  for _p in $_cl_pids; do
+    case "$_cl_now" in *" $_p "*) ;; *) note "pid $_p is gone or no longer a leftover: left alone"; continue ;; esac
+    if [ "$MH_OS" = gitbash ]; then taskkill //F //PID "$_p" >/dev/null 2>&1 || true; else kill "$_p" 2>/dev/null || true; fi
+    _cl_done=$((_cl_done + 1))
+  done
+  sleep 2
+  _cl_left=" $(mh_leftovers | awk '{ printf "%s ", $1 }')"
+  _cl_alive=""
+  for _p in $_cl_pids; do case "$_cl_left" in *" $_p "*) _cl_alive="$_cl_alive $_p" ;; esac; done
+  ok "asked $_cl_done process(es) to stop"
+  if [ -n "$_cl_alive" ]; then
+    warn "still running after 2 s:$_cl_alive"
+    note "Not forced. If you want them gone anyway:  kill -9$_cl_alive"
+  fi
+  exit 0
+fi
+
+# --bench: ~1 minute, changes nothing in the project (only git's own stat cache, via the warm-up below). Times the things every toolkit script is made of,
+# against this table's reference column, so "the toolkit is slow here" becomes a number a colleague can
+# compare. Writes <project>/.claude/loop/bench-<timestamp>.tsv (one row per step, concatenable).
+#
+# REFERENCE (BENCH_REF_*, milliseconds): measured on 2026-10-29 on Linux 6.18 (Firecracker VM, 4 cores,
+# 16 GB, local disk), project = a copy of the purchase-requests test app (PurchaseApp, mxcli v0.28.0, mx 11.13.0, git with 6.5k
+# files): the median of 5 `bin/doctor.sh --bench` runs. Honest caveat: the machine was not freshly idle; it
+# held 46 leftover deno helpers and ~1.4 GB free memory during those runs (CPU-bound steps do not care, and
+# no step swapped: there is no swap), so treat the reference as "a Linux box, a bit loaded", not a lab figure.
+# For scale, a Windows 11 / Git Bash laptop in the field measured 103 ms per process start against ~2 ms
+# here: that one number is what makes every step below that is built from process starts (git, gate-check,
+# mxcli, the doctor itself) many times slower there.
+BENCH_REF_SPAWN50_MS=86
+BENCH_REF_GIT_MS=34
+BENCH_REF_PY_MS=28
+BENCH_REF_NODE_MS=74
+BENCH_REF_GATE_MS=3237
+BENCH_REF_MXCLI_MS=606
+BENCH_REF_MX_MS=6902
+BENCH_FIELD_SPAWN_MS=103
+BENCH_MX_MIN_MB="${MXTK_BENCH_MX_MIN_MB:-1024}"
+
+# b_clock — sets B_MS to a millisecond clock reading, or "" when this shell has none. EPOCHREALTIME (bash 5,
+# Git Bash) costs no process; `date +%s%N` does (GNU date only: macOS prints a literal N, bash 3.2 has neither).
+b_clock() {
+  B_MS=""
+  if [ -n "${EPOCHREALTIME:-}" ]; then
+    B_MS="${EPOCHREALTIME/[.,]/}"; B_MS=$((B_MS / 1000)); return 0
+  fi
+  _bc="$(date +%s%N 2>/dev/null || true)"
+  case "$_bc" in ""|*[!0-9]*) return 0 ;; esac
+  B_MS=$((_bc / 1000000))
+}
+
+# b_bounded <seconds> <cmd...> — run with output discarded, stdin closed, killed after <seconds>. B_RC = exit
+# code, 124 on timeout. No timeout(1) assumed (macOS has none). Polls every 0.2 s.
+b_bounded() {
+  _bb_max=$(( $1 * 5 )); shift
+  "$@" >/dev/null 2>&1 < /dev/null &
+  _bb_pid=$!; _bb_w=0
+  while kill -0 "$_bb_pid" 2>/dev/null; do
+    if [ "$_bb_w" -ge "$_bb_max" ]; then kill "$_bb_pid" 2>/dev/null; wait "$_bb_pid" 2>/dev/null; B_RC=124; return 0; fi
+    sleep 0.2 2>/dev/null || sleep 1
+    _bb_w=$((_bb_w + 1))
+  done
+  B_RC=0; wait "$_bb_pid" || B_RC=$?
+}
+
+b_fmt_ms() {
+  if [ "$1" -ge 10000 ]; then B_FMT="$(( $1 / 1000 )).$(( $1 % 1000 / 100 )) s"
+  elif [ "$1" -ge 1000 ]; then B_FMT="$(( $1 / 1000 )).$(( $1 % 1000 / 10 / 10 ))$(( $1 % 1000 / 10 % 10 )) s"
+  else B_FMT="$1 ms"; fi
+}
+
+# b_row <id> <label> <this-ms|""> <ref-ms> <note> — print the table row, append the TSV row, feed the verdict.
+B_SPAWN_FAC=""; B_TOP_ID=""; B_TSV=""; B_TOT_THIS=0; B_TOT_REF=0; B_NMEAS=0; B_TOP_EXCESS=0; B_TOP_LABEL=""; B_TOP_F10=0; B_SPAWN_THIS=""; B_NOTES=""
+b_row() {
+  _r_id="$1"; _r_label="$2"; _r_this="$3"; _r_ref="$4"; _r_note="$5"
+  b_fmt_ms "$_r_ref"; _r_reffmt="$B_FMT"
+  if [ -n "$_r_this" ]; then
+    b_fmt_ms "$_r_this"; _r_thisfmt="$B_FMT"
+    _r_f10=0
+    if [ "$_r_ref" -gt 0 ]; then _r_f10=$(( _r_this * 10 / _r_ref )); _r_fac="$((_r_f10 / 10)).$((_r_f10 % 10))"; else _r_fac="-"; fi
+    B_TOT_THIS=$((B_TOT_THIS + _r_this)); B_TOT_REF=$((B_TOT_REF + _r_ref)); B_NMEAS=$((B_NMEAS + 1))
+    if [ $((_r_this - _r_ref)) -gt "$B_TOP_EXCESS" ]; then B_TOP_EXCESS=$((_r_this - _r_ref)); B_TOP_LABEL="$_r_label"; B_TOP_ID="$_r_id"; B_TOP_F10="${_r_f10:-0}"; fi
+    [ "$_r_id" = spawn50 ] && B_SPAWN_THIS="$_r_this" && B_SPAWN_FAC="$_r_fac"
+  else
+    _r_thisfmt="not measured"; _r_fac="-"
+  fi
+  printf '  %-30s %13s %11s %8s\n' "$_r_label" "$_r_thisfmt" "$_r_reffmt" "${_r_fac}$([ "$_r_fac" = "-" ] || printf x)"
+  [ -n "$_r_note" ] && B_NOTES="$B_NOTES        $_r_label: $_r_note
+"
+  B_TSV="$B_TSV$B_STAMP	$B_PLAT	$B_CORES	${_mh_free:-NA}	$_r_id	${_r_this:-NA}	$_r_ref	$_r_fac	$_r_note
+"
+}
+
+if [ "$BENCH" = 1 ]; then
+  machine_health
+  head_ "Benchmark (changes nothing; about a minute)"
+  B_STAMP="$(date '+%Y%m%d-%H%M%S')"
+  B_PLAT="$(uname -s 2>/dev/null)-$(uname -m 2>/dev/null)"
+  B_CORES="$( (nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || printf '%s' "${NUMBER_OF_PROCESSORS:-NA}") | head -1)"
+  B_P="$PROJECT_DIR"
+  b_clock
+  if [ -z "$B_MS" ]; then note "no sub-second clock in this shell (bash 3.2 / BSD date): short steps print \"not measured\""; fi
+  printf '  %-30s %13s %11s %8s\n' "step" "this machine" "reference" "factor"
+
+  # 1. process starts
+  _bt="$(command -v true 2>/dev/null)"; case "$_bt" in /*) ;; *) _bt=/bin/true ;; esac
+  b_clock; _t0="$B_MS"; _i=0
+  while [ $_i -lt 50 ]; do "$_bt"; _i=$((_i + 1)); done
+  b_clock; _t1="$B_MS"
+  if [ -n "$_t0" ] && [ -n "$_t1" ]; then b_row spawn50 "50 process starts" "$((_t1 - _t0))" "$BENCH_REF_SPAWN50_MS" ""
+  else b_row spawn50 "50 process starts" "" "$BENCH_REF_SPAWN50_MS" "no sub-second clock"; fi
+
+  # 2. git status. One untimed warm-up first: a copied or freshly cloned project has a stale index, and the
+  # first git status there pays a one-off full re-read (field, 2026-10-29: 18.3 s, then 0.03 s). The warm-up
+  # is an ordinary `git status`, which only refreshes git's own file-stat cache (.git/index), exactly as
+  # the user's next git status would; no tracked or untracked project file changes. The timed run is warm.
+  if [ -z "$B_P" ]; then b_row git "git status" "" "$BENCH_REF_GIT_MS" "no project given"
+  elif ! command -v git >/dev/null 2>&1; then b_row git "git status" "" "$BENCH_REF_GIT_MS" "git not installed"
+  elif ! git -C "$B_P" rev-parse --git-dir >/dev/null 2>&1; then b_row git "git status" "" "$BENCH_REF_GIT_MS" "project is not a git repository"
+  else
+    git -C "$B_P" status --porcelain >/dev/null 2>&1 < /dev/null
+    b_clock; _t0="$B_MS"; GIT_OPTIONAL_LOCKS=0 git -C "$B_P" status --porcelain >/dev/null 2>&1 < /dev/null; b_clock; _t1="$B_MS"
+    if [ -n "$_t0" ] && [ -n "$_t1" ]; then b_row git "git status" "$((_t1 - _t0))" "$BENCH_REF_GIT_MS" ""
+    else b_row git "git status" "" "$BENCH_REF_GIT_MS" "no sub-second clock"; fi
+  fi
+
+  # 3. python, node
+  _bpy=""; for _c in python3 python; do command -v "$_c" >/dev/null 2>&1 && { _bpy="$_c"; break; }; done
+  if [ -z "$_bpy" ]; then b_row python "python start" "" "$BENCH_REF_PY_MS" "python not installed"
+  else
+    b_clock; _t0="$B_MS"; "$_bpy" -c pass >/dev/null 2>&1 < /dev/null; b_clock; _t1="$B_MS"
+    if [ -n "$_t0" ] && [ -n "$_t1" ]; then b_row python "python start" "$((_t1 - _t0))" "$BENCH_REF_PY_MS" ""
+    else b_row python "python start" "" "$BENCH_REF_PY_MS" "no sub-second clock"; fi
+  fi
+  if ! command -v node >/dev/null 2>&1; then b_row node "node start" "" "$BENCH_REF_NODE_MS" "node not installed"
+  else
+    b_clock; _t0="$B_MS"; node -e 0 >/dev/null 2>&1 < /dev/null; b_clock; _t1="$B_MS"
+    if [ -n "$_t0" ] && [ -n "$_t1" ]; then b_row node "node start" "$((_t1 - _t0))" "$BENCH_REF_NODE_MS" ""
+    else b_row node "node start" "" "$BENCH_REF_NODE_MS" "no sub-second clock"; fi
+  fi
+
+  # 4. gate-check, no stage. --no-html: the dashboard is not rewritten. It still refreshes
+  # analysis/source-sufficiency.html in some projects, so that one file is put back after the run.
+  if [ -z "$B_P" ]; then b_row gate "gate-check (no stage)" "" "$BENCH_REF_GATE_MS" "no project given"
+  elif [ ! -f "$TOOLKIT_ROOT/bin/gate-check.sh" ]; then b_row gate "gate-check (no stage)" "" "$BENCH_REF_GATE_MS" "gate-check.sh not found"
+  else
+    _bs="$B_P/analysis/source-sufficiency.html"; _bsave=""
+    if [ -f "$_bs" ]; then _bsave="$(mktemp "${TMPDIR:-/tmp}/doctor-bench.XXXXXX")" && cp "$_bs" "$_bsave"; fi
+    b_clock; _t0="$B_MS"; b_bounded 120 env MXTK_NO_FETCH=1 bash "$TOOLKIT_ROOT/bin/gate-check.sh" --no-html "$B_P"; b_clock; _t1="$B_MS"
+    if [ -n "$_bsave" ]; then cmp -s "$_bs" "$_bsave" || cp "$_bsave" "$_bs"; rm -f "$_bsave"; fi
+    if [ "$B_RC" = 124 ]; then b_row gate "gate-check (no stage)" "" "$BENCH_REF_GATE_MS" "gave up after 120 s"
+    elif [ -n "$_t0" ] && [ -n "$_t1" ]; then b_row gate "gate-check (no stage)" "$((_t1 - _t0))" "$BENCH_REF_GATE_MS" ""
+    else b_row gate "gate-check (no stage)" "" "$BENCH_REF_GATE_MS" "no sub-second clock"; fi
+  fi
+
+  # 5/6. mxcli check (read-only on the model) and mx check (on a COPY: mx writes into the project it checks)
+  _bmpr=""
+  if [ -n "$B_P" ]; then for _f in "$B_P"/*.mpr "$B_P"/app/*.mpr; do [ -f "$_f" ] && { _bmpr="$_f"; break; }; done; fi
+  _bmxcli=""
+  if [ -n "$B_P" ] && [ -x "$B_P/mxcli" ]; then _bmxcli="$B_P/mxcli"; elif command -v mxcli >/dev/null 2>&1; then _bmxcli="$(command -v mxcli)"; fi
+  _btmp="$(mktemp -d "${TMPDIR:-/tmp}/doctor-bench.XXXXXX")"
+  trap 'rm -rf "$_btmp"' EXIT
+  if [ -z "$_bmpr" ]; then b_row mxcli "mxcli check (tiny script)" "" "$BENCH_REF_MXCLI_MS" "no .mpr in the project"
+  elif [ -z "$_bmxcli" ]; then b_row mxcli "mxcli check (tiny script)" "" "$BENCH_REF_MXCLI_MS" "mxcli not found"
+  else
+    printf 'create module MxtkBenchProbe;\ncreate persistent entity MxtkBenchProbe.Probe (Name: String(20));\n' > "$_btmp/probe.mdl"
+    b_clock; _t0="$B_MS"; b_bounded 60 "$_bmxcli" check "$_btmp/probe.mdl" -p "$_bmpr"; b_clock; _t1="$B_MS"
+    if [ "$B_RC" = 124 ]; then b_row mxcli "mxcli check (tiny script)" "" "$BENCH_REF_MXCLI_MS" "gave up after 60 s"
+    elif [ "$B_RC" != 0 ]; then b_row mxcli "mxcli check (tiny script)" "" "$BENCH_REF_MXCLI_MS" "mxcli exited $B_RC"
+    elif [ -n "$_t0" ] && [ -n "$_t1" ]; then b_row mxcli "mxcli check (tiny script)" "$((_t1 - _t0))" "$BENCH_REF_MXCLI_MS" ""
+    else b_row mxcli "mxcli check (tiny script)" "" "$BENCH_REF_MXCLI_MS" "no sub-second clock"; fi
+  fi
+
+  PROJECT_ROOT="${PROJECT_DIR:-$TOOLKIT_ROOT}"
+  # shellcheck disable=SC1091
+  . "$TOOLKIT_ROOT/project-bin/_common.sh"
+  _bmx="$(mxtk_find_mx 2>/dev/null || true)"
+  if [ -z "$_bmpr" ]; then b_row mx "mx check (copy of model)" "" "$BENCH_REF_MX_MS" "no .mpr in the project"
+  elif [ -z "$_bmx" ]; then b_row mx "mx check (copy of model)" "" "$BENCH_REF_MX_MS" "mx not installed (it ships beside mxbuild)"
+  elif [ -n "$_mh_free" ] && [ "$_mh_free" -lt "$BENCH_MX_MIN_MB" ]; then
+    b_row mx "mx check (copy of model)" "" "$BENCH_REF_MX_MS" "not run: only ${_mh_free} MB free (needs ~${BENCH_MX_MIN_MB}); at this level mxbuild is killed with exit 137"
+  else
+    _bcp="$_btmp/model"; mkdir -p "$_bcp"; cp "$_bmpr" "$_bcp/" 2>/dev/null
+    [ -d "$(dirname "$_bmpr")/mprcontents" ] && cp -R "$(dirname "$_bmpr")/mprcontents" "$_bcp/" 2>/dev/null
+    b_clock; _t0="$B_MS"; b_bounded 180 "$_bmx" check "$_bcp/$(basename "$_bmpr")" -j "$_btmp/mx.json"; b_clock; _t1="$B_MS"
+    if [ "$B_RC" = 124 ]; then b_row mx "mx check (copy of model)" "" "$BENCH_REF_MX_MS" "gave up after 180 s (a killed mx can leave its deno helper: bin/doctor.sh --cleanup)"
+    elif [ "$B_RC" = 137 ]; then b_row mx "mx check (copy of model)" "" "$BENCH_REF_MX_MS" "KILLED (exit 137): out of memory. This is the failure Machine health warns about"
+    elif [ -n "$_t0" ] && [ -n "$_t1" ]; then b_row mx "mx check (copy of model)" "$((_t1 - _t0))" "$BENCH_REF_MX_MS" "mx exit $B_RC (errors in the copy are fine; only the time counts)"
+    else b_row mx "mx check (copy of model)" "" "$BENCH_REF_MX_MS" "no sub-second clock"; fi
+  fi
+
+  # verdict
+  [ -n "$B_NOTES" ] && printf '%s' "$B_NOTES"
+  echo
+  if [ -n "$B_SPAWN_THIS" ]; then
+    _bper10=$(( B_SPAWN_THIS * 10 / 50 ))
+    echo "  process start: $((_bper10 / 10)).$((_bper10 % 10)) ms each here; ~$((BENCH_REF_SPAWN50_MS * 10 / 50 / 10)).$((BENCH_REF_SPAWN50_MS * 10 / 50 % 10)) ms on the reference; $BENCH_FIELD_SPAWN_MS ms on the slow Windows 11 / Git Bash laptop in the field."
+  fi
+  if [ "$B_NMEAS" -lt 1 ] || [ "$B_TOT_REF" -le 0 ]; then
+    echo "  Verdict: nothing could be measured here, so there is nothing to compare."
+  else
+    _bfac=$(( (B_TOT_THIS * 10 + B_TOT_REF / 2) / B_TOT_REF ))
+    _bwhy="$B_TOP_LABEL"
+    case "$B_SPAWN_FAC" in ""|-) ;; *) _bsf="${B_SPAWN_FAC%%.*}"; [ "$_bsf" -ge 5 ] && [ "$_bfac" -ge 20 ] && _bwhy="process starts" ;; esac
+    b_fmt_ms "$B_TOT_THIS"; _bth="$B_FMT"; b_fmt_ms "$B_TOT_REF"; _brf="$B_FMT"
+    if [ "$_bfac" -le 12 ]; then
+      echo "  Verdict: this machine is about as fast as the reference ($_bth vs $_brf over $B_NMEAS measured steps)."
+    elif [ "$_bfac" -lt 20 ]; then
+      echo "  Verdict: this machine is $((_bfac / 10)).$((_bfac % 10))x slower than the reference ($_bth vs $_brf over $B_NMEAS steps), mainly ${_bwhy:-the first step}."
+    else
+      echo "  Verdict: this machine is $(( (_bfac + 5) / 10 ))x slower than the reference ($_bth vs $_brf over $B_NMEAS steps), mainly ${_bwhy:-the first step}."
+    fi
+  fi
+  [ -n "$B_SPAWN_THIS" ] && RF_SPAWN_MS=$(( B_SPAWN_THIS / 50 ))
+  if [ -n "$B_P" ] && [ -d "$B_P" ]; then
+    mkdir -p "$B_P/.claude/loop" 2>/dev/null || true
+    _btsv="$B_P/.claude/loop/bench-$B_STAMP.tsv"
+    { printf 'timestamp\tplatform\tcores\tfree_mb\tstep\tthis_ms\treference_ms\tfactor\tnote\n'; printf '%s' "$B_TSV"; } > "$_btsv" 2>/dev/null \
+      && echo "  Results: $_btsv  (send it to colleagues to compare; untracked, do not commit it)" || echo "  Results: could not write $_btsv"
+  else
+    echo "  Results: not saved (pass a project directory: bin/doctor.sh --bench <project>)."
+  fi
+  recommended_fix
+  exit 0
 fi
 
 # --- platform -------------------------------------------------------------------------------
@@ -438,6 +1010,72 @@ ok "shell: ${BASH_VERSION:-not bash}"
 case "${BASH_VERSION:-0}" in
   3.*) note "bash 3.2 (the macOS system bash). Scripts here are written for it; nothing to do." ;;
 esac
+
+# Process-start cost (#584/#585). Every toolkit script is many small process starts; exec.sh
+# alone makes hundreds. On a Windows machine whose antivirus scans each start, one start cost
+# 58-94 ms (vs ~1-3 ms on Linux/macOS), about 69 s of bookkeeping per exec before any build.
+# 20 starts of /bin/true (or `true` on PATH) measured with one clock read each side.
+_spawn_ms=""
+if command -v date >/dev/null 2>&1 && _t0=$(date +%s%N 2>/dev/null) && [ "${_t0%N}" = "$_t0" ]; then
+  _i=0; _tbin="$(command -v true 2>/dev/null)"; case "$_tbin" in /*) ;; *) _tbin=/bin/true ;; esac
+  while [ $_i -lt 20 ]; do "$_tbin"; _i=$((_i + 1)); done
+  _t1=$(date +%s%N); _spawn_ms=$(( (_t1 - _t0) / 20000000 ))
+elif [ -n "${EPOCHREALTIME:-}" ]; then
+  _t0=${EPOCHREALTIME/[.,]/}; _i=0
+  while [ $_i -lt 20 ]; do /bin/true 2>/dev/null || true; _i=$((_i + 1)); done
+  _t1=${EPOCHREALTIME/[.,]/}; _spawn_ms=$(( (_t1 - _t0) / 20000 ))
+fi
+if [ -z "$_spawn_ms" ]; then
+  note "process start cost: not measured (no sub-second clock in this shell)"
+elif [ "$_spawn_ms" -gt "${MXTK_SPAWN_WARN_MS:-30}" ]; then
+  warn "process start cost: ${_spawn_ms} ms each (fast machines: under 5 ms). Toolkit scripts start many"
+  note "processes, so each exec spends roughly a minute just starting them. Usual cause on Windows:"
+  note "antivirus scanning every start. That cannot be fixed from here; the \"Recommended fix\" at the end of"
+  note "this report names a way around it that needs nobody's permission."
+else
+  ok "process start cost: ${_spawn_ms} ms each"
+fi
+
+# --- performance (measured, not just "is it installed") ----------------------------------------------
+# Doctor used to answer only "is it there". A machine where everything is installed can still spend
+# 64-234 s on a 1 s model write (#584/#585), and nobody saw it until a user profiled it by hand.
+# So, from the project's own docs/BUILD-LOG.md (exec.sh writes `steps: guards 0s check 1s … gate 20s
+# lint 3s score 3s` on every row): the median exec time and its slowest step over the last 20 execs,
+# against what a normal machine shows (measured 2026-10-28 on Linux: 17-34 s per exec, gate 9-20 s).
+# Thresholds: MXTK_PERF_EXEC_WARN (default 60 s per exec), MXTK_PERF_GATE_WARN (default 45 s gate).
+head_ "Performance (measured)"
+_perf_log="${PROJECT_DIR:+$PROJECT_DIR/docs/BUILD-LOG.md}"
+if [ -n "$_perf_log" ] && [ -f "$_perf_log" ] && grep -q 'steps: ' "$_perf_log" 2>/dev/null; then
+  _perf=$(grep 'steps: ' "$_perf_log" | tail -20 | awk '
+    { line=$0; sub(/.*steps: /, "", line); sub(/ *\|.*/, "", line)
+      n=split(line, w, " "); tot=0
+      for (i=1; i+1<=n; i+=2) { v=w[i+1]; sub(/s$/, "", v); if (v ~ /^[0-9]+$/) { tot+=v; st[w[i]]=st[w[i]] " " v } }
+      T[++rows]=tot }
+    function med(str,   a, k, m, i, j, t) { m=split(str, a, " "); for (i=1;i<=m;i++) for (j=i+1;j<=m;j++) if (a[j]+0<a[i]+0) { t=a[i]; a[i]=a[j]; a[j]=t }
+      return m ? a[int((m+1)/2)] : 0 }
+    END { all=""; for (i=1;i<=rows;i++) all=all " " T[i]
+      top=""; tv=-1; for (k in st) { v=med(st[k]); if (v+0>tv) { tv=v+0; top=k } }
+      printf "%d %d %s %d %d\n", rows, med(all), top, tv, med(st["gate"]) }')
+  set -- $_perf
+  _pn=${1:-0}; _pmed=${2:-0}; _ptop=${3:-?}; _ptopv=${4:-0}; _pgate=${5:-0}
+  _pmsg="last $_pn execs: median ${_pmed} s per exec (gate ${_pgate} s; slowest step: $_ptop ${_ptopv} s). Normal: 17-34 s, gate 9-20 s."
+  if [ "$_pmed" -gt "${MXTK_PERF_EXEC_WARN:-60}" ] || [ "$_pgate" -gt "${MXTK_PERF_GATE_WARN:-45}" ]; then
+    warn "slow execs — $_pmsg"
+    [ "$_pgate" -gt "${MXTK_PERF_GATE_WARN:-45}" ] && note "The gate (mxbuild) dominates: 'Gate mode: full' in PROJECT.md forces a full build per exec; without it, exec runs mx check and the full build before push."
+    [ -n "$_spawn_ms" ] && [ "$_spawn_ms" -gt "${MXTK_SPAWN_WARN_MS:-30}" ] && note "Process starts are slow too (above): that is the machine, not the model — see the advice there."
+    note "Per-command profile of one exec: MXTK_PROFILE=1 ./bin/exec.sh <script> (prints the 15 slowest lines; MXTK_PROFILE=2 traces the scripts it starts too)."
+  else
+    ok "$_pmsg"
+  fi
+elif [ -n "$PROJECT_DIR" ]; then
+  note "no exec timings yet (docs/BUILD-LOG.md has no 'steps:' rows) — re-run doctor after a few execs"
+else
+  note "exec timings: pass a project dir (bin/doctor.sh <project>) to compare its execs with a normal machine"
+fi
+# Windows advice lives in recommended_fix (end of the report). No step in it may need IT: antivirus
+# exclusions are not on offer, so doctor never asks for them.
+
+machine_health
 
 # --- environment lane -------------------------------------------------------------------------
 # Where this session runs decides the write modes available (CONVERSION-RUNBOOK.md → "Where you
@@ -763,10 +1401,10 @@ if [ "$INSTALL" -eq 1 ]; then
     # 2026-08-31): mxcli-{darwin|linux}-{amd64|arm64}, mxcli-windows-amd64.exe. Windows gets
     # the .exe name so Git Bash's transparent foo -> foo.exe mapping serves the project
     # convention ./mxcli unchanged. $MXCLI_VERSION pins a release tag (e.g. v0.16.0) for
-    # teams that standardise; default is latest. v0.25.0 froze `mdl 1`: DESCRIBE output and
-    # `-c` input changed shape (navigation, DynamicClasses, `show entity` refused). The
-    # toolkit's instruments read both shapes, so a project mid-build may stay on its version
-    # (MXCLI_VERSION=v0.24.0) and move when it chooses.
+    # teams that standardise; default is latest. The toolkit's instruments are checked against
+    # $MXTK_MXCLI_FLOOR (v0.28.0) through v0.29.0 (golden captures, 2026-10-30); a project
+    # mid-build may stay on its version (MXCLI_VERSION=<its ./mxcli --version>) and move when
+    # it chooses. The normal doctor run says when the installed mxcli is behind the latest.
     # Git Bash on Windows ARM64 runs emulated, so `uname -m` says x86_64 there. On Windows the
     # real hardware shows in the `uname -s` suffix (...-ARM64) and in PROCESSOR_ARCHITEW6432
     # (set for emulated processes) / PROCESSOR_ARCHITECTURE; those win over `uname -m`.
@@ -825,7 +1463,7 @@ if [ "$INSTALL" -eq 1 ]; then
         note "  $_STEP. mxcli (~90 MB) -> $PROJECT_DIR/$MXCLI_DEST"
         note "     the MDL CLI every session here uses; from $MXCLI_URL"
         [ -z "${MXCLI_VERSION:-}" ] && note "     (latest release — set MXCLI_VERSION=vX.Y.Z to pin the team's version;"
-        [ -z "${MXCLI_VERSION:-}" ] && note "      a project already building on v0.24 can stay there: MXCLI_VERSION=v0.24.0)"
+        [ -z "${MXCLI_VERSION:-}" ] && note "      a project mid-build can stay on its version: MXCLI_VERSION=<its ./mxcli --version>)"
       fi
       if [ "$NEED_TOOLCHAIN" -eq 1 ]; then
         _STEP=$((_STEP + 1))
@@ -948,6 +1586,45 @@ if [ -n "$JAVA_EXE" ] && [ -x "$JAVA_EXE" ]; then
   if [ -n "$JV" ]; then
     ok "java runs: $JV  ($JAVA_EXE)"
     [ -z "${_jnote:-}" ] || warn "$_jnote"
+    # The JDK major must match the model (#576): 11.14+ builds need JDK 25, 11.13 and below
+    # JDK 21 (the same rule as find_java's _mxtk_java_want, read off the model doctor resolved). A JAVA_HOME exported in the shell
+    # profile wins over that rule AND over toolkit.env, and the mismatch then surfaces only as
+    # mxbuild stopping before it checks anything. Mendix 11 only — the rule is documented
+    # there; Studio Pro's bundled runtime is paired with its mxbuild and never flagged.
+    JAVA_WANT=""
+    _mver="$(mxtk_model_version "${MPR:-}" 2>/dev/null || true)"
+    case "$_mver" in
+      11.*)
+        _mmin="${_mver#11.}"; _mmin="${_mmin%%.*}"
+        JAVA_WANT=21; [ "$_mmin" -ge 14 ] 2>/dev/null && JAVA_WANT=25
+        _jmaj="$(printf '%s\n' "$JV" | sed -n 's/.*version "\(1\.\)\{0,1\}\([0-9][0-9]*\).*/\2/p' | head -1)"
+        case "$JAVA_HOME_FOUND" in
+          "${SP_APP:-<none>}"/*) ;;
+          *) if [ -n "$_jmaj" ] && [ "$_jmaj" != "$JAVA_WANT" ]; then
+               warn "Java $_jmaj, but this model (Mendix $_mver) builds with JDK $JAVA_WANT — mxbuild will stop before checking the model"
+               # Which env file JAVA_HOME came from, in the loader's order (project file, then user
+               # file; the shell beats both). The first file that sets it decides: its value equal
+               # to JAVA_HOME means it was loaded from there; otherwise the shell had set it already.
+               _jenv=""
+               for _ef in ${MXTK_ENV_LOADED:-}; do
+                 _jl="$(grep -E '^[[:space:]]*(export[[:space:]]+)?JAVA_HOME[[:space:]]*=' "$_ef" 2>/dev/null | head -1)"
+                 [ -n "$_jl" ] || continue
+                 _jv="$(printf '%s' "${_jl#*=}" | tr -d '\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//; s/^"\(.*\)"$/\1/; s/^'"'"'\(.*\)'"'"'$/\1/')"
+                 type mxtk_posix_path >/dev/null 2>&1 && _jv="$(mxtk_posix_path "$_jv")"
+                 [ "$_jv" = "${JAVA_HOME:-}" ] && _jenv="$_ef"
+                 break
+               done
+               if [ -n "$_jenv" ]; then
+                 note "JAVA_HOME comes from $_jenv: change it there to a JDK $JAVA_WANT folder."
+               elif [ -n "${JAVA_HOME:-}" ]; then
+                 note "JAVA_HOME is set in your environment, which wins over the toolkit's per-model JDK choice and over toolkit.env."
+                 note "Point it at JDK $JAVA_WANT (macOS: export JAVA_HOME=\$(/usr/libexec/java_home -v $JAVA_WANT)) or unset it in your shell profile."
+               else
+                 note "Install JDK $JAVA_WANT, or set JAVA_HOME=<a JDK $JAVA_WANT folder> in .claude/toolkit.env."
+               fi
+             fi ;;
+        esac ;;
+    esac
     # mxbuild compiles the model's Java actions, which takes javac — a JRE has none. Studio
     # Pro's bundled runtime is a JRE that mxbuild is paired with, so only flag a system Java.
     case "$JAVA_HOME_FOUND" in
@@ -1188,8 +1865,8 @@ if [ "$PLATFORM" = gitbash ] || [ "$QUICK" = 1 ]; then
       else
         warn "~${MS_PER_FORK} ms per subprocess — gate-check.sh will feel HUNG (minutes, not seconds)."
         note "The usual causes, in order:"
-        note "  - Windows Defender real-time scanning every process start. Ask IT to exclude"
-        note "    the Git Bash install directory and this repo's folder."
+        note "  - Antivirus scanning every process start (not something you can change yourself;"
+        note "    see \"Recommended fix\" at the end)."
         note "  - The repo living under OneDrive/Dropbox (every file touch syncs)."
         note "  - Corporate endpoint agents hooking process creation."
       fi
@@ -1246,6 +1923,7 @@ if [ -n "$PROJECT_DIR" ]; then
       if [ "$MXCLI_EXIT" -eq 0 ]; then
         ok "mxcli runs ($PROBE_HOW): $(probe_line)"
         note "at: $PMXCLI_PROBE"
+        [ "$QUICK" != 1 ] && mxcli_latest_advice "$(probe_line)"
       else
         bad "mxcli exists but cannot run (exit $MXCLI_EXIT): $PMXCLI_PROBE"
         printf '%s\n' "$PROBE_OUT" | grep -v '^[[:space:]]*$' | head -3 | while IFS= read -r l; do note "  $l"; done
@@ -1291,13 +1969,22 @@ if [ -n "$PROJECT_DIR" ]; then
     grep -qF 'bin/session-check.sh' "$PSET" 2>/dev/null || HOOK_GAP="session-check (SessionStart)"
     grep -qF 'bin/look-ledger.sh seen' "$PSET" 2>/dev/null || HOOK_GAP="${HOOK_GAP:+$HOOK_GAP and }look-ledger seen (PostToolUse Read)"
     # #446: the pre-2026-10-21 relative form records nothing from any cwd but the project root.
-    # Any look hook not in the root-resolving form (one JSON string per line, so per-line is exact).
-    grep -F 'look-ledger.sh seen' "$PSET" 2>/dev/null | grep -vqF 'CLAUDE_PROJECT_DIR' && HOOK_GAP="${HOOK_GAP:+$HOOK_GAP and }look-ledger seen run from the project root (a look hook that does not cd to \$CLAUDE_PROJECT_DIR first records nothing from any other cwd)"
+    # Any look hook not in the root-resolving form. Each "command" string is split onto its own
+    # line first, so a single-line settings.json holding both forms is still caught (#502).
+    grep -F 'look-ledger.sh seen' "$PSET" 2>/dev/null | awk '{gsub(/"command"/, "\n\"command\""); print}' | grep -F 'look-ledger.sh seen' | grep -vqF 'CLAUDE_PROJECT_DIR' && HOOK_GAP="${HOOK_GAP:+$HOOK_GAP and }look-ledger seen run from the project root (a look hook that does not cd to \$CLAUDE_PROJECT_DIR first records nothing from any other cwd)"
+    # The installer rewrites only its own old form (`bash bin/look-ledger.sh seen || true`); a
+    # hand-written variant it leaves alone, so naming --hooks-only for it would be a dead end.
+    LOOK_CUSTOM=0
+    case "$HOOK_GAP" in *"project root"*)
+      grep -F 'look-ledger.sh seen' "$PSET" 2>/dev/null | awk '{gsub(/"command"/, "\n\"command\""); print}' \
+        | grep -F 'look-ledger.sh seen' | grep -vF 'CLAUDE_PROJECT_DIR' | grep -vqF '"bash bin/look-ledger.sh seen || true"' && LOOK_CUSTOM=1 ;;
+    esac
     if [ -n "$HOOK_GAP" ] && [ -f "$PROJECT_DIR/.mxtk/no-hook-repair" ]; then
       ok "hook gap ($HOOK_GAP) accepted: .mxtk/no-hook-repair is set"
     elif [ -n "$HOOK_GAP" ]; then
       warn "the project's .claude/settings.json has no hook for $HOOK_GAP, so the look ledger will read 0 seen however many screenshots were opened"
       note "fix: $TOOLKIT_ROOT/bin/install-claude-permissions.sh $PROJECT_DIR --hooks-only   (or bin/sync-project.sh $PROJECT_DIR)"
+      [ "$LOOK_CUSTOM" = 1 ] && note "the look hook is a hand-written variant the installer will not rewrite: edit it by hand in .claude/settings.json to cd to \$CLAUDE_PROJECT_DIR first (the installed form is in bin/install-claude-permissions.sh, LOOK_HOOK)"
     else
       ok "session-check and look-ledger hooks are in .claude/settings.json"
     fi
@@ -1403,9 +2090,18 @@ if [ "$QUICK" != 1 ] || [ "$GATE_SELFTEST" = 1 ]; then
 
 head_ "Gate self-test (can the mxbuild gate actually see an error?)"
 
+# A JDK/model mismatch is the commonest reason mxbuild stops before checking (#576): name the
+# fix next to mxbuild's own words.
+gate_selftest_java_hint() {
+  case "$1" in
+    *"release version"*"not supported"*|*"Unsupported class file major version"*)
+      note "the model needs JDK ${JAVA_WANT:-?}; this run used ${JAVA_HOME_FOUND:-?} — see the Java line under 'Build toolchain'" ;;
+  esac
+}
+
 gate_selftest() {
   local scratch scratch_mpr t0 t1 elapsed mdl model_dir base_count bad_count rc timeout_s
-  local copy_excl copy_ok entry entry_name x copy_size
+  local copy_excl copy_ok entry entry_name x copy_size why
   timeout_s="${DOCTOR_GATE_TIMEOUT:-300}"
   t0=$(date +%s)
 
@@ -1450,6 +2146,10 @@ gate_selftest() {
     for x in $copy_excl; do
       [ "$entry_name" = "$x" ] && continue 2
     done
+    # Studio Pro's lock file: copied along, it makes mxcli refuse the known-bad injection
+    # into the throwaway copy ("Studio Pro has this project open"), the normal case during
+    # setup (#577). The lock belongs to the real model, never to the scratch copy.
+    case "$entry_name" in *.mpr.lock) continue ;; esac
     cp -R "$entry" "$scratch/" 2>/dev/null || copy_ok=0
   done
   scratch_mpr="$scratch/$(basename "$MPR")"
@@ -1459,11 +2159,14 @@ gate_selftest() {
     return 0
   fi
   copy_size="$(du -sh "$scratch" 2>/dev/null | awk '{print $1}')"
-  note "copied ${copy_size:-?} of project resources into the scratch dir (excluding .git, deployment/, node_modules/, .mpr-snapshots/)"
+  note "copied ${copy_size:-?} of project resources into the scratch dir (excluding .git, deployment/, node_modules/, .mpr-snapshots/, *.mpr.lock)"
 
   # (a) Baseline: the gate must resolve SOME integer off this model, clean or not — "?" here
   # means the gate cannot read mxbuild's own output, which is the original F-042-class defect.
-  base_count=$(mxtk_mxbuild_error_count "$scratch_mpr" "$timeout_s")
+  # The errors file is kept so a "?" can say WHY: the count runs in a $(...) subshell, so
+  # MXTK_MXBUILD_WHY never reaches this function (#576 — "cannot read mxbuild's error file"
+  # when mxbuild had in fact said "release version 25 not supported").
+  base_count=$(mxtk_mxbuild_error_count "$scratch_mpr" "$timeout_s" "$scratch/errors-base.json")
   rc=$?
   if [ "$rc" -eq 3 ]; then
     bad "gate self-test: mxbuild did not return within ${timeout_s}s (baseline run)"
@@ -1471,6 +2174,13 @@ gate_selftest() {
     return 0
   fi
   if [ "$base_count" = "?" ]; then
+    why=$(mxtk_mxbuild_why "$scratch/errors-base.json")
+    if [ -n "$why" ]; then
+      bad "gate self-test: mxbuild stopped before checking the model (baseline run): $why"
+      gate_selftest_java_hint "$why"
+      GATE_SELFTEST_LINE="fail (mxbuild did not check: ${why:0:80})"
+      return 0
+    fi
     bad "gate self-test: gate cannot read mxbuild's error file (baseline run) — a real error would go unseen"
     GATE_SELFTEST_LINE="fail (unreadable error file)"
     return 0
@@ -1508,7 +2218,7 @@ MDL
     return 0
   fi
 
-  bad_count=$(mxtk_mxbuild_error_count "$scratch_mpr" "$timeout_s")
+  bad_count=$(mxtk_mxbuild_error_count "$scratch_mpr" "$timeout_s" "$scratch/errors-bad.json")
   rc=$?
   if [ "$rc" -eq 3 ]; then
     bad "gate self-test: mxbuild did not return within ${timeout_s}s (known-bad run)"
@@ -1516,6 +2226,12 @@ MDL
     return 0
   fi
   if [ "$bad_count" = "?" ]; then
+    why=$(mxtk_mxbuild_why "$scratch/errors-bad.json")
+    if [ -n "$why" ]; then
+      bad "gate self-test: mxbuild stopped before checking the model (known-bad run): $why"
+      GATE_SELFTEST_LINE="fail (mxbuild did not check: ${why:0:80})"
+      return 0
+    fi
     bad "gate self-test: gate cannot read mxbuild's error file (known-bad run) — a real error would go unseen"
     GATE_SELFTEST_LINE="fail (unreadable error file)"
     return 0
@@ -1617,14 +2333,17 @@ if [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ]; then
   fi
 fi
 
+RF_SPAWN_MS="$_spawn_ms"
 if [ "$FAIL" -gt 0 ]; then
   printf '  %s thing(s) to sort out before the first model write (FAIL lines), %s note(s) worth reading (WARN).\n' "$FAIL" "$WARN"
   printf '  Analysis and planning stages run fine meanwhile; each FAIL line says what fixes it.\n'
-  exit 2
+  _vexit=2
 elif [ "$WARN" -gt 0 ]; then
   printf '  Ready. %s warning(s) above — read each one: some are optional, a missing .mpr or CLAUDE.local.md is not.\n' "$WARN"
-  exit 1
+  _vexit=1
 else
   printf '  Ready.\n'
-  exit 0
+  _vexit=0
 fi
+recommended_fix
+exit "$_vexit"

@@ -934,7 +934,26 @@ check_stage_2() {
   fi
   case "$(printf '%s' "$first" | tr '[:upper:]' '[:lower:]')" in
     clean|clean[^a-z0-9]*)
-      echo "PASS|brd/*.brd.json present, Stop condition reads \"$first\"" ;;
+      # Facts lock (brd-generation.md "Running BRDs in parallel"). With 2+ BRDs a frozen identifier
+      # that a BRD spells differently is a FAIL; no lock yet is a note, never a FAIL. WHY
+      # (2026-10-28): facts-lock.sh reached 1 of 6 projects as advice; 20 parallel BRDs on
+      # PROJECT-C carried 10 casing conflicts into Stage 3 as "open questions".
+      local nbrd fl_out fl_dev fl_note=""
+      nbrd=$(find "$brd_dir" -maxdepth 1 -name '*.brd.json' 2>/dev/null | wc -l | tr -d ' ')
+      if [ "${nbrd:-0}" -ge 2 ] && [ -f "$TOOLKIT_DIR/bin/facts-lock.sh" ]; then
+        if [ -f "$PROJECT_DIR/analysis/facts.lock.json" ]; then
+          fl_out=$(bash "$TOOLKIT_DIR/bin/facts-lock.sh" "$PROJECT_DIR" check 2>&1)
+          fl_dev=$(printf '%s\n' "$fl_out" | grep -c '^  DEVIATION' || true)
+          if [ "${fl_dev:-0}" -gt 0 ]; then
+            echo "FAIL|$fl_dev BRD identifier(s) contradict analysis/facts.lock.json, e.g.$(printf '%s\n' "$fl_out" | grep -m1 '^  DEVIATION' | sed 's/^  DEVIATION//') — fix the BRD to the lock's spelling (bin/facts-lock.sh <project> check lists all)"
+            return
+          fi
+          grep -q -- '^  UNFROZEN' <<<"$fl_out" && fl_note="; facts lock: contested identifiers left (bin/facts-lock.sh <project> resolve)"
+        else
+          fl_note="; no facts lock for $nbrd BRDs (bin/facts-lock.sh <project> build, then resolve)"
+        fi
+      fi
+      echo "PASS|brd/*.brd.json present, Stop condition reads \"$first\"$fl_note" ;;
     *)
       echo "FAIL|'## Stop condition' in $validation reads \"$first\" — it must START with \"Clean\"; a report that merely contains the word (\"NOT clean, 14 findings\") is not a clean stop" ;;
   esac
@@ -1404,7 +1423,7 @@ EOF
   [ "$n_proof" -gt 0 ] && how="$how, $n_proof by PROOF-OF-LOOK"
   [ "$n_waived" -gt 0 ] && how="$how, $n_waived waived"
   if [ "$n_unseen" -gt 0 ]; then
-    echo "FAIL|look: $n_unseen of $n built page(s) never looked at since their last build: $unseen — screenshot each, open the PNG (a file name containing the page name), compare it to its wireframe (skills/ui-loop.md); or --waive look/<Module> --reason \"...\""
+    echo "FAIL|look: $n_unseen of $n built page(s) never looked at since their last build: $unseen — screenshot each, open the PNG (a file name containing the page name, or the journey screenshot bin/look-ledger.sh shots lists), compare it to its wireframe (skills/ui-loop.md); or --waive look/<Module> --reason \"...\""
   else
     echo "MANUAL|look: $n of $n built page(s) accounted for ($how); the rest of Stage 5 is manual"
   fi
@@ -1565,7 +1584,21 @@ check_build_ready() {
     echo "  ✗ agent(s) still have unfilled placeholders: ${remaining}— complete them (agent-roles.md)"
     fails=$((fails+1))
   else
-    echo "  ✓ all 6 agents present, no unfilled placeholders"
+    # A placeholder whose description spans lines (`{{NAME — prose…` on one line, `…}}` on a
+    # later one — mdl-agent's PROJECT_LOCAL_SOURCES_OF_TRUTH is four lines long) never matched
+    # the per-line grep above, so a stub with it untouched read "no unfilled placeholders"
+    # (#509). WARN, not FAIL: every project scaffolded before this check would flip to FAIL on
+    # a line nobody was ever told about; whether it should block is a maintainer call.
+    local multi=""
+    multi=$(sed 's/{{DOUBLE_BRACE}}//g' "$agents_dir"/*.md 2>/dev/null \
+            | perl -0777 -ne 'while (/\{\{([A-Z][A-Z0-9_]+)[^}\n]*\n.*?\}\}/sg) { print "{{$1…}}\n" }' 2>/dev/null \
+            | sort -u | tr '\n' ' ')
+    if [ -n "$multi" ]; then
+      echo "  ✓ all 6 agents present, no single-line placeholders"
+      echo "  ⚠ multi-line placeholder(s) still unfilled: ${multi}— complete them (agent-roles.md); WARN only, not counted as a FAIL"
+    else
+      echo "  ✓ all 6 agents present, no unfilled placeholders"
+    fi
   fi
 
   # 3b. Crash net present. Stage 5 writes to a binary .mpr that Studio Pro holds
@@ -1874,7 +1907,7 @@ stage_protocol_paths() {
     3)  echo "skills/interview-protocol.md skills/change-intake.md skills/change-intake-detail.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-design.md skills/dispatching.md skills/small-project-tier.md skills/mendix-best-practices-index.md skills/decompose-app.md skills/mendix-service-seam.md skills/layering-review.md skills/architecture-blueprint.md skills/modularize-domain.md skills/design-artifacts.md skills/process-map.md skills/interaction-model.md skills/brd-to-build-plan.md skills/learned-multilingual-app.md skills/workflow-structure-rules.md skills/rest-between-mendix-apps.md skills/learned-mdl-cannot-express.md" ;;
     4)  echo "skills/interview-protocol.md skills/change-intake.md skills/change-intake-detail.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-build.md skills/agent-roles.md skills/dispatching.md skills/small-project-tier.md skills/module-brief.md skills/module-folder-convention.md skills/brd-to-build-plan.md skills/coverage-ledger.md skills/workflow-structure-rules.md skills/rest-integration-first-time-right.md skills/rest-between-mendix-apps.md skills/learned-constants-and-secrets.md" ;;
     5|build-ready) echo "skills/interview-protocol.md skills/change-intake.md skills/change-intake-detail.md skills/grill-mode.md skills/agent-roles.md skills/dispatching.md skills/module-brief.md skills/learned-mdl-preflight.md skills/module-folder-convention.md skills/learned-microflow-patterns.md skills/microflow-preflight.md skills/mendix-best-practices-index.md skills/ui-preflight-pages.md skills/design-spacing.md skills/learned-stylegallery.md skills/ui-loop.md skills/module-review.md skills/testing-shape.md skills/decompose-app.md skills/mendix-service-seam.md skills/microflow-loop-antipatterns.md skills/rehost-app.md skills/iterative-build-loop.md skills/mdl-cookbook-microflows.md skills/build/mdl/oneshot-mdl-method.md skills/learned-page-patterns.md skills/learned-multilingual-app.md skills/oneshot-page-structure-patterns.md skills/mendix-agents.md skills/mendix-agent-ui.md skills/mendix-agent-setup.md skills/fixture-seeding.md skills/journey-proof.md skills/unhappy-path-testing.md skills/monkey-test.md skills/load-test.md skills/unit-test.md skills/e2e-locators-that-lie.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/learned-workflow-patterns.md skills/workflow-structure-rules.md skills/rest-integration-first-time-right.md skills/rest-between-mendix-apps.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/learned-sidebar-collapse-icons.md skills/learned-popup-navigation.md skills/learned-datagrid-customcontent-binding.md skills/learned-popup-feedback-pattern.md skills/learned-mdl-cannot-express.md skills/learned-css-that-never-applied.md skills/learned-detection-gaps.md skills/learned-dg2-patterns.md skills/learned-file-upload-widget.md skills/security-is-not-a-later-script.md skills/learned-local-db-confusion.md skills/full-harness-audit.md skills/test-result-audit.md skills/finding-disposition.md skills/preview-over-hub-tunnel.md skills/walking-skeleton.md skills/platform-link.md skills/teamserver-alignment.md skills/learned-constants-and-secrets.md" ;;
-    6)  echo "skills/interview-protocol.md skills/change-intake.md skills/change-intake-detail.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-cutover.md skills/dispatching.md skills/mendix-best-practices-index.md skills/module-review.md skills/testing-shape.md skills/existing-app-assurance.md skills/decompose-app.md skills/app-analysis.md skills/module-dependency-review.md skills/microflow-loop-antipatterns.md skills/rehost-app.md skills/qa-loop-goal-pattern.md skills/learned-multilingual-app.md skills/mendix-agent-setup.md skills/e2e-harness-base.md skills/learned-db-assertions.md skills/fixture-seeding.md skills/journey-proof.md skills/unhappy-path-testing.md skills/monkey-test.md skills/load-test.md skills/unit-test.md skills/e2e-locators-that-lie.md skills/learned-skill-ux-audit.md skills/learned-skill-scope-delta.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/e2e-evidence-report.md skills/record-demo-video.md skills/demo-recording-polish.md skills/share-demo-package.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/workflow-structure-rules.md skills/rest-between-mendix-apps.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/anonymize-client-app-for-demo.md skills/learned-css-that-never-applied.md skills/learned-detection-gaps.md skills/learned-local-db-confusion.md skills/full-harness-audit.md skills/test-result-audit.md skills/finding-disposition.md skills/handoff-to-studio-pro.md skills/preview-over-hub-tunnel.md skills/platform-link.md skills/teamserver-alignment.md skills/learned-constants-and-secrets.md" ;;
+    6)  echo "skills/interview-protocol.md skills/change-intake.md skills/change-intake-detail.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-cutover.md skills/dispatching.md skills/mendix-best-practices-index.md skills/module-review.md skills/testing-shape.md skills/existing-app-assurance.md skills/decompose-app.md skills/app-analysis.md skills/module-dependency-review.md skills/microflow-loop-antipatterns.md skills/rehost-app.md skills/qa-loop-goal-pattern.md skills/learned-multilingual-app.md skills/mendix-agent-setup.md skills/e2e-harness-base.md skills/learned-db-assertions.md skills/fixture-seeding.md skills/journey-proof.md skills/unhappy-path-testing.md skills/monkey-test.md skills/load-test.md skills/unit-test.md skills/e2e-locators-that-lie.md skills/learned-skill-ux-audit.md skills/learned-skill-scope-delta.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/e2e-evidence-report.md skills/record-demo-video.md skills/demo-recording-polish.md skills/live-demo-autopilot.md skills/share-demo-package.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/workflow-structure-rules.md skills/rest-between-mendix-apps.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/anonymize-client-app-for-demo.md skills/learned-css-that-never-applied.md skills/learned-detection-gaps.md skills/learned-local-db-confusion.md skills/full-harness-audit.md skills/test-result-audit.md skills/finding-disposition.md skills/handoff-to-studio-pro.md skills/preview-over-hub-tunnel.md skills/platform-link.md skills/teamserver-alignment.md skills/learned-constants-and-secrets.md" ;;
     7)  echo "skills/interview-protocol.md skills/change-intake.md skills/change-intake-detail.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-cutover.md skills/close-the-loop.md skills/share-demo-package.md skills/handoff-to-studio-pro.md skills/platform-link.md skills/teamserver-alignment.md skills/deploy-to-sandbox.md" ;;
     *)  echo "" ;;
 # <!-- ROUTING:END -->
@@ -1914,6 +1947,42 @@ protocol_is_relevant() {
   return 1
 }
 
+# Evaluation cache (#583): `--closeout` right after a stage query replays that query's variables
+# instead of re-evaluating. Everything from here to the "Regenerate index.html" block is the
+# evaluation; see bin/lib/gate-cache.sh for exactly when a hit is allowed.
+. "$TOOLKIT_DIR/bin/lib/gate-cache.sh"
+GC_CACHE_HIT=0
+[ "$CLOSEOUT" = "1" ] && gc_cache_try
+[ -n "${MXTK_GATE_CACHE_TRACE:-}" ] && [ "$CLOSEOUT" = "1" ] && echo "gate-cache: $([ "$GC_CACHE_HIT" = 1 ] && echo hit || echo miss)" >&4
+if [ "$GC_CACHE_HIT" = "1" ]; then
+  eval "$GC_CACHE_SNAPSHOT"
+else
+gc_cache_begin
+
+# The fetch below runs at most once per MXTK_FETCH_TTL_MIN minutes (default 15; 0 = every run) per
+# toolkit clone (#583: a git fetch is a network round trip plus four processes on every query, and a
+# Stage close runs three queries in a row). The stamp lives inside the clone's git dir, written only
+# after a fetch SUCCEEDED, so a failed or skipped fetch is never remembered as a good one. A fresh
+# stamp reuses the remote-tracking ref the last fetch left, which is exactly what a successful
+# fetch would have compared against, minutes later. A worktree or submodule checkout has a .git
+# FILE ("gitdir: <path>"), read here without a process; a .git that is neither means there is
+# nowhere safe to put the stamp, and every run fetches as before.
+GC_FETCH_STAMP=""
+if [ -d "$TOOLKIT_DIR/.git" ]; then
+  GC_FETCH_STAMP="$TOOLKIT_DIR/.git/mxtk-last-fetch"
+elif [ -f "$TOOLKIT_DIR/.git" ]; then
+  _gc_gd=""; read -r _ _gc_gd < "$TOOLKIT_DIR/.git" 2>/dev/null || true
+  case "$_gc_gd" in /*|[A-Za-z]:*) ;; ?*) _gc_gd="$TOOLKIT_DIR/$_gc_gd" ;; esac
+  [ -n "$_gc_gd" ] && [ -d "$_gc_gd" ] && GC_FETCH_STAMP="$_gc_gd/mxtk-last-fetch"
+fi
+gc_fetch_is_fresh() {
+  local ttl="${MXTK_FETCH_TTL_MIN:-15}"
+  case "$ttl" in ''|*[!0-9]*) return 1 ;; esac
+  [ -n "$GC_FETCH_STAMP" ] && [ "$ttl" -gt 0 ] && [ -f "$GC_FETCH_STAMP" ] || return 1
+  [ -n "$(find "$GC_FETCH_STAMP" -mmin "-$ttl" 2>/dev/null)" ]
+}
+gc_fetch_stamp() { [ -n "$GC_FETCH_STAMP" ] && : > "$GC_FETCH_STAMP" 2>/dev/null; return 0; }
+
 TOOLKIT_HEAD="$(git -C "$TOOLKIT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")"
 
 # Resolve the reference tip. Fetch failure must not silently degrade to the old self-comparison:
@@ -1931,8 +2000,10 @@ if [ "${MXTK_NO_FETCH:-0}" = "1" ]; then
   TOOLKIT_REF="$TOOLKIT_HEAD"
   SYNC_REF_LABEL="local HEAD — UNVERIFIED, fetch skipped (MXTK_NO_FETCH=1)"
 elif git -C "$TOOLKIT_DIR" rev-parse --abbrev-ref '@{u}' >/dev/null 2>&1 \
-   && GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -o BatchMode=yes -o ConnectTimeout=5}" \
-      git -C "$TOOLKIT_DIR" -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=8 fetch --quiet 2>/dev/null; then
+   && { gc_fetch_is_fresh \
+        || { GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -o BatchMode=yes -o ConnectTimeout=5}" \
+             git -C "$TOOLKIT_DIR" -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=8 fetch --quiet 2>/dev/null \
+             && gc_fetch_stamp; }; }; then
   TOOLKIT_REF="$(git -C "$TOOLKIT_DIR" rev-parse --short '@{u}' 2>/dev/null || echo "unknown")"
 else
   TOOLKIT_REF="$TOOLKIT_HEAD"
@@ -2610,6 +2681,8 @@ printf "Open questions (raised?): %s — %s\n" "$OQ_STATUS" "$OQ_NOTE"
 # INFORMATIONAL here, not blocking: the verify loop is optional on small projects, a module can
 # legitimately have no pages (an integration module), and a project that joined at Stage 5 owes
 # nothing below its adoption point. What must not happen is silence. Stage 6 still blocks.
+# Rows for stages after the requested one are not evaluated (#583); see the two libs.
+case "$REQUESTED_STAGE" in P|p|[0-7]) export MXTK_ROWS_UPTO="$REQUESTED_STAGE" ;; *) unset MXTK_ROWS_UPTO ;; esac
 if [ -r "$TOOLKIT_DIR/bin/lib/obligation-check.sh" ]; then
   # shellcheck source=lib/obligation-check.sh
   . "$TOOLKIT_DIR/bin/lib/obligation-check.sh"
@@ -2987,6 +3060,9 @@ case "${LEDGER_OWED:-}" in
   *)   _roll="$_roll    Source files: ${LEDGER_OWED} owed (pending/fault/missing/not inventoried)"
        _owed=$(( _owed + ${LEDGER_OWED:-0} )) ;;
 esac
+# A stage query skipped the rows owed from later stages (#583); the counts above are for the
+# requested stage and earlier, and must not read as "nothing is owed anywhere".
+[ -n "${MXTK_ROWS_UPTO:-}" ] && _roll="$_roll    (obligation/artifact rows for stages after ${MXTK_ROWS_UPTO} not evaluated)"
 printf "         %s\n" "$_roll"
 if [ "$_owed" -gt 0 ]; then
   echo "         These do not affect the exit code and never have. They are passes and files"
@@ -3021,6 +3097,9 @@ if [ "$N_WAIVED" = "0" ] && { [ "$N_PENDING" -ge 4 ] || [ "$N_FAIL" -ge 3 ]; }; 
   echo "  $0 --waive <stage> --reason \"...\" $PROJECT_DIR    (one stage → WAIVED)"
   echo "  $0 --waive look/<Module> --reason \"...\" $PROJECT_DIR (one PASS on one module → WAIVED)"
 fi
+
+gc_cache_end
+fi   # GC_CACHE_HIT
 
 # Regenerate index.html from these exact results — subject to three conditions, all of which
 # exist because this write has destroyed a real file:

@@ -31,3 +31,9 @@ FIELD RUN of the script itself (2026-10-16): a scratch copy of a five-app lab pr
 11.15, mxcli v0.26.0), three of its real change scripts. Per change: 2 to 55 subjects, 8 to 17
 transitive callers, 0 to 1 of the project's unit test files and 0 to 1 of its 20 journey files
 selected, against 1 and 20 at deploy-ready. The first call 19 s (catalog build), later 3 s.
+
+FIELD CAPTURE (2026-10-29, speed experiment E2 follow-up): mxcli v0.28.0, the finished
+PurchaseApp lab model (Mendix 11.13.0, Linux). field-pages.out = `-c "SHOW PAGES; SHOW SNIPPETS"`;
+field-callers.out = `-c "SHOW CALLERS OF Purchasing.Request_Edit TRANSITIVE"`;
+field-describe-Purchasing.<Page>.out = `-c "DESCRIBE PAGE Purchasing.<Page>"` for Request_Edit and
+Request_List. Stdout only. The widget-name selection (section M) reads these.

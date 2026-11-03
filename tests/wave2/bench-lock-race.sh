@@ -40,6 +40,7 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
+case "$COMMON" in /*) ;; *) COMMON="$PWD/$COMMON" ;; esac   # contenders run from $WORK
 KILL_PCT="${KILL_PCT:-25}"; RANDOM_KILL_PCT="${RANDOM_KILL_PCT:-10}"; HOLD_SECS="${HOLD_SECS:-0.05}"
 DEADLINE="${DEADLINE:-30}"; PROBE_SECS="${PROBE_SECS:-15}"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/lockrace.XXXXXX")" || exit 2

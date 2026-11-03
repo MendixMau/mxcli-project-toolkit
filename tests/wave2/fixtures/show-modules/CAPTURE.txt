@@ -1,0 +1,15 @@
+tests/wave2/fixtures/show-modules/ — provenance (captured 2026-10-30, Linux x86-64)
+
+Captured, never hand-written. Binaries and their sha256: fixtures/property-sets/CAPTURE-v0.29.txt.
+Model: fixtures/mxpatch/model/ (Mendix 11.14.0; MyFirstModule + System), rebuilt; then on copies,
+written with project-bin/mxpatch.py (ContentsHash kept in step; `fix hashes` clean afterwards):
+  "protected"   Projects$ModuleSettings unit d121ee37-f102-56ae-b644-160f1d340296 (MyFirstModule's):
+                ExportLevel 'Source' -> 'Protected' (ProtectedModuleType was already 'AddOn')
+  "marketplace" "protected", then Projects$ModuleImpl 16747dc6-b6b7-42ae-aabf-255dca2aeeaf:
+                FromAppStore false -> true, AppStoreVersion '' -> '2.1.0'
+  mxcli -p <copy>/TestApp.mpr -c 'show modules' (stdout; .exit = exit code):
+    show-modules-source-v0.29.0                 the model as committed: Source empty
+    show-modules-protected-v0.2{8,9}.0          "protected": Source "Protected AddOn" (v0.28.0 and
+                                                v0.29.0 alike — mendixlabs/mxcli#1498, since v0.28)
+    show-modules-marketplace-protected-v0.29.0  "marketplace": "Marketplace v2.1.0, Protected AddOn"
+  show-pages-in-myfirstmodule-v0.29.0.out       mxcli -c 'SHOW PAGES IN MyFirstModule' on "protected"

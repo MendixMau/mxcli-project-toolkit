@@ -86,11 +86,16 @@ per deploy.
 > On the field run, `POST .../runs` with a deliberately-zeros UUID returned **`404`, not `401`** —
 > which is how we learned the PAT authenticated fine and only the pipeline was missing.
 
-### 3. A first cloud environment cannot be created from any API
+### 3. A first cloud environment: Deploy API **v1**, not v4
 
 An app created through the Projects API has a repository and **no deployment target**.
-`GET /api/v4/apps/<id>/environments` returns `404 Application not found` until someone deploys once
-from the Developer Portal. `POST /api/v4/apps` → `405`. Plan for one human action here.
+`GET /api/v4/apps/<id>/environments` returns `404 Application not found`, and `POST /api/v4/apps`
+→ `405`. The v1 Deploy API does create one: with a PAT, `POST /api/1/apps` with body
+`{"ProjectId": "<project id>"}` created the **Free App sandbox** (environment listed, URL assigned;
+mxcli v0.26.0, Mendix 11.12.5). This is the "Create Free App environment" call quoted under
+[Free App](#on-a-free-app--none-of-it-is-automatable-and-the-limits-go-further-than-deploy).
+Deploying to it stays manual: `POST /api/1/apps/<app>/packages` returned `500 BUILD_FAILED` for every
+revision on a Free App, so publish from Studio Pro.
 
 ### 4. Chromium cannot reach external hosts through an agent proxy
 
@@ -416,7 +421,7 @@ whether any of this is automatable at all.
 
 ### On a licensed app
 
-First time: a human, in the portal (see trap 3). After that: create a pipeline once in the portal,
+First time: a human, in the portal (trap 3's v1 call creates only a Free App sandbox). After that: create a pipeline once in the portal,
 then `POST /apps/{appId}/runs` with its `pipelineId` on every change.
 
 ### On a Free App — none of it is automatable, and the limits go further than deploy
@@ -499,7 +504,7 @@ same properties"* — once Studio Pro has saved such a document, and the Version
 fails. Field case: 78 changed units written with v0.24 on a production app, with no gate able to
 see them. mxcli v0.26.0 completes the set on every unit it writes, but only on units it rewrites,
 so a project upgraded mid-flight still carries the old ones until the repair runs. **Not on
-Mendix 10.24 below 10.24.24, through mxcli v0.27.0:** its property table starts at 10.24.24, so on
+Mendix 10.24 below 10.24.24, through mxcli v0.28.0:** (v0.29.0 measured the table from 10.24.0, ako/mxcli#1505, and lists `MIXED` names, exiting 1.) its property table starts at 10.24.24, so on
 10.24.18 a unit it writes can still lack keys, and `fix property-sets --dry-run` (hence
 `doctor --property-sets`) calls every unit complete (mendixlabs/mxcli#1595). There, the proof is
 Mendix's own `mx diff <base>.mpr <mine>.mpr out.json` against the base branch: exit 0 is clean.

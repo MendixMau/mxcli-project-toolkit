@@ -2,7 +2,7 @@
 # Fixture for wave-2 #3: the unanchored substring CONTENT gates — Stage 0 (triage sign-off),
 # Stage 2 (validation stop condition) and Stage 7 (cutover decision row); T12 adds the
 # existing-app-change parked state (Stage 0) and that mode's Stage 1 hint; T16 the Stage 4
-# closing rows (brd-to-build-plan.md, #163).
+# closing rows (brd-to-build-plan.md, #163); T19 the facts lock at Stage 2.
 #
 # Stage P is covered by test-stage-p.sh and is deliberately not retested here.
 #
@@ -349,6 +349,42 @@ case "$V" in *'APPROVED OVER'*|*'Approved over'*) bad "an early 'no cutover' Sta
 V="$(t17s5 t17m "| 6 | Test depth: journeys per module | CONFIRMED | |")"
 case "$V" in *'APPROVED OVER'*|*'Approved over'*) bad "a forward-filed Stage-6 row flagged a Stage 5 with no rows of its own: $V" ;;
              *) ok "a forward-filed Stage-6 decision does not approve a Stage 5 with no rows of its own" ;; esac
+
+echo "== T18: build-ready names a multi-line {{PLACEHOLDER}} left in an agent stub (#509) =="
+# The real templates: mdl-agent.md carries PROJECT_LOCAL_SOURCES_OF_TRUTH over four lines. The
+# per-line grep never saw it, so an untouched stub read "no unfilled placeholders". WARN only.
+TK="$(cd "$(dirname "$GATE")/.." && pwd)"
+P="$(mkproj t18)"; mkdir -p "$P/.claude/agents"
+for a in ba-agent architect-agent mdl-agent gate-agent test-agent review-agent; do
+  # Fill every single-line placeholder so only the multi-line one is left.
+  sed -E 's/\{\{[A-Z][A-Z0-9_]*[^}]*\}\}/filled/g' "$TK/agents/$a.md" > "$P/.claude/agents/$a.md"
+done
+OUT="$("$GATE" --no-html "$P" build-ready 2>&1)"
+case "$OUT" in *'multi-line placeholder(s) still unfilled: {{PROJECT_LOCAL_SOURCES_OF_TRUTH'*) ok "names the multi-line placeholder" ;;
+  *) bad "multi-line placeholder not named: $(printf '%s' "$OUT" | grep -i placeholder)" ;; esac
+case "$OUT" in *'no unfilled placeholders'*) bad "still claims no unfilled placeholders" ;; *) ok "does not claim the stubs are complete" ;; esac
+case "$OUT" in *'still have unfilled placeholders'*) bad "the multi-line case FAILs (WARN expected): $(printf '%s' "$OUT" | grep -i placeholder)" ;; *) ok "a multi-line placeholder is a WARN, not a FAIL" ;; esac
+# Filled: the warning is gone.
+perl -0777 -pi -e 's/\{\{PROJECT_LOCAL_SOURCES_OF_TRUTH.*?\}\}/filled/s' "$P/.claude/agents/mdl-agent.md"
+OUT="$("$GATE" --no-html "$P" build-ready 2>&1)"
+case "$OUT" in *'no unfilled placeholders'*) ok "a filled stub reads clean" ;; *) bad "filled stub not clean: $(printf '%s' "$OUT" | grep -i placeholder)" ;; esac
+
+echo "== T19: Stage 2 reads the facts lock once there are 2+ BRDs =="
+P="$(mkproj t19)"
+printf '# Validation\n\n## Stop condition\n\nClean.\n' > "$P/knowledge-base/reports/validation-report.md"
+V="$(verdict "$P" 2)"
+case "$V" in *PASS*) case "$V" in *'facts lock'*) bad "1 BRD already gets a facts-lock note: $V" ;; *) ok "1 BRD: unchanged, no facts-lock note" ;; esac ;; *) bad "1 BRD: $V" ;; esac
+printf '{ "id":"F001","domainEntities":[{"entity":"WIPStatus"}] }\n' > "$P/knowledge-base/brd/F001.brd.json"
+printf '{ "id":"F002","domainEntities":[{"entity":"WIPStatus"}] }\n' > "$P/knowledge-base/brd/F002.brd.json"
+V="$(verdict "$P" 2)"
+case "$V" in *PASS*'no facts lock'*) ok "2 BRDs, no lock: still PASS, with a note naming facts-lock build" ;; *) bad "2 BRDs, no lock: $V" ;; esac
+TK="$(cd "$(dirname "$GATE")/.." && pwd)"
+mkdir -p "$P/analysis"; bash "$TK/bin/facts-lock.sh" "$P" build >/dev/null 2>&1
+V="$(verdict "$P" 2)"
+case "$V" in *PASS*) case "$V" in *'facts lock'*) bad "agreeing BRDs with a lock still noted: $V" ;; *) ok "lock built, BRDs agree: plain PASS" ;; esac ;; *) bad "lock built, BRDs agree: $V" ;; esac
+printf '{ "id":"F002","domainEntities":[{"entity":"WipStatus"}] }\n' > "$P/knowledge-base/brd/F002.brd.json"
+V="$(verdict "$P" 2)"
+case "$V" in *FAIL*'WipStatus'*) ok "a BRD that contradicts a frozen name FAILs Stage 2 and quotes it" ;; *) bad "contradicted frozen name not caught: $V" ;; esac
 
 printf '\n%s: %d ok, %d FAIL\n' "$(basename "$0")" "$PASS" "$FAIL"
 rm -rf "$WORK"

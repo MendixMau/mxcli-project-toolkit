@@ -206,7 +206,7 @@ literal copied from another project's report is a fabricated measurement.
 | `run.env.baseUrl` | Host + `APP_PORT` from `.claude/loop/stack.env`, **with the ownership check below**. Never a literal port. There is no default port you may assume. |
 | `run.env.user` | The identity the harness actually authenticated as (`TEST_USER`, resolved by `tests/e2e/config.js`) — **not** the journey's `persona` field, which is a label the runner never authenticates with. When they differ, that difference is itself a finding. |
 | `run.env.userFallbackUsed` | `true` whenever the harness fell back from the intended user to an admin identity. A silent admin degrade bypasses exactly the role grants the run exists to test. |
-| `checks[].module` | A module name from `SHOW MODULES`. An **empty Source column = first-party**; a populated one is a marketplace/imported module and is not yours to report on. |
+| `checks[].module` | A module name from `SHOW MODULES`. An **empty Source column = first-party** (so is one reading only "Protected AddOn/Solution", mxcli v0.28+: an export level, not an origin); any other value is a marketplace/imported module and is not yours to report on. |
 | `checks[].detail` selectors | `.mx-name-<widgetName>`, where `<widgetName>` is read from `DESCRIBE PAGE <Module>.<Page>` — or from a widget dump of the live page (`e2e-harness-base.md` step 1). **Never invented, never carried between projects.** |
 | `walks[].steps[].page.qualifiedName` | Resolved by intersection against the model catalog — see *Page resolution is an intersection*. Never typed by hand. |
 | `checks[].requirement`, `coverage[].brd` | BRD ids and pointers that resolve in **this** project's `analysis/**/F<NNN>.brd.json`. A pointer that does not resolve is worse than `null`. |

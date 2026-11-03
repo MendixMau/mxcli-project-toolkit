@@ -98,6 +98,13 @@ printf '#!/usr/bin/env bash\n# local edit; PATCH_MODE\nexit 0\n' > "$P/bin/exec.
 OUT="$("$SYNC" "$P" 2>&1)"
 printf '%s' "$OUT" | grep -q 'predates the EXIT CODES fix' && ok "pre-fix exec.sh: the exit-code fix is named" || bad "exit-code fix not named" "$(printf '%s' "$OUT" | grep -A2 exec.sh | head -6)"
 
+echo "== T1c: a hand-edited exec.sh from before the speed fixes (2026-10-29) is named =="
+P="$(mkproj t1c)"
+printf '#!/usr/bin/env bash\n# local edit; PATCH_MODE fail_rc\nexit 0\n' > "$P/bin/exec.sh"
+OUT="$("$SYNC" "$P" 2>&1)"
+printf '%s' "$OUT" | grep -q 'predates the SPEED fixes' && ok "pre-speed exec.sh: the speed fixes are named" || bad "speed fixes not named" "$(printf '%s' "$OUT" | grep -A2 exec.sh | head -6)"
+printf '%s' "$OUT" | grep -q 'predates the EXIT CODES fix' && bad "exit-code note fired on a copy that has fail_rc" || ok "exit-code note silent when fail_rc is present"
+
 echo "== T2: a lost exec bit on an otherwise identical script is repaired =="
 P="$(mkproj t2)"
 chmod -x "$P/bin/snapshot-mpr.sh"

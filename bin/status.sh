@@ -281,12 +281,34 @@ case "$STAGE_LINE" in *"Stage 5"*|*"Stage 6"*)
   fi ;;
 esac
 
+# --- lint debt versioned? -------------------------------------------------------------------
+# The lint ratchet, the acceptance log (who accepted which rise, security tier included) and
+# project-local rules live under .claude/. A project .gitignore with `/.claude/` drops all three
+# from git, so a fresh clone takes whatever it sees as a new baseline and the acceptances are
+# lost, with no other check noticing (#523). Re-including needs `/.claude/*` plus negations —
+# git cannot re-include a file whose parent directory is excluded.
+LINT_UNVERSIONED=""; _tab="$(printf '\t')"
+if git -C "$PROJECT_DIR" rev-parse --git-dir >/dev/null 2>&1; then
+  for _lf in .claude/lint-baseline.json .claude/lint-acceptances.tsv .claude/lint-rules; do
+    [ -e "$PROJECT_DIR/$_lf" ] || continue
+    _probe="$_lf"; [ -d "$PROJECT_DIR/$_lf" ] && _probe="$(cd "$PROJECT_DIR" && ls "$_lf"/*.star 2>/dev/null | head -1)"
+    [ -n "$_probe" ] || continue
+    # -q decides (a negated `!` match is NOT ignored); -v only names the line, and prints
+    # negations too.
+    git -C "$PROJECT_DIR" check-ignore -q -- "$_probe" 2>/dev/null || continue
+    _ig="$(git -C "$PROJECT_DIR" check-ignore -v -- "$_probe" 2>/dev/null | head -1)" || _ig=""
+    _src="${_ig%%"$_tab"*}"; _gf="${_src%%:*}"; _src="${_src#*:}"; _gl="${_src%%:*}"; _gp="${_src#*:}"
+    LINT_UNVERSIONED="${LINT_UNVERSIONED:+$LINT_UNVERSIONED, }$_lf (${_gf}:${_gl} '${_gp}')"
+  done
+  [ -n "$LINT_UNVERSIONED" ] && LINT_UNVERSIONED="lint debt is not versioned: git-ignored $LINT_UNVERSIONED — use '/.claude/*' plus '!/.claude/<file>' lines"
+fi
+
 # --- print ----------------------------------------------------------------------------------
 TK="toolkit $TK_COMMIT_NOW"; [ -n "$TK_COMMIT_REG" ] && [ "$TK_COMMIT_REG" != "$TK_COMMIT_NOW" ] && TK="$TK (register says $TK_COMMIT_REG)"
 [ -n "$TK_UPD" ] && TK="$TK · updates: $TK_UPD"
 WATCH=""
 for _w in "${APPROVED_OVER:+APPROVED OVER A FAILING GATE: $APPROVED_OVER}" "$DONE_STALL" "${BP_STALE%% (*}" \
-          "$( [ "${PH_TOTAL:-0}" -gt 0 ] && [ "$EAC" = 0 ] && echo "agent slots unfilled: $PH_TOTAL in $PH_FILES file(s)" )" "$PACK_GAP"; do
+          "$( [ "${PH_TOTAL:-0}" -gt 0 ] && [ "$EAC" = 0 ] && echo "agent slots unfilled: $PH_TOTAL in $PH_FILES file(s)" )" "$PACK_GAP" "$LINT_UNVERSIONED"; do
   [ -n "$_w" ] && WATCH="${WATCH:+$WATCH · }$_w"
 done
 if [ "$BRIEF" = 1 ]; then

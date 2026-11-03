@@ -639,6 +639,9 @@ def main():
     ap.add_argument("--links", action="store_true")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--name", action="append", default=[], help="extra project name to redact")
+    ap.add_argument("--to", choices=sorted(TARGETS), help="file to this repo instead of the row's target: a finding that is "
+                    "really both is two submissions (skills/upstream-feedback.md). The row keeps its target and status; "
+                    "the issue URL is recorded under also.<repo>")
     ap.add_argument("--add", action="store_true")
     for k in ("target", "title", "repro", "expected", "actual", "workaround", "mxcli", "mendix", "toolkit-version"):
         ap.add_argument("--" + k)
@@ -654,7 +657,9 @@ def main():
         sys.exit("file-bugs: no %s" % path)
     want = set(a.file)
     sid = lambda d: str(d.get("id"))
-    todo = [(i, d) for i, d in rows if d.get("status", "open") == "open" and (not want or sid(d) in want)]
+    also = lambda d: bool(a.to) and a.to != d.get("target")   # a second submission, to the other repo
+    todo = [(i, d) for i, d in rows if (d.get("status", "open") == "open" or (also(d) and d.get("status") == "filed"))
+            and not (also(d) and (d.get("also") or {}).get(a.to)) and (not want or sid(d) in want)]
     for w in want:
         if not any(sid(d) == w for _, d in rows):
             sys.exit("file-bugs: %s is not in %s" % (w, path))
@@ -684,6 +689,7 @@ def main():
     for _, d in todo:
         target = d.get("target")
         repo = TARGETS.get(target) if isinstance(target, str) else None
+        if repo and a.to: repo = TARGETS[a.to]
         if not repo:
             sys.stderr.write("file-bugs: %s has target %s, not one of %s; skipped\n" %
                              (sid(d), json.dumps(target)[:40], "/".join(TARGETS)))
@@ -710,6 +716,9 @@ def main():
         dp = dupes(repo, title)
         if dp is None:
             print("Duplicates: search unavailable (gh missing or not authenticated)")
+            if posting:
+                print("Nothing breaks: the bug stays open in docs/bugs.jsonl with its workaround. To file it later, install gh and run "
+                      "`gh auth login`, or print a pre-filled link for someone with a GitHub account: file-bugs.sh --links " + sid(d))
         elif not dp:
             print("Duplicates: none found")
         else:
@@ -731,7 +740,8 @@ def main():
         if p.returncode != 0 or not m:
             print("gh issue create failed: " + (p.stderr or p.stdout).strip()[:300])
             continue
-        write_back(path, sid(d), {"status": "filed", "issue_url": m.group(0)})
+        if also(d): write_back(path, sid(d), {"also": dict(d.get("also") or {}, **{a.to: m.group(0)})})
+        else: write_back(path, sid(d), {"status": "filed", "issue_url": m.group(0)})
         print("filed: " + m.group(0))
     if a.json:
         print(json.dumps(out, indent=2, ensure_ascii=False))

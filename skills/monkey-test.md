@@ -51,6 +51,7 @@ Same rule as `e2e-harness-base.md` and `module-review.md`: no unapproved fix fro
 | Instrument says | Verdict | What it means |
 |---|---|---|
 | `crash` | **FAIL** | Unhandled exception, error page, or an ERROR span. Real, file it. |
+| `slow` | **finding, not a failure** | A spinner still up after 8 s. Not a crash signal (below): check whether the action finished (runtime log, the page after a longer wait) before calling it a hang. |
 | `info` | **finding, not a failure** | Odd but handled. Triage; most are noise. |
 | `ok` | **PASS, narrowly** | No crash on this input at this seed. Nothing more. |
 | **no spans captured in any round** | **FAULT, not a pass** | The OTel arm of the oracle never ran, so swallowed-error crashes *could not* have been detected. Half the instrument was blind. Do not report the run as clean. |
@@ -73,7 +74,7 @@ Three lines, next to the journey result, never instead of it:
 
 ```
 monkey · <module> · seed <N> · <R> rounds
-  <C> crash-class, <I> info, <O> ok      [or: FAULT — <why the oracle could not run>]
+  <C> crash-class, <S> slow, <I> info, <O> ok      [or: FAULT — <why the oracle could not run>]
   Read as: no unhandled crash on these inputs. Not evidence the module works.
 ```
 

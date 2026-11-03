@@ -25,7 +25,8 @@ MODES
            every unit.
   restore  report, then put each noise unit back from REF (`git checkout REF -- <files>`) and
            set its ContentsHash row in the .mpr from the restored file (mxpatch.py's rehash), so
-           the index Studio Pro reads stays in step. Run it by hand; nothing calls it yet.
+           the index Studio Pro reads stays in step. bin/exec.sh runs this after each write to a
+           committed model.
   check    --staged: the staged index against HEAD, for the pre-commit hook. Exit 1 when a
            noise unit is staged, printing the restore command. MODEL_SCOPE_OK=1 lets that one
            commit through with a warning.

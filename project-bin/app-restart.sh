@@ -106,7 +106,8 @@ pid_alive() {
              case "$(sed 's/.*) //' "/proc/$1/stat" 2>/dev/null | cut -d' ' -f1)" in Z) return 1 ;; esac ;;
   esac
 }
-# Mendix identification and the bundle check. Same markers as test-stack-up.sh's mendix_at().
+# Mendix identification and the bundle check. Same markers as test-stack-up.sh's mendix_at(), but NOT
+# its mxui_js_at() fallback, so an app with a themed index.html reads not-Mendix here; port that if it bites.
 mendix_at() {
   local p="$1" path code body
   for path in /login.html /index.html; do

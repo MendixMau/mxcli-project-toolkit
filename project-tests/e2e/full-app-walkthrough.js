@@ -201,7 +201,8 @@ async function shot(page, meta, name) {
 async function runStep(page, meta, s) {
   const label = s.label || describe(s);
   const w = (n) => page.locator(`.mx-name-${n}`).first();
-  const vis = (n, ms = 6000) => w(n).isVisible({ timeout: ms }).catch(() => false);
+  // Waits up to `ms` (#536): Playwright's isVisible ignores a timeout and answers at once.
+  const vis = (n, ms = 6000) => H.visibleWithin(w(n), ms);
 
   switch (s.do) {
     case 'nav': {
@@ -225,13 +226,13 @@ async function runStep(page, meta, s) {
     // role must NOT have. Absence is only evidence if the app shell is actually up,
     // so prove that first — otherwise a dead page passes every access check.
     case 'expectAbsent': {
-      const shellUp = await page.locator(cfg.readySelectors.join(', ')).first()
-        .isVisible({ timeout: 8000 }).catch(() => false);
+      const shellUp = await H.visibleWithin(page.locator(cfg.readySelectors.join(', ')).first(), 8000);
       if (!shellUp) {
         return step(meta, false, label,
           'cannot judge absence — the app shell never rendered, so EVERY control is "absent" here');
       }
-      const present = await w(s.widget).isVisible({ timeout: s.timeout || 3000 }).catch(() => false);
+      // Waits the full budget: a control that renders late is still offered to this role.
+      const present = await vis(s.widget, s.timeout || 3000);
       return step(meta, !present, label,
         present ? `.mx-name-${s.widget} IS present for this role — the grant is wider than specified`
                 : `.mx-name-${s.widget} not offered to this role (app shell confirmed up)`);
@@ -248,7 +249,7 @@ async function runStep(page, meta, s) {
 
     case 'fill': {
       const el = page.locator(`.mx-name-${s.widget} input, .mx-name-${s.widget} textarea`).first();
-      if (!(await el.isVisible({ timeout: s.timeout || 6000 }).catch(() => false)))
+      if (!(await H.visibleWithin(el, s.timeout || 6000)))
         return step(meta, false, label, `.mx-name-${s.widget} has no visible input`);
       // humanTypeKeys fires real key events. fill() sets .value without them, and a
       // React-backed filter or an on-change microflow never sees the change — the
@@ -534,8 +535,7 @@ async function switchTo(page, roleKey, handoffMeta) {
       // Widget presence for the act's landing page, recorded as widgets[] so the
       // report groups them the way it groups every other walkthrough's.
       for (const name of act.checks || []) {
-        const visible = await page.locator(`.mx-name-${name}`).first()
-          .isVisible({ timeout: 2500 }).catch(() => false);
+        const visible = await H.visibleWithin(page.locator(`.mx-name-${name}`).first(), 2500);
         meta.widgets.push({ name, status: visible ? 'ok' : 'missing',
                             detail: visible ? '' : `.mx-name-${name} not visible` });
         if (visible) R.pass(`${meta.key}:widget:${name}`, `Widget ${name} present`);

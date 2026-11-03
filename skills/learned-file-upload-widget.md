@@ -26,7 +26,7 @@ v0.24.0.
 | Widget | mxcli can author it? | Use it? |
 |---|---|---|
 | **Mendix File Uploader 2.5.0** (`com.mendix.widget.web.fileuploader.FileUploader`, keyword `fileuploader`) | Yes, on stock v0.23 and v0.24, with the rules below | **Yes.** Proven end to end |
-| Classic `Forms$FileManager` (Studio Pro "File manager") | No. No keyword. A `.def.json` gives a false-green `mxcli check`, then exec fails with `template not found: filemanager` | No, until mxcli gets a native `filemanager` (upstream #151) |
+| Classic `Forms$FileManager` (Studio Pro "File manager") | **v0.27+: yes, native `filemanager` keyword** (mendixlabs/mxcli#151), inside a data view on a `System.FileDocument` specialization. Below v0.27: no keyword; a `.def.json` gives a false-green `mxcli check`, then exec fails with `template not found: filemanager` | Not yet proven end to end by the toolkit — retest before relying on it |
 | `mendix.PDSFileUploader` | Writes, but stock mxcli gives CE0463 (action variables not written). It also posts to a REST endpoint, not to a FileDocument | Only with a REST backend and a patched mxcli |
 
 ## 2. What the File Uploader needs (it is not a FileManager)
@@ -114,6 +114,7 @@ Barcode Scanner's seeded object lists, a different cause. Both are filed upstrea
 | DESCRIBE prints `predefinedType: 'pdfFile'` on advanced items | Re-exec warns `MDL-WIDGET10 ... predefinedType is hidden when its own configMode is not "simple" — the value will be ignored` (a warning; mx check stays 0 errors) | Delete that line from advanced items | Not fixed |
 | `mxcli check` says "Check passed!" | Proves nothing for widgets: CE0463 only shows at `mx check` | Always run `mx check` after exec | n/a |
 | Re-exec of an identical page | `Unchanged page ...`: nothing was written, so `0 errors` proves nothing about the round trip | Run a round-trip test against a copy where the page differs | n/a |
+| Nova theme, File Uploader 2.5.0 (Mendix 11.14, Atlas Core 4.5) | Blank icon slots and three browser 404s; build, lint and design audit stay green. Nova's `css-mappings.scss` points `--file-icon`, `--file-warning-icon` and `--file-remove-icon` at `/resources/images/IconCmdUpload.svg`, `cmdCaution16.svg` and `cmdClose12.svg`, which nothing ships | Put SVGs from the uploader's own assets into `theme/web/resources/images/` under those three names, or override the three variables in the app theme to point at shipped images | n/a (#282) |
 
 With the locally patched build, a simple-mode `.txt` format is shown at runtime as "Plain Text (.txt)" in
 the rejection message, so the predefined type does reach the widget.

@@ -341,7 +341,7 @@ the one place the value is configured.
 |---|---|
 | The model file | the single `*.mpr` in the project root, via `find_mpr()`; zero or many = hard fail, `MPR_FILE` overrides |
 | App port + ownership | `APP_PORT` / `APP_OWNERSHIP` from `.claude/loop/stack.env`, published by `test-stack-up.sh`; refuse `unverified` unless `ALLOW_UNVERIFIED_APP=1` |
-| First-party modules | `SHOW MODULES`, take rows whose **Source column is empty**, then subtract the Mendix-shipped set (System, Administration, Atlas/theme modules, and any marketplace module carrying a source) |
+| First-party modules | `SHOW MODULES`, take rows whose **Source column is empty** or reads only "Protected AddOn/Solution" (mxcli v0.28+: the export level, not an origin), then subtract the Mendix-shipped set (System, Administration, Atlas/theme modules, and any marketplace module carrying a source) |
 | Personas / roles | the navigation profile's roots plus page permissions — the roles that can actually reach a page. Never a role-name list carried from another project |
 | Selectors | `.mx-name-<widgetName>`, where `<widgetName>` comes from `DESCRIBE PAGE` on **this** project's page. Never invented, never carried between projects — a widget name is whatever the page's author typed |
 | Journey preconditions | measured by `fixture-manifest.sh` (0 sufficient · 1 short · 2 could not measure), then the residue interviewed per `fixture-seeding.md` |

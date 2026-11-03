@@ -21,7 +21,12 @@ const { spawnSync } = require('child_process');
 function judge(exitCode, results, mustFail) {
   if (exitCode !== 1) return { verdict: 'NOT PROVEN', why: `runner exited ${exitCode}, not 1` };
   const named = results.filter(r => String(r.name || '').includes(mustFail));
-  if (!named.length) return { verdict: 'NOT PROVEN', why: `no check name contains "${mustFail}"` };
+  if (!named.length) {
+    // Show what did go red, so a tag in a field that never reaches a check name is visible (#538).
+    const red = results.filter(r => r.verdict === 'FAIL').map(r => r.name);
+    return { verdict: 'NOT PROVEN', why: `no check name contains "${mustFail}"`
+      + (red.length ? `; FAIL checks: ${red.slice(0, 5).join('; ')}${red.length > 5 ? ` (+${red.length - 5} more)` : ''}` : '') };
+  }
   const held = named.filter(r => r.verdict !== 'FAIL');
   if (held.length) return { verdict: 'NOT PROVEN', why: `named check not FAIL: ${held.map(r => `${r.name} = ${r.verdict}`).join('; ')}` };
   const other = results.filter(r => !named.includes(r) && (r.verdict === 'FAIL' || r.verdict === 'INVALID'));

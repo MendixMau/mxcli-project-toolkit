@@ -112,4 +112,18 @@ gap2="$( [ -n "$DL" ] && PSET="$P/.claude/settings.json" HOOK_GAP="" bash -c "$D
 { printf '%s' "$gap" | grep -q 'project root' && [ -z "$gap2" ]; } \
   && ok "L7: doctor flags a hand-written relative look hook, not the installed one" || bad "L7: doctor gap '$gap' / '$gap2'"
 
+# L8: one-line settings.json holding the installed form AND a relative one (#502) — the per-line
+# check saw CLAUDE_PROJECT_DIR on the line and passed it.
+printf '{"hooks":{"PostToolUse":[{"matcher":"Read","hooks":[{"type":"command","command":"cd \\"$CLAUDE_PROJECT_DIR\\" && bash bin/look-ledger.sh seen"},{"type":"command","command":"bash ./bin/look-ledger.sh seen 2>/dev/null"}]}]}}\n' > "$WORK/oneline.json"
+gap3="$( [ -n "$DL" ] && PSET="$WORK/oneline.json" HOOK_GAP="" bash -c "$DL"'; printf %s "$HOOK_GAP"')"
+printf '%s' "$gap3" | grep -q 'project root' \
+  && ok "L8: a single-line settings.json with both forms is flagged" || bad "L8: doctor gap '$gap3'"
+
+# L9: a hand-written variant gets "edit it by hand", since --hooks-only will not rewrite it (#502).
+P9="$WORK/proj9"; mkdir -p "$P9/.claude" "$P9/bin"; : > "$P9/Fixture.mpr"
+cp "$WORK/hand.json" "$P9/.claude/settings.json"
+out9="$(MXTK_NO_GUIDE=1 bash "$TK/bin/doctor.sh" --quick --no-docker "$P9" 2>&1)"
+printf '%s' "$out9" | grep -q 'hand-written variant the installer will not rewrite' \
+  && ok "L9: doctor says to edit a hand-written look hook by hand" || bad "L9: no edit-by-hand note" "$(printf '%s' "$out9" | grep -i hook)"
+
 echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

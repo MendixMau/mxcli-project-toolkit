@@ -114,6 +114,23 @@ rc=$(run "$P5" Orders)
 [ "$rc" -eq 0 ] && grep -q 'ledger: architecture/modules/Orders/coverage-ledger.md' "$WORK/out" \
   && ok "empty directory falls through to the file" || bad "empty directory shadowed the file" "rc=$rc"
 
+# --- 7. a per-module FILE with BRD-prefixed pointers measures only the BRDs it names (#543) ---
+P7="$WORK/p7"; mk_project "$P7"
+ledger "$P7/architecture/modules/Orders/coverage-ledger.md"
+sed -i.bak -e 's|`/|`FA01/|' "$P7/architecture/modules/Orders/coverage-ledger.md" && rm -f "$P7/architecture/modules/Orders/coverage-ledger.md.bak"
+rc=$(run "$P7" Orders)
+[ "$rc" -eq 0 ] && ok "prefixed module ledger: clean (rc 0), FB02 not read as UNCLAIMED" \
+  || bad "prefixed module ledger measured against another module's BRD (#543)" "rc=$rc $(tr '\n' ' ' < "$WORK/out" | cut -c1-300)"
+grep -q '1 of 2 BRD(s) measured' "$WORK/out" && grep -q "does not claim.*FB02-beta" "$WORK/out" \
+  && ok "denominator stated, the unclaimed BRD named as another module's" || bad "no module-ledger denominator"
+
+# --- 8. a /slash module ledger still applies to every BRD (unchanged) ------------------------
+P8="$WORK/p8"; mk_project "$P8"
+ledger "$P8/architecture/modules/Orders/coverage-ledger.md"
+rc=$(run "$P8" Orders)
+[ "$(grep -c 'brd.json' "$WORK/out")" -ge 2 ] && ! grep -q 'does not claim' "$WORK/out" \
+  && ok "slash-pointer module ledger is measured against both BRDs, as before (rc $rc)" || bad "slash ledger scoped" "$(tr '\n' ' ' < "$WORK/out" | cut -c1-300)"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

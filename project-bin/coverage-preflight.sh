@@ -457,10 +457,51 @@ if [ -d "$LEDGER" ]; then
     RC=2
   fi
 else
-  for b in $BRDS; do
+  # A per-MODULE ledger file (architecture/modules/<M>/coverage-ledger.md or <M>-coverage-ledger.md)
+  # was measured against every BRD in the project, so a BRD only other modules claim read fully
+  # UNCLAIMED — thousands of false leaves on a multi-module project (#543). When every pointer in
+  # it carries a BRD prefix (F001/...), only the BRDs those prefixes name are measured here; the
+  # rest are listed as another module's, the same as the directory form. A ledger with any
+  # /slash pointer applies to every BRD and is measured against all of them, as before; so is the
+  # project-wide ledger, and so is a per-module one whose prefixes name no BRD (the engine then
+  # reports them PHANTOM). Leaves of a shared BRD that another module claims still read
+  # UNCLAIMED here: judging across all ledgers is a separate decision (#543 option 2).
+  SCOPED=0; MEAS_BRDS="$BRDS"; OTHERS=""
+  if [ -n "$MODULE" ] && { [ "$LEDGER" = "$LEDGER_CANON" ] || [ "$LEDGER" = "$LEDGER_FLAT" ]; } && [ "$NBRD" -gt 1 ]; then
+    PTRS="$(awk '
+      function trim(s) { gsub(/[\140]/, "", s); gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
+      { t = $0; gsub(/^[ \t]+|[ \t]+$/, "", t) }
+      t !~ /^\|.*\|$/ { next }
+      { sub(/^\|/, "", t); split(t, c, "|"); f = trim(c[1])
+        if (tolower(f) == "pointer" || f ~ /^:?-+:?$/ || f == "") next
+        sub(/[ \t]*\([0-9]+\)[ \t]*$/, "", f)
+        n = split(f, tok, ","); for (i = 1; i <= n; i++) print trim(tok[i]) }' "$LEDGER")"
+    if [ -n "$PTRS" ] && ! printf '%s\n' "$PTRS" | grep -q '^/'; then
+      PREFIXES=" $(printf '%s\n' "$PTRS" | sed 's|/.*||' | sort -u | tr '\n' ' ') "
+      _meas=""
+      for b in $BRDS; do
+        bb="$(basename "$b" .brd.json)"; hit=0
+        for id in "$bb" "${bb%%-*}" $(jq -r '.id? // empty | strings' "$b" 2>/dev/null || true); do
+          case "$PREFIXES" in *" $id "*) hit=1; break ;; esac
+        done
+        if [ "$hit" -eq 1 ]; then _meas="$_meas $b"; else OTHERS="$OTHERS $bb"; fi
+      done
+      [ -n "$_meas" ] && { SCOPED=1; MEAS_BRDS="$_meas"; }
+    fi
+  fi
+  [ "$SCOPED" -eq 1 ] || OTHERS=""
+  NMEAS=0
+  for b in $MEAS_BRDS; do
+    NMEAS=$((NMEAS + 1))
     # shellcheck disable=SC2086
     "$ENGINE" $ENGINE_ARGS "$b" "$LEDGER" || raise_rc $?
   done
+  if [ "$SCOPED" -eq 1 ]; then
+    NOTHERS=0; [ -n "$OTHERS" ] && NOTHERS=$(printf '%s\n' $OTHERS | grep -c .)
+    echo ""
+    echo "  module ledger: $NMEAS of $NBRD BRD(s) measured against $LEDGER (the BRDs its pointers name);"
+    echo "  $NOTHERS BRD(s) it does not claim (another module's, not measured):${OTHERS:- none}"
+  fi
 fi
 
 # ---------------------------------------------------------------------------

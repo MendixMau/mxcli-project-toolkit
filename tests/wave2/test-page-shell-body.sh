@@ -194,5 +194,31 @@ check "an opted-out page is skipped entirely"      "$(code "$d")" "2"
 out="$(run "$d")"
 has   "and inspecting nothing is NOT a pass"       "$out" "NOT a pass"
 
+# ── 9. a placeholder `if not exists` declaration is read, and skipped when redeclared (#517)
+d="$(proj placeholder)"
+wireframe "$d" "Some_Page.html"
+cat > "$d/mdlsource/pages.mdl" <<'EOF'
+create page if not exists "MOC"."Some_Page" folder 'F' ( Title: 'x', Layout: "MOC"."App_Default" ) { container c { } };
+create or modify page "MOC"."Some_Page" folder 'F'
+  (Title: 'Some', Layout: "MOC"."App_Default")
+  { HEADER hdr { DYNAMICTEXT h1 (Content: 'Some', RenderMode: H1) } };
+EOF
+out="$(run "$d")"
+check "placeholder + real page exit 0"             "$(code "$d")" "0"
+hasnt "the declaration line is never a page name"  "$out" "page create page"
+has   "one page checked: the real one"             "$out" "1 page(s)"
+
+# ── 10. an unparseable declaration is reported as unread, not as a missing wireframe ────
+d="$(proj unparsed)"
+wireframe "$d" "Other.html"
+cat > "$d/mdlsource/pages.mdl" <<'EOF'
+create page if not exists (
+  Title: 'x'
+) { container c { } };
+EOF
+out="$(run "$d")"
+has   "says the name was not parsed"               "$out" "page declaration not read"
+hasnt "does not claim a missing wireframe"         "$out" "has no wireframe"
+
 printf '\n%s passed, %s failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1

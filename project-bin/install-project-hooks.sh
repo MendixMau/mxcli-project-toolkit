@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # install-project-hooks.sh — the commit-time backstop for the mxbuild gate.
 #
-#   ./bin/install-project-hooks.sh           # install/refresh the pre-commit + revision-note hooks
+#   ./bin/install-project-hooks.sh           # install/refresh the pre-commit, pre-push + revision-note hooks
 #   ./bin/install-project-hooks.sh --check   # exit 1 if any is missing or stale
 #
-# Two jobs. (1) pre-commit: the mxbuild-gate backstop below. (2) post-commit + post-rewrite: the
+# Three jobs. (1) pre-commit: the mxbuild-gate backstop below. (2) post-commit + post-rewrite: the
 # Studio Pro revision note (2026-10-12, field project). Studio Pro's History pane lists a commit's
 # changed documents from refs/notes/mx_metadata "ModelChanges", which only Studio Pro filled; CLI
 # commits showed "Model changes 0". These hooks run bin/mx-metadata-note.py write HEAD after every
@@ -20,6 +20,15 @@
 # nobody knows whether Studio Pro's own push reads remote.<r>.push at all. So git and Studio Pro
 # push exactly as they do without this toolkit. The installer only fetches the remote's notes
 # (non-forced, creates the ref) and removes the exact pair that earlier revision wrote.
+#
+# (3) post-merge + post-checkout: the restatement-guard marker (#504). script-owners.sh's
+# last-writer ledger (.claude/loop/script-owners/written.tsv, machine-local) sees only exec.sh's
+# writes, so a `git pull` / `git checkout` that brought newer model work in left it saying "S wrote
+# last", and a replay of S over that work stayed quiet. When the operation changed the .mpr or
+# mprcontents/, the hook appends `<epoch> RESTORE git-<op>:<sha>` exactly as restore-mpr.sh does;
+# rows before it stop counting and the next replay check asks the model (DESCRIBE, at most 5).
+# A file checkout (`git checkout -- <paths>`) names no paths to the hook, so it always marks:
+# the cost is at most one capped DESCRIBE round. No ledger yet → nothing to mark. Never blocks.
 #
 # WHY (2026-09-17, field project). A model can change without the mxbuild gate ever running — a
 # bare `./mxcli exec`, an exec.sh run on a machine with no mxbuild, a Studio Pro save —
@@ -53,6 +62,7 @@ MARK="# mxtk-model-stamp hook v1"
 BIN_REL="$(git rev-parse --show-prefix)bin"
 
 NOTE_MARK="# mxtk-mx-metadata hook v1"
+RESTATE_MARK="# mxtk-restatement-mark hook v1"
 # Team Server remotes: the platform's git host, plus any remote named in MXTK_TS_REMOTES.
 # The configured URL, not `git remote -v`: that one shows the URL after url.*.insteadOf rewriting.
 ts_remotes() {
@@ -79,6 +89,9 @@ if [ -n "$(git config --get core.hooksPath 2>/dev/null)" ]; then
   echo "  and this to its post-commit (revision notes for Studio Pro History; python via resolve_py, never the shebang):"  # portability-ok: advice text
   echo "    b=\"\$(git rev-parse --show-toplevel)/$BIN_REL\"; py=\"\$(PROJECT_ROOT=\"\$b/..\" bash -c '. \"\$1/_common.sh\" >/dev/null 2>&1 && resolve_py' _ \"\$b\")\""
   echo "    [ -n \"\$py\" ] && MXTK_HOOK=1 \"\$py\" \"\$b/mx-metadata-note.py\" write HEAD || true"
+  echo "  and this to its post-merge and post-checkout (restatement-ledger marker, #504; for post-checkout use \"\$1\" \"\$2\" in place of ORIG_HEAD HEAD):"
+  echo "    l=\"\$(git rev-parse --show-toplevel)/$BIN_REL/../.claude/loop/script-owners/written.tsv\"; [ -f \"\$l\" ] && git diff --name-only ORIG_HEAD HEAD | grep -qE '(\\.mpr\$|(^|/)mprcontents/)' \\"
+  echo "      && printf '%s\\tRESTORE\\tgit-hook:%s\\n' \"\$(date +%s)\" \"\$(git rev-parse --short HEAD)\" >> \"\$l\"; true"
   exit 1
 fi
 
@@ -86,9 +99,17 @@ if [ "${1:-}" = "--check" ]; then
   rc=0
   if [ -f "$HOOK" ] && grep -q "^$MARK" "$HOOK"; then echo "  ✓ pre-commit hook installed ($HOOK)"
   else echo "  ✗ pre-commit model-verification hook missing — run ./bin/install-project-hooks.sh"; rc=1; fi
+  # Missing pre-push = rc 1, so sync-project.sh (which installs only when --check fails) adds it
+  # to existing projects: `Gate mode: check` is the default, and this hook is its full build.
+  if [ -f "$HOOKS/pre-push" ] && grep -q "^# mxtk-pre-push full-build hook v1" "$HOOKS/pre-push"; then echo "  ✓ pre-push full-build hook installed"
+  else echo "  ✗ pre-push full-build hook missing — run ./bin/install-project-hooks.sh"; rc=1; fi
   for h in post-commit post-rewrite; do
     if [ -f "$HOOKS/$h" ] && grep -q "^$NOTE_MARK" "$HOOKS/$h"; then echo "  ✓ $h revision-note hook installed"
     else echo "  ✗ $h revision-note hook missing — run ./bin/install-project-hooks.sh"; rc=1; fi
+  done
+  for h in post-merge post-checkout; do
+    if [ -f "$HOOKS/$h" ] && grep -q "^$RESTATE_MARK" "$HOOKS/$h"; then echo "  ✓ $h restatement-ledger hook installed"
+    else echo "  ✗ $h restatement-ledger hook missing — run ./bin/install-project-hooks.sh"; rc=1; fi
   done
   for r in $(ts_remotes); do
     case "$(leftover "$r")" in
@@ -146,6 +167,46 @@ chmod +x "$HOOK"
 echo "  ✓ pre-commit hook installed -> $HOOK"
 echo "    (refuses to commit .mpr/mprcontents changes that have no mxbuild-gate PASS stamp; ./bin/verify-model.sh writes one)"
 
+# --- pre-push: the full build `Gate mode: check` defers (exec.sh "Gate kind") ------------------------
+# Under `Gate mode: check` (the default) exec.sh runs `mx check` per script, which compiles no Java. A push is where
+# a model leaves this machine, so this hook runs the full mxbuild (bin/verify-model.sh) when the
+# stamp matches the model but says `mx check` only. It does the remedy itself (guard rule 7) and
+# refuses only when that full build finds errors. Every other project: a no-op (no gate-kind state,
+# or a full-build stamp, or a stamp that does not match — the pre-commit hook's business).
+# MODEL_UNVERIFIED_OK=1 pushes anyway, once, out loud.
+PP="$HOOKS/pre-push"
+PP_MARK="# mxtk-pre-push full-build hook v1"
+if [ -f "$PP" ] && ! grep -q "^$PP_MARK" "$PP"; then
+  mv "$PP" "$PP.pre-mxtk"
+  echo "  existing pre-push hook kept as pre-push.pre-mxtk and chained first"
+fi
+cat > "$PP" <<HOOKEOF
+#!/usr/bin/env bash
+$PP_MARK — written by bin/install-project-hooks.sh (mxcli-project-toolkit). Re-run it to refresh.
+input="\$(cat)"
+[ -x "\$(dirname "\$0")/pre-push.pre-mxtk" ] && { printf '%s\n' "\$input" | "\$(dirname "\$0")/pre-push.pre-mxtk" "\$@" || exit 1; }
+b="\$(git rev-parse --show-toplevel)/$BIN_REL"
+[ -x "\$b/model-stamp.sh" ] && [ -f "\$b/verify-model.sh" ] && [ -f "\$b/../.claude/loop/gate-kind.state" ] || exit 0
+"\$b/model-stamp.sh" check -q >/dev/null 2>&1 || exit 0
+"\$b/model-stamp.sh" check -q --full >/dev/null 2>&1 && exit 0
+if [ "\${MODEL_UNVERIFIED_OK:-0}" = "1" ]; then
+  echo "⚠ MODEL_UNVERIFIED_OK=1 — pushing a model verified by mx check only (no Java compile)." >&2; exit 0
+fi
+echo "→ pre-push: the model was verified by mx check only; running the full build first (bin/verify-model.sh)..." >&2
+( cd "\$b/.." && bash bin/verify-model.sh ) >&2; vrc=\$?
+if [ "\$vrc" = 1 ]; then
+  echo "✗ push refused: the full build found errors (above). Fix them, commit, push again." >&2
+  echo "  Deliberate override, once:   MODEL_UNVERIFIED_OK=1 git push ..." >&2
+  exit 1
+elif [ "\$vrc" != 0 ]; then
+  # exit 2: mxbuild could not run here — not a finding about the model; never block the push on it.
+  echo "⚠ pre-push: the full build could not run on this machine (verify-model.sh exit \$vrc) — pushing a model verified by mx check only." >&2
+fi
+exit 0
+HOOKEOF
+chmod +x "$PP"
+echo "  ✓ pre-push hook installed (runs the full build before a model only mx-checked leaves this machine)"
+
 # --- revision notes for Studio Pro History (post-commit + post-rewrite) -------------------------
 # Both hooks find Python through bin/_common.sh's resolve_py (executes each candidate, skips the
 # Windows Store alias stub). No Python, or no _common.sh: one warning, the commit stands.
@@ -191,6 +252,39 @@ HOOKEOF
   chmod +x "$HF"
 done
 echo "  ✓ post-commit + post-rewrite revision-note hooks installed (Studio Pro History lists each commit's changed documents)"
+
+# --- restatement-guard ledger marker (post-merge + post-checkout), #504 --------------------------
+# post-merge: $1 = 1 for a squash merge (HEAD unmoved: always mark), else the range ORIG_HEAD..HEAD.
+# post-checkout: $1 prev, $2 new, $3 = 1 for a branch checkout, 0 for a file checkout (no paths
+# given to the hook: always mark).
+for h in post-merge post-checkout; do
+  HF="$HOOKS/$h"
+  if [ -f "$HF" ] && ! grep -q "^$RESTATE_MARK" "$HF"; then
+    mv "$HF" "$HF.pre-mxtk"
+    echo "  existing $h hook kept as $h.pre-mxtk and chained first"
+  fi
+  if [ "$h" = post-merge ]; then RANGE='ORIG_HEAD HEAD'; FILEMODE='[ "${1:-0}" = 1 ]'
+  else RANGE='"$1" "$2"'; FILEMODE='[ "${3:-1}" = 0 ]'; fi
+  cat > "$HF" <<HOOKEOF
+#!/usr/bin/env bash
+$RESTATE_MARK — written by bin/install-project-hooks.sh (mxcli-project-toolkit). Re-run it to refresh.
+# Marks the restatement guard's last-writer ledger when this $h changed the model (.mpr or
+# mprcontents/), so a replay of an older script asks the model again. Never fails the git operation.
+[ -x "\$(dirname "\$0")/$h.pre-mxtk" ] && "\$(dirname "\$0")/$h.pre-mxtk" "\$@"
+top="\$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+ledger="\$top/$BIN_REL/../.claude/loop/script-owners/written.tsv"
+[ -f "\$ledger" ] || exit 0
+if $FILEMODE; then why="unscoped"
+else
+  git diff --name-only $RANGE 2>/dev/null | grep -qE '(\.mpr\$|(^|/)mprcontents/)' || exit 0
+  why="\$(git rev-parse --short HEAD 2>/dev/null)"
+fi
+printf '%s\tRESTORE\tgit-$h:%s\n' "\$(date +%s)" "\$why" >> "\$ledger" 2>/dev/null || true
+exit 0
+HOOKEOF
+  chmod +x "$HF"
+done
+echo "  ✓ post-merge + post-checkout restatement-ledger hooks installed (a pull/checkout that changes the model resets the last-writer ledger)"
 
 for r in $(ts_remotes); do
   if ! has_notes && GIT_TERMINAL_PROMPT=0 git fetch -q "$r" refs/notes/mx_metadata:refs/notes/mx_metadata >/dev/null 2>&1; then

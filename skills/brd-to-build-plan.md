@@ -71,6 +71,8 @@ mxcli marketplace install <content-id> -p app.mpr
 
 Full search/download/install mechanics (auth, version pinning, the "module already present → not auto-updated" caveat) are in the project's own `.ai-context/skills/download-marketplace-content.md` — that's an mxcli built-in skill, not something this toolkit re-documents.
 
+**Verify each install by what it is.** A module package shows up in `SHOW MODULES`. A **widget-only package** (Charts, for example) installs as `widgets/<Name>.mpk` and **never** appears in `SHOW MODULES`, so a plan row verified that way never passes. Verify it by the file instead: `ls widgets/Charts.mpk` (or the widget's own `.mpk` name), and say which check applies in the row's acceptance line.
+
 **Why this has to happen before scripting, not during it:**
 - `mxcli check <script> --references` validates that referenced entities/microflows/associations actually exist — it can't validate a reference into a marketplace module that isn't imported yet.
 - Whoever (or whichever `mdl-agent`) drafts MDL against the marketplace module needs to read its real entity/microflow/association names first (`mxcli check`, `SHOW ENTITIES IN <MarketplaceModule>`, etc.) — guessing them produces scripts that look right and fail reference validation.

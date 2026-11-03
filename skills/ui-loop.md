@@ -58,6 +58,12 @@ After a script that creates or changes a page:
    does not clear it: a text score is not a look). Two unattended builds shipped every page
    unseen before this existed. A page that genuinely needs no look: `--waive look/<Module>
    --reason "..."`.
+   Opening a journey run's own screenshot of the page clears it too: `bin/look-ledger.sh shots`
+   lists every owed page as OPEN (that journey step's PNG, open it) or UNREACHED (no journey got
+   there: a short gap-fill journey, or `page-audit.js`), so OPEN pages need no separate pass.
+   **A hand-written screenshot script that logs in must end with `helpers.logout(page)`**: a
+   closed browser keeps its session, and six leaked ones hit a trial licence's cap, so every
+   later journey fails login as "Sign in failed" (speed experiment E2).
 3. **Ask four questions** against the page's wireframe (or the design system if there is no
    wireframe):
    - **What's missing?** A field, button, column or whole section that should be there and isn't.

@@ -79,3 +79,21 @@ CROSS-CHECK of the hash routine, not committed (19 MB): on the mxcli repo's
 testdata/expr-checker model, base64(SHA-256(file)) disagrees with the stored ContentsHash on
 exactly the 67 units `mxcli-v0.26.0 fix hashes` lists as MISMATCH (identical UUID sets), and
 agrees on the other 302; on testdata/pedapp it agrees on all 369.
+
+v0.29.0 ADDITIONS (captured 2026-10-30, Linux x86-64, for the mxcli v0.29 compatibility fix)
+  v0.29.0  "mxcli version v0.29.0 (2026-10-30T17:00:32Z)"  sha256 7ecb06658afb265f0e3b9ed23e3903592cc2629d53f7baa9dc0837a982c103b3
+  v0.28.0  "mxcli version v0.28.0 (2026-10-23T14:29:27Z)"  sha256 7a1cb61f9e5e28c09f3c1247446cc611f6deca781355b93c5c6a29fd29d4e3ee
+  (same anonymous release-asset downloads as above)
+  verify-v1-v0.29.0              the MPR v1 model above (sha256 1657525904741f17fd71141e1bd792168271
+                                 b76c7c0e75ad3a9042db74b74dce): v0.29.0 now VERIFIES v1 (ako/mxcli
+                                 #1159) — "Every unit's ContentsHash matches its stored
+                                 contents.", exit 0. v0.28.0 still printed the "is an MPR v1
+                                 project" line of verify-v1-v0.26.0.
+  verify-v1-mismatch-v0.29.0     a copy of that model with the Projects$Project unit's
+                                 ContentsHash set to 'A'*43+'=' via sqlite: "  MISMATCH  <id>
+                                 [<type>]" (no file path) + "1 mismatch(es)." (no missing/orphan
+                                 counts), exit 1. v0.28.0 on the same copy: exit 0, nothing seen.
+  verify-stale-v0.29.0           the verify-stale mutation above on model/, under v0.29.0: the v2
+                                 contract is unchanged (same rows, same summary, exit 1).
+  THE v0.29.0 CONTRACT adds: exit 0 + "Every unit's ContentsHash matches its stored contents."
+  = clean; exit 1 + "N mismatch(es)." = issues (MPR v1).

@@ -251,7 +251,8 @@ it, with one claim the app must not satisfy and `"control": { "of": "<journey id
 "<check-name text>" }`. Run `tests/e2e/named-controls.js <control files>`. A control is PROVEN only
 when the runner exits 1, every check whose name contains `mustFail` is FAIL (at least one), and
 nothing else is FAIL or INVALID. Its `persona` must equal `TEST_USER`, or it is a FAULT and does not
-run. Never name a control `*.journey.json`: real walks, `report-normalize.js` and
+run. `mustFail` matches check names: a `data.oql[]` check is `<step name>: <label>`, the outcome
+check `<journey id> end state`, plus `: <outcome.label>` when the outcome has a label. Never name a control `*.journey.json`: real walks, `report-normalize.js` and
 `fixture-manifest.sh` discover journeys by that suffix, and would walk the control as a journey.
 The seven mutants above prove the harness. Only a named control proves the claim.
 

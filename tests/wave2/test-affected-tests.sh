@@ -63,6 +63,12 @@ D="$(cd "$(dirname "$0")" && pwd)"
 printf '%s\n' "$*" >> "$D/.stub-log"
 [ "${STUB_NOPROJ:-}" = 1 ] && { cat "$FX/noproj.out"; cat "$FX/noproj.err" >&2; exit "$(cat "$FX/noproj.exit")"; }
 q=""; while [ $# -gt 0 ]; do [ "$1" = -c ] && q="$2"; shift; done
+# Captured from a real model (CAPTURE.txt, "FIELD CAPTURE"): SHOW PAGES; SHOW SNIPPETS and DESCRIBE PAGE.
+case "$q" in "SHOW PAGES; SHOW SNIPPETS") cat "$FX/field-pages.out"; exit 0 ;; esac
+case "$q" in "DESCRIBE "*)
+  printf '%s\n' "$q" | tr ';' '\n' | sed -n 's/^ *DESCRIBE PAGE \([^ ]*\) *$/\1/p' | while IFS= read -r n; do
+    [ -f "$FX/field-describe-$n.out" ] || { echo "stub: no captured describe for $n" >&2; exit 99; }; cat "$FX/field-describe-$n.out"; done || exit 99
+  exit 0 ;; esac
 case "$q" in "SHOW MICROFLOWS IN"*)   # synthetic listing, the real table shape
   [ -n "${STUB_BADMOD:-}" ] && case "$q" in *"IN $STUB_BADMOD"*) echo "Error: module not found: $STUB_BADMOD" >&2; exit 1 ;; esac
   echo "| Qualified Name | Module | Name | Excluded |"; echo "|---|---|---|---|"
@@ -70,7 +76,7 @@ case "$q" in "SHOW MICROFLOWS IN"*)   # synthetic listing, the real table shape
 cat "$FX/callers.err" >&2
 first=1
 printf '%s\n' "$q" | tr ';' '\n' | sed -n 's/^ *SHOW CALLERS OF \([^ ]*\) TRANSITIVE *$/\1/p' | while IFS= read -r n; do
-  blk="$(cat "$FX/callers.out" "$FX/val-order.out" | awk -v n="$n" '
+  blk="$(cat "$FX/callers.out" "$FX/val-order.out" "$FX/field-callers.out" | awk -v n="$n" '
     $0 == "Callers of " n " (transitive)" { on = 1 } on && /^$/ { exit } on { print }')"
   [ -n "$blk" ] || { echo "stub: no captured block for $n" >&2; exit 99; }
   [ "$first" = 1 ] || echo; first=0; printf '%s\n' "$blk"
@@ -99,8 +105,8 @@ RC=$(run A "$TOTAL")
 [ "$RC" -eq 0 ] && ok "exit 0" || bad "A rc=$RC" "$(cat "$WORK/err.A")"
 has A "strategy	change	unit=affected journeys=affected	(default:" && ok "strategy row says default affected/affected" || bad "A strategy" "$(head -1 "$WORK/out.A")"
 has A "subject	microflow	Shop.SUB_Order_Total	line 1 of total.mdl" && ok "subject from exec.sh --subjects" || bad "A subject" "$(cat "$WORK/out.A")"
-[ "$(calls)" = 1 ] && grep -qx -- '-p .*Fixture.mpr -c SHOW CALLERS OF Shop.SUB_Order_Total TRANSITIVE' "$P/.stub-log" \
-  && ok "one mxcli call, the transitive callers query" || bad "A mxcli calls" "$(cat "$P/.stub-log" 2>/dev/null)"
+[ "$(calls)" = 2 ] && grep -qx -- '-p .*Fixture.mpr -c SHOW CALLERS OF Shop.SUB_Order_Total TRANSITIVE' "$P/.stub-log" && grep -qx -- '-p .*Fixture.mpr -c SHOW PAGES; SHOW SNIPPETS' "$P/.stub-log" \
+  && ok "one callers query, then one page list (the widgets of a changed or calling page, M)" || bad "A mxcli calls" "$(cat "$P/.stub-log" 2>/dev/null)"
 has A "caller	Shop.VAL_Order	depth 1" && has A "caller	Shop.Order_Overview	depth 5" && ok "five transitive callers, pages included" || bad "A callers" "$(grep caller "$WORK/out.A")"
 has A "callers	measured" && ok "callers measured" || bad "A measured"
 has A "unit	tests/unit/Total.test.mdl	names Shop.SUB_Order_Total" && ok "A1 the subject's own test" || bad "A1" "$(grep ^unit "$WORK/out.A")"
@@ -128,8 +134,8 @@ lacks A4 "Submit.test.mdl" && ok "--depth 1 beats the env" || bad "A4 flag vs en
 
 echo "== B: a page and a microflow in one script: ONE batched call =="
 run B "$PAGEFLOW" >/dev/null
-[ "$(calls)" = 1 ] && grep -qx -- '-p .*Fixture.mpr -c SHOW CALLERS OF Shop.ACT_Order_New TRANSITIVE; SHOW CALLERS OF Shop.Order_Edit TRANSITIVE' "$P/.stub-log" \
-  && ok "both subjects in one -c batch" || bad "B batch" "$(cat "$P/.stub-log" 2>/dev/null)"
+[ "$(calls)" = 2 ] && grep -qx -- '-p .*Fixture.mpr -c SHOW CALLERS OF Shop.ACT_Order_New TRANSITIVE; SHOW CALLERS OF Shop.Order_Edit TRANSITIVE' "$P/.stub-log" \
+  && ok "both subjects in one -c batch (plus the one page-list call)" || bad "B batch" "$(cat "$P/.stub-log" 2>/dev/null)"
 has B "subject	page	Shop.Order_Edit" && has B "subject	microflow	Shop.ACT_Order_New" && ok "both subjects listed" || bad "B subjects" "$(grep ^subject "$WORK/out.B")"
 has B "caller	Shop.Order_Overview	depth 1" && ok "shortest depth kept for a caller reached twice" || bad "B depth" "$(grep ^caller "$WORK/out.B")"
 has B "journey	tests/e2e/edit.clerk.journey.json	names Shop.Order_Edit" && ok "a journey that names the changed page" || bad "B named journey" "$(grep ^journey "$WORK/out.B")"
@@ -139,7 +145,7 @@ echo "== C: --no-model =="
 run C --no-model "$TOTAL" >/dev/null
 [ "$(calls)" = 0 ] && ok "mxcli not called" || bad "C called mxcli"
 has C "callers	NOT MEASURED (--no-model)" && ok "callers NOT MEASURED, and why" || bad "C callers" "$(grep ^callers "$WORK/out.C")"
-lacks C "overview.clerk" && ok "no callers, so no caller-named journey" || bad "C caller journey"
+lacks C "names Shop.Order_Overview" && has C "widgets	NOT MEASURED (--no-model)" && ok "no callers, so no caller-named journey (unsure: every journey, M)" || bad "C caller journey" "$(grep -e ^journey -e ^widgets "$WORK/out.C")"
 has C "Total.test.mdl" && lacks C "Validate.test.mdl" && ok "selection is the subjects alone" || bad "C selection" "$(grep ^unit "$WORK/out.C")"
 
 echo "== D: mxcli cannot open the project (captured exit 1) =="
@@ -458,6 +464,39 @@ rm -rf "$P/architecture"
 printf '# Project\n\nUnit tests default: no\n' > "$P/PROJECT.md"
 [ ! -e "$P/.mxcli" ] && ok "wrote nothing into the project" || bad "project written"
 
+echo "== M: journeys that walk a changed page by WIDGET name, navigation, unsure (speed experiment E2) =="
+# E2 field run: a page change J-REQ-01 walks selected 0 journeys, and a navigation change selected 0,
+# because journeys name widgets and menu captions, not Module.Name. Golden input: a real
+# SHOW PAGES / DESCRIBE PAGE / SHOW CALLERS capture (fixtures/affected-tests/field-*.out).
+cp "$WORK/mxcli.orig" "$P/mxcli"; printf 'not a real model\n' > "$P/Fixture.mpr"; cp "$BASE_PM" "$P/PROJECT.md"
+rm -f "$P/journeys/"*.journey.json "$P/tests/e2e/"*.journey.json
+echo '{"id":"W-1","steps":[{"actions":[{"do":"click","widget":"btnSubmit"}]}]}' > "$P/journeys/walk-edit.journey.json"     # a widget of Request_Edit
+echo '{"id":"W-2","steps":[{"ui":{"ready":".mx-name-dgRequests"}}]}' > "$P/journeys/walk-list.journey.json"                # a widget of Request_List, a CALLER of Request_Edit
+echo '{"id":"W-3","steps":[{"actions":[{"do":"click","widget":"zzNoSuchWidget"}]}]}' > "$P/journeys/walk-none.journey.json"
+echo '{"id":"W-4","steps":[{"actions":[{"do":"nav","item":"Home"}]}]}' > "$P/tests/e2e/menu-only.journey.json"
+printf 'create or modify page Purchasing.Request_Edit (\n  Title: %s\n) {\n};\n' "'x'" > "$WORK/pg.mdl"
+RC=$(run M1 "$WORK/pg.mdl"); [ "$RC" -eq 0 ] && ok "M1 exit 0" || bad "M1 rc=$RC" "$(cat "$WORK/err.M1")"
+has M1 "subject	page	Purchasing.Request_Edit" && has M1 "caller	Purchasing.Request_List	depth 1" && ok "M1 page subject, its page caller measured" || bad "M1 subject/callers" "$(grep -e ^subject -e ^caller "$WORK/out.M1")"
+has M1 "widgets	measured (" && ok "M1 widgets measured" || bad "M1 widgets" "$(grep ^widgets "$WORK/out.M1")"
+has M1 "journey	journeys/walk-edit.journey.json	walks widget btnSubmit" && ok "M1 a journey that clicks the changed page's widget is selected" || bad "M1 walk-edit" "$(grep ^journey "$WORK/out.M1")"
+has M1 "journey	journeys/walk-list.journey.json	walks widget dgRequests" && ok "M1 a journey that uses the CALLING page's widget is selected" || bad "M1 walk-list" "$(grep ^journey "$WORK/out.M1")"
+lacks M1 "walk-none" && lacks M1 "menu-only" && ok "M1 a journey naming neither is not selected" || bad "M1 over-selected" "$(grep ^journey "$WORK/out.M1")"
+has M1 "journeys	unmapped	4 of 4" && ok "M1 the unmapped row still prints" || bad "M1 unmapped" "$(grep ^journeys "$WORK/out.M1")"
+printf 'create or replace navigation Responsive\n  home page Purchasing.Request_List\n  menu (\n    menu item %s page Purchasing.Request_List\n  );\n' "'My requests'" > "$WORK/nav.mdl"
+run M2 "$WORK/nav.mdl" >/dev/null
+[ "$(grep -c '^journey	' "$WORK/out.M2")" = 4 ] && has M2 "navigation change: every journey walks the menu" && [ "$(calls)" = 0 ] \
+  && ok "M2 a navigation change selects all 4 journeys, no mxcli call" || bad "M2 navigation" "$(grep -e ^journey -e ^widgets "$WORK/out.M2")"
+printf 'alter navigation Responsive add menu item %s page Purchasing.Request_List;\n' "'x'" > "$WORK/nav2.mdl"
+run M2b "$WORK/nav2.mdl" >/dev/null
+[ "$(grep -c '^journey	' "$WORK/out.M2b")" = 4 ] && ok "M2b ALTER NAVIGATION too (its page name is not why they are selected)" || bad "M2b" "$(grep ^journey "$WORK/out.M2b")"
+printf 'create or modify layout Purchasing.App_Default (\n  Type: Responsive\n) {\n};\n' > "$WORK/layout.mdl"
+run M2c "$WORK/layout.mdl" >/dev/null
+[ "$(grep -c '^journey	' "$WORK/out.M2c")" = 4 ] && has M2c "layout change" && ok "M2c a layout change selects all journeys" || bad "M2c layout" "$(grep -e ^subject -e ^journey "$WORK/out.M2c")"
+RC=$(STUB_NOPROJ=1 run M3 "$WORK/pg.mdl")
+has M3 "widgets	NOT MEASURED (callers NOT MEASURED" && [ "$(grep -c '^journey	' "$WORK/out.M3")" = 4 ] && has M3 "unsure, so every journey" \
+  && ok "M3 callers cannot be measured: unsure, every journey" || bad "M3 unsure" "$(grep -e ^widgets -e ^journey "$WORK/out.M3")"
+run M4 --no-model "$WORK/pg.mdl" >/dev/null
+[ "$(grep -c '^journey	' "$WORK/out.M4")" = 4 ] && has M4 "widgets	NOT MEASURED (--no-model)" && ok "M4 --no-model: unsure, every journey" || bad "M4" "$(grep -e ^widgets -e ^journey "$WORK/out.M4")"
 echo "== wiring =="
 grep -q 'affected-tests.sh' "$TOOLKIT/bin/lib/install-manifest.sh" && ok "named in install-manifest.sh" || bad "not in install-manifest.sh"
 grep -q 'affected tests: ./bin/affected-tests.sh' "$TOOLKIT/project-bin/exec.sh" && ok "exec.sh points at it" || bad "exec.sh hint missing"

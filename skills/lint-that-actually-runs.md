@@ -133,18 +133,21 @@ the ratchet is the *only* mechanism available. `project-bin/lint-gate.sh` implem
 
 **After upgrading mxcli, re-baseline.** A new mxcli adds built-in rules, so the next exec reports a
 rise that no change of yours caused (v0.28.0 added a built-in CONV020, "Created object never persisted").
-Look at the new findings, then run
-`bin/lint-gate.sh --update-baseline --reason 'mxcli vX built-in rules'`. The baseline records
+Look at the new findings, then the user runs
+`bin/lint-gate.sh --update-baseline --reason 'mxcli vX built-in rules'` in their own terminal and
+types `loosen` (or commits the edited baseline); the agent never runs it. The baseline records
 `mxcli_version`, and `bin/doctor.sh` prints this hint when the installed mxcli differs from it.
 
 **Accepting a rise is a recorded decision, not a reflex.** Three apps built in four days
 re-baselined 61 times, every time by the agent whose script caused the rise; baselines grew
 8 -> 757, 440 -> 677 and 9 -> 187, with security warnings accepted in the same batches as naming
 info. So an update that raises any rule needs `--reason "<why>"` and is appended to
-`.claude/lint-acceptances.tsv` (commit it with the baseline); a rise in a security-tier rule
-(default `SEC*` and `CONV006`, override in `.claude/lint-security-rules.txt`) also needs
-`--approved-in-chat`, set only after the user saw the findings and said yes. A first baseline
-and a ratchet-down need neither.
+`.claude/lint-acceptances.tsv` (commit it with the baseline). Any rise also needs the user to
+type `loosen` at a terminal, so the user runs it in their own window; an agent's call is refused
+with the command to hand over (#348). No terminal (cloud/web session)? You edit the baseline
+file yourself and commit it; the commit is the approval. Security-tier rises (default `SEC*` and `CONV006`, override
+in `.claude/lint-security-rules.txt`) are flagged there. A first baseline and a ratchet-down need
+neither.
 
 **The ratchet remembers one number per rule; the ledger remembers every run.** Every gate run
 appends one row per rule to `.claude/loop/lint-ledger.tsv` (timestamp, verdict, rule, count,

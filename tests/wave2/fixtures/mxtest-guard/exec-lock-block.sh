@@ -1,7 +1,7 @@
 # exec-lock-block.sh — VERBATIM copy of project-bin/exec.sh's lock block (exec_lock_live .. the
-# LOCK_TAKEN check) from PR #324, branch fix/exec-followups @ 79de404. Used by
-# test-shared-lock-takeover.sh until #324 is merged; that fixture prefers the real exec.sh's block
-# once it carries exec_lock_takeover. Do not edit by hand — re-copy.
+# LOCK_TAKEN check) as on master d16f578 (first from PR #324 @ 79de404): the pre-ticket protocol.
+# The OLD code for tests/wave2/bench-lock-race.sh --old (which must reproduce its double holder) and
+# for test-lock-reap.sh's mixed-version case. Do not edit by hand.
 exec_lock_live() {  # $1 = pid from the lock; 0 iff that process is alive and plausibly exec.sh
   [ -n "$1" ] || return 1
   case "$1" in *[!0-9]*) return 1 ;; esac

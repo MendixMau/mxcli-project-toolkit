@@ -105,42 +105,42 @@ case "$OUT" in *"command not found"*) bad "died on command not found" ;; *) ok "
 
 
 echo "-- #304 review: a stale-lock takeover never removes a lock another run took meanwhile"
-# Deterministic replay of the race: the functions are lifted from the subject, and holder_live
-# is wrapped so that, while this run judges the dead holder, a second run completes its own
-# takeover and writes a live lock. The old code then `mv -f`'d that live lock away and took
-# the lock too — two holders. Taking over must re-read and leave a changed lock alone.
-H="$WORK/harness.sh"; L="$WORK/race.lock"
-awk '/^holder_live\(\) \{/ {p=1} /^release\(\) \{/ {p=0} p' "$SUBJECT" > "$H"
-grep -q '^take_lock() {' "$H" && ok "[setup] lifted holder_live..take_lock from the subject" || bad "[setup] could not lift take_lock"
+# Deterministic replay of the race, through the shared lock code test-scratch.sh calls
+# (_common.sh mxtk_lock_take, sourced from beside the subject): mxtk_lock_live is wrapped so that,
+# while this run judges the dead holder, a second run completes its own takeover and writes a live
+# lock. The pre-#304 code then `mv -f`'d that live lock away and took the lock too — two holders.
+# Taking over must re-read and leave a changed lock alone. Reap tickets: test-lock-reap.sh.
+H="$(cd "$(dirname "$SUBJECT")" && pwd)/_common.sh"; L="$WORK/race.lock"
+grep -q '^mxtk_lock_take() {' "$H" && grep -q 'mxtk_lock_take "\$1" "test-scratch.sh"' "$SUBJECT" \
+  && ok "[setup] the subject takes its locks through _common.sh's mxtk_lock_take" || bad "[setup] no shared mxtk_lock_take call in the subject"
 sleep 300 & LIVE=$!; BG="$BG $LIVE"
-OUT="$( L="$L" LIVE="$LIVE" bash -c '
+OUT="$( L="$L" LIVE="$LIVE" PROJECT_ROOT="$P" bash -c '
   . "$1"
-  eval "orig_$(declare -f holder_live)"
-  holder_live() {   # the dead holder is being judged: another run finishes ITS takeover now
+  eval "orig_$(declare -f mxtk_lock_live)"
+  mxtk_lock_live() {   # the dead holder is being judged: another run finishes ITS takeover now
     [ "$1" = 999999 ] && printf "%s %s %s\n" "$LIVE" "$(date +%s)" "test-scratch.sh" > "$L"
     [ "$1" = "$LIVE" ]
   }
   printf "999999 1 test-scratch.sh\n" > "$L"
-  take_lock "$L" "race lock"; echo "rc=$?"
+  mxtk_lock_take "$L" "test-scratch.sh" 8; echo "rc=$?"
 ' _ "$H" 2>&1 )"
 has "the second taker is refused (the live lock survives)" "$OUT" "rc=1"
 [ "$(cut -d' ' -f1 "$L" 2>/dev/null)" = "$LIVE" ] && ok "the lock still names the live holder" || bad "the live holder's lock was replaced: $(cat "$L" 2>/dev/null)"
-[ -e "$L.takeover" ] && bad "takeover marker left behind" || ok "takeover marker cleared"
-echo "-- a takeover marker whose pid is dead (a takeover that died midway) is cleared"
+ls -a "$WORK" | grep -qE '^race\.lock\.(reap|tmp)\.' && bad "reap ticket left behind" || ok "no reap ticket left behind"
+echo "-- an old-style takeover file whose pid is dead (pre-ticket code died midway) is cleared"
 printf '999999 1 test-scratch.sh\n' > "$L"; printf '999998 1\n' > "$L.takeover"
-OUT="$( L="$L" bash -c '. "$1"; holder_live() { return 1; }; take_lock "$L" "race lock"; echo "rc=$?"' _ "$H" 2>&1 )"
-has "taken after clearing the dead marker" "$OUT" "rc=0"
+OUT="$( L="$L" PROJECT_ROOT="$P" bash -c '. "$1"; mxtk_lock_live() { return 1; }; mxtk_lock_take "$L" "test-scratch.sh" 8; echo "rc=$?"' _ "$H" 2>&1 )"
+has "taken past the dead takeover file" "$OUT" "rc=0"
 [ "$(cut -d' ' -f1 "$L" 2>/dev/null)" != 999999 ] && ok "the stale line is gone" || bad "stale line still there"
-echo "-- #324 review: a FRESH empty takeover file (its creator between create and write) is not stale"
-# find -mmin +0 counted a 0-2 s old file as old (GNU; BSD rounds up), so a takeover in progress was
-# treated as dead and two contenders could both take over. +1 = empty for over a minute.
+[ -e "$L.takeover" ] && bad "dead takeover file left behind" || ok "and the dead takeover file is cleared"
+echo "-- #324 review: a FRESH empty takeover file (old code between create and write) is respected"
 printf '999999 1 test-scratch.sh\n' > "$L"; : > "$L.takeover"
-OUT="$( L="$L" bash -c '. "$1"; holder_live() { return 1; }; take_lock "$L" "race lock"; echo "rc=$?"' _ "$H" 2>&1 )"
-has "not taken while a fresh empty takeover file exists" "$OUT" "rc=1"
+OUT="$( L="$L" PROJECT_ROOT="$P" MXTK_LOCK_RETRY_SLEEP=0.05 bash -c '. "$1"; mxtk_lock_live() { return 1; }; mxtk_lock_take "$L" "test-scratch.sh" 8; echo "rc=$?"' _ "$H" 2>&1 )"
+has "not taken while a fresh empty takeover file exists" "$OUT" "rc=2"
 [ -e "$L.takeover" ] && [ ! -s "$L.takeover" ] && ok "the fresh takeover file was left alone" || bad "the fresh takeover file was removed or replaced"
 [ "$(cut -d' ' -f1 "$L" 2>/dev/null)" = 999999 ] && ok "the lock was not touched" || bad "the lock was taken over under a live takeover"
 touch -t 200001010000 "$L.takeover"
-OUT="$( L="$L" bash -c '. "$1"; holder_live() { return 1; }; take_lock "$L" "race lock"; echo "rc=$?"' _ "$H" 2>&1 )"
+OUT="$( L="$L" PROJECT_ROOT="$P" bash -c '. "$1"; mxtk_lock_live() { return 1; }; mxtk_lock_take "$L" "test-scratch.sh" 8; echo "rc=$?"' _ "$H" 2>&1 )"
 has "an empty takeover file over a minute old is stale → taken" "$OUT" "rc=0"
 [ -e "$L.takeover" ] && bad "takeover file left behind" || ok "and no takeover file is left behind"
 kill -KILL "$LIVE" 2>/dev/null; wait "$LIVE" 2>/dev/null

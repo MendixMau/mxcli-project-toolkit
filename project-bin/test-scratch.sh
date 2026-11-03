@@ -77,75 +77,26 @@ if mxtest_left "$MODEL_DIR" "$MODEL_DIR/$MPR_NAME"; then
   exit 3
 fi
 
-# Same liveness rule as exec.sh's lock: alive, not a zombie, and (where ps can say) one of ours.
-holder_live() {
-  [ -n "${1:-}" ] || return 1
-  case "$1" in *[!0-9]*) return 1 ;; esac
-  kill -0 "$1" 2>/dev/null || return 1
-  case "$(sed 's/.*) //' "/proc/$1/stat" 2>/dev/null | cut -d' ' -f1)" in Z) return 1 ;; esac
-  _args="$(ps -o args= -p "$1" 2>/dev/null || true)"
-  case "$_args" in ""|*exec.sh*|*test-scratch.sh*) return 0 ;; esac
-  return 1
-}
-# Taking over a stale lock is serialised through a second O_EXCL file, <lock>.takeover — the SAME
-# file name and protocol as exec.sh's exec_lock_takeover (this script shares .exec.lock with it, so
-# the two must exclude each other; keep the bodies in step). Under it the lock is re-read and
-# removed ONLY if it still holds exactly the stale line judged; nothing else ever removes a lock
-# that is not its own. WHY (independent review of #304): the old takeover here moved the lock
-# aside with `mv -f` — check-then-act — so two runs that judged the same dead holder could both
-# end up holding it. A takeover file left by a holder killed mid-takeover is stale once its pid is
-# dead or it is older than 10 s (an EMPTY one once it is over a minute old: find -mmin +1); it is moved aside, and put
-# back with `ln` (fails if a new one exists — never clobbers) if what was moved is not the one
-# judged stale. The machine-wide port lock uses the same protocol.
-take_over() {  # $1 = lock file, $2 = the stale lock line. 0 iff it was removed (or already gone)
-  local _tk="$1.takeover" _t _tpid _tsince _tstale _now _mine
-  _mine="$$ $(date +%s)"
-  if ! ( set -o noclobber; printf '%s\n' "$_mine" > "$_tk" ) 2>/dev/null; then
-    _t="$(head -1 "$_tk" 2>/dev/null || true)"; _tpid="${_t%% *}"; _tsince="${_t#* }"
-    case "$_tsince" in ''|*[!0-9]*) _tsince=0 ;; esac
-    _tstale=0
-    if [ -n "$_t" ]; then
-      { ! kill -0 "$_tpid" 2>/dev/null || [ $(( $(date +%s) - _tsince )) -gt 10 ]; } && _tstale=1
-    elif [ -n "$(find "$_tk" -mmin +1 2>/dev/null)" ]; then
-      # -mmin +1, not +0: GNU find counts a 0-2 s old file as "+0" (and BSD rounds up), so +0 made a
-      # FRESH empty takeover file — its creator between the create and the write — stale at once.
-      _tstale=1   # empty for over a minute: its creator died between the create and the write
-    fi
-    if [ "$_tstale" = 1 ]; then
-      if mv "$_tk" "$_tk.stale.$$" 2>/dev/null; then
-        # Remove what was moved ONLY if it is what was judged stale; anything else is someone's
-        # live takeover file: put it back (ln never clobbers), and if that fails leave it be.
-        if [ "$(head -1 "$_tk.stale.$$" 2>/dev/null || true)" = "$_t" ]; then rm -f "$_tk.stale.$$"
-        else ln "$_tk.stale.$$" "$_tk" 2>/dev/null && rm -f "$_tk.stale.$$"; fi
-      fi
-    fi
-    return 1
-  fi
-  _now="$(head -1 "$1" 2>/dev/null || true)"
-  [ "$_now" = "$2" ] && rm -f "$1"
-  [ "$(head -1 "$_tk" 2>/dev/null || true)" = "$_mine" ] && rm -f "$_tk"   # only our own takeover file
-  return 0
-}
+# Both locks are _common.sh's mxtk_lock_take / mxtk_lock_release — the same code exec.sh uses on
+# .exec.lock, so the two scripts exclude each other by construction. A dead holder is reaped
+# under a ticket, never by age (see the block header in _common.sh).
+command -v mxtk_lock_take >/dev/null 2>&1 || {
+  echo "test-scratch: bin/_common.sh is older than this script (no mxtk_lock_take)." >&2
+  echo "  → <toolkit>/bin/sync-project.sh $PROJECT_ROOT --only-bin _common.sh --upgrade-bin _common.sh   (installs just that file; backs up a hand-edited copy first)" >&2; exit 2; }
 take_lock() {  # $1 = lock file, $2 = what it guards (for messages). 0 = taken, 1 = live holder
-  local f="$1" held hpid i
-  for i in 1 2 3 4 5 6 7 8; do
-    if ( set -o noclobber; printf '%s %s %s\n' "$$" "$(date +%s)" "test-scratch.sh" > "$f" ) 2>/dev/null; then return 0; fi
-    held="$(head -1 "$f" 2>/dev/null || true)"
-    if [ -z "$held" ] && [ "$i" -lt 3 ]; then sleep 1; continue; fi
-    hpid="${held%% *}"
-    if holder_live "$hpid"; then
-      echo "✗ test-scratch: $2 is held by PID $hpid ($(printf '%s' "$held" | cut -d' ' -f3-)) — wait for it to finish." >&2
-      return 1
-    fi
-    if take_over "$f" "$held"; then
-      echo "  (stale lock on $2 from PID ${hpid:-?}, not running — taking it over)"
-    else
-      sleep 1   # another run is taking the same stale lock over; see who won
-    fi
-  done
-  echo "✗ test-scratch: could not take the lock on $2 after 8 attempts." >&2; return 1
+  local rc=0
+  mxtk_lock_take "$1" "test-scratch.sh" 8 || rc=$?
+  case "$rc" in
+    0) [ -z "$MXTK_LOCK_REAPED" ] || echo "  (stale lock on $2 from PID ${MXTK_LOCK_REAPED%% *}, not running — taking it over)"
+       return 0 ;;
+    1) mxtk_lock_fields "$MXTK_LOCK_HELD"
+       echo "✗ test-scratch: $2 is held by PID $MXTK_LOCK_HPID ($MXTK_LOCK_HLABEL) — wait for it to finish." >&2
+       return 1 ;;
+  esac
+  echo "✗ test-scratch: could not take the lock on $2 after 8 attempts." >&2
+  mxtk_lock_blocked_text >&2; return 1
 }
-release() { local f="$1" own; own="$(head -1 "$f" 2>/dev/null || true)"; [ "${own%% *}" = "$$" ] && rm -f "$f"; return 0; }
+release() { mxtk_lock_release "$1"; }
 
 EXEC_LOCK="$PROJECT_ROOT/.mpr-snapshots/.exec.lock"
 PORT_LOCK="${TMPDIR:-/tmp}/mxtk-test-ports-$(printf '%s' "$PORTS" | tr -c '0-9' '-').lock"

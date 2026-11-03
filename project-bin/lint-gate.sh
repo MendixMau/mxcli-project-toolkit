@@ -14,8 +14,8 @@
 # Usage:
 #   bin/lint-gate.sh                    # check against baseline; exit 1 if any rule rose
 #   bin/lint-gate.sh --update-baseline  # accept current counts as the new baseline
-#       --reason "<why>"                # REQUIRED when the update raises any rule's count
-#       --approved-in-chat              # ALSO required when a security-tier rule rises
+#       --reason "<why>"                # REQUIRED when the update raises any rule's count;
+#                                       # a raise also asks the USER to type `loosen` at a terminal
 #   bin/lint-gate.sh --full             # ignore the vendor exclusion (rarely useful)
 #
 # Exit codes: 0 clean or unchanged · 1 a rule increased, or BLIND (a rule inspected nothing,
@@ -61,9 +61,21 @@
 # — commit it with the baseline. A first baseline (taken with the user right after the first
 # scaffold step, #496) and a pure ratchet-down need no reason.
 # A rise in a security-tier rule (default SEC* and CONV006; override, one id or glob per line,
-# in .claude/lint-security-rules.txt) also needs --approved-in-chat: a claim on the record that
-# the user was shown the findings and said yes, the same contract as gate-check --ack-protocol.
-# Never set it on your own judgement.
+# in .claude/lint-security-rules.txt) is flagged in the prompt and the log.
+#
+# LOOSENING IS THE USER'S OWN COMMAND (#348). --approved-in-chat was a flag the agent whose
+# script caused the rise could type itself. Now any update that raises a count also asks for
+# `loosen` typed at a terminal: the user runs the command in their own terminal window. An
+# agent's tool call has no terminal on stdin (nor does Claude Code's `!` prefix), so it is
+# refused with the command to hand the user. A baseline deleted from the working tree is
+# compared with the one git HEAD holds, so rm + update is a rise too. Tightening, a first
+# baseline and a check run are unchanged. --approved-in-chat still parses and is ignored.
+# The prompt times out after 300s (MXTK_LOOSEN_TIMEOUT) and refuses: a pty-backed harness has a
+# terminal nobody answers. No terminal at all (cloud/web session): the user edits the baseline
+# file and commits it — the commit is the approval. The reference is always the baseline file as
+# it stands (HEAD's only when it was deleted), so a committed looser baseline is simply the bar:
+# no prompt (guard rule 6, evidence the guard did not create). Not covered: a pty wrapper faking
+# a terminal, or an uncommitted hand edit of the baseline file (git shows it).
 #
 # PRODUCES .claude/loop/lint-ledger.tsv (append-only, one row per rule per run; read with
 # project-bin/lint-trend.sh) and .claude/loop/lint-last.json on every run that actually gets as far as computing
@@ -157,10 +169,10 @@ BASELINE="$ROOT/.claude/lint-baseline.json"
 OUT="${TMPDIR:-/tmp}/lint-gate-$$.json"
 trap 'rm -f "$OUT"' EXIT
 
+unset _MXTK_LOOSEN_OK  # set below only after the user typed `loosen` (#348); never inherited
 UPDATE=0
 FULL=0
 REASON=""
-APPROVED=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --update-baseline) UPDATE=1 ;;
@@ -168,8 +180,8 @@ while [ $# -gt 0 ]; do
     --reason) [ $# -ge 2 ] || { echo "lint-gate: --reason needs a value" >&2; exit 2; }
               REASON="$2"; shift ;;
     --reason=*) REASON="${1#--reason=}" ;;
-    --approved-in-chat) APPROVED=1 ;;
-    -h|--help) sed -n '2,74p' "$0"; exit 0 ;;
+    --approved-in-chat) ;;  # ignored since #348: a flag the agent can type is no approval
+    -h|--help) sed -n '2,83p' "$0"; exit 0 ;;
     *) echo "lint-gate: unknown argument '$1'" >&2; exit 2 ;;
   esac
   shift
@@ -441,9 +453,12 @@ else
 fi
 [ -s "$OUT" ] || { echo "lint-gate: lint produced no output" >&2; exit 2; }
 
-BASELINE="$BASELINE" OUT="$OUT" UPDATE="$UPDATE" REASON="$REASON" APPROVED="$APPROVED" \
+# Exit 10 = "this update loosens; ask the user" (#348). The question is asked in bash below, not in
+# Python: native Windows Python under Git Bash's mintty sees a pipe where bash sees the terminal.
+_lint_py() {
+BASELINE="$BASELINE" OUT="$OUT" UPDATE="$UPDATE" REASON="$REASON" \
   SECURITY_FILE="$SECURITY_FILE" ACCEPT_LOG="$ACCEPT_LOG" MXCLI_VER="$MXCLI_VER" "$PY" - <<'PY'
-import json, os, sys, collections, datetime, fnmatch
+import json, os, sys, collections, datetime, fnmatch, subprocess
 
 out_path  = os.environ["OUT"]
 base_path = os.environ["BASELINE"]
@@ -559,7 +574,6 @@ new_by_rule = {}  # rule -> every new-or-changed finding; the FAIL view caps it,
 if update:
     # Accepting a rise is a decision; record it. See the header ("ACCEPTING DEBT ...").
     reason   = os.environ.get("REASON", "").strip()
-    approved = os.environ.get("APPROVED") == "1"
     sec_pats = ["SEC*", "CONV006"]
     sec_file = os.environ.get("SECURITY_FILE", "")
     if sec_file and os.path.exists(sec_file):
@@ -571,6 +585,13 @@ if update:
         try:
             old_base = json.load(open(base_path)).get("counts", {})
         except ValueError:
+            old_base = None
+    else:  # deleted from the tree: the committed baseline is still the bar (#348)
+        try:
+            old_base = json.loads(subprocess.run(["git", "show", "HEAD:./" + os.path.relpath(base_path).replace(os.sep, "/")],
+                capture_output=True, text=True).stdout or "null")
+            old_base = old_base.get("counts", {}) if isinstance(old_base, dict) else None
+        except (OSError, ValueError):
             old_base = None
     raised = []
     if old_base is not None:
@@ -584,15 +605,15 @@ if update:
         print("           bin/lint-gate.sh --update-baseline --reason \"<why each rise is acceptable>\"",
               file=sys.stderr)
         sys.exit(2)
-    if sec_raised and not approved:
-        print("lint-gate: REFUSED — security-tier rule(s) rose: %s" % ", ".join(
-              "%s %d->%d" % x for x in sec_raised), file=sys.stderr)
-        print("           Show the user these findings in chat. Only after they say yes, re-run with", file=sys.stderr)
-        print("           --approved-in-chat (a claim on the record). Otherwise fix the grant.", file=sys.stderr)
-        for v in [x for x in viol if x["ruleId"] in {r for r, _, _ in sec_raised}][:10]:
-            print("             %s | %s | %s" % (v["ruleId"], v.get("document") or v.get("module") or "",
-                  (v.get("message") or "")[:110]), file=sys.stderr)
-        sys.exit(2)
+    if raised and os.environ.get("_MXTK_LOOSEN_OK") != "1":  # the user's keystrokes, never a flag (#348)
+        print("lint-gate: this update LOOSENS the baseline: %s" % ", ".join("%s %d->%d" % x for x in raised),
+              file=sys.stderr)
+        if sec_raised:
+            print("           security-tier: %s" % ", ".join(r for r, _, _ in sec_raised), file=sys.stderr)
+            for v in [x for x in viol if x["ruleId"] in {r for r, _, _ in sec_raised}][:10]:
+                print("             %s | %s | %s" % (v["ruleId"], v.get("document") or v.get("module") or "",
+                      (v.get("message") or "")[:110]), file=sys.stderr)
+        sys.exit(10)  # bash asks at the terminal, or refuses
     if raised:
         log = os.environ.get("ACCEPT_LOG", "")
         try:
@@ -728,7 +749,27 @@ for r, was, now in rose:
 write_last("FAIL", viol, counts)
 sys.exit(1)
 PY
-_RC=$?
+}
+_lint_py; _RC=$?
+_lint_refuse() {  # $1 = why there is no answer (no terminal / no answer in time)
+  echo "lint-gate: REFUSED — loosening a baseline is the user's call, and $1." >&2
+  echo "           User: run this yourself in your own terminal window (not through the agent," >&2
+  echo "           not via Claude Code's ! prefix), then type \`loosen\` when asked:" >&2
+  echo "             bin/lint-gate.sh --update-baseline --reason \"$REASON\"" >&2
+  echo "           No terminal (cloud/web session)? You edit the baseline file yourself and commit it;" >&2
+  echo "           the commit is the approval (.claude/lint-baseline.json, raise the counts named above)." >&2
+  echo "           Or fix the script so the counts do not rise. Tightening never asks." >&2
+  exit 2
+}
+if [ "$_RC" -eq 10 ]; then
+  [ -t 0 ] || _lint_refuse "there is no terminal here"
+  printf "Type 'loosen' to accept these rises (anything else cancels): " >&2
+  # -t 300: a pty-backed agent harness (Cursor / VS Code terminal) has a terminal nobody answers.
+  read -r -t "${MXTK_LOOSEN_TIMEOUT:-300}" _ans || { [ $? -gt 128 ] && _lint_refuse "nobody answered within ${MXTK_LOOSEN_TIMEOUT:-300}s"; _ans=""; }
+  [ "$_ans" = loosen ] || { echo "lint-gate: not accepted; baseline unchanged." >&2; exit 2; }
+  _MXTK_LOOSEN_OK=1; export _MXTK_LOOSEN_OK
+  _lint_py; _RC=$?
+fi
 
 # Receipt project-edited bundled rules (#524). After a baseline is written, every
 # seeded .claude/lint-rules/*.star (a name in STOCK-HASHES-BUNDLED) that has no receipt row and is

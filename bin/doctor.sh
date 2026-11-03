@@ -2283,7 +2283,9 @@ if [ -n "$PROJECT_DIR" ] && [ -f "$_lb" ] && [ -n "$_lb_now" ]; then
       note "  the next bin/lint-gate.sh --update-baseline records it; nothing to do until lint actually rises."
     else
       note "lint baseline was taken with mxcli $_lb_was; this is $_lb_now. New built-in rules can raise lint."
-      note "  after reviewing the new findings: bin/lint-gate.sh --update-baseline --reason \"mxcli $_lb_now built-in rules\""
+      note "  after reviewing the new findings, the user runs in their own terminal (and types loosen):"
+      note "    bin/lint-gate.sh --update-baseline --reason \"mxcli $_lb_now built-in rules\""
+      note "  no terminal (cloud/web session): the user edits the baseline and commits it; the commit is the approval."
     fi
   fi
 fi

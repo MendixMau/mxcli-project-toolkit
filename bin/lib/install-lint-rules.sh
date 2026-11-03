@@ -331,8 +331,9 @@ _mxtk_lint_migrate_renames() {
           echo "   current template replaces it."
           if grep -q '^PROJECT_MODULES = ()' "$_rn_f"; then
             echo "   It was the old template with PROJECT_MODULES empty, so it inspected nothing. The new one"
-            echo "   defaults to \"*\" and will report: review its findings, then"
-            echo "   bin/lint-gate.sh --update-baseline --reason \"$_rn_nid now configured\""
+            echo "   defaults to \"*\" and will report: review its findings, then the user runs, in their own"
+            echo "   terminal, bin/lint-gate.sh --update-baseline --reason \"$_rn_nid now configured\""
+            echo "   and types loosen (or commits the edited baseline); an agent's run is refused."
           fi
           rm -f "$_rn_f"
         fi
@@ -446,7 +447,8 @@ RNEOF
             if [ "${_rn_a:-0}" -gt 0 ]; then
               echo "NOTE: .claude/lint-baseline.json holds $_rn_oid as a count only ($_rn_a; written before findings were"
               echo "      recorded), so the toolkit rule's findings cannot be told from mxcli's built-in $_rn_oid. Not"
-              echo "      changed. Re-baseline: bin/lint-gate.sh --update-baseline --reason \"$_rn_oid renamed $_rn_nid\""
+              echo "      changed. Re-baseline (the user, in their own terminal, then types loosen; or commit the"
+              echo "      edited baseline): bin/lint-gate.sh --update-baseline --reason \"$_rn_oid renamed $_rn_nid\""
               echo "      (Said once.)"
               [ "$_rn_dry" -eq 1 ] || echo "$_rn_oid counts-only" >> "$_rn_notes"
             fi ;;

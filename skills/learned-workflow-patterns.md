@@ -907,6 +907,19 @@ away — nothing is decided by the branch. This is easy to miss because it looks
 identical to a real decision point; only reading the outcome *bodies*, not the outcome
 names, reveals it's dead.
 
+**Make Void the default, not the fix.** The smell is not rare. It is what an agent writes when
+nothing stops it: microflow habit says "return a success flag", so the callee is declared
+`returns Boolean` and ends in `return true`. A three-app field project (Mendix 11.13–11.15,
+mxcli v0.28, 2026-11-03) counted **91 both-empty splits in 5 workflows** (33, 5, 38, 4
+and 11), all on a model with mx check 0 errors and green journeys. The project owner had
+flagged it repeatedly in review. Each time, the next generation round brought it back. The
+cleanup changed every such callee to return nothing. After it, the same audit counted 0
+both-empty splits, and happy 30/30, unhappy 27/27 and a 21/21 card gate still passed
+(`contrib/inbox/2026-11-04-wf-empty-outcomes-and-subworkflow-field-report.md`). Splits whose
+other branch does real work were kept on purpose. A count of `true -> { }` alone is therefore
+not the metric: the same files still hold 13 one-sided splits, and all 13 are correct.
+The authoring-time rule is preflight STOP row 34.
+
 Two legitimate fixes — pick based on whether the boolean carries real business consequence:
 
 1. **The result genuinely doesn't affect control flow** (a denormalization/stamping helper

@@ -32,13 +32,14 @@
 # `file-bugs.sh --file` and `--all` (bin/install-claude-permissions.sh): a human runs posting with
 # `!bin/file-bugs.sh --file PBUG-NN`. An agent uses the dry run, --links or --json and hands over --
 # UNLESS the person opted the project in with a PROJECT.md line `Bug filing: auto` (exactly that,
-# bold/backtick/bullet variants OK, not inside an HTML comment). Then `--auto` posts every open row
+# bold/backtick/bullet variants OK, not inside an HTML comment or code fence, and present in the
+# committed HEAD too -- the run prints the commit that set it; no git repo = not opted in). Then `--auto` posts every open row
 # whose redacted title and body pass the scan, with the person's own `gh` login (gh, else gh.exe,
 # else $MXTK_GH; `gh auth status` must pass), no tty and no y/N: duplicate search first (a row whose
 # exact title is already an issue gets that URL recorded instead of a second issue), label
 # `auto-filed` when the repo has it or the user may create it (else none), status=filed + issue_url
 # written back. The deny list stays mandatory; a row that fails the scan is reported, never posted.
-# No gh, or not signed in: it prints the --links and exits 0. Without the opt-in line, --auto is a
+# --auto never takes --to and never re-posts a filed row. No gh, or not signed in: it prints the --links and exits 0. Without the opt-in line, --auto is a
 # dry run. The shipped permissions deny --file/--all but not --auto (the opt-in line is the gate).
 # --log FILE on --add stores the last --log-lines (40) lines, redacted; a log that still fails the
 # scan is not stored, and a stored log that fails at posting time is left out of the issue. The id is project-local

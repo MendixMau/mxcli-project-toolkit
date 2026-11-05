@@ -383,7 +383,10 @@ cat > "$PA/docs/bugs.jsonl" <<'ROWS'
 ROWS
 cp "$PA/docs/bugs.jsonl" "$W/pa.before"
 arun() { "$PY" "$W/ptyrun.py" notty "$SUBJ" --project "$PA" --auto "$@"; }
-reg() { printf '# PROJECT.md\n\n%s\n' "$1" > "$PA/PROJECT.md"; }
+git -C "$PA" init -q
+# reg LINE [nocommit]: write PROJECT.md and commit it (the opt-in must be in HEAD), unless nocommit
+reg() { printf '# PROJECT.md\n\n%s\n' "$1" > "$PA/PROJECT.md"; [ -n "${2:-}" ] && return 0
+  git -C "$PA" add PROJECT.md && git -C "$PA" -c user.name=t -c user.email=t@t.invalid commit -qm "register" >/dev/null 2>&1 || true; }
 : > "$GHLOG"; reg 'Exec approval: auto'
 OUT="$(arun 2>&1)"; RC=$?
 chk "no opt-in, no tty: --auto posts nothing, says why, exits 0" '[ $RC = 0 ] && ! grep -q "issue create" "$GHLOG" && echo "$OUT" | grep -q "no line .Bug filing: auto." && cmp -s "$PA/docs/bugs.jsonl" "$W/pa.before"'
@@ -399,6 +402,18 @@ chk "opted in: posted body is redacted, carries the footer and the related #77" 
 chk "opted in: status=filed and issue_url written back" 'grep "\"PBUG-01\"" "$PA/docs/bugs.jsonl" | grep -q "\"status\": \"filed\".*MendixMau/mxcli-project-toolkit/issues/4242"'
 chk "opted in: the scan-failing row is reported, never posted, stays open" 'echo "$OUT" | grep -q "WARNING: redaction left suspicious content" && ! grep -qi "opaque\|A8f3" "$GHLOG" && grep "\"PBUG-02\"" "$PA/docs/bugs.jsonl" | grep -q "\"status\":\"open\""'
 chk "opted in: summary line counts filed and refused" 'echo "$OUT" | grep -q "file-bugs --auto: 1 filed, 1 refused"'
+chk "opted in: the run names the commit that opted in" 'echo "$OUT" | grep -q "opted in by commit $(git -C "$PA" log -1 --format=%h) "'
+: > "$GHLOG"; OUT="$(arun --to mxcli 2>&1)"; RC=$?
+chk "--auto --to is refused: a filed row is never re-posted to the other repo" '[ $RC -ne 0 ] && echo "$OUT" | grep -q "cannot be combined" && ! grep -q "issue create" "$GHLOG"'
+: > "$GHLOG"; arun >/dev/null 2>&1
+chk "--auto never re-posts a filed row" '! grep "issue create" "$GHLOG" | grep -q "Stage 0 gate"'
+cp "$W/pa.before" "$PA/docs/bugs.jsonl"; : > "$GHLOG"; reg "$(printf 'Example:\n```\nBug filing: auto\n```')"; arun >/dev/null 2>&1
+chk "a Bug filing: auto line inside a code fence does not opt in" '! grep -q "issue create" "$GHLOG"'
+: > "$GHLOG"; reg 'Exec approval: auto'; reg 'Bug filing: auto' nocommit; OUT="$(arun 2>&1)"
+chk "an uncommitted opt-in line does not opt in, and says so" '! grep -q "issue create" "$GHLOG" && echo "$OUT" | grep -q "not committed yet"'
+mv "$PA/.git" "$W/pa.git"; : > "$GHLOG"; OUT="$(arun 2>&1)"
+chk "no git repo: not opted in, dry run" '! grep -q "issue create" "$GHLOG" && echo "$OUT" | grep -q "not in a git commit"'
+mv "$W/pa.git" "$PA/.git"; reg '**Bug filing:** auto'; cp "$W/pa.before" "$PA/docs/bugs.jsonl"
 chk "no label exists and the user may not create one: no --label, no label create" '! grep -q "label=\|label create" "$GHLOG"'
 cp "$W/pa.before" "$PA/docs/bugs.jsonl"; : > "$GHLOG"
 GH_LABELS='[{"name":"auto-filed"}]' arun >/dev/null 2>&1

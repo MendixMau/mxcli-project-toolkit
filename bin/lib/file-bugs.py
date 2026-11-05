@@ -655,14 +655,32 @@ def gh_create(repo, title, body, label=None):
             pass
 
 
+def optin_in(txt):
+    """RE_OPTIN outside HTML comments and fenced code blocks (``` or ~~~): a quoted example or the
+    commented template line is not the person's decision."""
+    txt = re.sub(r"(?s)<!--.*?(?:-->|$)", "", txt)
+    txt = re.sub(r"(?ms)^[ \t]*(`{3,}|~{3,}).*?(?:^[ \t]*\1[ \t]*$|\Z)", "", txt)
+    return bool(RE_OPTIN.search(txt.replace("*", "").replace("`", "")))
+
+
 def opted_in(project):
-    """True when <project>/PROJECT.md carries the `Bug filing: auto` line (see RE_OPTIN)."""
+    """(True, "<sha> <date>") when PROJECT.md carries `Bug filing: auto` in the working copy AND in
+    the committed HEAD (git show HEAD:./PROJECT.md), with the commit that last changed that line.
+    An uncommitted line, or no git repo, is (False, why): an agent can edit a file, a commit is a
+    visible, attributable record."""
     try:
         txt = open(os.path.join(project, "PROJECT.md"), errors="replace").read()
     except OSError:
-        return False
-    txt = re.sub(r"(?s)<!--.*?(?:-->|$)", "", txt).replace("*", "").replace("`", "")
-    return bool(RE_OPTIN.search(txt))
+        return False, "there is no PROJECT.md"
+    if not optin_in(txt):
+        return False, "PROJECT.md has no line `Bug filing: auto`"
+    head = sh(["git", "-C", project, "show", "HEAD:./PROJECT.md"])
+    if head.returncode != 0:
+        return False, "PROJECT.md is not in a git commit here (no repo, or never committed)"
+    if not optin_in(head.stdout):
+        return False, "the `Bug filing: auto` line is not committed yet (commit PROJECT.md to opt in)"
+    lg = sh(["git", "-C", project, "log", "-1", "-i", "-G", "bug filing", "--format=%h %ad", "--date=short", "--", "PROJECT.md"])
+    return True, (lg.stdout.strip() or "unknown commit")
 
 
 def gh_ready():
@@ -743,8 +761,9 @@ def main():
     a = ap.parse_args()
     if a.log and not a.add:
         sys.exit("file-bugs: --log goes with --add")
-    if a.auto and (a.all or a.links or a.json or a.add):
-        sys.exit("file-bugs: --auto cannot be combined with --all, --links, --json or --add")
+    if a.auto and (a.all or a.links or a.json or a.add or a.to):
+        sys.exit("file-bugs: --auto cannot be combined with --all, --links, --json, --add or --to "
+                 "(a second submission to the other repo is a human's call)")
     project = os.path.abspath(a.project)
     path = os.path.join(project, "docs", "bugs.jsonl")
     if a.add:
@@ -764,12 +783,19 @@ def main():
             sys.exit("file-bugs: %s is not in %s" % (w, path))
         if not any(sid(d) == w for _, d in todo):
             sys.stderr.write("file-bugs: %s is not open, skipped\n" % w)
-    auto_off = a.auto and not opted_in(project)
-    if auto_off:
-        print("NOTE: --auto is off for this project: PROJECT.md has no line `Bug filing: auto`, so this is a dry run and "
-              "nothing is posted. Only the person decides that line; until then a human files with "
-              "`!bin/file-bugs.sh --file PBUG-NN`.\n")
-        a.auto = False
+    auto_off = False
+    if a.auto:
+        ok, info = opted_in(project)
+        auto_off = not ok
+        if ok:
+            print("Bug filing: auto -- opted in by commit %s (PROJECT.md)\n" % info)
+            # --to is refused above; never re-post a row that is not open
+            todo = [(i, d) for i, d in todo if d.get("status", "open") == "open"]
+        else:
+            print("NOTE: --auto is off for this project: %s, so this is a dry run and nothing is posted. Only the "
+                  "person decides that line, in a commit; until then a human files with "
+                  "`!bin/file-bugs.sh --file PBUG-NN`.\n" % info)
+            a.auto = False
     posting = bool(want or a.all or a.auto) and not (a.links or a.json or auto_off)
     tty = None
     r = Redactor(project, a.name)

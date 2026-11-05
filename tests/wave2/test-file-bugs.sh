@@ -473,6 +473,7 @@ chk "a stage query stays quiet about it" '! "$TOOLKIT/bin/gate-check.sh" "$GC" 0
 printf '%s\n' '{"id":"PBUG-01","status":"filed"}' > "$GC/docs/bugs.jsonl"
 chk "nothing open: no line" '! "$TOOLKIT/bin/gate-check.sh" --closeout "$GC" 0 2>&1 | grep -q "logged but not filed"'
 
+FENCE3='```'
 echo "Q. toolkit denylist (#645), code identifiers and toolkit version (#646)"
 printf '# scaffold-time registrations\n\\bFrobnozzle\\b\n' > "$W/tk-deny"
 G="$(MXTK_LEAKGUARD_DENYFILE="$W/tk-deny" P2DENY='Snarfle\b' bodyof 'Frobnozzle broke and Snarfle too' 'Frobnozzle crash')"
@@ -497,6 +498,15 @@ G="$(GIT_CONFIG_GLOBAL="$W/gitconfig-claude" bodyof 'Claude said so in CLAUDE.md
 chk "#646 CLAUDE.md survives a git user called Claude; the name in prose does not" 'echo "$G" | grep -qF "in CLAUDE.md and PROJECT.md" && echo "$G" | grep -qF "<user> said so"'
 G="$(bodyof 'calls zonkco.com(x) and intranet.zonkco.org(y) and build-srv-01.corp.zonkco(z) and glorpley.init(w)')"
 chk "#646 safety: a hostname before ( is still a host, a deny name before ( is still denied" '! echo "$G" | grep -qi "zonkco\|glorpley\|build-srv"'
+G="$(bodyof 'calls acme.sap(a) acme.prd(b) intranet.acme(c) acme.orders.service(d) erp.acme.dmz(e) a.b.acmeerp(f) end')"
+chk "#646 review: unlisted first labels before ( stay hosts (acme.sap, acme.prd, intranet.acme, acme.orders.service, erp.acme.dmz, a.b.acmeerp)" '! echo "$G" | grep -qi "acme" && [ "$(echo "$G" | grep -o "<host>(" | wc -l | tr -d " ")" = 6 ]'
+G="$(bodyof "$(printf 'prose obj.method(x) here\n%s\nobj.method(y)\n%s\nand org.springframework.web.bind(z)' "$FENCE3" "$FENCE3")")"
+chk "#646 review: obj.method( is kept inside a code fence only" 'echo "$G" | grep -qF "<host>(x)" && echo "$G" | grep -qF "obj.method(y)"'
+chk "#646 review: a public package org (springframework) is kept" 'echo "$G" | grep -qF "org.springframework.web.bind"'
+G="$(bodyof "$(printf '%s\nacme.sap(q) zonkco.com(r)\n%s' "$FENCE3" "$FENCE3")")"
+chk "#646 review: inside a fence a common TLD before ( is still a host" 'echo "$G" | grep -qF "<host>(r)"'
+G="$(MXTK_LEAKGUARD_DENYFILE="$W/tk-deny-bad" bodyof 'x')"
+chk "#645 review: the invalid-toolkit-line refusal says init-project.sh appends to that file" 'grep -q "init-project.sh appends" "$W/p2.err"'
 G="$(bodyof x t '{"mxcli":"v0.27.0"}')"
 chk "#646 no toolkit version in the row: the toolkit clone's git describe is used" 'echo "$G" | grep -qE "^\*\*Versions:\*\* mxcli v0.27.0, toolkit ([0-9a-f]{7,12}|v?[0-9][0-9.]*(-[0-9]+-g[0-9a-f]{7,12})?)( \(at filing\))?$"'
 G="$(P2PM='Toolkit commit: 4416da2efa4f9f3fef8016872bbebd7d126437a7' bodyof x t '{"mxcli":"v0.27.0"}')"

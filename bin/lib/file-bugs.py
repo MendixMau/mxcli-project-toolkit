@@ -72,15 +72,23 @@ RE_BARE = re.compile(r"(?<![\w.@/\\-])(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])
                      r"(?:/[^\s)>\]\"',;]*[^\s)>\]\"',;.])?")
 # Dotted names that are code, not hosts (#646). Only these shapes, each kept only when no deny
 # pattern matches it (deny and name matching still run over the kept text afterwards):
-#   obj.method( / os.path.join(  2-3 identifier labels directly followed by "(", last label not a
-#                                common TLD (zonkco.com( and intranet.zonkco.org( stay hosts)
+#   os.path.join( / path.join(   2-3 identifier labels directly followed by "(" whose FIRST label is a
+#                                known runtime object or module (CALL_ROOTS); acme.sap( or
+#                                erp.acme.dmz( stay hosts, since an unlisted first label may be a client
+#   obj.method( in a ``` fence   2 labels, first a single lowercase identifier, last not a common TLD
 #   org.<org>.common.service.lib a reversed-domain package of 3+ lowercase identifier labels: the
-#                                organisation label (2nd) is replaced, the rest of the shape kept
+#                                organisation label (2nd) is replaced unless it is a public one
+#                                (PKG_PUBLIC_ORGS), the rest of the shape kept
 #   java.util.concurrent         a JDK/platform package root: kept whole
 RE_CALL = re.compile(r"^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*){1,2}$")
 RE_PKG = re.compile(r"^[a-z_][a-z0-9_]*(?:\.[a-z_][a-z0-9_]*){2,}$")
 PKG_ORG_ROOTS = set("com org net io nl de be fr uk ch at dk se no fi es it eu edu gov".split())
 PKG_PLATFORM_ROOTS = set("java javax jakarta android androidx kotlin kotlinx scala jdk sun".split())
+CALL_ROOTS = set("""os fs path json JSON Math Object Array String Number Boolean Promise Date RegExp Buffer console
+process require module exports child_process util crypto window document sys re shutil subprocess pathlib glob
+System Arrays Collections List Map Set Optional Objects Files Paths Path Integer Long Thread java javax jakarta
+this self super""".split())
+PKG_PUBLIC_ORGS = set("springframework apache junit slf4j mendix google fasterxml hibernate eclipse jetbrains".split())
 CALL_TLD_NOT = set("com org net io dev app co uk de nl be fr eu ch at us info biz cloud local lan corp internal intra "
                    "int edu gov mil".split())
 _SEG = r"[^\\/\s\"',;)]+(?: [\w.-]+){0,2}"
@@ -237,13 +245,18 @@ def code_form(m, deny):
     if any(rx.search(s) for rx in deny):
         return None
     labels = s.split(".")
-    if RE_CALL.match(s) and txt[m.end():m.end() + 1] == "(" and labels[-1].lower() not in CALL_TLD_NOT:
-        return s
+    if RE_CALL.match(s) and txt[m.end():m.end() + 1] == "(":
+        if labels[0] in CALL_ROOTS:
+            return s
+        in_fence = txt.count(FENCE, 0, m.start()) % 2 == 1
+        if (in_fence and len(labels) == 2 and re.match(r"^[a-z_][a-z0-9_]*$", labels[0])
+                and labels[-1].lower() not in CALL_TLD_NOT):
+            return s
     if RE_PKG.match(s):
         if labels[0] in PKG_PLATFORM_ROOTS:
             return s
         if labels[0] in PKG_ORG_ROOTS:
-            return ".".join([labels[0], "<org>"] + labels[2:])
+            return ".".join([labels[0], labels[1] if labels[1] in PKG_PUBLIC_ORGS else "<org>"] + labels[2:])
     return None
 
 
@@ -302,7 +315,9 @@ class Redactor:
             for ln in open(f, errors="replace"):
                 ln = ln.strip()
                 if ln and not ln.startswith("#"):
-                    add(norm(ln), f)
+                    add(norm(ln), f if f != tk else
+                        "%s (the toolkit clone's denylist: bin/init-project.sh appends each new project's name to "
+                        "it; fix or remove that line there)" % f)
         return pats
 
     def _generic(self, w):

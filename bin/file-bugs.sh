@@ -20,8 +20,12 @@
 # the two repos, project names (.mpr, module, entity, attribute, page, microflow from
 # PROJECT.md and mdlsource/, matched inside identifiers and across a line break), server names
 # from the project's config files, and the deny list ($LEAKGUARD_DENY as a regex like
-# check-no-client-data.sh, plus <project>/.leakguard-deny). The versions line is built from
-# version-shaped strings only. The same matcher then scans the result. A bug that still looks
+# check-no-client-data.sh, plus <project>/.leakguard-deny, plus the toolkit clone's .leakguard-deny or
+# $MXTK_LEAKGUARD_DENYFILE where init-project.sh registers every project's name; that last one redacts
+# but is not the required deny list). Code is not a host: obj.method( keeps its name, a Java package
+# keeps its shape with the organisation label redacted (org.<org>.x.y). The versions line is built from
+# version-shaped strings only; a row without a toolkit version gets PROJECT.md's Toolkit commit, else
+# git describe of the toolkit clone. The same matcher then scans the result. A bug that still looks
 # unsafe is shown by the dry run only: no duplicate search, no URL, no --links/--json text, no post.
 # A deny list is required: without <project>/.leakguard-deny or $LEAKGUARD_DENY the dry run shows the
 # text with a note, and posting, --links and --json are refused. An invalid regex is split on | and its

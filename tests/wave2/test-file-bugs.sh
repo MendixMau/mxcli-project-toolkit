@@ -25,6 +25,9 @@
 #     invalid deny regex keeps its valid alternatives, header and --help say who posts, deny rule shipped
 #   M first.last users, attribute followed by digits or letters
 #   N --to; O no gh on PATH
+#   Q #645 the toolkit clone's .leakguard-deny (where init-project.sh registers every project) is
+#     read too; #646 code identifiers (obj.method(, Java packages, CLAUDE.md) survive while hosts and
+#     deny names do not, and the versions line carries the toolkit version
 #   P --auto: off without the PROJECT.md opt-in (also commented/annotated), opted in posts every clean
 #     row with no tty and writes issue_url back, scan-failing row never posted, label only when the
 #     repo has it or the user may create it, exact-title duplicate recorded not reposted, no gh or not
@@ -108,6 +111,8 @@ PY
 export GHLOG; EMPTYJ="{}"
 export PATH="$BIN:$PATH" LEAKGUARD_DENY="$W/deny"
 export GIT_CONFIG_GLOBAL="$W/gitconfig" GIT_CONFIG_NOSYSTEM=1
+# the toolkit clone's own denylist (#645) is never the developer's real one in this fixture
+export MXTK_LEAKGUARD_DENYFILE="$W/tk-deny-none"
 chk "stub gh is the gh on PATH" '[ "$(command -v gh)" = "$BIN/gh" ]'
 U="${USER:-someone}"; H="$(hostname -s 2>/dev/null || echo myhost)"
 HOMEP="/Users/$U/work/Zorbix/mdlsource/01.mdl"
@@ -130,6 +135,7 @@ bodyof() {
   [ -n "${P2MDL:-}" ] && printf '%s\n' "$P2MDL" > "$P2/mdlsource/02-extra.mdl"
   [ -n "${P2CONF:-}" ] && printf '%s\n' "$P2CONF" > "$P2/config/extra.yaml"
   [ -n "${P2DENY:-}" ] && printf '%s\n' "$P2DENY" > "$P2/.leakguard-deny"
+  [ -n "${P2PM:-}" ] && printf '%s\n' "$P2PM" > "$P2/PROJECT.md"
   FB_TEXT="$1" FB_TITLE="${2:-t}" FB_VERS="${3:-$EMPTYJ}" "$PY" -I - "$P2/docs/bugs.jsonl" <<'PY'
 import json, os, sys
 open(sys.argv[1], "w").write(json.dumps({"id": "PBUG-01", "target": "mxcli", "title": os.environ["FB_TITLE"],
@@ -466,6 +472,39 @@ chk "a full gate-check run prints the same note" 'echo "$OUT" | grep -q "^note: 
 chk "a stage query stays quiet about it" '! "$TOOLKIT/bin/gate-check.sh" "$GC" 0 2>&1 | grep -q "logged but not filed"'
 printf '%s\n' '{"id":"PBUG-01","status":"filed"}' > "$GC/docs/bugs.jsonl"
 chk "nothing open: no line" '! "$TOOLKIT/bin/gate-check.sh" --closeout "$GC" 0 2>&1 | grep -q "logged but not filed"'
+
+echo "Q. toolkit denylist (#645), code identifiers and toolkit version (#646)"
+printf '# scaffold-time registrations\n\\bFrobnozzle\\b\n' > "$W/tk-deny"
+G="$(MXTK_LEAKGUARD_DENYFILE="$W/tk-deny" P2DENY='Snarfle\b' bodyof 'Frobnozzle broke and Snarfle too' 'Frobnozzle crash')"
+chk "#645 a name registered in the toolkit denylist is redacted" '! echo "$G" | grep -qi frobnozzle && ! grep -qi frobnozzle "$W/p2.err" && echo "$G" | grep -q "<redacted> broke"'
+TK2="$W/tk2"; mkdir -p "$TK2/bin/lib"; cp "$TOOLKIT/bin/file-bugs.sh" "$TK2/bin/"; cp "$TOOLKIT/bin/lib/file-bugs.py" "$TOOLKIT/bin/lib/portable.sh" "$TK2/bin/lib/"
+printf '\\bFrobnozzle\\b\n' > "$TK2/.leakguard-deny"
+G="$(SUBJ="$TK2/bin/file-bugs.sh" MXTK_LEAKGUARD_DENYFILE= P2DENY='Snarfle\b' bodyof 'Frobnozzle broke')"
+chk "#645 default path: <toolkit>/.leakguard-deny next to bin/ is read" '[ "$G" != NOJSON ] && ! echo "$G" | grep -qi frobnozzle'
+G="$(MXTK_LEAKGUARD_DENYFILE="$W/tk-deny" P2DENY= LEAKGUARD_DENY= bodyof 'x')"
+chk "#645 the toolkit list alone is not the project's deny list: --json still refused" '[ "$G" = NOJSON ] && grep -q "no deny list" "$W/p2.err"'
+printf '(Unclosed\n' > "$W/tk-deny-bad"
+G="$(MXTK_LEAKGUARD_DENYFILE="$W/tk-deny-bad" bodyof 'x')"
+chk "#645 an invalid line in the toolkit list refuses, naming that file" '[ "$G" = NOJSON ] && grep -q "tk-deny-bad" "$W/p2.err"'
+chk "#645 init-project tells the user file-bugs reads the toolkit list" 'grep -q "file-bugs.sh reads it too" "$TOOLKIT/bin/init-project.sh"'
+CODE='path.join(fs.readFileSync(path.resolve(ROOT, x))) and os.path.join(a) in org.zonkpkg.common.service.lib and java.util.concurrent, per CLAUDE.md'
+G="$(bodyof "$CODE")"
+chk "#646 obj.method( calls survive" 'echo "$G" | grep -qF "path.join(fs.readFileSync(path.resolve(ROOT, x)))" && echo "$G" | grep -qF "os.path.join(a)"'
+chk "#646 a Java package keeps its shape, its organisation label is redacted" 'echo "$G" | grep -qF "org.<org>.common.service.lib" && ! echo "$G" | grep -qi zonkpkg'
+chk "#646 a JDK package survives whole" 'echo "$G" | grep -qF "java.util.concurrent"'
+printf '[user]\n\tname = Claude\n' > "$W/gitconfig-claude"
+G="$(GIT_CONFIG_GLOBAL="$W/gitconfig-claude" bodyof 'Claude said so in CLAUDE.md and PROJECT.md')"
+chk "#646 CLAUDE.md survives a git user called Claude; the name in prose does not" 'echo "$G" | grep -qF "in CLAUDE.md and PROJECT.md" && echo "$G" | grep -qF "<user> said so"'
+G="$(bodyof 'calls zonkco.com(x) and intranet.zonkco.org(y) and build-srv-01.corp.zonkco(z) and glorpley.init(w)')"
+chk "#646 safety: a hostname before ( is still a host, a deny name before ( is still denied" '! echo "$G" | grep -qi "zonkco\|glorpley\|build-srv"'
+G="$(bodyof x t '{"mxcli":"v0.27.0"}')"
+chk "#646 no toolkit version in the row: the toolkit clone's git describe is used" 'echo "$G" | grep -qE "^\*\*Versions:\*\* mxcli v0.27.0, toolkit ([0-9a-f]{7,12}|v?[0-9][0-9.]*(-[0-9]+-g[0-9a-f]{7,12})?)( \(at filing\))?$"'
+G="$(P2PM='Toolkit commit: 4416da2efa4f9f3fef8016872bbebd7d126437a7' bodyof x t '{"mxcli":"v0.27.0"}')"
+chk "#646 PROJECT.md Toolkit commit is used before git describe, shortened (no opaque-hex refusal)" 'echo "$G" | grep -q "^\*\*Versions:\*\* mxcli v0.27.0, toolkit 4416da2efa4f$"'
+G="$(bodyof x t '{"toolkit":"v2026.10.19-89-g4416da2e"}')"
+chk "#646 a git-describe toolkit version is kept whole" 'echo "$G" | grep -q "^\*\*Versions:\*\* toolkit v2026.10.19-89-g4416da2e$"'
+G="$(bodyof x t '{"toolkit":"4416da2"}')"
+chk "#646 a bare short sha toolkit version is kept" 'echo "$G" | grep -q "^\*\*Versions:\*\* toolkit 4416da2$"'
 
 echo "Z. no real issue was ever created"
 chk "every gh call went through the stub (log exists, no network tool used)" '[ -s "$GHLOG" ]'

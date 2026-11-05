@@ -1647,7 +1647,7 @@ stage4_briefs_missing() {
   [ -n "$declared" ] || return 0
   _brief_of() {
     [ -s "$arch/modules/$1/module-brief.md" ] || [ -s "$arch/modules/$1-brief.md" ] \
-      || printf '%s\n' "$sections" | grep -qx -- "$1"
+      || grep -qx -- "$1" <<<"$sections"
   }
   first="$(tr -d '\r' < "$plan" | grep -E '^\|[[:space:]]*[0-9]+[A-Za-z.]*[[:space:]]*\|' \
            | grep -m1 -E -- '\|[[:space:]]*`?BRIEF`?[[:space:]]*\|')"

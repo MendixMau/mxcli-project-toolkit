@@ -386,7 +386,7 @@ arun() { "$PY" "$W/ptyrun.py" notty "$SUBJ" --project "$PA" --auto "$@"; }
 git -C "$PA" init -q
 # reg LINE [nocommit]: write PROJECT.md and commit it (the opt-in must be in HEAD), unless nocommit
 reg() { printf '# PROJECT.md\n\n%s\n' "$1" > "$PA/PROJECT.md"; [ -n "${2:-}" ] && return 0
-  git -C "$PA" add PROJECT.md && git -C "$PA" -c user.name=t -c user.email=t@t.invalid commit -qm "register" >/dev/null 2>&1 || true; }
+  git -C "$PA" add PROJECT.md && git -C "$PA" -c user.name=t -c user.email=tester commit -qm "register" >/dev/null 2>&1 || true; }
 : > "$GHLOG"; reg 'Exec approval: auto'
 OUT="$(arun 2>&1)"; RC=$?
 chk "no opt-in, no tty: --auto posts nothing, says why, exits 0" '[ $RC = 0 ] && ! grep -q "issue create" "$GHLOG" && echo "$OUT" | grep -q "no line .Bug filing: auto." && cmp -s "$PA/docs/bugs.jsonl" "$W/pa.before"'

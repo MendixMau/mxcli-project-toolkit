@@ -611,13 +611,22 @@ record_metrics() {  # $1=status text (as given to log_build)
     --elapsed "$(( ${EPOCHSECONDS:-$(date +%s)} - _T0 ))" --mxbuild-errors "${GATE_ERRORS:-}" \
     --lint-rc "${LINT_RC_FOR_LEDGER:-}" --restored "${RESTORED:-0}" --scored "$SCORED" 2>/dev/null || true
 }
-# `mxcli report` scores the model (0-100, ≈7 s on an 876-flow model, 2026-10-12). Taken only
-# after a clean mxbuild — a failed write is restored or never happened, so there is nothing
-# new to score. MXTK_NO_SCORE=1 skips it (slow machine, CI); the row still lands, scores empty.
+# `mxcli report` scores the model (0-100, ≈7 s on an 876-flow model, 2026-10-12; ≈5 s each,
+# 211 s over ~40 execs on a Windows laptop). Default since 2026-11-05: NOT per exec — the score is
+# taken once per module by bin/module-close.sh (its ledger row is result `module-close`), and on
+# demand by `bash bin/metrics-ledger.sh record`. A per-exec score bought ~5 s a change for a number
+# that moves between modules, not between scripts. Opt-in to the old cadence: `Score: every exec`
+# in PROJECT.md, or MXTK_SCORE=exec (env wins; MXTK_SCORE=module forces the default). Taken only
+# after a clean mxbuild — a failed write is restored or never happened, so there is nothing new to
+# score. MXTK_NO_SCORE=1 skips it even with the opt-in (slow machine, CI); the row still lands,
+# scores empty.
 take_score() {
   [ -z "${MXTK_NO_SCORE:-}" ] || { echo "  · score skipped (MXTK_NO_SCORE)"; return 0; }
+  local _scm="${MXTK_SCORE:-}"
+  if [ -z "$_scm" ]; then _first_match "$PROJECT_ROOT/PROJECT.md" '^[*_ -]*Score:[*_ ]*[`]?([A-Za-z-]+)' || true; _scm="$_FM"; fi
+  case "$_scm" in [Ee]very|[Ee]very-exec|[Ee]xec) ;; *) return 0 ;; esac
   [ -x "$PROJECT_ROOT/bin/metrics-ledger.sh" ] || return 0
-  echo "→ Scoring the model (bin/metrics-ledger.sh score → mxcli report)..."
+  echo "→ Scoring the model (bin/metrics-ledger.sh score → mxcli report; per exec: ${MXTK_SCORE:+MXTK_SCORE=$MXTK_SCORE}${MXTK_SCORE:-PROJECT.md Score: every exec})..."
   if _sc=$(bash "$PROJECT_ROOT/bin/metrics-ledger.sh" score 2>&1); then
     SCORED=1; echo "  ✓ $_sc"
   else

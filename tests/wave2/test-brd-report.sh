@@ -239,7 +239,12 @@ OUT=$("$BR" "$P" 2>&1); RC=$?
 check "an undetermined provenance still renders" "$RC" "0"
 has "  and says so in as many words" "$OUT" "PROVENANCE UNDETERMINED"
 has "  naming what it looked for" "$OUT" "no \"provenance\" key, no extractor fingerprint, and no sourceKB"
-has "  and refuses a verdict on every section" "$OUT" "9 section(s) cannot be verdicted"
+# …except one every provenance owes: useCases is a FAULT whatever the provenance turns out to be
+# (2026-11-05: a BRD declaring an unrecognised provenance lost its useCases and Stage 2 passed).
+has "  and refuses a verdict on every section but the one every provenance owes" "$OUT" "8 section(s) cannot be verdicted"
+has "  useCases absent is a fault for any provenance" "$OUT" "FAULT  useCases: absent, and every provenance owes it"
+J="$("$BR" "$P" --json --html "$TMP/mystery.html" 2>/dev/null)"
+has "  --json does not make it a gate failure (no skill makes useCases mandatory there)" "$(printf '%s' "$J" | jq -c '.brds[0].missingRequired')" '[]'
 hasnt "  rather than defaulting them to a pass" "$OUT" "No faults."
 
 # A declared provenance nobody recognises must not be silently coerced onto a known one.

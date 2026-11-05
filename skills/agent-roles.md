@@ -53,7 +53,7 @@ A single do-everything agent has no natural place to stop before mutating the re
 
 **A second rule specific to `ba-agent` and `architect-agent`: they never skip the interview protocol to save time.** A gate that "completes" because the agent picked a reasonable default without surfacing it is exactly the failure `conversion-runbook.md` §1 exists to prevent — unknowns get `ASSUMED` and recorded, they don't get silently decided.
 
-**And neither can ask the user itself:** a subagent has no `AskUserQuestion` and no chat. It ends its report with `question` blocks; the main session renders them as clickable options and ends its turn. Contract and both halves: `interview-protocol.md` §3 → "Asking from a subagent".
+**Neither can ask the user itself** — see `interview-protocol.md` §3 → "Asking from a subagent".
 
 This mirrors `iterative-build-loop.md`'s gate discipline (0 CE errors + happy path + full field coverage, verified *after* every script) and keeps the human-in-the-loop confirmation on `mxcli exec` that the main session already provides — subagents draft, decide-with-the-user, and verify; they don't get to skip those checkpoints.
 

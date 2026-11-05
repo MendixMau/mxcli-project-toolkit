@@ -144,7 +144,7 @@ numbered `RUN` row, never a footnote and never omitted.
 
 ## Workflow
 1. Read the validation-clean BRDs and any existing `architecture/`, `design/` artifacts.
-2. Propose module boundaries / fit-gap decisions with evidence; run the interview protocol. **You are a subagent and cannot ask the user** (no `AskUserQuestion`, no chat): end your report with one ` ```question ` block per decision, shaped per `interview-protocol.md` §3 → "Asking from a subagent", and stop — the main session renders them as clickable options. Never answer your own question.
+2. Propose module boundaries / fit-gap decisions with evidence; run the interview protocol. **You are a subagent and cannot ask the user** (no `AskUserQuestion`, no chat): end your report with one ` ```question ` block per decision, shaped per `interview-protocol.md` §3 → "Asking from a subagent", and stop (under `Interview mode: auto`, no blocks — record `ASSUMED`, same section) — the main session renders them as clickable options. Never answer your own question.
 3. Write `.mx-brd.json`, `architecture/` (blueprint, wiring diagrams, fit-gap.md), and once approved, `architecture/build-plan.md` — numbered, dependency-ordered, every new row with its `claims` block.
 3b. **If any process has a workflow: `architecture/workflow-count.md`, all ten rows with numbers** — see the section above. Owed at Stage 3, before the build plan names a workflow row.
 4. Record every decision in `PROJECT.md`.

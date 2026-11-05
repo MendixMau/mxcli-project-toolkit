@@ -49,6 +49,15 @@ for want in 'AskUserQuestion' 'end the turn' 'request_user_input' 'Never answer 
   printf '%s' "$SEC" | grep -q "$want" && ok "main-session rule names '$want'" || bad "section does not name '$want'"
 done
 
+# Old filled-in stubs return questions in prose; the main session must render those too.
+printf '%s' "$SEC" | grep -q 'in prose' && ok "main-session rule covers prose questions" \
+  || bad "main-session rule does not cover questions returned in prose"
+grep -q 'returned in prose' "$TOOLKIT/skills/dispatching.md" && ok "dispatching.md covers prose questions" \
+  || bad "dispatching.md does not cover questions returned in prose"
+# Unattended mode: no blocks, positions recorded ASSUMED by auto-mode.
+printf '%s' "$SEC" | grep -q 'under `auto`' && printf '%s' "$SEC" | grep -q 'consentBy: auto-mode' \
+  && ok "section carries the auto-mode carve-out" || bad "section has no auto-mode carve-out"
+
 echo "== 2: one shape — any other file that writes the block out carries §3's block byte for byte"
 # The stubs carry a copy on purpose: the 2026-11-05 field run showed a ba-agent given only the
 # pointer never opened §3 and improvised its own fields (id/gate/question/recommendation).

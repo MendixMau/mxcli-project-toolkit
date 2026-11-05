@@ -49,7 +49,8 @@ shows up in the bill:
    message to an agent that has already reported — that restarts it at its full context.
    A report ending in `question` blocks always needs its turn: render the blocks for the user per
    `interview-protocol.md` §3 → "Asking from a subagent" (`AskUserQuestion` on Claude Code), then
-   end the turn — never relay them as prose.
+   end the turn — never relay them as prose. A question returned in prose instead (an older stub)
+   gets the same treatment: build the options from it.
 
 **App restarts: the implementer restarts its own app, through one script only.** Write this into
 every implementer brief: "When `exec.sh` prints `restart needed`, or `unknown — restart if

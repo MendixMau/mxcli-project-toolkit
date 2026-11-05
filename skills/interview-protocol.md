@@ -241,8 +241,8 @@ Only (1)'s rendering is tool-specific:
 |---|---|
 | Claude Code, main session | `AskUserQuestion` — clickable options, structured answers; up to 4 questions per call, the tool adds "Other" itself. Also paste the batch as chat text so it survives compaction. |
 | Claude Code subagent (any harness's subagent) | Cannot ask. Ends its report with question blocks (below); the main session renders them. |
-| Codex CLI | `request_user_input` in Plan/Pair mode (1–3 questions, 2–3 options, plus "Other"); in any other mode, numbered markdown. |
-| Cursor | The clarifying-question picker in Plan Mode; in Agent mode it is unreliable — numbered markdown. |
+| Codex CLI | `request_user_input` in Plan/Pair mode (1–3 questions, 2–3 options, plus "Other"); in any other mode, numbered markdown. (Checked 2026-11-05, [Codex protocol](https://codex-sdk.hexdocs.pm/Codex.Protocol.RequestUserInput.md).) |
+| Cursor | The clarifying-question picker in Plan Mode; in Agent mode not reliably offered — numbered markdown. (Checked 2026-11-05, [plan mode](https://cursor.com/blog/plan-mode), [forum](https://forum.cursor.com/t/interactive-multiple-choice-prompts-for-agent-decisions/152809).) |
 | Copilot, Windsurf, Continue, Aider, Kiro, anything else | Plain numbered markdown in the chat — `1.` / `2.` / `3. Something else — tell me`. Then stop. |
 
 Both satisfy the protocol. **Neither is optional**, and the *end-the-turn* half is not
@@ -277,12 +277,18 @@ marked `(Recommended)` — except a `user-only` question, which carries none (ru
 own block after the batch. The last line is always `Something else`. Nothing follows the last
 block. A batch from `bin/open-questions.sh` still goes in verbatim, above the blocks.
 
+**The interview mode still applies** (`bin/interview-mode.sh`, table above): under `auto` the
+subagent asks nothing — it records each position `ASSUMED` with `consentBy: auto-mode` per "What
+`auto` obliges you to do" and returns no blocks; under `assist`, low-consequence questions are
+assumed and reported rather than asked, and only the gate batch comes back as blocks.
+
 *Failure this stops:* a ba-agent's three questions came back as prose paragraphs, the main session
 relayed the prose, and a new user typed every answer by hand — nothing told either side to make
 them clickable (field, 2026-11).
 
 **The main session, on any report carrying `question` blocks:** render them before doing anything
-else. On Claude Code, where the tool is offered (headless `claude -p` has none — numbered markdown there): one `AskUserQuestion` call with up to 4 blocks (label = text before the
+else. A question a helper returns in prose (an older filled-in stub) is rendered the same way — build
+the options from the prose — never relayed as prose. On Claude Code, where the tool is offered (headless `claude -p` has none — numbered markdown there): one `AskUserQuestion` call with up to 4 blocks (label = text before the
 colon, description = after it; leave out the `Something else` line, the tool adds "Other"; cut a header over 12 characters); more
 than 4, the rest go numbered in the same message. Codex in Plan/Pair mode: `request_user_input`
 (3 per call). Cursor in Plan Mode: its picker. Everywhere else: numbered markdown. Paste the

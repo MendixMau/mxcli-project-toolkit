@@ -1204,9 +1204,9 @@ has_confirmed_decision() {
 # then FAILed twice by design, with nothing saying so. Now, in auto mode only, a Decisions row
 # for the stage that is ASSUMED with `consentBy: auto-mode` and a `consentAt` satisfies the gate.
 # The human is moved, not removed: auto_hand_pending() lists every such ✋ row on every run,
-# whatever the mode, and Stage 6 (release readiness) FAILs while one remains. Confirming one =
-# Status CONFIRMED and consentBy naming a person; a row still stamped auto-mode is unconfirmed
-# whatever its status says. Stage 7 (cutover) stays CONFIRMED-only — it is the release itself.
+# whatever the mode, and Stage 6 (release readiness) FAILs while one remains. A person confirms
+# or overturns one by putting their name in consentBy (any status); a row still stamped auto-mode
+# counts whatever its status says. Stage 7 (cutover) stays CONFIRMED-only — it is the release itself.
 interview_mode_is_auto() { [ "${INTERVIEW_MODE:-}" = "auto" ]; }
 
 has_auto_assumed_decision() {
@@ -3528,7 +3528,7 @@ for stage in "${STAGE_NAMES[@]}"; do
   # its own stamp, but nothing ships on it. After the waiver on purpose: a stage waiver does not
   # excuse an unconfirmed decision.
   if [ "$stage" = "6" ] && [ "$AUTO_HAND_N" -gt 0 ] && { [ "$status" = "PASS" ] || [ "$status" = "WAIVED" ]; }; then
-    note="$AUTO_HAND_N hand-gate decision(s) assumed by auto-mode and not yet confirmed: $AUTO_HAND_IDS — nothing ships until a person confirms each (Status CONFIRMED, consentBy a person; interview-protocol.md §\"What \`auto\` obliges you to do\") · underlying check: $status — $note"
+    note="$AUTO_HAND_N hand-gate decision(s) assumed by auto-mode and not yet confirmed: $AUTO_HAND_IDS — nothing ships until a person confirms or overturns each (any status, consentBy a person; interview-protocol.md §\"What \`auto\` obliges you to do\") · underlying check: $status — $note"
     status="FAIL"
   fi
   # APPROVED OVER A FAILING GATE (#207). The register's CONFIRMED row is what status.sh,
@@ -3563,7 +3563,7 @@ done
 # they see as a failure the gate somehow let through.
 if [ "$AUTO_HAND_N" -gt 0 ]; then
   echo "$AUTO_HAND_N ✋ decision(s) assumed by auto-mode — confirm before release: $AUTO_HAND_IDS"
-  echo "  (Interview mode: $INTERVIEW_MODE. Confirm = Status CONFIRMED with consentBy a person; Stage 6 FAILs until then.)"
+  echo "  (Interview mode: $INTERVIEW_MODE. Confirm or overturn each — any status, consentBy a person; Stage 6 FAILs until then.)"
 fi
 echo "Surface = the artifact a human READS to judge the stage (runbook §2). A missing one is"
 echo "not a gate failure and does not affect the exit code — it is a stage nobody can review."

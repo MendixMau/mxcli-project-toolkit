@@ -6,7 +6,7 @@
 #
 #   tests/wave2/test-auto-mode-hand-gates.sh bin/gate-check.sh
 #
-# Positive control: on the pre-#624 script (origin/master 5160151) 16 of 25 checks fail — T1/T2
+# Positive control: on the pre-#624 script (origin/master 5160151) 17 of 28 checks fail — T1/T2
 # (Stage 3/4 FAIL under auto), the FAIL-hint and pending-line checks of T3, all of T4/T5 (no
 # release check). Keep the script under the toolkit's bin/ — TOOLKIT_DIR comes from it.
 # The row and sign-off shapes are the ones a real unattended project wrote (#624 field run).
@@ -90,11 +90,16 @@ case "$O" in *"3 $NOTE"*"triage.md (Stage 0 sign-off)"*) ok "a triage.md signed 
 printf '%s\n' '' '## Sign-off' '' 'Confirmed by: ASSUMED under Interview mode: auto on 2026-10-27 (user asked for an unattended run).' > "$P/triage.md"; O="$(run "$P")"
 case "$O" in *"3 $NOTE"*"triage.md (Stage 0 sign-off)"*) ok "the field shape 'ASSUMED under Interview mode: auto' is listed too" ;; *) bad "field-shape triage sign-off missed" ;; esac
 
-echo "== T6: confirm clears it — CONFIRMED with consentBy a person =="
+echo "== T6: confirm or overturn clears it — consentBy a person =="
 P="$(mkproj t6 auto "| 3 | Module boundaries: Orders, Approval | CONFIRMED | consentBy: Product owner, consentAt: 2026-11-06 |" "| 4 | Build plan approved | CONFIRMED | consentBy: Product owner, consentAt: 2026-11-06 |")"; O="$(run "$P")"
 case "$(line "$O" 3)$(line "$O" 4)" in *PASS*PASS*) ok "Stages 3 and 4 PASS on the human confirmation" ;; *) bad "$(line "$O" 3) / $(line "$O" 4)" ;; esac
 case "$(line "$O" 6)" in *PASS*) ok "Stage 6 PASS once confirmed" ;; *) bad "Stage 6 after confirm: $(line "$O" 6)" ;; esac
 case "$O" in *"$NOTE"*) bad "pending line still printed after confirm" ;; *) ok "no pending line once confirmed" ;; esac
+# Overturned instead of confirmed: any status, consentBy a person — the release check clears too.
+P="$(mkproj t6o auto "| 3 | Module boundaries: one module instead | CONFIRMED | consentBy: Product owner, consentAt: 2026-11-06 |" "| 4 | Build plan approved | MOOT | overturned, consentBy: Product owner, consentAt: 2026-11-06 |")"; O="$(run "$P")"
+case "$O" in *"$NOTE"*) bad "overturned row still listed" ;; *) ok "an overturned row (consentBy a person, any status) leaves the list" ;; esac
+case "$(line "$O" 6)" in *"assumed by auto-mode"*) bad "Stage 6 still blocked after overturn: $(line "$O" 6)" ;; *) ok "Stage 6 no longer blocked by it" ;; esac
+P="$(mkproj t6 auto "| 3 | Module boundaries: Orders, Approval | CONFIRMED | consentBy: Product owner, consentAt: 2026-11-06 |" "| 4 | Build plan approved | CONFIRMED | consentBy: Product owner, consentAt: 2026-11-06 |")"
 # Same after the mode is switched back: the confirmation, not the mode, is what clears it.
 sed -i.bak 's/^Interview mode: auto$/Interview mode: steering/' "$P/PROJECT.md"; rm -f "$P/PROJECT.md.bak"; O="$(run "$P")"
 case "$(line "$O" 3)$(line "$O" 4)$(line "$O" 6)" in *PASS*PASS*PASS*) ok "steering: confirmed rows pass 3, 4 and 6" ;; *) bad "steering after confirm: $(line "$O" 6)" ;; esac

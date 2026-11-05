@@ -65,8 +65,8 @@ recorded the same way — `| 3 | <decision> | ASSUMED | consentBy: auto-mode, co
 — and passes its gate while the mode is `auto`; in every other mode the gate stays `CONFIRMED`
 only, and Stage 7 cutover is `CONFIRMED` only in every mode. The human moves to release, not
 out: every `gate-check.sh` run prints `N ✋ decision(s) assumed by auto-mode — confirm before
-release: <ids>`, and Stage 6 FAILs until each is **confirmed** — Status `CONFIRMED` and `consentBy`
-naming a person; a row still stamped `auto-mode` is unconfirmed whatever its status says.
+release: <ids>`, and Stage 6 FAILs until a person **confirms or overturns** each — any status, `consentBy` naming
+them; a row still stamped `auto-mode` counts whatever its status says.
 Failure this replaces: an unattended run produced every Stage 3–4 artifact, then FAILed both
 gates by design with nothing saying so (#624).
 

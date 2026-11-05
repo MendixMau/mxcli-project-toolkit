@@ -17,7 +17,7 @@ Privacy: the logs are read for numbers (token counters, timestamps, tool names) 
 short descriptions. No prompt or message text is copied into the page.
 Every tunable lives in the CONFIG block below so the page is easy to change.
 """
-import sys, os, re, json, glob, html, fnmatch, calendar, collections, datetime, pathlib, argparse, time, urllib.parse, shlex
+import sys, os, re, json, glob, html, fnmatch, calendar, collections, datetime, pathlib, argparse, time, urllib.parse, shlex, subprocess
 
 # ----------------------------------------------------------------- CONFIG
 STAGES = ["P", "0", "1", "2", "3", "4", "5", "6"]
@@ -940,23 +940,95 @@ def facts_line(f):
         sh = " (about %s of build time)" % (near[0] if near else "%d%%" % round(100 * x))
     return "%d build runs, %d passed, %d failed or blocked%s" % (f["n"], f["ok"], bad, sh)
 
+BSRC = {}   # stage -> where its start was read from (filled by stage_boundaries; shown in the windows table and the footer)
+GATE_VALUE_FLAGS = {"--adopt", "--waive", "--reason", "--project", "--dir"}   # flags that take a value, so the value is not mistaken for a stage
+GATE_STAGES = set(STAGES) | {"build-ready"}
+
+def gate_calls(cmd):
+    """Stage argument of every real gate-check.sh invocation in one shell command line, as a list of strings ("" when
+    the call names no stage, a full run). The script may be given by any path (relative, absolute, quoted, "$PWD/...",
+    <toolkit>/bin/gate-check.sh); the project path and the flags (--closeout, --adopt N, --waive X --reason Y) may sit
+    before or after the stage number. A mention (cat, grep, ls of the script) is not a call."""
+    out = []
+    for seg in re.split(r"&&|\|\||;|\||\n", cmd or ""):
+        try: tk = shlex.split(seg)
+        except ValueError: tk = seg.replace('"', " ").replace("'", " ").split()
+        gi = next((i for i, t in enumerate(tk) if re.search(r"(^|/)gate-check\.sh$", t)), None)
+        if gi is None: continue
+        pre = [t for t in tk[:gi] if not re.match(r"\w+=", t)]   # leading VAR=x assignments are not the command
+        if pre and pre[-1] not in ("env", "exec", "time", "sudo", "source", ".") and not re.search(r"(^|/)(bash|sh|zsh)$", pre[-1]): continue
+        st = ""; skip = False
+        for t in tk[gi + 1:]:
+            if skip: skip = False; continue
+            if t in GATE_VALUE_FLAGS: skip = True; continue
+            if t.startswith("-"): continue
+            if t in GATE_STAGES: st = t; break
+        out.append(st)
+    return out
+
+def git_artifact_times(proj):
+    """Commit times (epoch, oldest first) of the stage artifacts, from git, keyed by the stage whose OUTPUT they are:
+    0 triage, 2 BRD JSON, 3 architecture and design, 4 build plan and module briefs. {} when the project is not a git
+    checkout or git is missing. Paths are read relative to the project, so single-tree and two-tree layouts both work."""
+    if not proj or not os.path.isdir(proj): return {}
+    try:
+        r = subprocess.run(["git", "-C", proj, "log", "--relative", "--no-renames", "--format=@%ct", "--name-only", "-n", "3000", "--", "."],
+                           capture_output=True, text=True, timeout=20)
+    except Exception: return {}
+    if r.returncode != 0: return {}
+    rules = (("0", r"^(analysis/[^/]+/)?triage[^/]*\.(md|json|html)$"),
+             ("2", r"\.brd\.json$"),
+             ("3", r"^architecture/(blueprint|fit-gap|module-design|erd|nfrs?|swimlanes?|integrations?|workflow-[\w-]+)[^/]*\.(md|html)$|^architecture/modules/[^/]+/definition\.md$|^design/wireframes/[^/]+\.html$|^design/ds\.css$"),
+             ("4", r"^architecture/build-plan\.(md|json)$|^architecture/modules/[^/]+/module-brief\.md$|^architecture/modules/[^/]+-brief\.md$"))
+    out = {}; t = None
+    for line in r.stdout.splitlines():
+        if line.startswith("@"):
+            try: t = float(line[1:])
+            except ValueError: t = None
+        elif line.strip() and t:
+            for st, rx in rules:
+                if re.search(rx, line.strip()): out.setdefault(st, []).append(t)
+    return {k: sorted(v) for k, v in out.items()}
+
 def stage_boundaries(main, agents, info=None):
-    """Start time per stage from session signals; honest fallbacks; monotonic."""
-    tools = main["tools"]; sig = {}
+    """Start time per stage, from the strongest signal that exists: (1) a gate-check call for the previous stage in the
+    session log, parsed properly (any path, flags anywhere); (2) the previous stage's sign-off row in PROJECT.md when it
+    carries a time; (3) git commit time of the previous stage's artifacts (triage, BRD JSON, architecture and design,
+    build plan); (4) only then words in agent descriptions. A stage with none of these stays None and is reported as
+    "boundary not detected"; it is never given a guessed start. BSRC records which signal was used."""
+    tools = main["tools"]; sig = {}; BSRC.clear()
     def first(pred):
         c = [e["t"] for e in tools if e["t"] and pred(e)]; return min(c) if c else None
-    gate_any = lambda e: e["name"] == "Bash" and "gate-check" in e.get("cmd", "")
-    gate_arg = lambda n: (lambda e: gate_any(e) and re.search(r"gate-check\.sh\s+(?:\.\s+)?%s\b" % n, e["cmd"]))
-    sig["P"] = first(lambda e: e["name"] == "Skill" and "toolkit-init" in e.get("skill", ""))
-    sig["0"] = first(gate_any)
-    sig["1"] = first(gate_arg("0")) or first(lambda e: e["name"] == "Agent" and re.search(r"extract|Path [AB]", e.get("desc", "")))
-    sig["2"] = first(lambda e: ("brd-contract" in e.get("file", "") + e.get("cmd", ""))) or first(lambda e: e["name"] == "Agent" and "BRD" in e.get("desc", ""))
-    sig["3"] = first(gate_arg("2")) or first(lambda e: e["name"] == "Agent" and re.search(r"Stage 3", e.get("desc", "")))
-    sig["4"] = first(lambda e: e["name"] == "Agent" and re.search(r"Stage 4|build plan", e.get("desc", ""), re.I))
+    gate_any = lambda e: e["name"] == "Bash" and bool(gate_calls(e.get("cmd", "")))
+    gate_arg = lambda n: (lambda e: e["name"] == "Bash" and n in gate_calls(e.get("cmd", "")))
+    gits = git_artifact_times(info.get("dir") if info else None)
+    so = (info or {}).get("signoff", {})
+    def pick(stage, *cands):   # cands: (source text, thunk giving an epoch or None); the first that yields a time wins
+        sig[stage] = None
+        for src, fn in cands:
+            t = fn()
+            if t: sig[stage] = t; BSRC[stage] = src; return
+    def reg(prev):   # sign-off row of the previous stage, only when it carries a time of day
+        r = so.get(prev); return r[0] if r and r[0] and len(r) > 2 and r[2] else None
+    def git(prev):   # latest commit of the previous stage's output artifacts
+        v = gits.get(prev); return v[-1] if v else None
+    agent = lambda rx, flags=0: (lambda: first(lambda e: e["name"] == "Agent" and re.search(rx, e.get("desc", ""), flags)))
+    pick("P", ("the toolkit-init skill", lambda: first(lambda e: e["name"] == "Skill" and "toolkit-init" in e.get("skill", ""))))
+    pick("0", ("the first gate-check run", lambda: first(gate_any)))
+    pick("1", ("gate-check for stage 0", lambda: first(gate_arg("0"))), ("the Stage 0 sign-off in PROJECT.md", lambda: reg("0")),
+         ("the git commit of the triage", lambda: git("0")), ("an extractor agent description", agent(r"extract|Path [AB]")))
+    pick("2", ("the first write of the BRD contract", lambda: first(lambda e: "brd-contract" in e.get("file", "") + e.get("cmd", ""))),
+         ("gate-check for stage 1", lambda: first(gate_arg("1"))), ("the Stage 1 sign-off in PROJECT.md", lambda: reg("1")),
+         ("a BRD agent description", agent(r"BRD")))
+    pick("3", ("gate-check for stage 2", lambda: first(gate_arg("2"))), ("the Stage 2 sign-off in PROJECT.md", lambda: reg("2")),
+         ("the git commit of the BRD JSON", lambda: git("2")), ("a Stage 3 agent description", agent(r"Stage 3")))
+    pick("4", ("gate-check for stage 3", lambda: first(gate_arg("3"))), ("the Stage 3 sign-off in PROJECT.md", lambda: reg("3")),
+         ("the git commit of the architecture and design files", lambda: git("3")), ("a Stage 4 or build plan agent description", agent(r"Stage 4|build plan", re.I)))
     sig["5"] = first(lambda e: "build" in e.get("skill", "") and "plan" not in e.get("skill", ""))
     sig["6"] = None
-    t5, _ = stage_switch(info, tools, sig.get("5"))
+    t5, src5 = stage_switch(info, tools, sig.get("5"))
     sig["5"] = t5
+    if t5: BSRC["5"] = src5
     return sig
 
 def stage_switch(info, tools, skill_t=None):
@@ -1988,6 +2060,8 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
             tm = S[s]["min"]; n = sum(tm.values()) or 1
             w("<tr><td>%s</td><td>%s to %s</td><td class=n>%s</td><td class=n>%s</td><td class=n>%s</td><td class=n>%s</td><td style='min-width:120px'><div class=stack><i style='width:%.1f%%;background:var(--main)'></i><i style='width:%.1f%%;background:var(--sub)'></i><i style='width:%.1f%%;background:var(--idle)'></i></div></td></tr>" %
               ("Before P" if s == "pre" else "<a href='#stage-%s'>Stage %s</a>" % (s, s), local_hm(a), local_hm(b), fmt_dur(n * 60), fmt_dur(tm["main"] * 60), fmt_dur(tm["sub"] * 60), fmt_dur(tm["idle"] * 60), pct(tm["main"], n), pct(tm["sub"], n), pct(tm["idle"], n)))
+        for s in STAGES[1:6]:   # stages 0 to 4: a start nobody could find is said so, not folded silently into the stage before it
+            if not an["sig"].get(s): w("<tr><td><a href='#stage-%s'>Stage %s</a></td><td colspan=6><b>boundary not detected</b>: no gate-check call, PROJECT.md sign-off time, stage artifact commit or agent description marks its start, so its time is inside the window above it</td></tr>" % (s, s))
         w("</table></div></div>")
         # context over time
         w("<h2>Context size: main-thread context per request, over time</h2><div class=sub>Context = input + cache read + cache write of each main-thread request. Dashed line is the window (%s). Red marks are automatic compactions.</div>" % ((fmt_tok(cwin) + " for this model" + ("; " + cnote if cnote else "")) if cwin else "unknown: " + cnote))
@@ -2108,8 +2182,8 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
         sg = an["sig"]
         w("<li><b>Source.</b> The Claude Code session logs of this project on this machine (%d session file(s), %d sub-agent log(s)). Usage is counted once per message id, taking the maximum of each counter, because the log writes one record per streamed block (same method as the toolkit's token-burn.sh). Synthetic records are skipped. New tokens = input + output + cache write; cache reads are shown apart. Only numbers, timestamps, tool names and sub-agent short descriptions are used; no prompt or message text is copied into this page.</li>" % (args.n_sessions, len(agents)))
         w("<li><b>Cost.</b> Estimate only: tokens times placeholder list prices (see the token table), not an invoice. Cache write and read are priced separately. Set your own rates with a rates file (same format as token-burn.sh --rates) at .claude/progress-report-rates.txt.</li>")
-        w("<li><b>Stage windows (approximate).</b> A stage starts at the first matching signal in the main thread: P = toolkit-init skill; 0 = first gate-check run; 1 = gate-check for stage 0 (else the extractor agent); 2 = first write of the BRD contract (else first BRD agent); 3 = gate-check for stage 2 (else a Stage 3 agent); 4 = a Stage 4 or build plan agent; 5 = the first row of the exec log (metrics ledger, else BUILD-LOG) or the timed Stage 4 sign-off, whichever is earlier; only with no exec log rows, the first exec.sh call, a build skill or an mdlsource write in the session log. Windows are made monotonic. Detected starts: %s.</li>" %
-          esc(", ".join("%s %s" % (s, local_hm(sg[s])) for s in STAGES if sg.get(s)) or "none"))
+        w("<li><b>Stage windows (approximate).</b> A stage starts at the first signal found, strongest first: a gate-check call for the previous stage in the main thread (any path, flags anywhere, parsed not pattern-matched), then the previous stage's sign-off time in PROJECT.md, then the git commit time of its artifacts (triage, BRD JSON, architecture and design files, build plan), and only then agent description words; P = toolkit-init skill; 0 = first gate-check run; 2 = the first write of the BRD contract comes first. A stage with no signal is shown as boundary not detected. 5 = the first row of the exec log (metrics ledger, else BUILD-LOG) or the timed Stage 4 sign-off, whichever is earlier; only with no exec log rows, the first exec.sh call, a build skill or an mdlsource write in the session log. Windows are made monotonic. Detected starts: %s.</li>" %
+          esc(", ".join("%s %s (%s)" % (s, local_hm(sg[s]), BSRC.get(s, "session log")) for s in STAGES if sg.get(s)) or "none") + (" Boundary not detected: %s." % esc(", ".join(s for s in STAGES[1:6] if not sg.get(s))) if any(not sg.get(s) for s in STAGES[1:6]) else ""))
         w("<li><b>Attribution.</b> Main-thread requests go to the window they start in. Sub-agents go by description first (Stage N, inventory, extractor, BRD) and by start time otherwise, so a Stage 3 agent started during Stage 4 counts to Stage 3, while work done by the main thread in that window counts to Stage 4. Session time before the project existed is shown as Before Stage P.</li>")
         w("<li><b>Time.</b> Wall time is the window length. A gap of more than %d minutes between any two events is waiting for the user, overnight breaks included. A minute is sub-agent time when any sub-agent record span covers it, even if that agent was itself waiting on a tool.</li>" % (IDLE_GAP_S // 60))
     w("<li><b>Gate state.</b> From the PROJECT.md line under Current stage (gates passed list). The generated index.html table supplies titles and details; when it disagrees, PROJECT.md wins and a note appears. Progress for a stage that has not passed is promised artifacts present (toolkit artifact-manifest.tsv, entry mode %s); Stage 5 uses plan rows built.</li>" % esc(info["entry_mode"]))

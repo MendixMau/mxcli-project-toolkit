@@ -352,6 +352,79 @@ PYEOF
 SP="$("$PY" -c "$SP_PY" "$ROOT/project-bin" "$P6")"
 [ "$SP" = "Flows" ] && ok "11- script takes the phase of the later-named 10 script (order by number, then name)" || bad "11- script takes the phase of the later-named 10 script (got: $SP)"
 
+echo "T18 stage boundaries: gate-check command shapes, register and git signals, boundary not detected"
+IFS= read -r -d '' SB_PY <<'PYEOF' || true
+import sys, importlib.util
+spec = importlib.util.spec_from_file_location("pr", sys.argv[1] + "/progress-report.py"); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+shapes = [  # (command, expected stage list)
+  ("bash ./bin/gate-check.sh . 2", ["2"]),
+  ("bash bin/gate-check.sh 0", ["0"]),
+  ("bash /opt/tk/bin/gate-check.sh /srv/acme/proj 1", ["1"]),
+  ("bash '/srv/some one/tk/bin/gate-check.sh' \"/srv/some one/proj\" 3", ["3"]),
+  ("bash \"$PWD/bin/gate-check.sh\" \"$PWD\" 2", ["2"]),
+  ("bash bin/gate-check.sh --closeout . 4", ["4"]),
+  ("bash bin/gate-check.sh . --closeout 4", ["4"]),
+  ("bash bin/gate-check.sh . 4 --closeout", ["4"]),
+  ("cd /srv/acme/proj && bash bin/gate-check.sh /srv/acme/proj 0 2>&1 | tail -5", ["0"]),
+  ("bin/gate-check.sh . 1", ["1"]),
+  ("bash bin/gate-check.sh . --waive look/Orders --reason 'not needed 3'", [""]),
+  ("bash bin/gate-check.sh .", [""]),
+  ("cat bin/gate-check.sh", []),
+  ("grep -n stage bin/gate-check.sh", []),
+  ("ls /srv/gate-check.sh.bak", []),
+]
+bad = [(c, gc, m.gate_calls(c)) for c, gc in shapes if m.gate_calls(c) != gc]
+print("SHAPES_BAD=%d" % len(bad)); [print("  ", b) for b in bad]
+def tool(t, cmd): return {"name": "Bash", "t": t, "cmd": cmd}
+def run(tools, info=None):
+    sig = m.stage_boundaries({"tools": tools}, [], info); return sig, dict(m.BSRC)
+# 1 gate calls in awkward shapes still place stages 1 and 3
+sig, src = run([tool(100, "bash /opt/tk/bin/gate-check.sh /srv/p"), tool(200, "bash bin/gate-check.sh --closeout \"$PWD\" 0"), tool(300, "bash \"$PWD/bin/gate-check.sh\" . 2 --closeout")])
+print("G1", sig["0"], sig["1"], sig["3"], sig["2"], src.get("1"))
+# 2 nothing recognisable: stages 1 to 4 stay None, never guessed
+sig, src = run([tool(100, "ls"), tool(200, "echo hi")])
+print("G2", [sig[s] for s in "01234"])
+# 3 an agent description is the last resort, after gate-check
+tools = [tool(100, "ls"), {"name": "Agent", "t": 150, "desc": "BRD writer for Orders"}, tool(400, "bash bin/gate-check.sh . 1")]
+sig, src = run(tools); print("G3", sig["2"], src.get("2"))
+# 4 register sign-off time beats agent words; stage 1 start from the Stage 0 sign-off
+tools = [{"name": "Agent", "t": 50, "desc": "extract everything"}]
+sig, src = run(tools, {"dir": None, "signoff": {"0": (500.0, "Stage 0 sign-off", True), "2": (900.0, "Stage 2 sign-off", False)}})
+print("G4", sig["1"], src.get("1"), sig["3"])
+PYEOF
+SBOUT="$("$PY" -c "$SB_PY" "$ROOT/project-bin")"
+printf '%s\n' "$SBOUT" | grep -q "^SHAPES_BAD=0$" && ok "gate-check shapes: relative, absolute, quoted, \$PWD, --closeout before/after, pipes, waive flags; mentions are not calls" || { bad "gate-check shapes"; printf '%s\n' "$SBOUT" | grep -A8 SHAPES_BAD; }
+printf '%s\n' "$SBOUT" | grep -q "^G1 100 200 300 None gate-check for stage 0$" && ok "stage 1 and 3 starts found from absolute-path, \$PWD and flagged gate-check calls; stage 2 left undetected" || bad "gate starts ($(printf '%s' "$SBOUT" | grep '^G1'))"
+printf '%s\n' "$SBOUT" | grep -q "^G2 \[100, None, None, None, None\]$\|^G2 \[None, None, None, None, None\]$" && ok "no recognisable signal: stages 0 to 4 are None, nothing guessed" || bad "no signal gives None ($(printf '%s' "$SBOUT" | grep '^G2'))"
+printf '%s\n' "$SBOUT" | grep -q "^G3 400 gate-check for stage 1$" && ok "gate-check outranks an agent description for the stage start" || bad "gate-check outranks description ($(printf '%s' "$SBOUT" | grep '^G3'))"
+printf '%s\n' "$SBOUT" | grep -q "^G4 500.0 the Stage 0 sign-off in PROJECT.md None$" && ok "register sign-off time beats agent words; a sign-off row without a time of day gives no start" || bad "register signal ($(printf '%s' "$SBOUT" | grep '^G4'))"
+# git commit times of stage artifacts (a throwaway repo; dates are fixed)
+PG="$WORK/pgit"; mkdir -p "$PG/architecture" "$PG/analysis/src/knowledge-base/brd"
+( cd "$PG" && git init -q . && git config user.email tester && git config user.name t
+  commit_at() { git add -- "$2" && GIT_AUTHOR_DATE="$1" GIT_COMMITTER_DATE="$1" git commit -q -m x -- "$2"; }
+  : > triage.md; commit_at "2026-01-01T10:00:00+0000" triage.md
+  : > analysis/src/knowledge-base/brd/orders.brd.json; commit_at "2026-01-01T12:00:00+0000" analysis/src/knowledge-base/brd/orders.brd.json
+  : > architecture/blueprint.md; commit_at "2026-01-01T14:00:00+0000" architecture/blueprint.md ) >/dev/null 2>&1
+IFS= read -r -d '' GT_PY <<'PYEOF' || true
+import sys, importlib.util, calendar
+spec = importlib.util.spec_from_file_location("pr", sys.argv[1] + "/progress-report.py"); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+sig = m.stage_boundaries({"tools": []}, [], {"dir": sys.argv[2], "signoff": {}})
+h = lambda t: int((t - calendar.timegm((2026, 1, 1, 0, 0, 0))) / 3600) if t else None
+print("GIT", h(sig["1"]), h(sig["2"]), h(sig["3"]), h(sig["4"]), m.BSRC.get("3"))
+PYEOF
+GT="$("$PY" -c "$GT_PY" "$ROOT/project-bin" "$PG" 2>&1)"
+[ "$GT" = "GIT 10 None 12 14 the git commit of the BRD JSON" ] && ok "git commit times of triage, BRD JSON and architecture mark stages 1, 3, 4 (stage 2 has no artifact signal: None)" || bad "git signals ($GT)"
+NG="$WORK/nogit"; mkdir -p "$NG"
+[ "$("$PY" -c "$GT_PY" "$ROOT/project-bin" "$NG" 2>&1)" = "GIT None None None None None" ] && ok "a project that is not a git checkout gives no git signal and no crash" || bad "non-git project"
+# end to end: the page says "boundary not detected" for a stage with no signal
+PB="$WORK/pbound"; mkproj "$PB"; CFGB="$WORK/cfg-bound"
+CALLS_JSON='[["bash ./bin/gate-check.sh .",30,0],["bash \"$PWD/bin/gate-check.sh\" --closeout \"$PWD\" 0",30,0],["ls",30,0],["bash bin/gate-check.sh . 2 --closeout",30,0],["ls",30,0]]' mklog "$CFGB" "$PB" "$(( $("$PY" -c 'import time;print(int(time.time()))') - 7200 ))"
+CLAUDE_CONFIG_DIR="$CFGB" bash "$SCRIPT" "$PB" --html >/dev/null 2>&1
+RB="$PB/architecture/progress-report.html"
+grep -q "<a href='#stage-1'>Stage 1</a></td><td>[0-9:]* to " "$RB" && grep -q "<a href='#stage-3'>Stage 3</a></td><td>[0-9:]* to " "$RB" && ok "Performance table has windows for stages 1 and 3 from quoted-path and flagged gate-check calls" || bad "windows for stages 1 and 3"
+grep -q "<a href='#stage-2'>Stage 2</a></td><td colspan=6><b>boundary not detected</b>" "$RB" && grep -q "<a href='#stage-4'>Stage 4</a></td><td colspan=6><b>boundary not detected</b>" "$RB" && ok "stages 2 and 4 read boundary not detected, not an invented window" || bad "boundary not detected rows"
+grep -q "<a href='#stage-1'>Stage 1</a></td><td colspan=6><b>boundary not detected" "$RB" && bad "stage 1 was detected, no not-detected row" || ok "a detected stage gets no not-detected row"
+
 echo "T16 narrow-width CSS (phone)"
 GEN="$ROOT/project-bin/progress-report.py"
 grep -q "@media(max-width:520px){code,pre,.stage dd" "$GEN" && ok "narrow rules wrap code and values" || bad "narrow rules wrap code and values"

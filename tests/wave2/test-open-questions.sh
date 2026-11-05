@@ -49,7 +49,9 @@ EOF
   echo "$d"
 }
 brd() { # brd <projdir> <file> <json-array-of-openQuestions>
-  printf '{"id":"F001","title":"t","openQuestions":%s}\n' "$3" > "$1/analysis/knowledge-base/brd/$2"
+  # modules + useCases: Stage 2 FAILs a BRD missing a section it owes since 2026-11-05, and these
+  # cases are about the questions, not the BRD shape.
+  printf '{"id":"F001","title":"t","modules":["Core"],"useCases":[],"openQuestions":%s}\n' "$3" > "$1/analysis/knowledge-base/brd/$2"
 }
 state_of() { # state_of <projdir> <question-id>
   "$SUT" "$1" --json 2>/dev/null | jq -r --arg i "$2" '.questions[] | select(.id==$i) | .state'

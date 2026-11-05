@@ -900,6 +900,13 @@ check_stage_0() {
     echo "PENDING|app mapped (analysis/app-report.html), waiting on the change — triage.md is signed off at Stage 0b, once the user says what to work on and what it touches is written ($f, ## Sign-off)"
   elif _signoff_is_not_yet "$signer"; then
     echo "FAIL|'Confirmed by:' says the sign-off has not happened yet: \"$signer\" — ask the user, then replace it with whatever they actually said (\"confirmed in chat 2026-08-20\" is fine) ($f, ## Sign-off)"
+  elif grep -q '\[' <<<"$signer" && mxtk_triage_is_pristine "$f"; then
+    # Not started is not failed (#635). init-project.sh writes this file on day one, so the
+    # placeholder sign-off on a scaffold nobody has touched yet is the PENDING the verdict table
+    # defines ("nothing is there yet"), not a FAIL ("there and wrong"). A fresh scaffold read
+    # "Needs attention" on day one. The test is sync-project.sh's own: stub marker AND an
+    # unfilled {{placeholder}}. Once the sheet is filled in, the placeholder sign-off FAILs (#620).
+    echo "PENDING|triage.md is the untouched scaffold init-project.sh wrote — Stage 0 has not started: fill it in per skills/source-triage.md, then ask the user to sign off ($f)"
   elif grep -q '\[' <<<"$signer"; then
     echo "FAIL|'Confirmed by:' still holds the shipped placeholder: \"$signer\" — replace it with whatever the user actually said (\"confirmed in chat 2026-08-20\" is fine; a full name is not required) ($f, ## Sign-off)"
   else
@@ -962,7 +969,78 @@ check_stage_1() {
   # Recovery when the conversation was skipped anyway is also a skill, not a gate:
   # skills/checkpoints/checkpoint-extraction.md holds it late, with the extraction report as its
   # input instead of the triage map — better input, since you can see what actually came out.
-  echo "PASS|extraction-report.html present and non-empty$( [ -f "$kb_md" ] && echo ", KB.md present and non-empty")"
+  # --- Extraction quality (#638): the validator's own score file, when one exists. ----------
+  # migration-pipeline.md: "Phase 3 does not start until the extraction quality score >= 95%".
+  # extractor-quality-loop.md makes extraction-quality*.json the proof. Stage 1 PASSed on the
+  # report page's presence while that file said 62.5 / passed=false. This is a file test, not a
+  # conversation test (skills-over-scripts.md): the file is the validator's, its numbers are
+  # read, never typed by the gate. No file = unchanged PASS, but the line says quality was not
+  # scored (no shipped pipeline writes one yet). A below-threshold extraction the user accepts
+  # anyway is recorded, never silent: `Waived artifact extraction-quality: <reason>`.
+  local q qv w
+  q="$(stage1_quality)"
+  qv="${q%%|*}"
+  if [ "$qv" = "FAIL" ]; then
+    if w="$(artifact_waived extraction-quality)"; then
+      q="NOTE|extraction quality below its gate but waived — $w (${q#FAIL|})"
+    else
+      echo "$q — re-run the extractor's quality loop to >= threshold (skills/extractor-quality-loop.md), or record it: gate-check.sh <project> --waive artifact/extraction-quality --reason \"...\""
+      return
+    fi
+  fi
+  # CAC-1b stays a skill, not a refusal (see above) — but the PASS line no longer implies it ran.
+  local scope=""
+  grep -qi 'extraction scope:' "${REGISTER:-/dev/null}" 2>/dev/null \
+    || scope="; no 'Extraction scope:' decision in the register yet — CAC-1b is advisory (skills/checkpoints/checkpoint-extraction.md), not checked here"
+  echo "PASS|extraction-report.html present and non-empty$( [ -f "$kb_md" ] && echo ", KB.md present and non-empty"); ${q#*|}$scope"
+}
+
+# stage1_quality → "FAIL|…" or "NOTE|…" for the Stage 1 line (#638). Reads every
+# extraction-quality*.json at the four places extraction-report.sh reads them: analysis/<src>/,
+# its extracted/, and the same two inside the knowledge base. The rules are the skill's, the
+# same three extraction-report.sh already flags: passed=false or overallScore under threshold
+# (default 95); selfGraded with passed=true; a file that will not parse.
+stage1_quality() {
+  local py src
+  . "$TOOLKIT_DIR/bin/lib/portable.sh"
+  py="$(resolve_py)" || { echo "NOTE|extraction quality not read (no Python 3 — cannot evaluate, which is not a pass)"; return; }
+  src="$(dirname "$KB_DIR")"
+  KB="$(native_path "$KB_DIR")" SRC="$(native_path "$src")" PROJ="$(native_path "$PROJECT_DIR")" "$py" -c '
+import json, os, re, sys
+kb, src, proj = os.environ["KB"], os.environ["SRC"], os.environ["PROJ"]
+seen, files = set(), []
+for d in (src, os.path.join(src, "extracted"), kb, os.path.join(kb, "extracted")):
+    r = os.path.realpath(d)
+    if r in seen or not os.path.isdir(d): continue
+    seen.add(r)
+    files += [os.path.join(d, f) for f in sorted(os.listdir(d)) if re.match(r"extraction-quality.*\.json$", f)]
+if not files:
+    print("NOTE|extraction quality NOT scored — no extraction-quality*.json (skills/extractor-quality-loop.md; no shipped pipeline writes one yet)"); sys.exit()
+num = lambda v: v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+bad, ok = [], []
+for f in files:
+    rel = os.path.relpath(f, proj)
+    try: d = json.load(open(f))
+    except Exception as e:
+        bad.append("%s will not parse (%s)" % (rel, type(e).__name__)); continue
+    if not isinstance(d, dict):
+        bad.append("%s is not the report object" % rel); continue
+    thr = num(d.get("threshold")); thr = 95 if thr is None else thr
+    sc, passed = num(d.get("overallScore")), d.get("passed")
+    shown = "%s / threshold %g" % ("?" if sc is None else "%g" % sc, thr)
+    if d.get("selfGraded") and passed is True:
+        bad.append("%s is a self-graded pass (%s) — a self-graded report cannot pass the gate" % (rel, shown))
+    elif passed is False or (sc is not None and sc < thr):
+        bad.append("%s scores %s, passed=%s" % (rel, shown, passed))
+    elif passed is True and sc is not None:
+        ok.append("%s %s" % (rel, shown))
+    else:
+        bad.append("%s states no passed/overallScore verdict" % rel)
+if bad:
+    print("FAIL|extraction quality below its gate: " + "; ".join(bad))
+else:
+    print("NOTE|extraction quality " + "; ".join(ok))
+' 2>/dev/null || echo "NOTE|extraction quality not read (python error — cannot evaluate, which is not a pass)"
 }
 
 check_stage_2() {
@@ -1008,8 +1086,11 @@ check_stage_2() {
       # (2026-10-28): facts-lock.sh reached 1 of 6 projects as advice; 20 parallel BRDs on
       # PROJECT-C carried 10 casing conflicts into Stage 3 as "open questions".
       local nbrd fl_out fl_dev fl_note="" req
-      req="$(stage2_brd_required "$brd_dir")"
+      req="$(stage2_brd_required "$brd_dir"; printf '\x1f%s' "$STAGE2_BRD_JSON")"
+      STAGE2_BRD_JSON="${req#*$'\x1f'}"; req="${req%%$'\x1f'*}"
       case "$req" in FAIL\|*) echo "$req"; return ;; esac
+      local bf; bf="$(stage2_brd_faults "$brd_dir")"
+      [ -n "$bf" ] && req="${req:+$req; }$bf"
       nbrd=$(find "$brd_dir" -maxdepth 1 -name '*.brd.json' 2>/dev/null | wc -l | tr -d ' ')
       if [ "${nbrd:-0}" -ge 2 ] && [ -f "$TOOLKIT_DIR/bin/facts-lock.sh" ]; then
         if [ -f "$PROJECT_DIR/analysis/facts.lock.json" ]; then
@@ -1062,6 +1143,7 @@ stage2_brd_required() {
   # project would also defeat bin/lib/gate-cache.sh, which treats any project write as a change).
   out="$(bash "$rep" "$PROJECT_DIR" --json --quiet --html "$tmp" 2>&1)"; rc=$?
   rm -f "$tmp"
+  STAGE2_BRD_JSON=""; [ "$rc" = 0 ] && STAGE2_BRD_JSON="$out"   # stage2_brd_faults reads it (#640)
   case "$rc" in
     0) ;;
     4) if w="$(artifact_waived brds)"; then echo "BRD shape not checked: waived — $w"; return 0; fi
@@ -1090,6 +1172,49 @@ for b in d.get("brds", []):
     return 0
   fi
   echo "FAIL|BRD(s) missing a required section — $(printf '%s' "$missing" | tr '\n' ';' | sed 's/;$//; s/;/; /g') (bin/brd-report.sh <project> explains each: owed by the BRD's provenance, or by every provenance) — restore the section, or record it: gate-check.sh <project> --waive artifact/brds --reason \"...\""
+}
+
+# stage2_brd_faults <brd-dir> → "" or a note for the PASS line (#640).
+#
+# WHY. Stage 2 PASSed while brd-report.sh, on the same BRDs, printed FAULT lines, and the PASS
+# line said nothing: the gate reads only `missingRequired` (a section key not there at all).
+# The other two FAULT kinds are now named on the PASS line, never hidden by it:
+#   - an UNREADABLE item key (`domainEntities[].attributes` under none of its names): the section
+#     renders and those cells are unknown;
+#   - a present-but-EMPTY section a code-extracted BRD owes (a capability with no microflows).
+# Neither FAILs. A requirements-driven BRD legitimately names entities before it has attributes
+# (Stage 3 designs them), and an enumeration-only capability has no microflows; a refusal here
+# would turn correct BRDs red. The false FAULTs (#640: enumerations, a backend-only source with
+# no screens) are fixed in brd-report.sh itself. Reads the JSON stage2_brd_required fetched;
+# only BRDs under <brd-dir> are judged.
+stage2_brd_faults() {
+  local brd_dir="$1" py res
+  [ -n "${STAGE2_BRD_JSON:-}" ] || return 0
+  . "$TOOLKIT_DIR/bin/lib/portable.sh"
+  py="$(resolve_py)" || return 0
+  res="$(printf '%s' "$STAGE2_BRD_JSON" | BRD_DIR="$(native_path "$brd_dir")" "$py" -c '
+import json, os, sys
+try: d = json.load(sys.stdin)
+except Exception: sys.exit(0)
+norm = lambda p: os.path.normcase(os.path.realpath(p))
+base = norm(os.environ["BRD_DIR"])
+unread, empty = [], []
+for b in d.get("brds", []):
+    if norm(os.path.dirname(b.get("path", ""))) != base: continue
+    n = os.path.basename(b["path"])
+    for u in b.get("unreadable") or []: unread.append("%s: %s" % (n, u.split(" — ")[0]))
+    miss = set(b.get("missingRequired") or [])
+    for k, v in (b.get("verdicts") or {}).items():
+        if v == "fault" and k not in miss: empty.append("%s: %s" % (n, k))
+print("\x1f".join([str(len(unread)), str(len(empty)), "; ".join(unread[:3]), "; ".join(empty[:3])]))
+' 2>/dev/null)" || return 0
+  [ -n "$res" ] || return 0
+  local nu ne eu ee msg=""
+  IFS=$'\x1f' read -r nu ne eu ee <<<"$res"
+  [ "${nu:-0}" -gt 0 ] 2>/dev/null && msg="$nu unreadable item key(s), e.g. $eu"
+  [ "${ne:-0}" -gt 0 ] 2>/dev/null && msg="${msg:+$msg; }$ne owed section(s) left empty, e.g. $ee"
+  [ -n "$msg" ] && echo "⚠ brd-report FAULT: $msg — read each (bin/brd-report.sh <project>); not a gate failure"
+  return 0
 }
 
 # ✋ stages need a CONFIRMED decision row in PROJECT.md's Decisions table
@@ -1735,7 +1860,7 @@ stage4_coverage() {
       0) ;;
       1) bad="${bad:+$bad; }$label: $(printf '%s\n' "$out" | awk '
              /^coverage-check:/ { b = $NF; sub(/.*\//, "", b); sub(/\.brd\.json$/, "", b); next }
-             /^  (UNCLAIMED|PHANTOM|DOUBLE-CLAIMED|COUNT-MISMATCH):/ { k = $1; sub(/:.*/, "", k); v = $0; sub(/^[^:]*:[ \t]*/, "", v)
+             /^  (UNCLAIMED|PHANTOM|DOUBLE-CLAIMED|COUNT-MISMATCH|SECTION-WIDE):/ { k = $1; sub(/:.*/, "", k); v = $0; sub(/^[^:]*:[ \t]*/, "", v)
                if (v + 0 > 0) { out = out (out == "" ? "" : ", ") b " " k " " v + 0 } next }
              /PHANTOM CLAIM:/ { p++ }
              END { if (p) out = out (out == "" ? "" : ", ") p " phantom build-plan claim(s)"; print out }')" ;;
@@ -2411,6 +2536,8 @@ protocol_is_relevant() {
 . "$TOOLKIT_DIR/bin/lib/gate-cache.sh"
 # The one BRD locator (its header says why there is only one); stage4_coverage asks it.
 . "$TOOLKIT_DIR/bin/lib/discover-brds.sh"
+# The "untouched scaffold" predicate sync-project.sh uses; check_stage_0 asks it (#635).
+. "$TOOLKIT_DIR/bin/lib/triage-template.sh"
 GC_CACHE_HIT=0
 [ "$CLOSEOUT" = "1" ] && gc_cache_try
 [ -n "${MXTK_GATE_CACHE_TRACE:-}" ] && [ "$CLOSEOUT" = "1" ] && echo "gate-cache: $([ "$GC_CACHE_HIT" = 1 ] && echo hit || echo miss)" >&4
@@ -3227,6 +3354,9 @@ else
       ;;
     3)
       SUFF_STATUS="FAIL"
+      # No rubric at all is not started, not wrong (#635): PENDING. A rubric with pass 1/pass 2
+      # left incomplete stays FAIL. Stage 0 advises on either; nothing here blocks.
+      [ -f "$PROJECT_DIR/analysis/source-sufficiency.json" ] || SUFF_STATUS="PENDING"
       SUFF_NOTE="source was never characterised, or the assessment is incomplete — run: $SUFF_SCRIPT init $PROJECT_DIR (then fill in pass 1/pass 2), then $SUFF_SCRIPT report $PROJECT_DIR. $(printf '%s' "$SUFF_OUT" | grep -v '^source-sufficiency: this rubric predates' | tail -3 | tr '\n' ' ')"
       ;;
     4)
@@ -3285,6 +3415,9 @@ else
       ;;
     1)
       LEDGER_STATUS="FAIL"
+      # Files on disk and no inventory yet = Stage 0 not started (#635): PENDING, not FAIL. It
+      # still BLOCKS Stages 1 and 2 below — PENDING there is just as unfinished.
+      [ -f "$PROJECT_DIR/analysis/source-sufficiency.json" ] || LEDGER_STATUS="PENDING"
       LEDGER_NOTE="$(printf '%s' "$LEDGER_OUT" | jq -r '.note // "source files owed"' 2>/dev/null || echo 'source files owed')"
       LEDGER_OWED="$(printf '%s' "$LEDGER_OUT" | jq -r '(.counts.pending // 0) + (.counts.fault // 0) + (.counts.missing // 0) + (.counts.drift // 0)' 2>/dev/null || echo '?')"
       ;;
@@ -3892,20 +4025,21 @@ if [ -n "$REQUESTED_STAGE" ]; then
   # unsigned, so blocking here added no safety — it just meant a Stage 0 query printed a refusal
   # instead of an answer, on exactly the projects least able to interpret one: brand-new ones.
   # Same shape as the drift gate two blocks up, loosened the same day and for the same reason.
-  if [ "$REQUESTED_STAGE" = "0" ] && [ "$SUFF_STATUS" = "FAIL" ]; then
+  if [ "$REQUESTED_STAGE" = "0" ] && { [ "$SUFF_STATUS" = "FAIL" ] || [ "$SUFF_STATUS" = "PENDING" ]; }; then
     advise "source-sufficiency" "Source sufficiency not established: $SUFF_NOTE"
   fi
   # Source ledger: advisory at Stage 0 (the inventory is that stage's own output), BLOCKING at
   # Stages 1 and 2 — no extraction is complete, and no BRD is written, while a source file has
   # no disposition that holds up or sits on disk un-inventoried. See the LEDGER block above.
-  if [ "$REQUESTED_STAGE" = "0" ] && [ "$LEDGER_STATUS" = "FAIL" ]; then
+  if [ "$REQUESTED_STAGE" = "0" ] && { [ "$LEDGER_STATUS" = "FAIL" ] || [ "$LEDGER_STATUS" = "PENDING" ]; }; then
     advise "source-ledger" "Source files not yet accounted for (blocks Stage 1): $LEDGER_NOTE"
   fi
   # …unless the stage itself is declared not required here — `--adopt` at a later stage,
   # `Waived stage N`, or an entry mode that skips it: the obligation and artifact checks respect
   # that declaration and this block must too (merge review, 2026-09-08: it fired on adopted
   # projects because it ran before the verdict table was consulted).
-  if { [ "$REQUESTED_STAGE" = "1" ] || [ "$REQUESTED_STAGE" = "2" ]; } && [ "$LEDGER_STATUS" = "FAIL" ] \
+  if { [ "$REQUESTED_STAGE" = "1" ] || [ "$REQUESTED_STAGE" = "2" ]; } \
+     && { [ "$LEDGER_STATUS" = "FAIL" ] || [ "$LEDGER_STATUS" = "PENDING" ]; } \
      && ! { _lw="$(stage_waiver "$REQUESTED_STAGE")" && [ "${_lw%%|*}" != "noreason" ]; }; then
     echo "" >&2
     echo "Gate BLOCKED by the source ledger: $LEDGER_NOTE" >&2

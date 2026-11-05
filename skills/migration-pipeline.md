@@ -280,8 +280,8 @@ in merger) when building a new stack's extractor rather than re-deriving it.
 ### ► CAC-1b Extraction Scope Checkpoint
 
 Run `checkpoints/checkpoint-extraction.md` **now** — after extraction, before a single BRD is
-scaffolded. Nothing blocks on it: Stage 1 is advisory and `gate-check.sh <project> 1` exits 0
-either way. It is here because it is the last cheap moment, not because a script will stop you.
+scaffolded. Nothing blocks on it: no script checks the scope conversation, and Stage 1's own verdict is
+advisory (exit 0 even on FAIL); only the source ledger makes `gate-check.sh <project> 1` exit 1. It is here because it is the last cheap moment, not because a script will stop you.
 
 CAC-1 above already says *"Phase 3 does not start until this triage is confirmed — skipping
 straight from extraction to BRDs produces scaffolds for a scope nobody agreed to."* That was

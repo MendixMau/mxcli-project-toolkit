@@ -322,6 +322,30 @@ LEGACY = {
 
 # --- per-BRD analysis ----------------------------------------------------------------------
 
+# Sections the code scaffolders derive from screens (pages, and use cases via mapUseCases).
+SCREEN_DERIVED = ('pages', 'useCases')
+
+def is_enum(it):
+    t = it.get('mendixType') or it.get('type') or it.get('kind')
+    return isinstance(t, str) and t.strip().lower() in ('enumeration', 'enum')
+
+_screens_cache = {}
+def kb_has_no_screens(brd_path):
+    """True only when the BRD's knowledge base (<kb>/brd/x.brd.json) holds a screens.json that
+    parses to an EMPTY list: the extraction ran and found no screen in the whole source. Absent,
+    unparseable or non-empty is False — the FAULT stands."""
+    kb = os.path.dirname(os.path.dirname(os.path.abspath(brd_path)))
+    if kb not in _screens_cache:
+        val = False
+        try:
+            with open(os.path.join(kb, 'screens.json')) as fh:
+                d = json.load(fh)
+            val = isinstance(d, list) and len(d) == 0
+        except Exception:
+            val = False
+        _screens_cache[kb] = val
+    return _screens_cache[kb]
+
 def rules_of(mfs):
     """hiddenRules is not a top-level key on any shape — it hangs off microflows[]. Derived
     here rather than read, so a BRD with microflows but no hidden rules is a real zero and a
@@ -378,6 +402,14 @@ for path, b in docs:
         for want, aliases in checks:
             missing = 0
             for it in items:
+                if key == 'domainEntities' and want == 'attributes' and is_enum(it):
+                    # An enumeration carries values[], not attributes (#640: the java-angular
+                    # and outsystems scaffolders put both under domainEntities). Its own
+                    # readable key is `values`; absent that, it is unreadable all the same.
+                    _v, got = first_present(it, 'values')
+                    if got is None:
+                        missing += 1
+                    continue
                 _v, got = first_present(it, *aliases)
                 if got is None:
                     missing += 1
@@ -416,11 +448,22 @@ for path, b in docs:
 
     # verdicts
     verdicts = {}
+    no_screens = kb_has_no_screens(path)
     for key, label in SECTIONS:
         n = len(raw[key])
         exp = expectation(prov, key)
         if n:
             verdicts[key] = ('pass', f'{n} present')
+        elif (prov == 'code-extracted' and key in SCREEN_DERIVED and no_screens
+              and keys_found.get(key) is not None):
+            # An honest empty (#640). The scaffolders derive pages AND use cases from screens
+            # (brd-mappers mapUseCases(arts.screens)). When the extraction this BRD came from
+            # found no screen anywhere in the source — its KB's screens.json is present and
+            # empty, a backend-only Spring Boot repo — a present-but-empty section here is the
+            # source's answer, not a lost one. A KB with screens elsewhere keeps the FAULT.
+            verdicts[key] = ('skipped', 'none in this source — the extraction found 0 screens '
+                                        'in the whole source (its screens.json is empty), and '
+                                        'this section is derived from screens.')
         elif exp is None:
             verdicts[key] = ('manual', 'provenance undetermined — whether this absence is a '
                                        'gap or a non-event needs a human, and no field on this '
@@ -428,7 +471,8 @@ for path, b in docs:
         elif exp == E:
             owner = (f'a {prov} BRD is expected to carry it' if prov in EXPECT
                      else 'every provenance owes it, so the undetermined provenance does not matter')
-            verdicts[key] = ('fault', f'absent, and {owner}. This is a finding, not a zero.')
+            state = 'empty' if keys_found.get(key) is not None else 'absent'
+            verdicts[key] = ('fault', f'{state}, and {owner}. This is a finding, not a zero.')
         elif exp == N:
             verdicts[key] = ('skipped', NA_REASON.get(
                 key, 'not applicable to a {p} BRD.').format(p=prov))

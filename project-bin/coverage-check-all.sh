@@ -70,7 +70,7 @@ for brd in "${brds[@]}"; do
   # `leaves:` is kept on the line: it is the BRD's total, and review-report.js sums each
   # counter across these lines — without it every multi-ledger module read "total unmeasured"
   # (card-disbursement requirements-driven build, 2026-09-26).
-  line="$(printf '%s\n' "$out" | grep -E 'leaves:|CLAIMED|LEDGERED|UNCLAIMED|PHANTOM|DOUBLE-CLAIMED|COUNT-MISMATCH' | tr '\n' ' ' | sed 's/  */ /g')"
+  line="$(printf '%s\n' "$out" | grep -E 'leaves:|CLAIMED|LEDGERED|UNCLAIMED|PHANTOM|DOUBLE-CLAIMED|COUNT-MISMATCH|SECTION-WIDE' | tr '\n' ' ' | sed 's/  */ /g')"
   case "$rc" in
     0) echo "$bid: CLEAN — $line" ;;
     1) echo "$bid: FINDINGS — $line"; FAIL=1 ;;

@@ -212,7 +212,7 @@ class Merger {
    */
   _loadAll() {
     const items = [];
-    this.endpointCoverage = { expected: 0, captured: 0, pathUnresolved: 0, files: [], sources: 0 };
+    this.endpointCoverage = { expected: 0, captured: 0, disagreements: 0, pathUnresolved: 0, files: [], sources: 0 };
     if (!fs.existsSync(this.extractedDir)) return items;
     const files = fs.readdirSync(this.extractedDir)
       .filter(f => /^(java|angular)(-.+)?\.json$/.test(f));
@@ -228,6 +228,8 @@ class Merger {
           this.endpointCoverage.expected += ec.expected || 0;
           this.endpointCoverage.captured += ec.captured || 0;
           this.endpointCoverage.pathUnresolved += ec.pathUnresolved || 0;
+          this.endpointCoverage.disagreements += ec.disagreements !== undefined
+            ? ec.disagreements : Math.max(0, (ec.expected || 0) - (ec.captured || 0));
           for (const fc of (ec.files || [])) this.endpointCoverage.files.push({ ...fc, extract: f });
         }
       } catch (e) {
@@ -297,11 +299,12 @@ class Merger {
     // this report and summary.md said 0 gaps).
     const ec = this.endpointCoverage;
     if (ec && ec.sources) {
-      const missed = ec.expected - ec.captured;
+      const missed = ec.disagreements;
       lines.push('## REST endpoint coverage');
       lines.push(`**Captured:** ${ec.captured} of ${ec.expected} mapping annotations found in controller source  `);
       if (ec.pathUnresolved) lines.push(`**Paths left unresolved (constant not found in this source):** ${ec.pathUnresolved}  `);
-      for (const fc of ec.files) lines.push(`- \`${fc.file}\`: ${fc.captured} captured of ${fc.expected}`);
+      for (const fc of ec.files) lines.push(`- \`${fc.file}\`: ${fc.captured} captured of ${fc.expected}` +
+        (fc.captured > fc.expected ? ' (the AST found more than the independent count; check both)' : ''));
       if (!missed && !ec.files.length) lines.push('No uncaptured mapping annotations.');
       lines.push('');
     }
@@ -335,7 +338,7 @@ class Merger {
     for (const i of items) counts[i.type] = (counts[i.type] || 0) + 1;
     const totalLinks = Object.values(crossRef).reduce((s, v) => s + v.linkedTo.length, 0);
     const ec = this.endpointCoverage || { sources: 0 };
-    const missedEndpoints = ec.sources ? Math.max(0, ec.expected - ec.captured) : 0;
+    const missedEndpoints = ec.sources ? ec.disagreements : 0;
     const totalGaps  = Object.values(crossRef).reduce((s, v) => s + v.gaps.length, 0) + missedEndpoints;
     const lines = [
       '# Knowledge Base Summary\n',
@@ -347,7 +350,7 @@ class Merger {
       `- Total cross-references established: **${totalLinks}**`,
       `- Total gaps (missing links): **${totalGaps}**`,
       ...(ec.sources ? [`- REST endpoints captured: **${ec.captured} of ${ec.expected}** mapping annotations in controller source` +
-        (missedEndpoints ? ` — **${missedEndpoints} missed**, counted in the gaps total above` : '')] : []),
+        (missedEndpoints ? ` — **${missedEndpoints} missed or disputed** (regex vs AST, per file), counted in the gaps total above` : '')] : []),
       '',
       '> Review `reports/gaps-report.md` for constructs requiring human confirmation.',
     ];

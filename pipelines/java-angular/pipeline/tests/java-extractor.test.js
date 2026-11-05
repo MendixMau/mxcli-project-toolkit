@@ -38,7 +38,7 @@ test('#637 controller in package location, service impl in package impl: all 13 
   // Joined to LocationServiceImpl.create by injected field type, across packages
   assert.deepStrictEqual(create.delegatesTo, ['java:logic:impl:LocationServiceImpl.create']);
   // Overloaded handlers are two endpoints, not one overwritten map entry
-  const changeState = eps.filter(e => e.name === 'changeState');
+  const changeState = eps.filter(e => e.label === 'changeState');
   assert.strictEqual(changeState.length, 3, 'LocationController declares changeState three times (lines 173, 183, 199)');
   assert.strictEqual(new Set(changeState.map(e => e.uniqueId)).size, 3);
   assert.deepStrictEqual(changeState[0].httpEndpoint, { method: 'PATCH', path: '/v1/location/{pKey}', params: ['op=change-state'] });
@@ -94,6 +94,7 @@ test('#637 merger: a missed endpoint is counted in the gaps total, never "0 gaps
   const f = path.join(kb, 'extracted', 'java-svc.json');
   const data = JSON.parse(fs.readFileSync(f, 'utf8'));
   data.meta.endpointCoverage.captured -= 1;
+  data.meta.endpointCoverage.disagreements = 1;
   data.meta.endpointCoverage.files = [{ file: 'LocationController.java', expected: 13, captured: 12 }];
   fs.writeFileSync(f, JSON.stringify(data));
   await new Merger({ extractedDir: path.join(kb, 'extracted'), knowledgeBaseDir: kb, logger: { log() {}, error() {} } }).run();
@@ -106,4 +107,68 @@ test('#637 merger: a missed endpoint is counted in the gaps total, never "0 gaps
   const xref = JSON.parse(fs.readFileSync(path.join(kb, 'cross-reference-map.json'), 'utf8'));
   const links = xref['java:logic:location:LocationController.createLocation'].linkedTo;
   assert.ok(links.some(l => l.matchedBy === 'controller-delegate' && l.id === 'java:logic:impl:LocationServiceImpl.create'));
+});
+
+// ── Review fixes on #649. Golden input, verbatim and Apache-2.0 per each file's header:
+// tests/fixtures/petclinic/ = spring-projects/spring-petclinic @3450c3d (2016-10-17), two
+// controllers using method-level @RequestMapping; tests/fixtures/kylin/ = apache/kylin @705dd08
+// SparderUIController (`@RequestMapping(value = "/**")`); and OpenWMS AbstractWebController
+// (`"://"` string literals). Counts taken by grep over those files.
+const PETCLINIC = path.join(__dirname, 'fixtures', 'petclinic', 'src', 'main', 'java');
+const KYLIN = path.join(__dirname, 'fixtures', 'kylin', 'src', 'query-server', 'src', 'main', 'java');
+const { stripCommentsAndStrings, regexEndpointCount } = require('../extractors/endpoint-count');
+const read = (...p) => fs.readFileSync(path.join(...p), 'utf8');
+
+test('independent count: "/*" and "/**" inside string literals do not open a comment', () => {
+  // VisitController: "/owners/*/pets/..." on line 76; the comments-first stripper counted 1 of 3.
+  const visit = read(PETCLINIC, 'org/springframework/samples/petclinic/web/VisitController.java');
+  assert.strictEqual(regexEndpointCount(visit), 3, 'lines 76, 82, 92; the javadoc @RequestMapping on line 58 does not count');
+  const sparder = read(KYLIN, 'org/apache/kylin/rest/controller/SparderUIController.java');
+  assert.strictEqual(regexEndpointCount(sparder), 2, '@RequestMapping("/**") line 45 + @GetMapping line 52');
+});
+
+test('independent count: "//" inside a string literal does not truncate the line', () => {
+  const awc = read(FIX, 'openwms/org.openwms.core.util/src/main/java/org/openwms/core/http/AbstractWebController.java');
+  const line = awc.split('\n')[297]; // line 298
+  assert.match(line, /endsWith\("\:\/\/"\) \? req\.getScheme\(\)/);
+  assert.match(stripCommentsAndStrings(line), /endsWith\(""\) \? req\.getScheme\(\) : req\.getScheme\(\) \+ ""\)/);
+  assert.strictEqual(regexEndpointCount(awc), null, 'abstract base class carries no controller stereotype');
+});
+
+test('method-level @RequestMapping: verbs from method=, ANY without it, one endpoint per listed path', () => {
+  const { data } = extract(PETCLINIC, 'pc');
+  const ec = data.meta.endpointCoverage;
+  assert.deepStrictEqual([ec.expected, ec.captured, ec.disagreements], [5, 5, 0]);
+  const eps = Object.fromEntries(data.items.filter(i => i.httpEndpoint).map(i => [i.uniqueId, i.httpEndpoint]));
+  assert.deepStrictEqual(eps['java:web.VisitController.initNewVisitForm'], { method: 'GET', path: '/owners/*/pets/{petId}/visits/new' });
+  assert.deepStrictEqual(eps['java:web.VisitController.processNewVisitForm'], { method: 'POST', path: '/owners/{ownerId}/pets/{petId}/visits/new' });
+  assert.deepStrictEqual(eps['java:web.VetController.showVetList'], { method: 'ANY', path: '/vets.html' });
+  // value = {"/vets.json", "/vets.xml"} -> two endpoints
+  assert.deepStrictEqual([eps['java:web.VetController.showResourcesVetList'].path, eps['java:web.VetController.showResourcesVetList~2'].path], ['/vets.json', '/vets.xml']);
+  const k = extract(KYLIN, 'ky').data;
+  assert.deepStrictEqual([k.meta.endpointCoverage.expected, k.meta.endpointCoverage.captured], [2, 2]);
+  assert.ok(k.items.find(i => i.name === 'proxy')._gaps.some(g => g.startsWith('endpoint-path-unresolved:')), 'SparderUIUtil is not in the fixture');
+});
+
+test('overloads get distinct names; no BRD lists two microflows with one name', async () => {
+  const { data, kb } = extract(SVC_LIB, 'svc');
+  const names = data.items.filter(i => i.type === 'logic' && i.label === 'changeState').map(i => i.name).sort();
+  // controller: 3 overloads; LocationServiceImpl: 2
+  assert.deepStrictEqual(names, ['changeState', 'changeState', 'changeState_2', 'changeState_2', 'changeState_3']);
+  assert.ok(data.items.filter(i => i.name === 'changeState_2').every(i => i.overloadOf === 'changeState'));
+  const { Merger } = require('../lib/merger');
+  await new Merger({ extractedDir: path.join(kb, 'extracted'), knowledgeBaseDir: kb, logger: { log() {}, error() {} } }).run();
+  const { generate } = require('../generators/brd-mappers/index');
+  const out = path.join(kb, 'brd');
+  await generate(kb, out, {});
+  const brds = fs.readdirSync(out).filter(f => f.endsWith('.brd.json'));
+  assert.ok(brds.length > 0);
+  for (const f of brds) {
+    const mf = JSON.parse(fs.readFileSync(path.join(out, f), 'utf8')).microflows || [];
+    const seen = mf.map(m => m.name);
+    assert.strictEqual(new Set(seen).size, seen.length, `${f}: duplicate microflow names`);
+  }
+  const loc = JSON.parse(fs.readFileSync(path.join(out, 'location.brd.json'), 'utf8')).microflows;
+  const renamed = loc.find(m => m.renamedFrom === 'changeState');
+  assert.ok(renamed && /^(LocationServiceImpl|LocationController)_changeState/.test(renamed.name), JSON.stringify(renamed));
 });

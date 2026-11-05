@@ -270,7 +270,11 @@ function lookupConstant(name, ctx, depth) {
   if (ctx.imports && ctx.imports.map.has(name)) candidates.push(`${ctx.imports.map.get(name)}.${name}`);
   for (const w of (ctx.imports ? ctx.imports.wildcards : [])) candidates.push(`${w}.${name}`);
   for (const st of (CLASS_INDEX.get(ctx.className)?.superTypes || [])) candidates.push(`${st}.${name}`);
-  for (const key of candidates) if (CONSTS.has(key)) return evalString(CONSTS.get(key).node, CONSTS.get(key).ctx, depth + 1);
+  for (const key of candidates) {
+    if (!CONSTS.has(key)) continue;
+    const v = evalString(CONSTS.get(key).node, CONSTS.get(key).ctx, depth + 1);
+    if (v !== null) return v; // a candidate that does not evaluate must not hide the next one
+  }
   const global = CONSTS_BY_NAME.get(name) || [];
   if (global.length) {
     // Several classes may declare the same NAME; only trust it when they all agree.
@@ -351,17 +355,18 @@ function extractControllerEndpoints(classNode, ctx) {
     if (member.type !== 'method_declaration') continue;
     const mAnns = annotationsOf(findChildOfType(member, 'modifiers'));
     for (const ann of mAnns) {
-      let verb = MAPPING_VERBS[ann.name];
-      if (!verb && ann.name === 'RequestMapping') {
-        // Method-level @RequestMapping(method = RequestMethod.GET); no method= means any verb.
-        const m = /(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)/.exec(ann.args.method || '');
-        verb = m ? m[1] : 'ANY';
+      let verbs = MAPPING_VERBS[ann.name] ? [MAPPING_VERBS[ann.name]] : null;
+      if (!verbs && ann.name === 'RequestMapping') {
+        // Method-level @RequestMapping(method = RequestMethod.GET) or method = { PUT, POST }
+        // (one endpoint per verb); no method= means any verb.
+        const m = (ann.args.method || '').match(/\b(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)\b/g);
+        verbs = m ? [...new Set(m)] : ['ANY'];
       }
-      if (!verb) continue;
+      if (!verbs) continue;
       annotationCount++;
       const sub = mappingPaths(ann, ctx);
       const params = mappingParams(ann, ctx);
-      for (const b of base.paths) {
+      for (const verb of verbs) for (const b of base.paths) {
         for (const s of sub.paths) {
           const ep = { method: verb, path: joinPath(b, s) };
           if (params) ep.params = params;
@@ -430,6 +435,9 @@ function logicItemFor(member, className, module, file, seen) {
   const n = (seen.get(name) || 0) + 1;
   seen.set(name, n);
   const idName = n === 1 ? name : `${name}~${n}`;
+  // Overloads get distinct names too (changeState, changeState_2): Mendix microflow names are
+  // unique per module and the BRD mapper lists microflows by name.
+  const itemName = n === 1 ? name : `${name}_${n}`;
 
   return {
     type: 'logic',
@@ -438,8 +446,9 @@ function logicItemFor(member, className, module, file, seen) {
                           // migration-pipeline.md's "Reuse the logicKind vocabulary" rule.
     linkId: `java:logic:${module}:${className}.${idName}`,
     uniqueId: `java:${module}.${className}.${idName}`,
-    name,
+    name: itemName,
     label: name,
+    ...(n === 1 ? {} : { overloadOf: name }),
     description: '',
     module,
     isPublic: true,
@@ -507,23 +516,8 @@ function extractEnum(enumNode, enumName, module, file, outerNames) {
   return item;
 }
 
-// ── Independent endpoint count (the validator's "different mechanism" rule from
-// extractor-quality-loop.md): a comment-stripped regex over each controller file's raw text,
-// never the AST. Every mapping annotation on a method of a *Controller-stereotyped class is
-// expected to land as an endpoint; any shortfall is reported, never dropped. ──
-function regexEndpointCount(text) {
-  const code = text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
-  if (!/@\w*Controller\b/.test(code)) return null;
-  const firstType = code.search(/\b(class|interface|enum|record)\s+\w+/);
-  let count = 0;
-  const re = /@(Get|Post|Put|Delete|Patch|Request)Mapping\b/g;
-  let m;
-  while ((m = re.exec(code))) {
-    if (m[1] === 'Request' && firstType >= 0 && m.index < firstType) continue; // class-level base path
-    count++;
-  }
-  return count;
-}
+// ── Independent endpoint count: see endpoint-count.js (regex over raw text, never the AST). ──
+const { regexEndpointCount } = require('./endpoint-count');
 
 // ── Pass 0: parse every file once; index classes and string constants ──
 const files = walkDir(sourceDir);
@@ -648,7 +642,7 @@ for (const { file, tree, text, ctx } of parsed) {
 //     controller in package `location` reaching LocationServiceImpl in `impl` still links.
 const logicByClassAndName = new Map(); // "Class.method" -> [items]
 for (const item of rawLogicItems) {
-  const key = `${classOfLogic.get(item.linkId)}.${item.name}`;
+  const key = `${classOfLogic.get(item.linkId)}.${item.overloadOf || item.name}`;
   (logicByClassAndName.get(key) || logicByClassAndName.set(key, []).get(key)).push(item);
 }
 const serviceClassesFor = (typeName) => {
@@ -701,9 +695,12 @@ const result = {
     // Read by merger.js: uncaptured mapping annotations are written to the gaps report and
     // counted in summary.md's total, so "0 gaps" can never coexist with missed endpoints.
     endpointCoverage: {
-      method: 'regex count of @*Mapping on methods of *Controller classes (comments stripped)',
+      method: 'regex count of @*Mapping on methods of *Controller classes (comments and string literals stripped)',
       expected: expectedEndpoints,
       captured: capturedEndpoints,
+      // |regex - AST| summed per file. The two methods disagreeing in EITHER direction means
+      // neither is ground truth (extractor-quality-loop.md): counted as gaps, never hidden.
+      disagreements: endpointCoverage.reduce((s, f) => s + Math.abs(f.expected - f.captured), 0),
       endpointRecords: controllerEndpoints.length,
       pathUnresolved: controllerEndpoints.filter(e => e.endpoint.pathResolved === false).length,
       files: endpointCoverage.filter(f => f.expected !== f.captured),

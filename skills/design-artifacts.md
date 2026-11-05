@@ -326,7 +326,8 @@ parallel 10 min, parallel with a shared brief 6 min; the parallel runs had **0**
    cheap tier (`conversion-runbook.md` → Three tiers).
 4. Subagents write their own files and reply in at most 5 lines. **The lead is the only writer of
    `PROJECT.md`**, checks every output against the brief, re-runs `artifact-check.sh` (0 stage-3
-   lines PENDING) and then `bin/gate-check.sh <project> 3`.
+   lines PENDING), dispatches the Step 3d prototype LOOK, and then runs
+   `bin/gate-check.sh <project> 3`: `Obligation prototype-look PASS` before the ✋ question.
 
 ## Step 3b: Scope Crosscheck — Every Wireframed Element Needs a Requirement
 
@@ -366,6 +367,28 @@ routes the BRD's use cases walk against the screens (`brd-unknown-route`, `uncov
 belongs to `brd-validation.md` check 8. The judgement stays with Step 3b: the script finds
 the control with nothing behind it, a person decides whether to cut it or spec it. A wireframe set
 with failures here does not pass to the build loop.
+
+### Step 3d: Prototype LOOK — the page the user clicks, at device widths
+
+Owed before the Stage 3 sign-off question (`obligations.tsv` row `prototype-look`). Run by
+review-agent, never by the agent that drew the design. A green Step 3c says the links work, not
+that the page renders: a 15-screen prototype went to its product owner twice with every input
+overflowing its card by 17–18 px at phone width, while each wireframe screenshot looked right (#632).
+
+1. Re-assemble last; note the `sha256` that `assemble-prototype.js` prints.
+2. Open `design/prototype.html` in a real browser, **Show bindings** on, and capture every screen
+   at 390, 360 and 320 px wide and at 1280 px.
+3. Count per screen, each with its denominator ("0 of 31 elements"): elements overflowing their
+   card or frame; tap targets under 44 px; text under 11 px; text and non-text contrast pairs under
+   4.5:1 and 3:1; overflow with the WCAG 1.4.12 text-spacing override applied; designer notes or
+   rule codes (`BR-n`) showing as screen text.
+4. Write `design/ui-reviews/prototype-look-<YYYY-MM-DD>.html`. First line: `N of M screen-widths
+   captured` (M = screens × 4). Then `PROTOTYPE-SHA: <the sha256>` and one
+   `PROOF-OF-LOOK: <route>@<width> = <screenshot path>` per screen-width (each file ≥ 10 KB).
+
+`gate-check.sh` reports the row PENDING until this report exists. A report whose hash is not the
+current prototype's reads STALE, so any re-assembly is looked at again. "0 found of N measured" is
+a pass; a count with no denominator is not.
 
 ---
 

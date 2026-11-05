@@ -202,6 +202,10 @@ Gate mode: check
      script and the full mxbuild before every push, at module close and when Java/theme files
      change (mxcli's own advice). \`Gate mode: full\` = a full mxbuild on every exec. -->
 
+<!-- Bug filing: auto — take this line out of the comment to let agents post this project's open
+     toolkit/mxcli bugs (docs/bugs.jsonl) as public GitHub issues with your own gh login, redacted and
+     deny-list checked, without a y/N per bug (bin/file-bugs.sh --auto). Left commented, a human files. -->
+
 <!-- The bold line above is a READOUT: bin/gate-check.sh rewrites it on every full run from the
      verdicts it just produced (first stage neither PASS nor WAIVED). Do not edit it by hand.
      Where this project joins the pipeline: nothing recorded, so it starts at Stage P — the

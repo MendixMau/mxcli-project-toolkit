@@ -155,12 +155,27 @@ if [ "$CLOSEOUT" = "1" ]; then
   trap 'rc=$?; if [ -n "$CLOSEOUT_LOG" ] && [ -f "$CLOSEOUT_LOG" ]; then exec 1>&3 2>&4; cat "$CLOSEOUT_LOG" >&2; rm -f "$CLOSEOUT_LOG"; fi; exit $rc' EXIT
 fi
 
+# Bugs logged but not filed (docs/bugs.jsonl, bin/file-bugs.sh): one line on a full run and at
+# --closeout, never on a stage query, never a verdict, never an exit code (CLAUDE.md guard rule 7:
+# a reminder must not block). A finding about the toolkit or mxcli that stays in the project's
+# log reaches nobody — 8 real toolkit findings sat in one project's FINDINGS.md that way. A row
+# counts as open when its status is "open" or it has none (file-bugs.py's own default).
+bugs_unfiled_line() {
+  local f="$PROJECT_DIR/docs/bugs.jsonl" n
+  [ -f "$f" ] || return 0
+  n="$(grep -E '^[[:space:]]*\{' "$f" 2>/dev/null \
+       | awk '/"status"[[:space:]]*:[[:space:]]*"open"/ || !/"status"[[:space:]]*:/ { c++ } END { print c + 0 }')"
+  [ "${n:-0}" -gt 0 ] 2>/dev/null || return 0
+  echo "note: $n toolkit/mxcli bug(s) logged but not filed — run bin/file-bugs.sh --auto (or --links)"
+}
+
 # Machine preflight receipt — informational only, on full runs only (stage queries run inside
 # agent loops and hooks and must stay quiet). bin/doctor.sh writes the receipt; a missing one
 # means nobody ever checked whether the mxbuild gate can even run on this machine, which is
 # how a Windows training round shipped unverified model writes for a whole exercise. This
 # line never affects a verdict or an exit code: a machine check is not a stage gate.
 if [ -z "$REQUESTED_STAGE" ]; then
+  bugs_unfiled_line
   _DOCTOR_RECEIPT="$PROJECT_DIR/.claude/.doctor-receipt"
   if [ -f "$_DOCTOR_RECEIPT" ]; then
     case "$(cat "$_DOCTOR_RECEIPT" 2>/dev/null)" in
@@ -3819,6 +3834,7 @@ if [ "$CLOSEOUT" = "1" ]; then
     # shellcheck source=lib/closeout.sh
     . "$TOOLKIT_DIR/bin/lib/closeout.sh"
     MXTK_CLOSEOUT_VERDICT="$_co_verdict" mxtk_closeout_report "$PROJECT_DIR" "$REQUESTED_STAGE" "$REGISTER"
+    _bl="$(bugs_unfiled_line)"; [ -n "$_bl" ] && printf '\n%s\n' "${_bl#note: }"
   else
     echo "closeout: FAULT — bin/lib/closeout.sh missing from $TOOLKIT_DIR; nothing was emitted (this is the checker failing, not the project)" >&2
   fi

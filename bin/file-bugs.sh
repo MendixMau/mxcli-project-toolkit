@@ -5,10 +5,12 @@
 #   bin/file-bugs.sh --file PBUG-02 [--file ...]       # file that bug, after a y/N per bug
 #   bin/file-bugs.sh --all                            # every open bug, still a y/N per bug
 #   bin/file-bugs.sh --file PBUG-02 --to mxcli         # file it to the other repo as well (row keeps its target)
+#   bin/file-bugs.sh --auto                           # opted-in project only: post every clean open bug, no y/N
 #   bin/file-bugs.sh --links                          # prefilled github new-issue URL per open bug
 #   bin/file-bugs.sh --json                           # redacted bugs + URLs as JSON (for the report)
 #   bin/file-bugs.sh --add --target mxcli|toolkit --title T --repro R --expected E --actual A \
-#                    [--workaround W] [--mxcli V] [--mendix V]     # append a row, next free PBUG-NN
+#                    [--workaround W] [--mxcli V] [--mendix V] \
+#                    [--log FILE [--log-lines N]]  # append a row, next free PBUG-NN; last N (40) log lines, redacted
 #
 # WHY. Both target repos are public (target mxcli = mendixlabs/mxcli, toolkit =
 # MendixMau/mxcli-project-toolkit; nothing else is ever addressed). A bug found in a client
@@ -28,11 +30,22 @@
 # Posting needs --file/--all AND y/N read from /dev/tty (never stdin). NO SCRIPT CAN TELL A HUMAN FROM
 # AN AGENT DRIVING A PTY (a `script` wrapper answers y), so the shipped Claude Code permissions deny
 # `file-bugs.sh --file` and `--all` (bin/install-claude-permissions.sh): a human runs posting with
-# `!bin/file-bugs.sh --file PBUG-NN`. An agent uses the dry run, --links or --json and hands over. The id is project-local
+# `!bin/file-bugs.sh --file PBUG-NN`. An agent uses the dry run, --links or --json and hands over --
+# UNLESS the person opted the project in with a PROJECT.md line `Bug filing: auto` (exactly that,
+# bold/backtick/bullet variants OK, not inside an HTML comment). Then `--auto` posts every open row
+# whose redacted title and body pass the scan, with the person's own `gh` login (gh, else gh.exe,
+# else $MXTK_GH; `gh auth status` must pass), no tty and no y/N: duplicate search first (a row whose
+# exact title is already an issue gets that URL recorded instead of a second issue), label
+# `auto-filed` when the repo has it or the user may create it (else none), status=filed + issue_url
+# written back. The deny list stays mandatory; a row that fails the scan is reported, never posted.
+# No gh, or not signed in: it prints the --links and exits 0. Without the opt-in line, --auto is a
+# dry run. The shipped permissions deny --file/--all but not --auto (the opt-in line is the gate).
+# --log FILE on --add stores the last --log-lines (40) lines, redacted; a log that still fails the
+# scan is not stored, and a stored log that fails at posting time is left out of the issue. The id is project-local
 # (PBUG-NN, not a toolkit BUG-n); the public number is the issue. Success writes status=filed
 # and issue_url back, keeping the file mode.
 # Row fields: id date target title repro expected actual versions{mxcli,mendix,toolkit}
-# workaround status(open|filed|fixed) issue_url. Dry run, --links and --json post nothing.
+# workaround status(open|filed|fixed) issue_url [log] [duplicate]. Dry run, --links and --json post nothing.
 set -eu
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib/portable.sh"

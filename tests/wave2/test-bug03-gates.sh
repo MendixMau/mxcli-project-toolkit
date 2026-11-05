@@ -528,11 +528,11 @@ echo "== T24: Stage 2 reads the validator's verdict, not only the report's own '
 P="$(mkproj t24)"
 printf '# Validation\n\n## Stop condition\n\nClean: all 8 checks re-run, 0 findings.\n' > "$P/knowledge-base/reports/validation-report.md"
 cat > "$P/knowledge-base/brd/F001.brd.json" <<'JSON'
-{"id":"F001","title":"Rooster","provenance":"documents","modules":["Rooster"],
+{"id":"F001","title":"Scheduling","provenance":"documents","modules":["Scheduling"],
  "useCases":[{"id":"UC001","title":"Plan a shift","actors":["Planner"],"mainFlow":["1. plan"],"postconditions":["planned"]},
              {"id":"UC002","title":"Swap a shift","actors":["Planner"],"mainFlow":["1. swap"]}],
- "domainEntities":[{"name":"Dienst","module":"Rooster","attributes":[{"name":"Soort","type":"Enumeration","enumeration":"Rooster.DienstSoort"}],
-                    "associations":[{"name":"Dienst_Medewerker","target":"Medewerker"}]}],
+ "domainEntities":[{"name":"Shift","module":"Scheduling","attributes":[{"name":"Kind","type":"Enumeration","enumeration":"Scheduling.ShiftKind"}],
+                    "associations":[{"name":"Shift_Employee","target":"Employee"}]}],
  "businessRules":[{"title":"No double shifts"}],
  "openQuestions":[{"id":"Q1","question":"Night shifts in scope?","status":"Open"}]}
 JSON
@@ -547,11 +547,11 @@ case "$V" in *PASS*'validator: 4 error(s) but waived — UC002 is drafted'*) ok 
 P="$(mkproj t24b)"
 printf '# Validation\n\n## Stop condition\n\nClean.\n' > "$P/knowledge-base/reports/validation-report.md"
 cat > "$P/knowledge-base/brd/F001.brd.json" <<'JSON'
-{"id":"F001","title":"Rooster","provenance":"documents","modules":["Rooster"],
+{"id":"F001","title":"Scheduling","provenance":"documents","modules":["Scheduling"],
  "useCases":[{"id":"UC001","title":"Plan a shift","actors":["Planner"],"mainFlow":["1. plan"],"acceptanceCriteria":["a planned shift is listed"]}],
- "domainEntities":[{"name":"Dienst","module":"Rooster","associations":[{"name":"Dienst_Account","target":"Administration.Account"}]},
-                   {"name":"Medewerker","module":"Rooster"}],
- "associations":[{"name":"Rooster.Dienst_Medewerker","from":"Rooster.Dienst","to":"Rooster.Medewerker"}],
+ "domainEntities":[{"name":"Shift","module":"Scheduling","associations":[{"name":"Shift_Account","target":"Administration.Account"}]},
+                   {"name":"Employee","module":"Scheduling"}],
+ "associations":[{"name":"Scheduling.Shift_Employee","from":"Scheduling.Shift","to":"Scheduling.Employee"}],
  "businessRules":[{"id":"BR-01","title":"No double shifts"}]}
 JSON
 V="$(verdict "$P" 2)"
@@ -561,7 +561,7 @@ case "$V" in *PASS*'validator: 1 requirements BRD(s): 1 of 1 use cases complete,
 cp "$P/knowledge-base/brd/F001.brd.json" "$P/knowledge-base/brd/F002.brd.json"
 sed -i.bak -e 's/"F001"/"F002"/' -e 's/UC001/UC101/' -e 's/BR-01/BR-02/' "$P/knowledge-base/brd/F002.brd.json"; rm -f "$P/knowledge-base/brd/F002.brd.json.bak"
 V="$(verdict "$P" 2)"
-case "$V" in *FAIL*'entity-owner'*'Rooster.Dienst is declared in 2 BRDs (F001, F002)'*) ok "an entity declared by two BRDs FAILs a 'Clean' report" ;; *) bad "double-owned entity: $V" ;; esac
+case "$V" in *FAIL*'entity-owner'*'Scheduling.Shift is declared in 2 BRDs (F001, F002)'*) ok "an entity declared by two BRDs FAILs a 'Clean' report" ;; *) bad "double-owned entity: $V" ;; esac
 
 printf '\n%s: %d ok, %d FAIL\n' "$(basename "$0")" "$PASS" "$FAIL"
 rm -rf "$WORK"

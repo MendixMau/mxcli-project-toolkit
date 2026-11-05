@@ -990,9 +990,12 @@ check_stage_1() {
   local q qv w
   q="$(stage1_quality)"
   qv="${q%%|*}"
-  if [ "$qv" = "FAIL" ]; then
+  if [ "$qv" = "FAIL" ] || [ "$qv" = "PENDING" ]; then
     if w="$(artifact_waived extraction-quality)"; then
-      q="NOTE|extraction quality below its gate but waived — $w (${q#FAIL|})"
+      q="NOTE|extraction quality below its gate but waived — $w (${q#*|})"
+    elif [ "$qv" = "PENDING" ]; then
+      echo "$q — or record it: gate-check.sh <project> --waive artifact/extraction-quality --reason \"...\""
+      return
     else
       echo "$q — re-run the extractor's quality loop to >= threshold (skills/extractor-quality-loop.md), or record it: gate-check.sh <project> --waive artifact/extraction-quality --reason \"...\""
       return
@@ -1005,11 +1008,14 @@ check_stage_1() {
   echo "PASS|extraction-report.html present and non-empty$( [ -f "$kb_md" ] && echo ", KB.md present and non-empty"); ${q#*|}$scope"
 }
 
-# stage1_quality → "FAIL|…" or "NOTE|…" for the Stage 1 line (#638). Reads every
+# stage1_quality → "FAIL|…", "PENDING|…" or "NOTE|…" for the Stage 1 line (#638). Reads every
 # extraction-quality*.json at the four places extraction-report.sh reads them: analysis/<src>/,
-# its extracted/, and the same two inside the knowledge base. The rules are the skill's, the
-# same three extraction-report.sh already flags: passed=false or overallScore under threshold
-# (default 95); selfGraded with passed=true; a file that will not parse.
+# its extracted/, and the same two inside the knowledge base. The rules are the skill's
+# (extractor-quality-loop.md), the faults extraction-report.sh flags plus the threshold itself.
+# FAIL: a file that will not parse or is not an object; no `dimensions` object; a 0 found /
+# 0 expected dimension not in `confirmedZeros` (Suspicious-Zero Gate); passed=false or
+# overallScore under threshold (default 95). PENDING: selfGraded with passed=true — the skill
+# says the verdict "stays open" until a second mechanism scores it, so it is not-yet, not wrong.
 stage1_quality() {
   local py src
   . "$TOOLKIT_DIR/bin/lib/portable.sh"
@@ -1027,7 +1033,7 @@ for d in (src, os.path.join(src, "extracted"), kb, os.path.join(kb, "extracted")
 if not files:
     print("NOTE|extraction quality NOT scored — no extraction-quality*.json (skills/extractor-quality-loop.md; no shipped pipeline writes one yet)"); sys.exit()
 num = lambda v: v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
-bad, ok = [], []
+bad, ok, open_ = [], [], []
 for f in files:
     rel = os.path.relpath(f, proj)
     try: d = json.load(open(f))
@@ -1038,8 +1044,17 @@ for f in files:
     thr = num(d.get("threshold")); thr = 95 if thr is None else thr
     sc, passed = num(d.get("overallScore")), d.get("passed")
     shown = "%s / threshold %g" % ("?" if sc is None else "%g" % sc, thr)
-    if d.get("selfGraded") and passed is True:
-        bad.append("%s is a self-graded pass (%s) — a self-graded report cannot pass the gate" % (rel, shown))
+    dims = d.get("dimensions")
+    cz = d.get("confirmedZeros") if isinstance(d.get("confirmedZeros"), list) else []
+    czn = {z.get("dimension") for z in cz if isinstance(z, dict)}
+    zeros = [k for k, v in (dims.items() if isinstance(dims, dict) else [])
+             if isinstance(v, dict) and num(v.get("found")) == 0 and num(v.get("expected")) == 0 and k not in czn]
+    if not isinstance(dims, dict) or not dims:
+        bad.append("%s has no `dimensions` object (%s) — nothing the overall score is an average of" % (rel, shown))
+    elif zeros:
+        bad.append("%s scores 0 found / 0 expected on %s, not in confirmedZeros (%s) — the Suspicious-Zero Gate needs two methods agreeing" % (rel, ", ".join(zeros), shown))
+    elif d.get("selfGraded") and passed is True:
+        open_.append("%s is a self-graded pass (%s) — awaiting a second mechanism" % (rel, shown))
     elif passed is False or (sc is not None and sc < thr):
         bad.append("%s scores %s, passed=%s" % (rel, shown, passed))
     elif passed is True and sc is not None:
@@ -1047,7 +1062,9 @@ for f in files:
     else:
         bad.append("%s states no passed/overallScore verdict" % rel)
 if bad:
-    print("FAIL|extraction quality below its gate: " + "; ".join(bad))
+    print("FAIL|extraction quality below its gate: " + "; ".join(bad + open_))
+elif open_:
+    print("PENDING|extraction quality not verified yet: " + "; ".join(open_) + " (extractor-quality-loop.md: the gate verdict stays open until a second mechanism scores it)")
 else:
     print("NOTE|extraction quality " + "; ".join(ok))
 ' 2>/dev/null || echo "NOTE|extraction quality not read (python error — cannot evaluate, which is not a pass)"

@@ -15,8 +15,8 @@
 # (1 enumeration, 1 entity, 3 microflows) and api.brd.json (4 enumerations only) are two of the 16,
 # re-serialised with `jq -c` (content unchanged); screens.json is that run's, verbatim.
 #
-# Positive control: run against origin/master's gate-check.sh — G1a/G1c/G1d, G2a-G2c, G3a, G4 and
-# G5a fail there.
+# Positive control: run against origin/master's gate-check.sh — G1a/G1c/G1d/G1f/G1g, G2a-G2c, G3a,
+# G4, G5a and G6a/G6b fail there.
 #
 # usage: bash tests/wave2/test-gate-false-greens.sh /path/to/bin/gate-check.sh
 set -uo pipefail
@@ -61,9 +61,19 @@ printf '\nWaived artifact extraction-quality: client accepts the endpoint gap fo
 V="$(line "$P" 1)"
 has "G1b a recorded waiver PASSes and carries the reason" "$V" "below its gate but waived — client accepts"
 P="$(mkproj g1c)"; q 99 true ',"selfGraded":true' > "$P/analysis/src/extraction-quality.json"
-has "G1c a self-graded pass FAILs" "$(line "$P" 1)" "self-graded pass"
+V="$(line "$P" 1)"
+has "G1c a self-graded pass is PENDING (the skill: the verdict stays open)" "$V" "Stage 1 (Analysis): PENDING"
+has "G1c   and says why" "$V" "self-graded pass"
 P="$(mkproj g1d)"; printf '{"overallScore": 9' > "$P/analysis/src/extraction-quality.json"
 has "G1d an unparseable score file FAILs" "$(line "$P" 1)" "will not parse"
+P="$(mkproj g1f)"
+printf '{"overallScore":97,"threshold":95,"passed":true,"dimensions":{"endpoints":{"score":100,"found":70,"expected":70},"timers":{"score":100,"found":0,"expected":0}}}\n' > "$P/analysis/src/extraction-quality.json"
+V="$(line "$P" 1)"
+has "G1f passed=true 97 with an unconfirmed 0/0 dimension FAILs" "$V" "0 found / 0 expected on timers"
+printf '{"overallScore":97,"threshold":95,"passed":true,"dimensions":{"endpoints":{"score":100,"found":70,"expected":70},"timers":{"score":100,"found":0,"expected":0}},"confirmedZeros":[{"dimension":"timers","methods":["grep","parser"]}]}\n' > "$P/analysis/src/extraction-quality.json"
+case "$(line "$P" 1)" in *PASS*) ok "G1f   the same zero in confirmedZeros PASSes" ;; *) bad "G1f confirmed zero" "$(line "$P" 1)" ;; esac
+printf '{"overallScore":97,"threshold":95,"passed":true}\n' > "$P/analysis/src/extraction-quality.json"
+has "G1g no dimensions object FAILs" "$(line "$P" 1)" "has no \`dimensions\` object"
 P="$(mkproj g1e)"; q 97 true > "$P/analysis/src/knowledge-base/extraction-quality.json"
 printf '| 1 | Extraction scope: tms and common only | CONFIRMED | chat |\n' >> "$P/PROJECT.md"
 V="$(line "$P" 1)"

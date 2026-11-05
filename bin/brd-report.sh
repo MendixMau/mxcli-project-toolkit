@@ -521,13 +521,16 @@ result = {
               'confidence': a['confidence'], 'docCorroboration': a['docSignal'],
               'reviewSignal': a['review'][0],
               'unreadable': a['unreadable'], 'legacyKeys': a['legacy'],
-              # Owed and MISSING — the key is not in the BRD at all, under any name it has had: each
-              # section with a `fault` verdict and no key, plus `modules` when neither `modules` nor
-              # `module` is set. A present-but-empty section stays a page fault and is NOT listed:
-              # `"pages": []` on a backend module is an answer, a deleted key is not.
-              # gate-check.sh Stage 2 FAILs on these.
+              # Owed and MISSING — what gate-check.sh Stage 2 FAILs on. Only what the skills make
+              # mandatory: `modules` (brd-generation.md: "id, title, modules"; neither `modules` nor
+              # `module` set), and for a code-extracted BRD the sections every scaffolder emits
+              # unconditionally (a `fault` on a key that is not there at all — a present-but-empty
+              # `"pages": []` is an answer). A documents/interview/greenfield/undetermined BRD
+              # without useCases stays a FAULT on this page but is not a gate failure: no skill makes
+              # useCases mandatory for those provenances (review of #618).
               'missingRequired': sorted([k for k, v in a['verdicts'].items()
-                                         if v[0] == 'fault' and a['keysFound'].get(k) is None]
+                                         if v[0] == 'fault' and a['keysFound'].get(k) is None
+                                         and a['provenance'] == 'code-extracted']
                                         + ([] if a['modulesKey'] else ['modules'])),
               'verdicts': {k: v[0] for k, v in a['verdicts'].items()}} for a in analysed],
 }

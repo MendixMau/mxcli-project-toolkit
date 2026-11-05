@@ -639,13 +639,16 @@ ENTRY_MODE="$(entry_mode_token "$ENTRY_RAW")"
 #              the plan is real, people will build from it, and "greenfield" never said otherwise.
 stage_waiver() {
   local st="$1" w
-  for w in $WAIVED_LIST; do
+  # STAGE_WAIVER_NO_DECLARED=1: only adoption and entry mode (apply_waiver asks it when a declared
+  # line turned out to carry no reason).
+  [ "${STAGE_WAIVER_NO_DECLARED:-0}" = "1" ] || for w in $WAIVED_LIST; do
     if [ "$w" = "$(printf '%s' "$st" | tr '[:lower:]' '[:upper:]')" ]; then
       local r; r="$(waived_reason_for "$w")"
       # A waiver with no reason is not a waiver (CLAUDE.md: WAIVED is "declared out of scope in the
       # register, with a reason"; --waive refuses to write one without --reason). A hand-written
       # `Waived stage 4:` with nothing after it read WAIVED-clean, or PASS, with no trace of the
-      # line (regression experiment, 2026-11-05). Scope `noreason` makes the caller FAIL the stage.
+      # line (regression experiment, 2026-11-05). Scope `noreason`: apply_waiver() FAILs the stage
+      # when this line is what would have excused it, and only WARNs when it excuses nothing.
       if [ -z "$(printf '%s' "$r" | tr -d '[:space:]')" ]; then
         printf 'noreason|%s in %s has no reason — a waiver must say why; add one (bin/gate-check.sh <project> --waive %s --reason "...") or delete the line\n' \
           "$( [ -n "$(printf '%s' "$WAIVED_REASONS" | awk -F'\t' -v s="$w" '$1 == s { print 1; exit }')" ] && printf "'Waived stage %s:'" "$w" || printf "'Waived stages:'" )" \
@@ -701,6 +704,30 @@ waiver_applies() {
              case "$3" in *✋*) return 0 ;; esac; return 1 ;;
   esac
   return 1
+}
+
+# apply_waiver <stage> <status> <note> — sets AW_STATUS / AW_NOTE: the verdict after the register's
+# waivers have had their say. A declared line with no reason is not a waiver. It FAILs the stage
+# only when it is the thing that would have excused it (an empty stage, an unsigned ✋) and nothing
+# else does (adoption, entry mode); on a stage that passes, or one the entry mode already skips,
+# it is a WARN on the line — the line is wrong, the stage is not (review of #618).
+apply_waiver() {
+  local st="$1" w w2
+  AW_STATUS="$2"; AW_NOTE="$3"
+  w="$(stage_waiver "$st")" || return 0
+  if [ "${w%%|*}" = "noreason" ]; then
+    if waiver_applies declared "$2" "$3"; then
+      if w2="$(STAGE_WAIVER_NO_DECLARED=1 stage_waiver "$st")" && waiver_applies "${w2%%|*}" "$2" "$3"; then
+        AW_NOTE="${w2#*|} · underlying check: $2 · ⚠ WARN: ${w#*|}"; AW_STATUS="WAIVED"
+      else
+        AW_NOTE="${w#*|} · underlying check: $2 — $3"; AW_STATUS="FAIL"
+      fi
+    else
+      AW_NOTE="$3 · ⚠ WARN: ${w#*|}"
+    fi
+  elif waiver_applies "${w%%|*}" "$2" "$3"; then
+    AW_NOTE="${w#*|} · underlying check: $2"; AW_STATUS="WAIVED"
+  fi
 }
 
 # The pre-12828e4 Q9 body. gate-check NEVER rewrites it — the repair lives in
@@ -1278,20 +1305,35 @@ wireframe_refs_missing() {
       }
       # Header = the row above a |---| separator; its columns hold until the next header.
       /^[ \t]*\|[ \t:|-]+$/ { n = split(prev, c, "|"); split("", wcol)
-        for (i = 2; i < n; i++) { h = tolower(trim(c[i])); wcol[i] = (h ~ /wireframe|source screen/) }
+        for (i = 2; i < n; i++) { h = tolower(trim(c[i]))
+          wcol[i] = (h ~ /wireframe/) ? "B" : (h ~ /source screen/) ? "S" NR "_" i : "" }
         next }
       /^[ \t]*\|/ {
         prev = $0
         n = split($0, c, "|")
-        for (i = 2; i < n; i++) if (wcol[i]) { v = trim(c[i]); if (v ~ /^[A-Za-z0-9_.-]+\.html$/) print "B\t" v }
+        for (i = 2; i < n; i++) if (wcol[i] != "") { v = trim(c[i]); if (v ~ /^[A-Za-z0-9_.-]+\.html$/) print wcol[i] "\t" v }
         next
       }
       /^#/ { split("", wcol) }' | sort -u)"
+    # A "Source screen" column (architecture-blueprint.md's page table) holds a wireframe name on
+    # a requirements-driven project and a LEGACY screen on a migration one (order-list.component
+    # .html). It is read as wireframes only when at least one of its names is a wireframe on disk;
+    # a column none of whose names resolve is the legacy kind and is not this check's (review of #618).
+    local wf_groups="" found
+    while IFS="$(printf '\t')" read -r kind ref; do
+      case "$kind" in S*) ;; *) continue ;; esac
+      found="$(find "$wdir" -name "$ref" -type f -size +0c -print -quit 2>/dev/null)"
+      [ -n "$found" ] && wf_groups="$wf_groups $kind "
+    done <<EOF_REFS
+$refs
+EOF_REFS
     miss=""
     while IFS="$(printf '\t')" read -r kind ref; do
       [ -n "$ref" ] || continue
       case "$kind" in
         P) [ -s "$wdir/$ref" ] && continue ;;
+        S*) case "$wf_groups" in *" $kind "*) ;; *) continue ;; esac
+            [ -n "$(find "$wdir" -name "$ref" -type f -size +0c -print -quit 2>/dev/null)" ] && continue ;;
         B) [ -n "$(find "$wdir" -name "$ref" -type f -size +0c -print -quit 2>/dev/null)" ] && continue ;;
       esac
       miss="${miss:+$miss, }$ref"
@@ -1469,19 +1511,25 @@ check_stage_4() {
     echo "PENDING|architecture/build-plan.md not written yet"
     return
   fi
+  # Content first, sign-off second (as Stage 3 does): a content FAIL carries no ✋, so a
+  # `Waived stage 4:` line cannot turn it WAIVED — only `Waived artifact <id>` excuses one. Read
+  # after the decision, an unsigned plan with a deleted brief returned the ✋ FAIL and the stage
+  # waiver hid the brief (review of #618).
+  local closing content
+  content="$(stage4_content "$build_plan")"
+  case "$content" in FAIL\|*)
+    closing="$(stage4_closing_rows "$build_plan")"   # one line, every gap: the closing rows too
+    case "$closing" in FAIL\|*) echo "$content; also ${closing#FAIL|}" ;; *) echo "$content" ;; esac
+    return ;;
+  esac
   if reg_unavailable; then reg_unavailable_note; return; fi
   if ! has_confirmed_decision 4; then
     echo "FAIL|build-plan.md exists but ${REGISTER:-PROJECT.md} has no Stage-4 CONFIRMED decision — ✋ gate: a plan nobody approved doesn't pass"
     return
   fi
-  local closing content
   closing="$(stage4_closing_rows "$build_plan")"
   case "$closing" in
-    FAIL\|*) echo "$closing"; return ;;
-  esac
-  content="$(stage4_content "$build_plan")"
-  case "$content" in
-    FAIL\|*) echo "$content" ;;
+    FAIL\|*) echo "$closing" ;;
     *) echo "PASS|build-plan.md present, ${closing#OK|}${content:+, $content}, and a Stage-4 CONFIRMED decision is in $REGISTER" ;;
   esac
 }
@@ -1538,6 +1586,12 @@ stage4_ref_docs() {
 stage4_dangling_deps() {
   tr -d '\r' < "$1" | awk '
     function trim(s) { gsub(/[`*]/, "", s); gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
+    # Row ids: brd-to-build-plan.md numbers rows ("step number, never reused", sometimes written
+    # 01), and real plans also use 3a and 1.1. Normalised so 01 == 1 and 1.01 == 1.1.
+    function isid(x) { return x ~ /^[0-9]+(\.[0-9]+)*[a-z]?$/ }
+    function norm(x,    n, p, i, o) { sub(/\.$/, "", x); n = split(x, p, "."); o = ""
+      for (i = 1; i <= n; i++) { sub(/^0+/, "", p[i]); if (p[i] == "" || p[i] ~ /^[a-z]/) p[i] = "0" p[i]; o = o (i > 1 ? "." : "") p[i] }
+      return o }
     # A header is the row right above a |---| separator; its columns hold until the next header,
     # because real plans put a blank line and a claims block between rows of one table.
     /^[ \t]*\|[ \t:|-]+$/ { n = split(prev, c, "|"); dcol = 0
@@ -1546,24 +1600,28 @@ stage4_dangling_deps() {
     /^[ \t]*\|/ {
       prev = $0
       n = split($0, c, "|")
-      id = tolower(trim(c[2]))
-      if (id !~ /^[0-9]+[a-z.]*$/) next
-      have[id] = 1
+      id = tolower(trim(c[2])); sub(/\.$/, "", id)
+      if (!isid(id)) next
+      have[norm(id)] = 1
       if (dcol) { k++; rid[k] = id; dep[k] = tolower(trim(c[dcol])) }
       next
     }
     END {
       for (j = 1; j <= k; j++) {
         s = dep[j]
-        gsub(/–|—/, "-", s)                                # en/em dash in a range
-        gsub(/(phase|stage|step|slice|wave)[ \t]*[0-9]+[a-z.]*/, " ", s)
-        gsub(/[a-z_]+[0-9]+/, " ", s)                      # F001, R3: ids, not row numbers
-        gsub(/rows?/, " ", s)
-        while (match(s, /[0-9]+[a-z.]*([ \t]*-[ \t]*[0-9]+[a-z.]*)?/)) {
-          tok = substr(s, RSTART, RLENGTH); s = substr(s, RSTART + RLENGTH)
-          m = split(tok, e, /[ \t]*-[ \t]*/)
-          for (q = 1; q <= m; q++) { x = e[q]; sub(/\.$/, "", x)
-            if (!(x in have)) { bad = bad (bad == "" ? "" : ", ") "row " rid[j] " → " x } }
+        gsub(/–|—/, "-", s)                                       # en/em dash in a range
+        gsub(/[ \t]*-[ \t]*/, "-", s)
+        gsub(/(phase|stage|step|slice|wave|sprint)[ \t]*[0-9][0-9a-z.]*/, " ", s)
+        # Words, not substrings: US-12, F001, R3 are requirement ids and never row refs; only a
+        # word that IS a row id (or a range of two) is read.
+        nw = split(s, w, /[ \t,;\/()+&]+/)
+        for (q = 1; q <= nw; q++) {
+          x = w[q]; sub(/\.$/, "", x)
+          if (isid(x)) { if (!(norm(x) in have)) bad = bad (bad == "" ? "" : ", ") "row " rid[j] " → " x; continue }
+          if (split(x, e, "-") == 2 && isid(e[1]) && isid(e[2])) {
+            if (!(norm(e[1]) in have)) bad = bad (bad == "" ? "" : ", ") "row " rid[j] " → " e[1]
+            if (!(norm(e[2]) in have)) bad = bad (bad == "" ? "" : ", ") "row " rid[j] " → " e[2]
+          }
         }
       }
       print bad
@@ -1618,7 +1676,7 @@ stage4_briefs_missing() {
 # the project root, the layout preflight resolves; the nested analysis/<name>/architecture layout
 # is not measured here (said in the note, never a FAIL).
 stage4_coverage() {
-  local arch="$1" pf="$TOOLKIT_DIR/project-bin/coverage-preflight.sh" m mods="" out rc bad="" nm="" n=0
+  local arch="$1" pf="$TOOLKIT_DIR/project-bin/coverage-preflight.sh" m mods="" out rc r bad="" nm="" n=0
   [ -f "$pf" ] || return 0
   [ -n "$(discover_brds "$PROJECT_DIR")" ] || return 0
   if [ "$arch" != "$PROJECT_DIR/architecture" ]; then
@@ -1640,7 +1698,9 @@ stage4_coverage() {
   done
   _s4_cov() { # _s4_cov <label> [--module M]
     local label="$1"; shift
-    out="$(cd "$PROJECT_DIR" && PROJECT_ROOT="$PROJECT_DIR" MXTK_ROOT="$TOOLKIT_DIR" bash "$pf" --summary "$@" 2>&1)"; rc=$?
+    # PROJECT_ROOT absolute: preflight cds into it, and a relative one (`gate-check.sh proj`)
+    # resolved to nothing there, so coverage was silently "not measured" (review of #618).
+    out="$(cd "$PROJECT_DIR" && PROJECT_ROOT="$(pwd -P)" MXTK_ROOT="$TOOLKIT_DIR" bash "$pf" --summary "$@" 2>&1)"; rc=$?
     n=$((n + 1))
     case "$rc" in
       0) ;;
@@ -1652,7 +1712,9 @@ stage4_coverage() {
              END { if (p) out = out (out == "" ? "" : ", ") p " phantom build-plan claim(s)"; print out }')" ;;
       # FAULT is "cannot evaluate" (e.g. the BRDs sit where preflight does not look — it reads
       # analysis/*/; a root knowledge-base/ is discover-brds.sh's legacy layout): said, not FAILed.
-      2) nm="${nm:+$nm; }$label: $(printf '%s\n' "$out" | grep -m1 -E 'FAULT' | sed 's/^ *//; s/^FAULT: //')" ;;
+      2) r="$(printf '%s\n' "$out" | grep -m1 -E 'FAULT' | sed 's/^ *//; s/^FAULT: //')"
+         [ -n "$r" ] || r="coverage-preflight.sh exit 2: $(printf '%s\n' "$out" | grep -v '^[[:space:]]*$' | tail -1)"
+         nm="${nm:+$nm; }$label: $r" ;;
       *) ;;   # 3/4: not measured / not applicable — not this gate's finding
     esac
   }
@@ -3300,14 +3362,7 @@ APPROVED_OVER_FAIL=""
 P_RESULT="$(check_stage_P)"
 P_STATUS="${P_RESULT%%|*}"
 P_NOTE="${P_RESULT#*|}"
-if P_WAIVER="$(stage_waiver P)" && [ "${P_WAIVER%%|*}" = "noreason" ]; then
-  P_NOTE="${P_WAIVER#*|} · underlying check: $P_STATUS — $P_NOTE"
-  P_STATUS="FAIL"
-elif P_WAIVER="$(stage_waiver P)" \
-   && waiver_applies "${P_WAIVER%%|*}" "$P_STATUS" "$P_NOTE"; then
-  P_NOTE="${P_WAIVER#*|} · underlying check: $P_STATUS"
-  P_STATUS="WAIVED"
-fi
+apply_waiver P "$P_STATUS" "$P_NOTE"; P_STATUS="$AW_STATUS"; P_NOTE="$AW_NOTE"
 case "$P_STATUS" in
   PASS)    N_PASS=$((N_PASS+1)) ;;
   PENDING) N_PENDING=$((N_PENDING+1)); NEXT_UP="P"; NEXT_UP_STATUS=PENDING ;;
@@ -3361,14 +3416,7 @@ for stage in "${STAGE_NAMES[@]}"; do
   status="${result%%|*}"
   note="${result#*|}"
 
-  if waiver="$(stage_waiver "$stage")" && [ "${waiver%%|*}" = "noreason" ]; then
-    note="${waiver#*|} · underlying check: $status — $note"
-    status="FAIL"
-  elif waiver="$(stage_waiver "$stage")" \
-     && waiver_applies "${waiver%%|*}" "$status" "$note"; then
-    note="${waiver#*|} · underlying check: $status"
-    status="WAIVED"
-  fi
+  apply_waiver "$stage" "$status" "$note"; status="$AW_STATUS"; note="$AW_NOTE"
   # APPROVED OVER A FAILING GATE (#207). The register's CONFIRMED row is what status.sh,
   # exec.sh and every agent read afterwards; the gate under it is read by nobody. Field case,
   # 2026-10-06: a delegated Stage-4 approval was recorded while the closing-rows check was red,

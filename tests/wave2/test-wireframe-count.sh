@@ -139,6 +139,18 @@ else
   echo "  (node not available: T6 skipped)"
 fi
 
+echo "== T7: a migration's Source screen column names LEGACY screens — not wireframes (review of #618) =="
+P="$(mkproj t7 "" 1)"
+mkdir -p "$P/architecture/modules/Orders"
+printf '%s\n' '# Module: Orders' '' '| Page | Type | Source screen |' '|---|---|---|' \
+  '| Order_Overview | Overview | order-list.component.html |' '| Order_NewEdit | NewEdit | order-edit.html |' \
+  > "$P/architecture/modules/Orders/definition.md"
+V="$(stage3 "$P")"
+case "$V" in *FAIL*'order-'*) bad "legacy source screens read as missing wireframes: $V" ;; *) ok "a Source screen column with no wireframe in it is not checked" ;; esac
+printf '%s\n' '' '| Page | Wireframe |' '|---|---|' '| Order_Overview | order-overview.html |' >> "$P/architecture/modules/Orders/definition.md"
+V="$(stage3 "$P")"
+case "$V" in *FAIL*'order-overview.html'*) ok "a Wireframe column is always checked" ;; *) bad "Wireframe column not checked: $V" ;; esac
+
 printf '\n%s: %d ok, %d FAIL\n' "$(basename "$0")" "$PASS" "$FAIL"
 rm -rf "$WORK"
 [ "$FAIL" -eq 0 ]

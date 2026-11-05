@@ -397,21 +397,28 @@ P="$(mkproj t20)"
 printf '# Validation\n\n## Stop condition\n\nClean.\n' > "$P/knowledge-base/reports/validation-report.md"
 printf '{"id":"F001","provenance":"requirements","modules":["Purchasing"],"pages":[]}\n' > "$P/knowledge-base/brd/F001.brd.json"
 V="$(verdict "$P" 2)"
-case "$V" in *FAIL*'F001.brd.json: useCases'*) ok "useCases deleted (undetermined provenance, owed by every one): FAIL names the BRD and the section" ;;
-             *) bad "deleted useCases not caught: $V" ;; esac
+case "$V" in *PASS*) ok "useCases absent on a non-code-extracted BRD: a brd-report fault, not a gate FAIL (review of #618)" ;;
+             *) bad "documents-style BRD without useCases FAILed: $V" ;; esac
+printf '{"id":"F001","provenance":"documents","modules":["Purchasing"]}\n' > "$P/knowledge-base/brd/F001.brd.json"
+V="$(verdict "$P" 2)"
+case "$V" in *PASS*) ok "documents provenance, no useCases: PASS" ;; *) bad "documents BRD without useCases FAILed: $V" ;; esac
+printf '{"id":"F001","provenance":"code-extracted","modules":["Orders"],"domainEntities":[],"microflows":[],"useCases":[]}\n' > "$P/knowledge-base/brd/F001.brd.json"
+V="$(verdict "$P" 2)"
+case "$V" in *FAIL*'F001.brd.json: pages'*) ok "code-extracted BRD with its pages key deleted: FAIL names the BRD and the section" ;;
+             *) bad "deleted pages on a code-extracted BRD not caught: $V" ;; esac
 printf '{"id":"F001","provenance":"documents","useCases":[]}\n' > "$P/knowledge-base/brd/F001.brd.json"
 V="$(verdict "$P" 2)"
 case "$V" in *FAIL*'F001.brd.json: modules'*) ok "a BRD naming no module FAILs" ;; *) bad "no-module BRD: $V" ;; esac
 printf '{"id":"F001","provenance":"documents","modules":["Purchasing"],"useCases":[]}\n' > "$P/knowledge-base/brd/F001.brd.json"
 V="$(verdict "$P" 2)"
 case "$V" in *PASS*) ok "a present-but-empty section is an answer, not a missing one: PASS" ;; *) bad "empty useCases read as missing: $V" ;; esac
-printf '{"id":"F001","provenance":"documents","modules":["Purchasing"]}\n' > "$P/knowledge-base/brd/F001.brd.json"
+printf '{"id":"F001","provenance":"code-extracted","modules":["Orders"],"domainEntities":[],"microflows":[],"useCases":[]}\n' > "$P/knowledge-base/brd/F001.brd.json"
 printf '\n## Toolkit position\n\nWaived artifact brds:\n' >> "$P/PROJECT.md"
 V="$(verdict "$P" 2)"
-case "$V" in *FAIL*'useCases'*) ok "a reasonless 'Waived artifact brds:' does not excuse it" ;; *) bad "reasonless artifact waiver excused it: $V" ;; esac
-printf 'Waived artifact brds: SME interview pending, use cases come in round 2\n' >> "$P/PROJECT.md"
+case "$V" in *FAIL*'pages'*) ok "a reasonless 'Waived artifact brds:' does not excuse it" ;; *) bad "reasonless artifact waiver excused it: $V" ;; esac
+printf 'Waived artifact brds: backend-only module, no pages by design\n' >> "$P/PROJECT.md"
 V="$(verdict "$P" 2)"
-case "$V" in *PASS*'waived — SME interview pending'*) ok "'Waived artifact brds: <reason>' excuses it and the PASS line says so" ;; *) bad "artifact waiver: $V" ;; esac
+case "$V" in *PASS*'waived — backend-only module'*) ok "'Waived artifact brds: <reason>' excuses it and the PASS line says so" ;; *) bad "artifact waiver: $V" ;; esac
 printf '{"id":"F001",\n' > "$P/knowledge-base/brd/F002.brd.json"
 sed -i.bak '/^Waived artifact brds:/d' "$P/PROJECT.md"; rm -f "$P/PROJECT.md.bak"
 V="$(verdict "$P" 2)"
@@ -483,6 +490,37 @@ case "$V" in *WAIVED*'the client owns the build plan'*) ok "the same line with a
 P="$(mkproj t22b)"; printf '\nWaived stages: 3, 4\n' >> "$P/PROJECT.md"
 V="$(verdict "$P" 3)"
 case "$V" in *FAIL*"'Waived stages:'"*'has no reason'*) ok "the aggregate spelling with no reason FAILs too" ;; *) bad "reasonless aggregate waiver: $V" ;; esac
+
+echo "== T23: review of #618 — fixes that failed on the first PR head =="
+# (1) an unsigned plan behind a stage waiver: the stage waiver must not hide a deleted brief
+s4proj t23a; sed -i.bak '/^| 4 | Build plan approved/d' "$P/PROJECT.md"; rm -f "$P/PROJECT.md.bak"
+printf '\nWaived stage 4: decided in the client workshop\n' >> "$P/PROJECT.md"
+V="$(verdict "$P" 4)"
+case "$V" in *WAIVED*) ok "unsigned clean plan + reasoned stage waiver: WAIVED" ;; *) bad "unsigned clean plan: $V" ;; esac
+rm "$P/architecture/modules/Purchasing/module-brief.md"
+V="$(verdict "$P" 4)"
+case "$V" in *FAIL*'no module brief for: Purchasing'*) ok "a stage waiver does not excuse a deleted brief on an unsigned plan" ;; *) bad "stage waiver hid the brief: $V" ;; esac
+# (3) a RELATIVE project path still measures the coverage ledger
+s4proj t23c; mkdir -p "$P/analysis/src"; mv "$P/knowledge-base" "$P/analysis/src/knowledge-base"
+printf '{"id":"F001","modules":["Purchasing"],"useCases":[{"id":"UC1","title":"Submit"}]}\n' > "$P/analysis/src/knowledge-base/brd/F001.brd.json"
+printf '%s\n' '| pointer | type | title | slice | writeMode | acceptance | status |' '|---|---|---|---|---|---|---|' \
+  '| /id | leaf | row 2 | 1 | exec | row 2 | not built |' > "$P/architecture/coverage-ledger.md"
+GABS="$(cd "$(dirname "$GATE")" && pwd)/$(basename "$GATE")"
+V="$(cd "$WORK" && "$GABS" --no-html t23c 4 2>&1 | grep '^Stage 4 ' | head -1)"
+case "$V" in *FAIL*'coverage ledger has findings'*'UNCLAIMED'*) ok "relative project path: the ledger is measured (and its gap found)" ;; *) bad "relative path coverage: $V" ;; esac
+case "$V" in *'ledger: ;'*|*': ;'*) bad "an empty not-measured reason was printed: $V" ;; *) ok "no empty reason" ;; esac
+# (4) a reasonless waiver on a PASSING stage, and on a stage the entry mode already skips, is a WARN
+s4proj t23d; printf '\nWaived stage 4:\n' >> "$P/PROJECT.md"
+V="$(verdict "$P" 4)"
+case "$V" in *PASS*'WARN'*'has no reason'*) ok "reasonless waiver on a passing stage: PASS with a WARN" ;; *) bad "reasonless waiver on a passing stage: $V" ;; esac
+P="$(mkproj t23e)"; printf 'Entry mode: greenfield\n\nWaived stage 3:\n' >> "$P/PROJECT.md"
+V="$(verdict "$P" 3)"
+case "$V" in *WAIVED*'greenfield'*'WARN'*) ok "reasonless waiver on a mode-skipped stage: WAIVED by the mode, with a WARN" ;; *) bad "reasonless waiver on a mode-skipped stage: $V" ;; esac
+# (5) dotted row ids and requirement ids in Depends on
+s4proj t23f
+sed -i.bak 's/| 2 | `BUILD` | 010-domain.mdl | domain | 1 |/| 2 | `BUILD` | 010-domain.mdl | domain | 1, US-12, F001 |/; s/| 3 | `BUILD` | 020-approval.mdl | domain | 2 |/| 3.1 | `BUILD` | 020-approval.mdl | domain | 2 |/; s/| 0 errors | 2–3 |/| 0 errors | 2–3.1, 01 |/' "$P/architecture/build-plan.md"; rm -f "$P/architecture/build-plan.md.bak"
+V="$(verdict "$P" 4)"
+case "$V" in *PASS*) ok "dotted row ids (3.1), zero-padded refs (01) and requirement ids (US-12, F001) read right" ;; *) bad "dependency parser false red: $V" ;; esac
 
 printf '\n%s: %d ok, %d FAIL\n' "$(basename "$0")" "$PASS" "$FAIL"
 rm -rf "$WORK"

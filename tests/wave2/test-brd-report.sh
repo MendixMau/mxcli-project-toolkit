@@ -244,7 +244,7 @@ has "  naming what it looked for" "$OUT" "no \"provenance\" key, no extractor fi
 has "  and refuses a verdict on every section but the one every provenance owes" "$OUT" "8 section(s) cannot be verdicted"
 has "  useCases absent is a fault for any provenance" "$OUT" "FAULT  useCases: absent, and every provenance owes it"
 J="$("$BR" "$P" --json --html "$TMP/mystery.html" 2>/dev/null)"
-has "  --json lists it as missingRequired" "$(printf '%s' "$J" | jq -c '.brds[0].missingRequired')" '["useCases"]'
+has "  --json does not make it a gate failure (no skill makes useCases mandatory there)" "$(printf '%s' "$J" | jq -c '.brds[0].missingRequired')" '[]'
 hasnt "  rather than defaulting them to a pass" "$OUT" "No faults."
 
 # A declared provenance nobody recognises must not be silently coerced onto a known one.

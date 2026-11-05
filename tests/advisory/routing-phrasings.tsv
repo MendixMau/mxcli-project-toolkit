@@ -59,3 +59,7 @@ how do I hand the built model to someone who uses Studio Pro	skills/handoff-to-s
 the order count on the dashboard comes from the wrong place, the page shows the first record not mine	skills/interaction-model.md	-	-
 update the toolkit, run doctor and check whether it can be faster on my machine	skills/speed-setup.md	-	-
 werk de toolkit bij in dit project, draai doctor en controleer of het sneller kan op mijn machine	skills/speed-setup.md	-	-
+we now have three Mendix apps calling each other, who owns which contract	skills/multi-app-system.md	skills/rest-between-mendix-apps.md	-
+set up SSO across all our apps with one identity provider and group role mapping	skills/multi-app-system.md	-	-
+rolling out a new version of the shared module to every app that uses it	skills/multi-app-release.md	skills/company-brain.md	-
+in what order do we deploy the publisher and consumers when the API gets a v2	skills/multi-app-release.md	skills/mendix-service-seam.md,skills/rest-between-mendix-apps.md	-

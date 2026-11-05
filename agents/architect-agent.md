@@ -82,6 +82,8 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `project-bin/build-plan-status.sh` | After marking a module done, or any time "how much is built vs proven" is asked |
 | `skills/workflow-structure-rules.md` | Designing or reviewing a Workflow's SHAPE before or after the MDL |
 | `skills/rest-between-mendix-apps.md` | App-to-app REST or microservices: two or more Mendix apps you build that read each other over REST |
+| `skills/multi-app-system.md` | A SYSTEM of two or more Mendix apps |
+| `skills/multi-app-release.md` | Releasing or deploying a change that CROSSES apps |
 | `skills/mendix-epics-api.md` | Working with the Mendix Epics board programmatically |
 | `skills/upstream-feedback.md` | About to open an issue, PR or discussion against mxcli or the toolkit |
 | `skills/doctor-triage.md` | doctor.sh reports FAIL or WARN, or someone asks whether a red setup line blocks them |
@@ -144,11 +146,21 @@ numbered `RUN` row, never a footnote and never omitted.
 
 ## Workflow
 1. Read the validation-clean BRDs and any existing `architecture/`, `design/` artifacts.
-2. Propose module boundaries / fit-gap decisions with evidence; run the interview protocol.
+2. Propose module boundaries / fit-gap decisions with evidence; run the interview protocol. **You are a subagent and cannot ask the user** (no `AskUserQuestion`, no chat): end your report with one ` ```question ` block per decision, shaped per `interview-protocol.md` §3 → "Asking from a subagent", and stop (under `Interview mode: auto`, no blocks — record `ASSUMED`, same section) — the main session renders them as clickable options. Never answer your own question.
 3. Write `.mx-brd.json`, `architecture/` (blueprint, wiring diagrams, fit-gap.md), and once approved, `architecture/build-plan.md` — numbered, dependency-ordered, every new row with its `claims` block.
 3b. **If any process has a workflow: `architecture/workflow-count.md`, all ten rows with numbers** — see the section above. Owed at Stage 3, before the build plan names a workflow row.
 4. Record every decision in `PROJECT.md`.
 5. **Change requests (any stage after 3):** when dispatched with agreed `## Change log` rows of class `structure` or `visual` (page unbuilt), or a wireframe `UNSYNCED` marker, you flush `architecture/`, the module brief's structure, or the wireframe. BRDs stay with ba-agent (`change-intake.md` → Owners).
 
 ## Report back
-Boundaries/decisions proposed vs. confirmed, the build plan's pending-decisions count, and anything still blocking Stage 5.
+Boundaries/decisions proposed vs. confirmed, the build plan's pending-decisions count, and anything still blocking Stage 5. **Last: the `question` blocks** for every decision still open — nothing after them.
+Use exactly this shape (copied from §3 — `tests/wave2/test-question-block.sh` fails if they differ), one block per question:
+
+```question
+Q: Mandatory fields — hardcode per station, or a configurable rule engine?
+header: Mand. fields
+- Hardcode (Recommended): the fields observed per station; a rule change later is a code change
+- Rule engine: admin-editable table; matches legacy intent, about a module of work
+- Something else: tell me
+evidence: triage.md §4 — PflichtfelderPrüfen is missing from the corpus
+```

@@ -909,6 +909,16 @@ check_stage_0() {
     echo "PENDING|triage.md is the untouched scaffold init-project.sh wrote — Stage 0 has not started: fill it in per skills/source-triage.md, then ask the user to sign off ($f)"
   elif grep -q '\[' <<<"$signer"; then
     echo "FAIL|'Confirmed by:' still holds the shipped placeholder: \"$signer\" — replace it with whatever the user actually said (\"confirmed in chat 2026-08-20\" is fine; a full name is not required) ($f, ## Sign-off)"
+  elif printf '%s' "$signer" | tr '[:upper:]' '[:lower:]' \
+       | grep -qE 'auto-mode|interview mode:[[:space:]*`]*(auto|unattended)([^a-z]|$)'; then
+    # One rule for every ✋ gate (#636, consistent with #624): an auto-mode sign-off is an
+    # auto-mode ASSUMED decision. It passes only under Interview mode: auto, is listed in the
+    # "confirm before release" line (auto_hand_pending), and Stage 6 FAILs until a person confirms.
+    if interview_mode_is_auto; then
+      echo "PASS|triage.md signed off by auto-mode (Interview mode: auto): \"$signer\" — ASSUMED; a human confirms it before release [$f]"
+    else
+      echo "FAIL|triage.md is signed off by auto-mode (\"$signer\"), which passes only under Interview mode: auto — ask the user, then replace it with what they said ($f, ## Sign-off)"
+    fi
   else
     echo "PASS|triage.md signed off by \"$signer\" [$f]"
   fi

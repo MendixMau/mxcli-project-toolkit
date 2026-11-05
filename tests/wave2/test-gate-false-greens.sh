@@ -6,6 +6,8 @@
 #   G3 #641  coverage-check: a buildable wildcard over a whole multi-element section is SECTION-WIDE
 #   G4 #642  the split ledger form (modules/<M>/coverage-ledger/<BRD>.md) discharges the artifact row
 #   G5 #635  no inventory at all is PENDING, not FAIL — and still blocks Stage 1
+#   G6 #636  an auto-mode triage sign-off: PASS only under Interview mode: auto (listed, Stage 6
+#            FAILs until confirmed — the #624 rule); FAIL in any other mode
 #
 # GOLDEN INPUT (G2, G3): tests/wave2/fixtures/java-angular-backend-only/ is captured, not written.
 # pipelines/java-angular `node run.js 2 && node run.js 3` over the public openwms-java-microservices
@@ -115,6 +117,18 @@ has "G5a no inventory yet: ledger PENDING, not FAIL" "$V" "Source ledger (every 
 has "G5a no rubric yet: sufficiency PENDING, not FAIL" "$(line "$P" 0 'Source sufficiency')" "Source sufficiency (assessed?): PENDING"
 RC=0; "$GATE" --no-html "$P" 1 >/dev/null 2>&1 || RC=$?
 [ "$RC" = 1 ] && ok "G5b and it still BLOCKS Stage 1 (exit 1)" || bad "G5b Stage 1 block" "rc=$RC"
+
+echo "== G6 #636: an auto-mode Stage 0 sign-off follows the #624 rule =="
+P="$(mkproj g6)"
+printf '# Triage\n\n## Sign-off\n\nConfirmed by: auto-mode (unattended field run) on 2026-11-05T22:00Z — ASSUMED, no human saw this\n' > "$P/triage.md"
+# Stage 6 is waived so its own check reads PASS-equivalent; #624: a waiver does not excuse it.
+printf '\nInterview mode: auto\n\nWaived stage 6: fixture — the release check is what is under test\n' >> "$P/PROJECT.md"
+O="$("$GATE" --no-html "$P" 2>&1)"
+has "G6a auto mode: Stage 0 PASSes and says ASSUMED" "$(printf '%s\n' "$O" | grep -m1 '^Stage 0 ')" "ASSUMED; a human confirms it before release"
+has "G6a   listed in the confirm-before-release line" "$O" "triage.md (Stage 0 sign-off)"
+has "G6a   and Stage 6 FAILs until a person confirms" "$(printf '%s\n' "$O" | grep -m1 '^Stage 6 ')" "FAIL"
+sed -i.bak 's/^Interview mode: auto$/Interview mode: steering/' "$P/PROJECT.md"; rm -f "$P/PROJECT.md.bak"
+has "G6b any other mode: the same sign-off FAILs Stage 0" "$(line "$P" 0)" "passes only under Interview mode: auto"
 
 echo ""
 echo "test-gate-false-greens.sh: $PASS ok, $FAIL FAIL"

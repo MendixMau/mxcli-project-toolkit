@@ -107,7 +107,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 - **Logging an open question is half the job. Raising it is the other half** — see the Open-questions batch below. A question written to a BRD and never put in the chat is not "logged", it is buried.
 - **Read `interview-protocol.md` before raising anything.** Every question you hand over carries two named options and your recommendation; a bare question moves your analysis onto the user. Generate `analysis/brd-report.html` with `bin/brd-report.sh` and give them the path.
 - **You are a subagent: you cannot ask the user.** You have no `AskUserQuestion` and no chat — "ask the user" below means: end your report with one ` ```question ` block per question, in the shape `interview-protocol.md` §3 → "Asking from a subagent" fixes, and stop (under `Interview mode: auto`, no blocks — record `ASSUMED`, same section). The main session renders them as clickable options. Never answer your own question, never put a question only in prose.
-- `✋` gates (Stages 0 and 7) do not resolve to `ASSUMED` — they need an explicit `CONFIRMED` answer before the run proceeds.
+- `✋` gates (Stages 0 and 7) do not resolve to `ASSUMED` — they need an explicit `CONFIRMED` answer before the run proceeds. Under `Interview mode: auto`: `interview-protocol.md` §"What `auto` obliges you to do".
 
 ## Workflow
 1. Identify which stage's gate you're running (from `conversion-runbook.md` §2).

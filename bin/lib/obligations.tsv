@@ -72,9 +72,12 @@ skeleton	mdl	project	path	docs/skeleton-proof.md	yes	no	5	skills/walking-skeleto
 # an artifact nobody owes, which is the disease this whole table was built for.
 workflow-count	architect	project	path	architecture/workflow-count.md	yes	yes	3	skills/workflow-structure-rules.md
 
-# design-reaches-app is the SECOND obligation below stage 5, and it is here because the design
-# stages owe a mark for something no other pass can see: whether the design system arrived in
-# the built app at all.
+# design-reaches-app owes a mark for something no other pass can see: whether the design system
+# arrived in the built app at all. It was owed from stage 3 until #627 (2026-11-05): its only
+# producer (ui-preflight-pages.md, check-design-reaches-app.sh against the BUILT stylesheet) runs
+# at the first build, Stage 5, so every Stage 3/4 summary carried a PENDING nothing could
+# discharge except a ritual "no build yet" note or a dishonest waiver. Owed from 5 now; the
+# routing row stays at 3,5 so the design stages still see the check coming.
 #
 # Measured 2026-09-09, on the same requirements-driven app replacement. 55 design tokens,
 # sampled from the customer's own screenshots, were ported into the project's theme module
@@ -99,7 +102,7 @@ workflow-count	architect	project	path	architecture/workflow-count.md	yes	yes	3	s
 #
 # It is owed by mdl rather than review deliberately: the agent that performed the port is the
 # one that must show it landed. A producer for every consumer, in the same hands.
-design-reaches-app	mdl	project	path	docs/design-reaches-app.md	yes	yes	3	project-bin/check-design-reaches-app.sh
+design-reaches-app	mdl	project	path	docs/design-reaches-app.md	yes	yes	5	project-bin/check-design-reaches-app.sh
 
 # fidelity — the third row here, and the second time the same gap was found in the field (#109).
 # On a requirements-driven app replacement, project-bin/page-fidelity.js existed and was cited by

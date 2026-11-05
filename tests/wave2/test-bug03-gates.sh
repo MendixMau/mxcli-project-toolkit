@@ -2,7 +2,7 @@
 # Fixture for wave-2 #3: the unanchored substring CONTENT gates — Stage 0 (triage sign-off),
 # Stage 2 (validation stop condition) and Stage 7 (cutover decision row); T12 adds the
 # existing-app-change parked state (Stage 0) and that mode's Stage 1 hint; T16 the Stage 4
-# closing rows (brd-to-build-plan.md, #163); T19 the facts lock at Stage 2 (near-empty, #621).
+# closing rows (brd-to-build-plan.md, #163); T19 the facts lock at Stage 2 (near-empty, #621); T24 the BRD validator (#622).
 #
 # Stage P is covered by test-stage-p.sh and is deliberately not retested here.
 #
@@ -523,6 +523,60 @@ s4proj t23f
 sed -i.bak 's/| 2 | `BUILD` | 010-domain.mdl | domain | 1 |/| 2 | `BUILD` | 010-domain.mdl | domain | 1, US-12, F001 |/; s/| 3 | `BUILD` | 020-approval.mdl | domain | 2 |/| 3.1 | `BUILD` | 020-approval.mdl | domain | 2 |/; s/| 0 errors | 2–3 |/| 0 errors | 2–3.1, 01 |/' "$P/architecture/build-plan.md"; rm -f "$P/architecture/build-plan.md.bak"
 V="$(verdict "$P" 4)"
 case "$V" in *PASS*) ok "dotted row ids (3.1), zero-padded refs (01) and requirement ids (US-12, F001) read right" ;; *) bad "dependency parser false red: $V" ;; esac
+
+# ---- #622: a hand-written "Clean" is checked against the mechanical validator ----------------------
+# Field run (requirements-driven, Path B): Stage 2 PASSed on "Clean: all 8 checks re-run…" alone.
+echo "== T24: Stage 2 reads the validator's verdict, not only the report's own 'Clean' =="
+P="$(mkproj t24)"
+printf '# Validation\n\n## Stop condition\n\nClean: all 8 checks re-run, 0 findings.\n' > "$P/knowledge-base/reports/validation-report.md"
+cat > "$P/knowledge-base/brd/F001.brd.json" <<'JSON'
+{"id":"F001","title":"Scheduling","provenance":"documents","modules":["Scheduling"],
+ "useCases":[{"id":"UC001","title":"Plan a shift","actors":["Planner"],"mainFlow":["1. plan"],"postconditions":["planned"]},
+             {"id":"UC002","title":"Swap a shift","actors":["Planner"],"mainFlow":["1. swap"]}],
+ "domainEntities":[{"name":"Shift","module":"Scheduling","attributes":[{"name":"Kind","type":"Enumeration","enumeration":"Scheduling.ShiftType"}],
+                    "associations":[{"name":"Shift_Employee","target":"Employee"}]}],
+ "businessRules":[{"title":"No double shifts"}],
+ "openQuestions":[{"id":"Q1","question":"Night shifts in scope?","status":"Open"}]}
+JSON
+V="$(verdict "$P" 2)"
+case "$V" in *FAIL*'says Clean, but the mechanical validator finds 4 error(s)'*'UC002'*'acceptance criteria'*) ok "a 'Clean' report over an incomplete use case FAILs, names it and counts the errors" ;;
+  *) bad "self-declared Clean over validator errors: $V" ;; esac
+case "$V" in *'1 of 2 use cases complete'*'0 of 2 entity references resolve'*'0 of 1 business rules carry an id'*) ok "the FAIL carries the denominators" ;;
+  *) bad "denominators missing: $V" ;; esac
+"$GATE" "$P" --waive artifact/brd-validation --reason "UC002 is drafted, sign-off next sprint" >/dev/null 2>&1
+V="$(verdict "$P" 2)"
+case "$V" in *PASS*'validator: 4 error(s) but waived — UC002 is drafted'*) ok "'Waived artifact brd-validation: <reason>' excuses it, and the PASS line says so" ;; *) bad "validator waiver: $V" ;; esac
+P="$(mkproj t24b)"
+printf '# Validation\n\n## Stop condition\n\nClean.\n' > "$P/knowledge-base/reports/validation-report.md"
+cat > "$P/knowledge-base/brd/F001.brd.json" <<'JSON'
+{"id":"F001","title":"Scheduling","provenance":"documents","modules":["Scheduling"],
+ "useCases":[{"id":"UC001","title":"Plan a shift","actors":["Planner"],"mainFlow":["1. plan"],"acceptanceCriteria":["a planned shift is listed"]}],
+ "domainEntities":[{"name":"Shift","module":"Scheduling","associations":[{"name":"Shift_Account","target":"Administration.Account"}]},
+                   {"name":"Employee","module":"Scheduling"}],
+ "associations":[{"name":"Scheduling.Shift_Employee","from":"Scheduling.Shift","to":"Scheduling.Employee"}],
+ "businessRules":[{"id":"BR-01","title":"No double shifts"}]}
+JSON
+V="$(verdict "$P" 2)"
+case "$V" in *PASS*'validator: 1 requirements BRD(s): 1 of 1 use cases complete, 2 of 2 entity references resolve (1 external, not checked), 1 of 1 business rules carry an id'*) ok "a complete BRD PASSes with the validator's counts on the line (external module refs not judged)" ;;
+  *) bad "complete BRD: $V" ;; esac
+# Two BRDs that both declare one entity: one owner per entity.
+cp "$P/knowledge-base/brd/F001.brd.json" "$P/knowledge-base/brd/F002.brd.json"
+sed -i.bak -e 's/"F001"/"F002"/' -e 's/UC001/UC101/' -e 's/BR-01/BR-02/' "$P/knowledge-base/brd/F002.brd.json"; rm -f "$P/knowledge-base/brd/F002.brd.json.bak"
+V="$(verdict "$P" 2)"
+case "$V" in *FAIL*'entity-owner'*'Scheduling.Shift is declared in 2 BRDs (F001, F002)'*) ok "an entity declared by two BRDs FAILs a 'Clean' report" ;; *) bad "double-owned entity: $V" ;; esac
+echo "== T25: Stage 0 FAILs an obvious not-yet sign-off value (#620) =="
+# Only a '[' counted as unfilled, so `Confirmed by: _pending_` (field run, 2026-11-05) PASSED.
+i=0
+for val in '_pending_' 'TBD' '*pending*' 'n/a' '—' '?' 'todo.'; do
+  i=$((i+1)); P="$(mkproj "t24-$i")"
+  printf '# Triage\n\n## Sign-off\n\nConfirmed by: %s\n' "$val" > "$P/triage.md"
+  V="$(verdict "$P" 0)"
+  case "$V" in *FAIL*'not happened yet'*) ok "not-yet value \"$val\" FAILs" ;; *) bad "not-yet value \"$val\": $V" ;; esac
+done
+P="$(mkproj t24ok)"
+printf '# Triage\n\n## Sign-off\n\nConfirmed by: _confirmed in chat, pending legal review later_\n' > "$P/triage.md"
+V="$(verdict "$P" 0)"
+case "$V" in *PASS*) ok "a real sign-off that merely contains 'pending' still passes" ;; *) bad "false red on a real sign-off: $V" ;; esac
 
 printf '\n%s: %d ok, %d FAIL\n' "$(basename "$0")" "$PASS" "$FAIL"
 rm -rf "$WORK"

@@ -302,6 +302,15 @@ if [ -n "$STALE_EXEMPT" ]; then
   printf '%s\n' "$STALE_EXEMPT" | sed 's/^/    /'
 fi
 
+# The obligations reverse check (verify-group skills no obligation row owes) is a message to
+# whoever edits THIS repo — fix it in obligations.tsv or MXTK_OBLIGATIONS_NOROUTE. It used to
+# print from every consumer project's gate-check run, where nobody may act on it (#623); it is
+# shown here instead, and in gate-check only under MXTK_AUTHORING=1. Warning only, as before.
+# Subshell: the lib sets its own shell options.
+if [ "$MODE" = "check" ] && [ -r "$ROOT/bin/lib/obligation-check.sh" ]; then
+  ( . "$ROOT/bin/lib/obligation-check.sh" && mxtk_obligations_reverse_check "$ROOT/bin/lib/skill-routing.tsv" ) || true
+fi
+
 if [ "$MODE" = "check" ]; then
   if [ -n "$DRIFTED" ] || [ -n "$UNWIRED" ] || [ -n "$ORPHANS" ] || [ -n "$STALE_EXEMPT" ] || [ -n "$BAD_TIER" ] || [ -n "$BAD_AGENT" ] || [ -n "$OVER_BUDGET" ]; then
     echo ""

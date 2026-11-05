@@ -363,7 +363,7 @@ per batch rather than one long one — the bound is about context, not about who
 
 ## 2. The Stage Matrix
 
-Eight stages (plus Stage P kickoff). For each: what the user co-defines, what the agent produces, the review surface, the gate, and who owns it. `✋` marks a hard stop — the pipeline does not proceed past it without an explicit `CONFIRMED` decision. At non-✋ gates unknowns may resolve to `ASSUMED` — but only per §1 step 6: the question was asked and the user delegated; never because asking was skipped.
+Eight stages (plus Stage P kickoff). For each: what the user co-defines, what the agent produces, the review surface, the gate, and who owns it. `✋` marks a hard stop — the pipeline does not proceed past it without an explicit `CONFIRMED` decision (under `Interview mode: auto`: `interview-protocol.md` §"What `auto` obliges you to do"). At non-✋ gates unknowns may resolve to `ASSUMED` — but only per §1 step 6: the question was asked and the user delegated; never because asking was skipped.
 
 **Stages are sequential; gates are paste-proven.** Never start stage N+1's work — including launching background agents for it — before stage N's gate is closed: its `✋` decisions `CONFIRMED` **and** `bin/gate-check.sh <project-root> N` run with its output **pasted in chat**. Self-attesting "stage complete" without showing the gate-check output is a protocol violation. Parallelism is fine *within* a stage (e.g. Stage 3's blueprint and design tracks), never *across* stages — Stage 4 consumes Stage 3's *approved* outputs, so a build plan drafted alongside the architecture is a plan built on unreviewed guesses. (Real incident, 2026-07-14: Stage 3 and Stage 4 agents launched in parallel, then both stages self-declared complete with open questions outstanding, no wireframes, and gate-check never run.)
 
@@ -776,7 +776,7 @@ An MPR is two parts: `Project.mpr` (SQLite index) and `mprcontents/` (BSON units
 - [ ] Run `bin/gate-check.sh <project-dir> <stage>` — a stage isn't done until this passes (`PASS` or `WAIVED`). This is mechanical (file-existence/grep checks), not something to self-attest from memory. `PENDING` means not started, `FAIL` means something is there and it is wrong — see "What a gate verdict means" in §2.
 - [ ] The stage's gate ran the full 6-step interview protocol (§1) for every user-facing decision — not just a yes/no on something already built.
 - [ ] Every decision is written to both the stage HTML surface and `PROJECT.md`, marked `CONFIRMED` or `ASSUMED` (never silently defaulted with no record).
-- [ ] `✋` gates have an explicit `CONFIRMED` decision — no `ASSUMED` allowed to pass a hard stop.
+- [ ] `✋` gates have an explicit `CONFIRMED` decision — no `ASSUMED` allowed to pass a hard stop (auto mode: `interview-protocol.md` §"What `auto` obliges you to do").
 - [ ] `query-the-model.md` was followed before any question was asked (nothing asked that a query or a read could have answered).
 - [ ] The stage's surface HTML exists at its stage path and is linked from `PROJECT.md`. **Not from `index.html`** — `gate-check.sh` regenerates the dashboard from scratch on every full run and every passing `--closeout`, so a hand-added link there is silently wiped by the next gate check (field finding: a Stage 2 surface ended up reachable only through `PROJECT.md`, which is exactly why `PROJECT.md` is the required home for the link).
 - [ ] Any point where the pipeline was silent and forced an improvised decision is logged as a runbook defect, not just patched locally.

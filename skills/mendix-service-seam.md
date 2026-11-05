@@ -79,6 +79,13 @@ under the same key; soft-delete instead.
 
 **P10 Version the path.** A new or changed published member is a contract change: publish
 `…/v2/`, keep `v1` until every consumer moved.
+The Catalog keeps **one definition per version**: a breaking change deployed under an unchanged
+version overwrites the contract every environment sees — bump and redeploy
+(https://support.mendix.com/hc/en-us/articles/28518124661532).
+*Anti:* as of mxcli v0.28, `impact`/`refs` do not see OData exposure — an attribute a published
+service exposes reports "no references found", and removing it passes `check` and `exec` while the
+service still advertises it. Grep the published service before removing or renaming a member.
+Rolling a version out across several apps: `multi-app-release.md`.
 
 **P11 Secrets.** Basic-auth password only in each app's machine-local constant store (one secret,
 two stores); model default `__SET_ME__` plus a guard wherever code acts on it; the API account

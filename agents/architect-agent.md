@@ -82,6 +82,8 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `project-bin/build-plan-status.sh` | After marking a module done, or any time "how much is built vs proven" is asked |
 | `skills/workflow-structure-rules.md` | Designing or reviewing a Workflow's SHAPE before or after the MDL |
 | `skills/rest-between-mendix-apps.md` | App-to-app REST or microservices: two or more Mendix apps you build that read each other over REST |
+| `skills/multi-app-system.md` | A SYSTEM of two or more Mendix apps |
+| `skills/multi-app-release.md` | Releasing or deploying a change that CROSSES apps |
 | `skills/mendix-epics-api.md` | Working with the Mendix Epics board programmatically |
 | `skills/upstream-feedback.md` | About to open an issue, PR or discussion against mxcli or the toolkit |
 | `skills/doctor-triage.md` | doctor.sh reports FAIL or WARN, or someone asks whether a red setup line blocks them |

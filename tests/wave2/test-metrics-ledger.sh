@@ -144,6 +144,18 @@ o=$(ts_run MXTK_SCORE=module MXTK_NO_SCORE=)
 [ "$o" = SCORED=0 ] && ok "MXTK_SCORE=module wins over the PROJECT.md opt-in" || bad "env module: $o"
 o=$(ts_run MXTK_SCORE= MXTK_NO_SCORE=1)
 [ "$o" = SCORED=0 ] && ok "MXTK_NO_SCORE=1 skips even with the opt-in" || bad "no-score: $o"
+printf '# P\n\nScore: every module\n' > "$SP/PROJECT.md"
+o=$(ts_run MXTK_SCORE= MXTK_NO_SCORE=)
+{ [ "$o" = SCORED=0 ] && [ ! -s "$SP/calls" ]; } && ok "PROJECT.md 'Score: every module' does not turn per-exec scoring on" || bad "every module scored: $o"
+printf '# P\n\n- Score: every PR\n' > "$SP/PROJECT.md"
+o=$(ts_run MXTK_SCORE= MXTK_NO_SCORE=)
+[ "$o" = SCORED=0 ] && ok "PROJECT.md '- Score: every PR' does not turn per-exec scoring on" || bad "every PR scored: $o"
+printf '# P\n\n**Score:** every exec\n' > "$SP/PROJECT.md"
+o=$(ts_run MXTK_SCORE= MXTK_NO_SCORE=)
+[ "$o" = SCORED=1 ] && ok "PROJECT.md '**Score:** every exec' restores per-exec scoring" || bad "bold opt-in: $o"
+printf '# P\n\nScore: `Every-Exec`\r\n' > "$SP/PROJECT.md"
+o=$(ts_run MXTK_SCORE= MXTK_NO_SCORE=)
+[ "$o" = SCORED=1 ] && ok "PROJECT.md 'Score: \`Every-Exec\`' (CRLF) restores per-exec scoring" || bad "code-span opt-in: $o"
 rm -f "$SP/PROJECT.md"; o=$(ts_run MXTK_SCORE=exec MXTK_NO_SCORE=)
 [ "$o" = SCORED=1 ] && ok "MXTK_SCORE=exec restores per-exec scoring" || bad "env exec: $o"
 

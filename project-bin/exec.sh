@@ -623,8 +623,11 @@ record_metrics() {  # $1=status text (as given to log_build)
 take_score() {
   [ -z "${MXTK_NO_SCORE:-}" ] || { echo "  · score skipped (MXTK_NO_SCORE)"; return 0; }
   local _scm="${MXTK_SCORE:-}"
-  if [ -z "$_scm" ]; then _first_match "$PROJECT_ROOT/PROJECT.md" '^[*_ -]*Score:[*_ ]*[`]?([A-Za-z-]+)' || true; _scm="$_FM"; fi
-  case "$_scm" in [Ee]very|[Ee]very-exec|[Ee]xec) ;; *) return 0 ;; esac
+  # The whole rest of the line, not its first word: `Score: every module` must not read as `every`.
+  if [ -z "$_scm" ]; then _first_match "$PROJECT_ROOT/PROJECT.md" '^[*_ -]*Score:([^'$'\n'']*)' || true; _scm="$_FM"; fi
+  _scm="${_scm//[\`*_]/}"; _scm="${_scm//$'\r'/}"
+  _scm="$(printf '%s' "$_scm" | tr '[:upper:]' '[:lower:]' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+  case "$_scm" in "every exec"|every-exec|exec) ;; *) return 0 ;; esac
   [ -x "$PROJECT_ROOT/bin/metrics-ledger.sh" ] || return 0
   echo "→ Scoring the model (bin/metrics-ledger.sh score → mxcli report; per exec: ${MXTK_SCORE:+MXTK_SCORE=$MXTK_SCORE}${MXTK_SCORE:-PROJECT.md Score: every exec})..."
   if _sc=$(bash "$PROJECT_ROOT/bin/metrics-ledger.sh" score 2>&1); then

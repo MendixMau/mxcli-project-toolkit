@@ -162,7 +162,8 @@ do not repeat it.
    if the model changed since. If the module you are changing is in a tangle, the whole tangle is what
    it touches.
 5. **Published and consumed services** — a changed entity behind a published REST service is a
-   contract change, and the consumer is not in the `.mpr`.
+   contract change, and the consumer is not in the `.mpr`. In a system of apps, the register's
+   Contracts table names the consumers (`multi-app-system.md`); release it per `multi-app-release.md`.
 
 **Write what the change touches into `triage.md` as its own section and get it confirmed.** It is the
 single most valuable output of Stage 0 in this mode, and it is the thing the person requesting the

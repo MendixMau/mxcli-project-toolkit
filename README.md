@@ -652,6 +652,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Judging module tangles, bidirectional pairs, cohesion and hubs from analysis/app-facts/dependencies.json; stock graph_module_* views split names on the first dot and are not trusted | `skills/module-dependency-review.md` |
 | Diagramming target architecture — module defs, wiring, fit-gap, marketplace, security, NFRs, integrations | `skills/architecture-blueprint.md` |
 | Deciding module boundaries before "create module" | `skills/modularize-domain.md` |
+| A SYSTEM of two or more Mendix apps — a second app joins, a decision (IdP, SSO, contract, shared module, persona list) binds more than one app, or several agent sessions build apps of one system: the system register (apps + owners, contracts + status, shared assets, mirrored cross-app decisions), one writer per .mpr, handoffs, SSO and service accounts across apps | `skills/multi-app-system.md` |
 
 **Design — how it looks, before any MDL**
 
@@ -726,6 +727,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Wiring a service seam between two Mendix apps — one app's OData or REST consumed by another, replacing a stub by an external entity, joining data that lives in the other app, or choosing keys and auth for an app-to-app service | `skills/mendix-service-seam.md` |
 | Building a REST integration (consumed or published) for the first time on a project — the checks that avoid a rebuild after the first live call | `skills/rest-integration-first-time-right.md` |
 | App-to-app REST or microservices: two or more Mendix apps you build that read each other over REST — before the contract, before the first consumer, and before calling an API tested: pull vs push, key+version rule, auth in the operation microflow (BUG-152), honest last-success/stale/"as of", one owner per fact, and the six-rung cross-app test ladder with its per-change/slice/release cadence | `skills/rest-between-mendix-apps.md` |
+| Releasing or deploying a change that CROSSES apps — a published contract going to v2 (which order publisher and consumers deploy in), a shared module (MPK) update, or seed data used by more than one app: before the first app is changed and before the release order is written; version + content hash per app, expand/switch/contract order from contract links, Catalog one-definition-per-version, run-once data migrations, pre-release checklist | `skills/multi-app-release.md` |
 | Adding a constant, installing a marketplace module, deploying to a new environment, or needing a Mendix PAT — where an encryption key, API credential, endpoint or access token gets its value, why a free node has only one channel, and why a token missing from the files you grepped is not missing | `skills/learned-constants-and-secrets.md` |
 
 **Verify — does it work**

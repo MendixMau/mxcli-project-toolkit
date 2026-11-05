@@ -205,6 +205,10 @@ DENY=(
   "Bash(*file-bugs.py*--file*)"
   "Bash(*file-bugs.py*--all*)"
 )
+# `file-bugs.sh --auto` is deliberately NOT denied, and needs no rule of its own: `bin/*.sh:*`
+# above already allows it. It posts only in a project whose PROJECT.md has the person's line
+# `Bug filing: auto`, only rows that pass the redaction scan, and never without a deny list —
+# that line, not a y/N an agent could type into a pty, is the gate. --file/--all stay denied.
 ASK=()
 
 # `project` profile: relative, committable, shared. mkdir/cp/mv/rm are not here — a Bash rule

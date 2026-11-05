@@ -24,6 +24,12 @@
 #   L Authorization/cookie headers, allowed repo URLs cut to the prefix, no deny list refuses,
 #     invalid deny regex keeps its valid alternatives, header and --help say who posts, deny rule shipped
 #   M first.last users, attribute followed by digits or letters
+#   N --to; O no gh on PATH
+#   P --auto: off without the PROJECT.md opt-in (also commented/annotated), opted in posts every clean
+#     row with no tty and writes issue_url back, scan-failing row never posted, label only when the
+#     repo has it or the user may create it, exact-title duplicate recorded not reposted, no gh or not
+#     signed in -> links and exit 0, no deny list refused; --add --log redaction and drop; the
+#     permissions deny --file/--all but not --auto
 set -uo pipefail
 TOOLKIT="$(cd "$(dirname "$0")/../.." && pwd)"
 SUBJ="${1:-$TOOLKIT/bin/file-bugs.sh}"
@@ -57,8 +63,13 @@ case "$1 $2" in
   "issue list") echo '[{"number":77,"title":"Similar widget crash","state":"OPEN","url":"https://github.com/mendixlabs/mxcli/issues/77"}]' ;;
   "issue create")
     r=mendixlabs/mxcli
-    for a in "$@"; do case "$a" in --body-file=*) cp "${a#--body-file=}" "$GHLOG.body" ;; --repo=*) r="${a#--repo=}" ;; esac; done
+    for a in "$@"; do case "$a" in --body-file=*) cp "${a#--body-file=}" "$GHLOG.body"; cat "${a#--body-file=}" >> "$GHLOG.all" ;; --repo=*) r="${a#--repo=}" ;;
+      --label=*) [ -n "${GH_LABEL_FAIL:-}" ] && { echo "could not add label" >&2; exit 1; } ;; esac; done
     echo "https://github.com/$r/issues/4242" ;;
+  "auth status") exit "${GH_AUTH_RC:-0}" ;;
+  "label list") echo "${GH_LABELS:-[]}" ;;
+  "label create") exit "${GH_LABEL_CREATE_RC:-0}" ;;
+  "repo view") echo "${GH_PERM:-READ}" ;;
   "--version "*) echo "gh version stub" ;;
 esac
 exit 0
@@ -362,6 +373,99 @@ chk "without gh, --file exits 0" '[ "$RC" = 0 ]'
 chk "without gh nothing is posted and the stub was never reached" '[ "$(grep -c "" "$GHLOG")" = "$NC" ] && echo "$OUT" | grep -q "Not posting"'
 chk "without gh the log is unchanged" 'cmp -s "$P/docs/bugs.jsonl" "$W/before"'
 chk "without gh it names the way out (gh auth login, or --links)" 'echo "$OUT" | grep -q "Nothing breaks" && echo "$OUT" | grep -q "file-bugs.sh --links PBUG-03"'
+
+echo "P. --auto (opt-in) and --add --log"
+PA="$W/pa"; rm -rf "$PA"; mkdir -p "$PA/docs" "$PA/mdlsource"; cp "$P/Zorbix.mpr" "$P/mdlsource/01-model.mdl" "$PA/" 2>/dev/null
+mv "$PA/01-model.mdl" "$PA/mdlsource/"; cp -R "$P/config" "$PA/"; printf 'Snarfle\\b\n' > "$PA/.leakguard-deny"
+cat > "$PA/docs/bugs.jsonl" <<'ROWS'
+{"id":"PBUG-01","date":"2026-11-05","target":"toolkit","title":"Stage 0 gate passes when the sign-off is a placeholder","repro":"run gate-check.sh on Quuxmod","expected":"FAIL","actual":"PASS","versions":{},"workaround":"","status":"open","issue_url":""}
+{"id":"PBUG-02","date":"2026-11-05","target":"mxcli","title":"Opaque thing A8f3K2m9Qz7Lp4Xw1Vb6Nc5Rd0Ty8Ue3Ig","repro":"r","expected":"e","actual":"a","versions":{},"workaround":"","status":"open","issue_url":""}
+ROWS
+cp "$PA/docs/bugs.jsonl" "$W/pa.before"
+arun() { "$PY" "$W/ptyrun.py" notty "$SUBJ" --project "$PA" --auto "$@"; }
+git -C "$PA" init -q
+# reg LINE [nocommit]: write PROJECT.md and commit it (the opt-in must be in HEAD), unless nocommit
+reg() { printf '# PROJECT.md\n\n%s\n' "$1" > "$PA/PROJECT.md"; [ -n "${2:-}" ] && return 0
+  git -C "$PA" add PROJECT.md && git -C "$PA" -c user.name=t -c user.email=tester commit -qm "register" >/dev/null 2>&1 || true; }
+: > "$GHLOG"; reg 'Exec approval: auto'
+OUT="$(arun 2>&1)"; RC=$?
+chk "no opt-in, no tty: --auto posts nothing, says why, exits 0" '[ $RC = 0 ] && ! grep -q "issue create" "$GHLOG" && echo "$OUT" | grep -q "no line .Bug filing: auto." && cmp -s "$PA/docs/bugs.jsonl" "$W/pa.before"'
+for line in '<!-- Bug filing: auto — uncomment to opt in -->' 'Bug filing: auto (maybe)' 'Bug filing: autopost' '> Bug filing: auto?'; do
+  cp "$W/pa.before" "$PA/docs/bugs.jsonl"; : > "$GHLOG"; reg "$line"; arun >/dev/null 2>&1
+  chk "not an opt-in: '$line'" '! grep -q "issue create" "$GHLOG"'
+done
+cp "$W/pa.before" "$PA/docs/bugs.jsonl"; : > "$GHLOG"; reg '**Bug filing:** auto'
+OUT="$(arun 2>&1)"; RC=$?
+chk "opted in (bold), no tty: posts the clean row once, to its target repo" '[ $RC = 0 ] && [ "$(grep -c "issue create" "$GHLOG")" = 1 ] && grep -q "issue create --repo=MendixMau/mxcli-project-toolkit --title=Stage 0 gate passes" "$GHLOG"'
+chk "opted in: duplicate search ran before the create" 'grep -n "" "$GHLOG" | grep "issue list" | head -1 | cut -d: -f1 | { read n; [ "$n" -lt "$(grep -n "issue create" "$GHLOG" | cut -d: -f1)" ]; }'
+chk "opted in: posted body is redacted, carries the footer and the related #77" 'grep -q "Module1" "$GHLOG.body" && ! grep -q "Quuxmod" "$GHLOG.body" && grep -q "file-bugs.sh --auto" "$GHLOG.body" && grep -q "Possibly related: #77" "$GHLOG.body"'
+chk "opted in: status=filed and issue_url written back" 'grep "\"PBUG-01\"" "$PA/docs/bugs.jsonl" | grep -q "\"status\": \"filed\".*MendixMau/mxcli-project-toolkit/issues/4242"'
+chk "opted in: the scan-failing row is reported, never posted, stays open" 'echo "$OUT" | grep -q "WARNING: redaction left suspicious content" && ! grep -qi "opaque\|A8f3" "$GHLOG" && grep "\"PBUG-02\"" "$PA/docs/bugs.jsonl" | grep -q "\"status\":\"open\""'
+chk "opted in: summary line counts filed and refused" 'echo "$OUT" | grep -q "file-bugs --auto: 1 filed, 1 refused"'
+chk "opted in: the run names the commit that opted in" 'echo "$OUT" | grep -q "opted in by commit $(git -C "$PA" log -1 --format=%h) "'
+: > "$GHLOG"; OUT="$(arun --to mxcli 2>&1)"; RC=$?
+chk "--auto --to is refused: a filed row is never re-posted to the other repo" '[ $RC -ne 0 ] && echo "$OUT" | grep -q "cannot be combined" && ! grep -q "issue create" "$GHLOG"'
+: > "$GHLOG"; arun >/dev/null 2>&1
+chk "--auto never re-posts a filed row" '! grep "issue create" "$GHLOG" | grep -q "Stage 0 gate"'
+cp "$W/pa.before" "$PA/docs/bugs.jsonl"; : > "$GHLOG"; reg "$(printf 'Example:\n```\nBug filing: auto\n```')"; arun >/dev/null 2>&1
+chk "a Bug filing: auto line inside a code fence does not opt in" '! grep -q "issue create" "$GHLOG"'
+: > "$GHLOG"; reg 'Exec approval: auto'; reg 'Bug filing: auto' nocommit; OUT="$(arun 2>&1)"
+chk "an uncommitted opt-in line does not opt in, and says so" '! grep -q "issue create" "$GHLOG" && echo "$OUT" | grep -q "not committed yet"'
+mv "$PA/.git" "$W/pa.git"; : > "$GHLOG"; OUT="$(arun 2>&1)"
+chk "no git repo: not opted in, dry run" '! grep -q "issue create" "$GHLOG" && echo "$OUT" | grep -q "not in a git commit"'
+mv "$W/pa.git" "$PA/.git"; reg '**Bug filing:** auto'; cp "$W/pa.before" "$PA/docs/bugs.jsonl"
+chk "no label exists and the user may not create one: no --label, no label create" '! grep -q "label=\|label create" "$GHLOG"'
+cp "$W/pa.before" "$PA/docs/bugs.jsonl"; : > "$GHLOG"
+GH_LABELS='[{"name":"auto-filed"}]' arun >/dev/null 2>&1
+chk "the repo has auto-filed: the issue carries it" 'grep "issue create" "$GHLOG" | grep -q -- "--label=auto-filed"'
+cp "$W/pa.before" "$PA/docs/bugs.jsonl"; : > "$GHLOG"
+GH_PERM=WRITE arun >/dev/null 2>&1
+chk "missing label, WRITE permission: label created, then used" 'grep -q "^label create auto-filed --repo MendixMau/mxcli-project-toolkit" "$GHLOG" && grep "issue create" "$GHLOG" | grep -q -- "--label=auto-filed"'
+cp "$W/pa.before" "$PA/docs/bugs.jsonl"; : > "$GHLOG"
+GH_LABELS='[{"name":"auto-filed"}]' GH_LABEL_FAIL=1 arun >/dev/null 2>&1
+chk "a label the user may not apply: retried without it, still filed" '[ "$(grep -c "issue create" "$GHLOG")" = 2 ] && grep "\"PBUG-01\"" "$PA/docs/bugs.jsonl" | grep -q "\"status\": \"filed\""'
+printf '%s\n' '{"id":"PBUG-03","target":"mxcli","title":"Similar widget crash","repro":"r","expected":"e","actual":"a","versions":{},"status":"open"}' >> "$PA/docs/bugs.jsonl"; : > "$GHLOG"
+arun >/dev/null 2>&1
+chk "exact-title duplicate: not reposted, its URL recorded" '! grep "issue create" "$GHLOG" | grep -q "Similar widget" && grep "\"PBUG-03\"" "$PA/docs/bugs.jsonl" | grep -q "\"issue_url\": \"https://github.com/mendixlabs/mxcli/issues/77\", \"duplicate\": true"'
+cp "$W/pa.before" "$PA/docs/bugs.jsonl"; : > "$GHLOG"
+OUT="$(GH_AUTH_RC=1 arun 2>&1)"; RC=$?
+chk "gh not signed in: nothing posted, links printed, exit 0" '[ $RC = 0 ] && ! grep -q "issue create" "$GHLOG" && echo "$OUT" | grep -q "not signed in" && echo "$OUT" | grep -q "MendixMau/mxcli-project-toolkit/issues/new?title="'
+OUT="$(PATH="$NOGH" "$PY" "$W/ptyrun.py" notty "$SUBJ" --project "$PA" --auto 2>&1)"; RC=$?
+chk "no gh at all: links printed, exit 0, log unchanged" '[ $RC = 0 ] && echo "$OUT" | grep -q "gh is not installed" && echo "$OUT" | grep -q "issues/new?title=" && cmp -s "$PA/docs/bugs.jsonl" "$W/pa.before"'
+chk "--auto output never carries the scan-failing row text" '! echo "$OUT" | grep -qi "A8f3"'
+mv "$PA/.leakguard-deny" "$W/pa.deny"; : > "$GHLOG"
+OUT="$(LEAKGUARD_DENY= arun 2>&1)"; RC=$?
+chk "opted in but no deny list: refused before any gh call" '[ $RC -ne 0 ] && echo "$OUT" | grep -q "no deny list" && ! grep -q "issue create" "$GHLOG"'
+mv "$W/pa.deny" "$PA/.leakguard-deny"
+LOGF="$W/run.log"; { for i in $(seq 1 50); do echo "line $i ok"; done
+  echo "ERROR in Quuxmod.ACT_Save at /Users/$U/work/Zorbix/app.mpr"; echo "auth ghp_abcdefghijklmnopqrstuvwx1234 to build-srv-01"; } > "$LOGF"
+OUT="$("$SUBJ" --project "$PA" --add --target mxcli --title "Log row" --repro r --expected e --actual a --log "$LOGF" --log-lines 4 2>&1)"
+LROW="$(tail -1 "$PA/docs/bugs.jsonl")"
+chk "--log keeps only the last N lines" 'echo "$LROW" | grep -q "line 49 ok" && ! echo "$LROW" | grep -q "line 48 ok"'
+chk "--log is redacted before it is stored" '! echo "$LROW" | grep -q "Quuxmod\|Zorbix\|/Users/\|ghp_\|build-srv" && echo "$LROW" | grep -q "Module1" && echo "$OUT" | grep -q "attached the last 4"'
+printf 'value A8f3K2m9Qz7Lp4Xw1Vb6Nc5Rd0Ty8Ue3Ig\n' > "$W/bad.log"
+OUT="$("$SUBJ" --project "$PA" --add --target mxcli --title "Bad log row" --repro r --expected e --actual a --log "$W/bad.log" 2>&1)"
+chk "a log that fails the scan is dropped from the row, never stored raw" 'echo "$OUT" | grep -q "NOT attached" && ! tail -1 "$PA/docs/bugs.jsonl" | grep -q "A8f3\|\"log\""'
+: > "$GHLOG"; : > "$GHLOG.all"; arun >/dev/null 2>&1
+chk "the redacted log goes into the auto-filed body, last lines only" 'grep -q "### Log (last lines, redacted)" "$GHLOG.all" && grep -q "line 49 ok" "$GHLOG.all" && ! grep -q "line 48 ok" "$GHLOG.all"'
+chk "the posted log carries no raw name or token" '! grep -q "Quuxmod\|ghp_\|/Users/\|A8f3" "$GHLOG.all"'
+chk "--log without --add is refused" '! "$SUBJ" --project "$PA" --log "$LOGF" >/dev/null 2>&1'
+chk "permissions: --file/--all denied, --auto matched by no deny rule" '"$PY" -I - "$TOOLKIT/bin/install-claude-permissions.sh" <<'"'"'PYX'"'"'
+import fnmatch, re, sys
+pats = re.findall(r"\"Bash\((\*file-bugs[^)]*)\)\"", open(sys.argv[1]).read())
+m = lambda c: any(fnmatch.fnmatchcase(c, p) for p in pats)
+sys.exit(not (pats and m("bin/file-bugs.sh --all") and m("bin/file-bugs.sh --file PBUG-01") and not m("bin/file-bugs.sh --auto")))
+PYX'
+chk "init-project ships the opt-in commented out" 'grep -q "<!-- Bug filing: auto" "$TOOLKIT/bin/init-project.sh"'
+GC="$W/gc"; rm -rf "$GC"; mkdir -p "$GC/docs"; printf '# PROJECT.md\n\n## Current stage\n' > "$GC/PROJECT.md"
+printf '%s\n' '{"id":"PBUG-01","status":"open"}' '{"id":"PBUG-02","status":"filed"}' '{"id":"PBUG-03"}' > "$GC/docs/bugs.jsonl"
+OUT="$("$TOOLKIT/bin/gate-check.sh" --closeout "$GC" 0 2>&1)"; RC=$?
+chk "closeout names the unfiled bugs in one line (open + no-status rows), exit 0" '[ $RC = 0 ] && [ "$(echo "$OUT" | grep -c "2 toolkit/mxcli bug(s) logged but not filed — run bin/file-bugs.sh --auto (or --links)")" = 1 ]'
+OUT="$("$TOOLKIT/bin/gate-check.sh" --no-html "$GC" 2>&1)"
+chk "a full gate-check run prints the same note" 'echo "$OUT" | grep -q "^note: 2 toolkit/mxcli bug(s) logged but not filed"'
+chk "a stage query stays quiet about it" '! "$TOOLKIT/bin/gate-check.sh" "$GC" 0 2>&1 | grep -q "logged but not filed"'
+printf '%s\n' '{"id":"PBUG-01","status":"filed"}' > "$GC/docs/bugs.jsonl"
+chk "nothing open: no line" '! "$TOOLKIT/bin/gate-check.sh" --closeout "$GC" 0 2>&1 | grep -q "logged but not filed"'
 
 echo "Z. no real issue was ever created"
 chk "every gh call went through the stub (log exists, no network tool used)" '[ -s "$GHLOG" ]'

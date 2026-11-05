@@ -246,7 +246,7 @@ and when a runtime symptom appears over a green model.
 
 Every row was found in the field: **a green result only certifies what its rung can see.**
 
-**Hit or worked around a tool bug?** Append a row now: `bin/file-bugs.sh --add --target mxcli|toolkit --title T --repro R --expected E --actual A` (`docs/bugs.jsonl`, local id `PBUG-NN`); the same script later redacts it; only a human files it (`!bin/file-bugs.sh --file PBUG-NN`, denied to agents).
+**Hit or worked around a tool bug, or writing a FINDINGS.md entry about the toolkit or mxcli (not this project)?** Append a row now: `bin/file-bugs.sh --add --target mxcli|toolkit --title T --repro R --expected E --actual A [--log FILE]` (`docs/bugs.jsonl`, local id `PBUG-NN`); the same script later redacts it. PROJECT.md says `Bug filing: auto`: run `bin/file-bugs.sh --auto`. Otherwise only a human files it (`!bin/file-bugs.sh --file PBUG-NN`, denied to agents).
 
 
 > Source: `skills/learned-detection-gaps.md` § The ladder

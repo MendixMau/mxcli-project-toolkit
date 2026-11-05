@@ -147,7 +147,8 @@ echo "== T5: open-questions.html is retired =="
 P="$(project gate-q)"
 mkdir -p "$P/analysis/a/knowledge-base/brd"
 # .modules: Stage 2 FAILs a BRD that names no module since 2026-11-05, and this case is about the questions.
-jq '.openQuestions=[{"id":"Q01","question":"Is the engine in scope?","status":"Open"}] | .modules=["Orders"]' "$P/analysis/a/knowledge-base/brd/F001-orders.brd.json" > "$P/q" && mv "$P/q" "$P/analysis/a/knowledge-base/brd/F001-orders.brd.json"
+# .mainFlow/.postconditions: so does a use case without steps or acceptance criteria (#622).
+jq '.openQuestions=[{"id":"Q01","question":"Is the engine in scope?","status":"Open"}] | .modules=["Orders"] | .useCases|=map(.mainFlow=["1. step"] | .postconditions=["done"])' "$P/analysis/a/knowledge-base/brd/F001-orders.brd.json" > "$P/q" && mv "$P/q" "$P/analysis/a/knowledge-base/brd/F001-orders.brd.json"
 OUT="$("$GATE" "$P" 2 2>&1)"; RC=$?
 check "the stage 2 gate still blocks on an unraised question" "$RC" "1"
 has "the gate points at the BRD report" "$OUT" "analysis/brd-report.html"

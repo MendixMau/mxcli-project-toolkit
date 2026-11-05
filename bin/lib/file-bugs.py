@@ -74,12 +74,13 @@ RE_BARE = re.compile(r"(?<![\w.@/\\-])(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])
 # pattern matches it (deny and name matching still run over the kept text afterwards):
 #   os.path.join( / path.join(   2-3 identifier labels directly followed by "(" whose FIRST label is a
 #                                known runtime object or module (CALL_ROOTS); acme.sap( or
-#                                erp.acme.dmz( stay hosts, since an unlisted first label may be a client
-#   obj.method( in a ``` fence   2 labels, first a single lowercase identifier, last not a common TLD
+#                                erp.acme.dmz( stay hosts, since an unlisted first label may be a client;
+#                                a middle label outside CALL_SUBMODULES becomes <name>
 #   org.<org>.common.service.lib a reversed-domain package of 3+ lowercase identifier labels: the
 #                                organisation label (2nd) is replaced unless it is a public one
 #                                (PKG_PUBLIC_ORGS), the rest of the shape kept
-#   java.util.concurrent         a JDK/platform package root: kept whole
+#   java.util.concurrent         a JDK/platform root with a known stdlib 2nd label: kept whole
+#                                (java.acme.orders becomes java.<org>.orders)
 RE_CALL = re.compile(r"^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*){1,2}$")
 RE_PKG = re.compile(r"^[a-z_][a-z0-9_]*(?:\.[a-z_][a-z0-9_]*){2,}$")
 PKG_ORG_ROOTS = set("com org net io nl de be fr uk ch at dk se no fi es it eu edu gov".split())
@@ -88,6 +89,13 @@ CALL_ROOTS = set("""os fs path json JSON Math Object Array String Number Boolean
 process require module exports child_process util crypto window document sys re shutil subprocess pathlib glob
 System Arrays Collections List Map Set Optional Objects Files Paths Path Integer Long Thread java javax jakarta
 this self super""".split())
+# a 3-label call keeps its middle label only when it is one of these (os.path.join, fs.promises.readFile,
+# System.out.println); path.acme.dmz( becomes path.<name>.dmz(
+CALL_SUBMODULES = set("path posix win32 promises out err in prototype props state constructor".split())
+# java.util.concurrent stays whole; java.acme.orders becomes java.<org>.orders
+PKG_STD_SUBPKGS = set("""util io nio net lang time text sql math security beans awt rmi xml swing crypto annotation
+servlet inject ws persistence validation transaction json collections coroutines serialization jvm reflect concurrent
+app os view widget content internal misc""".split())
 PKG_PUBLIC_ORGS = set("springframework apache junit slf4j mendix google fasterxml hibernate eclipse jetbrains".split())
 CALL_TLD_NOT = set("com org net io dev app co uk de nl be fr eu ch at us info biz cloud local lan corp internal intra "
                    "int edu gov mil".split())
@@ -245,16 +253,16 @@ def code_form(m, deny):
     if any(rx.search(s) for rx in deny):
         return None
     labels = s.split(".")
-    if RE_CALL.match(s) and txt[m.end():m.end() + 1] == "(":
-        if labels[0] in CALL_ROOTS:
-            return s
-        in_fence = txt.count(FENCE, 0, m.start()) % 2 == 1
-        if (in_fence and len(labels) == 2 and re.match(r"^[a-z_][a-z0-9_]*$", labels[0])
-                and labels[-1].lower() not in CALL_TLD_NOT):
-            return s
+    # the call may end in a camelCase method RE_BARE stops before: fs.promises + .readFile(
+    tail = re.match(r"(\.[A-Za-z_$][\w$]*)?\(", txt[m.end():m.end() + 80])
+    chain = labels + ([tail.group(1)[1:]] if tail and tail.group(1) else [])
+    if RE_CALL.match(s) and tail and len(chain) <= 3 and labels[0] in CALL_ROOTS:
+        if len(chain) == 3 and chain[1] not in CALL_SUBMODULES:
+            return ".".join([labels[0], "<name>"] + labels[2:])
+        return s
     if RE_PKG.match(s):
         if labels[0] in PKG_PLATFORM_ROOTS:
-            return s
+            return s if labels[1] in PKG_STD_SUBPKGS else ".".join([labels[0], "<org>"] + labels[2:])
         if labels[0] in PKG_ORG_ROOTS:
             return ".".join([labels[0], labels[1] if labels[1] in PKG_PUBLIC_ORGS else "<org>"] + labels[2:])
     return None

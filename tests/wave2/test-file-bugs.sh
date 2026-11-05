@@ -501,10 +501,15 @@ chk "#646 safety: a hostname before ( is still a host, a deny name before ( is s
 G="$(bodyof 'calls acme.sap(a) acme.prd(b) intranet.acme(c) acme.orders.service(d) erp.acme.dmz(e) a.b.acmeerp(f) end')"
 chk "#646 review: unlisted first labels before ( stay hosts (acme.sap, acme.prd, intranet.acme, acme.orders.service, erp.acme.dmz, a.b.acmeerp)" '! echo "$G" | grep -qi "acme" && [ "$(echo "$G" | grep -o "<host>(" | wc -l | tr -d " ")" = 6 ]'
 G="$(bodyof "$(printf 'prose obj.method(x) here\n%s\nobj.method(y)\n%s\nand org.springframework.web.bind(z)' "$FENCE3" "$FENCE3")")"
-chk "#646 review: obj.method( is kept inside a code fence only" 'echo "$G" | grep -qF "<host>(x)" && echo "$G" | grep -qF "obj.method(y)"'
+chk "#646 review: obj.method( with an unlisted first label is a host in prose and in a fence" 'echo "$G" | grep -qF "<host>(x)" && echo "$G" | grep -qF "<host>(y)" && ! echo "$G" | grep -qF "obj.method"'
 chk "#646 review: a public package org (springframework) is kept" 'echo "$G" | grep -qF "org.springframework.web.bind"'
 G="$(bodyof "$(printf '%s\nacme.sap(q) zonkco.com(r)\n%s' "$FENCE3" "$FENCE3")")"
-chk "#646 review: inside a fence a common TLD before ( is still a host" 'echo "$G" | grep -qF "<host>(r)"'
+chk "#646 review: inside a fence acme.sap( and a common TLD before ( are still hosts" 'echo "$G" | grep -qF "<host>(q)" && echo "$G" | grep -qF "<host>(r)" && ! echo "$G" | grep -qi "acme"'
+G="$(bodyof 'calls path.acme.dmz(a) and window.acme.sap(b) but os.path.join(c) fs.promises.readFile(d) System.out.println(e)')"
+chk "#646 re-review: an unknown middle label behind a listed root is redacted" '! echo "$G" | grep -qi acme && echo "$G" | grep -qF "path.<name>.dmz(a)" && echo "$G" | grep -qF "window.<name>.sap(b)"'
+chk "#646 re-review: known submodules keep the call whole" 'echo "$G" | grep -qF "os.path.join(c) fs.promises.readFile(d) System.out.println(e)"'
+G="$(bodyof 'see java.acme.orders and javax.acme.billing.core and kotlin.acme.x but java.util.concurrent')"
+chk "#646 re-review: java/javax/kotlin with an unknown 2nd label redact it, JDK packages stay" '! echo "$G" | grep -qi acme && echo "$G" | grep -qF "java.<org>.orders" && echo "$G" | grep -qF "javax.<org>.billing.core" && echo "$G" | grep -qF "java.util.concurrent"'
 G="$(MXTK_LEAKGUARD_DENYFILE="$W/tk-deny-bad" bodyof 'x')"
 chk "#645 review: the invalid-toolkit-line refusal says init-project.sh appends to that file" 'grep -q "init-project.sh appends" "$W/p2.err"'
 G="$(bodyof x t '{"mxcli":"v0.27.0"}')"

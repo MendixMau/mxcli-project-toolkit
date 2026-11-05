@@ -87,7 +87,7 @@ PKG_ORG_ROOTS = set("com org net io nl de be fr uk ch at dk se no fi es it eu ed
 PKG_PLATFORM_ROOTS = set("java javax jakarta android androidx kotlin kotlinx scala jdk sun".split())
 CALL_ROOTS = set("""os fs path json JSON Math Object Array String Number Boolean Promise Date RegExp Buffer console
 process require module exports child_process util crypto window document sys re shutil subprocess pathlib glob
-System Arrays Collections List Map Set Optional Objects Files Paths Path Integer Long Thread java javax jakarta
+System Arrays Collections List Map Set Optional Objects Files Paths Path Integer Long Thread
 this self super""".split())
 # a 3-label call keeps its middle label only when it is one of these (os.path.join, fs.promises.readFile,
 # System.out.println); path.acme.dmz( becomes path.<name>.dmz(

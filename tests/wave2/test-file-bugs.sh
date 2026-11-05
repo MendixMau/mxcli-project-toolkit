@@ -508,6 +508,9 @@ chk "#646 review: inside a fence acme.sap( and a common TLD before ( are still h
 G="$(bodyof 'calls path.acme.dmz(a) and window.acme.sap(b) but os.path.join(c) fs.promises.readFile(d) System.out.println(e)')"
 chk "#646 re-review: an unknown middle label behind a listed root is redacted" '! echo "$G" | grep -qi acme && echo "$G" | grep -qF "path.<name>.dmz(a)" && echo "$G" | grep -qF "window.<name>.sap(b)"'
 chk "#646 re-review: known submodules keep the call whole" 'echo "$G" | grep -qF "os.path.join(c) fs.promises.readFile(d) System.out.println(e)"'
+G="$(bodyof 'calls java.acme(x) and javax.acme(w) and java.acme.orders(y) and java.util.Objects.equals(z)')"
+chk "#646 third review: java./javax. are not call roots, a client label after them is redacted" '! echo "$G" | grep -qi acme && echo "$G" | grep -qF "<host>(x)" && echo "$G" | grep -qF "<host>(w)" && echo "$G" | grep -qF "java.<org>.orders(y)"'
+chk "#646 third review: java.util.Objects.equals( is redacted as on master (4 labels, never widened)" 'echo "$G" | grep -qF "<host>(z)"'
 G="$(bodyof 'see java.acme.orders and javax.acme.billing.core and kotlin.acme.x but java.util.concurrent')"
 chk "#646 re-review: java/javax/kotlin with an unknown 2nd label redact it, JDK packages stay" '! echo "$G" | grep -qi acme && echo "$G" | grep -qF "java.<org>.orders" && echo "$G" | grep -qF "javax.<org>.billing.core" && echo "$G" | grep -qF "java.util.concurrent"'
 G="$(MXTK_LEAKGUARD_DENYFILE="$W/tk-deny-bad" bodyof 'x')"

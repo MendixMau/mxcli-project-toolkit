@@ -110,12 +110,13 @@ each had its own local user store, and SSO became a retrofit across all apps.
 
 | Concern | Official route | Record |
 |---|---|---|
-| **Human login across apps** | OIDC SSO module with name-based role mapping from IdP **group claims** (OIDC SSO 5.x; needs User Commons ≥ 3). Optionally one Mendix app as IdP via the OIDC Provider. | One mapping table per app: IdP group → module/user role. Every user role in every app appears in it or is marked local-only. |
+| **Human login across apps** | OIDC SSO module with role mapping from token claims (name-based since 5.x, per the module's Marketplace release notes; needs User Commons ≥ 3). The module parses a default `roles` claim (e.g. Entra ID); any other claim, such as a groups claim, needs a custom access-token processing microflow. Optionally one Mendix app as IdP via the OIDC Provider. | One mapping table per app: claim value → module/user role. Every user role in every app appears in it or is marked local-only. |
 | **App-to-app calls** | A **service account per direction** (`<consumer>-reader`) on a machine-only role, authenticated with **tokens** (client credentials from the IdP, verified by the publisher) rather than HTTP Basic. Basic over TLS is the dev minimum `mendix-service-seam.md` P2 proved, not the target. | A Service accounts table in `SYSTEM.md`: account, direction, roles, where the secret lives (channel, not value), last rotated, target auth. |
 | **Versions** | Check the OIDC SSO and User Commons versions against **each** app's Mendix version before the first app installs them. | "unverified" in the Shared assets row until one app runs it, then a second. |
 
-Sources: OIDC SSO module https://docs.mendix.com/appstore/modules/oidc/ and
-https://marketplace.mendix.com/link/component/120371 ; OIDC Provider
+Sources: OIDC SSO module https://docs.mendix.com/appstore/modules/oidc/ (default `roles` claim
+parsing, custom access-token microflow for other claims) and its Marketplace listing
+https://marketplace.mendix.com/link/component/120371 (5.x name-based mapping, User Commons ≥ 3); OIDC Provider
 https://docs.mendix.com/appstore/services/oidc-provider ; consumed-service authentication
 https://docs.mendix.com/refguide/consumed-odata-services/ ; constants
 https://docs.mendix.com/refguide/constants/ ; portfolio access https://docs.mendix.com/governance-control

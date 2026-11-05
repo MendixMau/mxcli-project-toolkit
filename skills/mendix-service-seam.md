@@ -82,7 +82,7 @@ under the same key; soft-delete instead.
 The Catalog keeps **one definition per version**: a breaking change deployed under an unchanged
 version overwrites the contract every environment sees — bump and redeploy
 (https://support.mendix.com/hc/en-us/articles/28518124661532).
-*Anti:* as of mxcli v0.28, `impact`/`refs` do not see OData exposure — an attribute a published
+*Anti (observed once on mxcli v0.28, on a copy of mxcli's public `testdata/testapp-views` model; not field-run):* `impact`/`refs` do not see OData exposure — an attribute a published
 service exposes reports "no references found", and removing it passes `check` and `exec` while the
 service still advertises it. Grep the published service before removing or renaming a member.
 Rolling a version out across several apps: `multi-app-release.md`.

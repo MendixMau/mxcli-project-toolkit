@@ -65,10 +65,10 @@ its publisher and **every** consumer row.
 - **The Catalog keeps one definition per version.** It keys a contract on the version number and
   keeps only the last definition it received for that version, so a breaking change deployed under
   an unchanged version **overwrites the contract every environment sees**. Fix: bump the version
-  and redeploy (https://support.mendix.com/hc/en-us/articles/28518124661532). The Landscape view
-  shows consumers after deploy; it does not gate a change
-  (https://docs.mendix.com/catalog/manage/landscape/).
-- **`check` and `impact` will not stop a breaking change.** Measured on mxcli v0.28: renaming a
+  and redeploy (Mendix support article https://support.mendix.com/hc/en-us/articles/28518124661532,
+  behind a Mendix login).
+- **`check` and `impact` will not stop a breaking change.** Observed once, not field-run (mxcli v0.28, a research experiment on copies of mxcli's
+  public `testdata/testapp-views` model, 2026-11-05): renaming a
   published REST resource under an unchanged `Version: '1.0.0'` passed `check` and `exec`; removing
   an attribute exposed by a published OData service passed both and `mxcli impact` reported it
   unreferenced. Grep the published services yourself before removing or renaming.

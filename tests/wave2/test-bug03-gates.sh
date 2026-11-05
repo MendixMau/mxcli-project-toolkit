@@ -531,7 +531,7 @@ cat > "$P/knowledge-base/brd/F001.brd.json" <<'JSON'
 {"id":"F001","title":"Scheduling","provenance":"documents","modules":["Scheduling"],
  "useCases":[{"id":"UC001","title":"Plan a shift","actors":["Planner"],"mainFlow":["1. plan"],"postconditions":["planned"]},
              {"id":"UC002","title":"Swap a shift","actors":["Planner"],"mainFlow":["1. swap"]}],
- "domainEntities":[{"name":"Shift","module":"Scheduling","attributes":[{"name":"Kind","type":"Enumeration","enumeration":"Scheduling.ShiftKind"}],
+ "domainEntities":[{"name":"Shift","module":"Scheduling","attributes":[{"name":"Kind","type":"Enumeration","enumeration":"Scheduling.ShiftType"}],
                     "associations":[{"name":"Shift_Employee","target":"Employee"}]}],
  "businessRules":[{"title":"No double shifts"}],
  "openQuestions":[{"id":"Q1","question":"Night shifts in scope?","status":"Open"}]}

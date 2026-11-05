@@ -562,6 +562,20 @@ RESERVED_ENTITY = {'case'}
 RESERVED_ATTR = {'context', 'id', 'type'}
 RESERVED_ENUM_VALUE = {'new'}
 
+# A rule written as a string carries its id as a leading token: "BR001: total over 500 needs
+# approval", "R3 - …", "BR-07) …". Same shape bin/facts-lock.sh reads; keep the two in step.
+RULE_ID_RE = _re.compile(r'^\s*\[?([A-Z][A-Z0-9]{0,7}[-_]?\d+(?:\.\d+)*)\]?\s*(?:[:)\]\u2013\u2014-]|\.\s)')
+
+def rule_id(r):
+    """(id, why-not) for one businessRules[] entry."""
+    if isinstance(r, dict):
+        v = r.get('id')
+        return (v.strip(), None) if isinstance(v, str) and v.strip() else (None, 'has no id')
+    if isinstance(r, str):
+        m = RULE_ID_RE.match(r)
+        return (m.group(1), None) if m else (None, 'is a string, not {id, title} and starts with no id ("BR001: …")')
+    return None, 'is neither an object nor a string'
+
 def _blank(v):
     """Absent, empty, or nothing but TODO/TBD placeholders — the scaffold's way of saying empty."""
     items = [x for x in as_list(v) if x is not None]
@@ -686,11 +700,11 @@ def validate():
         # 4. business rules carry ids
         for i, r in enumerate(raw_list(b, 'businessRules')):
             br_total += 1
-            rid = r.get('id') if isinstance(r, dict) and isinstance(r.get('id'), str) and r.get('id').strip() else None
+            rid, why = rule_id(r)
             if rid:
                 br_id += 1; br_ids.setdefault(rid.lower(), []).append((a, rid))
             else:
-                find(a, 'rule-ids', 'error', f'businessRules[{i}] has no id — a rule nobody can cite cannot be traced to a build row')
+                find(a, 'rule-ids', 'error', f'businessRules[{i}] {why} — a rule nobody can cite cannot be traced to a build row')
         # 5. open questions tracked: an id to cite and the question itself. Its STATUS is
         #    open-questions.sh's (a blank one is UNRAISED there, and the gate already blocks on it).
         for i, q in enumerate(raw_list(b, 'openQuestions')):

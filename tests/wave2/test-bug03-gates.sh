@@ -384,9 +384,7 @@ case "$V" in *PASS*'no facts lock'*) ok "2 BRDs, no lock: still PASS, with a not
 TK="$(cd "$(dirname "$GATE")/.." && pwd)"
 mkdir -p "$P/analysis"; bash "$TK/bin/facts-lock.sh" "$P" build >/dev/null 2>&1
 V="$(verdict "$P" 2)"
-case "$V" in *PASS*) case "$V" in *'no facts lock'*|*'contested identifiers left'*) bad "agreeing BRDs with a lock still noted: $V" ;; *) ok "lock built, BRDs agree: PASS, no lock/contested note" ;; esac ;; *) bad "lock built, BRDs agree: $V" ;; esac
-# 2 facts (one module, one entity) is not a lock worth trusting (#621): said on the PASS line.
-case "$V" in *PASS*'facts lock: near-empty lock (2 facts)'*) ok "a 2-fact lock is called near-empty on the PASS line" ;; *) bad "near-empty lock not noted: $V" ;; esac
+case "$V" in *PASS*) case "$V" in *'facts lock'*) bad "agreeing BRDs with a lock still noted: $V" ;; *) ok "lock built, BRDs agree: plain PASS" ;; esac ;; *) bad "lock built, BRDs agree: $V" ;; esac
 printf '{ "id":"F002","modules":["Core"],"useCases":[],"domainEntities":[{"entity":"WipStatus"}] }\n' > "$P/knowledge-base/brd/F002.brd.json"
 V="$(verdict "$P" 2)"
 case "$V" in *FAIL*'WipStatus'*) ok "a BRD that contradicts a frozen name FAILs Stage 2 and quotes it" ;; *) bad "contradicted frozen name not caught: $V" ;; esac

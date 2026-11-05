@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# metrics-ledger.sh — one row per exec: outcome, speed, lint total, quality score.
+# metrics-ledger.sh — one row per exec (outcome, speed, lint total) plus one per module close (quality score).
 #
 # WHY. The toolkit measured its own OUTPUT (lint findings per rule, gate verdicts) but never
 # its OUTCOME: is the app getting better, and is the build getting faster, as the rules and
@@ -11,17 +11,23 @@
 # call, per project and (via bin/harvest-learnings.sh) across projects.
 #
 # PRODUCES .claude/loop/metrics-ledger.tsv (append-only). Read with project-bin/metrics-trend.sh.
-# PRODUCER: project-bin/exec.sh calls `score` after a clean mxbuild and `exec` from log_build on
-# EVERY outcome, so a row exists for blocked and failed execs too — a ledger of only the good
-# runs would show a rising score and hide the ten restores it cost.
+# PRODUCERS: project-bin/exec.sh calls `exec` from log_build on EVERY outcome, so a row exists
+# for blocked and failed execs too — a ledger of only the good runs would show a rising score and
+# hide the ten restores it cost. project-bin/module-close.sh (mandatory: bin/row-groups.sh holds
+# the next module's scripts until its report exists) calls `record --module <M>` once per module:
+# that row carries the score. Since 2026-11-05 exec.sh no longer scores each exec (≈5-7 s each,
+# 211 s over ~40 execs on a Windows laptop); `Score: every exec` in PROJECT.md or
+# MXTK_SCORE=exec brings back the per-exec score (exec.sh then calls `score` after a clean gate).
 #
 #   ts  script  gate  result  elapsed_s  mxbuild_errors  lint_rc  lint_total  restored
 #   score  security  quality  architecture  performance  naming  design  other  violations  model_commit
 #
 # `result` is a short class, not the BUILD-LOG wording: applied · applied-lint-rose · applied-lint-blind ·
 # applied-dirty · applied-unverified · partial · gate-failed · gate-not-run · rolled-back ·
-# blocked · refused · patch-failed · other. Score columns are empty when `score` did not run
-# this exec (a failed or blocked write is not scored — the model was restored or never written).
+# blocked · refused · patch-failed · other — and two rows that are NOT execs: module-close (written
+# by `record --module`) and score-only (`record` with no module, on demand). Readers count execs
+# without those two and read the score from every row that has one. Score columns are empty when
+# no score was taken for the row: every exec row by default, and a failed or blocked write always.
 # `lint_total` is read from .claude/loop/lint-last.json, which lint-gate.sh rewrites every run,
 # only when the caller says lint ran (--lint-rc 0|1|3); otherwise empty, never 0.
 #
@@ -30,10 +36,20 @@
 #                                          model, 2026-10-12; it refreshes the catalog) and writes
 #                                          .claude/loop/report-last.json. Exit 0 wrote · 3 no mxcli
 #                                          or report failed (the exec row then has empty scores).
+#   bin/metrics-ledger.sh record [--module M]
+#                                          `score`, then appends a non-exec row that carries it:
+#                                          result module-close (script "module-close: M", what
+#                                          module-close.sh writes) or, with no module, score-only
+#                                          — the on-demand project score. Prints the score line
+#                                          last. Exit as `score` (the row lands either way).
 #   bin/metrics-ledger.sh exec --script NAME --gate STATE --result 'BUILD-LOG status' \
 #        --elapsed SECONDS [--mxbuild-errors N] [--lint-rc N] [--restored 0|1] [--scored 0|1]
 #                                          appends the row. Exit 0 · 2 bad invocation.
-#   MXTK_NO_SCORE=1                        exec.sh skips `score` (slow machine, CI); rows still land.
+#   Score: every exec (PROJECT.md) or MXTK_SCORE=exec
+#                                          exec.sh also scores after each clean gate (the pre-
+#                                          2026-11-05 default). MXTK_SCORE=module forces the default.
+#   MXTK_NO_SCORE=1                        exec.sh never scores, even with the opt-in (slow machine,
+#                                          CI); rows still land. module-close.sh still scores.
 #
 # Golden input: tests/wave2/fixtures/mxcli-report-0.26.0.json is a redacted verbatim capture
 # of `mxcli report --format json` (0.26.0): 7 categories, "Other" included, scores are
@@ -75,9 +91,9 @@ require_py
 
 MODE="${1:-}"; shift 2>/dev/null || true
 case "$MODE" in
-  -h|--help|"") sed -n '2,45p' "$0"; [ "$MODE" = "" ] && exit 2; exit 0 ;;
-  score|exec) ;;
-  *) echo "metrics-ledger: unknown mode '$MODE' (score|exec)" >&2; exit 2 ;;
+  -h|--help|"") sed -n '2,60p' "$0"; [ "$MODE" = "" ] && exit 2; exit 0 ;;
+  score|exec|record) ;;
+  *) echo "metrics-ledger: unknown mode '$MODE' (score|exec|record)" >&2; exit 2 ;;
 esac
 
 if [ "$MODE" = "score" ]; then
@@ -111,9 +127,27 @@ PYEOF
   rm -f "$_tmp"; exit 0
 fi
 
-# ---- exec: append the row ----------------------------------------------------------------
+# ---- record: take the score, then append a non-exec row carrying it ----------------------
 SCRIPT=""; GATE=""; RESULT=""; ELAPSED=""; MXB_ERR=""; LINT_RC=""; RESTORED="0"; SCORED="0"
-while [ $# -gt 0 ]; do
+REC_RC=0; REC_OUT=""
+if [ "$MODE" = "record" ]; then
+  REC_MOD=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --module) REC_MOD="${2:-}"; shift ;;
+      *) echo "metrics-ledger: unknown argument $1" >&2; exit 2 ;;
+    esac
+    shift
+  done
+  REC_OUT="$(bash "${BASH_SOURCE[0]}" score 2>&1)"; REC_RC=$?
+  [ "$REC_RC" = 0 ] && SCORED=1
+  if [ -n "$REC_MOD" ]; then SCRIPT="module-close: $REC_MOD"; RESULT="module-close"
+  else SCRIPT="score (on demand)"; RESULT="score-only"; fi
+  GATE="none"
+fi
+
+# ---- exec: append the row ----------------------------------------------------------------
+[ "$MODE" = "exec" ] && while [ $# -gt 0 ]; do
   case "$1" in
     --script) SCRIPT="${2:-}"; shift ;;
     --gate) GATE="${2:-}"; shift ;;
@@ -127,7 +161,7 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
-[ -n "$SCRIPT" ] && [ -n "$GATE" ] && [ -n "$RESULT" ] && [ -n "$ELAPSED" ] || {
+[ "$MODE" = "record" ] || { [ -n "$SCRIPT" ] && [ -n "$GATE" ] && [ -n "$RESULT" ] && [ -n "$ELAPSED" ]; } || {
   echo "metrics-ledger: exec needs --script --gate --result --elapsed" >&2; exit 2; }
 
 MODEL_COMMIT="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo "")"
@@ -140,6 +174,7 @@ import datetime, json, os, sys
 
 def classify(s):
     t = s.lower()
+    if t in ("module-close", "score-only"): return t   # `record` rows, not execs
     if "patch failed" in t: return "patch-failed"
     if "rolled back" in t: return "rolled-back"
     if "gate could not run" in t: return "gate-not-run"
@@ -184,3 +219,9 @@ with open(ledger, "a") as f:
     if new: f.write(header)
     f.write("\t".join(row) + "\n")
 PYEOF
+_app=$?
+[ "$MODE" = "record" ] || exit "$_app"
+# The score line last: module-close.sh keeps `tail -1` of this for its report.
+echo "ledger: $RESULT row appended ($SCRIPT)"
+printf '%s\n' "${REC_OUT:-score not taken}"
+exit "$REC_RC"

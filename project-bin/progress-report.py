@@ -824,8 +824,11 @@ def run_kind(result, gate=""):
     if "applied" in r and not re.search(r"rolled|fail|error", r): return "ok"
     return "fail"
 
-def ledger_runs(proj):
-    """Rows of .claude/loop/metrics-ledger.tsv, the log exec.sh writes itself (ts in UTC), oldest first."""
+LEDGER_NOT_EXEC = ("module-close", "score-only")   # metrics-ledger.sh `record` rows: a score, not a run
+
+def ledger_runs(proj, scores=False):
+    """Rows of .claude/loop/metrics-ledger.tsv, the log exec.sh writes itself (ts in UTC), oldest first. Exec rows only;
+    scores=True keeps the module-close / score-only rows too (where the score lives since 2026-11-05)."""
     ml = read(os.path.join(proj, ".claude", "loop", "metrics-ledger.tsv")).splitlines()
     if len(ml) < 2: return []
     h = ml[0].split("\t"); out = []
@@ -833,6 +836,7 @@ def ledger_runs(proj):
         c = line.split("\t"); g = lambda k: c[h.index(k)].strip() if k in h and h.index(k) < len(c) else ""
         t = epoch(g("ts"))
         if not t or not g("script"): continue
+        if not scores and g("result") in LEDGER_NOT_EXEC: continue
         try: el = float(g("elapsed_s"))
         except ValueError: el = None
         try: sc = float(g("score"))
@@ -919,7 +923,7 @@ def exec_facts(proj, bp):
     el = [r["elapsed"] for r in runs if r["elapsed"] is not None]
     f["exec_s"] = sum(el) if el else None
     f["bad_s"] = sum(r["elapsed"] or 0 for r in runs if r["kind"] == "fail" or r["restored"]) if el else None
-    sc = [r for r in runs if r["score"] is not None]; f["score"] = sc[-1] if sc else None
+    sc = [r for r in ledger_runs(proj, scores=True) if r["score"] is not None]; f["score"] = sc[-1] if sc else None
     per = {}; order = []; sp = script_phases(runs, bp["phases"]) if bp else {}
     for r in runs:
         p = sp.get(r["script"])
@@ -1382,7 +1386,9 @@ def load_ledgers(proj):
     if len(ml) > 1:
         h = ml[0].split("\t")
         if "elapsed_s" in h:
-            k = h.index("elapsed_s"); v = [float(r.split("\t")[k]) for r in ml[1:] if len(r.split("\t")) > k and re.match(r"^[\d.]+$", r.split("\t")[k])]
+            k = h.index("elapsed_s"); kr = h.index("result") if "result" in h else None
+            v = [float(r.split("\t")[k]) for r in ml[1:] if len(r.split("\t")) > k and re.match(r"^[\d.]+$", r.split("\t")[k])
+                 and not (kr is not None and len(r.split("\t")) > kr and r.split("\t")[kr] in LEDGER_NOT_EXEC)]
             if v: out["exec_s"] = sum(v); out["exec_n"] = len(v); out["sources"].append(".claude/loop/metrics-ledger.tsv")
     return out if out["sources"] else None
 

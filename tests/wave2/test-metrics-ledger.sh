@@ -12,6 +12,10 @@
 # exec mode (header once, 19 columns, result classification, lint_total only when lint ran,
 # score columns only when --scored 1); the reader's summary, --runs, --score, --since; and
 # that exec.sh is actually wired (every log_build row records, score taken in log_applied).
+# Score cadence (2026-11-05): take_score, extracted from exec.sh, does NOT score by default; the
+# opt-in (`Score: every exec` in PROJECT.md, MXTK_SCORE=exec) restores it; `record --module`
+# (what module-close.sh calls) appends a module-close row carrying the score, which the reader
+# counts as a score point and never as an exec.
 #
 # Usage: bash test-metrics-ledger.sh [path-to-metrics-ledger.sh]
 
@@ -100,6 +104,60 @@ sc=$(bash "$P/bin/metrics-trend.sh" --score); [ "$(printf '%s\n' "$sc" | wc -l |
 z=$(bash "$P/bin/metrics-trend.sh" --since 2999-01-01); case "$z" in *"no rows since"*) ok "--since filters" ;; *) bad "--since: $z" ;; esac
 mkdir -p "$WORK/empty/bin" "$WORK/empty/.claude"; cp "$TREND" "$WORK/empty/bin/"
 bash "$WORK/empty/bin/metrics-trend.sh" >/dev/null 2>&1; [ $? = 2 ] && ok "no ledger → exit 2" || bad "no-ledger exit"
+
+# --- record: the module-close row ------------------------------------------------------------
+out=$(bash "$P/bin/metrics-ledger.sh" record --module Billing 2>&1); rc=$?
+[ "$rc" = 0 ] && ok "record --module exits 0 with mxcli" || bad "record exited $rc: $out"
+case "$(printf '%s\n' "$out" | tail -1)" in *"score=41.3"*) ok "record prints the score line last (module-close.sh keeps tail -1)" ;; *) bad "record last line: $out" ;; esac
+r5=$(tail -1 "$L")
+[ "$(f "$r5" 2)" = "module-close: Billing" ] && [ "$(f "$r5" 4)" = module-close ] && [ "$(f "$r5" 10)" = 41.3 ] \
+  && ok "record row: script 'module-close: Billing', result module-close, score 41.3" || bad "record row: $r5"
+[ -z "$(f "$r5" 5)" ] && [ -z "$(f "$r5" 8)" ] && ok "record row: elapsed and lint_total empty (not an exec)" || bad "record row elapsed/lint: $r5"
+[ "$(awk -F'\t' '{print NF}' "$L" | sort -u | tr '\n' ' ')" = "19 " ] && ok "record row keeps 19 columns" || bad "record columns"
+mv "$P/mxcli" "$P/mxcli.off"
+out=$(bash "$P/bin/metrics-ledger.sh" record 2>&1); rc=$?
+r6=$(tail -1 "$L")
+{ [ "$rc" = 3 ] && [ "$(f "$r6" 4)" = score-only ] && [ -z "$(f "$r6" 10)" ]; } \
+  && ok "record without mxcli: exit 3, score-only row lands with empty score" || bad "record no mxcli rc=$rc: $r6"
+mv "$P/mxcli.off" "$P/mxcli"
+s=$(bash "$P/bin/metrics-trend.sh" 2>&1)
+case "$s" in *"4 execs"*) ok "trend: record rows are not counted as execs" ;; *) bad "trend exec count with record rows: $s" ;; esac
+case "$s" in *"3 points: 2 at exec, 1 at module close"*) ok "trend: score points labelled by where they were taken" ;; *) bad "score label: $s" ;; esac
+case "$s" in *Billing*) bad "summary leaks the module name" ;; *) ok "summary carries no module name" ;; esac
+case "$s" in *"blocked / refused          1 (25%)"*) ok "trend: shares still over 4 execs" ;; *) bad "shares: $s" ;; esac
+sc=$(bash "$P/bin/metrics-trend.sh" --score)
+{ [ "$(printf '%s\n' "$sc" | wc -l | tr -d ' ')" = 4 ] && printf '%s\n' "$sc" | tail -1 | grep -q 'module close$'; } \
+  && ok "--score: 3 points, last one taken at module close" || bad "--score with record: $sc"
+
+# --- take_score cadence (extracted from exec.sh) ---------------------------------------------
+TS="$WORK/take_score.sh"
+sed -n '/^_first_match() {/,/^}/p; /^take_score() {/,/^}/p' "$EXEC" > "$TS"
+SP="$WORK/sproj"; mkdir -p "$SP/bin"
+printf '#!/bin/sh\necho "$*" >> "%s/calls"\necho "score=50 categories=7 violations=1"\n' "$SP" > "$SP/bin/metrics-ledger.sh"; chmod +x "$SP/bin/metrics-ledger.sh"
+ts_run() { : > "$SP/calls"; (cd "$SP" && env "$@" bash -c "_NL=\$'\n'; PROJECT_ROOT='$SP'; SCORED=0; . '$TS'; take_score >/dev/null; echo SCORED=\$SCORED") 2>&1; }
+o=$(ts_run MXTK_SCORE= MXTK_NO_SCORE=)
+{ [ "$o" = SCORED=0 ] && [ ! -s "$SP/calls" ]; } && ok "exec does not score by default (no PROJECT.md line)" || bad "default scored: $o $(cat "$SP/calls")"
+printf '# P\n\n- **Score:** every exec\n' > "$SP/PROJECT.md"
+o=$(ts_run MXTK_SCORE= MXTK_NO_SCORE=)
+{ [ "$o" = SCORED=1 ] && grep -q '^score$' "$SP/calls"; } && ok "PROJECT.md 'Score: every exec' restores per-exec scoring" || bad "opt-in: $o"
+o=$(ts_run MXTK_SCORE=module MXTK_NO_SCORE=)
+[ "$o" = SCORED=0 ] && ok "MXTK_SCORE=module wins over the PROJECT.md opt-in" || bad "env module: $o"
+o=$(ts_run MXTK_SCORE= MXTK_NO_SCORE=1)
+[ "$o" = SCORED=0 ] && ok "MXTK_NO_SCORE=1 skips even with the opt-in" || bad "no-score: $o"
+printf '# P\n\nScore: every module\n' > "$SP/PROJECT.md"
+o=$(ts_run MXTK_SCORE= MXTK_NO_SCORE=)
+{ [ "$o" = SCORED=0 ] && [ ! -s "$SP/calls" ]; } && ok "PROJECT.md 'Score: every module' does not turn per-exec scoring on" || bad "every module scored: $o"
+printf '# P\n\n- Score: every PR\n' > "$SP/PROJECT.md"
+o=$(ts_run MXTK_SCORE= MXTK_NO_SCORE=)
+[ "$o" = SCORED=0 ] && ok "PROJECT.md '- Score: every PR' does not turn per-exec scoring on" || bad "every PR scored: $o"
+printf '# P\n\n**Score:** every exec\n' > "$SP/PROJECT.md"
+o=$(ts_run MXTK_SCORE= MXTK_NO_SCORE=)
+[ "$o" = SCORED=1 ] && ok "PROJECT.md '**Score:** every exec' restores per-exec scoring" || bad "bold opt-in: $o"
+printf '# P\n\nScore: `Every-Exec`\r\n' > "$SP/PROJECT.md"
+o=$(ts_run MXTK_SCORE= MXTK_NO_SCORE=)
+[ "$o" = SCORED=1 ] && ok "PROJECT.md 'Score: \`Every-Exec\`' (CRLF) restores per-exec scoring" || bad "code-span opt-in: $o"
+rm -f "$SP/PROJECT.md"; o=$(ts_run MXTK_SCORE=exec MXTK_NO_SCORE=)
+[ "$o" = SCORED=1 ] && ok "MXTK_SCORE=exec restores per-exec scoring" || bad "env exec: $o"
 
 # --- exec.sh wiring ---------------------------------------------------------------------------
 grep -q 'record_metrics "\$1"' "$EXEC" && ok "exec.sh log_build records a ledger row" || bad "exec.sh log_build does not call record_metrics"

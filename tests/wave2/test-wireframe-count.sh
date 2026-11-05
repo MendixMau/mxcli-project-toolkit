@@ -57,6 +57,7 @@ MD
 }
 
 verdict() { "$GATE" --no-html "$1" 3 2>&1; }
+stage3() { "$GATE" --no-html "$1" 3 2>&1 | grep "^Stage 3 " | head -1; }
 
 echo "== T1: no target-ui.md at all — unchanged presence-only behaviour, one wireframe passes =="
 P="$(mkproj t1 "" 1)"
@@ -97,6 +98,46 @@ echo "== T4: same inventory, 2 wireframes built (3 screens - 1 reuse = 2 require
 P="$(mkproj t4 "$TARGET_UI" 2)"
 V="$(verdict "$P")"
 case "$V" in *"is NOT machine-checkable"*) bad "still MANUAL once the reuse-adjusted count is met: $V" ;; *) ok "reuse row correctly lowers the required wireframe count to PASS" ;; esac
+
+# ---- 2026-11-05 regression experiment: a wireframe the architecture points at was deleted and
+# Stage 3 stayed PASS, because the inventory count above is skipped without design/target-ui.md.
+# The two reference forms are the field forms: a path in prose/table, and a bare file name in a
+# module definition's "Source screen" column.
+echo "== T5: no target-ui.md, a module definition names a wireframe that is not there — FAIL =="
+P="$(mkproj t5 "" 1)"
+mkdir -p "$P/architecture/modules/Approval"
+printf '%s\n' '# Module: Approval' '' '## Pages / snippets' '| Page | Type | Source screen |' '|---|---|---|' \
+  '| Approval_Inbox | Overview | s1.html |' '| Approval_Decide | NewEdit | approval-decide.html |' \
+  > "$P/architecture/modules/Approval/definition.md"
+V="$(stage3 "$P")"
+case "$V" in *FAIL*'architecture/modules/Approval/definition.md: approval-decide.html'*) ok "bare name in a Source screen column, file absent: FAIL names doc and file" ;; *) bad "bare-name reference not caught: $V" ;; esac
+mkdir -p "$P/design/wireframes/approval"; printf '<html>\n' > "$P/design/wireframes/approval/approval-decide.html"
+V="$(stage3 "$P")"
+case "$V" in *FAIL*'wireframe'*) bad "a wireframe in a per-flow subfolder was not found: $V" ;; *) ok "a bare name may live in a per-flow subfolder" ;; esac
+printf '%s\n' '' '| Page | Wireframe |' '|---|---|' '| Request_List | `design/wireframes/request-list.html` |' '| Request_Edit | `design/wireframes/<kebab-case page>.html` |' > "$P/design/screens.md"
+V="$(stage3 "$P")"
+case "$V" in *FAIL*'design/screens.md: request-list.html'*) case "$V" in *kebab*) bad "a placeholder was read as a reference: $V" ;; *) ok "a design/wireframes/ path that is absent FAILs; a <placeholder> is not a reference" ;; esac ;; *) bad "path reference not caught: $V" ;; esac
+printf '\nWaived artifact wireframes: request list is drawn in the client deck, not here\n' >> "$P/PROJECT.md"
+V="$(stage3 "$P")"
+case "$V" in *PASS*'waived — request list is drawn in the client deck'*) ok "'Waived artifact wireframes: <reason>' excuses it and the PASS line says so" ;; *) bad "wireframes waiver: $V" ;; esac
+
+echo "== T6: an assembled prototype is checked by check-prototype-links.js (design-artifacts.md Step 3b) =="
+if command -v node >/dev/null 2>&1; then
+  P="$(mkproj t6 "" 1)"
+  printf '%s\n' '<html><body>' '<section data-route="home"><a href="#/list">List</a></section>' \
+    '<section data-route="list"><a href="#/home">Home</a></section>' '</body></html>' > "$P/design/prototype.html"
+  V="$(stage3 "$P")"
+  case "$V" in *PASS*) ok "a clean prototype passes" ;; *) bad "clean prototype: $V" ;; esac
+  printf '%s\n' '<html><body>' '<section data-route="home"><a href="#/list">List</a><a href="#/gone">Gone</a></section>' \
+    '<section data-route="list"><a href="#/home">Home</a></section>' '</body></html>' > "$P/design/prototype.html"
+  V="$(stage3 "$P")"
+  case "$V" in *FAIL*'design/prototype.html'*'gone'*) ok "a dead link FAILs Stage 3 and names the route" ;; *) bad "dead link not caught: $V" ;; esac
+  printf '\nWaived artifact prototype: dead link is the out-of-scope reporting screen\n' >> "$P/PROJECT.md"
+  V="$(stage3 "$P")"
+  case "$V" in *PASS*'prototype link findings waived'*) ok "'Waived artifact prototype: <reason>' excuses it" ;; *) bad "prototype waiver: $V" ;; esac
+else
+  echo "  (node not available: T6 skipped)"
+fi
 
 printf '\n%s: %d ok, %d FAIL\n' "$(basename "$0")" "$PASS" "$FAIL"
 rm -rf "$WORK"

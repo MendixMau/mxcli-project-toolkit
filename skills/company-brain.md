@@ -97,4 +97,5 @@ the catalog entry.
 
 - Which decisions go to `PROJECT.md` vs `docs/brain/` — `close-the-loop.md`.
 - Cross-project questions ("which projects use component X", "which are stuck at Stage 3") —
-  not built; `projects.tsv` is the registry a future derived index would read.
+  not built; `projects.tsv` is the registry a future derived index would read. Which apps consume
+  which service contract is built: `bin/contract-check.sh` over a `systems/<system>/system.tsv`.

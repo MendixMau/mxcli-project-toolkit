@@ -78,7 +78,10 @@ under the same key; soft-delete instead.
 (core run).
 
 **P10 Version the path.** A new or changed published member is a contract change: publish
-`…/v2/`, keep `v1` until every consumer moved.
+`…/v2/`, keep `v1` until every consumer moved. The Catalog keeps one definition per version, so a
+breaking change under an unchanged version overwrites every environment's contract. `mxcli impact`
+does not see OData exposure: an exposed attribute dropped from the entity passes `check` and `exec`.
+`bin/contract-check.sh check` catches both (BREAKING, VIOLATION, DANGLING, BROKEN consumer).
 
 **P11 Secrets.** Basic-auth password only in each app's machine-local constant store (one secret,
 two stores); model default `__SET_ME__` plus a guard wherever code acts on it; the API account

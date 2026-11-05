@@ -27,6 +27,7 @@ STAGE_NAME = {"P": "Kickoff", "0": "Triage", "1": "Analysis", "2": "Requirements
 TABS = [("tab-overview", "Overview"), ("tab-build", "Build"), ("tab-changes", "Changes"), ("tab-performance", "Performance"), ("tab-pages", "Pages"), ("tab-notes", "Notes, tips and bugs")]
 BUG_REPO = {"mxcli": ("mxcli", "https://github.com/mendixlabs/mxcli"), "toolkit": ("the toolkit", "https://github.com/MendixMau/mxcli-project-toolkit")}
 REPORT_FILE = "progress-report.html"   # the one place the page name lives here (build-plan-status.sh asks for it with --print-name)
+GIT_BURST_GAP_S = 4 * 3600   # commits to one stage's artifacts less than this apart belong to one working burst; a longer gap is rework
 IDLE_GAP_S = 600          # a gap longer than this between two events counts as waiting for the user
 CACHE_TTL_S = 300         # prompt cache time to live assumed for the cache rewrite observation
 ACTIVE_S = 600            # a build counts as active when its last session or exec event is younger than this
@@ -1024,17 +1025,21 @@ def stage_boundaries(main, agents, info=None):
                 if t: sig[stage] = t; BSRC[stage] = src; return
         def reg(prev):   # sign-off row of the previous stage, only when it carries a time of day
             r = so.get(prev); return r[0] if r and r[0] and len(r) > 2 and r[2] else None
-        def git(prev, nxt):   # END of the first burst of commits to the previous stage's output artifacts. Not the latest
-            # commit: a BRD edited in Stage 5 is rework, and would drag every later boundary into the build. A commit
-            # later than any other later-stage signal (cap[nxt]) or than the end of the session is rework too.
+        def git(prev, nxt):   # when the previous stage's output was done. Rework (a BRD edited in Stage 5) must not move later boundaries.
+            # With a later-stage signal known (cap[nxt]): the last commit to those artifacts before it, however far apart the
+            # commits are (per-module triage or BRD commits sit 30 to 60 minutes apart). Without one: the end of the first
+            # burst of commits, a burst being commits less than GIT_BURST_GAP_S apart, and never later than the session end.
             if not use_git: return None
             v = gits.get(prev)
             if not v: return None
+            if nxt in cap:
+                ok = [x for x in v if x <= cap[nxt]]
+                return ok[-1] if ok else None
             end = v[0]
             for x in v[1:]:
-                if x - end > IDLE_GAP_S: break
+                if x - end > GIT_BURST_GAP_S: break
                 end = x
-            return end if end <= cap.get(nxt, t_end or end) else None
+            return end if end <= (t_end or end) else None
         agent = lambda rx, flags=0: (lambda: first(lambda e: e["name"] == "Agent" and re.search(rx, e.get("desc", ""), flags)))
         pick("P", ("the toolkit-init skill", lambda: first(lambda e: e["name"] == "Skill" and "toolkit-init" in e.get("skill", ""))))
         pick("0", ("the first gate-check run", lambda: first(gate_any)))

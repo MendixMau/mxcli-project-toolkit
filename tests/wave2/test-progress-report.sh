@@ -442,6 +442,25 @@ PYEOF
 RW="$("$PY" -c "$RW_PY" "$ROOT/project-bin" "$PR2" 2>&1)"
 printf '%s\n' "$RW" | grep -q "^RW 10 12 14$" && ok "rework commits a day later do not move the stage 1, 3, 4 boundaries (first burst of commits, not the latest)" || bad "rework boundaries ($(printf '%s' "$RW" | grep '^RW'))"
 printf '%s\n' "$RW" | grep -q "^RW2 None 11$" && ok "a git time later than a later stage's own signal is ignored" || bad "git time past a later signal ($(printf '%s' "$RW" | grep '^RW2'))"
+# commits one hour apart (one per module) are ONE stage's work: with a later-stage signal (BRD contract at 16:00) the last commit
+# before it (13:00) is the stage 1 boundary; with none, the 4 h burst rule still spans them.
+PR3="$WORK/pslow"; mkdir -p "$PR3"
+( cd "$PR3" && git init -q . && git config user.email tester && git config user.name t
+  for hh in 10 11 12 13; do echo $hh > triage.md; D="2026-01-01T${hh}:00:00+0000"; git add triage.md && GIT_AUTHOR_DATE="$D" GIT_COMMITTER_DATE="$D" git commit -q -m x -- triage.md; done ) >/dev/null 2>&1
+IFS= read -r -d '' SL_PY <<'PYEOF' || true
+import sys, importlib.util, calendar
+spec = importlib.util.spec_from_file_location("pr", sys.argv[1] + "/progress-report.py"); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+b = calendar.timegm((2026, 1, 1, 0, 0, 0)); h = lambda t: int((t - b) / 3600) if t else None
+T = lambda t, c: {"name": "Bash", "t": b + t * 3600, "cmd": c}
+I = {"dir": sys.argv[2], "signoff": {}}
+sig = m.stage_boundaries({"tools": [T(9, "ls"), T(16, "cat brd-contract.md"), T(20, "ls")], "times": [b + 9 * 3600, b + 20 * 3600]}, [], I)
+print("SL", h(sig["1"]), h(sig["2"]))
+sig = m.stage_boundaries({"tools": [T(9, "ls"), T(20, "ls")], "times": [b + 9 * 3600, b + 20 * 3600]}, [], I)
+print("SL2", h(sig["1"]))
+PYEOF
+SL="$("$PY" -c "$SL_PY" "$ROOT/project-bin" "$PR3" 2>&1)"
+printf '%s\n' "$SL" | grep -q "^SL 13 16$" && ok "triage commits an hour apart: stage 1 starts at the last one before the stage 2 signal" || bad "slow commits with a later signal ($(printf '%s' "$SL" | grep '^SL '))"
+printf '%s\n' "$SL" | grep -q "^SL2 13$" && ok "no later signal: the 4 h burst rule spans commits an hour apart" || bad "slow commits, no later signal ($(printf '%s' "$SL" | grep '^SL2'))"
 NG="$WORK/nogit"; mkdir -p "$NG"
 [ "$("$PY" -c "$GT_PY" "$ROOT/project-bin" "$NG" 2>&1)" = "GIT None None None None None" ] && ok "a project that is not a git checkout gives no git signal and no crash" || bad "non-git project"
 # end to end: the page says "boundary not detected" for a stage with no signal

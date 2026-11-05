@@ -522,6 +522,20 @@ sed -i.bak 's/| 2 | `BUILD` | 010-domain.mdl | domain | 1 |/| 2 | `BUILD` | 010-
 V="$(verdict "$P" 4)"
 case "$V" in *PASS*) ok "dotted row ids (3.1), zero-padded refs (01) and requirement ids (US-12, F001) read right" ;; *) bad "dependency parser false red: $V" ;; esac
 
+echo "== T24: Stage 0 FAILs an obvious not-yet sign-off value (#620) =="
+# Only a '[' counted as unfilled, so `Confirmed by: _pending_` (field run, 2026-11-05) PASSED.
+i=0
+for val in '_pending_' 'TBD' '*pending*' 'n/a' '—' '?' 'todo.'; do
+  i=$((i+1)); P="$(mkproj "t24-$i")"
+  printf '# Triage\n\n## Sign-off\n\nConfirmed by: %s\n' "$val" > "$P/triage.md"
+  V="$(verdict "$P" 0)"
+  case "$V" in *FAIL*'not happened yet'*) ok "not-yet value \"$val\" FAILs" ;; *) bad "not-yet value \"$val\": $V" ;; esac
+done
+P="$(mkproj t24ok)"
+printf '# Triage\n\n## Sign-off\n\nConfirmed by: _confirmed in chat, pending legal review later_\n' > "$P/triage.md"
+V="$(verdict "$P" 0)"
+case "$V" in *PASS*) ok "a real sign-off that merely contains 'pending' still passes" ;; *) bad "false red on a real sign-off: $V" ;; esac
+
 printf '\n%s: %d ok, %d FAIL\n' "$(basename "$0")" "$PASS" "$FAIL"
 rm -rf "$WORK"
 [ "$FAIL" -eq 0 ]

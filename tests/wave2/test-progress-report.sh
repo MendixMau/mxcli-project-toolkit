@@ -365,6 +365,7 @@ shapes = [  # (command, expected stage list)
   ("bash bin/gate-check.sh --closeout . 4", ["4"]),
   ("bash bin/gate-check.sh . --closeout 4", ["4"]),
   ("bash bin/gate-check.sh . 4 --closeout", ["4"]),
+  ("bash -c 'bin/gate-check.sh . 2'", ["2"]),
   ("cd /srv/acme/proj && bash bin/gate-check.sh /srv/acme/proj 0 2>&1 | tail -5", ["0"]),
   ("bin/gate-check.sh . 1", ["1"]),
   ("bash bin/gate-check.sh . --waive look/Orders --reason 'not needed 3'", [""]),
@@ -414,6 +415,33 @@ print("GIT", h(sig["1"]), h(sig["2"]), h(sig["3"]), h(sig["4"]), m.BSRC.get("3")
 PYEOF
 GT="$("$PY" -c "$GT_PY" "$ROOT/project-bin" "$PG" 2>&1)"
 [ "$GT" = "GIT 10 None 12 14 the git commit of the BRD JSON" ] && ok "git commit times of triage, BRD JSON and architecture mark stages 1, 3, 4 (stage 2 has no artifact signal: None)" || bad "git signals ($GT)"
+# rework: the BRD JSON and the architecture are edited again long after their stage (Stage 5 rework). The boundaries must stay
+# at the end of the first burst of commits, and a commit past the next stage's own signal or the session end is ignored.
+PR2="$WORK/prework"; mkdir -p "$PR2/architecture" "$PR2/analysis/src/knowledge-base/brd"
+( cd "$PR2" && git init -q . && git config user.email tester && git config user.name t
+  commit_at() { git add -- "$2" && GIT_AUTHOR_DATE="$1" GIT_COMMITTER_DATE="$1" git commit -q -m x -- "$2"; }
+  : > triage.md; commit_at "2026-01-01T10:00:00+0000" triage.md
+  : > analysis/src/knowledge-base/brd/orders.brd.json; commit_at "2026-01-01T12:00:00+0000" analysis/src/knowledge-base/brd/orders.brd.json
+  : > architecture/blueprint.md; commit_at "2026-01-01T14:00:00+0000" architecture/blueprint.md
+  echo x > analysis/src/knowledge-base/brd/orders.brd.json; commit_at "2026-01-02T09:00:00+0000" analysis/src/knowledge-base/brd/orders.brd.json
+  echo x > architecture/blueprint.md; commit_at "2026-01-02T10:00:00+0000" architecture/blueprint.md ) >/dev/null 2>&1
+IFS= read -r -d '' RW_PY <<'PYEOF' || true
+import sys, importlib.util, calendar
+spec = importlib.util.spec_from_file_location("pr", sys.argv[1] + "/progress-report.py"); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+b = calendar.timegm((2026, 1, 1, 0, 0, 0))
+h = lambda t: int((t - b) / 3600) if t else None
+# the session ends on day 1 at 20:00, so the day-2 rework commits are past its end
+tools = [{"name": "Bash", "t": b + 11 * 3600, "cmd": "ls"}, {"name": "Bash", "t": b + 20 * 3600, "cmd": "ls"}]
+sig = m.stage_boundaries({"tools": tools, "times": [b + 11 * 3600, b + 20 * 3600]}, [], {"dir": sys.argv[2], "signoff": {}})
+print("RW", h(sig["1"]), h(sig["3"]), h(sig["4"]))
+# a later stage has its own signal at 11:30 (gate-check for stage 3): the BRD commit of 12:00 cannot place stage 3
+tools = [{"name": "Bash", "t": b + 11 * 3600, "cmd": "ls"}, {"name": "Bash", "t": b + 11.5 * 3600, "cmd": "bash bin/gate-check.sh . 3"}, {"name": "Bash", "t": b + 20 * 3600, "cmd": "ls"}]
+sig = m.stage_boundaries({"tools": tools, "times": [b + 11 * 3600, b + 20 * 3600]}, [], {"dir": sys.argv[2], "signoff": {}})
+print("RW2", h(sig["3"]), h(sig["4"]))
+PYEOF
+RW="$("$PY" -c "$RW_PY" "$ROOT/project-bin" "$PR2" 2>&1)"
+printf '%s\n' "$RW" | grep -q "^RW 10 12 14$" && ok "rework commits a day later do not move the stage 1, 3, 4 boundaries (first burst of commits, not the latest)" || bad "rework boundaries ($(printf '%s' "$RW" | grep '^RW'))"
+printf '%s\n' "$RW" | grep -q "^RW2 None 11$" && ok "a git time later than a later stage's own signal is ignored" || bad "git time past a later signal ($(printf '%s' "$RW" | grep '^RW2'))"
 NG="$WORK/nogit"; mkdir -p "$NG"
 [ "$("$PY" -c "$GT_PY" "$ROOT/project-bin" "$NG" 2>&1)" = "GIT None None None None None" ] && ok "a project that is not a git checkout gives no git signal and no crash" || bad "non-git project"
 # end to end: the page says "boundary not detected" for a stage with no signal
@@ -424,6 +452,15 @@ RB="$PB/architecture/progress-report.html"
 grep -q "<a href='#stage-1'>Stage 1</a></td><td>[0-9:]* to " "$RB" && grep -q "<a href='#stage-3'>Stage 3</a></td><td>[0-9:]* to " "$RB" && ok "Performance table has windows for stages 1 and 3 from quoted-path and flagged gate-check calls" || bad "windows for stages 1 and 3"
 grep -q "<a href='#stage-2'>Stage 2</a></td><td colspan=6><b>boundary not detected</b>" "$RB" && grep -q "<a href='#stage-4'>Stage 4</a></td><td colspan=6><b>boundary not detected</b>" "$RB" && ok "stages 2 and 4 read boundary not detected, not an invented window" || bad "boundary not detected rows"
 grep -q "<a href='#stage-1'>Stage 1</a></td><td colspan=6><b>boundary not detected" "$RB" && bad "stage 1 was detected, no not-detected row" || ok "a detected stage gets no not-detected row"
+
+# stages that did not run are labelled, not called undetected
+PW="$WORK/pwaive"; mkproj "$PW"; CFGW="$WORK/cfg-waive"
+printf '# Project\n\nEntry mode: greenfield\nWaived stage 3: done elsewhere\n' > "$PW/PROJECT.md"
+CALLS_JSON='[["ls",30,0],["ls",30,0]]' mklog "$CFGW" "$PW" "$(( $("$PY" -c 'import time;print(int(time.time()))') - 7200 ))"
+CLAUDE_CONFIG_DIR="$CFGW" bash "$SCRIPT" "$PW" --html >/dev/null 2>&1
+RW2F="$PW/architecture/progress-report.html"
+grep -q "<a href='#stage-1'>Stage 1</a></td><td colspan=6><b>not applicable</b>: greenfield" "$RW2F" && grep -q "<a href='#stage-3'>Stage 3</a></td><td colspan=6><b>not applicable</b>: waived" "$RW2F" && ok "greenfield and waived stages read not applicable" || bad "not applicable labels"
+grep -E "Stage [1-4]</a></td><td colspan=6><b>boundary not detected" "$RW2F" >/dev/null && bad "a skipped stage was called not detected" || ok "no false boundary not detected for skipped stages"
 
 echo "T16 narrow-width CSS (phone)"
 GEN="$ROOT/project-bin/progress-report.py"

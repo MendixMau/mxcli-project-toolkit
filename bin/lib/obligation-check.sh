@@ -307,7 +307,7 @@ _ob_stale() {
   return 0
 }
 
-# _ob_proto_sha <project-root> → prints the SHA-256 of the assembled prototype, or nothing when
+# _ob_proto_sha <project-root> → prints the SHA-256 of the assembled prototype (CR-stripped), or nothing when
 # there is none / no hash tool (unmeasurable, never "expired"). Looked up at design/ then app/design/
 # (the two layouts). Memoized: one hash per run, not one per candidate report.
 _OB_PROTO_SHA=""; _OB_PROTO_SHA_DONE=""
@@ -317,7 +317,9 @@ _ob_proto_sha() {
     _OB_PROTO_SHA_DONE="$root"; _OB_PROTO_SHA=""
     for f in "$root/design/prototype.html" "$root/app/design/prototype.html"; do
       [ -s "$f" ] || continue
-      _OB_PROTO_SHA="$( { sha256sum "$f" 2>/dev/null || shasum -a 256 "$f" 2>/dev/null; } | awk '{print $1; exit}')"
+      # CR stripped before hashing, as assemble-prototype.js does: a Windows autocrlf checkout of
+      # an LF-assembled prototype must not read STALE.
+      _OB_PROTO_SHA="$(tr -d '\r' < "$f" | { sha256sum 2>/dev/null || shasum -a 256 2>/dev/null; } | awk '{print $1; exit}')"
       break
     done
   fi
@@ -514,6 +516,13 @@ mxtk_obligations_report() {
     if [ "$ob" = "final-look" ] && [ "$from_rank" -gt "$current_rank" ]; then
       printf 'Obligation %-10s NOT YET DUE — owed from stage %s; the register'"'"'s Current stage is %s (%s)\n' \
         "$ob" "$from_stage" "$current" "$skill"
+      continue
+    fi
+
+    # prototype-look with no assembled prototype in either layout: nothing to look at, so N/A, not
+    # PENDING — a Stage 5+ project with no UI must not carry an owed pass it cannot perform.
+    if [ "$ob" = "prototype-look" ] && [ ! -s "$root/design/prototype.html" ] && [ ! -s "$root/app/design/prototype.html" ]; then
+      printf 'Obligation %-10s N/A — no design/prototype.html assembled (%s)\n' "$ob" "$skill"
       continue
     fi
 

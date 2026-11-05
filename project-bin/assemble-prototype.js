@@ -337,6 +337,7 @@ fs.writeFileSync(outFile, out);
 // The sha256 is the PROTOTYPE-SHA a prototype LOOK report stamps (design-artifacts.md Step 3d,
 // obligations.tsv `prototype-look`): the output is deterministic, so the hash changes exactly when
 // the page a user clicks changes, and a LOOK of the previous version stops counting.
-const sha = require('crypto').createHash('sha256').update(out).digest('hex');
+// CR-stripped, exactly as obligation-check.sh hashes the file, so a CRLF checkout matches.
+const sha = require('crypto').createHash('sha256').update(out.replace(/\r/g, '')).digest('hex');
 console.log('assemble-prototype: ' + screens.length + ' screen(s) -> ' + outFile + ' (default route #/' + def + ', ' +
   Math.round(Buffer.byteLength(out) / 1024) + ' KB, sha256 ' + sha + ')');

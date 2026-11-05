@@ -110,5 +110,25 @@ printf '%s\nPROTOTYPE-SHA: %s\n%s\n' "$HEAD8" "$SHA" "$PROOF" > "$Q/design/ui-re
 l="$("$OBCHECK" "$Q" 2>&1 | grep -E '^Obligation prototype-look ' | head -1)"
 case "$l" in *PENDING*) ok "an app/design prototype is hashed: the old-sha report is STALE there" ;; *) bad "app/design prototype not read: $l" ;; esac
 
+echo "== T11: no prototype in either layout -> N/A, and status.sh does not list it as next =="
+R="$WORK/r"; mkdir -p "$R/architecture/modules/Orders"
+printf '# PROJECT.md\n\nToolkit commit: none\n' > "$R/PROJECT.md"
+l="$("$OBCHECK" "$R" 2>&1 | grep -E '^Obligation prototype-look ' | head -1)"
+case "$l" in *"N/A"*"no design/prototype.html"*) ok "no prototype is N/A, not PENDING" ;; *) bad "expected N/A, got: $l" ;; esac
+if [ -x "$TK/bin/status.sh" ] && [ "$(basename "$OBCHECK")" = obligation-check.sh ] && [ -f "$TK/bin/gate-check.sh" ]; then
+  st="$("$TK/bin/status.sh" "$R" 2>&1 || true)"
+  case "$st" in *prototype-look*) bad "status.sh lists prototype-look for a project with no prototype" ;; *) ok "status.sh says nothing about prototype-look with no prototype" ;; esac
+fi
+
+echo "== T12: a CRLF checkout of the same prototype (Windows autocrlf) is not STALE =="
+C="$WORK/c"; mkdir -p "$C/design/ui-reviews/shots"
+printf '# PROJECT.md\n\nToolkit commit: none\n' > "$C/PROJECT.md"
+sed 's/$/\r/' "$P/design/prototype.html" > "$C/design/prototype.html"
+cmp -s "$C/design/prototype.html" "$P/design/prototype.html" && bad "CRLF copy is byte-identical (fixture broken)"
+cp "$P/design/ui-reviews/shots/"*.png "$C/design/ui-reviews/shots/"
+printf '%s\nPROTOTYPE-SHA: %s\n%s\n' "$HEAD8" "$SHA3" "$PROOF" > "$C/design/ui-reviews/prototype-look-2026-11-05.html"
+l="$("$OBCHECK" "$C" 2>&1 | grep -E '^Obligation prototype-look ' | head -1)"
+case "$l" in *PASS*) ok "CRLF prototype hashes like the LF one the assembler printed" ;; *) bad "CRLF checkout misread: $l" ;; esac
+
 echo "pass=$PASS fail=$FAIL"
 [ "$FAIL" -eq 0 ]

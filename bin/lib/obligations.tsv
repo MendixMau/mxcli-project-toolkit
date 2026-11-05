@@ -183,6 +183,7 @@ final-look	review	project	names	design/ui-reviews/final-look-*.html	yes	yes	6	sk
 # Denominator: "N of M screen-widths" (screens x the four widths, 390/360/320/1280) on the first
 # line, one PROOF-OF-LOOK citation per screen-width (the LOOK pixel rule), and a PROTOTYPE-SHA
 # stamp: the sha256 assemble-prototype.js prints. A re-assembled prototype has a new hash, so the
-# LOOK is owed again — a v1 LOOK cannot discharge v2. A project with no UI waives it:
-# `--waive prototype-look --reason "no screens"`.
+# LOOK is owed again — a v1 LOOK cannot discharge v2. With no design/prototype.html in either
+# layout the row reads N/A (a project with no UI owes no prototype LOOK); one that has screens but
+# never assembled them is caught by the Stage 3 wireframe gate, not here.
 prototype-look	review	project	names	design/ui-reviews/prototype-look-*.html	yes	yes	3	skills/design-artifacts.md

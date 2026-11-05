@@ -376,8 +376,8 @@ that the page renders: a 15-screen prototype went to its product owner twice wit
 overflowing its card by 17–18 px at phone width, while each wireframe screenshot looked right (#632).
 
 1. Re-assemble last; note the `sha256` that `assemble-prototype.js` prints.
-2. Open `design/prototype.html` in a real browser, **Show bindings** on, and capture every screen
-   at 390, 360 and 320 px wide and at 1280 px.
+2. Open `design/prototype.html` in a real browser, **Show bindings** off (the stakeholder view),
+   and capture every screen at 390, 360, 320 and 1280 px; bindings on only to check bindings.
 3. Count per screen, each with its denominator ("0 of 31 elements"): elements overflowing their
    card or frame; tap targets under 44 px; text under 11 px; text and non-text contrast pairs under
    4.5:1 and 3:1; overflow with the WCAG 1.4.12 text-spacing override applied; designer notes or
@@ -386,8 +386,8 @@ overflowing its card by 17–18 px at phone width, while each wireframe screensh
    captured` (M = screens × 4). Then `PROTOTYPE-SHA: <the sha256>` and one
    `PROOF-OF-LOOK: <route>@<width> = <screenshot path>` per screen-width (each file ≥ 10 KB).
 
-`gate-check.sh` reports the row PENDING until this report exists. A report whose hash is not the
-current prototype's reads STALE, so any re-assembly is looked at again. "0 found of N measured" is
+`gate-check.sh` reads PENDING until this report exists, and STALE once its hash is not the
+current prototype's, so any re-assembly is looked at again. "0 found of N measured" is
 a pass; a count with no denominator is not.
 
 ---

@@ -282,6 +282,12 @@ NA_REASON = {
 
 def expectation(prov, key):
     if prov not in EXPECT:
+        # Undetermined provenance cannot say whether an absence matters — EXCEPT for a section
+        # every provenance owes. That one is owed whatever the answer turns out to be, so its
+        # absence is a fault, not a question (a BRD declaring "provenance": "requirements", which
+        # is not in PROVENANCES, read `useCases` absent as manual and Stage 2 passed, 2026-11-05).
+        if all(EXPECT[p].get(key, O) == E for p in EXPECT):
+            return E
         return None
     return EXPECT[prov].get(key, O)
 
@@ -420,8 +426,9 @@ for path, b in docs:
                                        'gap or a non-event needs a human, and no field on this '
                                        'BRD answers it')
         elif exp == E:
-            verdicts[key] = ('fault', f'absent, and a {prov} BRD is expected to carry it. '
-                                      f'This is a finding, not a zero.')
+            owner = (f'a {prov} BRD is expected to carry it' if prov in EXPECT
+                     else 'every provenance owes it, so the undetermined provenance does not matter')
+            verdicts[key] = ('fault', f'absent, and {owner}. This is a finding, not a zero.')
         elif exp == N:
             verdicts[key] = ('skipped', NA_REASON.get(
                 key, 'not applicable to a {p} BRD.').format(p=prov))
@@ -470,7 +477,7 @@ for path, b in docs:
         'raw': raw, 'verdicts': verdicts, 'unreadable': unreadable,
         'legacy': legacy_used,
         'confidence': conf, 'docSignal': doc_signal, 'docWhy': doc_why, 'review': review,
-        'keysFound': keys_found,
+        'keysFound': keys_found, 'modulesKey': mods_key,
     })
 
 analysed.sort(key=lambda a: (str(a['id']), a['path']))
@@ -514,6 +521,17 @@ result = {
               'confidence': a['confidence'], 'docCorroboration': a['docSignal'],
               'reviewSignal': a['review'][0],
               'unreadable': a['unreadable'], 'legacyKeys': a['legacy'],
+              # Owed and MISSING — what gate-check.sh Stage 2 FAILs on. Only what the skills make
+              # mandatory: `modules` (brd-generation.md: "id, title, modules"; neither `modules` nor
+              # `module` set), and for a code-extracted BRD the sections every scaffolder emits
+              # unconditionally (a `fault` on a key that is not there at all — a present-but-empty
+              # `"pages": []` is an answer). A documents/interview/greenfield/undetermined BRD
+              # without useCases stays a FAULT on this page but is not a gate failure: no skill makes
+              # useCases mandatory for those provenances (review of #618).
+              'missingRequired': sorted([k for k, v in a['verdicts'].items()
+                                         if v[0] == 'fault' and a['keysFound'].get(k) is None
+                                         and a['provenance'] == 'code-extracted']
+                                        + ([] if a['modulesKey'] else ['modules'])),
               'verdicts': {k: v[0] for k, v in a['verdicts'].items()}} for a in analysed],
 }
 

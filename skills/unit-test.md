@@ -73,6 +73,13 @@ and **every** test shows its `@expect`. A plausible count with a missing test is
 | Fast loop against an already warm app started with `--test-endpoint` | `mxcli test <file> -p App.mpr --attach` (seconds, not ~30 s; it writes into the live app, and the catalog goes stale until `REFRESH CATALOG FULL`) |
 | No scratch helper in the project | close Studio Pro, snapshot the `.mpr`, run, then **verify the restore**: `git status` clean, after-startup not `MxTest.*`, security back on |
 
+**An after-startup microflow that calls an external service can hang the run.** `--local` runs
+the app's own after-startup by default. When that microflow retries a service the machine cannot
+reach (a CI runner, an offline laptop), startup never finishes and the run times out before any
+test (field run: an SSO module's deployment push, 5-minute timeout). `--skip-app-startup` reached
+the tests in seconds and passed 2 of 2. It skips **every** after-startup microflow, so a test that
+needs the data or settings those create cannot use it; say so in the report.
+
 A run stopped by a signal leaves after-startup on `MxTest.*`; the next run recurses
 (BUG-157). `test-scratch.sh` refuses that state and prints the repair. Only one
 `mxcli test --local` per machine at a time: the test ports are machine-wide.

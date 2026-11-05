@@ -47,6 +47,9 @@ shows up in the bill:
    one turn instead of N notices. With background agents, a notice whose result the next step
    does not need yet gets no reply; read the lane's files when its last unit lands. Never send a
    message to an agent that has already reported — that restarts it at its full context.
+   A report ending in `question` blocks always needs its turn: render the blocks for the user per
+   `interview-protocol.md` §3 → "Asking from a subagent" (`AskUserQuestion` on Claude Code), then
+   end the turn — never relay them as prose.
 
 **App restarts: the implementer restarts its own app, through one script only.** Write this into
 every implementer brief: "When `exec.sh` prints `restart needed`, or `unknown — restart if

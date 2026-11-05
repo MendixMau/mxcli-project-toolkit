@@ -211,8 +211,9 @@ files, an invented concurrency figure and an installed mock server with no check
 the user's *"why did you not ask for any inputs for these steps!!!!"* is the only reason it
 surfaced.
 
-In Claude Code, put the batch through `AskUserQuestion` where it fits — options are clickable
-and the answers come back structured. Fall back to prose in chat when a question needs more
+In the Claude Code main session, put the batch through `AskUserQuestion` where it fits — options
+are clickable and the answers come back structured (a subagent has no such tool — see "Asking from
+a subagent" below). Fall back to prose in chat when a question needs more
 than four options or a free-text answer. Either way the batch also goes in the chat text, so
 it survives in the transcript.
 
@@ -222,9 +223,9 @@ it survives in the transcript.
 points here rather than restating it.**
 
 `AskUserQuestion` is a Claude Code **built-in harness tool**. It is not a package, not an MCP
-server, not a skill, and there is nothing to install. Copilot, Cursor, Windsurf, Continue, Aider
-and Kiro — all of them wired by `bin/wire-agents.sh`, all of them first-class consumers of this
-toolkit — have no equivalent and no way to add one.
+server, not a skill, and there is nothing to install. Of the other harnesses `bin/wire-agents.sh`
+wires — all first-class consumers of this toolkit — Codex CLI and Cursor have a picker only in a
+planning mode; Copilot, Windsurf, Continue, Aider and Kiro have none and no way to add one.
 
 So separate the *invariant* from its *rendering*. Three things hold on every agent:
 
@@ -238,8 +239,11 @@ Only (1)'s rendering is tool-specific:
 
 | Harness | How the batch is rendered |
 |---|---|
-| Claude Code | `AskUserQuestion` — clickable options, structured answers. Preferred; also paste the batch as chat text so it survives compaction. |
-| Copilot, Cursor, Windsurf, Continue, Aider, Kiro, anything else | Plain numbered markdown in the chat — `1.` / `2.` / `3. Something else — tell me`. Then stop. |
+| Claude Code, main session | `AskUserQuestion` — clickable options, structured answers; up to 4 questions per call, the tool adds "Other" itself. Also paste the batch as chat text so it survives compaction. |
+| Claude Code subagent (any harness's subagent) | Cannot ask. Ends its report with question blocks (below); the main session renders them. |
+| Codex CLI | `request_user_input` in Plan/Pair mode (1–3 questions, 2–3 options, plus "Other"); in any other mode, numbered markdown. |
+| Cursor | The clarifying-question picker in Plan Mode; in Agent mode it is unreliable — numbered markdown. |
+| Copilot, Windsurf, Continue, Aider, Kiro, anything else | Plain numbered markdown in the chat — `1.` / `2.` / `3. Something else — tell me`. Then stop. |
 
 Both satisfy the protocol. **Neither is optional**, and the *end-the-turn* half is not
 tool-specific at all — it is the half that actually enforces the gate, and the half a harness
@@ -249,6 +253,42 @@ step" rather than "render it differently".
 *Failure:* a Copilot dry run asked *"AskUserQuestion doesn't seem installed, is that something
 we can include in the setup?"* — while the tool was named as **the** mechanism, the gate was
 unfollowable off Claude Code, which is a silent skip, not a loud failure (2026-08-19, `process/baseline-incident-history.md` §IP2).
+
+#### Asking from a subagent — the question block
+
+A subagent never reaches the user: on Claude Code `AskUserQuestion` exists only in the main
+session, whatever a stub's `tools:` line says, and on every harness a subagent's report goes to
+the main session. So a subagent (`ba-agent`, `architect-agent`, any other) **never asks the user
+itself, never answers its own question, and ends its report with one block per question:**
+
+````
+```question
+Q: Mandatory fields — hardcode per station, or a configurable rule engine?
+header: Mand. fields
+- Hardcode (Recommended): the fields observed per station; a rule change later is a code change
+- Rule engine: admin-editable table; matches legacy intent, about a module of work
+- Something else: tell me
+evidence: triage.md §4 — PflichtfelderPrüfen is missing from the corpus
+```
+````
+
+`header` is at most 12 characters; 2–4 options, each `label: consequence`, recommended first and
+marked `(Recommended)` — except a `user-only` question, which carries none (rule 2) and gets its
+own block after the batch. The last line is always `Something else`. Nothing follows the last
+block. A batch from `bin/open-questions.sh` still goes in verbatim, above the blocks.
+
+*Failure this stops:* a ba-agent's three questions came back as prose paragraphs, the main session
+relayed the prose, and a new user typed every answer by hand — nothing told either side to make
+them clickable (field, 2026-11).
+
+**The main session, on any report carrying `question` blocks:** render them before doing anything
+else. On Claude Code, where the tool is offered (headless `claude -p` has none — numbered markdown there): one `AskUserQuestion` call with up to 4 blocks (label = text before the
+colon, description = after it; leave out the `Something else` line, the tool adds "Other"; cut a header over 12 characters); more
+than 4, the rest go numbered in the same message. Codex in Plan/Pair mode: `request_user_input`
+(3 per call). Cursor in Plan Mode: its picker. Everywhere else: numbered markdown. Paste the
+blocks as text too, then **end the turn**. Never answer a block yourself and never re-dispatch
+with your guess; the answers go back to the subagent on its next dispatch and into the record
+(rule 4).
 
 ### 4. Record the answer where the collector can see it.
 

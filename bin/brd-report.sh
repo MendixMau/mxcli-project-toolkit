@@ -562,7 +562,7 @@ RESERVED_ENTITY = {'case'}
 RESERVED_ATTR = {'context', 'id', 'type'}
 RESERVED_ENUM_VALUE = {'new'}
 
-# A rule written as a string carries its id as a leading token: "BR001: total over 500 needs
+# A rule written as a string carries its id first, e.g. "BR001: total over 500 needs
 # approval", "R3 - …", "BR-07) …". Same shape bin/facts-lock.sh reads; keep the two in step.
 RULE_ID_RE = _re.compile(r'^\s*\[?([A-Z][A-Z0-9]{0,7}[-_]?\d+(?:\.\d+)*)\]?\s*(?:[:)\]\u2013\u2014-]|\.\s)')
 

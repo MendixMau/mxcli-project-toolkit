@@ -898,7 +898,7 @@ Then filter by Role(s). A helper dispatched with a role stub (ba, architect, mdl
 
 **Why this has to be explicit instead of implicit:** a project's own skill files are usually written before a given toolkit learning exists, or before a new one is added later — they never grow a cross-reference to it on their own. When you `git pull` this toolkit and it brings in a new baseline-worthy skill (most often a new `learned-*.md`), update every consuming project's routing to match — don't assume the next session will find it by chance.
 
-**After cloning, set your local source paths** in `pipelines/<x>/pipeline/config.json` — the committed file ships with `<placeholder>` values; point them at your own source workspace. **Never commit real local paths.**
+**After cloning, set your local source paths** in `pipelines/<x>/pipeline/config.json` — the committed file ships with `<placeholder>` values; point them at your own source workspace. **Never commit real local paths.** The java-angular pipeline reads a project-owned copy instead (`node run.js <phase> --config <project>/analysis/<source-name>/pipeline-config.json`, or `MXTK_PIPELINE_CONFIG`), so its tracked file stays a template.
 
 **Project output never lives here** (`analysis/`, `sources/`, `knowledge-base/`, `*.mpr` are gitignored) — each project runs in its own project folder (with `analysis/` inside it) that references this repo.
 

@@ -319,6 +319,36 @@ check "--quiet says nothing" "$OUT" ""
 OUT=$("$BR" "$P" --nonsense 2>&1); RC=$?
 check "an unknown option is a usage error" "$RC" "2"
 
+# --- the mechanical validator (#622) --------------------------------------------------------------
+# A requirements BRD's use cases, references, rule ids and questions are counted, each against its
+# denominator; a code-extracted set is SKIPPED with the reason, never "PASS over 0".
+P="$TMP/validate"
+brd "$P" kb F001-rooster.brd.json <<'J'
+{"id":"F001","title":"Rooster","provenance":"interview","modules":["Rooster"],
+ "useCases":[{"id":"UC001","title":"Plan","actors":["Planner"],"mainFlow":["1. plan"],"postconditions":["planned"]},
+             {"id":"UC002","title":"Swap","actors":["Planner"],"mainFlow":["TODO"],"postconditions":["swapped"]}],
+ "domainEntities":[{"name":"Dienst","module":"Rooster","attributes":[{"name":"Type","type":"String"}],
+                    "associations":[{"name":"Dienst_Ploeg","target":"Ploeg"}]}],
+ "businessRules":[{"id":"BR-01","title":"one"},{"title":"no id"}],
+ "openQuestions":[{"id":"Q1","question":"In scope?","status":"Resolved"},{"question":"no id"}]}
+J
+VJ=$("$BR" "$P" --json 2>/dev/null)
+VSUM=$(printf '%s' "$VJ" | "$PY" -c 'import json,sys; v=json.load(sys.stdin)["validation"]; c=v["counts"]
+print(v["verdict"], c["useCases"], c["entityRefs"], c["businessRules"], c["openQuestions"], c["errors"], c["warnings"])' 2>&1)
+check "validator: verdict and every denominator in --json" "$VSUM" "FAIL [1, 2] [0, 1] [1, 2] [1, 2] 4 1"
+OUT=$("$BR" "$P" --html "$TMP/v.html" 2>&1)
+has "validator: a TODO step is not a step" "$OUT" "use case UC002 lacks steps (mainFlow)"
+has "validator: an unresolved association target is named" "$OUT" "names Ploeg, which no BRD declares"
+has "validator: a reserved attribute name is a WARNING, not an error" "$OUT" "WARNING F001 [reserved-names] attribute Dienst.Type"
+has "validator: the page carries the verdict" "$(cat "$TMP/v.html")" "Mechanical validation"
+P="$TMP/validate-code"
+brd "$P" kb Orders.brd.json <<'J'
+{"module":"Orders","generatedAt":"2026-01-01","appType":"web","openGaps":[],"useCases":[{"id":"UC1","title":"TODO"}],"domainEntities":[],"microflows":[],"pages":[]}
+J
+VJ=$("$BR" "$P" --json 2>/dev/null | "$PY" -c 'import json,sys; print(json.load(sys.stdin)["validation"]["verdict"])' 2>&1)
+check "validator: a code-extracted set is SKIPPED, not judged" "$VJ" "SKIPPED"
+
+
 echo
 echo "  $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ] || exit 1

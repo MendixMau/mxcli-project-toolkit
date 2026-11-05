@@ -1006,6 +1006,9 @@ check_stage_2() {
             return
           fi
           grep -q -- '^  UNFROZEN' <<<"$fl_out" && fl_note="; facts lock: contested identifiers left (bin/facts-lock.sh <project> resolve)"
+          # A lock that freezes (almost) nothing is not agreement (#621): say so on the PASS line.
+          local fl_thin; fl_thin="$(printf '%s\n' "$fl_out" | grep -m1 -E '^(NEAR-EMPTY|PENDING) facts-lock' | sed -E 's/^(NEAR-EMPTY|PENDING) facts-lock: //')"
+          [ -n "$fl_thin" ] && fl_note="$fl_note; ⚠ facts lock: $fl_thin"
         else
           fl_note="; no facts lock for $nbrd BRDs (bin/facts-lock.sh <project> build, then resolve)"
         fi
@@ -1070,12 +1073,49 @@ for b in d.get("brds", []):
     m = b.get("missingRequired") or []
     if m: print("%s: %s" % (os.path.basename(b["path"]), ", ".join(m)))
 ' 2>/dev/null)"
-  [ -n "$missing" ] || return 0
-  if w="$(artifact_waived brds)"; then
-    echo "required BRD sections absent but waived — $w ($(printf '%s' "$missing" | tr '\n' ';' | sed 's/;$//'))"
-    return 0
+  local note=""
+  if [ -n "$missing" ]; then
+    if w="$(artifact_waived brds)"; then
+      note="required BRD sections absent but waived — $w ($(printf '%s' "$missing" | tr '\n' ';' | sed 's/;$//'))"
+    else
+      echo "FAIL|BRD(s) missing a required section — $(printf '%s' "$missing" | tr '\n' ';' | sed 's/;$//; s/;/; /g') (bin/brd-report.sh <project> explains each: owed by the BRD's provenance, or by every provenance) — restore the section, or record it: gate-check.sh <project> --waive artifact/brds --reason \"...\""
+      return
+    fi
   fi
-  echo "FAIL|BRD(s) missing a required section — $(printf '%s' "$missing" | tr '\n' ';' | sed 's/;$//; s/;/; /g') (bin/brd-report.sh <project> explains each: owed by the BRD's provenance, or by every provenance) — restore the section, or record it: gate-check.sh <project> --waive artifact/brds --reason \"...\""
+  # The mechanical validator (#622). validation-report.md's "Clean" is the agent's own word; on a
+  # requirements-driven project nothing else had checked it — Stage 2 PASSed on that first line
+  # alone. brd-report.sh's `validation` block is brd-validation.md's mechanically decidable subset
+  # (complete use cases, references that resolve, one owner per entity and rule id, tracked open
+  # questions), each with its denominator. Its errors on BRDs under <brd-dir> contradict "Clean".
+  # Waiver: `Waived artifact brd-validation: <reason>`.
+  local vout vverdict vsum verr
+  vout="$(printf '%s' "$out" | BRD_DIR="$(native_path "$brd_dir")" "$py" -c '
+import json, os, sys
+try: d = json.load(sys.stdin)
+except Exception: sys.exit(0)
+v = d.get("validation") or {}
+norm = lambda p: os.path.normcase(os.path.realpath(p))
+base = norm(os.environ["BRD_DIR"])
+errs = [f for f in v.get("findings", []) if f.get("severity") == "error"
+        and norm(os.path.dirname(f.get("brd", ""))) == base]
+print("%s\t%s\t%d" % (v.get("verdict", ""), v.get("summary", ""), len(errs)))
+for f in errs[:3]: print("%s [%s] %s" % (f.get("id"), f.get("check"), f.get("message")))
+' 2>/dev/null)"
+  vverdict="$(printf '%s\n' "$vout" | head -1 | cut -f1)"
+  vsum="$(printf '%s\n' "$vout" | head -1 | cut -f2)"
+  verr="$(printf '%s\n' "$vout" | head -1 | cut -f3)"
+  if [ "${verr:-0}" -gt 0 ] 2>/dev/null; then
+    local eg; eg="$(printf '%s\n' "$vout" | sed -n '2,4p' | tr '\n' ';' | sed 's/;$//; s/;/; /g')"
+    if w="$(artifact_waived brd-validation)"; then
+      note="${note:+$note; }validator: $verr error(s) but waived — $w"
+    else
+      echo "FAIL|validation-report.md says Clean, but the mechanical validator finds $verr error(s) — $eg ($vsum) — fix the BRDs (bin/brd-report.sh <project> lists every finding), or record it: gate-check.sh <project> --waive artifact/brd-validation --reason \"...\""
+      return
+    fi
+  elif [ "$vverdict" = "PASS" ]; then
+    note="${note:+$note; }validator: $vsum"
+  fi
+  printf '%s' "$note"
 }
 
 # ✋ stages need a CONFIRMED decision row in PROJECT.md's Decisions table

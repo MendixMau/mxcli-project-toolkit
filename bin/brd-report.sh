@@ -21,9 +21,11 @@
 # surface unconditionally. Documents-only sources have the same problem: their BRDs come from
 # `kb-generation.md`, not from an extractor.
 #
-# WHAT THIS IS NOT. It is not a gate and it is not a validator. It renders what the BRDs say
-# and marks what they do not say. `gate-check.sh` owns the Stage 2 gate; `brd-validation.md`
-# owns the judgement about whether a BRD is any good. Per `skills-over-scripts.md`, everything
+# WHAT THIS IS NOT. It is not a gate. It renders what the BRDs say and marks what they do not
+# say. `gate-check.sh` owns the Stage 2 gate; `brd-validation.md` owns the judgement about
+# whether a BRD is any good. Since #622 it also carries that skill's MECHANICAL subset (the
+# `validation` key in --json, see validate() below): shape and cross-reference checks with
+# denominators, which Stage 2 reads instead of trusting a self-declared "Clean". Per `skills-over-scripts.md`, everything
 # here is fact-fetching and arithmetic: which keys are present, counted against how many were
 # looked for. The one thing it will not do is print a `0` it cannot back up.
 #
@@ -535,6 +537,222 @@ result = {
               'verdicts': {k: v[0] for k, v in a['verdicts'].items()}} for a in analysed],
 }
 
+# --- mechanical validation (brd-validation.md "The mechanical subset") ----------------------
+#
+# WHY (#622, 2026-11-05). On a requirements-driven project there is no pipeline and so no
+# validator script: brd-validation.md's checks were a judgement pass by an agent, and Stage 2
+# PASSed on the first line of `## Stop condition` alone ("Clean: all 8 checks re-run…"). Nothing
+# mechanical had verified any of them. This is the subset a script CAN decide — shape and
+# cross-reference, never meaning — each with its denominator. gate-check.sh Stage 2 FAILs a
+# "Clean" report that this contradicts. The judgement checks stay in the skill.
+#
+# Scope: every BRD whose provenance is not code-extracted (documents / interview / greenfield /
+# undetermined). A code-extracted BRD's use cases are scaffolder TODOs until enrichment, and the
+# pipeline's own validator loop owns it. References resolve against the WHOLE set, scaffolds too.
+
+import re as _re
+
+RESOLVED_STATES = ('resolved', 'answered', 'closed', 'done', 'confirmed', 'assumed',
+                   'accepted', 'deferred', 'withdrawn', 'superseded', 'n/a', 'na')
+# Names mxbuild refused as reserved (CE7247), with the record each came from. WARNING only: this
+# list is what the ledger has SEEN, not Mendix's full set, so a miss here proves nothing.
+#   Case (entity) BUG-149 · Context (attribute) learned-detection-gaps.md · New (enum value)
+#   learned-detection-gaps.md · ID / Type (attribute) #622 field run
+RESERVED_ENTITY = {'case'}
+RESERVED_ATTR = {'context', 'id', 'type'}
+RESERVED_ENUM_VALUE = {'new'}
+
+def _blank(v):
+    """Absent, empty, or nothing but TODO/TBD placeholders — the scaffold's way of saying empty."""
+    items = [x for x in as_list(v) if x is not None]
+    if not items:
+        return True
+    for x in items:
+        s = x if isinstance(x, str) else json.dumps(x)
+        if s.strip() and not _re.match(r'^\s*(todo|tbd)\b', s, _re.I):
+            return False
+    return True
+
+def validate():
+    scope = [a for a in analysed if a['provenance'] != 'code-extracted']
+    findings = []
+    def find(a, check, sev, msg):
+        findings.append({'brd': a['path'], 'id': a['id'], 'check': check,
+                         'severity': sev, 'message': msg})
+    out = {'scope': len(scope), 'of': len(analysed), 'findings': findings, 'counts': {}}
+    if not scope:
+        out.update(verdict='SKIPPED', summary=(
+            f'all {len(analysed)} BRD(s) are code-extracted — the mechanical requirements checks '
+            'cover documents/interview/greenfield/undetermined BRDs; the pipeline validator loop '
+            '(brd-validation.md) owns scaffolds'))
+        return out
+    bdoc = dict(docs)
+    scope_paths = {a["path"] for a in scope}
+
+    # Universe: declared entities/enumerations across ALL BRDs, keyed module-qualified and bare.
+    known_mods = {m.lower() for a in analysed for m in a['modules'] if isinstance(m, str)}
+    decl_q, decl_bare, owners = set(), set(), {}
+    for a in analysed:
+        b = bdoc[a['path']]
+        one_mod = a['modules'][0] if len(a['modules']) == 1 and isinstance(a['modules'][0], str) else ''
+        for e in as_list(b.get('domainEntities')) + as_list(b.get('enumerations')):
+            if not isinstance(e, dict) or not isinstance(e.get('name'), str):
+                continue
+            n = e['name'].strip()
+            mod = e.get('module') if isinstance(e.get('module'), str) else one_mod
+            if '.' in n:
+                mod, n = n.split('.', 1)
+            if mod:
+                known_mods.add(mod.lower())
+            decl_q.add((mod.lower(), n.lower())); decl_bare.add(n.lower())
+            if a["path"] in scope_paths:
+                owners.setdefault((mod.lower(), n.lower()), []).append((a, f'{mod + "." if mod else ""}{n}'))
+
+    uc_total = uc_ok = 0
+    ref_total = ref_ok = ref_ext = 0
+    br_total = br_id = 0
+    oq_total = oq_tracked = oq_open = 0
+    uc_ids, br_ids = {}, {}
+    for a in scope:
+        b = bdoc[a['path']]
+        # 1. sections. ABSENT ones are a warning here, never an error: whether a missing section
+        #    fails Stage 2 is `missingRequired` above (#618's reviewed rule — a present-but-empty
+        #    `"useCases": []` is an answer). Said anyway, because with no use cases every use-case
+        #    check below has a denominator of 0 and proves nothing.
+        miss = [k for k in ('id', 'title') if _blank(b.get(k))]
+        if not [u for u in raw_list(b, 'useCases') if isinstance(u, dict)]:
+            miss.append('useCases (0 to check)')
+        if miss:
+            find(a, 'sections', 'warning',
+                 f'no {", ".join(miss)} — brd-generation.md gives a {a["provenance"]} BRD an id, a '
+                 'title and its use cases; the checks below have nothing to read there')
+        # 2. every use case: id, title, actors, steps, acceptance criteria
+        seen_here = set()
+        for i, u in enumerate(raw_list(b, 'useCases')):
+            uc_total += 1
+            if not isinstance(u, dict):
+                find(a, 'use-case-complete', 'error', f'useCases[{i}] is not an object'); continue
+            gaps = []
+            if _blank(u.get('id')): gaps.append('id')
+            if _blank(u.get('title')): gaps.append('title')
+            if _blank(u.get('actors')) and _blank(u.get('actor')): gaps.append('actors')
+            if all(_blank(u.get(k)) for k in ('mainFlow', 'steps', 'flow')): gaps.append('steps (mainFlow)')
+            if all(_blank(u.get(k)) for k in ('acceptanceCriteria', 'postconditions')):
+                gaps.append('acceptance criteria (acceptanceCriteria or postconditions)')
+            uid = u.get('id') if isinstance(u.get('id'), str) else None
+            if gaps:
+                find(a, 'use-case-complete', 'error',
+                     f'use case {uid or "#" + str(i)} lacks {", ".join(gaps)}')
+            else:
+                uc_ok += 1
+            if uid:
+                if uid.lower() in seen_here:
+                    find(a, 'use-case-ids', 'error', f'use case id {uid} is used twice in this BRD')
+                seen_here.add(uid.lower())
+                uc_ids.setdefault(uid.lower(), []).append(a)
+        # 3. entity references resolve
+        refs = []
+        for x in as_list(b.get('associations')):
+            if isinstance(x, dict):
+                refs += [(x.get(k), f'associations {x.get("name") or "?"}.{k}') for k in ('from', 'to', 'target') if k in x]
+        for e in as_list(b.get('domainEntities')):
+            if not isinstance(e, dict):
+                continue
+            for x in as_list(e.get('associations')):
+                if isinstance(x, dict):
+                    t, k = first_present(x, 'target', 'to')
+                    if k: refs.append((t, f'{e.get("name")}.associations {x.get("name") or "?"}'))
+            for at in as_list(e.get('attributes')):
+                if isinstance(at, dict) and isinstance(at.get('enumeration'), str):
+                    refs.append((at['enumeration'], f'{e.get("name")}.{at.get("name")} enumeration'))
+        for x in as_list(b.get('dataRequirements')):
+            if isinstance(x, dict) and 'entity' in x:
+                refs.append((x.get('entity'), f'dataRequirements {x.get("id") or "?"}.entity'))
+        for r, where in refs:
+            if not isinstance(r, str) or not r.strip() or ' ' in r.strip():
+                continue
+            r = r.strip()
+            if '.' in r:
+                mod, n = r.split('.', 1)
+                if mod.lower() not in known_mods:
+                    ref_ext += 1; continue   # System.User, Administration.Account: not this set's
+                ref_total += 1
+                if (mod.lower(), n.lower()) in decl_q: ref_ok += 1
+                else: find(a, 'entity-refs', 'error', f'{where} names {r}, which no BRD declares')
+            else:
+                ref_total += 1
+                if r.lower() in decl_bare: ref_ok += 1
+                else: find(a, 'entity-refs', 'error', f'{where} names {r}, which no BRD declares')
+        # 4. business rules carry ids
+        for i, r in enumerate(raw_list(b, 'businessRules')):
+            br_total += 1
+            rid = r.get('id') if isinstance(r, dict) and isinstance(r.get('id'), str) and r.get('id').strip() else None
+            if rid:
+                br_id += 1; br_ids.setdefault(rid.lower(), []).append((a, rid))
+            else:
+                find(a, 'rule-ids', 'error', f'businessRules[{i}] has no id — a rule nobody can cite cannot be traced to a build row')
+        # 5. open questions tracked: an id to cite and the question itself. Its STATUS is
+        #    open-questions.sh's (a blank one is UNRAISED there, and the gate already blocks on it).
+        for i, q in enumerate(raw_list(b, 'openQuestions')):
+            oq_total += 1
+            if isinstance(q, dict) and not _blank(q.get('question')) and not _blank(q.get('id')):
+                oq_tracked += 1
+                st = q.get('status') if isinstance(q.get('status'), str) else ''
+                if not st.strip() or st.strip().lower().split()[0].strip('.,:;—-') not in RESOLVED_STATES:
+                    oq_open += 1
+            else:
+                find(a, 'open-questions', 'error',
+                     f'openQuestions[{i}] {(q.get("id") if isinstance(q, dict) else "") or ""} is not tracked — '
+                     'it needs an id and the question text (bin/open-questions.sh reads both)')
+        # 6. reserved names (warning)
+        for e in as_list(b.get('domainEntities')):
+            if not isinstance(e, dict) or not isinstance(e.get('name'), str):
+                continue
+            if e['name'].split('.')[-1].lower() in RESERVED_ENTITY:
+                find(a, 'reserved-names', 'warning', f'entity {e["name"]} uses a name mxbuild has refused as reserved (CE7247)')
+            for at in as_list(e.get('attributes')):
+                if isinstance(at, dict) and isinstance(at.get('name'), str) and at['name'].lower() in RESERVED_ATTR:
+                    find(a, 'reserved-names', 'warning', f'attribute {e["name"]}.{at["name"]} uses a name mxbuild has refused as reserved (CE7247)')
+            for v in as_list(e.get('values')):
+                vn = v.get('name') if isinstance(v, dict) else v
+                if isinstance(vn, str) and vn.lower() in RESERVED_ENUM_VALUE:
+                    find(a, 'reserved-names', 'warning', f'enumeration value {e["name"]}.{vn} uses a name mxbuild has refused as reserved (CE7247)')
+    # one owner per entity and per business rule; use-case ids across BRDs (warning: per-BRD
+    # numbering is a convention some projects use, and a bare id then needs its BRD to resolve)
+    for key, lst in sorted(owners.items()):
+        brds = sorted({x[0]['id'] for x in lst})
+        if len(brds) > 1:
+            for x in lst:
+                find(x[0], 'entity-owner', 'error', f'entity {x[1]} is declared in {len(brds)} BRDs ({", ".join(brds)}) — one BRD owns it, the others reference it')
+    for key, lst in sorted(br_ids.items()):
+        brds = sorted({x[0]['id'] for x in lst})
+        if len(lst) > 1:
+            find(lst[0][0], 'rule-ids', 'error', f'business rule id {lst[0][1]} is used {len(lst)} times ({", ".join(brds)}) — one rule, one id')
+    for key, lst in sorted(uc_ids.items()):
+        brds = sorted({x['id'] for x in lst})
+        if len(brds) > 1:
+            find(lst[0], 'use-case-ids', 'warning', f'use case id {key.upper()} appears in {len(brds)} BRDs ({", ".join(brds)}) — a bare id is ambiguous downstream')
+    errs = sum(1 for f in findings if f['severity'] == 'error')
+    warns = len(findings) - errs
+    out['counts'] = {'useCases': [uc_ok, uc_total], 'entityRefs': [ref_ok, ref_total], 'externalRefs': ref_ext,
+                     'businessRules': [br_id, br_total], 'openQuestions': [oq_tracked, oq_total],
+                     'openQuestionsOpen': oq_open, 'errors': errs, 'warnings': warns}
+    out['verdict'] = 'FAIL' if errs else 'PASS'
+    out['summary'] = (f'{len(scope)} requirements BRD(s): {uc_ok} of {uc_total} use cases complete, '
+                      f'{ref_ok} of {ref_total} entity references resolve'
+                      + (f' ({ref_ext} external, not checked)' if ref_ext else '')
+                      + f', {br_id} of {br_total} business rules carry an id, '
+                      f'{oq_tracked} of {oq_total} open questions tracked ({oq_open} open); '
+                      f'{errs} error(s), {warns} warning(s)')
+    return out
+
+def raw_list(b, key):
+    v, _k = first_present(b, key)
+    return as_list(v)
+
+validation = validate()
+result['validation'] = validation
+
 # --- stdout -------------------------------------------------------------------------------
 
 if as_json:
@@ -572,6 +790,10 @@ elif not quiet:
                   + '; '.join(f"{k} (use {LEGACY.get(k, k)})" for k in a['legacy']))
     if tally['fault'] == 0 and unreadable_total == 0 and tally['manual'] == 0:
         print("  No faults. Every section either carried content or was skipped with a reason.")
+    print("")
+    print(f"  validator: {validation['verdict']} — {validation['summary']}")
+    for fd in validation['findings']:
+        print(f"      {fd['severity'].upper():7} {fd['id']} [{fd['check']}] {fd['message']}")
     print("")
 
 # --- html ----------------------------------------------------------------------------------
@@ -1278,6 +1500,15 @@ page = f"""<!DOCTYPE html>
              + '</tr>' for a in analysed)}
     </tbody>
   </table></div>
+
+  <h2>Mechanical validation</h2>
+  <p class="lede"><strong>{esc(validation['verdict'])}</strong> — {esc(validation['summary'])}.
+     The subset of <code>skills/brd-validation.md</code> a script can decide; the Stage 2 gate
+     reads this verdict, not the report's own "Clean".</p>
+  {('<div class="scroll"><table><thead><tr><th>BRD</th><th>Check</th><th>Severity</th><th>Finding</th></tr></thead><tbody>'
+    + ''.join('<tr><td class="mono">' + esc(fd['id']) + '</td><td>' + esc(fd['check']) + '</td><td>'
+              + esc(fd['severity']) + '</td><td>' + esc(fd['message']) + '</td></tr>' for fd in validation['findings'])
+    + '</tbody></table></div>') if validation['findings'] else ''}
 
   <h2>Per BRD</h2>
   {''.join(body_sections)}

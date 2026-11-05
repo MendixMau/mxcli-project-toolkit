@@ -850,6 +850,18 @@ check_stage_P() {
   fi
 }
 
+# True when a 'Confirmed by:' value is an obvious "not yet" (#620): `_pending_`, TBD, n/a, a
+# lone dash or question mark — markdown emphasis and surrounding punctuation stripped, case
+# ignored. A whole-value match only, so "pending legal review, confirmed in chat" still passes.
+_signoff_is_not_yet() {
+  local v
+  v=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -e 's/[_*`]//g' -e 's/^[[:space:].:]*//' -e 's/[[:space:].:]*$//')
+  case "$v" in
+    ''|pending|tbd|todo|tba|n/a|na|none|'-'|'--'|'?'|'??'|'…'|'...'|'—'|'–') return 0 ;;
+  esac
+  return 1
+}
+
 check_stage_0() {
   # MERGE NOTE: bug02 supplies the resolver (root-first resolve_artifact grades the abandoned
   # copy on a nested-layout project), bug03 supplies the anchored sign-off test. They touch
@@ -886,6 +898,8 @@ check_stage_0() {
     # §"Map the app first"): there is nothing to sign off yet, so this is not-started, not wrong.
     # Without it a parked project read "needs attention" forever (existing-app field run, 2026-09-22).
     echo "PENDING|app mapped (analysis/app-report.html), waiting on the change — triage.md is signed off at Stage 0b, once the user says what to work on and what it touches is written ($f, ## Sign-off)"
+  elif _signoff_is_not_yet "$signer"; then
+    echo "FAIL|'Confirmed by:' says the sign-off has not happened yet: \"$signer\" — ask the user, then replace it with whatever they actually said (\"confirmed in chat 2026-08-20\" is fine) ($f, ## Sign-off)"
   elif grep -q '\[' <<<"$signer"; then
     echo "FAIL|'Confirmed by:' still holds the shipped placeholder: \"$signer\" — replace it with whatever the user actually said (\"confirmed in chat 2026-08-20\" is fine; a full name is not required) ($f, ## Sign-off)"
   else
@@ -3225,7 +3239,14 @@ if [ -r "$TOOLKIT_DIR/bin/lib/obligation-check.sh" ]; then
   # shellcheck source=lib/obligation-check.sh
   . "$TOOLKIT_DIR/bin/lib/obligation-check.sh"
   mxtk_obligations_report "$PROJECT_DIR" "$REGISTER"
-  mxtk_obligations_reverse_check
+  # The reverse check is a toolkit-authoring message ("add a row to obligations.tsv") that a
+  # consumer project cannot act on (#623). It runs in render-routing.sh --check (CI), and here
+  # only when gate-check targets the toolkit itself (the skill-routing row's rule) or
+  # MXTK_AUTHORING=1.
+  if [ "${MXTK_AUTHORING:-}" = 1 ] || \
+     [ "$(cd "$PROJECT_DIR" 2>/dev/null && pwd -P)" = "$(cd "$TOOLKIT_DIR" 2>/dev/null && pwd -P)" ]; then
+    mxtk_obligations_reverse_check
+  fi
 else
   # Same discipline the table itself enforces: the checker failing is not the project passing.
   printf 'Obligations: FAULT — bin/lib/obligation-check.sh missing from %s; no pass was checked\n' "$TOOLKIT_DIR"

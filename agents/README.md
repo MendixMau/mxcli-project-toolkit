@@ -13,6 +13,11 @@ extraction vs translation mode, and which half of a module brief each role write
 Moved out of `skills/agent-roles.md` (2026-10-13; verbatim except the `model:` lines, which now name the tier and defer to the stub that pins it) so the always-on baseline does not carry
 setup-time text every session (CLAUDE.md skill-authoring rule 6).
 
+**Questions.** `ba-agent` and `architect-agent` never ask the user — a subagent has no
+`AskUserQuestion` and no chat. Their stubs end every report with `question` blocks, which the main
+session renders as clickable options; the shape is in `skills/interview-protocol.md` §3 →
+"Asking from a subagent". Keep that rule in any stub you complete.
+
 ## Template shapes (adapt, don't copy verbatim)
 
 ### ba-agent

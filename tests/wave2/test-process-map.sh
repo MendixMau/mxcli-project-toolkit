@@ -207,6 +207,39 @@ run anchor --project "$P2" >/dev/null; run build --project "$P2" >/dev/null
 CJ="$(node -e 'const h=require("fs").readFileSync(process.argv[1],"utf8");const m=h.match(/\nvar D = (.*);\n/);const d=JSON.parse(m[1]);console.log(["C1","C2"].map(id=>{const i=d.items.find(x=>x.id===id);return i.state+":"+i.answer}).join("|"))' "$P2/design/process-map.html")"
 check "consolidated status comes from the referenced BRD questions" "$CJ" "answered:No maximum. | Different person.|open:No maximum."
 
+echo "== T12: a wireframe whose <body> has a wf- class still renders in its thumbnail (#626) =="
+# The thumbnail CSS hid every [class^="wf-"] element (annotation chrome), so <body class="wf-page">
+# hid the whole screen: every step box was empty while validate/anchor/build all said clean.
+P="$(fresh thumb)"
+sed -i.bak 's/<body class="ds-body"/<body class="wf-page ds-body"/' "$P/design/wireframes/Order_Approve.html"; rm -f "$P/design/wireframes/Order_Approve.html.bak"
+run build --project "$P" >/dev/null
+R="$(NODE_PATH="${NODE_PATH:-}:/opt/node-tools/node_modules" node -e '
+(async () => {
+  let pw = null; try { pw = require("playwright"); } catch (e) {}
+  if (!pw) { console.log("SKIP playwright not installed"); return; }
+  let b; try { b = await pw.chromium.launch(); } catch (e) { console.log("SKIP " + String(e.message).split("\n")[0]); return; }
+  const pg = await b.newPage();
+  await pg.goto("file://" + process.argv[1] + "#P1");
+  await pg.waitForTimeout(500);
+  const out = [];
+  for (const f of pg.frames()) {
+    if (f === pg.mainFrame()) continue;
+    const r = await f.evaluate(() => { const m = document.querySelector("main"); const t = document.title;
+      return t + "=" + (m ? m.getBoundingClientRect().height : -1); }).catch(() => "?");
+    out.push(r);
+  }
+  console.log(out.join(" ") || "NOFRAMES");
+  await b.close();
+})();' "$P/design/process-map.html" 2>&1)"
+case "$R" in
+  SKIP*)          printf '  skip — real-browser thumbnail check: %s\n' "$R" ;;
+  *Order_Approve=0\ *|*Order_Approve=0|*Order_Approve=-1*) bad "wf-page body thumbnail renders blank" "$R" ;;
+  *Order_Approve=*) ok "wf-page body thumbnail still shows the screen" ;;
+  *)              bad "Order_Approve thumbnail not found on the P1 map" "$R" ;;
+esac
+H="$(cat "$P/design/process-map.html")"
+has "thumbnail CSS exempts the document root from the wf- rule" "$H" ':not(html):not(body)'
+
 echo "== T9: Stage-3 gate fails a missing or stale process map =="
 gatefix() { # a full Stage-3 PASS scaffold plus the process map fixture
   local d; d="$(fresh "$1")"

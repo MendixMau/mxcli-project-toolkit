@@ -348,7 +348,7 @@ Stage 3 ✋ gate.
 
 ## Step 6: The Three Decisions the Source Can't Answer ✋
 
-These are genuine decisions, not derivable from the BRD or the source — run the full interview protocol (`conversion-runbook.md` §1) for each, and record every answer in `PROJECT.md`. This is a `✋` gate: `CONFIRMED` only, no `ASSUMED` past it.
+These are genuine decisions, not derivable from the BRD or the source — run the full interview protocol (`conversion-runbook.md` §1) for each, and record every answer in `PROJECT.md`. This is a `✋` gate: `CONFIRMED` only, no `ASSUMED` past it (under `Interview mode: auto`: `interview-protocol.md` §"What `auto` obliges you to do").
 
 ### 6a. Target Security / Role Model
 

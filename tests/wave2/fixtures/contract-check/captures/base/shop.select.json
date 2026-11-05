@@ -1,0 +1,112 @@
+[
+  {
+    "ODataVersion": "OData4",
+    "Path": "odata/carodataapi/v1/",
+    "QualifiedName": "MyFirstModule.CarOdataApi",
+    "Version": "1.0.0"
+  }
+]
+[]
+[]
+[
+  {
+    "BaseUrl": "http://localhost:8085/rest/cars/v1",
+    "QualifiedName": "MyFirstModule.CarsClient"
+  }
+]
+[
+  {
+    "HttpMethod": "GET",
+    "Name": "GetCars",
+    "Path": "/cars",
+    "ServiceQualifiedName": "MyFirstModule.CarsClient"
+  }
+]
+[
+  {
+    "MetadataUrl": "http://localhost:8085/odata/carodataapi/v1/$metadata",
+    "QualifiedName": "MyFirstModule.CarsOData",
+    "Version": "1.0.0"
+  }
+]
+[
+  {
+    "EntitySet": "VCars",
+    "QualifiedName": "MyFirstModule.ECar",
+    "RemoteName": "VCar",
+    "ServiceName": "MyFirstModule.CarsOData"
+  }
+]
+[]
+[]
+[
+  {
+    "Generalization": "",
+    "QualifiedName": "MyFirstModule.Car"
+  },
+  {
+    "Generalization": "",
+    "QualifiedName": "MyFirstModule.VCar"
+  },
+  {
+    "Generalization": "",
+    "QualifiedName": "MyFirstModule.ECar"
+  }
+]
+[
+  {
+    "DataType": "AutoNumber",
+    "EntityQualifiedName": "MyFirstModule.Car",
+    "EnumerationQualifiedName": "",
+    "Name": "ModelId"
+  },
+  {
+    "DataType": "String",
+    "EntityQualifiedName": "MyFirstModule.Car",
+    "EnumerationQualifiedName": "",
+    "Name": "Brand"
+  },
+  {
+    "DataType": "String",
+    "EntityQualifiedName": "MyFirstModule.Car",
+    "EnumerationQualifiedName": "",
+    "Name": "Model"
+  },
+  {
+    "DataType": "String",
+    "EntityQualifiedName": "MyFirstModule.Car",
+    "EnumerationQualifiedName": "",
+    "Name": "ModelType"
+  },
+  {
+    "DataType": "Long",
+    "EntityQualifiedName": "MyFirstModule.VCar",
+    "EnumerationQualifiedName": "",
+    "Name": "ModelID"
+  },
+  {
+    "DataType": "String",
+    "EntityQualifiedName": "MyFirstModule.VCar",
+    "EnumerationQualifiedName": "",
+    "Name": "Brand"
+  },
+  {
+    "DataType": "Long",
+    "EntityQualifiedName": "MyFirstModule.ECar",
+    "EnumerationQualifiedName": "",
+    "Name": "ModelID"
+  },
+  {
+    "DataType": "String",
+    "EntityQualifiedName": "MyFirstModule.ECar",
+    "EnumerationQualifiedName": "",
+    "Name": "Brand"
+  }
+]
+[]
+[
+  {
+    "DefaultValue": "http://localhost:8085/odata/carodataapi/v1/",
+    "QualifiedName": "MyFirstModule.CarsODataUrl"
+  }
+]

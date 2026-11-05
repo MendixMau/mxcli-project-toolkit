@@ -60,6 +60,16 @@ permission. Every position taken under `auto` records four things:
 this — and it is machine-readable, so the report can lead with *"assumed while you were away,
 overturn any of these"* instead of burying them among questions that were genuinely answered.
 
+**`✋` gates under `auto` — single source of this rule.** A `✋` decision (Stages 0, 3, 4) is
+recorded the same way — `| 3 | <decision> | ASSUMED | consentBy: auto-mode, consentAt: <ts>; rejected: <alt> |`
+— and passes its gate while the mode is `auto`; in every other mode the gate stays `CONFIRMED`
+only, and Stage 7 cutover is `CONFIRMED` only in every mode. The human moves to release, not
+out: every `gate-check.sh` run prints `N ✋ decision(s) assumed by auto-mode — confirm before
+release: <ids>`, and Stage 6 FAILs until each is **confirmed** — Status `CONFIRMED` and `consentBy`
+naming a person; a row still stamped `auto-mode` is unconfirmed whatever its status says.
+Failure this replaces: an unattended run produced every Stage 3–4 artifact, then FAILed both
+gates by design with nothing saying so (#624).
+
 ### Exec approval is a separate knob
 
 `bin/exec-approval.sh <project-dir>` resolves `ask` or `auto` for exec-style writes — a

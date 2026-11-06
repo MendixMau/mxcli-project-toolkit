@@ -225,7 +225,7 @@ node run.js 3
 
 **Claude chat** (open in any window):
 
-> "I've just run the extraction pipeline on an OutSystems 11 application. The results are in `extraction/knowledge-base/`. Look at `summary.md` for the scale, then look at `brd/F001-order-registration.brd.json`. Explain what this feature does, who uses it, and what Mendix constructs we'd need to implement it."
+> "I've just run the extraction pipeline on an OutSystems 11 application. The results are in `analysis/<source>/knowledge-base/`. Look at `summary.md` for the scale, then look at `brd/F001-order-registration.brd.json`. Explain what this feature does, who uses it, and what Mendix constructs we'd need to implement it."
 
 ---
 

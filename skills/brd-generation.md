@@ -54,8 +54,13 @@ Examples:
   F004-corporate-search.brd.json
 ```
 
-Store in: `extraction/knowledge-base/brd/`
-Also maintain: `extraction/knowledge-base/brd/index.json` (list of all BRDs)
+Store in: `<KB>/brd/`, where `<KB>` is `analysis/<source>/knowledge-base/` — the gate and
+`discover-brds.sh` look in `analysis/*/knowledge-base/`, `analysis/knowledge-base/` and
+`knowledge-base/`; with more than one `analysis/*` knowledge base, gate-check needs
+`GATE_WORKSTREAM=<name>`. A BRD under `extraction/knowledge-base/` is never seen by the Stage 2 gate.
+Also maintain: `<KB>/brd/index.json` (list of all BRDs)
+Validation report: `<KB>/reports/validation-report.md`, with a `## Stop condition` heading
+(`brd-validation.md` → "Stop condition").
 
 ---
 
@@ -281,7 +286,7 @@ several, list every one of them in `modules[]`. Aim for 3-8 use cases per BRD.
 
 Collect before prompting:
 
-1. Relevant KB files (from `extraction/knowledge-base/share/`)
+1. Relevant KB files (from `<KB>/share/`, `<KB>` as in "Store in" above)
 2. Relevant extracted JSON sections (entities, screens, logics for this feature)
 3. Cross-reference map (`cross-reference-map.json`) for dependencies
 4. Any OS screen action names from `logics.json` that map to this feature
@@ -403,7 +408,7 @@ run poisons one file instead of a capability.
 ## Step 5 — Maintain the BRD index
 
 ```json
-// extraction/knowledge-base/brd/index.json
+// <KB>/brd/index.json   (<KB> = analysis/<source>/knowledge-base)
 {
   "generated": "YYYY-MM-DD",
   "brds": [

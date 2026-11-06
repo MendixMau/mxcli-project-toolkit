@@ -78,6 +78,7 @@ BIN="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 #   1. <project>/bin  — the project's own, possibly tuned, copy wins
 #   2. $BIN           — alongside this script (the installed-copy case)
 #   3. $MXTK_ROOT/bin and $MXTK_ROOT/project-bin — the shared toolkit
+#   4. find_toolkit_root's bin/ and project-bin/ (_common.sh; the Toolkit root row, #672)
 # Echoes the first hit; echoes <project>/bin/NAME when there is none, so the caller's
 # own "not found" message names the place a reader would look first.
 # Step 3 needs $MXTK_ROOT, and nothing exports it — so the toolkit half of the
@@ -106,7 +107,9 @@ fi
 
 _tool() {
   local n="$1" d
-  for d in "$ROOT/bin" "$BIN" "${MXTK_ROOT:-}/bin" "${MXTK_ROOT:-}/project-bin"; do
+  local tk; tk="$(find_toolkit_root 2>/dev/null || true)"
+  for d in "$ROOT/bin" "$BIN" "${MXTK_ROOT:-}/bin" "${MXTK_ROOT:-}/project-bin" \
+           "${tk:+$tk/bin}" "${tk:+$tk/project-bin}"; do
     [ -n "$d" ] && [ -x "$d/$n" ] && { printf '%s\n' "$d/$n"; return 0; }
   done
   printf '%s\n' "$ROOT/bin/$n"
@@ -489,9 +492,14 @@ fi
 # A ledger is a file OR a per-BRD directory (<Module>/coverage-ledger/<BRD>.md) — LEDGER_FILE
 # documents both (conformance-check.sh, coverage-preflight.sh). Testing only `-f` sent a directory
 # LEDGER_FILE silently to architecture/coverage-ledger.md (review of #307, 2026-10-13).
+# Without LEDGER_FILE, the one shared lookup (mxtk_resolve_ledger, _common.sh — #673; it also
+# knows the flat <Module>-coverage-ledger.md this hint missed).
 resolve_ledger_hint() {
-  local l="${LEDGER_FILE:-$ROOT/architecture/modules/$MODULE/coverage-ledger.md}"
-  if [ -z "${LEDGER_FILE:-}" ] && [ ! -f "$l" ] && [ -d "${l%.md}" ]; then l="${l%.md}"; fi
+  local l="${LEDGER_FILE:-}"
+  if [ -z "$l" ]; then
+    mxtk_resolve_ledger "$ROOT" "$MODULE" || printf '%s\n' "$ROOT/architecture/coverage-ledger.md"
+    return 0
+  fi
   [ -f "$l" ] || [ -d "$l" ] || l="$ROOT/architecture/coverage-ledger.md"
   printf '%s\n' "$l"
 }
@@ -508,7 +516,8 @@ fi
 # there would be a fault we manufactured ourselves.
 COVERAGE_CHECK="${COVERAGE_CHECK:-}"
 if [ -z "$COVERAGE_CHECK" ]; then
-  for c in "$(_tool coverage-check.sh)" "${MXTK_ROOT:-}/bin/coverage-check.sh"; do
+  for c in "$(_tool coverage-check.sh)" "${MXTK_ROOT:-}/bin/coverage-check.sh" \
+           "$(t="$(find_toolkit_root 2>/dev/null)"; printf '%s' "${t:+$t/bin/coverage-check.sh}")"; do
     [ -n "$c" ] && [ -x "$c" ] && { COVERAGE_CHECK="$c"; break; }
   done
 fi

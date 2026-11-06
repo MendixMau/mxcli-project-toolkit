@@ -38,8 +38,10 @@ mkdir -p "$M/Orders/coverage-ledger" "$M/Billing"
 : > "$M/Orders/coverage-ledger/F001.md"
 : > "$M/Billing/coverage-ledger.md"
 : > "$R/architecture/coverage-ledger.md"
+# The hint delegates to the shared lookup (mxtk_resolve_ledger, #673) — load it beside the function.
+HELPER="$(awk '/^mxtk_resolve_ledger\(\) \{/{on=1} on{print} on && /^\}/{exit}' "$(dirname "$SUT")/_common.sh" 2>/dev/null)"
 hint() { ( ROOT="$R"; MODULE="$1"; LEDGER_FILE="${2:-}"; [ -n "$LEDGER_FILE" ] || unset LEDGER_FILE
-           eval "$FN"; resolve_ledger_hint ); }
+           [ -n "$HELPER" ] && eval "$HELPER"; eval "$FN"; resolve_ledger_hint ); }
 
 v="$(hint Orders "$M/Orders/coverage-ledger")"
 [ "$v" = "$M/Orders/coverage-ledger" ] && ok "LEDGER_FILE=<directory> is kept, not replaced by the project ledger" \

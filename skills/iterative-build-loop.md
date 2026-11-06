@@ -646,9 +646,27 @@ checklist review?") — `gate-agent` does, in the same pass as Gate: BUILD, not 
 step.
 
 **Verification is scoped — once per gate, not once per script.** Gate: SYNTAX and Gate: BUILD run
-inside every `exec.sh`, and they are the only per-script checks. The test passes (happy path, journeys, LOOK) run **once
-per gate round** over what that round changed, and `bin/gate-check.sh` runs **once per gate round**,
-not after every exec. What re-runs after a change, by whom, and when the full suite runs (per
+inside every `exec.sh`, and they are the only per-script checks; what else runs per row is the
+project's **Pipeline mode** (below). Journeys, the 390 + 1280 LOOK and the polish loop run **once at
+module close** (`bin/module-close.sh`, `module-review.md` stage 4), and `bin/gate-check.sh` runs
+**once per gate round**, not after every exec.
+
+**Pipeline mode** — PROJECT.md `Pipeline mode:`, asked at intake (Q15); no line = `balanced`.
+This table is the single source; `exec.sh`, the pre-push hook and `module-close.sh` read the line.
+
+| | high-speed | balanced (default) | high-quality |
+|---|---|---|---|
+| Per row, visual | none (exec gate only) | one LOOK at 1280 of the changed page | journeys of reached pages + LOOK at 390 and 1280 |
+| Module close | journeys + polish loop, 75% fidelity AND a written LOOK, max 2 rounds | same, 85%, max 3 rounds | same, 95%, max 5 rounds |
+| Pre-push full build | once per module | once per module | every push |
+| Unit tests | per module | per module | per row |
+
+`UI polish: <N>% / <R> rounds` in PROJECT.md overrides the polish numbers of any mode. Below
+high-quality, a `## Test strategy` row `Every change` that names a unit or journeys scope still runs
+that column per row. Why balanced is the default (#686): rows averaged 19 min (up to 41) under
+per-row journeys and dual-viewport LOOKs, and per-row LOOKs had 0 unique catches over 42 findings;
+of about 10 browser-only defects, about 7 would also be caught by one journey plus a LOOK at module
+close, 1 was unsure (a second persona), and 1 was missed by every per-row and module LOOK alike. What re-runs after a change, by whom, and when the full suite runs (per
 PROJECT.md `## Test strategy`; never batch close) is `testing-shape.md` §3; `exec.sh` prints
 the run's lane (`ui-only` / `logic`). Repeating a pass the artifacts already prove is the over-testing
 toolkit issue #274 measured: UI-only changes re-proven 5–10×.

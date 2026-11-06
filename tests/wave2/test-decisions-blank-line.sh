@@ -31,19 +31,19 @@ PASS=0; FAIL=0
 ok()  { PASS=$((PASS+1)); printf '  ok   %s\n' "$1"; }
 bad() { FAIL=$((FAIL+1)); printf '  FAIL %s\n' "$1"; }
 
-# mkproj <name> — a project with a build plan and the register body read from stdin.
+# mkproj <name> — a project with a build plan and the register body read from stdin; sets P.
+# Called as `mkproj d1 <<'EOF'`, never inside $(...): a heredoc there does not parse on bash 3.2.
 mkproj() {
-  local d="$WORK/$1"
-  mkdir -p "$d/architecture" "$d/analysis/X/knowledge-base"
-  printf '# plan\n' > "$d/architecture/build-plan.md"
-  cat > "$d/PROJECT.md"
-  printf '%s\n' "$d"
+  P="$WORK/$1"
+  mkdir -p "$P/architecture" "$P/analysis/X/knowledge-base"
+  printf '# plan\n' > "$P/architecture/build-plan.md"
+  cat > "$P/PROJECT.md"
 }
 # stage_line <out> <N> — the first "Stage N (" verdict line of a run.
 stage_line() { local l; while IFS= read -r l; do case "$l" in "Stage $2 ("*) printf '%s\n' "$l"; return ;; esac; done <<< "$1"; }
 
 echo "== D1: blank line, then a Stage-4 CONFIRMED row — Stage 4 PASS =="
-P="$(mkproj d1 <<'EOF'
+mkproj d1 <<'EOF'
 # Project
 
 ## Decisions
@@ -54,7 +54,6 @@ P="$(mkproj d1 <<'EOF'
 
 | 4 | Build plan | CONFIRMED | |
 EOF
-)"
 L="$(stage_line "$("$GATE" --no-html "$P" 4 2>&1)" 4)"
 case "$L" in
   *': PASS'*) ok "the row after the blank line is read (Stage 4 PASS)" ;;
@@ -62,14 +61,13 @@ case "$L" in
 esac
 
 echo "== D2: blank line, then a Stage-7 CONFIRMED row — Stage 7 PASS =="
-P="$(mkproj d2 <<'EOF'
+mkproj d2 <<'EOF'
 | Stage | Decision | Status | Notes |
 |---|---|---|---|
 | 3 | Architecture | CONFIRMED | |
 
 | 7 | Cutover: big bang | CONFIRMED | |
 EOF
-)"
 L="$(stage_line "$("$GATE" --no-html "$P" 7 2>&1)" 7)"
 case "$L" in
   *': PASS'*) ok "check_stage_7 reads past the blank line" ;;
@@ -77,7 +75,7 @@ case "$L" in
 esac
 
 echo "== D3: [guard] blank line, then an Open-questions table — its rows are NOT decisions =="
-P="$(mkproj d3 <<'EOF'
+mkproj d3 <<'EOF'
 | Stage | Decision | Status | Notes |
 |---|---|---|---|
 | 3 | Architecture | CONFIRMED | |
@@ -87,7 +85,6 @@ P="$(mkproj d3 <<'EOF'
 | 4 | Who signs the plan? | Stage 2 | CONFIRMED |
 | 7 | Cutover weekend? | Stage 2 | CONFIRMED |
 EOF
-)"
 O="$("$GATE" --no-html "$P" 4 2>&1)"
 L4="$(stage_line "$O" 4)"; L7="$(stage_line "$("$GATE" --no-html "$P" 7 2>&1)" 7)"
 case "$L4" in
@@ -100,7 +97,7 @@ case "$L7" in
 esac
 
 echo "== D3c: [guard] D3 with CRLF line endings — Open-questions rows still NOT decisions =="
-P="$(mkproj d3c <<'EOF'
+mkproj d3c <<'EOF'
 | Stage | Decision | Status | Notes |
 |---|---|---|---|
 | 3 | Architecture | CONFIRMED | |
@@ -110,7 +107,6 @@ P="$(mkproj d3c <<'EOF'
 | 4 | Who signs the plan? | Stage 2 | CONFIRMED |
 | 7 | Cutover weekend? | Stage 2 | CONFIRMED |
 EOF
-)"
 sed 's/$/\r/' "$P/PROJECT.md" > "$P/PROJECT.md.crlf" && mv "$P/PROJECT.md.crlf" "$P/PROJECT.md"
 L4="$(stage_line "$("$GATE" --no-html "$P" 4 2>&1)" 4)"; L7="$(stage_line "$("$GATE" --no-html "$P" 7 2>&1)" 7)"
 case "$L4" in
@@ -123,7 +119,7 @@ case "$L7" in
 esac
 
 echo "== D4: auto_hand_pending still names the register line, not a doubled one =="
-P="$(mkproj d4 <<'EOF'
+mkproj d4 <<'EOF'
 Interview mode: auto
 
 | Stage | Decision | Status | Notes |
@@ -131,7 +127,6 @@ Interview mode: auto
 
 | 3 | Architecture | ASSUMED | consentBy: auto-mode, consentAt: 2026-11-06 |
 EOF
-)"
 O="$("$GATE" --no-html "$P" 2>&1)"
 case "$O" in
   *'PROJECT.md:6 (Stage 3)'*) ok "the auto-mode ✋ row is listed at PROJECT.md:6" ;;

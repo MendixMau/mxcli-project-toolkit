@@ -65,7 +65,11 @@ mkdir rmdir mktemp ls touch uname cksum sha256sum shasum md5sum dirname basename
 date sleep find xargs tee chmod ln stat od diff cmp comm tac rev paste printf expr seq id hostname
 du df file gzip tar unzip jq perl curl ps kill timeout flock"
 REAL_PATH="$PATH"
-for t in bash git python3 awk sed grep; do  # portability-ok: Linux-only fixture (uname guard above); a name to shim, not an interpreter to run
+# REQUIRED: every tool the counted clean path starts today. Missing one changes the path, so the
+# fixture SKIPs, naming it. Any other $FORWARD tool that is absent gets a logging stub that exits
+# 127 ("not installed"), so `command -v` sees the same tool set on every runner.
+REQUIRED="bash git python3 awk sed grep tr sort head cat rm mkdir mktemp ls cp mv touch tee find cut wc uname cksum sha256sum"
+for t in $REQUIRED; do  # portability-ok: Linux-only fixture (uname guard above); a name to shim, not an interpreter to run
   command -v "$t" >/dev/null 2>&1 || { echo "  SKIP required tool missing: $t"; echo; echo "PASS=0 FAIL=0"; exit 0; }
 done
 
@@ -73,8 +77,11 @@ WORK="$(mktemp -d "${TMPDIR:-/tmp}/exec-pb.XXXXXX")"; trap 'rm -rf "$WORK"' EXIT
 SHIM="$WORK/shim"; LOG="$WORK/starts.log"; mkdir -p "$SHIM" "$WORK/home" "$WORK/tmp"
 REAL_BASH="$(command -v bash)"
 for t in $FORWARD; do
-  r="$(PATH="$REAL_PATH" command -v "$t" 2>/dev/null)" || continue
-  case "$r" in /*) ;; *) continue ;; esac   # a builtin or function, not a binary
+  r="$(PATH="$REAL_PATH" type -P "$t" 2>/dev/null)"
+  if [ -z "$r" ]; then
+    printf '#!%s\nprintf "%%s\\n" %s >> "$MXTK_PCOUNT_LOG"\necho "%s: not installed (fixture stub)" >&2\nexit 127\n' "$REAL_BASH" "$t" "$t" > "$SHIM/$t"
+    continue
+  fi
   printf '#!%s\nprintf "%%s\\n" %s >> "$MXTK_PCOUNT_LOG"\nexec %s "$@"\n' "$REAL_BASH" "$t" "$r" > "$SHIM/$t"
 done
 # Logging stubs. sqlite3 answers like a model with an 11.x product version; pgrep finds nothing.
@@ -134,7 +141,11 @@ grep -q '✓ Script applied' "$WORK/out" && ok "script applied" || bad "no 'Scri
 grep -q '^mxbuild$' "$LOG" && ok "mxbuild gate ran" || bad "mxbuild never started"
 
 BASELINE="$(grep -E '^[0-9]+$' "$BUDGET_FILE" 2>/dev/null | head -1)"
-if [ -z "$BASELINE" ]; then
+if [ "$RC" -ne 0 ] || ! grep -q '^mxbuild$' "$LOG"; then
+  # A short path (a refusal, a missing tool) starts fewer processes; comparing it would read as
+  # "within budget" and invite lowering the baseline to a number no real exec has.
+  bad "count not compared (short path, rc=$RC): $COUNT starts" "$(sort "$LOG" | uniq -c | sort -rn | head -12)"
+elif [ -z "$BASELINE" ]; then
   bad "no baseline number in $BUDGET_FILE (measured: $COUNT)"
 else
   LIMIT=$(( BASELINE + BASELINE * 5 / 100 ))

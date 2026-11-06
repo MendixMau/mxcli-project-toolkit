@@ -54,10 +54,10 @@ Examples:
   F004-corporate-search.brd.json
 ```
 
-Store in: `<KB>/brd/`, where `<KB>` is `analysis/<source>/knowledge-base/` — the first of
-`analysis/*/knowledge-base/`, `analysis/knowledge-base/`, `knowledge-base/` that exists is the one
-`bin/gate-check.sh` and `bin/lib/discover-brds.sh` read. A BRD under `extraction/knowledge-base/`
-is never seen by the Stage 2 gate.
+Store in: `<KB>/brd/`, where `<KB>` is `analysis/<source>/knowledge-base/` — the gate and
+`discover-brds.sh` look in `analysis/*/knowledge-base/`, `analysis/knowledge-base/` and
+`knowledge-base/`; with more than one `analysis/*` knowledge base, gate-check needs
+`GATE_WORKSTREAM=<name>`. A BRD under `extraction/knowledge-base/` is never seen by the Stage 2 gate.
 Also maintain: `<KB>/brd/index.json` (list of all BRDs)
 Validation report: `<KB>/reports/validation-report.md`, with a `## Stop condition` heading
 (`brd-validation.md` → "Stop condition").

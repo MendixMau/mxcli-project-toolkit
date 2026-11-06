@@ -1020,7 +1020,7 @@ check_stage_2() {
           fl_out=$(bash "$TOOLKIT_DIR/bin/facts-lock.sh" "$PROJECT_DIR" check 2>&1)
           fl_dev=$(printf '%s\n' "$fl_out" | grep -c '^  DEVIATION' || true)
           if [ "${fl_dev:-0}" -gt 0 ]; then
-            echo "FAIL|$fl_dev BRD identifier(s) contradict analysis/facts.lock.json, e.g.$(printf '%s\n' "$fl_out" | grep -m1 '^  DEVIATION' | sed 's/^  DEVIATION//') — fix the BRD to the lock's spelling (bin/facts-lock.sh <project> check lists all)"
+            echo "FAIL|$fl_dev BRD identifier(s) contradict analysis/facts.lock.json, e.g.$(printf '%s\n' "$fl_out" | grep -m1 '^  DEVIATION' | sed 's/^  DEVIATION//') — fix the BRD to the lock's spelling (bin/facts-lock.sh <project> check lists all); a module/type/owner change or a fact \"no longer declared\" that was deliberate: bin/facts-lock.sh <project> forget <ns>/<key>, then build"
             return
           fi
           grep -q -- '^  UNFROZEN' <<<"$fl_out" && fl_note="; facts lock: contested identifiers left (bin/facts-lock.sh <project> resolve)"

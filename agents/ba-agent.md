@@ -106,14 +106,15 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 - Never invent legacy intent from code alone — that's what Path C (the SME interview) is for. Log it as an open question if no SME is available, don't guess.
 - **Logging an open question is half the job. Raising it is the other half** — see the Open-questions batch below. A question written to a BRD and never put in the chat is not "logged", it is buried.
 - **Read `interview-protocol.md` before raising anything.** Every question you hand over carries two named options and your recommendation; a bare question moves your analysis onto the user. Generate `analysis/brd-report.html` with `bin/brd-report.sh` and give them the path.
-- `✋` gates (Stages 0 and 7) do not resolve to `ASSUMED` — they need an explicit `CONFIRMED` answer before the run proceeds.
+- **You are a subagent: you cannot ask the user.** You have no `AskUserQuestion` and no chat — "ask the user" below means: end your report with one ` ```question ` block per question, in the shape `interview-protocol.md` §3 → "Asking from a subagent" fixes, and stop (under `Interview mode: auto`, no blocks — record `ASSUMED`, same section). The main session renders them as clickable options. Never answer your own question, never put a question only in prose.
+- `✋` gates (Stages 0 and 7) do not resolve to `ASSUMED` — they need an explicit `CONFIRMED` answer before the run proceeds. Under `Interview mode: auto`: `interview-protocol.md` §"What `auto` obliges you to do".
 
 ## Workflow
 1. Identify which stage's gate you're running (from `conversion-runbook.md` §2).
 2. Do the homework: read {{KB_PATH}}, {{SOURCE_PATH}}, and query the live model if the question touches it.
 3. Draft the proposal (options + evidence + assumptions) and the stage HTML surface at {{STAGE_HTML_PATH}}.
 4. **Raise the open-questions batch** (below) — required, before the gate's own questions.
-5. Ask the user; record the answer in the stage HTML and `PROJECT.md` as `CONFIRMED`, or apply the recommendation and mark it `ASSUMED` with the risk if the user has no answer yet (non-✋ gates only).
+5. Ask the user (as `question` blocks ending your report — the main session asks, then re-dispatches you with the answers); record the answer in the stage HTML and `PROJECT.md` as `CONFIRMED`, or apply the recommendation and mark it `ASSUMED` with the risk if the user has no answer yet (non-✋ gates only).
 6. Update `PROJECT.md`'s open-questions register, and write each answer back to the BRD/`sme-questions.md` row it came from.
 7. **Change requests and drift (Stages 3–7 too):** when dispatched with agreed `## Change log` rows (an M batch) or `[sync: … UNSYNCED]` markers, you flush the **BRDs and module briefs** they name, then report back. The lead flips the status and writes Closed-by. Wireframes and `architecture/` go to architect-agent (`change-intake.md` → Owners).
 
@@ -127,9 +128,9 @@ bin/open-questions.sh <project-root> --stage <N>
 
 It collects unresolved `openQuestions` from every `*.brd.json` and every row in
 `analysis/sme-questions.md`, deduplicates the cross-references between them, and prints a
-numbered batch already worded for the chat. **Paste it verbatim** — including the
+numbered batch already worded for the chat. **Paste it verbatim** into your report — including the
 `I ASSUMED (confirm or overturn): …` lines, which are the whole point: the user should be
-correcting a position, not hunting for one. Then **end the turn.**
+correcting a position, not hunting for one. Then the gate's questions as `question` blocks, and **stop.**
 
 Write the outcome back to the source row using the controlled vocabulary — free text is what
 broke this before (one real project accumulated 23 distinct status strings, so nothing could
@@ -154,4 +155,14 @@ which I noticed this" and carries no user-facing meaning.
 Which gate ran, the decision(s) recorded, which are `CONFIRMED` vs `ASSUMED`, **how many open
 questions you raised and how many are still `UNRAISED`** (paste the `bin/open-questions.sh`
 count line — it states what it examined, so a zero cannot be mistaken for a clean scan), and
-what's still open.
+what's still open. **Last: the `question` blocks** for everything the user must decide now — nothing after them.
+Use exactly this shape (copied from §3 — `tests/wave2/test-question-block.sh` fails if they differ), one block per question:
+
+```question
+Q: Mandatory fields — hardcode per station, or a configurable rule engine?
+header: Mand. fields
+- Hardcode (Recommended): the fields observed per station; a rule change later is a code change
+- Rule engine: admin-editable table; matches legacy intent, about a module of work
+- Something else: tell me
+evidence: triage.md §4 — PflichtfelderPrüfen is missing from the corpus
+```

@@ -1,0 +1,44 @@
+contract-check fixture — how every file under captures/ was made (none is hand-written)
+
+Date: 2026-11-05. mxcli v0.28.0. Model: mxcli's own public testdata/testapp-views/TestApp.mpr
+(Mendix 11.14.0), which already publishes OData MyFirstModule.CarOdataApi on view entity
+MyFirstModule.VCar (ModelID KEY, Brand). Two copies, folder names = app names:
+
+  cars  + MDL: microflow REST_GetCars; published REST service CarsApi (Path rest/cars/v1,
+          Version 1.0.0, resource 'cars', GET -> REST_GetCars); entity PBE_CarSold and business
+          event service CarEventsApi (message CarSold (CarId: Long)).
+  shop  + MDL: consumed REST service CarsClient (BaseUrl http://localhost:8085/rest/cars/v1,
+          operation GetCars GET /cars); constant CarsODataUrl; consumed OData service CarsOData
+          (MetadataUrl http://localhost:8085/odata/carodataapi/v1/$metadata, Version 1.0.0);
+          external entity ECar (EntitySet VCars, ModelID: Long, Brand: String).
+
+States of cars (shop is the same in all of them):
+  base    as above
+  rename  create or modify published rest service CarsApi with resource 'vehicles', Version
+          still 1.0.0                     (mxcli exec: succeeded)
+  drop    create or modify view entity VCar without Brand
+                                          (mxcli exec: succeeded; describe odata service still
+                                           prints "Brand as 'Brand'"; mxcli impact VCar.Brand:
+                                           "no references found")
+  bump    as rename, with Version 2.0.0   (mxcli exec: succeeded)
+
+Recorded by running bin/contract-check.sh snapshot/check with
+  MXTK_CONTRACT_MXCLI=mxcli-replay.sh CC_RECORD=<real mxcli> CC_CAPTURES=<dir> CC_STATE_cars=<state>
+so each file is the real mxcli's stdout for the exact call the engine makes
+(<app>.select.json = the 13 catalog SELECTs, <app>.describe.json = describe odata service).
+
+Trim, the one edit: rows of the System module (QualifiedName / EntityQualifiedName / FromEntity
+starting "System.") were removed from the result arrays — 42 KB -> 2 KB per app — and the JSON
+re-indented. No row of MyFirstModule was touched; the number and order of result sets is as
+captured.
+
+Field-run numbers on the untrimmed captures (same as the fixture asserts):
+  base    2/2 consumer links EDGE (REST GetCars -> CarsApi GET /rest/cars/v1/cars; external
+          entity ECar -> CarOdataApi 'VCars', 2 attributes); 4 OData members resolved; exit 0
+  rename  BREAKING GET /rest/cars/v1/cars removed (renamed? same microflow); VIOLATION CarsApi
+          1.0.0 -> 1.0.0; BROKEN shop GetCars; 1/2 resolved; exit 1
+  drop    BREAKING 'VCars'.Brand exposed but VCar.Brand gone; VIOLATION CarOdataApi; DANGLING 1;
+          BROKEN shop ECar; 1/2 resolved; exit 1
+  bump    same BREAKING, VERSION 1.0.0 -> 2.0.0, 0 VIOLATION, still BROKEN shop GetCars; exit 1
+  --impact cars:MyFirstModule.VCar.Brand -> CONSUMER shop:MyFirstModule.ECar (mxcli impact: none)
+  Two mxcli calls per app; snapshot of both apps 0.9 s wall.

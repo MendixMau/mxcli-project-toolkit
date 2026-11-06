@@ -476,10 +476,40 @@ fi
 N_RECHECK_SOURCES=0
 [ -n "$RECHECK_SOURCES" ] && N_RECHECK_SOURCES=$(printf '%s\n' "$RECHECK_SOURCES" | grep -c .)
 
+# ---------------------------------------------------------------------------
+# consentBy convention (#625). interview-protocol.md "What auto obliges you to do": a position
+# taken under auto mode records `consentBy: auto-mode`, deliberately not a human name, so a later
+# reader can tell "the user said yes" from "an agent assumed it". This used to accept any string:
+# on a field run (2026-11-05, Interview mode: auto) parallel BRD writers stamped a person's name
+# on auto-mode assumptions and nothing noticed. Two shapes are accepted, exactly as the protocol
+# names them: the literal `auto-mode`, or a person who actually said "you decide". WARN only —
+# the state stays ASSUMED and the exit code is unchanged.
+#   near-miss  a value that means auto-mode but is not spelled `auto-mode` ("auto", "Auto mode")
+#   auto+name  the project runs Interview mode: auto and an ASSUMED row names a person, with no
+#              recorded answer to show that person actually answered
+# ---------------------------------------------------------------------------
+IV_MODE="$(bash "$(dirname "$0")/interview-mode.sh" "$PROJECT_DIR" 2>/dev/null || true)"
+CONSENT_WARNINGS=$(printf '%s\n' "$RECORDS" | awk -F'\t' -v mode="$IV_MODE" '
+  NF < 9 { next }
+  {
+    st = tolower($1); gsub(/^[ \t*_>-]+/, "", st)
+    if (st !~ /^assumed/) next
+    cb = $6; gsub(/^[ \t]+|[ \t]+$/, "", cb)
+    if (cb == "" || cb == "auto-mode") next
+    lc = tolower(cb)
+    if (lc ~ /^(auto|automode|auto[ _]mode|auto-mode|unattended)([^a-z].*)?$/)
+      printf "%s (%s): consentBy \"%s\" — write exactly auto-mode for a position taken under auto mode\n", $2, $3, cb
+    else if (mode == "auto" && $8 == "")
+      printf "%s (%s): consentBy \"%s\" names a person under Interview mode: auto, with no recorded answer — write auto-mode unless that person actually said \"you decide\" (then record their answer)\n", $2, $3, cb
+  }')
+N_CONSENT_WARN=0
+[ -n "$CONSENT_WARNINGS" ] && N_CONSENT_WARN=$(printf '%s\n' "$CONSENT_WARNINGS" | grep -c .)
+
 if [ "$JSON" = "1" ]; then
   printf '%s\n' "$FILTERED" | awk -F'\t' 'NF>=9' | jq -R -s --argjson brds "$BRD_COUNT" \
     --argjson smes "$SME_COUNT" --argjson nothing "$NOTHING_EXAMINED" \
-    --argjson dupes "${DUPES_COLLAPSED:-0}" --arg stage "$STAGE" --arg newsrc "$RECHECK_SOURCES" '
+    --argjson dupes "${DUPES_COLLAPSED:-0}" --arg stage "$STAGE" --arg newsrc "$RECHECK_SOURCES" \
+    --arg consentwarn "$CONSENT_WARNINGS" '
     split("\n") | map(select(length>0) | split("\t")) |
     map({state:.[0], id:.[1], origin:.[2], stage:(.[3]|tonumber), question:.[4],
          assumption:.[5], reason:.[6], rawStatus:.[8]}) as $qs |
@@ -496,6 +526,7 @@ if [ "$JSON" = "1" ]; then
       blocking: ($qs|map(select(.state=="UNRAISED" or .state=="UNRECOGNISED"))|length),
       recheck: { newSources: ($newsrc | split("\n") | map(select(length>0))),
                  questionsToRecheck: (if ($newsrc|length) > 0 then ($qs|map(select(.state=="ANSWERED" or .state=="ASSUMED" or .state=="RAISED"))|length) else 0 end) },
+      consentWarnings: ($consentwarn | split("\n") | map(select(length>0))),
       questions: $qs }'
 else
   echo "OPEN QUESTIONS — $PROJECT_DIR${STAGE:+ (stage <= $STAGE)}"
@@ -518,6 +549,12 @@ else
     echo "  no disposition yet. Every ANSWERED/ASSUMED/RAISED question ($N_RC_Q) is open against them —"
     echo "  negative answers first (\"no source describes X\"). Read, then bin/source-ledger.sh mark:"
     printf '%s\n' "$RECHECK_SOURCES" | sed 's/^/    /'
+  fi
+  if [ "$N_CONSENT_WARN" -gt 0 ]; then
+    echo ""
+    echo "WARN consentBy: $N_CONSENT_WARN ASSUMED row(s) break the consent convention (interview-protocol.md,"
+    echo "  \"What auto obliges you to do\"): auto-mode, or the person who actually said \"you decide\"."
+    printf '%s\n' "$CONSENT_WARNINGS" | sed 's/^/    /'
   fi
   echo ""
   if [ "$N_BLOCKING" -eq 0 ]; then

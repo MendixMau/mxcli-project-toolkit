@@ -384,6 +384,15 @@ Once frozen, the lock wins. Parallel agents read it instead of re-deriving, and 
 any BRD that drifts — at write time, where it costs one edit, instead of at gate time, where it
 costs the user's attention.
 
+On a BRD of the shape above the lock holds what parallel writers drift on: entity names and
+their module, `Entity.attribute` with its type, enumeration values, use-case and business-rule
+ids with the BRD that owns each, actors/roles and modules. After a build, an entity no BRD
+declares any more, a changed attribute type or a use-case id that turns up in another BRD is a
+`DEVIATION` (Stage 2 FAILs on it). A deliberate rename: `facts-lock.sh <project> forget
+entities/<name>` (it takes the entity's attributes with it), then `build`. A lock that covers
+almost nothing says `near-empty lock (k facts)` instead of agreeing — rebuild it (field run,
+#621: 9 hand-written BRDs, "2 fact(s) frozen", and check said all clear).
+
 **Its blind spot, stated plainly:** it compares BRDs against each other, so it cannot detect a
 mistake every BRD makes identically. It replaces N inconsistent guesses with one consistent
 guess — which is strictly better and still a guess until someone checks it against the source.

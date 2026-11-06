@@ -9,6 +9,9 @@
 #   C1  the report carries the summary line bin/row-groups.sh reads (lint=N vm=RC), N counted from
 #       the real lint format; and bin/row-groups.sh reads it (open with findings, done at 0)
 #   C2  two-tree checkout (.mpr under app/, no root .mpr): the report is written, not "no .mpr here"
+#   C3  the score is taken here, once, and recorded: with the real metrics-ledger.sh and a stub
+#       `mxcli report` serving tests/wave2/fixtures/mxcli-report-0.26.0.json, one module-close row
+#       lands in .claude/loop/metrics-ledger.tsv with the score, and the report's section 2 shows it
 #   R1  reload.sh (beside module-close.sh): both layouts; .docker/ is read beside the .mpr, where
 #       mxcli writes it (cmd/mxcli/docker/build.go)
 set -uo pipefail
@@ -64,6 +67,19 @@ out=$(cd "$P2" && bash bin/module-close.sh MyFirstModule 2>&1); rc=$?
 { [ -f "$P2/docs/progress/module-close/MyFirstModule.md" ] && grep -q -- '-p .*app/App.mpr' "$P2/mxcli.calls"; } \
   && ok "C2: .mpr under app/ → report written, mxcli given app/App.mpr" || bad "C2: rc=$rc" "$out"
 
+echo "== C3 the module-close score is recorded in the metrics ledger"
+P4="$WORK/score"; mkproj "$P4" ""
+cp "$TK/project-bin/metrics-ledger.sh" "$P4/bin/metrics-ledger.sh"
+printf '#!/bin/sh\necho "$*" >> "%s/mxcli.calls"\ncase "$1" in lint) cat "%s" ;; docker) echo "Build succeeded" ;; report) cat "%s" ;; esac\n' "$P4" "$LINT" "$TK/tests/wave2/fixtures/mxcli-report-0.26.0.json" > "$P4/mxcli"
+out=$(cd "$P4" && bash bin/module-close.sh MyFirstModule 2>&1); rc=$?
+ML="$P4/.claude/loop/metrics-ledger.tsv"; row=$(tail -1 "$ML" 2>/dev/null)
+{ [ "$(grep -c '^ts' "$ML")" = 1 ] && [ "$(wc -l < "$ML" | tr -d ' ')" = 2 ] \
+  && [ "$(printf '%s' "$row" | cut -f2)" = "module-close: MyFirstModule" ] && [ "$(printf '%s' "$row" | cut -f4)" = module-close ] \
+  && [ "$(printf '%s' "$row" | cut -f10)" = 41.3 ]; } \
+  && ok "C3: one module-close row, score 41.3 from the captured report" || bad "C3 ledger" "$out$(cat "$ML" 2>/dev/null)"
+[ "$(grep -c '^report' "$P4/mxcli.calls")" = 1 ] && ok "C3: mxcli report ran once" || bad "C3: report calls" "$(cat "$P4/mxcli.calls")"
+grep -A2 '^## 2. Score' "$P4/docs/progress/module-close/MyFirstModule.md" | grep -q 'score=41.3' \
+  && ok "C3: report section 2 carries the score" || bad "C3 report" "$(cat "$P4/docs/progress/module-close/MyFirstModule.md")"
 
 echo "== R1 reload.sh, both layouts (stub docker, curl, mxcli)"
 RL="$(dirname "$SUT")/reload.sh"

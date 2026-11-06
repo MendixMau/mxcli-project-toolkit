@@ -1,16 +1,25 @@
 """file-bugs.py: engine behind bin/file-bugs.sh (see that file for the contract).
 
 Reads <project>/docs/bugs.jsonl, redacts, searches the target repo for duplicates, and either
-shows (default), prints prefilled new-issue URLs (--links / --json) or files (--file/--all + y/N
-read from /dev/tty). Only two repos are ever addressed; see TARGETS.
+shows (default), prints prefilled new-issue URLs (--links / --json), files (--file/--all + y/N
+read from /dev/tty) or, in a project whose PROJECT.md says `Bug filing: auto`, files every open row
+that passes the scan without a y/N (--auto). Only two repos are ever addressed; see TARGETS.
 """
-import argparse, datetime, ipaddress, json, os, re, subprocess, sys, tempfile, unicodedata, urllib.parse
+import argparse, datetime, ipaddress, json, os, re, shutil, subprocess, sys, tempfile, unicodedata, urllib.parse
 
 TARGETS = {"mxcli": "mendixlabs/mxcli", "toolkit": "MendixMau/mxcli-project-toolkit"}
 ALLOWED_REPOS = tuple(v.lower() for v in TARGETS.values())
 URL_MAX = 6000
 TITLE_URL_MAX = 1200
 LOCAL_PREFIX = "PBUG"
+AUTO_LABEL = "auto-filed"
+LOG_LINES = 40
+LOG_CHARS = 8000
+FENCE = "`" * 3
+# The opt-in: a PROJECT.md line that says exactly `Bug filing: auto`, bold/backtick/list-bullet
+# variants allowed, nothing else on the line, outside an HTML comment (the template ships one
+# commented out). "auto (maybe)" or "auto?" is NOT an opt-in: an annotated line never posts.
+RE_OPTIN = re.compile(r"(?im)^[ \t]*(?:[-*+][ \t]+)?bug filing[ \t]*:[ \t]*auto[ \t]*$")
 STOP_NAMES = {"system", "administration", "atlas_core", "atlas_web_content", "marketplace",
               "mxmodelreflection", "root", "user", "admin", "test", "mendix", "mxcli", "module",
               "entity", "app", "main"}
@@ -512,6 +521,14 @@ def build(r, b):
         parts.append("### Workaround\n" + text_of(b["workaround"]))
     title = re.sub(r"\s+", " ", r.redact(str(b.get("title", ""))))
     body = "**Versions:** " + versions_line(b.get("versions")) + "\n\n" + r.redact("\n\n".join(parts))
+    if b.get("log"):
+        # redacted and scanned on its own: a log that fails is left out, never posted, and never
+        # sinks the rest of the report
+        lg = r.redact(str(b["log"]))[-LOG_CHARS:]
+        if r.scan(lg):
+            body += "\n\n### Log\n(left out: it did not pass the redaction scan)"
+        else:
+            body += "\n\n### Log (last lines, redacted)\n" + FENCE + "\n" + lg.replace(FENCE, "'" * 3) + "\n" + FENCE
     return title, body, r.scan(title + "\n" + body)
 
 
@@ -541,15 +558,25 @@ def new_issue_url(repo, title, body):
     return base + q(body[:lo] + note), True
 
 
+def gh_bin():
+    """The gh to run: $MXTK_GH, else gh, else gh.exe (Git Bash/Windows: Python does not map a bare
+    name to .exe the way MSYS does). None when there is no gh at all."""
+    env = os.environ.get("MXTK_GH")
+    if env:
+        return shutil.which(env) or (env if os.path.isfile(env) else None)
+    return shutil.which("gh") or shutil.which("gh.exe")
+
+
 def dupes(repo, title):
     """Called only with a redacted title that passed the final scan."""
-    if not sh(["gh", "--version"]).returncode == 0:
+    gh = gh_bin()
+    if not gh or sh([gh, "--version"]).returncode != 0:
         return None
     q = " ".join(re.findall(r"[A-Za-z0-9_]{3,}", title)[:8])
-    p = sh(["gh", "issue", "list", "--repo", repo, "--state", "all", "--search", q + " in:title", "--limit", "5",
+    p = sh([gh, "issue", "list", "--repo", repo, "--state", "all", "--search", q + " in:title", "--limit", "5",
             "--json", "number,title,state,url"])
     if p.returncode != 0:
-        p = sh(["gh", "search", "issues", "--repo", repo, q, "--limit", "5", "--json", "number,title,state,url"])
+        p = sh([gh, "search", "issues", "--repo", repo, q, "--limit", "5", "--json", "number,title,state,url"])
     if p.returncode != 0:
         return None
     try:
@@ -585,6 +612,13 @@ def add(path, a):
            "repro": a.repro, "expected": a.expected, "actual": a.actual,
            "versions": {"mxcli": mx, "mendix": a.mendix or "", "toolkit": a.toolkit_version or tk},
            "workaround": a.workaround or "", "status": "open", "issue_url": ""}
+    if a.log:
+        lg, why = log_tail(Redactor(os.path.dirname(os.path.dirname(path)), a.name), a.log, a.log_lines)
+        if lg is None:
+            print("file-bugs: the log was NOT attached: %s. Describe what it showed in --actual instead." % why)
+        else:
+            row["log"] = lg
+            print("file-bugs: attached the last %d line(s) of the log, redacted" % len(lg.splitlines()))
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "a") as f:
         f.write(json.dumps(row, ensure_ascii=False) + "\n")
@@ -607,17 +641,88 @@ def confirm(tty, repo):
     return inp.readline().strip().lower() == "y"
 
 
-def gh_create(repo, title, body):
+def gh_create(repo, title, body, label=None):
     fd, bf = tempfile.mkstemp(prefix="file-bugs-body.")
     try:
         with os.fdopen(fd, "w") as f:
             f.write(body)
-        return sh(["gh", "issue", "create", "--repo=" + repo, "--title=" + title, "--body-file=" + bf])
+        cmd = [gh_bin() or "gh", "issue", "create", "--repo=" + repo, "--title=" + title, "--body-file=" + bf]
+        return sh(cmd + (["--label=" + label] if label else []))
     finally:
         try:
             os.unlink(bf)
         except OSError:
             pass
+
+
+def optin_in(txt):
+    """RE_OPTIN outside HTML comments and fenced code blocks (``` or ~~~): a quoted example or the
+    commented template line is not the person's decision."""
+    txt = re.sub(r"(?s)<!--.*?(?:-->|$)", "", txt)
+    txt = re.sub(r"(?ms)^[ \t]*(`{3,}|~{3,}).*?(?:^[ \t]*\1[ \t]*$|\Z)", "", txt)
+    return bool(RE_OPTIN.search(txt.replace("*", "").replace("`", "")))
+
+
+def opted_in(project):
+    """(True, "<sha> <date>") when PROJECT.md carries `Bug filing: auto` in the working copy AND in
+    the committed HEAD (git show HEAD:./PROJECT.md), with the commit that last changed that line.
+    An uncommitted line, or no git repo, is (False, why): an agent can edit a file, a commit is a
+    visible, attributable record."""
+    try:
+        txt = open(os.path.join(project, "PROJECT.md"), errors="replace").read()
+    except OSError:
+        return False, "there is no PROJECT.md"
+    if not optin_in(txt):
+        return False, "PROJECT.md has no line `Bug filing: auto`"
+    head = sh(["git", "-C", project, "show", "HEAD:./PROJECT.md"])
+    if head.returncode != 0:
+        return False, "PROJECT.md is not in a git commit here (no repo, or never committed)"
+    if not optin_in(head.stdout):
+        return False, "the `Bug filing: auto` line is not committed yet (commit PROJECT.md to opt in)"
+    lg = sh(["git", "-C", project, "log", "-1", "-i", "-G", "bug filing", "--format=%h %ad", "--date=short", "--", "PROJECT.md"])
+    return True, (lg.stdout.strip() or "unknown commit")
+
+
+def gh_ready():
+    """(gh path, None) when gh is installed and signed in, else (None, why)."""
+    gh = gh_bin()
+    if not gh:
+        return None, "gh is not installed"
+    if sh([gh, "auth", "status"]).returncode != 0:
+        return None, "gh is installed but not signed in (`gh auth login`)"
+    return gh, None
+
+
+def auto_label(gh, repo, cache):
+    """The auto-filed label when the repo has it, or when this user may create it (WRITE or more);
+    otherwise None and the issue is filed without a label."""
+    if repo in cache:
+        return cache[repo]
+    have = False
+    p = sh([gh, "label", "list", "--repo", repo, "--search", AUTO_LABEL, "--limit", "50", "--json", "name"])
+    if p.returncode == 0:
+        try:
+            have = any(str(x.get("name", "")).lower() == AUTO_LABEL for x in json.loads(p.stdout or "[]"))
+        except (ValueError, AttributeError):
+            have = False
+    if not have:
+        v = sh([gh, "repo", "view", repo, "--json", "viewerPermission", "--jq", ".viewerPermission"])
+        if v.returncode == 0 and v.stdout.strip().upper() in ("ADMIN", "MAINTAIN", "WRITE"):
+            have = sh([gh, "label", "create", AUTO_LABEL, "--repo", repo, "--color", "BFD4F2",
+                       "--description", "Filed by an agent with bin/file-bugs.sh --auto"]).returncode == 0
+    cache[repo] = AUTO_LABEL if have else None
+    return cache[repo]
+
+
+def log_tail(r, path, n):
+    """The last n lines of a log, redacted: (text, None), or (None, why it was dropped)."""
+    try:
+        lines = open(path, errors="replace").read().splitlines()[-max(1, n):]
+    except OSError as e:
+        return None, "cannot read it (%s)" % e.strerror
+    red = r.redact("\n".join(lines))[-LOG_CHARS:]
+    bad = r.scan(red)
+    return (None, "after redaction it still looks unsafe (%s)" % ", ".join(bad)) if bad else (red, None)
 
 
 NODENY_MSG = ("no deny list, so client names outside the project files cannot be caught. Add one: one regex per line "
@@ -632,10 +737,15 @@ def main():
         epilog="Posting (--file, --all) is for a human: run it yourself with `!bin/file-bugs.sh --file PBUG-NN`. "
                "No script can tell a person from an agent driving a pty, so the shipped Claude Code permissions "
                "deny `file-bugs.sh --file` and `--all`. Dry run, --links and --json post nothing; all three, and "
-               "posting, need a deny list (<project>/.leakguard-deny or $LEAKGUARD_DENY).")
+               "posting, need a deny list (<project>/.leakguard-deny or $LEAKGUARD_DENY). --auto is the one way an "
+               "agent posts: only in a project whose PROJECT.md has the line `Bug filing: auto` (the person's "
+               "decision), every open row that passes the scan, with the person's own gh login, no y/N; without "
+               "that line it is a dry run. No gh or not signed in: it prints the --links instead and exits 0.")
     ap.add_argument("--project", default=".")
     ap.add_argument("--file", action="append", default=[], metavar="PBUG-NN")
     ap.add_argument("--all", action="store_true")
+    ap.add_argument("--auto", action="store_true", help="post every open row that passes the scan, no y/N; only when "
+                    "PROJECT.md says `Bug filing: auto`, otherwise a dry run")
     ap.add_argument("--links", action="store_true")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--name", action="append", default=[], help="extra project name to redact")
@@ -643,9 +753,17 @@ def main():
                     "really both is two submissions (skills/upstream-feedback.md). The row keeps its target and status; "
                     "the issue URL is recorded under also.<repo>")
     ap.add_argument("--add", action="store_true")
+    ap.add_argument("--log", metavar="FILE", help="with --add: attach the last --log-lines lines of FILE, redacted; "
+                    "a log that still looks unsafe after redaction is dropped, never stored or posted")
+    ap.add_argument("--log-lines", type=int, default=LOG_LINES, metavar="N")
     for k in ("target", "title", "repro", "expected", "actual", "workaround", "mxcli", "mendix", "toolkit-version"):
         ap.add_argument("--" + k)
     a = ap.parse_args()
+    if a.log and not a.add:
+        sys.exit("file-bugs: --log goes with --add")
+    if a.auto and (a.all or a.links or a.json or a.add or a.to):
+        sys.exit("file-bugs: --auto cannot be combined with --all, --links, --json, --add or --to "
+                 "(a second submission to the other repo is a human's call)")
     project = os.path.abspath(a.project)
     path = os.path.join(project, "docs", "bugs.jsonl")
     if a.add:
@@ -665,7 +783,20 @@ def main():
             sys.exit("file-bugs: %s is not in %s" % (w, path))
         if not any(sid(d) == w for _, d in todo):
             sys.stderr.write("file-bugs: %s is not open, skipped\n" % w)
-    posting = bool(want or a.all) and not (a.links or a.json)
+    auto_off = False
+    if a.auto:
+        ok, info = opted_in(project)
+        auto_off = not ok
+        if ok:
+            print("Bug filing: auto -- opted in by commit %s (PROJECT.md)\n" % info)
+            # --to is refused above; never re-post a row that is not open
+            todo = [(i, d) for i, d in todo if d.get("status", "open") == "open"]
+        else:
+            print("NOTE: --auto is off for this project: %s, so this is a dry run and nothing is posted. Only the "
+                  "person decides that line, in a commit; until then a human files with "
+                  "`!bin/file-bugs.sh --file PBUG-NN`.\n" % info)
+            a.auto = False
+    posting = bool(want or a.all or a.auto) and not (a.links or a.json or auto_off)
     tty = None
     r = Redactor(project, a.name)
     for w in r.warnings:
@@ -681,7 +812,15 @@ def main():
         if posting or a.links or a.json:
             sys.exit("file-bugs: " + NODENY_MSG + " Posting, --links and --json are refused until then; nothing posted.")
         print("NOTE: " + NODENY_MSG + " Posting, --links and --json are refused until then.\n")
-    if posting:
+    gh, labels, tally = None, {}, {"filed": 0, "refused": 0, "held": 0}
+    if a.auto:
+        gh, why = gh_ready()
+        if not gh:
+            # never a failure: the rows stay open with their workarounds; links let anyone file them
+            print("NOTE: --auto cannot post: %s. Nothing posted; here are the pre-filled links instead "
+                  "(anyone with a GitHub account can open one):\n" % why)
+            a.auto, a.links, posting = False, True, False
+    elif posting:
         tty = tty_open()
         if tty is None:
             sys.exit("file-bugs: posting needs an interactive terminal (/dev/tty, y/N per bug); nothing posted")
@@ -712,6 +851,7 @@ def main():
         if problems:
             print("WARNING: redaction left suspicious content (%s). Refusing to post this bug; no duplicate search was run; "
                   "fix the log row." % ", ".join(problems))
+            tally["refused"] += 1
             continue
         dp = dupes(repo, title)
         if dp is None:
@@ -731,15 +871,40 @@ def main():
             continue
         if dp is None:
             print("Not posting: the duplicate search did not run.")
+            tally["held"] += 1
             continue
-        if not confirm(tty, repo):
+        label = None
+        if a.auto:
+            same = [x for x in dp if re.sub(r"\s+", " ", str(x.get("title", ""))).strip().lower() == title.strip().lower()]
+            if same and re.match(r"https://github\.com/%s/issues/\d+$" % re.escape(repo), str(same[0].get("url", ""))):
+                # the same title is already there: record it instead of opening a second issue
+                if also(d): write_back(path, sid(d), {"also": dict(d.get("also") or {}, **{a.to: same[0]["url"]})})
+                else: write_back(path, sid(d), {"status": "filed", "issue_url": same[0]["url"], "duplicate": True})
+                print("Not posting: #%s has the same title; recorded it as this bug's issue." % same[0].get("number"))
+                tally["held"] += 1
+                continue
+            rel = [x.get("number") for x in dp if str(x.get("number", "")).isdigit()]
+            body += "\n\n---\nFiled by the reporter's agent with `bin/file-bugs.sh --auto` (redacted before posting)."
+            if rel:
+                body += " Possibly related: " + ", ".join("#%s" % n for n in rel) + "."
+            again = r.scan(title + "\n" + body)
+            if again:
+                print("WARNING: the filing footer failed the scan (%s); not posting." % ", ".join(again))
+                tally["refused"] += 1
+                continue
+            label = auto_label(gh, repo, labels)
+        elif not confirm(tty, repo):
             print("skipped.")
             continue
-        p = gh_create(repo, title, body)
+        p = gh_create(repo, title, body, label)
+        if label and p.returncode != 0:
+            p = gh_create(repo, title, body)   # a label this user may not apply never blocks the report
         m = re.search(r"https://github\.com/%s/issues/\d+" % re.escape(repo), p.stdout or "")
         if p.returncode != 0 or not m:
             print("gh issue create failed: " + (p.stderr or p.stdout).strip()[:300])
+            tally["held"] += 1
             continue
+        tally["filed"] += 1
         if also(d): write_back(path, sid(d), {"also": dict(d.get("also") or {}, **{a.to: m.group(0)})})
         else: write_back(path, sid(d), {"status": "filed", "issue_url": m.group(0)})
         print("filed: " + m.group(0))
@@ -747,6 +912,9 @@ def main():
         print(json.dumps(out, indent=2, ensure_ascii=False))
     elif not out and not a.links:
         print("file-bugs: no open bugs")
+    if a.auto and out:
+        print("\nfile-bugs --auto: %d filed, %d refused by the redaction scan (never posted: run the dry run, fix the row), "
+              "%d not posted (duplicate recorded, search unavailable or gh failed)" % (tally["filed"], tally["refused"], tally["held"]))
 
 
 if __name__ == "__main__":

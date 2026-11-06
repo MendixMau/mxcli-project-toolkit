@@ -133,7 +133,7 @@ Rules, each from the runner's behaviour:
   cached object. That is not a read-back.
 - Keep the plain rollback test for the logic cases. The read-back is one extra test per committing flow.
 - Path length: a copy of the app under a long path (a session scratch folder) made mxbuild fail with
-  `IO_PathTooLong`. Run from a short path.
+  `IO_PathTooLong`. Run from a short path. `project-bin/test-scratch.sh` is affected too: it makes its copy under `${MXTK_SCRATCH_DIR:-${TMPDIR:-/tmp}}`, so on a machine with a long `TMPDIR` set `MXTK_SCRATCH_DIR` to a short folder such as `/tmp`.
 - An enumeration value in `@verify` is a quoted string (`= 'CANCELLED'`), not `Module.Enum.CANCELLED`.
   `--list` shows it before a run.
 - Fixture rows the test creates (users, vendors) stay too: unique keys for those as well, per file,

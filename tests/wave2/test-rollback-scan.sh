@@ -58,7 +58,23 @@ has "$OUT" 'getGUID' && bad "B4 getGUID listed as unlisted java" "$OUT" || ok "B
 J="$(scan --json Procurement.ACT_User_Register)"
 has "$J" '^\{' && has "$J" '"reached": 5' && has "$J" '"effects": \[\]' && ok "C1 --json prints one object, reached 5 flows, no effect" || bad "C1 json/reach" "$J"
 has "$(scan Procurement.ACT_User_Register)" 'reached' && ok "C2 text mode runs" || bad "C2" ""
-has "$J" '"reached": 5' && ok "C3 handler reached through the event edge (5 flows, 4 without it)" || bad "C3 event edge not followed" "$J"
+# C3 control: the same flow against a catalog copy without the event edge reaches 4 flows, not 5
+cp "$WORK/catalog.db" "$WORK/noevent.db"; sqlite3 "$WORK/noevent.db" "delete from refs where RefKind='event'"
+J4="$(ROLLBACK_SCAN_CATALOG="$WORK/noevent.db" scan --json Procurement.ACT_User_Register)"
+has "$J4" '"reached": 4' && ok "C3 control: without the event edge only 4 flows are reached" || bad "C3 control: expected 4 flows" "$J4"
+# C4 handler on a PARENT entity fires for a child entity the flow creates
+cp "$WORK/catalog.db" "$WORK/parent.db"
+sqlite3 "$WORK/parent.db" "insert into refs (SourceType,SourceId,SourceName,TargetType,TargetName,RefKind) values
+ ('MICROFLOW','x','Procurement.TST_Child','ENTITY','Procurement.ChildUser','create'),
+ ('MICROFLOW','x','Procurement.TST_Child','MICROFLOW','Procurement.SUB_User_SetFullName','call'),
+ ('ENTITY','x','Procurement.ChildUser','ENTITY','Procurement.User','generalize');"
+JP="$(ROLLBACK_SCAN_CATALOG="$WORK/parent.db" scan --json Procurement.TST_Child)"
+has "$JP" "\"reached\": 3" && ok "C4 handler on the parent entity is reached from the child (3 flows, 2 without)" || bad "C4 parent handler not followed" "$JP"
+# C5 test-file roots: comments are ignored, `call java action` is a root
+printf -- '-- call microflow Nope.InLineComment\n/* call microflow Nope.InBlock\n   call microflow Nope.Block2 */\ncall java action CommunityCommons.Base64DecodeToFile(x);\ncall microflow MtaProbe.PRB_Rest();\n' > "$P/tests/roots.test.mdl"
+OR="$(scan tests/roots.test.mdl)"
+has "$OR" 'Nope\.' && bad "C5 commented call became a root" "$OR" || ok "C5 -- and /* */ comments are not roots"
+has "$OR" '^A  FILE-WRITE +CommunityCommons\.Base64DecodeToFile' && has "$OR" '^A  REST ' && ok "C6 call java action and call microflow are both roots" || bad "C6 java action root" "$OR"
 
 # D. never fails, says why
 rm -f "$WORK/none.db"

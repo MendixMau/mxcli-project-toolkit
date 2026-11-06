@@ -586,7 +586,7 @@ HDR2
   # The gate cell is read from GATE_STATE rather than passed in, so no caller
   # can omit it — a blank cell in this table reads as "fine", which is the exact
   # false-green the gate exists to prevent.
-  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${SCAN_NOTE:+ · $SCAN_NOTE}${ROWS_NOTE:+ · $ROWS_NOTE}${RESTATE_NOTE:+ · $RESTATE_NOTE}${GATE_NOTE:+ · $GATE_NOTE}${MXB_LOG_NOTE:+ · $MXB_LOG_NOTE}${HV_NOTE:+ · $HV_NOTE}${SCOPE_NOTE:+ · $SCOPE_NOTE}$_EXEC_APPROVAL_SUFFIX${STEP_TIMES:+ · steps: $STEP_TIMES}"
+  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${SCAN_NOTE:+ · $SCAN_NOTE}${ROWS_NOTE:+ · $ROWS_NOTE}${MKT_NOTE:+ · $MKT_NOTE}${RESTATE_NOTE:+ · $RESTATE_NOTE}${GATE_NOTE:+ · $GATE_NOTE}${MXB_LOG_NOTE:+ · $MXB_LOG_NOTE}${HV_NOTE:+ · $HV_NOTE}${SCOPE_NOTE:+ · $SCOPE_NOTE}$_EXEC_APPROVAL_SUFFIX${STEP_TIMES:+ · steps: $STEP_TIMES}"
   if [ -n "${EPOCHSECONDS:-}" ]; then printf -v _when '%(%Y-%m-%dT%H:%M:%S%z)T' -1; else _when="$(date '+%Y-%m-%dT%H:%M:%S%z')"; fi
   printf '| %s | `%s` | %s | %s | %s |\n' \
     "$_when" "$LOG_NAME" \
@@ -1053,6 +1053,57 @@ if [ -n "$brief_missing" ]; then
   echo "  edge cases, wireframe->page map and test plan — see module-brief.md."
   echo "  → Write it before the next script, or the MDL after this one is guesswork too."
   echo ""
+fi
+
+# ── Marketplace install gate (before the first domain-model script) ─────────
+# A confirmed Stage 3 "Buy" (architecture/fit-gap.md) is installed at brd-to-build-plan.md Step 0,
+# before any domain-model script, so MDL can reference the module and `mxcli check --references`
+# can validate it. Confirmed Buys too often never got installed; the toolkit's
+# bin/lib/marketplace-check.sh compares the fit-gap with SHOW MODULES / widgets/<Name>.mpk.
+# Here only its FAIL refuses, and only for a script that defines domain model (entity,
+# association, enumeration) in a project with a build plan — the same opt-in as the brief
+# advisory. PENDING (no mxcli, an unresolved row) is one note, never a refusal.
+# Never blocked (guard rule 7): `mxcli marketplace install` does not go through exec.sh, and
+# neither does `gate-check.sh --waive marketplace/<Name>`; --patch is never checked.
+# Cost: awk over fit-gap.md on every such script; SHOW MODULES only while a confirmed Buy is
+# not yet known to be installed. A PASS for the same confirmed list (written by this check
+# whichever caller ran it — gate-check's full run or build-ready, or this) is remembered in
+# .claude/loop/marketplace-ok.txt, so a passing project pays one read, not one per exec.
+# Override, with a reason that lands in the BUILD-LOG row: MXTK_MKT_OVERRIDE="<why>".
+MKT_NOTE=""
+_MKT_LIB=""
+for _s in "${MXTK_ROOT:-}/bin/lib/marketplace-check.sh" "$_TKR/bin/lib/marketplace-check.sh"; do
+  [ -f "$_s" ] && { _MKT_LIB="$_s"; break; }
+done
+if [ "$PATCH_MODE" != "1" ] && [ -f "$SCRIPT" ] && [ -n "$_MKT_LIB" ] \
+   && [ -f "$PROJECT_ROOT/architecture/build-plan.md" ] && [ -s "$PROJECT_ROOT/architecture/fit-gap.md" ] \
+   && printf '%s\n' "${script_body:-}" | grep -qiE '(create|alter)[[:space:]]+(or[[:space:]]+(modify|replace)[[:space:]]+)?((non-)?persistent[[:space:]]+)?(entity|association|enumeration)[[:space:]]'; then
+  _mkt_out="$( . "$_MKT_LIB" >/dev/null 2>&1 || exit 0
+               _c="$(mxtk_mkt_buys "$PROJECT_ROOT/architecture/fit-gap.md" | awk -F'\t' '$1=="confirmed"{print tolower($2)}' | sort -u | tr '\n' ' ')"
+               [ -n "$_c" ] || exit 0
+               _ok="$PROJECT_ROOT/.claude/loop/marketplace-ok.txt"
+               [ -f "$_ok" ] && [ "$(cat "$_ok" 2>/dev/null)" = "$_c" ] && exit 0
+               mxtk_mkt_report "$PROJECT_ROOT" "$PROJECT_ROOT/PROJECT.md" "$PROJECT_ROOT/architecture/fit-gap.md" >/dev/null
+               printf '%s\t%s\n' "${MXTK_MKT_STATUS:-}" "${MXTK_MKT_NOTE:-}" )"
+  _mkt_st="${_mkt_out%%$'\t'*}"; _mkt_nt="${_mkt_out#*$'\t'}"
+  case "$_mkt_st" in
+    FAIL)
+      echo "Marketplace installs: FAIL — $_mkt_nt"
+      if [ -z "${MXTK_MKT_OVERRIDE:-}" ]; then
+        echo ""
+        echo "✗ Marketplace install gate: refusing this domain-model script. NOTHING was snapshotted or written."
+        echo "  A confirmed fit-gap Buy is not in the model. Install it first (brd-to-build-plan.md Step 0),"
+        echo "  or record it as deliberately not installed: bin/gate-check.sh --waive marketplace/<Name> --reason \"...\""
+        echo "  The PAT the install needs: skills/learned-constants-and-secrets.md § \"Creating a PAT for Marketplace installs\"."
+        echo "  Override with a reason: MXTK_MKT_OVERRIDE=\"<why>\" ./bin/exec.sh $SCRIPT"
+        log_build "🚫 blocked" "marketplace install gate: $(printf '%s' "$_mkt_nt" | tr '|' '/' | cut -c1-200) — nothing written"
+        exit 1
+      fi
+      echo "⚠ Marketplace install gate OVERRIDDEN: ${MXTK_MKT_OVERRIDE}" >&2
+      MKT_NOTE="marketplace override: $(printf '%s' "$MXTK_MKT_OVERRIDE" | tr '|' '/')" ;;
+    PENDING)
+      echo "⚠ Marketplace installs: PENDING — $_mkt_nt" >&2 ;;
+  esac
 fi
 
 # (The exec lock is taken in guard 2 above, with its EXIT trap, so it covers the commit-first

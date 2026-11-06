@@ -156,8 +156,10 @@ MXTK_PROJECT_BIN_NOINSTALL="report-disposition-check.sh coverage-check-all.sh ts
 # volume everywhere it runs; the de-noised version here took PROJECT-C 399 -> 51.
 # conv009 (CONV009, issue #267) hard-codes 15 and never calls get_option(), so the
 # `maxObjects` example in the lint-config.yaml init writes does nothing; ours reads it.
+# conv007 (CONV007) fires 217 times on a 20-module app, 177 of them unscoped READ and the admin
+# roles; ours reports unscoped WRITE of non-admin roles (READ opt-in), 217 -> 29 there.
 #
-# The toolkit repairs ONLY these four of mxcli's ~29 (MXTK_LINT_RULES_STOCK below); rules
+# The toolkit repairs ONLY these five of mxcli's ~29 (MXTK_LINT_RULES_STOCK below); rules
 # after them in the list are toolkit-authored, never seeded by init. Copying the rest would pin every project
 # to whatever mxcli shipped the day someone copied them.
 #
@@ -171,14 +173,14 @@ MXTK_PROJECT_BIN_NOINSTALL="report-disposition-check.sh coverage-check-all.sh ts
 # project that re-runs init loses these fixes and its lint gate goes quietly blind. Re-running
 # sync-project.sh restores them; lint-rules/STOCK-HASHES.txt is what lets it tell a
 # reverted-to-stock file (safe to restore) from one a project deliberately tuned (hands off).
-MXTK_LINT_RULES="conv010_act_microflow_content.star data_change_microflows.star entity_business_key.star conv009_max_microflow_objects.star ux001_confirm_before_destructive.star ux002_decisions_captioned.star err001_error_swallowed.star loop001_expensive_action_in_loop.star perf001_generalization_depth.star perf002_nested_data_widgets.star perf004_npe_system_user_assoc.star txt001_build_words_in_user_text.star txt002_non_iso_date_in_user_text.star ui001_widget_layout_traps.star sec014_external_role_write.star"
+MXTK_LINT_RULES="conv010_act_microflow_content.star data_change_microflows.star entity_business_key.star conv009_max_microflow_objects.star ux001_confirm_before_destructive.star ux002_decisions_captioned.star err001_error_swallowed.star loop001_expensive_action_in_loop.star perf001_generalization_depth.star perf002_nested_data_widgets.star perf004_npe_system_user_assoc.star txt001_build_words_in_user_text.star txt002_non_iso_date_in_user_text.star ui001_widget_layout_traps.star sec014_external_role_write.star conv007_xpath_on_all_access.star mxtk_sec015_flow_execute_rights.star"
 # MXTK_LINT_RULES_STOCK — the subset of MXTK_LINT_RULES that `mxcli init` ALSO seeds, i.e. the
 # only files lint-rules/STOCK-HASHES.txt can ever hold a hash for. The ux001/ux002 rules are
 # toolkit-authored: init never writes them, so no stock hash can exist and a coverage check
 # that demanded one (tests/wave2/test-stock-hashes.sh, until 2026-10-08) went red on every
 # version the day a non-stock rule joined MXTK_LINT_RULES. Every name here must also be in
 # MXTK_LINT_RULES; the fixture asserts it.
-MXTK_LINT_RULES_STOCK="conv010_act_microflow_content.star data_change_microflows.star entity_business_key.star conv009_max_microflow_objects.star"
+MXTK_LINT_RULES_STOCK="conv010_act_microflow_content.star data_change_microflows.star entity_business_key.star conv009_max_microflow_objects.star conv007_xpath_on_all_access.star"
 MXTK_LINT_RULES_CONFIGURABLE="mxtk_ux003_action_user_feedback.star"
 
 # MXTK_LINT_RENAMES — rules this toolkit has renamed, one per line:

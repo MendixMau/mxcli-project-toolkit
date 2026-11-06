@@ -62,10 +62,11 @@
 //
 //	element_id module_name
 //
-// entity_permission (permissions_for(entity), fixture "permissions" filtered on entity_name):
+// entity_permission (permissions_for(entity), fixture "permissions" filtered on entity_name;
+// permissions() serves every row, with element_type / element_name):
 //
 //	module_role_name module_name entity_name access_type member_name xpath_constraint
-//	is_constrained default_member_access_rights
+//	is_constrained default_member_access_rights element_type element_name
 //
 // attribute (attributes_for(entity)): id name entity_id entity_qualified_name module_name
 //
@@ -253,6 +254,29 @@ func main() {
 			}
 			return list("attribute", attributeFields, fx.Attributes[q]), nil
 		}),
+		// permissions() mirrors the catalog-wide builtin: every row with element_type /
+		// element_name. A fixture row written for permissions_for (entity_name only) is
+		// served as an ENTITY row for that entity.
+		"permissions": starlark.NewBuiltin("permissions", func(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+			if len(args) != 0 || len(kwargs) != 0 {
+				return nil, fmt.Errorf("permissions() takes no arguments")
+			}
+			rows := make([]map[string]any, 0, len(fx.Permissions))
+			for _, r := range fx.Permissions {
+				c := map[string]any{}
+				for k, v := range r {
+					c[k] = v
+				}
+				if _, ok := c["element_name"]; !ok {
+					if en, ok := c["entity_name"].(string); ok {
+						c["element_name"] = en
+						c["element_type"] = "ENTITY"
+					}
+				}
+				rows = append(rows, c)
+			}
+			return list("entity_permission", permissionFields, rows), nil
+		}),
 		"user_roles":    noArgs("user_roles", userRoles(fx.UserRoles)),
 		"role_mappings": noArgs("role_mappings", list("role_mapping", roleMappingFields, fx.RoleMappings)),
 		"get_option": starlark.NewBuiltin("get_option", func(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
@@ -421,7 +445,7 @@ var stringFields = fields{
 }
 var permissionFields = fields{
 	s: []string{"module_role_name", "module_name", "entity_name", "access_type", "member_name",
-		"xpath_constraint", "default_member_access_rights"},
+		"xpath_constraint", "default_member_access_rights", "element_type", "element_name"},
 	b: []string{"is_constrained"},
 }
 var attributeFields = fields{

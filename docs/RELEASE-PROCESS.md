@@ -113,6 +113,8 @@ The reviewer, for each of the 5 rows, reads the diff and confirms or corrects th
    Context cost 0) is not an agent-stub change for this purpose: Behaviour is **NOT RUN: on-demand
    row only**, not required.
 5. **Runtime** — measured seconds per exec/gate/check, or "n/a" with nothing on a hot path.
+   A PR that adds or widens a check, gate, obligation or test step carries a `Time cost:` line
+   (template row); the reviewer checks it against the Per-row budget below.
 
 The review ends with 5 of 5 rows confirmed; "NOT RUN: <reason>" counts, a blank does not.
 
@@ -120,6 +122,26 @@ The review ends with 5 of 5 rows confirmed; "NOT RUN: <reason>" counts, a blank 
 |---|---|
 | ✗ bad | "Small — a few lines in one skill." |
 | ✓ good | "`learned-mdl-preflight.md` +42 words; mdl at Stage 5 30,185 → 30,227; baseline 73,522 → 73,564 (budget 80,000). `render-routing.sh --check` on base and head." |
+
+**Per-row budget:** what the toolkit makes one Stage 5 build-plan row pay, held like the word
+budget: a ratchet, lowered freely, raised only on purpose (#687). Release measurement of the same
+numbers is RM-02 (`process/roadmap.md`).
+
+| Measure (2026-11-06) | Baseline | Source |
+|---|---|---|
+| Process starts per clean MDL exec | 128 (+5% fails CI) | `tests/wave2/test-exec-process-budget.sh`, number in `tests/wave2/fixtures/exec-process-budget.txt` |
+| `exec.sh` wall-clock per exec, field | ~18 s (163 execs, ~50 min; gate 25, exec 8, check 7, lint 3, score 2, baseline 4) | #686 field run |
+| Wall-clock per row, field | 19 min average, 41 max (17 row agents); `exec.sh` ≈ 8% of it | #686 |
+
+Rules:
+1. A PR that raises a per-exec or per-row cost (a new step, a widened one, a higher fixture
+   number) states its `Time cost:` and an **offset** (a step removed, cheapened, or moved to
+   module/stage close) — or gets an explicit maintainer OK. Either is recorded in the merge's
+   `Review:` line, e.g. `Review: MERGE — +6 starts/exec, offset: lint moved to module close`.
+2. Prefer per-module or per-stage over per-row and per-exec (#615: score once per module).
+3. The reviewer re-measures, not reads: the fixture's count for exec-path changes, seconds on
+   their own machine for anything else on the hot path (`exec.sh`, `verify-module.sh`,
+   `module-close.sh`, `gate-check.sh`).
 
 ## 5. Model tiers, by purpose
 

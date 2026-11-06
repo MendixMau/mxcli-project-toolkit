@@ -56,6 +56,12 @@ entry_mode_token() {
   # First word only — space, tab, or "/" as a separator ("migration/brownfield" reads
   # as migration, its own leading declaration, not as an unrecognised compound value).
   v="${v%%[ 	/]*}"
+  # ...and trim emphasis/punctuation off THAT word too. The whole-value trim above only
+  # reaches the value's last character, so "**Migration**. Evidence: 409 .java files"
+  # (an auto-mode intake answer, #634) left the first word as "migration**." and the mode
+  # silently vanished. Re-trimming after the cut is what makes the header's "bolded
+  # values are handled" true for a bolded value with prose after it.
+  v="$(printf '%s' "$v" | sed 's/^[*_]*//; s/[.:!*_-]*$//')"
 
   case "$v" in
     greenfield)                                   echo "greenfield" ;;

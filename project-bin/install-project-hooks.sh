@@ -183,7 +183,8 @@ echo "    (refuses to commit .mpr/mprcontents changes that have no mxbuild-gate 
 # written by this hook's and module-close.sh's passing full builds), (b) a module-close report is
 # newer than that stamp, (c) a pushed commit touches docs/progress/module-close/, (d) Java/JavaScript/
 # theme files changed since the last full build (gate-kind.state's `java` fingerprint vs
-# _common.sh mxtk_java_fp), or (e) MXTK_PREPUSH_MAX_DEFERRED (10) pushes in a row deferred it, so a
+# _common.sh mxtk_model_java_fp, the helper exec.sh records with), or (e)
+# MXTK_PREPUSH_MAX_DEFERRED (10) pushes in a row deferred it, so a
 # project that never runs module-close still gets one. `Pipeline mode: high-quality` (_common.sh
 # mxtk_pipeline_mode) or MXTK_PREPUSH_BUILD=always: every push, as before #686. If _common.sh cannot
 # be read, the hook builds: unsure means the safe side (PR #700 review).
@@ -204,7 +205,7 @@ b="\$(git rev-parse --show-toplevel)/$BIN_REL"
 "\$b/model-stamp.sh" check -q >/dev/null 2>&1 || exit 0
 "\$b/model-stamp.sh" check -q --full >/dev/null 2>&1 && exit 0
 last="\$b/../.claude/loop/prepush-build.last"
-info="\$(PROJECT_ROOT="\$b/.." bash -c '. "\$1/_common.sh" >/dev/null 2>&1 || exit 1; mxtk_pipeline_mode "\$1/.." || exit 1; d="\$(find_model_dir 2>/dev/null)" && mxtk_java_fp "\$d"' _ "\$b" 2>/dev/null)"
+info="\$(PROJECT_ROOT="\$b/.." bash -c '. "\$1/_common.sh" >/dev/null 2>&1 || exit 1; mxtk_pipeline_mode "\$1/.." || exit 1; mxtk_model_java_fp "\$1/.."' _ "\$b" 2>/dev/null)"
 mode="\$(printf '%s\n' "\$info" | sed -n 1p)"; jfp="\$(printf '%s\n' "\$info" | sed -n 2p)"
 cnt="\$b/../.claude/loop/prepush-deferred"
 if [ "\${MXTK_PREPUSH_BUILD:-module}" != always ] && [ "\$mode" != high-quality ]; then

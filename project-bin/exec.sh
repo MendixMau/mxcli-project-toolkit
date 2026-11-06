@@ -1829,7 +1829,7 @@ gate_kind_decide() {
   GATE_KIND=full; GATE_KIND_WHY=""
   # javasource/*/proxies/ is excluded: mxbuild regenerates those from the model on every
   # full build, so counting them made each full build look like a Java change (field run).
-  _gk_java_fp() { mxtk_java_fp "$PROJECT_ROOT"; }
+  _gk_java_fp() { mxtk_model_java_fp "$PROJECT_ROOT"; }
   # Same job as _first_match (top of file); nested because the gate-kind fixture extracts this
   # function on its own, so it must not lean on a helper defined elsewhere in exec.sh.
   _gk_first() {  # <file> <ERE from ^, one capture without newlines> -> _FM
@@ -1854,7 +1854,7 @@ gate_kind_decide() {
     elif ! mxtk_find_mx >/dev/null 2>&1; then GATE_KIND_WHY="no mx tool beside $MXBUILD"
     elif [ -z "$_gk_checks" ] || [ -z "$_gk_java" ]; then GATE_KIND_WHY="no full build recorded yet"
     elif [ "$_gk_java" != "$(_gk_java_fp)" ]; then GATE_KIND_WHY="Java/JavaScript/theme/widgets changed since the last full build"
-    elif ls "$PROJECT_ROOT"/javasource/*/actions/*.java >/dev/null 2>&1 \
+    elif ls "$(find_model_dir 2>/dev/null || echo "$PROJECT_ROOT")"/javasource/*/actions/*.java >/dev/null 2>&1 \
          && grep -Ei '^[[:space:]]*(drop|rename)[[:space:]]|^[[:space:]]*alter[[:space:]].*[[:space:]](drop|rename)[[:space:]]' "$SCRIPT" 2>/dev/null \
             | grep -Eiqv '[[:space:]]if[[:space:]]+exists[[:space:]]'; then
       # `drop … if exists X` is the re-runnable re-create idiom (X is created again below it),

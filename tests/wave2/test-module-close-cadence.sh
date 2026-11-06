@@ -4,10 +4,10 @@
 #
 # usage: bash tests/wave2/test-module-close-cadence.sh [toolkit-root]
 #
-# Run against a worktree of master ee12a615, 42 of the 55 cases fail; the 13 that pass there are
+# Run against a worktree of master ee12a615, 45 of the 59 cases fail; the 14 that pass there are
 # guards that master's behaviour survives where it should (high-quality = master per row, the
 # 2026-09-19 line, MXTK_PREPUSH_BUILD=always, a refused push on a failing build, the table last,
-# no stamp without a full build, no sync note when the line is set, no page check without a page).
+# no stamp without a full build, no sync note when the line is set, no page check without a page, two-tree no-change stays check).
 #   E1-E7  exec.sh per-row lane (the real exec.sh, run on a stub project; it prints the lane and
 #          then refuses an uncommitted model, writing nothing), per mode. balanced (no line): one
 #          1280 LOOK, no journeys, the plain-words note; logic = the exec gate only, unless
@@ -22,6 +22,8 @@
 #          N deferred pushes, a Java fingerprint change; a v1
 #          hook is replaced in place and fails --check (so sync-project.sh refreshes it).
 #   S1     sync-project.sh prints one line when PROJECT.md has no Pipeline mode line.
+#   T1-T3  two-tree checkout: the hook and exec.sh share mxtk_model_java_fp (no Java change =
+#          deferred; a change under app/javasource = full build, in the hook and in exec.sh).
 #   M4     module-close.sh records a full build for the pre-push hook.
 #   M5     its report carries a `Polish: n of cap` row per page (countable cap; template only).
 #   E9     a page script with a co-located GRANT (logic) still gets its mode's per-row page check.
@@ -111,7 +113,7 @@ else bad "I1 init-project.sh wrote no CLAUDE.local.md"; fi
 IN="$IP/intake.md"
 if [ -f "$IN" ]; then
   flat=$(tr '\n' ' ' < "$IN")
-  case "$flat" in *"Pipeline mode: \`high-speed\`, \`balanced\` (default) or \`high-quality\`?"*"high-speed**: fastest"*"balanced**: estimated ≥8 min less per build row (measured in #686's field run)"*"high-quality**: checks every page after every change; slowest"*) ok "I2 intake asks the pipeline mode, three options with trade-offs" ;; *) bad "I2 intake question" ;; esac
+  case "$flat" in *"Pipeline mode: \`high-speed\`, \`balanced\` (default) or \`high-quality\`?"*"high-speed**: fastest"*"balanced**: estimated ≥8 min less per build row (an estimate from #686's field data)"*"high-quality**: checks every page after every change; slowest"*) ok "I2 intake asks the pipeline mode, three options with trade-offs" ;; *) bad "I2 intake question" ;; esac
 else bad "I2 init-project.sh wrote no intake.md"; fi
 grep -q '^Pipeline mode: balanced$' "$IP/PROJECT.md" 2>/dev/null && ok "I3 a new PROJECT.md says Pipeline mode: balanced" || bad "I3 PROJECT.md line"
 [ "$(grep -ciE '^[*_ >-]*Pipeline mode:' "$IP/PROJECT.md")" = 1 ] && ok "I3 exactly one line reads as the setting (no comment line looks like one)" || bad "I3 extra setting-like lines" "$(grep -niE '^[*_ >-]*Pipeline mode:' "$IP/PROJECT.md")"
@@ -198,6 +200,38 @@ pp "refs/heads/m $HEAD1 refs/heads/m $HEAD0"
 st env MXTK_STAMP_ERRORS=0 bash bin/model-stamp.sh write pass "verify-model.sh"
 pp "refs/heads/m $HEAD1 refs/heads/m $HEAD0" MXTK_PREPUSH_BUILD=always
 { [ "$rc" = 0 ] && [ ! -e "$S/.claude/full-ran" ]; } && ok "P8 full stamp: no build, whatever the mode" || bad "P8 rc=$rc" "$out"
+
+echo "-- T: two-tree checkout (.mpr under app/): one Java fingerprint for exec.sh and the hook"
+T="$WORK/twotree"; mkdir -p "$T/bin" "$T/.claude/loop" "$T/app/javasource/Mod/actions"
+cp "$TK/project-bin/model-stamp.sh" "$TK/project-bin/_common.sh" "$TK/project-bin/install-project-hooks.sh" "$T/bin/"
+printf '#!/usr/bin/env bash\necho ran > .claude/full-ran; exit 0\n' > "$T/bin/verify-model.sh"; chmod +x "$T/bin/"*.sh
+( cd "$T" && git init -q && git config user.email t@t && git config user.name t && printf 'm' > app/App.mpr \
+  && mkdir app/mprcontents && echo u > app/mprcontents/u && echo 'class A {}' > app/javasource/Mod/actions/A.java \
+  && git add -A && git commit -qm i ) >/dev/null 2>&1
+( cd "$T" && PROJECT_ROOT="$T" bash bin/install-project-hooks.sh ) >/dev/null 2>&1
+( cd "$T" && PROJECT_ROOT="$T" MXTK_STAMP_KIND=check MXTK_STAMP_ERRORS=0 bash bin/model-stamp.sh write pass "exec.sh x (mx check)" ) >/dev/null 2>&1
+# exec.sh's own recorder: gate_kind_decide's _gk_java_fp, extracted as test-exec-gate-kind.sh does.
+sed -n '/^_GK_STATE=/,/^}/p' "$TK/project-bin/exec.sh" > "$WORK/gk.sh"
+gkfp() { ( cd "$T" && . "$TK/project-bin/_common.sh" && PROJECT_ROOT="$T" SCRIPT=/dev/null PATCH_MODE=0 MXBUILD=/nonexistent && . "$WORK/gk.sh" && gate_kind_decide >/dev/null 2>&1; _gk_java_fp ) 2>/dev/null; }
+printf 'checks 1\njava %s\n' "$(gkfp)" > "$T/.claude/loop/gate-kind.state"; touch "$T/.claude/loop/prepush-build.last"
+TH=$(cd "$T" && git rev-parse HEAD)
+tpp() { rm -f "$T/.claude/full-ran"; out=$( cd "$T" && printf 'refs/heads/m %s refs/heads/m %s\n' "$TH" "$Z" | "$T/.git/hooks/pre-push" origin x 2>&1 ); rc=$?; }
+tpp
+{ [ "$rc" = 0 ] && [ ! -e "$T/.claude/full-ran" ] && printf '%s' "$out" | grep -q deferred; } \
+  && ok "T1 two-tree, no Java change: the hook's fingerprint matches exec.sh's, push deferred" || bad "T1 rc=$rc" "$out"
+echo 'class A { int x; }' > "$T/app/javasource/Mod/actions/A.java"
+tpp
+{ [ "$rc" = 0 ] && [ -e "$T/.claude/full-ran" ] && printf '%s' "$out" | grep -q 'Java/JavaScript/theme files changed'; } \
+  && ok "T2 two-tree, Java under app/javasource changed: full build" || bad "T2 rc=$rc" "$out"
+printf '# P\n\nGate mode: check\n' > "$T/PROJECT.md"
+mkdir -p "$T/tools"; for x in mxbuild mx; do printf '#!/bin/sh\nexit 0\n' > "$T/tools/$x"; chmod +x "$T/tools/$x"; done
+printf 'alter page Mod.P set title = '"'"'x'"'"';\n' > "$WORK/tt.mdl"
+tgk() { ( cd "$T" && . "$TK/project-bin/_common.sh" && PROJECT_ROOT="$T" SCRIPT="$WORK/tt.mdl" PATCH_MODE=0 MXBUILD="$T/tools/mxbuild" && . "$WORK/gk.sh" && gate_kind_decide && echo "$GATE_KIND|$GATE_KIND_WHY" ) 2>/dev/null; }
+gk=$(tgk)
+case "$gk" in "full|Java/JavaScript"*) ok "T3 two-tree, exec.sh on a Java change: full build" ;; *) bad "T3 exec gate kind" "$gk" ;; esac
+printf 'checks 1\njava %s\n' "$(gkfp)" > "$T/.claude/loop/gate-kind.state"
+gk=$(tgk)
+case "$gk" in check\|*) ok "T3 two-tree, fingerprint re-recorded, no change: exec.sh stays check-only" ;; *) bad "T3 no-change gate kind" "$gk" ;; esac
 
 echo "-- M: module-close.sh polish loop"
 M="$WORK/mc"; mkdir -p "$M/bin"

@@ -1053,10 +1053,26 @@ print('; '.join(one(e) for e in d.get('errors',[]) or [])[:300])" 2>/dev/null ||
 # it from the model on every full build. exec.sh (gate kind) and verify-model.sh record it.
 mxtk_java_fp() {
   ( cd "$1" 2>/dev/null || exit 0
-    _l="$(git ls-files -co --exclude-standard -- javasource javascriptsource theme userlib widgets 2>/dev/null \
-          | grep -v '^javasource/[^/]*/proxies/' || true)"
-    { printf '%s\n' "$_l"; [ -z "$_l" ] || printf '%s\n' "$_l" | git hash-object --stdin-paths 2>/dev/null; } \
+    # --full-name + hashing from the top level: `git hash-object --stdin-paths` reads paths from the
+    # repository top, so in a model folder below it (app/ on a two-tree checkout, apps/<X>/) the
+    # cwd-relative names failed to open and every fingerprint hashed the same (PR #700 review).
+    # On a single-tree checkout the names and so the fingerprint are unchanged.
+    _l="$(git ls-files -co --exclude-standard --full-name -- javasource javascriptsource theme userlib widgets 2>/dev/null \
+          | grep -Ev '(^|/)javasource/[^/]*/proxies/' || true)"
+    _top="$(git rev-parse --show-toplevel 2>/dev/null)"
+    { printf '%s\n' "$_l"; [ -z "$_l" ] || printf '%s\n' "$_l" | ( cd "$_top" 2>/dev/null && git hash-object --stdin-paths ) 2>/dev/null; } \
       | cksum | { read -r _ck _; printf '%s\n' "$_ck"; } )
+}
+
+# mxtk_model_java_fp [project root] — mxtk_java_fp of the MODEL's folder, where javasource/,
+# javascriptsource/, theme/, userlib/ and widgets/ sit beside the .mpr (app/ on a two-tree checkout).
+# The one fingerprint exec.sh (gate kind), verify-model.sh and the pre-push hook record and compare:
+# fingerprinting the project root on a two-tree checkout saw no Java at all, and a hook that used the
+# model dir against a root-recorded value read every push as a Java change (PR #700 review).
+mxtk_model_java_fp() {
+  local r="${1:-$PROJECT_ROOT}" d
+  d="$(PROJECT_ROOT="$r" find_model_dir 2>/dev/null)" || d=""
+  mxtk_java_fp "${d:-$r}"
 }
 
 # mxtk_find_mx — the `mx` tool beside the resolved mxbuild (same version by construction).

@@ -78,6 +78,7 @@ BIN="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 #   1. <project>/bin  — the project's own, possibly tuned, copy wins
 #   2. $BIN           — alongside this script (the installed-copy case)
 #   3. $MXTK_ROOT/bin and $MXTK_ROOT/project-bin — the shared toolkit
+#   4. find_toolkit_root's bin/ and project-bin/ (_common.sh; the Toolkit root row, #672)
 # Echoes the first hit; echoes <project>/bin/NAME when there is none, so the caller's
 # own "not found" message names the place a reader would look first.
 # Step 3 needs $MXTK_ROOT, and nothing exports it — so the toolkit half of the
@@ -106,7 +107,9 @@ fi
 
 _tool() {
   local n="$1" d
-  for d in "$ROOT/bin" "$BIN" "${MXTK_ROOT:-}/bin" "${MXTK_ROOT:-}/project-bin"; do
+  local tk; tk="$(find_toolkit_root 2>/dev/null || true)"
+  for d in "$ROOT/bin" "$BIN" "${MXTK_ROOT:-}/bin" "${MXTK_ROOT:-}/project-bin" \
+           "${tk:+$tk/bin}" "${tk:+$tk/project-bin}"; do
     [ -n "$d" ] && [ -x "$d/$n" ] && { printf '%s\n' "$d/$n"; return 0; }
   done
   printf '%s\n' "$ROOT/bin/$n"
@@ -489,9 +492,14 @@ fi
 # A ledger is a file OR a per-BRD directory (<Module>/coverage-ledger/<BRD>.md) — LEDGER_FILE
 # documents both (conformance-check.sh, coverage-preflight.sh). Testing only `-f` sent a directory
 # LEDGER_FILE silently to architecture/coverage-ledger.md (review of #307, 2026-10-13).
+# Without LEDGER_FILE, the one shared lookup (mxtk_resolve_ledger, _common.sh — #673; it also
+# knows the flat <Module>-coverage-ledger.md this hint missed).
 resolve_ledger_hint() {
-  local l="${LEDGER_FILE:-$ROOT/architecture/modules/$MODULE/coverage-ledger.md}"
-  if [ -z "${LEDGER_FILE:-}" ] && [ ! -f "$l" ] && [ -d "${l%.md}" ]; then l="${l%.md}"; fi
+  local l="${LEDGER_FILE:-}"
+  if [ -z "$l" ]; then
+    mxtk_resolve_ledger "$ROOT" "$MODULE" || printf '%s\n' "$ROOT/architecture/coverage-ledger.md"
+    return 0
+  fi
   [ -f "$l" ] || [ -d "$l" ] || l="$ROOT/architecture/coverage-ledger.md"
   printf '%s\n' "$l"
 }
@@ -508,7 +516,8 @@ fi
 # there would be a fault we manufactured ourselves.
 COVERAGE_CHECK="${COVERAGE_CHECK:-}"
 if [ -z "$COVERAGE_CHECK" ]; then
-  for c in "$(_tool coverage-check.sh)" "${MXTK_ROOT:-}/bin/coverage-check.sh"; do
+  for c in "$(_tool coverage-check.sh)" "${MXTK_ROOT:-}/bin/coverage-check.sh" \
+           "$(t="$(find_toolkit_root 2>/dev/null)"; printf '%s' "${t:+$t/bin/coverage-check.sh}")"; do
     [ -n "$c" ] && [ -x "$c" ] && { COVERAGE_CHECK="$c"; break; }
   done
 fi
@@ -671,6 +680,36 @@ if [ "${#_E2E_DIRS[@]}" -gt 0 ]; then
   fi
 fi
 
+# The login credential, probed once, the way PW_OK is (#659). journey-runner refuses the template
+# placeholder password in its own preflight (#278), but monkey.js has no preflight: it logged in as
+# the placeholder user three times, then the fallback account, and each rejected attempt counts
+# toward the demo account's lockout. Same rule as journey-runner.js's preflight: config.js's
+# passSource === 'template placeholder', unless ALLOW_CONFIG_CREDENTIALS=1. An older hand-edited
+# config.js without passSource is NOT refused here (it may carry a real password while TEST_PASS
+# is unset): its instruments' own preflights decide, as when config.js cannot be loaded. One FAULT row carries the reason; journeys
+# and monkey are SKIPPED as its dependents. config.js is only read here (ALLOW_UNVERIFIED_APP=1 lets
+# it load without the stack's ownership marker; nothing is contacted). A config.js that cannot be
+# read leaves CRED_OK=1: each instrument's own preflight still decides.
+CRED_OK=1
+if [ "$SKIP_JOURNEYS" -eq 0 ] || [ "$SKIP_MONKEY" -eq 0 ]; then
+  _cfg_js=""
+  for _d in ${_E2E_DIRS[@]+"${_E2E_DIRS[@]}"}; do [ -f "$_d/config.js" ] && { _cfg_js="$_d/config.js"; break; }; done
+  if [ -n "$_cfg_js" ] && [ "${ALLOW_CONFIG_CREDENTIALS:-}" != 1 ] && command -v node >/dev/null 2>&1; then
+    _cred="$(ALLOW_UNVERIFIED_APP=1 node -e 'const c = (require(process.argv[1]).cfg) || {};
+      const ph = c.passSource === "template placeholder";
+      console.log(ph ? `placeholder\t${c.user || ""}` : "ok")' "$_cfg_js" 2>/dev/null | tail -1)"
+    case "$_cred" in
+      placeholder*)
+        CRED_OK=0
+        fault "e2e credentials" "credentials: TEST_PASS unset, template placeholder password" \
+              "$(printf '%s\n' "SETUP  credentials: TEST_PASS is unset — journeys and monkey would log in as \"${_cred#placeholder?}\" with project.config.template.js's placeholder password, then the fallback account; each rejected attempt counts toward the account lockout." \
+                 "      Fix: put the real demo password in tests/e2e/project.config.js's DEFAULT_PASS, or export TEST_USER / TEST_PASS (e.g. \`set -a; . ./.env; set +a\`), or ALLOW_CONFIG_CREDENTIALS=1 if the placeholder is the real demo password." \
+                 "      Not run because of it: journeys and monkey. No login was attempted.")"
+        ;;
+    esac
+  fi
+fi
+
 JOURNEY_DIR="${JOURNEY_DIR:-$ROOT/journeys}"
 JOURNEY_RUNNER="${JOURNEY_RUNNER:-$ROOT/tests/e2e/journey-runner.js}"
 MONKEY_JS="${MONKEY_JS:-$ROOT/tests/e2e/monkey.js}"
@@ -728,6 +767,8 @@ else
           "Set JOURNEY_RUNNER, or see the journey-proof.md skill for the harness this expects."
   elif [ "$PW_OK" -eq 0 ]; then
     printf 'journeys\tSKIPPED\t0\t-\t(not run: needs playwright, see the e2e harness dependency row)\n' >> "$SUMMARY"
+  elif [ "$CRED_OK" -eq 0 ]; then
+    printf 'journeys\tSKIPPED\t0\t-\t(not run: credentials, see the e2e credentials row)\n' >> "$SUMMARY"
   else
     [ "${#JOURNEY_FILES[@]}" -gt 1 ] && echo "  journeys: ${#JOURNEY_FILES[@]} file(s) in ${JOURNEY#$ROOT/}"
     _exec "journeys (UI + ordered spans + data effects)" "$OUTDIR/20-journeys.log" gate "${VM_TMO_JOURNEYS:-900}" -- \
@@ -755,6 +796,8 @@ else
           "Set MONKEY_JS, or see journey-proof.md for the harness this expects. Crash-on-input for $MODULE is UNMEASURED — its findings are informational, its absence is not."
   elif [ "$PW_OK" -eq 0 ]; then
     printf 'monkey\tSKIPPED\t0\t-\t(not run: needs playwright, see the e2e harness dependency row)\n' >> "$SUMMARY"
+  elif [ "$CRED_OK" -eq 0 ]; then
+    printf 'monkey\tSKIPPED\t0\t-\t(not run: credentials, see the e2e credentials row)\n' >> "$SUMMARY"
   else
     # info, not gate: on one project the monkey pass scored 0 fail while its scripted journeys found
     # all 9 real defects. It is a crash net. Letting it gate the module would give it an authority

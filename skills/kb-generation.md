@@ -43,7 +43,9 @@ Examples:
   KB_DevStandards.md                ← development standards
 ```
 
-Store in: `extraction/knowledge-base/share/`
+Store in: `analysis/<source>/knowledge-base/share/` — the knowledge-base directory the gate and
+`bin/lib/discover-brds.sh` resolve (`brd-generation.md` → "Store in"); the BRDs go beside it in
+`brd/`, the validation report in `reports/validation-report.md`.
 
 ---
 
@@ -110,7 +112,7 @@ Use this prompt template. Paste after the raw document content.
 You are writing a KB (Knowledge Base) markdown file for an OutSystems → Mendix migration project.
 
 SOURCE DOCUMENT: [describe the document — what it is, what function it covers]
-TARGET FILE: extraction/knowledge-base/share/KB_[Name].md
+TARGET FILE: analysis/<source>/knowledge-base/share/KB_[Name].md
 
 Read the source document above and write a structured KB file in English.
 The KB file will be used as context when generating BRD JSON and MDL scripts.

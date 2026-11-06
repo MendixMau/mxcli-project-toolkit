@@ -1,0 +1,8 @@
+catalog.sql   rows copied (not written) from .mxcli/catalog.db of a probe app, built by `mxcli refresh catalog full`
+              (mxcli nightly-20261105, Mendix 11.15, 2026-11-06). Tables snapshots, refs, activities_data,
+              attributes_data (AutoNumber only), microflows_data, restricted to: the 8 probe flows of module
+              MtaProbe (control, autonumber, REST, file, separate commit, queue + target, log), one real flow
+              that writes a file (create from intake) and its callees, and one real flow that creates an entity
+              with an event handler plus that handler. Nothing was edited after the copy.
+probes.test.mdl  the unit test that called the probe flows under @cleanup rollback (its last test observed what
+              survived): REST, file bytes, autonumber, separate commit, queued commit and the log line all did.

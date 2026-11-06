@@ -1,0 +1,86 @@
+-- E4 comparison: same MtaProbe flows under mxcli test @cleanup rollback; last test (@cleanup none) observes what survived.
+
+/**
+ * @test A1 control flow (rollback)
+ * @cleanup rollback
+ * @expect $R/Label = 'control'
+ */
+call microflow MtaProbe.PRB_Control();
+retrieve $R from MtaProbe.ProbeRow where [Label = 'control'] limit 1;
+/
+
+/**
+ * @test A2 autonumber flow (rollback)
+ * @cleanup rollback
+ * @expect $R/Label = 'autonumber'
+ */
+call microflow MtaProbe.PRB_Autonumber();
+retrieve $R from MtaProbe.ProbeRow where [Label = 'autonumber'] limit 1;
+/
+
+/**
+ * @test A3 rest flow (rollback)
+ * @cleanup rollback
+ * @expect 1 = 1
+ */
+call microflow MtaProbe.PRB_Rest();
+/
+
+/**
+ * @test A4 file flow (rollback)
+ * @cleanup rollback
+ * @expect $D/Name = 'e4-mta.txt'
+ */
+call microflow MtaProbe.PRB_File();
+retrieve $D from MtaProbe.ProbeDoc limit 1;
+/
+
+/**
+ * @test A5 separate commit flow (rollback)
+ * @cleanup rollback
+ * @expect 1 = 1
+ */
+call microflow MtaProbe.PRB_SeparateCommit();
+/
+
+/**
+ * @test A6 queue flow (rollback)
+ * @cleanup rollback
+ * @expect 1 = 1
+ */
+call microflow MtaProbe.PRB_Queue();
+/
+
+/**
+ * @test A7 log flow (rollback)
+ * @cleanup rollback
+ * @expect 1 = 1
+ */
+call microflow MtaProbe.PRB_Log();
+/
+
+/**
+ * @test A8 settle
+ * @cleanup rollback
+ * @expect 1 = 1
+ */
+declare $X Integer = 0;
+/
+
+/**
+ * @test Z observe survivors
+ * @cleanup none
+ * @expect count($Control) = 0
+ * @expect count($Auto) = 0
+ * @expect count($Docs) = 0
+ * @expect count($Sep) = 1
+ * @expect count($Queue) = 1
+ * @expect $N/Seq = -1
+ */
+retrieve $Control from MtaProbe.ProbeRow where [Label = 'control'];
+retrieve $Auto from MtaProbe.ProbeRow where [Label = 'autonumber'];
+retrieve $Docs from MtaProbe.ProbeDoc;
+retrieve $Sep from MtaProbe.ProbeRow where [Label = 'separate-commit'];
+retrieve $Queue from MtaProbe.ProbeRow where [Label = 'queue-target'];
+$N = create MtaProbe.ProbeRow (Label = 'observer', Run = 'z') commit;
+/

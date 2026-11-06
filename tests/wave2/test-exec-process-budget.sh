@@ -68,7 +68,7 @@ REAL_PATH="$PATH"
 # REQUIRED: every tool the counted clean path starts today. Missing one changes the path, so the
 # fixture SKIPs, naming it. Any other $FORWARD tool that is absent gets a logging stub that exits
 # 127 ("not installed"), so `command -v` sees the same tool set on every runner.
-REQUIRED="bash git python3 awk sed grep tr sort head cat rm mkdir mktemp ls cp mv touch tee find cut wc uname cksum sha256sum"
+REQUIRED="bash git python3 awk sed grep tr sort head cat rm mkdir mktemp ls cp mv touch tee find cut wc uname cksum sha256sum"  # portability-ok: Linux-only fixture; names to shim, not interpreters to run
 for t in $REQUIRED; do  # portability-ok: Linux-only fixture (uname guard above); a name to shim, not an interpreter to run
   command -v "$t" >/dev/null 2>&1 || { echo "  SKIP required tool missing: $t"; echo; echo "PASS=0 FAIL=0"; exit 0; }
 done

@@ -671,6 +671,35 @@ if [ "${#_E2E_DIRS[@]}" -gt 0 ]; then
   fi
 fi
 
+# The login credential, probed once, the way PW_OK is (#659). journey-runner refuses the template
+# placeholder password in its own preflight (#278), but monkey.js has no preflight: it logged in as
+# the placeholder user three times, then the fallback account, and each rejected attempt counts
+# toward the demo account's lockout. Same rule as journey-runner.js's preflight: config.js's
+# passSource === 'template placeholder' (an older config.js without passSource: the password did not
+# come from the env), unless ALLOW_CONFIG_CREDENTIALS=1. One FAULT row carries the reason; journeys
+# and monkey are SKIPPED as its dependents. config.js is only read here (ALLOW_UNVERIFIED_APP=1 lets
+# it load without the stack's ownership marker; nothing is contacted). A config.js that cannot be
+# read leaves CRED_OK=1: each instrument's own preflight still decides.
+CRED_OK=1
+if [ "$SKIP_JOURNEYS" -eq 0 ] || [ "$SKIP_MONKEY" -eq 0 ]; then
+  _cfg_js=""
+  for _d in ${_E2E_DIRS[@]+"${_E2E_DIRS[@]}"}; do [ -f "$_d/config.js" ] && { _cfg_js="$_d/config.js"; break; }; done
+  if [ -n "$_cfg_js" ] && [ "${ALLOW_CONFIG_CREDENTIALS:-}" != 1 ] && command -v node >/dev/null 2>&1; then
+    _cred="$(ALLOW_UNVERIFIED_APP=1 node -e 'const c = (require(process.argv[1]).cfg) || {};
+      const ph = c.passSource !== undefined ? c.passSource === "template placeholder" : !c.passFromEnv;
+      console.log(ph ? `placeholder\t${c.user || ""}` : "ok")' "$_cfg_js" 2>/dev/null | tail -1)"
+    case "$_cred" in
+      placeholder*)
+        CRED_OK=0
+        fault "e2e credentials" "credentials: TEST_PASS unset, template placeholder password" \
+              "$(printf '%s\n' "SETUP  credentials: TEST_PASS is unset — journeys and monkey would log in as \"${_cred#placeholder?}\" with project.config.template.js's placeholder password, then the fallback account; each rejected attempt counts toward the account lockout." \
+                 "      Fix: put the real demo password in tests/e2e/project.config.js's DEFAULT_PASS, or export TEST_USER / TEST_PASS (e.g. \`set -a; . ./.env; set +a\`), or ALLOW_CONFIG_CREDENTIALS=1 if the placeholder is the real demo password." \
+                 "      Not run because of it: journeys and monkey. No login was attempted.")"
+        ;;
+    esac
+  fi
+fi
+
 JOURNEY_DIR="${JOURNEY_DIR:-$ROOT/journeys}"
 JOURNEY_RUNNER="${JOURNEY_RUNNER:-$ROOT/tests/e2e/journey-runner.js}"
 MONKEY_JS="${MONKEY_JS:-$ROOT/tests/e2e/monkey.js}"
@@ -728,6 +757,8 @@ else
           "Set JOURNEY_RUNNER, or see the journey-proof.md skill for the harness this expects."
   elif [ "$PW_OK" -eq 0 ]; then
     printf 'journeys\tSKIPPED\t0\t-\t(not run: needs playwright, see the e2e harness dependency row)\n' >> "$SUMMARY"
+  elif [ "$CRED_OK" -eq 0 ]; then
+    printf 'journeys\tSKIPPED\t0\t-\t(not run: credentials, see the e2e credentials row)\n' >> "$SUMMARY"
   else
     [ "${#JOURNEY_FILES[@]}" -gt 1 ] && echo "  journeys: ${#JOURNEY_FILES[@]} file(s) in ${JOURNEY#$ROOT/}"
     _exec "journeys (UI + ordered spans + data effects)" "$OUTDIR/20-journeys.log" gate "${VM_TMO_JOURNEYS:-900}" -- \
@@ -755,6 +786,8 @@ else
           "Set MONKEY_JS, or see journey-proof.md for the harness this expects. Crash-on-input for $MODULE is UNMEASURED — its findings are informational, its absence is not."
   elif [ "$PW_OK" -eq 0 ]; then
     printf 'monkey\tSKIPPED\t0\t-\t(not run: needs playwright, see the e2e harness dependency row)\n' >> "$SUMMARY"
+  elif [ "$CRED_OK" -eq 0 ]; then
+    printf 'monkey\tSKIPPED\t0\t-\t(not run: credentials, see the e2e credentials row)\n' >> "$SUMMARY"
   else
     # info, not gate: on one project the monkey pass scored 0 fail while its scripted journeys found
     # all 9 real defects. It is a crash net. Letting it gate the module would give it an authority

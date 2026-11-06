@@ -26,6 +26,12 @@
 #       kills the instrument's forked child too, so nothing writes a scope after the FAULT (#541)
 #   V10 the folder form journeys/<Module>/*.journey.json is walked (both files, one run) when
 #       journeys/<Module>.journey.json is absent; the single file still wins when both exist (#542)
+#   V12 (#659) the real config.js beside the harness with the template placeholder password and
+#       TEST_PASS unset: ONE "e2e credentials" FAULT carrying the reason, journeys and monkey
+#       SKIPPED, neither started (no login attempted); TEST_PASS set, ALLOW_CONFIG_CREDENTIALS=1,
+#       or both rungs skipped by flag: no credentials row. Then the REAL journey-runner aborting in
+#       its own preflight (a requiresEnv var unset): a FAULT row whose 5th column is the log path
+#       (CAPTURE writes that summary + log as the report-normalize golden, fixtures/verify-659/)
 set -uo pipefail
 TK="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SUT="${1:-$TK/project-bin/verify-module.sh}"
@@ -199,6 +205,50 @@ if grep -q 'harness-scan.sh' "$SUT" && [ -f "$SD/harness-scan.sh" ]; then
   { row '^harness scan' | grep -q '^INFO	(NOT MEASURED: ' && [ "$(row '^verdict')" = "$_v8_verdict" ]; } \
     && ok "V11: harness-scan.sh not installed: INFO NOT MEASURED row, verdict unchanged" \
     || bad "V11: missing harness scan must not gate" "$(row '^harness scan') / $(row '^verdict')"
+fi
+
+# V12 (#659): credentials probed once, before the runtime block.
+E2ESRC="$TK/project-tests/e2e"
+if [ -f "$E2ESRC/config.js" ] && [ -f "$E2ESRC/project.config.template.js" ]; then
+  fake_mod "$P/node_modules" playwright; fake_mod "$P/node_modules" axe-core
+  cp "$E2ESRC/config.js" "$P/tests/e2e/"; cp "$E2ESRC/project.config.template.js" "$P/tests/e2e/project.config.js"
+  # vm passes PROJECT_ROOT=$P and the model is under app/ (two-tree): config.js finds it by MPR_FILE.
+  export MPR_FILE=app/App.mpr
+  _vl="$P/.claude/loop/verify/MyFirstModule"
+  rm -f "$_vl/20-journeys.log" "$_vl/30-monkey.log"
+  TEST_PASS= APP_PASS= ALLOW_CONFIG_CREDENTIALS= vm MyFirstModule
+  _cr="$(printf '%s\n' "$sum" | grep -c '^e2e credentials')"
+  { [ "$_cr" = 1 ] && row '^e2e credentials' | grep -q '^FAULT	(credentials: TEST_PASS unset, template placeholder password)$' \
+      && printf '%s' "$out" | grep -q 'SETUP  credentials: TEST_PASS is unset' \
+      && row '^journeys$' | grep -q '^SKIPPED	(not run: credentials' && row '^monkey$' | grep -q '^SKIPPED	(not run: credentials' \
+      && [ ! -e "$_vl/20-journeys.log" ] && [ ! -e "$_vl/30-monkey.log" ]; } \
+    && ok "V12: placeholder password, TEST_PASS unset: one credentials FAULT with its reason; journeys + monkey SKIPPED, never started" \
+    || bad "V12: credentials rows=$_cr" "$sum"
+  [ -n "${CAPTURE:-}" ] && cp "$_vl/summary.tsv" "$CAPTURE/credentials.summary.tsv"
+  TEST_PASS=x vm MyFirstModule
+  { ! printf '%s' "$sum" | grep -q '^e2e credentials' && row '^journeys [(]UI' | grep -q '^PASS' && row '^monkey' | grep -q '^INFO'; } \
+    && ok "V12: TEST_PASS set: no credentials row, journeys and monkey run" || bad "V12: TEST_PASS set" "$sum"
+  TEST_PASS= APP_PASS= ALLOW_CONFIG_CREDENTIALS=1 vm MyFirstModule
+  ! printf '%s' "$sum" | grep -q '^e2e credentials' && ok "V12: ALLOW_CONFIG_CREDENTIALS=1 overrides" || bad "V12: override ignored" "$sum"
+  TEST_PASS= APP_PASS= ALLOW_CONFIG_CREDENTIALS= vm MyFirstModule --skip-journeys --skip-monkey
+  ! printf '%s' "$sum" | grep -q '^e2e credentials' && ok "V12: both login rungs skipped by flag: no credentials row" || bad "V12: credentials row with nothing to log in" "$sum"
+  # The real runner's own preflight abort: its FAULT row's 5th column is the log path, and the
+  # reason is only in the log (report-normalize reads it from there).
+  cp "$P/tests/e2e/journey-runner.js" "$WORK/stub/journey-runner.js.stub"
+  cp "$E2ESRC/journey-runner.js" "$E2ESRC/helpers.js" "$E2ESRC/settle.js" "$E2ESRC/otel.js" "$P/tests/e2e/"
+  printf '{"id":"J-01","persona":"demo_user","steps":[{"name":"s"}],"requiresEnv":["MXTK_FIXTURE_UNSET_VAR"]}\n' > "$P/journeys/MyFirstModule.journey.json"
+  TEST_PASS=x APP_PORT=1 MXTK_FIXTURE_UNSET_VAR= vm MyFirstModule --quick
+  { row '^journeys [(]UI' | grep -q '^FAULT	.claude/loop/verify/MyFirstModule/20-journeys.log$' \
+      && grep -q '^  SETUP  env: missing MXTK_FIXTURE_UNSET_VAR' "$_vl/20-journeys.log"; } \
+    && ok "V12: the real runner's preflight abort is a FAULT row whose reason is only in its log (golden for report-normalize)" \
+    || bad "V12: real runner abort" "$(row '^journeys') / $(tail -5 "$_vl/20-journeys.log" 2>/dev/null)"
+  if [ -n "${CAPTURE:-}" ]; then
+    cp "$_vl/summary.tsv" "$CAPTURE/runner-setup.summary.tsv"; cp "$_vl/20-journeys.log" "$CAPTURE/20-journeys.log.txt"
+  fi
+  cp "$WORK/stub/journey-runner.js.stub" "$P/tests/e2e/journey-runner.js"
+  rm -f "$P/tests/e2e/config.js" "$P/tests/e2e/project.config.js" "$P/tests/e2e/helpers.js" "$P/tests/e2e/settle.js" "$P/tests/e2e/otel.js"
+  printf '{"name":"golden"}\n' > "$P/journeys/MyFirstModule.journey.json"
+  unset MPR_FILE
 fi
 
 # Golden summaries for test-progress-harness-verify.sh, written by this subject (CAPTURE=<dir>).

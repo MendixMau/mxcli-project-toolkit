@@ -5,12 +5,15 @@
 # whose `acceptance` cell contains a runnable `SHOW ...` / `DESCRIBE ...`, the command is
 # re-run against the .mpr and the observed result is compared with the stored `status`.
 #
-# Read-only: runs only SHOW/DESCRIBE. Never `exec`, never MDL, never touches the .mpr.
+# Read-only: runs only SHOW/DESCRIBE. Never `exec`, never MDL, never touches the .mpr. The one
+# write is opt-in: `--mark-built` flips the ledger's own status cells, planned -> built, for rows
+# measured PRESENT (#671; see the --mark-built block below). module-close.sh runs it per module.
 #
 # Verdicts
 #   OK          stored status agrees with the model
 #   STALE       status says built/partial, but the element is ABSENT   <- the one that matters
-#   UNDERSTATED status says not-built, but the element is PRESENT
+#   UNDERSTATED status says not-built, but the element is PRESENT — the ledger lags the build.
+#               A note, never a regression and never a loosening (#671): `--mark-built` clears it.
 #
 # Failure policy: regressions only. A row that was OK in the baseline and is no longer OK
 # fails the run. Pre-existing mismatches are reported but do not fail — the lesson from lint,
@@ -41,7 +44,7 @@
 #   architecture/coverage-ledger.md                     single-BRD project
 #
 # Usage:
-#   bin/conformance-check.sh [--module <Name>] [--update-baseline] [--quiet]
+#   bin/conformance-check.sh [--module <Name>] [--update-baseline] [--mark-built] [--quiet]
 #   LEDGER_FILE=<file-or-dir> bin/conformance-check.sh [--module <Name>] ...
 #
 #   LEDGER_FILE   overrides discovery: one ledger file, or a directory whose *.md files are all
@@ -62,14 +65,16 @@ OUTDIR="docs/conformance"
 BASELINE="$OUTDIR/baseline.tsv"
 MODULE=""
 UPDATE_BASELINE=0
+MARK_BUILT=0
 QUIET=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --module)          MODULE="${2:-}"; shift 2 ;;
     --update-baseline) UPDATE_BASELINE=1; shift ;;
+    --mark-built)      MARK_BUILT=1; shift ;;
     --quiet)           QUIET=1; shift ;;
-    -h|--help)         sed -n '2,52p' "$0"; exit 0 ;;
+    -h|--help)         sed -n '2,55p' "$0"; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -222,6 +227,7 @@ extract() {
       total++
       ptr=$2; acc=$7; st=$8
       gsub(/^ +| +$/, "", ptr); gsub(/^ +| +$/, "", st); gsub(/`/, "", st)
+      raw=st; key=ptr; gsub(/`/, "", key)     # as written: what --mark-built matches and flips
       if (st == "planned") st = "not-built"   # "planned" = not built yet (TK-006)
       # brd-to-build-plan.md writes `not built` and `blocked (<reason>)`: both mean the element
       # is not there yet, so they are measured as not-built rather than UNKNOWN-STATUS (#515).
@@ -229,7 +235,7 @@ extract() {
       if (brd != "-") ptr = brd ":" ptr
       if (match(acc, /`(SHOW|DESCRIBE)[^`]*`/)) {
         cmd = substr(acc, RSTART+1, RLENGTH-2)
-        print "ROW\t" mod "\t" brd "\t" ptr "\t" st "\t" cmd
+        print "ROW\t" mod "\t" brd "\t" ptr "\t" st "\t" cmd "\t" raw "\t" key "\t" file
       } else {
         print "PROSE\t" mod "\t" brd "\t" ptr "\t" st "\t"
       }
@@ -396,7 +402,7 @@ probe() {
 
 RESULTS=""
 n=0
-while IFS=$'\t' read -r kind mod brd ptr status cmd; do
+while IFS=$'\t' read -r kind mod brd ptr status cmd raw key lfile; do
   [ "$kind" = "ROW" ] || continue
   n=$((n+1))
   [ "$QUIET" -eq 1 ] || printf '\r  measuring %d/%d ' "$n" "$MEASURABLE" >&2
@@ -412,14 +418,51 @@ while IFS=$'\t' read -r kind mod brd ptr status cmd; do
         *)                                                               verdict="UNKNOWN-STATUS" ;;
       esac ;;
   esac
-  RESULTS+="$mod	$ptr	$status	$observed	$verdict	$cmd	$brd"$'\n'
+  RESULTS+="$mod	$ptr	$status	$observed	$verdict	$cmd	$brd	$raw	$key	$lfile"$'\n'
 done 3<<< "$ROWS" <&3
 [ "$QUIET" -eq 1 ] || printf '\r%*s\r' 30 '' >&2
 
 RESULTS="$(printf '%s' "$RESULTS" | sed '/^$/d' | sort)"
 
+# --- --mark-built: the ledger catches up with the model (#671) ---------------------------
+# Nothing else ever writes `built`: skills/iterative-build-loop.md told a person to flip each row by
+# hand, nobody did, and every correct build read UNDERSTATED. This flips the status cell of each
+# UNDERSTATED row whose stored status is `planned` or `not built` — the element is PRESENT — to
+# `built`, in the ledger file the row came from, whatever its shape (per-BRD, per-module, flat,
+# project). Only that cell changes (awk splits on `|` and re-joins with `|`, so every other byte of
+# the line is kept), only rows this run measured PRESENT, and `blocked (...)` is left to a person.
+# A second run finds nothing to flip. module-close.sh calls it once per module.
+NMARKED=0
+if [ "$MARK_BUILT" -eq 1 ]; then
+  FLIP="$(printf '%s\n' "$RESULTS" | awk -F'\t' '$5=="UNDERSTATED" && ($8=="planned" || $8=="not built") {print $10"\t"$9}')"
+  NFILES=0
+  while IFS= read -r lf; do
+    [ -n "$lf" ] && [ -f "$lf" ] || continue
+    printf '%s\n' "$FLIP" | awk -F'\t' -v f="$lf" '$1==f {print $2}' > "$lf.keys.$$"
+    awk -F'|' -v OFS='|' -v keys="$lf.keys.$$" '
+      BEGIN { while ((getline k < keys) > 0) want[k]=1 }
+      NF==9 { p=$2; gsub(/^ +| +$/, "", p); gsub(/`/, "", p)
+              st=$8; gsub(/^ +| +$/, "", st); gsub(/`/, "", st)
+              if ((p in want) && (st=="planned" || st=="not built")) { sub(/planned|not built/, "built", $8) } }
+      { print }' "$lf" > "$lf.tmp.$$" && mv "$lf.tmp.$$" "$lf"
+    rm -f -- "$lf.keys.$$"
+    NFILES=$((NFILES+1))
+  done <<< "$(printf '%s\n' "$FLIP" | cut -f1 | sort -u)"
+  NMARKED=$(printf '%s' "$FLIP" | grep -c . || true)
+  # The rows just flipped are reported as what the ledger now says: built, PRESENT, OK.
+  RESULTS="$(printf '%s\n' "$RESULTS" | awk -F'\t' -v OFS='\t' \
+    '$5=="UNDERSTATED" && ($8=="planned" || $8=="not built") {$3="built"; $5="OK"; $8="built"} NF {print}')"
+  echo "conformance --mark-built: $NMARKED row(s) marked built in $NFILES ledger(s)"
+fi
+
 # --- baseline / regression --------------------------------------------------------------
-KEYED="$(printf '%s\n' "$RESULTS" | awk -F'\t' '{print $1"\t"$2"\t"$5}')"
+# UNDERSTATED is keyed as OK (#671). It means the element is PRESENT and only the ledger lags
+# behind it, so the model has not regressed and nothing was loosened. Keying it as UNDERSTATED made
+# every correctly built `planned` row "was OK, now UNDERSTATED" (exit 1) and refused the baseline
+# rewrite as a loosening (exit 2). Keyed OK, the row stays guarded: if the element later goes
+# missing on a `built` row, that is STALE, and OK -> STALE is still a regression. The lag is
+# reported below as a note, with the command that clears it.
+KEYED="$(printf '%s\n' "$RESULTS" | awk -F'\t' '{v=$5; if (v=="UNDERSTATED") v="OK"; print $1"\t"$2"\t"v}')"
 
 # `--module` measures one module, so it may rewrite only that module's rows. Writing $KEYED
 # whole dropped every other module's baseline, and their regressions went unmeasured with
@@ -534,6 +577,11 @@ if [ "$STALE" -gt 0 ] || [ "$UNDER" -gt 0 ]; then
   echo
   echo "  mismatches:"
   printf '%s\n' "$RESULTS" | awk -F'\t' '$5!="OK" {printf "    %-24s %-28s %-11s -> %-7s %s\n", $1, $2, $3, $4, $5}'
+fi
+if [ "$UNDER" -gt 0 ]; then
+  echo
+  echo "  note: ledger lags: $UNDER row(s) built but marked planned — run --mark-built${MODULE:+ --module $MODULE}"
+  echo "        (not a regression: the element is PRESENT; module-close.sh runs it once per module)"
 fi
 
 if [ "$WROTE_BASELINE" -eq 1 ]; then

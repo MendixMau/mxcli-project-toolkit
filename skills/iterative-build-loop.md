@@ -621,9 +621,9 @@ numbered: a gate inserted in the middle used to leave every ordinal behind it wr
 
       Diagnostic only: findings go to the punch-list, fixes are a separate approved pass.
 15. **Gate: COVERAGE — business-rule coverage checklist (mandatory, never skip):** `gate-agent` walks the confirmed checklist from the Pre-Module Checklist step — every mandatory/read-only/conditional/validation item — against the built module, item by item. A module with 0 CE errors and a working happy path but an unchecked validation rule is **not done**. Document any gap as an explicit sub-task; don't mark the module done with open items on this list.
-16. Mark module done ✅ — only if Gate: UI's per-module review produced no open P1. Then flip the
-    module's rows in `build-plan.md` to `built`. `architecture/progress-report.html` refreshes after
-    every `exec.sh` and full `gate-check.sh` run (mechanical, decides nothing). Per PROJECT.md
+16. Mark module done ✅ — only if Gate: UI's per-module review produced no open P1. Flip its
+    `build-plan.md` rows to `built`; `module-close.sh` flips its ledger rows (`--mark-built`).
+    `architecture/progress-report.html` refreshes after every `exec.sh` and full `gate-check.sh` run. Per PROJECT.md
     `Progress report:` (`brd-to-build-plan.md` Step 10), `ask` offers it once here: `build-plan-status.sh --open`.
 17. **Every N=2–3 modules, run `process-coherence-pass.md`** on the cluster just closed — a
     cross-module seam check (does the persona journey actually chain across these modules, not

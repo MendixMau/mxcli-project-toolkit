@@ -16,7 +16,8 @@
 # twice, silently, on the screens a reviewer sees first. Both arms filed the same bug.
 #
 # So this records two facts, neither of them a judgement:
-#   owed  — exec.sh writes one row per page a script CREATEs or ALTERs, when the script lands.
+#   owed  — exec.sh writes one row per page a script CREATEs or ALTERs, when the script lands;
+#           a script that DROPs a page removes that page's rows (#681) until one re-creates it.
 #   seen  — the Read hook writes one row per image file the agent actually opened.
 # gate-check.sh's Stage 5 check joins them: a page built after its last seen screenshot FAILs
 # the Stage 5 "done" claim. Nothing here blocks a write, a script, or the next page — only the
@@ -41,7 +42,8 @@
 # UNREACHED (no journey got there: a short gap-fill journey, or page-audit.js as the fallback).
 # Producer: journey-runner.js calls `shots` after it writes its findings (fail-open).
 #
-# Files (all TSV, under .claude/loop/look/; owed and seen are append-only, shots is rewritten):
+# Files (all TSV, under .claude/loop/look/; seen is append-only, owed is append-only except that a
+# DROP PAGE removes the dropped page's rows, shots is rewritten):
 #   owed.tsv   epoch  iso-time  Module.Page  script
 #   seen.tsv   epoch  iso-time  image-path   image-mtime  sha256
 #   shots.tsv  epoch  iso-time  Module.Page  image-path   image-mtime  journey  step
@@ -75,25 +77,50 @@ _sha() {
 # Shapes captured from real build scripts: CREATE / CREATE OR REPLACE / CREATE OR MODIFY / ALTER,
 # either case, each half of the name quoted or bare. Block comments and -- lines are skipped so a
 # commented-out page is not owed.
+# DROP PAGE [IF EXISTS] <name> (#681): the LAST statement on a page in the script decides. A page
+# created then dropped is not printed; `look_pages_in <script> drop` lists the pages the script
+# ends without. One dropped then re-created is owed.
 look_pages_in() {
-  awk '
+  awk -v mode="${2:-owe}" '
     /^[[:space:]]*\/\*/ { inc=1 }
     inc { if ($0 ~ /\*\//) inc=0; next }
     /^[[:space:]]*--/ { next }
-    { l=toupper($0) }
-    l ~ /^[[:space:]]*(CREATE([[:space:]]+OR[[:space:]]+(REPLACE|MODIFY))?|ALTER)[[:space:]]+PAGE[[:space:]]/ {
+    { l=toupper($0); act="" }
+    l ~ /^[[:space:]]*(CREATE([[:space:]]+OR[[:space:]]+(REPLACE|MODIFY))?|ALTER)[[:space:]]+PAGE[[:space:]]/ { act="owe" }
+    l ~ /^[[:space:]]*DROP[[:space:]]+PAGE[[:space:]]/ { act="drop" }
+    act != "" {
       s=$0; sub(/^[[:space:]]*/, "", s)
-      n=split(s, w, /[[:space:]]+/)
-      for (i=1; i<=n; i++) if (toupper(w[i])=="PAGE") { name=w[i+1]; break }
+      n=split(s, w, /[[:space:]]+/); j=0
+      for (i=1; i<=n; i++) if (toupper(w[i])=="PAGE") { j=i+1; break }
+      if (act=="drop" && toupper(w[j])=="IF" && toupper(w[j+1])=="EXISTS") j+=2
+      name=w[j]
       sub(/[(;{].*$/, "", name); gsub(/"/, "", name)
-      if (name ~ /^[A-Za-z0-9_]+\.[A-Za-z0-9_]+$/ && !seen[name]++) print name
-    }' "$1" 2>/dev/null
+      if (name ~ /^[A-Za-z0-9_]+\.[A-Za-z0-9_]+$/) { if (!(name in last)) ord[++k]=name; last[name]=act }
+    }
+    END { for (i=1; i<=k; i++) if (last[ord[i]]==mode) print ord[i] }' "$1" 2>/dev/null
+}
+
+# _forget_dropped <script> — remove every owed.tsv row of a page the script ends by dropping
+# (#681): a dropped page cannot be looked at, so it leaves the denominator. A later script that
+# re-creates it appends a fresh row, which owes again. Rewritten through a temp file + mv.
+_forget_dropped() {
+  local drops tmp
+  [ -s "$OWED" ] || return 0
+  drops="$(look_pages_in "$1" drop)"
+  [ -n "$drops" ] || return 0
+  tmp="$OWED.tmp.$$"
+  if printf '%s\n' "$drops" | awk -F'\t' 'NR==FNR { d[$0]=1; next } !($3 in d)' - "$OWED" > "$tmp" 2>/dev/null; then
+    mv "$tmp" "$OWED" 2>/dev/null
+  fi
+  [ -f "$tmp" ] && rm -f -- "$tmp"
+  return 0
 }
 
 cmd_owe() {
   local script="${1:-}" now iso p n=0
   [ -f "$script" ] || return 0
   [ -d "$LOOK_DIR" ] || mkdir -p "$LOOK_DIR" 2>/dev/null || return 0
+  _forget_dropped "$script"
   if [ -n "${EPOCHSECONDS:-}" ]; then now=$EPOCHSECONDS; TZ=UTC printf -v iso '%(%Y-%m-%dT%H:%M:%SZ)T' -1   # bash 5: no date process
   else now=$(date +%s); iso=$(date -u +%Y-%m-%dT%H:%M:%SZ); fi
   while IFS= read -r p; do

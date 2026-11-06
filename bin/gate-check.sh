@@ -9,7 +9,7 @@
 #
 # Usage: bin/gate-check.sh [--html|--no-html] [--ack-protocol [--approved-in-chat]|--force-stale] [--verbose]
 #                          [--adopt <stage> --reason "..."]
-#                          [--waive <stage|obligation[/module]|source/<file>> --reason "..."]
+#                          [--waive <stage|obligation[/module]|source/<file>|marketplace/<Name>> --reason "..."]
 #                          <project-dir> [stage]
 #   - With a stage-number, additionally exits non-zero if that specific stage's check fails.
 #   - Without one, evaluates and reports all stages, exits 0 regardless (informational run).
@@ -41,6 +41,8 @@
 #   - --waive source/<rel-or-basename> --reason "..." waives one SOURCE FILE of the Stage 0
 #     inventory (bin/source-ledger.sh): deliberately not extracted, says who and why. The
 #     ledger otherwise BLOCKS Stages 1 and 2 while any file has no disposition that holds up.
+#   - --waive marketplace/<Name> --reason "..." waives one confirmed fit-gap Buy that is
+#     deliberately not installed (bin/lib/marketplace-check.sh); bare `marketplace` waives all.
 #
 # VERDICT VOCABULARY (four, and the difference between the first two is the whole point):
 #   PASS    — checked, and it holds.
@@ -212,6 +214,8 @@ for opt_pair in "--adopt:$ADOPT_STAGE" "--waive:$WAIVE_STAGE"; do
     P|p|[0-7]) continue ;;
   esac
   if [ "$opt_name" = "--waive" ] && _gc_is_obligation "$opt_val"; then continue; fi
+  # A confirmed Marketplace Buy that is deliberately not installed (bin/lib/marketplace-check.sh).
+  case "$opt_val" in marketplace|marketplace/?*) [ "$opt_name" = "--waive" ] && continue ;; esac
   # A SOURCE FILE is the third waivable thing: `--waive source/<rel-path-or-basename>` records
   # that a file in the Stage 0 inventory is deliberately not extracted (bin/source-ledger.sh
   # reads the line). Same flag, same mandatory reason, same register — the user's "if I agree
@@ -1124,10 +1128,13 @@ check_stage_2() {
           fl_out=$(bash "$TOOLKIT_DIR/bin/facts-lock.sh" "$PROJECT_DIR" check 2>&1)
           fl_dev=$(printf '%s\n' "$fl_out" | grep -c '^  DEVIATION' || true)
           if [ "${fl_dev:-0}" -gt 0 ]; then
-            echo "FAIL|$fl_dev BRD identifier(s) contradict analysis/facts.lock.json, e.g.$(printf '%s\n' "$fl_out" | grep -m1 '^  DEVIATION' | sed 's/^  DEVIATION//') — fix the BRD to the lock's spelling (bin/facts-lock.sh <project> check lists all)"
+            echo "FAIL|$fl_dev BRD identifier(s) contradict analysis/facts.lock.json, e.g.$(printf '%s\n' "$fl_out" | grep -m1 '^  DEVIATION' | sed 's/^  DEVIATION//') — fix the BRD to the lock's spelling (bin/facts-lock.sh <project> check lists all); a module/type/owner change or a fact \"no longer declared\" that was deliberate: bin/facts-lock.sh <project> forget <ns>/<key>, then build"
             return
           fi
           grep -q -- '^  UNFROZEN' <<<"$fl_out" && fl_note="; facts lock: contested identifiers left (bin/facts-lock.sh <project> resolve)"
+          # A lock that freezes (almost) nothing is not agreement (#621): say so on the PASS line.
+          local fl_thin; fl_thin="$(printf '%s\n' "$fl_out" | grep -m1 -E '^(NEAR-EMPTY|PENDING) facts-lock' | sed -E 's/^(NEAR-EMPTY|PENDING) facts-lock: //')"
+          [ -n "$fl_thin" ] && fl_note="$fl_note; ⚠ facts lock: $fl_thin"
         else
           fl_note="; no facts lock for $nbrd BRDs (bin/facts-lock.sh <project> build, then resolve)"
         fi
@@ -1790,10 +1797,21 @@ check_stage_3() {
       fi
     done
   fi
+  # The interaction-model facts (#291), computed once before the stage loop and printed under
+  # "Interaction model (stage 3 facts)". PENDING (no artifact yet — the Artifacts block reports
+  # that) and ADOPTED/WAIVED leave this verdict alone; a finding is something examined and wrong.
+  # A FAIL returns here; a MANUAL only replaces a PASS, so it never hides the register FAIL below.
+  if [ "${MXTK_IM_STATUS:-}" = "FAIL" ]; then
+    local im_also=""
+    if ! reg_unavailable && ! has_confirmed_decision 3 && ! { interview_mode_is_auto && has_auto_assumed_decision 3; }; then im_also="; also: no Stage-3 CONFIRMED decision"; fi
+    echo "FAIL|interaction model: ${MXTK_IM_NOTE} — each finding is listed under 'Interaction model (stage 3 facts)' (skills/interaction-model.md)${im_also}"; return
+  fi
   if reg_unavailable; then reg_unavailable_note; return; fi
   if has_confirmed_decision 3; then
+    if [ "${MXTK_IM_STATUS:-}" = "MANUAL" ]; then echo "MANUAL|interaction model: ${MXTK_IM_NOTE}$wf_note"; return; fi
     echo "PASS|fit-gap, blueprint render, design system, wireframes present and a Stage-3 CONFIRMED decision is in $REGISTER$wf_note"
   elif interview_mode_is_auto && has_auto_assumed_decision 3; then
+    if [ "${MXTK_IM_STATUS:-}" = "MANUAL" ]; then echo "MANUAL|interaction model: ${MXTK_IM_NOTE}$wf_note"; return; fi
     echo "PASS|fit-gap, blueprint render, design system, wireframes present and a Stage-3 decision is ASSUMED by auto-mode in $REGISTER (Interview mode: auto) — a human confirms it before release$wf_note"
   else
     echo "FAIL|artifacts exist but ${REGISTER:-PROJECT.md} has no Stage-3 CONFIRMED decision — ✋ gate: artifacts without an interview don't pass$(auto_assumed_hint 3)"
@@ -2100,6 +2118,10 @@ stage4_closing_rows() {
 # citation in design/ui-reviews/ui-review-*.html whose screenshot is newer than the build and
 # at least 10KB, and a `Waived obligation look/<Module>` (or look/<Module.Page>) register line.
 # No owed.tsv — a project built before this, or one whose exec.sh predates it — stays MANUAL.
+# The Marketplace install check (bin/lib/marketplace-check.sh) is NOT folded in: it prints its
+# own "Marketplace installs:" line and never changes this verdict, so a project whose Stage 5
+# exit is already recorded cannot flip to "approved over a failing gate". It blocks earlier, in
+# build-ready and in exec.sh before a domain-model script, where the install belongs.
 check_stage_5() {
   local owed="$PROJECT_DIR/.claude/loop/look/owed.tsv" rows proofs="" n=0 n_seen=0 n_proof=0 n_waived=0
   local unseen="" n_unseen=0 st page epoch mod rep line shot f sz mt
@@ -2376,6 +2398,22 @@ check_build_ready() {
     echo "  ✗ no design system (ds.css or design-system.html) — design-artifacts.md"
     fails=$((fails+1))
   fi
+
+  # 6. Confirmed Marketplace Buys installed (bin/lib/marketplace-check.sh, evaluated above the
+  #    stage loop). Only a FAIL counts: a Buy confirmed, the model there, SHOW MODULES read, the
+  #    package absent. PENDING (no model yet, no mxcli, an unresolved row) is a note — build-ready
+  #    usually runs before the model exists, and an instrument that could not measure never fails.
+  #    The remedy (install, or --waive marketplace/<Name>) is never blocked by this (guard rule 7).
+  case "${MXTK_MKT_STATUS:-}" in
+    FAIL)
+      echo "  ✗ Marketplace: $MXTK_MKT_NOTE"
+      fails=$((fails+1)) ;;
+    PENDING)
+      echo "  ⚠ Marketplace: PENDING — $MXTK_MKT_NOTE (not counted as a FAIL)" ;;
+    "") ;;
+    *)
+      echo "  ✓ Marketplace: $MXTK_MKT_STATUS — $MXTK_MKT_NOTE" ;;
+  esac
 
   echo ""
   if [ "$fails" -eq 0 ]; then
@@ -2982,6 +3020,15 @@ if [ -n "$ADOPT_STAGE" ] || [ -n "$WAIVE_STAGE" ]; then
     #     --waive sweep       --reason "QA runs in the client's own suite"  (every module)
     # The obligation form is recognised by the target naming a row in obligations.tsv.
     case "$WAIVE_STAGE" in
+      marketplace|marketplace/?*)
+        MKT_NAME="${WAIVE_STAGE#marketplace}"; MKT_NAME="${MKT_NAME#/}"
+        register_set_line "Waived marketplace${MKT_NAME:+ $MKT_NAME}" "$WAIVER_REASON" \
+          || { echo "Could not write to $REGISTER" >&2; exit 1; }
+        build_log_append "MARKETPLACE-WAIVED ${MKT_NAME:-all} reason: $WAIVER_REASON"
+        echo "Recorded in $REGISTER:  Waived marketplace${MKT_NAME:+ $MKT_NAME}: $WAIVER_REASON"
+        echo "That confirmed Buy now reports WAIVED in the Marketplace install check instead of"
+        echo "FAIL/PENDING. It does NOT report installed — the register says who decided that."
+        exit 0 ;;
       artifact/?*)
         # `Waived artifact <id>: <reason>` — read by bin/lib/artifact-check.sh and by the Stage 2-4
         # content checks (artifact_waived). Written here so the FAIL lines can name a command.
@@ -3444,6 +3491,27 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Marketplace installs — is every confirmed fit-gap "Buy" in the model?
+#
+# architecture-blueprint.md Step 4 decides Buy; brd-to-build-plan.md Step 0 installs it. Both
+# were prose, and confirmed Buys too often never got installed. bin/lib/marketplace-check.sh
+# compares the two. Informational on its own line here, never a stage verdict (Stage 5 is not
+# changed by it). Its FAIL (Buy confirmed, model present, SHOW MODULES read, package absent)
+# blocks `gate-check <p> build-ready` (check_build_ready) and project-bin/exec.sh's domain-model
+# scripts — before the build, where brd-to-build-plan.md Step 0 installs it.
+# Owed from Stage 5, so a stage query below 5 does not evaluate it (#583: it may run mxcli).
+MXTK_MKT_STATUS=""; MXTK_MKT_NOTE=""
+case "${MXTK_ROWS_UPTO:-}" in P|p|0|1|2|3|4) ;; *)
+  if [ -r "$TOOLKIT_DIR/bin/lib/marketplace-check.sh" ]; then
+    # shellcheck source=lib/marketplace-check.sh
+    . "$TOOLKIT_DIR/bin/lib/marketplace-check.sh"
+    mxtk_mkt_report "$PROJECT_DIR" "${REGISTER:-$PROJECT_DIR/PROJECT.md}" "$(resolve_artifact_nonempty "architecture/fit-gap.md")"
+  else
+    printf 'Marketplace installs: NOT CHECKED — bin/lib/marketplace-check.sh missing from %s\n' "$TOOLKIT_DIR"
+  fi ;;
+esac
+
+# ---------------------------------------------------------------------------
 # Artifacts — did the stages that promise a file actually leave one?
 #
 # The obligation check above is the mirror rule for PASSES; this is the same mirror for
@@ -3465,6 +3533,26 @@ if [ -r "$TOOLKIT_DIR/bin/lib/artifact-check.sh" ]; then
 else
   # Same discipline again: the checker failing is not the project passing.
   printf 'Artifacts: FAULT — bin/lib/artifact-check.sh missing from %s; no artifact was checked\n' "$TOOLKIT_DIR"
+fi
+
+# ---------------------------------------------------------------------------
+# Interaction model — the Stage-3 facts over design/interaction-model.md (#291).
+#
+# The artifact check above only notices the file is absent. Once it exists, three facts are
+# read from it: every BRD role has a home row, every BRD approval/user-task use case has an
+# inbox row (or a stated reason), every wireframe carries its `Page parameter:` line. Each
+# finding prints here; check_stage_3() turns any un-waived one into a Stage-3 FAIL. Judgement
+# (is that the right home?) stays in skills/interaction-model.md. Waivers and adoption: see the
+# header of bin/lib/interaction-model-check.sh.
+MXTK_IM_STATUS=""; MXTK_IM_NOTE=""
+if [ -r "$TOOLKIT_DIR/bin/lib/interaction-model-check.sh" ] && [ -r "$TOOLKIT_DIR/bin/lib/artifact-check.sh" ]; then
+  # shellcheck source=lib/interaction-model-check.sh
+  . "$TOOLKIT_DIR/bin/lib/interaction-model-check.sh"
+  mxtk_interaction_model_check "$PROJECT_DIR" "$REGISTER" "$ANALYSIS_BASE"
+else
+  MXTK_IM_STATUS="MANUAL"
+  MXTK_IM_NOTE="bin/lib/interaction-model-check.sh missing from $TOOLKIT_DIR — cannot evaluate, which is not a pass"
+  printf 'Interaction model (stage 3 facts): MANUAL — %s\n' "$MXTK_IM_NOTE"
 fi
 
 # ---------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 {
-  "_comment": "PROJECT-OWNED config for the shared java-angular pipeline. Source of truth for a WMS reference app, ALL FIVE source repos in one combined, cross-linked run — see migration-pipeline.md 'Multiple source repos' and source-triage.md. Backend-only: no Angular source exists for this project (CONFIRMED, triage.md 2026-07-14), so angularSourceDir is intentionally empty.",
+  "_comment": "TEMPLATE — do not fill in here. Copy this file into your project (e.g. <project-root>/analysis/<source-name>/pipeline-config.json), set the paths there (relative paths resolve against that file), and run node run.js <phase> --config <that file> (or MXTK_PIPELINE_CONFIG=<that file>). Example shape: several Java sources combined into one cross-linked run (migration-pipeline.md 'Multiple source repos'), backend-only so angularSourceDir is empty. run.js refuses to run while /path/to/your placeholders remain.",
   "sources": [
     { "name": "common-lib",    "javaSourceDir": "/path/to/your/source-project/source/openwms-common-lib/src/main/java" },
     { "name": "tms",           "javaSourceDir": "/path/to/your/source-project/source/openwms-tms/src/main/java" },

@@ -25,7 +25,11 @@
 #     READ stay covered by SEC006 / SEC007 / SEC008.
 #   - Admin roles are skipped (`skip_roles`, default Admin, Administrator): unscoped write is
 #     the point of an admin role. The match is on the bare module-role name (the part after
-#     the last dot), so Procurement.Admin and InvoiceMatching.Admin are both skipped.
+#     the last dot), so Procurement.Admin and InvoiceMatching.Admin are both skipped, but only
+#     while the module role is mapped exclusively to admin-like user roles (bare name in
+#     skip_roles) and never to an anonymous user role. A module role named Admin that an Employee
+#     or the anonymous user role holds is reported. Without mapping rows in the catalog the
+#     name alone decides, as before.
 #   - A module skip list (`skip_modules`), for vendor / Marketplace modules you cannot edit.
 #     (lint-gate.sh already passes .claude/lint-vendor-modules.txt to `mxcli lint -e`; this is
 #     for runs without it, and for modules you want in the gate but not in this rule.)
@@ -82,6 +86,26 @@ def _names(raw):
     return None
 
 
+def _admin_mapped(mod_role, skip_roles, m2u, anon):
+    """True when this module role may be skipped as an admin role.
+
+    The bare name must be in skip_roles. Then, when the catalog tells which user roles the module
+    role is mapped to, ALL of them must be admin-like (bare name in skip_roles) and none anonymous:
+    a module role called Admin that is mapped to Employee or to the anonymous user role is an
+    unscoped write for non-admins, and is reported. If the catalog has no mapping for this module
+    role (no role_mappings / user_roles rows), fall back to the name alone, the earlier behaviour.
+    """
+    if mod_role.split(".")[-1] not in skip_roles:
+        return False
+    users = m2u.get(mod_role, [])
+    if not users:
+        return True   # no mapping known: name-only skip, as before
+    for u in users:
+        if anon.get(u, False) or u.split(".")[-1] not in skip_roles:
+            return False
+    return True
+
+
 def check():
     check_read = get_option("check_read", False)
     if type(check_read) != "bool":
@@ -102,6 +126,15 @@ def check():
             "Set `skip_modules: \"ModuleA, ModuleB\"` (one text) under `rules: CONV007: options:` in .claude/lint-config.yaml.",
         )]
 
+    m2u, anon = {}, {}
+    for rm in role_mappings():
+        m2u.setdefault(rm.module_role_name, []).append(rm.user_role_name)
+    for u in user_roles():
+        anon[u.name] = u.is_anonymous
+        for mr in u.module_roles:
+            if u.name not in m2u.get(mr, []):
+                m2u.setdefault(mr, []).append(u.name)
+
     violations = []
     for entity in entities():
         if entity.entity_type != "Persistent" or entity.is_external:
@@ -113,7 +146,7 @@ def check():
                 continue
             if perm.is_constrained:
                 continue
-            if perm.module_role_name.split(".")[-1] in skip_roles:
+            if _admin_mapped(perm.module_role_name, skip_roles, m2u, anon):
                 continue
             violations.append(violation(
                 message="Entity '{}' has unconstrained {} access for role '{}' - all rows are accessible".format(

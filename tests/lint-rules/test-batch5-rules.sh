@@ -92,6 +92,12 @@ run "$R1" conv007-h-skip-modules-number
 check "h skip_modules: 5 -> 1 _rule finding" 'len(v)==1 and v[0]["module"]=="_rule" and "skip_modules" in v[0]["message"]'
 run "$R1" conv007-i-empty
 check "i empty model -> 0" 'len(v)==0'
+run "$R1" conv007-j-admin-mapped-ok
+check "j Shop.Admin mapped only to user role Admin, Inv.Administrator likewise -> still skipped (2: Clerk, Agent)" 'len(v)==2 and not any("Admin" in x["message"].split("for role ")[1] for x in v)'
+run "$R1" conv007-k-admin-role-held-by-employee
+check "k module role named Admin mapped to the Employee user role -> no longer skipped (3), Inv.Administrator still skipped" 'len(v)==3 and any("Shop.Admin" in x["message"] for x in v) and not any("Inv.Administrator" in x["message"] for x in v)'
+run "$R1" conv007-l-admin-role-anonymous
+check "l module role named Admin mapped to an anonymous user role -> not skipped, Inv.Administrator (admin-like, not anonymous) still is" 'any("Shop.Admin" in x["message"] for x in v) and not any("Inv.Administrator" in x["message"] for x in v)'
 
 echo "== MXTK-SEC015 =="
 run "$R2" sec015-a-no-config
@@ -118,6 +124,8 @@ run "$R2" sec015-k-matrix-and-heuristic
 check "k matrix + heuristic: the matrix-covered flow is reported once, by the matrix" 'len(v)==1 and "role matrix allows only" in v[0]["message"]'
 run "$R2" sec015-l-two-lines-both-apply
 check "l two matching lines: a role must pass every one -> FinanceApprover flagged by the narrower line" 'len(v)==1 and "Role '"'"'FinanceApprover'"'"'" in v[0]["message"] and "allows only: Admin, ProcurementOfficer" in v[0]["message"]'
+run "$R2" sec015-q-matrix-no-execute-rows
+check "q matrix declared but permissions() has no EXECUTE row -> 1 _rule self-check finding, not a clean pass" 'len(v)==1 and v[0]["module"]=="_rule" and "no EXECUTE row" in v[0]["message"]'
 run "$R2" sec015-m-nanoflow
 check "m a nanoflow execute right is checked, and named a Nanoflow" 'len(v)==1 and v[0]["document_name"]=="Procurement.NF_Vendor_Preview" and v[0]["document_type"]=="Nanoflow"'
 run "$R2" sec015-n-heuristic-text

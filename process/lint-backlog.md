@@ -211,3 +211,13 @@ a second backlog section. Forum only to weight by incident frequency.
 - 2026-10-08 — file created from the UX001/UX002 work and a brain scan of `skills/`; no rule from
   this list exists yet. UX001/UX002 themselves are `drafted` (PR open, 35 unit cases, field run
   pending).
+
+## Batch 8 — native baseline, CONV007 replacement, flow execute rights
+
+Source: mta-lab improvements batch C (ProcureFlow field run). Built; see `lint-rules/README.md`.
+
+| # | Rule | Category | Evidence | Needs | Status |
+|---|---|---|---|---|---|
+| 55 | Lint gate on `mxcli lint --baseline`, so a swap fails | gate | swap invisible to the count ratchet | mxcli >= 0.30 | built, count-ratchet fallback |
+| 56 | CONV007 replacement: unscoped WRITE for non-admin roles, optional READ, skip lists | security | 217 stock hits, 29 after | `permissions_for` | built |
+| 57 | MXTK-SEC015 flow execute rights vs a role matrix, opt-in ACT_ heuristic | security | bug (b) in ProcureFlow | matrix in `lint-config.yaml` | built |

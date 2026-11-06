@@ -19,20 +19,25 @@
 #
 # conv009 lines and the v0.26.0 set: captured 2026-10-13 by exactly that procedure, from the
 # official mendixlabs/mxcli release assets (mxcli-linux-amd64) for v0.17.0, v0.24.0, v0.25.0
-# and v0.26.0; the same run reproduced every hash already listed here.
+# and v0.26.0; the same run reproduced every hash already listed here. The conv007 lines are
+# the same bytes as the STOCK-HASHES-BUNDLED.txt rows (the toolkit now ships its own CONV007).
 
+conv007_xpath_on_all_access.star       adbfd91301beab64039ddef3abe43370  v0.17.0
 conv009_max_microflow_objects.star  c1c398da8bf5033ab6884921232279c3  v0.17.0
 conv010_act_microflow_content.star  276df639edbd90d8010ee711a1e7c0fa  v0.17.0
 data_change_microflows.star         a47e068e01895ce2938d39846a8d907d  v0.17.0
 entity_business_key.star            956c7469e234033e22a9ac32844cb236  v0.17.0
+conv007_xpath_on_all_access.star       adbfd91301beab64039ddef3abe43370  v0.24.0
 conv009_max_microflow_objects.star  c1c398da8bf5033ab6884921232279c3  v0.24.0
 conv010_act_microflow_content.star  24295842479e192c71c5176e91a24d39  v0.24.0
 data_change_microflows.star         4f8194a133da3f1961e87f5df684afed  v0.24.0
 entity_business_key.star            d66528c958ad2259462bdf0456c13286  v0.24.0
+conv007_xpath_on_all_access.star       adbfd91301beab64039ddef3abe43370  v0.25.0
 conv009_max_microflow_objects.star  95f3d4fef197882e300fcfe4a7fae372  v0.25.0
 conv010_act_microflow_content.star  de7463c1eca28b9b3291adf2a03db2d7  v0.25.0
 data_change_microflows.star         4f8194a133da3f1961e87f5df684afed  v0.25.0
 entity_business_key.star            d66528c958ad2259462bdf0456c13286  v0.25.0
+conv007_xpath_on_all_access.star       adbfd91301beab64039ddef3abe43370  v0.26.0
 conv009_max_microflow_objects.star  95f3d4fef197882e300fcfe4a7fae372  v0.26.0
 conv010_act_microflow_content.star  de7463c1eca28b9b3291adf2a03db2d7  v0.26.0
 data_change_microflows.star         4f8194a133da3f1961e87f5df684afed  v0.26.0

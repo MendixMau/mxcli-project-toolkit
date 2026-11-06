@@ -1,0 +1,206 @@
+{
+ "microflows": [
+  {
+   "microflow_type": "MICROFLOW",
+   "module_name": "Procurement",
+   "name": "ACT_Vendor_Approve",
+   "qualified_name": "Procurement.ACT_Vendor_Approve"
+  },
+  {
+   "microflow_type": "MICROFLOW",
+   "module_name": "Procurement",
+   "name": "ACT_Vendor_Reject",
+   "qualified_name": "Procurement.ACT_Vendor_Reject"
+  },
+  {
+   "microflow_type": "MICROFLOW",
+   "module_name": "Procurement",
+   "name": "ACT_Requisition_Submit",
+   "qualified_name": "Procurement.ACT_Requisition_Submit"
+  },
+  {
+   "microflow_type": "MICROFLOW",
+   "module_name": "Procurement",
+   "name": "SUB_Vendor_Touch",
+   "qualified_name": "Procurement.SUB_Vendor_Touch"
+  }
+ ],
+ "options": {
+  "heuristic": true,
+  "matrix": "Procurement.ACT_Vendor_Approve = Admin, ProcurementOfficer"
+ },
+ "permissions": [
+  {
+   "access_type": "EXECUTE",
+   "element_name": "Procurement.ACT_Vendor_Approve",
+   "element_type": "MICROFLOW",
+   "module_name": "Procurement",
+   "module_role_name": "Procurement.Admin"
+  },
+  {
+   "access_type": "EXECUTE",
+   "element_name": "Procurement.ACT_Vendor_Approve",
+   "element_type": "MICROFLOW",
+   "module_name": "Procurement",
+   "module_role_name": "Procurement.ProcurementOfficer"
+  },
+  {
+   "access_type": "EXECUTE",
+   "element_name": "Procurement.ACT_Vendor_Reject",
+   "element_type": "MICROFLOW",
+   "module_name": "Procurement",
+   "module_role_name": "Procurement.Admin"
+  },
+  {
+   "access_type": "EXECUTE",
+   "element_name": "Procurement.ACT_Requisition_Submit",
+   "element_type": "MICROFLOW",
+   "module_name": "Procurement",
+   "module_role_name": "Procurement.Employee"
+  },
+  {
+   "access_type": "EXECUTE",
+   "element_name": "Procurement.ACT_Requisition_Submit",
+   "element_type": "MICROFLOW",
+   "module_name": "Procurement",
+   "module_role_name": "Procurement.Admin"
+  },
+  {
+   "access_type": "EXECUTE",
+   "element_name": "Procurement.SUB_Vendor_Touch",
+   "element_type": "MICROFLOW",
+   "module_name": "Procurement",
+   "module_role_name": "Procurement.Employee"
+  },
+  {
+   "access_type": "WRITE",
+   "element_name": "Procurement.Vendor",
+   "element_type": "ENTITY",
+   "module_name": "Procurement",
+   "module_role_name": "Procurement.Admin"
+  },
+  {
+   "access_type": "WRITE",
+   "element_name": "Procurement.Vendor",
+   "element_type": "ENTITY",
+   "module_name": "Procurement",
+   "module_role_name": "Procurement.ProcurementOfficer"
+  },
+  {
+   "access_type": "READ",
+   "element_name": "Procurement.Vendor",
+   "element_type": "ENTITY",
+   "module_name": "Procurement",
+   "module_role_name": "Procurement.Employee"
+  },
+  {
+   "access_type": "WRITE",
+   "element_name": "Procurement.PurchaseRequisition",
+   "element_type": "ENTITY",
+   "module_name": "Procurement",
+   "module_role_name": "Procurement.Employee"
+  },
+  {
+   "access_type": "WRITE",
+   "element_name": "Procurement.PurchaseRequisition",
+   "element_type": "ENTITY",
+   "module_name": "Procurement",
+   "module_role_name": "Procurement.Admin"
+  },
+  {
+   "access_type": "EXECUTE",
+   "element_name": "Procurement.ACT_Vendor_Approve",
+   "element_type": "MICROFLOW",
+   "module_name": "Procurement",
+   "module_role_name": "Procurement.Employee"
+  }
+ ],
+ "refs_from": {
+  "Procurement.ACT_Requisition_Submit": [
+   {
+    "ref_kind": "change",
+    "target_name": "Procurement.PurchaseRequisition",
+    "target_type": "ENTITY"
+   }
+  ],
+  "Procurement.ACT_Vendor_Approve": [
+   {
+    "ref_kind": "change",
+    "target_name": "Procurement.Vendor",
+    "target_type": "ENTITY"
+   },
+   {
+    "ref_kind": "change",
+    "target_name": "System.User",
+    "target_type": "ENTITY"
+   },
+   {
+    "ref_kind": "commit",
+    "target_name": "Procurement.Vendor",
+    "target_type": "ENTITY"
+   }
+  ],
+  "Procurement.ACT_Vendor_Reject": [
+   {
+    "ref_kind": "delete",
+    "target_name": "Procurement.Vendor",
+    "target_type": "ENTITY"
+   }
+  ],
+  "Procurement.SUB_Vendor_Touch": [
+   {
+    "ref_kind": "change",
+    "target_name": "Procurement.Vendor",
+    "target_type": "ENTITY"
+   }
+  ]
+ },
+ "role_mappings": [
+  {
+   "module_name": "Procurement",
+   "module_role_name": "Procurement.Admin",
+   "user_role_name": "Admin"
+  },
+  {
+   "module_name": "Procurement",
+   "module_role_name": "Procurement.ProcurementOfficer",
+   "user_role_name": "ProcurementOfficer"
+  },
+  {
+   "module_name": "Procurement",
+   "module_role_name": "Procurement.Employee",
+   "user_role_name": "Employee"
+  },
+  {
+   "module_name": "Procurement",
+   "module_role_name": "Procurement.FinanceApprover",
+   "user_role_name": "FinanceApprover"
+  }
+ ],
+ "user_roles": [
+  {
+   "module_roles": [
+    "Procurement.Admin"
+   ],
+   "name": "Admin"
+  },
+  {
+   "module_roles": [
+    "Procurement.ProcurementOfficer"
+   ],
+   "name": "ProcurementOfficer"
+  },
+  {
+   "module_roles": [
+    "Procurement.Employee"
+   ],
+   "name": "Employee"
+  },
+  {
+   "module_roles": [
+    "Procurement.FinanceApprover"
+   ],
+   "name": "FinanceApprover"
+  }
+ ]
+}

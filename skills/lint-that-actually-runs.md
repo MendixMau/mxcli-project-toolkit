@@ -169,6 +169,19 @@ and report score first → last. Lint counts say whether a rule fires; this says
 got better and the sessions faster while it did. `bin/harvest-learnings.sh` carries the
 trend summary (never the rows — those name scripts) into the toolkit inbox at wrap-up.
 
+### Native baseline (mxcli >= 0.30): the swap blind spot
+
+A count ratchet cannot see a swap: one finding fixed and a new one in the same rule leaves the
+count unchanged. mxcli 0.30 added `lint --baseline <file>`, which matches findings on rule and
+document, so a new finding fails even when another in the same rule was fixed.
+`project-bin/lint-gate.sh` uses it automatically when `mxcli` is 0.30.0 or newer (nightly builds
+without a semver are probed with `lint --help`). The file is `.claude/lint-mxcli-baseline.json`;
+`lint-gate.sh --update-baseline` writes it next to `.claude/lint-baseline.json`, commit both.
+Accepting a swap needs `--reason` like any other rise. On older mxcli, or with
+`LINT_MXCLI_BASELINE=0`, the gate falls back to the count ratchet and prints a one-line note.
+`_rule` self-check findings are never counted by the gate: mxcli's own baseline file may hold them (it records every finding), but the gate filters them out when it compares, and reports them as PASS-BLIND instead. The security tier is `SEC*`, `MXTK-SEC*`,
+`CONV006`, `CONV007`.
+
 ## Stock rules against the toolkit's own conventions
 
 Three stock rules flag things this toolkit does on purpose. Each needs a known answer; otherwise an

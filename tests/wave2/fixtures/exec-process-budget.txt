@@ -1,0 +1,6 @@
+# Process starts in ONE clean MDL exec of project-bin/exec.sh, counted by
+# tests/wave2/test-exec-process-budget.sh (#687). The first bare number below is the baseline.
+# Lower it freely when the fixture reports fewer starts. Raising it is a reviewed change: the PR
+# body's "Time cost:" line states why, and docs/RELEASE-PROCESS.md §4a "Per-row budget" applies.
+# Measured 2026-11-06 on origin/master ee12a615, Linux x86-64 (bash 5, git 2, python 3).
+128

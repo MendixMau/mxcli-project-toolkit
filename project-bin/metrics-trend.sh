@@ -2,11 +2,15 @@
 # metrics-trend.sh — is this project getting better, and is the build getting faster?
 #
 # Reads .claude/loop/metrics-ledger.tsv (one row per exec, written by project-bin/exec.sh
-# through metrics-ledger.sh) and prints:
+# through metrics-ledger.sh, plus one module-close row per module from bin/module-close.sh and
+# any score-only rows from `metrics-ledger.sh record`) and prints:
 #   - outcomes: execs, applied share, gate failures, restores, lint rises
 #   - speed: median and worst elapsed, first-half vs second-half median
 #   - lint: total findings first → last (only rows where lint ran)
-#   - score: `mxcli report` overall and per category, first → last, with the delta
+#   - score: `mxcli report` overall and per category, first → last, with the delta, from every
+#     row that has one — since 2026-11-05 that is one point per module close, not per exec
+#     (exec.sh scores each exec only under `Score: every exec`), so the series is short and each
+#     point says where it was taken. Outcomes and speed count exec rows only.
 # Numbers only — no script names in the default view, so the output is safe to paste into a
 # toolkit inbox file (bin/harvest-learnings.sh does exactly that). `--runs` adds the per-exec
 # rows, script names included, for use inside the project.
@@ -48,7 +52,7 @@ while [ $# -gt 0 ]; do
     --runs) MODE="runs" ;;
     --score) MODE="score" ;;
     --since) SINCE="${2:-}"; [ -n "$SINCE" ] || { echo "metrics-trend: --since needs a date" >&2; exit 2; }; shift ;;
-    -h|--help) sed -n '2,21p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,26p' "$0"; exit 0 ;;
     *) echo "metrics-trend: unknown argument $1" >&2; exit 2 ;;
   esac
   shift
@@ -73,6 +77,9 @@ def num(v):
     except (TypeError, ValueError): return None
 
 CATS = ["security", "quality", "architecture", "performance", "naming", "design", "other"]
+NOT_EXEC = ("module-close", "score-only")      # `metrics-ledger.sh record` rows: a score, not a run
+def taken(r):
+    return {"module-close": "module close", "score-only": "on demand"}.get(r.get("result", ""), "exec")
 
 if mode == "runs":
     print("ts\tscript\tgate\tresult\telapsed_s\tlint_total\tscore\trestored")
@@ -82,12 +89,16 @@ if mode == "runs":
 
 scored = [r for r in rows if num(r.get("score")) is not None]
 if mode == "score":
-    print("ts\toverall\t" + "\t".join(CATS) + "\tviolations")
+    # `taken` is the last column so a reader of the first ten is unchanged.
+    print("ts\toverall\t" + "\t".join(CATS) + "\tviolations\ttaken")
     for r in scored:
-        print("\t".join([r["ts"], r["score"]] + [r.get(c, "") for c in CATS] + [r.get("violations", "")]))
-    if not scored: print("(no scored rows — `score` never ran; MXTK_NO_SCORE set, or no ./mxcli)")
+        print("\t".join([r["ts"], r["score"]] + [r.get(c, "") for c in CATS] + [r.get("violations", ""), taken(r)]))
+    if not scored: print("(no scored rows — no module close has scored yet (bin/module-close.sh <Module>, or bash bin/metrics-ledger.sh record); or no ./mxcli)")
     sys.exit(0)
 
+rows = [r for r in rows if r.get("result") not in NOT_EXEC]
+if not rows and not scored:
+    print("metrics-trend: no exec rows%s" % (" since " + since if since else "")); sys.exit(0)
 n = len(rows)
 applied = [r for r in rows if r["result"].startswith("applied")]
 clean = [r for r in rows if r["result"] == "applied"]
@@ -97,7 +108,8 @@ lint_rose = [r for r in rows if r["result"] == "applied-lint-rose"]
 blocked = [r for r in rows if r["result"] in ("blocked", "refused")]
 el = [num(r["elapsed_s"]) for r in rows if num(r["elapsed_s"]) is not None]
 
-print("== metrics-trend: %d execs, %s → %s" % (n, rows[0]["ts"][:10], rows[-1]["ts"][:10]))
+span = rows or scored
+print("== metrics-trend: %d execs, %s → %s" % (n, span[0]["ts"][:10], span[-1]["ts"][:10]))
 print()
 print("outcomes")
 def pct(k): return "%d (%d%%)" % (k, round(100.0 * k / n)) if n else "0"
@@ -123,7 +135,10 @@ if lint:
     print()
 if scored:
     f, l = scored[0], scored[-1]
-    print("score (mxcli report, 0-100; scored rows: %d)" % len(scored))
+    where = {}
+    for r in scored: where[taken(r)] = where.get(taken(r), 0) + 1
+    print("score (mxcli report, 0-100; %d points: %s)" % (len(scored), ", ".join("%d at %s" % (v, k) for k, v in sorted(where.items()))))
+    print("  first %s (%s) → last %s (%s)" % (f["ts"][:10], taken(f), l["ts"][:10], taken(l)))
     print("  %-14s %6s → %6s   %s" % ("overall", f["score"], l["score"], "%+.1f" % (num(l["score"]) - num(f["score"]))))
     for c in CATS:
         a, b = num(f.get(c)), num(l.get(c))
@@ -133,5 +148,5 @@ if scored:
     if va is not None and vb is not None:
         print("  %-14s %6.0f → %6.0f   %+.0f" % ("violations", va, vb, vb - va))
 else:
-    print("score: no scored rows (score runs after a clean mxbuild unless MXTK_NO_SCORE=1; needs ./mxcli)")
+    print("score: no scored rows (taken at each bin/module-close.sh, or on demand: bash bin/metrics-ledger.sh record; per exec only under `Score: every exec`; needs ./mxcli)")
 PYEOF

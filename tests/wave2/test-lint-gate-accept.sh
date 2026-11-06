@@ -37,7 +37,14 @@ v() { i=0; while [ "$i" -lt "$3" ]; do
   printf '{"ruleId":"%s","severity":"%s","message":"finding %s","module":"%s","document":"Doc%s","documentType":"microflow","documentId":"id-%s-%s","suggestion":"s"},' \
     "$1" "$2" "$i" "${4:-Orders}" "$i" "$1" "$i"; i=$((i+1)); done; }
 mk() { printf '{"violations":[%s{"ruleId":"MPR001","severity":"warning","message":"m","module":"Orders","document":"E","documentType":"entity","documentId":"x","suggestion":"s"}],"summary":{}}' "$1" > "$WORK/lint.json"; }
-gate() { (cd "$P" && LINT_JSON="$WORK/lint.json" bash bin/lint-gate.sh "$@"); }
+gate() { (cd "$P" && LINT_JSON="$WORK/lint.json" bash bin/lint-gate.sh "$@" </dev/null); }
+# A rise needs the USER to type `loosen` at a terminal (#348): a pty stands in for them. Where
+# Python has no pty (Git Bash), the same baseline is taken fresh and the case says skip (rc 77).
+TTY="$TK/tests/wave2/fixtures/baseline-loosen/at-terminal.py"
+user() { if "$PY" -c 'import pty' 2>/dev/null; then
+    (cd "$P" && LINT_JSON="$WORK/lint.json" "$PY" "$TTY" loosen bash bin/lint-gate.sh "$@")
+  else rm -f "$P/.claude/lint-baseline.json"; gate --update-baseline >/dev/null 2>&1; return 77; fi; }
+skipped() { [ "$1" -eq 77 ] && printf '  skip %s (no pty)\n' "$2"; }
 base_total() { "$PY" -c 'import json,sys;print(sum(json.load(open(sys.argv[1]))["counts"].values()))' "$P/.claude/lint-baseline.json"; }
 
 echo "T1 first baseline needs no reason and logs nothing"
@@ -61,33 +68,39 @@ out=$(gate --update-baseline 2>&1); rc=$?
 [ "$rc" -eq 2 ] && ok "refused (rc 2)" || bad "rise accepted without a reason (rc $rc)" "$out"
 [ "$(base_total)" = "$before" ] && ok "baseline unchanged ($before)" || bad "baseline changed to $(base_total)"
 
-echo "T4 with --reason the rise is accepted and logged"
+echo "T4 with --reason the agent is still refused; the user at a terminal accepts it, logged"
 out=$(gate --update-baseline --reason "two flows split later in slice 3" 2>&1); rc=$?
-[ "$rc" -eq 0 ] && ok "accepted with a reason" || bad "rc=$rc" "$out"
+[ "$rc" -eq 2 ] && [ "$(base_total)" = "$before" ] && ok "agent refused with a reason (no terminal)" || bad "rise accepted for the agent (rc $rc)" "$out"
+out=$(user --update-baseline --reason "two flows split later in slice 3" 2>&1); rc=$?
+if ! skipped "$rc" T4; then
+[ "$rc" -eq 0 ] && ok "accepted with a reason + loosen" || bad "rc=$rc" "$out"
 row=$(tail -1 "$P/.claude/lint-acceptances.tsv" 2>/dev/null)
 case "$row" in *CONV009+1*MDL-FLOW01+2*"two flows split later"*) ok "row: rises and reason recorded" ;; *) bad "acceptance row wrong" "$row" ;; esac
+fi
 
-echo "T5 a security-tier rise needs --approved-in-chat on top of a reason"
+echo "T5 a security-tier rise: --approved-in-chat no longer lets the agent through (#348)"
 mk "$(v CONV009 info 3)$(v MDL-FLOW01 info 3)$(v SEC003 warning 2)$(v CONV006 warning 1)"
-out=$(gate --update-baseline --reason "by design" 2>&1); rc=$?
-[ "$rc" -eq 2 ] && ok "SEC003/CONV006 rise refused without approval" || bad "security rise accepted (rc $rc)" "$out"
-case "$out" in *SEC003*CONV006*|*CONV006*SEC003*) ok "refusal names both security rules" ;; *) bad "refusal does not name the rules" "$out" ;; esac
-out=$(gate --update-baseline --approved-in-chat --reason "user approved demo-user warning in chat" 2>&1); rc=$?
-[ "$rc" -eq 0 ] && ok "accepted with reason + --approved-in-chat" || bad "rc=$rc" "$out"
-tail -1 "$P/.claude/lint-acceptances.tsv" | grep -q $'\tyes\t' && ok "row marks the security approval" || bad "security flag missing" "$(tail -1 "$P/.claude/lint-acceptances.tsv")"
+out=$(gate --update-baseline --approved-in-chat --reason "by design" 2>&1); rc=$?
+[ "$rc" -eq 2 ] && ok "SEC003/CONV006 rise refused for the agent even with --approved-in-chat" || bad "security rise accepted (rc $rc)" "$out"
+case "$out" in *security-tier*SEC003*CONV006*|*security-tier*CONV006*SEC003*) ok "refusal flags both security rules" ;; *) bad "refusal does not name the rules" "$out" ;; esac
+out=$(user --update-baseline --reason "user approved demo-user warning" 2>&1); rc=$?
+if ! skipped "$rc" T5; then
+[ "$rc" -eq 0 ] && ok "accepted by the user at a terminal" || bad "rc=$rc" "$out"
+tail -1 "$P/.claude/lint-acceptances.tsv" | grep -q $'\tyes\t' && ok "row marks the security rise" || bad "security flag missing" "$(tail -1 "$P/.claude/lint-acceptances.tsv")"
+fi
 
 echo "T6 a pure ratchet-down needs no reason"
 mk "$(v CONV009 info 1)$(v MDL-FLOW01 info 3)$(v SEC003 warning 2)$(v CONV006 warning 1)"
-rows=$(wc -l < "$P/.claude/lint-acceptances.tsv")
+rows=$(wc -l < "$P/.claude/lint-acceptances.tsv" 2>/dev/null || echo 0)
 out=$(gate --update-baseline 2>&1); rc=$?
 [ "$rc" -eq 0 ] && ok "ratchet-down accepted without a reason" || bad "rc=$rc" "$out"
-[ "$(wc -l < "$P/.claude/lint-acceptances.tsv")" -eq "$rows" ] && ok "no acceptance row for a drop" || bad "drop was logged as an acceptance"
+[ "$(wc -l < "$P/.claude/lint-acceptances.tsv" 2>/dev/null || echo 0)" -eq "$rows" ] && ok "no acceptance row for a drop" || bad "drop was logged as an acceptance"
 
 echo "T7 the project's security list replaces the default"
 printf '# ours\nCONV007\n' > "$P/.claude/lint-security-rules.txt"
 mk "$(v CONV009 info 1)$(v MDL-FLOW01 info 3)$(v SEC003 warning 2)$(v CONV006 warning 1)$(v CONV007 info 1)"
 out=$(gate --update-baseline --reason "x" 2>&1); rc=$?
-[ "$rc" -eq 2 ] && ok "CONV007 rise refused once listed" || bad "listed rule not treated as security (rc $rc)" "$out"
+case "$out" in *security-tier:\ CONV007*) ok "CONV007 flagged security-tier once listed" ;; *) bad "listed rule not treated as security (rc $rc)" "$out" ;; esac
 rm -f "$P/.claude/lint-security-rules.txt"
 
 echo "T8 PASS-BLIND is logged as BLIND, not as a rise"

@@ -338,6 +338,23 @@ for ph in ("1", "2"):
 assert "Applied</th>" not in h, "no per-phase runs table"
 PYEOF6
 has "$O10" "04-billing.mdl" "last build step is the newest ledger row"
+# Score at module close (2026-11-05): exec rows carry no score, one module-close row does. The
+# build line must still count 7 runs (the close row is not a run) and show the close's score.
+P10S="$WORK/proj10s"; cp -R "$P10" "$P10S"
+"$PY" - "$P10S/.claude/loop/metrics-ledger.tsv" <<'PYEOF5S'
+import sys
+p = sys.argv[1]; L = open(p).read().splitlines()
+out = [L[0]] + ["\t".join(c[:9] + [""] * 9 + [c[18] if len(c) > 18 else ""]) for c in (l.split("\t") + [""] * 19 for l in L[1:])]
+out.append("2026-10-10T12:55:00Z\tmodule-close: Billing\tnone\tmodule-close\t\t\t\t\t0\t95.0\t90\t90\t90\t90\t90\t90\t90\t0\taaa5555")
+open(p, "w").write("\n".join(out) + "\n")
+PYEOF5S
+CLAUDE_CONFIG_DIR="$EMPTY" "$PY" "$GEN" "$P10S" --out "$WORK/out10s/r.html" >/dev/null 2>&1
+"$PY" - "$WORK/out10s/r.html" <<'PYEOF5T' && ok "score at module close: still 7 build runs (the close row is no run), latest score is the close's" || bad "module-close row in the ledger"
+import re, sys
+t = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", open(sys.argv[1], encoding="utf-8").read()))
+assert "7 build runs, 5 passed, 2 failed or blocked (about 12% of build time). Last build step: 04-billing.mdl (applied)" in t, re.findall(r"\d+ build runs.{0,120}", t)
+assert re.search(r"Latest model score 95\.0 \(module-close: Billing\)", t), re.findall(r"Latest model score.{0,60}", t)
+PYEOF5T
 "$PY" - "$O10" <<'PYEOF7' && ok "timestamps are local time and the switch is the first ledger row on or after the date" || bad "local time and switch"
 import re, sys, datetime
 t = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", open(sys.argv[1], encoding="utf-8").read()))

@@ -195,7 +195,11 @@ body.embed .step.sel{outline:3px solid var(--accent);outline-offset:1px}
 (function(){
 'use strict';
 var D = "__DATA__";
-var HIDE = '[class^="wf-"],[class*=" wf-"],table.bind,table.bt,.anno,.annot,.anno-wrap,.rail-note{display:none!important}';
+// wf-* is annotation chrome, EXCEPT on the document root and the screen containers: a wireframe
+// with <body class="wf-page"> rendered every thumbnail blank (#626). Same exclusions as
+// assemble-prototype.js's "Show bindings" rule (wf-screen / wf-shell / wf-wrap hold the screen).
+var WFX = ':not(html):not(body):not(.wf-screen):not(.wf-shell):not(.wf-wrap)';
+var HIDE = '[class^="wf-"]'+WFX+',[class*=" wf-"]'+WFX+',table.bind,table.bt,.anno,.annot,.anno-wrap,.rail-note{display:none!important}';
 var EMBED = !!D.embed;
 if (EMBED) document.body.classList.add('embed');
 var view = document.getElementById('view'), drawer = document.getElementById('drawer'), scrim = document.getElementById('scrim');

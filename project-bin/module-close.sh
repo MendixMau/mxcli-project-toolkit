@@ -5,7 +5,9 @@
 #
 # Runs, in order, and writes one report: docs/progress/module-close/<Module>.md
 #   1. mxcli lint, whole model; the ⚠ lines that name this module are the module's findings
-#   2. model score (bin/metrics-ledger.sh score → mxcli report), once
+#   2. model score (bin/metrics-ledger.sh record --module <M> → mxcli report), once, and one
+#      .claude/loop/metrics-ledger.tsv row (result module-close) carrying it. Since 2026-11-05
+#      this is where the score is taken; exec.sh scores per exec only under `Score: every exec`.
 #   3. mxcli docker check (= mx check), plus a full mxbuild (bin/verify-model.sh) under `Gate mode: check`
 #      when the model has not had one since its last change
 #   4. bin/verify-module.sh <Module> --quick (conformance, graph sweep, coverage; diagnostic only)
@@ -38,7 +40,9 @@ t0=$(date +%s); now() { date '+%F %H:%M'; }
 lint=$("$MX" lint -p "$MPR" 2>&1 | grep -v WARNING)
 mine=$(printf '%s\n' "$lint" | grep -A1 '⚠' | grep -B1 -E "\b$mod\." | grep '⚠' || true)
 nmine=$(printf '%s' "$mine" | grep -c '⚠' || true)
-score=$(bash bin/metrics-ledger.sh score 2>&1 | tail -1)
+score=$(bash bin/metrics-ledger.sh record --module "$mod" 2>&1 | tail -1)
+# A metrics-ledger.sh older than `record` (locally patched, not synced): take the score unrecorded.
+case "$score" in *"unknown mode"*) score=$(bash bin/metrics-ledger.sh score 2>&1 | tail -1) ;; esac
 # mxcli v0.29.0 changed what this checks (ako/mxcli#568, #646): `docker check` now checks the
 # project as stored, so a stale widget definition (CE0463) that passed here on v0.28 is reported
 # now. That is a real finding about the model, not a toolkit regression: `mxcli fix widgets`.

@@ -49,7 +49,9 @@ EOF
   echo "$d"
 }
 brd() { # brd <projdir> <file> <json-array-of-openQuestions>
-  printf '{"id":"F001","title":"t","openQuestions":%s}\n' "$3" > "$1/analysis/knowledge-base/brd/$2"
+  # modules + useCases: Stage 2 FAILs a BRD missing a section it owes since 2026-11-05, and these
+  # cases are about the questions, not the BRD shape.
+  printf '{"id":"F001","title":"t","modules":["Core"],"useCases":[],"openQuestions":%s}\n' "$3" > "$1/analysis/knowledge-base/brd/$2"
 }
 state_of() { # state_of <projdir> <question-id>
   "$SUT" "$1" --json 2>/dev/null | jq -r --arg i "$2" '.questions[] | select(.id==$i) | .state'
@@ -174,6 +176,24 @@ brd "$P" "F001.brd.json" '[{"id":"Q1","question":"a","status":"Open"},{"id":"Q2"
 [ "$("$SUT" "$P" --stage 2 --json | jq -r '.blocking')" = "1" ] && ok "--stage 2 sees only the stage-2 question" || bad "--stage 2 filter wrong"
 [ "$("$SUT" "$P" --stage 4 --json | jq -r '.blocking')" = "2" ] && ok "--stage 4 still sees stage-2 debt (carries forward)" || bad "--stage 4 must include earlier debt"
 "$SUT" "$P" --stage 9 >/dev/null 2>&1; [ $? -eq 2 ] && ok "a bad stage arg is rejected, not silently ignored" || bad "bad stage arg not rejected"
+
+# --- 12b. consentBy convention: auto-mode, or the person who said "you decide" (#625) ----
+# Field run 2026-11-05 (Interview mode: auto): BRD writers stamped a person's name on auto-mode
+# assumptions and the collector accepted any string, so nothing noticed. WARN only.
+unset CLAUDE_INTERVIEW_MODE
+cw_of() { "$SUT" "$1" --json 2>/dev/null | jq -r '.consentWarnings | length'; }
+P="$(mkproj consent-auto-name)"; printf 'Interview mode: auto\n' >> "$P/PROJECT.md"
+brd "$P" "F001.brd.json" '[{"id":"Q1","question":"Hardcode or engine?","status":"ASSUMED","assumption":"hardcode","consentBy":"Maurits Visser (blanket delegation)","consentAt":"2026-11-05"},{"id":"Q2","question":"Roles?","status":"ASSUMED","assumption":"two","consentBy":"auto-mode","consentAt":"2026-11-05T10:00"}]'
+[ "$(cw_of "$P")" = "1" ] && ok "auto mode: a human name on an ASSUMED row warns, auto-mode does not" || bad "auto mode + human-name consentBy must warn exactly once" "$(cw_of "$P")"
+out="$("$SUT" "$P" 2>&1)"
+case "$out" in *"WARN consentBy"*Q1*) ok "the human report names the row" ;; *) bad "no consentBy WARN in the report" "$(printf '%s' "$out" | head -5)" ;; esac
+[ "$(state_of "$P" Q1)" = "ASSUMED" ] && ok "the warning does not change the state" || bad "state changed by the consent warning" "$(state_of "$P" Q1)"
+P="$(mkproj consent-steering-name)"
+brd "$P" "F001.brd.json" '[{"id":"Q1","question":"Hardcode or engine?","status":"ASSUMED","assumption":"hardcode","consentBy":"Maurits Visser","consentAt":"2026-08-12"}]'
+[ "$(cw_of "$P")" = "0" ] && ok "steering mode: a human name is the convention, no warning" || bad "human consentBy under steering must not warn" "$(cw_of "$P")"
+P="$(mkproj consent-nearmiss)"
+brd "$P" "F001.brd.json" '[{"id":"Q1","question":"Hardcode or engine?","status":"ASSUMED","assumption":"hardcode","consentBy":"Auto mode","consentAt":"2026-08-12"},{"id":"Q2","question":"Roles?","status":"ASSUMED","assumption":"two","consentBy":"auto","consentAt":"2026-08-12"}]'
+[ "$(cw_of "$P")" = "2" ] && ok "near-miss spellings of auto-mode warn" || bad "near-miss auto-mode spellings must warn" "$(cw_of "$P")"
 
 # --- 13. the mapping table is printable for audit --------------------------
 "$SUT" --mapping-table | grep -q "UNRECOGNISED" && ok "--mapping-table prints the audit table" || bad "--mapping-table missing"

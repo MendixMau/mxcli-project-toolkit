@@ -351,7 +351,7 @@ Stage 3 ✋ gate.
 
 ## Step 6: The Three Decisions the Source Can't Answer ✋
 
-These are genuine decisions, not derivable from the BRD or the source — run the full interview protocol (`conversion-runbook.md` §1) for each, and record every answer in `PROJECT.md`. This is a `✋` gate: `CONFIRMED` only, no `ASSUMED` past it.
+These are genuine decisions, not derivable from the BRD or the source — run the full interview protocol (`conversion-runbook.md` §1) for each, and record every answer in `PROJECT.md`. This is a `✋` gate: `CONFIRMED` only, no `ASSUMED` past it (under `Interview mode: auto`: `interview-protocol.md` §"What `auto` obliges you to do").
 
 ### 6a. Target Security / Role Model
 
@@ -407,6 +407,7 @@ The Stage-3 `✋` gate is reviewed by a person, and raw Mermaid in markdown is a
 - Is the scope right for one Mendix app, or should any module become a separate app connected via OData/REST?
 - Flag if any module boundary crossed the threshold: different release cadence, different team, significantly different NFRs, or a natural API surface.
 - Record the decision in `PROJECT.md` as `CONFIRMED` — this cannot be an `ASSUMED` past this gate.
+- Multi-app `CONFIRMED` → open the system register, session ownership and cross-app identity decision per `multi-app-system.md` before the second app's first script.
 
 #### B. Module structure
 For each module in the layer diagram:

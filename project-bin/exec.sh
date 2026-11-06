@@ -611,13 +611,25 @@ record_metrics() {  # $1=status text (as given to log_build)
     --elapsed "$(( ${EPOCHSECONDS:-$(date +%s)} - _T0 ))" --mxbuild-errors "${GATE_ERRORS:-}" \
     --lint-rc "${LINT_RC_FOR_LEDGER:-}" --restored "${RESTORED:-0}" --scored "$SCORED" 2>/dev/null || true
 }
-# `mxcli report` scores the model (0-100, ≈7 s on an 876-flow model, 2026-10-12). Taken only
-# after a clean mxbuild — a failed write is restored or never happened, so there is nothing
-# new to score. MXTK_NO_SCORE=1 skips it (slow machine, CI); the row still lands, scores empty.
+# `mxcli report` scores the model (0-100, ≈7 s on an 876-flow model, 2026-10-12; ≈5 s each,
+# 211 s over ~40 execs on a Windows laptop). Default since 2026-11-05: NOT per exec — the score is
+# taken once per module by bin/module-close.sh (its ledger row is result `module-close`), and on
+# demand by `bash bin/metrics-ledger.sh record`. A per-exec score bought ~5 s a change for a number
+# that moves between modules, not between scripts. Opt-in to the old cadence: `Score: every exec`
+# in PROJECT.md, or MXTK_SCORE=exec (env wins; MXTK_SCORE=module forces the default). Taken only
+# after a clean mxbuild — a failed write is restored or never happened, so there is nothing new to
+# score. MXTK_NO_SCORE=1 skips it even with the opt-in (slow machine, CI); the row still lands,
+# scores empty.
 take_score() {
   [ -z "${MXTK_NO_SCORE:-}" ] || { echo "  · score skipped (MXTK_NO_SCORE)"; return 0; }
+  local _scm="${MXTK_SCORE:-}"
+  # The whole rest of the line, not its first word: `Score: every module` must not read as `every`.
+  if [ -z "$_scm" ]; then _first_match "$PROJECT_ROOT/PROJECT.md" '^[*_ -]*Score:([^'$'\n'']*)' || true; _scm="$_FM"; fi
+  _scm="${_scm//[\`*_]/}"; _scm="${_scm//$'\r'/}"
+  _scm="$(printf '%s' "$_scm" | tr '[:upper:]' '[:lower:]' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+  case "$_scm" in "every exec"|every-exec|exec) ;; *) return 0 ;; esac
   [ -x "$PROJECT_ROOT/bin/metrics-ledger.sh" ] || return 0
-  echo "→ Scoring the model (bin/metrics-ledger.sh score → mxcli report)..."
+  echo "→ Scoring the model (bin/metrics-ledger.sh score → mxcli report; per exec: ${MXTK_SCORE:+MXTK_SCORE=$MXTK_SCORE}${MXTK_SCORE:-PROJECT.md Score: every exec})..."
   if _sc=$(bash "$PROJECT_ROOT/bin/metrics-ledger.sh" score 2>&1); then
     SCORED=1; echo "  ✓ $_sc"
   else
@@ -1248,9 +1260,9 @@ PY
          LINT_DETAIL="lint rose: +${_thisn} new or unfixed (${_thisc:-0} carried from earlier execs): ${_rest#* }"
          echo "  ✗ lint: ${_thisn} finding(s) new this script or still unfixed from an earlier one — read each one:"
          case "$_thisnew" in *$'\n'*) printf '%s\n' "${_thisnew#*$'\n'}" ;; esac
-         echo "    Fix the script and re-run. Accepting the debt is the user's call, made in chat:"
-         echo "    bin/lint-gate.sh --update-baseline --reason \"<why>\" (a security-tier rise also"
-         echo "    needs --approved-in-chat). The acceptance is logged to .claude/lint-acceptances.tsv."
+         echo "    Fix the script and re-run. Accepting the debt is the user's call: THE USER runs"
+         echo "    bin/lint-gate.sh --update-baseline --reason \"<why>\" in their own terminal and types"
+         echo "    \`loosen\` (#348). The acceptance is logged to .claude/lint-acceptances.tsv."
          fi
        fi ;;
     2) if [ "$_L_NOBASE" = 1 ]; then

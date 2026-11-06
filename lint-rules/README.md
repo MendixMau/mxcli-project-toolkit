@@ -221,8 +221,8 @@ asked in chat. `external_roles: "none"` switches off a security rule, and so doe
 `rules: SEC014: enabled: false`. Either one is set only on the user's answer and recorded as a
 decision row in `PROJECT.md`. An agent never sets one to make the NOTE go away. The first run after configuring raises SEC014 from 0 to N at once, and lint-gate
 would blame that security-tier rise on whatever script ran next. So re-baseline in the same step:
-`bin/lint-gate.sh --update-baseline --reason "SEC014 configured" --approved-in-chat`, after the
-user has seen the findings.
+`bin/lint-gate.sh --update-baseline --reason "SEC014 configured"`, which the user runs in their
+own terminal and answers `loosen` (or commits the edited baseline), after seeing the findings.
 
 **Tuning a toolkit rule never means editing it.** `conv009` and `sec014` read their settings
 with `get_option()` from `.claude/lint-config.yaml` (`rules: <RULE_ID>: options:`), so the file

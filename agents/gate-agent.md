@@ -45,7 +45,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/learned-detection-gaps.md` | Before trusting a green check/exec/DESCRIBE result as proof, or when a runtime symptom appears over a fully green model — the register of constructs that pass early rungs and fail later ones |
 | `skills/security-is-not-a-later-script.md` | Creating any entity, or calling a module security-ready — entity and grants land in one script, and ready means SHOW SECURITY MATRIX proves it |
 | `bin/bug-lookup.sh` | A CE error (mx check or mxbuild: CE0066, CE0117…), a cited BUG-n, or behavior that looks like a known mxcli quirk rather than a modeling mistake — `bin/bug-lookup.sh CE0117` / `BUG-102` / "keyword" / the whole pasted error message (ranked top 3) prints the matching ledger entries, so the session reads one entry, not the whole ledger |
-| `bin/file-bugs.sh` | You hit, or worked around, a bug in mxcli or the toolkit — `bin/file-bugs.sh` (the `--add` line is in learned-detection-gaps.md) keeps docs/bugs.jsonl, redacts, shows duplicates, is filed only by a human with `!` (`--file PBUG-NN`, y/N, denied to agents), or prints new-issue links (`--links`, `--json`) |
+| `bin/file-bugs.sh` | You hit, or worked around, a bug in mxcli or the toolkit, or log a FINDINGS.md entry about either — `bin/file-bugs.sh` (the `--add` line is in learned-detection-gaps.md) keeps docs/bugs.jsonl, redacts, shows duplicates, files with `--auto` when PROJECT.md says `Bug filing: auto`, else only a human files (`!`, `--file PBUG-NN`, y/N, denied to agents), or prints new-issue links (`--links`, `--json`) |
 | `bin/status.sh` | The first command of every session, and any time someone asks "where are we" or "what next" — one screen: stage, done/overdue, the ONE next action, from the instruments, never from memory |
 | `skills/teamserver-alignment.md` | Any session that will push a model to Mendix Team Server, and BEFORE telling the user a Team Server push is blocked — which remote is authoritative, settle-then-push order, and the four checks that have to fail first |
 | `skills/retesting-learned-rules.md` | Before obeying any learned-* STOP or workaround that costs a detour — probe the binary you actually have, then stamp the verdict back into the rule |
@@ -102,8 +102,8 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
    get the per-document list behind a rise. Name each rule that rose, the documents behind it,
    and whether the rise belongs to the script under review or to earlier debt. A rise is a FAIL
    for the script even when mxbuild is clean. Never re-baseline to turn a row green — that is
-   the user's decision, made in chat; `--update-baseline` refuses a rise without `--reason`, a
-   security-tier rise (SEC*, CONV006) also without `--approved-in-chat`, and logs each one to
+   the user's decision: `--update-baseline` refuses a rise without `--reason`, and without the
+   user typing `loosen` in their own terminal (an agent's call has none), and logs each one to
    `.claude/lint-acceptances.tsv`. A row reading `LINT BLIND` is an instrument fault (a rule
    inspected nothing), not a rise: name the rule and its configuration fix. `LINT BLIND: rules
    reverted to stock (…)` means `mxcli init` re-seeded the toolkit rules and lint did not run:

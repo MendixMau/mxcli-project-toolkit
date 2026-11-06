@@ -96,6 +96,42 @@ Decisions ("fix, or accept as designed?"); do not fix them unasked.
 - For REST modules, **stop or break the backend on purpose** in the down cases, and check that it
   really was down (a health probe fails) before asserting the message.
 
+## Timed windows: prove absence without paying real time
+
+An "it did NOT happen" case needs an observation window. A field project (offline PWA, an edge hub per
+site, a central app, an ERP stand-in) paid a 31 s retry backoff, a 120 s "no retry loop" window, a
+60 s "no delivery" window and a 15 min status schedule: about 6 min for one case, 20 to 40 min for
+eight. The waits are the behaviour, so cut them at the source, not with shorter sleeps.
+
+| Lever | How | Cuts | Limit |
+|---|---|---|---|
+| Timing constants | Put every backoff, window and interval in a Mendix constant. Start the test app with `mxcli run --local --constant Module.RetryBackoffSeconds=2` (this run only, written nowhere). Window = N x the knob, not a number. | 31 s to 2 s, 120 s to 8 s | Only timers the model reads from a constant. A hard-coded schedule interval stays. |
+| Fast tick, due check | A scheduled event cannot read a constant for its interval. Run it on a short fixed tick and let the microflow decide "due" from a constant (`DueAfterMinutes`). Test sets 0 or 1, production keeps 15. | 15 min to one tick | One more constant and a small flow change; review it like any production path. |
+| Event-driven wait | Poll a DB count, log line or counter and stop at the first hit. For presence ("retry happened") this ends at the event, not at the deadline. | Presence waits to the real latency | Absence still needs the full window. |
+| Window as a multiple | Absence ("no loop") = observe K ticks of the knob, K at least 3, and assert the count at start, middle and end. | Bounded by knob x K | K x knob must exceed the longest legitimate gap, or the case passes vacuously. |
+| Parallel cases | Run cases in parallel only when each owns its own rows (its own idempotency id or site key) and no case restarts a shared app. | Up to cases / workers | Shared runtimes and restarts force serial. Partition first, or do not parallelise. |
+| One real-timings run | Keep one case per timer on production values, run nightly or at module close, never per row. | Keeps honesty | Costs the full wait once. |
+
+Rules that keep the fast mode honest:
+
+- **Same code path.** The knob changes a number, never a branch. A `if testMode` that skips the wait
+  proves nothing.
+- **Guard the knob.** Assert in the test setup that the constant has the test value (`mxcli constant list`
+  shows the winning layer), and that production export carries the production value.
+- **Prove the window can see a failure.** Run each absence case once against a deliberately broken
+  build or stub (a retry loop on purpose); it must go red inside the shortened window.
+- **Scheduled events on or off.** Check the runtime log line "Synchronizing scheduled events" and
+  `mxcli run --help` for the start you use; the default has differed between mxcli versions. Count
+  ticks from the log, do not assume them.
+- **No on-demand trigger is assumed.** This skill does not rely on an admin-API call to fire a
+  scheduled event. If your mxcli or runtime offers one, call the event's microflow directly in the
+  case and still keep the real schedule in the real-timings run.
+
+Honest gain: on the field case the retry and window waits fall by roughly 10 to 15 times, so one case
+goes from about 6 min to under 1 min and a suite of eight from 20 to 40 min to 5 to 8 min. Boot, login
+and seeding do not shrink, and the real-timings run adds back its full wait once. Untested on a live
+runtime for this PR.
+
 ## Running and reporting
 
 - One spec per module (`tests/e2e/unhappy/unhappy-<module>.js`), one runner that writes

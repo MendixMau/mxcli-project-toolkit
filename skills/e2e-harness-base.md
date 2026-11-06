@@ -392,3 +392,7 @@ Write a gap report in `tests/results/YYYY-MM-DD-gap-report.md`:
 - **Never use `/p/` deep-links after login** — Mendix invalidates the context; navigate via clicks
 - **Session limit** — one browser session at a time; Studio Pro counts as a session too
 - **DB assertions** — instrument choice, token handling, table/FK naming: see `learned-db-assertions.md` (M2EE admin API first, psql fallback only where PostgreSQL is actually reachable — do not assume the M2EE token is always randomised, read the project's own config)
+
+## Unhappy-path parts: link proxy and exactly-once check
+
+`project-tests/e2e/link-proxy.js` is a dependency-free fault proxy to put between two apps (or a client and an app): latency, bandwidth, random loss, `down`, `request-lost`, `reply-lost` (the target processed it, the sender cannot know) and `refuse` with a status. Start it with `node link-proxy.js --link hub:4042:4041 --control 4900`, drive it from a test with `client(4900, 'hub')`. `exactly-once.js` takes the ids the receiver recorded and the ids the sender submitted and reports missing, duplicated and unexpected ones. `node link-proxy.selftest.js` proves both without any app. Point the app under test at the proxy port through a constant or env var, and restore it afterwards.

@@ -23,6 +23,9 @@
 //     attribute on the screen's <body> (or <html>, or the first element inside <body>), else
 //     the kebab-cased filename (OrderList.html -> order-list)
 //   * the default route is `index`, else `home`, else the first screen by filename
+//   * the screen's <body class="..."> is carried onto its <section> (#632), so `.app *` and a
+//     screen's own `body.app ...` rule still apply; a ds.css `body.<class>` rule cannot reach a
+//     section and is named on stderr
 //   * `href="#/route"` switches screens; `href="Other.html"` between wireframes is rewritten
 //     to `href="#/<other's route>"`
 //   * "Show bindings" toggles the annotation apparatus (wf-* blocks, table.bind/.bt, .anno),
@@ -94,12 +97,19 @@ for (const f of files) {
                 proto.attr(firstEl, 'data-route') || kebab(f);
   if (!proto.ROUTE_RE.test(route)) fail(f + ': route "' + route + '" is not a usable route (letters, digits, . _ - /)');
   const chrome = proto.attr(bodyTag, 'data-chrome') || proto.attr(htmlTag, 'data-chrome');
+  // The wireframe's <body class> travels onto its section (#632). A design system that scopes
+  // `box-sizing:border-box` to `.rc-app *`, or a screen rule written `body.rc-app input{...}`
+  // (scopeCss rewrites `body` to the section), stops applying the moment <body> loses its
+  // class - and every width:100% input and block button overflowed its card by 17-18 px in
+  // the assembled prototype while every per-screen wireframe rendered fine. Field run
+  // 2026-11-05, a 15-screen requirements-driven PWA; the user found it, twice.
+  const bodyClass = (proto.attr(bodyTag, 'class') || '').trim().split(/\s+/).filter(c => c && c !== 'proto-active').join(' ');
   const head = (html.match(/<head\b[^>]*>([\s\S]*?)<\/head\s*>/i) || [, ''])[1];
   const headCss = [...head.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\s*>/gi)].map(x => x[1]);
   const titleTag = (head.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [, ''])[1];
   const h = body.match(/<h[12][^>]*>([\s\S]*?)<\/h[12]>/i);
   const title = text(titleTag) || (h ? text(h[1]) : '') || route;
-  screens.push({ file: f, route, chrome, body, headCss, title });
+  screens.push({ file: f, route, chrome, body, headCss, title, bodyClass });
 }
 
 const seen = {};
@@ -232,7 +242,8 @@ function screenSection(s) {
     (all, attrs, c) => '<style data-proto-screen-css' + attrs + '>' + proto.scopeCss(scopeCssIds(c), s.route) + '</style>');
   body = scopeScripts(body, s.route);
   return '<section data-route="' + esc(s.route) + '" data-source="' + esc(s.file) + '" data-title="' + esc(s.title) + '"' +
-    (s.chrome ? ' data-chrome="' + esc(s.chrome) + '"' : '') + '>\n' +
+    (s.chrome ? ' data-chrome="' + esc(s.chrome) + '"' : '') +
+    (s.bodyClass ? ' class="' + esc(s.bodyClass) + '"' : '') + '>\n' +
     (css.trim() ? '<style data-proto-screen-css>' + css + '</style>\n' : '') +
     body + '\n' + proto.endMarker(s.route) + '\n</section>\n';
 }
@@ -240,15 +251,31 @@ function screenSection(s) {
 let ds = '';
 if (fs.existsSync(dsFile)) ds = fs.readFileSync(dsFile, 'utf8');
 else console.error('assemble-prototype: no design system at ' + dsFile + ' - assembling without it (design-artifacts.md Step 1)');
+// ds.css is inlined ONCE and unscoped, so a ds.css rule written `body.<class> ...` targets the
+// prototype's own <body>, which carries no wireframe class - the section does. `.<class> *`
+// reaches the section; `body.<class>` does not. Say so instead of shipping the overflow.
+{
+  const carried = new Set(screens.flatMap(s => s.bodyClass ? s.bodyClass.split(' ') : []));
+  const lost = [...new Set([...ds.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/(?:^|[\s,>+~}(])body((?:\.[A-Za-z_][\w-]*)+)/g)]
+    .flatMap(m => m[1].slice(1).split('.')).filter(c => carried.has(c)))].sort();
+  if (lost.length) console.error('assemble-prototype: ds.css scopes rules to body.' + lost.join(', body.') +
+    ' - in prototype.html that class sits on each screen\'s <section>, not <body>; write the rule as .' +
+    lost[0] + ' (or :is(body, section[data-route]).' + lost[0] + ') so it applies in both (#632)');
+}
 
 // The annotation vocabulary is the one page-fidelity.js already treats as not-page-content:
 // any wf-* block, the binding tables, and the .anno family. wf-screen / wf-shell / wf-wrap are
 // the exception, because in some projects' wireframes they ARE the screen (page-fidelity.js
-// uses them as the content boundary), and hiding them would hide the page.
+// uses them as the content boundary), and hiding them would hide the page. So are the layout
+// wrappers wf-page / wf-layout / wf-frame: hiding .wf-layout with bindings off collapsed every
+// frame to 0 px wide, and the first automated overflow check of that prototype measured nothing
+// and reported 0 everywhere - a false green (#632, defect 2). The rule matches DESCENDANTS of a
+// screen section only, never the section itself, which now carries the wireframe's body class
+// (often wf-page).
 const CHROME_CSS = `
 #proto-screens > section[data-route]:not(.proto-active){display:none}
-body:not(.proto-show-bindings) #proto-screens :is([class^="wf-"],[class*=" wf-"]):not(.wf-screen):not(.wf-shell):not(.wf-wrap),
-body:not(.proto-show-bindings) #proto-screens :is(table.bind,table.bt,.anno,.annot,.anno-wrap,.rail-note){display:none!important}
+body:not(.proto-show-bindings) #proto-screens > section[data-route] :is([class^="wf-"],[class*=" wf-"]):not(.wf-screen):not(.wf-shell):not(.wf-wrap):not(.wf-page):not(.wf-layout):not(.wf-frame),
+body:not(.proto-show-bindings) #proto-screens > section[data-route] :is(table.bind,table.bt,.anno,.annot,.anno-wrap,.rail-note){display:none!important}
 #proto-bar{position:fixed;top:8px;right:8px;z-index:2147483000;font:12px/1.4 system-ui,sans-serif;background:#fff;color:#222;border:1px solid #ccc;border-radius:6px;padding:4px 8px;box-shadow:0 2px 8px rgba(0,0,0,.15);max-width:320px}
 #proto-bar summary{cursor:pointer}
 #proto-bar ol{margin:6px 0 4px;padding-left:18px;max-height:60vh;overflow:auto}
@@ -307,5 +334,10 @@ const out = '<!doctype html>\n' +
 
 fs.mkdirSync(path.dirname(path.resolve(outFile)), { recursive: true });
 fs.writeFileSync(outFile, out);
+// The sha256 is the PROTOTYPE-SHA a prototype LOOK report stamps (design-artifacts.md Step 3d,
+// obligations.tsv `prototype-look`): the output is deterministic, so the hash changes exactly when
+// the page a user clicks changes, and a LOOK of the previous version stops counting.
+// CR-stripped, exactly as obligation-check.sh hashes the file, so a CRLF checkout matches.
+const sha = require('crypto').createHash('sha256').update(out.replace(/\r/g, '')).digest('hex');
 console.log('assemble-prototype: ' + screens.length + ' screen(s) -> ' + outFile + ' (default route #/' + def + ', ' +
-  Math.round(Buffer.byteLength(out) / 1024) + ' KB)');
+  Math.round(Buffer.byteLength(out) / 1024) + ' KB, sha256 ' + sha + ')');

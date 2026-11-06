@@ -307,6 +307,43 @@ _ob_stale() {
   return 0
 }
 
+# _ob_proto_sha <project-root> → prints the SHA-256 of the assembled prototype (CR-stripped), or nothing when
+# there is none / no hash tool (unmeasurable, never "expired"). Looked up at design/ then app/design/
+# (the two layouts). Memoized: one hash per run, not one per candidate report.
+_OB_PROTO_SHA=""; _OB_PROTO_SHA_DONE=""
+_ob_proto_sha() {
+  local root="$1" f
+  if [ "$_OB_PROTO_SHA_DONE" != "$root" ]; then
+    _OB_PROTO_SHA_DONE="$root"; _OB_PROTO_SHA=""
+    for f in "$root/design/prototype.html" "$root/app/design/prototype.html"; do
+      [ -s "$f" ] || continue
+      # CR stripped before hashing, as assemble-prototype.js does: a Windows autocrlf checkout of
+      # an LF-assembled prototype must not read STALE.
+      _OB_PROTO_SHA="$(tr -d '\r' < "$f" | { sha256sum 2>/dev/null || shasum -a 256 2>/dev/null; } | awk '{print $1; exit}')"
+      break
+    done
+  fi
+  printf '%s' "$_OB_PROTO_SHA"
+}
+# _ob_proto_stamp <report> → the report's "PROTOTYPE-SHA: <hex>" stamp (last one wins), or nothing.
+_ob_proto_stamp() {
+  tr -d '\r' < "$1" 2>/dev/null | grep -oiE 'PROTOTYPE-SHA:?[[:space:]]*[0-9a-f]{8,64}' | tail -1 | grep -oiE '[0-9a-f]{8,64}$' | tr 'A-F' 'a-f'
+}
+# _ob_proto_stale <project-root> <report> → prints the stamp and returns 0 when the prototype the
+# report looked at is not the one on disk now; returns 1 when it matches or cannot be measured.
+#
+# WHY A CONTENT HASH (#632). The prototype went to the product owner twice, v1 and v2, both
+# overflowing at phone width. A LOOK of v1 must not discharge v2. assemble-prototype.js is
+# deterministic (same wireframes, same bytes) and prints this hash, so the stamp changes exactly
+# when what the user clicks changes, and survives a fresh clone (mtimes do not).
+_ob_proto_stale() {
+  local root="$1" hit="$2" cur stamp
+  cur="$(_ob_proto_sha "$root")"; [ -n "$cur" ] || return 1
+  stamp="$(_ob_proto_stamp "$hit")"; [ -n "$stamp" ] || return 1
+  case "$cur" in "$stamp"*) return 1 ;; esac
+  printf '%s' "$stamp"; return 0
+}
+
 # _ob_look_proof_broken <project-root> <report>  → prints WHY the proof is broken and returns 0;
 # returns 1 when the proof holds or the report predates the rule.
 #
@@ -482,6 +519,13 @@ mxtk_obligations_report() {
       continue
     fi
 
+    # prototype-look with no assembled prototype in either layout: nothing to look at, so N/A, not
+    # PENDING — a Stage 5+ project with no UI must not carry an owed pass it cannot perform.
+    if [ "$ob" = "prototype-look" ] && [ ! -s "$root/design/prototype.html" ] && [ ! -s "$root/app/design/prototype.html" ]; then
+      printf 'Obligation %-10s N/A — no design/prototype.html assembled (%s)\n' "$ob" "$skill"
+      continue
+    fi
+
     local units
     case "$scope" in
       module)  units="$modules" ;;
@@ -499,10 +543,13 @@ mxtk_obligations_report() {
     # LOOK" both require PROOF-OF-LOOK lines, and the final one must also be stamped (VALID AT is
     # what makes it "final" — an unstamped whole-app report could never go stale, so it would
     # discharge the pass forever after any later change). Review of #303, 2026-10-13.
-    local is_look=0 needs_stamp=0
-    case "$ob" in look|final-look) is_look=1 ;; esac
+    # prototype-look (#632) is the third: the same pixel rule, and instead of VALID AT (there is no
+    # model yet at Stage 3) a PROTOTYPE-SHA stamp naming the exact assembled page it looked at.
+    local is_look=0 needs_stamp=0 needs_proto=0
+    case "$ob" in look|final-look|prototype-look) is_look=1 ;; esac
     [ "$ob" = "final-look" ] && needs_stamp=1
-    local total=0 done_n=0 waived_n=0 pending="" faulted="" stale="" noproof="" unstamped="" u hit reason stale_at proof_why candidates c newest
+    [ "$ob" = "prototype-look" ] && needs_proto=1
+    local total=0 done_n=0 waived_n=0 pending="" faulted="" stale="" noproof="" unstamped="" noproto="" u hit reason stale_at proof_why candidates c newest
     while IFS= read -r u; do
       [ -n "$u" ] || continue
       total=$((total+1))
@@ -532,6 +579,8 @@ mxtk_obligations_report() {
         [ -n "$newest" ] || newest="$c"
         if [ "$denom" = "yes" ] && ! _ob_has_denominator "$c"; then continue; fi
         if [ "$needs_stamp" = 1 ] && [ -z "$(_ob_valid_at_stamps "$c")" ]; then continue; fi
+        if [ "$needs_proto" = 1 ] && [ -z "$(_ob_proto_stamp "$c")" ]; then continue; fi
+        if [ "$needs_proto" = 1 ] && _ob_proto_stale "$root" "$c" >/dev/null; then continue; fi
         if [ "$is_look" = 1 ] && _ob_look_proof_broken "$root" "$c" >/dev/null; then continue; fi
         if _ob_stale "$root" "$c" >/dev/null; then continue; fi
         hit="$c"; break
@@ -548,6 +597,12 @@ mxtk_obligations_report() {
         faulted="$faulted $u"
       elif [ "$needs_stamp" = 1 ] && [ -z "$(_ob_valid_at_stamps "$newest")" ]; then
         unstamped="$unstamped $u"
+      elif [ "$needs_proto" = 1 ] && [ -z "$(_ob_proto_stamp "$newest")" ]; then
+        noproto="$noproto $u"
+      elif [ "$needs_proto" = 1 ] && stale_at="$(_ob_proto_stale "$root" "$newest")"; then
+        # The prototype was re-assembled after the LOOK: the user would click a page nobody looked at.
+        pending="$pending $u"
+        stale="$stale $u(prototype-sha ${stale_at:0:12} is not the current design/prototype.html)"
       elif [ "$is_look" = 1 ] && proof_why="$(_ob_look_proof_broken "$root" "$newest")"; then
         # A LOOK whose screenshots cannot be verified is a CSS review — treated as no report.
         noproof="$noproof $u($proof_why)"
@@ -562,10 +617,11 @@ mxtk_obligations_report() {
 
     local scoped=$((total - waived_n)) tail=""
     [ "$waived_n" -gt 0 ] && tail=" ($waived_n waived)"
-    if [ -n "$faulted" ] || [ -n "$noproof" ] || [ -n "$unstamped" ]; then
+    if [ -n "$faulted" ] || [ -n "$noproof" ] || [ -n "$unstamped" ] || [ -n "$noproto" ]; then
       local why_bits=""
       [ -n "$faulted" ] && why_bits="NO DENOMINATOR:$faulted — a pass that cannot say what it covered has not covered it"
       [ -n "$unstamped" ] && why_bits="${why_bits:+$why_bits; }NO VALID AT:$unstamped — an unstamped final LOOK can never go stale, so it is treated as no report (stamp it with the commit it was true at)"
+      [ -n "$noproto" ] && why_bits="${why_bits:+$why_bits; }NO PROTOTYPE-SHA:$noproto — a prototype LOOK must name the assembled page it looked at (copy the sha256 assemble-prototype.js prints)"
       [ -n "$noproof" ] && why_bits="${why_bits:+$why_bits; }NO PROOF-OF-LOOK — a visual verdict with no verifiable screenshot is a CSS review, treated as no report"
       printf 'Obligation %-10s FAULT — %d of %d discharged%s; %s (%s)\n' \
         "$ob" "$done_n" "$scoped" "$tail" "$why_bits" "$skill"
@@ -580,8 +636,13 @@ mxtk_obligations_report() {
     fi
     # Printed under whichever verdict won: a stale unit is counted in NOT DONE above, and this
     # line says WHY it is owed again rather than letting it read as never-reviewed.
-    [ -n "$stale" ] && printf 'Obligation %-10s   STALE:%s — the model was built past the report; re-run the pass (module-review.md stage 5, VALID AT)\n' \
-      "$ob" "$stale"
+    if [ -n "$stale" ] && [ "$needs_proto" = 1 ]; then
+      printf 'Obligation %-10s   STALE:%s — the prototype was re-assembled after the LOOK; look again (design-artifacts.md Step 3d)\n' \
+        "$ob" "$stale"
+    elif [ -n "$stale" ]; then
+      printf 'Obligation %-10s   STALE:%s — the model was built past the report; re-run the pass (module-review.md stage 5, VALID AT)\n' \
+        "$ob" "$stale"
+    fi
     [ -n "$noproof" ] && printf 'Obligation %-10s   NO PROOF-OF-LOOK:%s — the pixel rule, made mechanical (module-review.md stage 5, PROOF-OF-LOOK)\n' \
       "$ob" "$noproof"
   done < "$OBLIGATIONS_TSV"

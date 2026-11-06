@@ -179,7 +179,7 @@ without a semver are probed with `lint --help`). The file is `.claude/lint-mxcli
 `lint-gate.sh --update-baseline` writes it next to `.claude/lint-baseline.json`, commit both.
 Accepting a swap needs `--reason` like any other rise. On older mxcli, or with
 `LINT_MXCLI_BASELINE=0`, the gate falls back to the count ratchet and prints a one-line note.
-`_rule` self-check findings are never baselined. The security tier is `SEC*`, `MXTK-SEC*`,
+`_rule` self-check findings are never counted by the gate: mxcli's own baseline file may hold them (it records every finding), but the gate filters them out when it compares, and reports them as PASS-BLIND instead. The security tier is `SEC*`, `MXTK-SEC*`,
 `CONV006`, `CONV007`.
 
 ## Stock rules against the toolkit's own conventions

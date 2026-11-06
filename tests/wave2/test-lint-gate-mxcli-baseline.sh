@@ -142,4 +142,26 @@ mk "$(f MXTK-SEC015 OldA NewX)"; mknone
 out=$(gate --update-baseline --reason "x" 2>&1)
 case "$out" in *"security-tier: MXTK-SEC015"*) ok "MXTK-SEC015 rise flagged security-tier" ;; *) bad "not flagged" "$out" ;; esac
 
+echo "T11 a malformed mxcli baseline fails the gate (rc 1) naming the file; a missing one keeps the fallback"
+reset; mk "$(f CONV007 OldA)"; gate --update-baseline >/dev/null 2>&1
+printf '{"version":1,"find' > "$P/.claude/lint-mxcli-baseline.json"; mknone
+out=$(gate 2>&1); rc=$?
+[ "$rc" -eq 1 ] && ok "truncated baseline: rc 1" || bad "rc=$rc" "$out"
+case "$out" in *"lint-mxcli-baseline.json"*"update-baseline"*) ok "names the file and how to rebuild it" ;; *) bad "message" "$out" ;; esac
+: > "$P/.claude/lint-mxcli-baseline.json"
+out=$(gate 2>&1); rc=$?
+[ "$rc" -eq 1 ] && ok "empty baseline: rc 1" || bad "rc=$rc" "$out"
+rm -f "$P/.claude/lint-mxcli-baseline.json"
+out=$(gate 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "missing baseline: documented fallback, rc 0" || bad "rc=$rc" "$out"
+
+echo "T12 --update-baseline: 'written' only when mxcli succeeded"
+reset; mk "$(f CONV007 OldA)"
+cp "$P/mxcli" "$WORK/mxcli.good"
+sed 's|printf .{"version":1,"findings":\[\]}.n. > "\$f"; exit 0|exit 3|' "$WORK/mxcli.good" > "$P/mxcli"; chmod +x "$P/mxcli"
+out=$(gate --update-baseline 2>&1); rc=$?
+case "$out" in *"native baseline written"*) bad "claimed written though mxcli failed" "$out" ;; *) ok "no 'written' line when mxcli exits non-zero" ;; esac
+[ "$rc" -eq 1 ] && case "$out" in *"could not write"*) ok "fails with a message, rc 1" ;; *) bad "no message" "$out" ;; esac || bad "rc=$rc" "$out"
+cp "$WORK/mxcli.good" "$P/mxcli"; chmod +x "$P/mxcli"
+
 echo; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

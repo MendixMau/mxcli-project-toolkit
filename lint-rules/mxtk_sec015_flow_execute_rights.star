@@ -169,6 +169,12 @@ def check():
             for u in m2u.get(p.module_role_name, []):
                 writers.setdefault(p.element_name, {})[u] = True
 
+    if matrix and not execs:
+        return [_blind(
+            "MXTK-SEC015 has a role matrix but permissions() returned no EXECUTE row for any microflow or nanoflow, so nobody can be compared against it. This rule inspected NOTHING.",
+            "Check that this mxcli returns EXECUTE rows from permissions() (access_type EXECUTE, element_type MICROFLOW / NANOFLOW), or remove the matrix.",
+        )]
+
     known = {}
     flows = microflows()
     for mf in flows:

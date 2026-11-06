@@ -510,6 +510,13 @@ else
     git -C "$ROOT" show "HEAD:.claude/lint-mxcli-baseline.json" > "$MXB_TMP" 2>/dev/null && MXB_REF="$MXB_TMP"
     [ -n "$MXB_REF" ] && echo "note: .claude/lint-mxcli-baseline.json is deleted from the tree; comparing against the copy git HEAD holds" >&2
   fi
+  if [ -n "$MXB_REF" ] && ! "$PY" -c 'import json,sys; d=json.load(open(sys.argv[1], encoding="utf-8")); sys.exit(0 if isinstance(d,(dict,list)) else 1)' "$MXB_REF" 2>/dev/null; then
+    # An unreadable or malformed baseline is not "no baseline": falling back to the count ratchet
+    # would quietly turn the finding check off. Missing file keeps its documented fallback.
+    echo "FAIL: .claude/lint-mxcli-baseline.json is unreadable or not valid JSON (empty, truncated or a merge conflict?). The finding check cannot run. Rebuild it once, with the user: bin/lint-gate.sh --update-baseline (or restore it with git checkout -- .claude/lint-mxcli-baseline.json)" >&2
+    rm -f "$MXB_TMP" 2>/dev/null
+    exit 1
+  fi
   if [ -n "$MXB_REF" ]; then
     # Same project, same exclusions, same rules as the run above; mxcli exits non-zero on new
     # findings, which is the answer, not an error: the JSON is what counts.
@@ -897,8 +904,12 @@ if [ "$UPDATE" -eq 1 ] && [ "$_RC" -eq 0 ] && [ -z "${LINT_JSON:-}" ] && [ "${LI
   else
     "$MXCLI" lint -p "$MPR" --baseline "$MXB" --update-baseline >/dev/null 2>&1
   fi
-  if [ -s "$MXB" ]; then echo "==> mxcli native baseline written: $(basename "$MXB") (commit it with lint-baseline.json)"
-  else echo "lint-gate: could not write $MXB with 'mxcli lint --baseline --update-baseline'; the count baseline is written, the finding check stays off" >&2; fi
+  _MXB_RC=$?
+  if [ "$_MXB_RC" -eq 0 ] && [ -s "$MXB" ]; then echo "==> mxcli native baseline written: $(basename "$MXB") (commit it with lint-baseline.json)"
+  else
+    echo "lint-gate: could not write $MXB with 'mxcli lint --baseline --update-baseline' (exit $_MXB_RC$([ -s "$MXB" ] || echo ', file empty or missing')); the count baseline is written, the finding check stays off. Fix mxcli and rerun --update-baseline." >&2
+    exit 1
+  fi
 fi
 
 # Receipt project-edited bundled rules (#524). After a baseline is written, every

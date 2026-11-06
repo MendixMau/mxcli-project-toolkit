@@ -158,11 +158,13 @@ function standalone(html, route) {
   const sec = sections(html).find(s => s.route === route);
   if (!sec) return null;
   const styles = [];
+  const cls = (attr(sec.tag, 'class') || '').split(/\s+/).filter(c => c && c !== 'proto-active').join(' ');
   const inner = sec.inner.replace(/<style\b[^>]*\bdata-proto-screen-css\b[^>]*>([\s\S]*?)<\/style>/gi,
     (all, css) => { styles.push(unscopeCss(css, route)); return ''; });
   return '<!doctype html>\n<html><head>\n' +
     styles.map(s => '<style>' + s + '</style>\n').join('') +
-    '</head><body>' + inner + '</body></html>\n';
+    // The assembler carried the wireframe's <body class> onto the section (#632); give it back.
+    '</head><body' + (cls ? ' class="' + cls + '"' : '') + '>' + inner + '</body></html>\n';
 }
 
 function unknownRouteMessage(file, route, html) {

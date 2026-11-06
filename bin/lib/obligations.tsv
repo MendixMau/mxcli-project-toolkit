@@ -164,3 +164,26 @@ dispatch	mdl	module	path	.claude/loop/dispatch/<Module>/scripts.tsv	no	yes	5	ski
 # any later change. Denominator required ("N of N pages, M of M roles"). Governed by
 # module-review.md § "The final LOOK".
 final-look	review	project	names	design/ui-reviews/final-look-*.html	yes	yes	6	skills/module-review.md
+
+# prototype-look is the Stage 3 LOOK: the assembled design/prototype.html, the page the user
+# actually clicks, opened in a real browser at device widths before the Stage 3 sign-off
+# question is asked. Every other LOOK row here is from-stage 5 and looks at built Mendix pages;
+# nothing looked at the prototype.
+#
+# Measured 2026-11-05 (#632), a 15-screen requirements-driven PWA: the prototype went to the
+# product owner twice, v1 and v2, with inputs and block buttons overflowing their cards by
+# 17-18 px at phone width. The user found it. Every per-screen wireframe rendered correctly
+# (assemble-prototype.js dropped the <body class> the design system scoped border-box to), and
+# every instrument was green: check-prototype-links.js checks links, not rendering, and the
+# Stage 3 gate accepted screenshots of each wireframe at its authored width.
+#
+# Producer: design-artifacts.md Step 3d, run by review-agent (not the agent that drew the design)
+# after the last assemble-prototype.js run and before the ✋ sign-off question; the Stage 3 close-
+# out in the same skill ("Running Stage 3 in parallel" step 4) names this PASS as a precondition.
+# Denominator: "N of M screen-widths" (screens x the four widths, 390/360/320/1280) on the first
+# line, one PROOF-OF-LOOK citation per screen-width (the LOOK pixel rule), and a PROTOTYPE-SHA
+# stamp: the sha256 assemble-prototype.js prints. A re-assembled prototype has a new hash, so the
+# LOOK is owed again — a v1 LOOK cannot discharge v2. With no design/prototype.html in either
+# layout the row reads N/A (a project with no UI owes no prototype LOOK); one that has screens but
+# never assembled them is caught by the Stage 3 wireframe gate, not here.
+prototype-look	review	project	names	design/ui-reviews/prototype-look-*.html	yes	yes	3	skills/design-artifacts.md

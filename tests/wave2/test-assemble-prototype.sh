@@ -217,5 +217,75 @@ has   "a screen with no <script> at all is left alone"      "$FH" '<section data
 hasnt "no <script> tag is introduced for a script-less screen" \
       "$(printf '%s' "$FH" | sed -n '/data-route="screen-c"/,/proto-end:screen-c/p')" '<script'
 
+# ── #632: the wireframe's <body class> survives assembly ──────────────────────────────────
+# A design system scoping border-box to `.rc-app *` (and a screen rule `body.rc-app ...`) stopped
+# applying once the assembled page had a bare <body>: every width:100% input overflowed its card
+# by 17-18 px in the prototype while each wireframe rendered fine. Shape taken from the field
+# run's wireframes (<body class="wf-page rc-app">, a .wf-layout frame wrapper).
+BC="$TMP/bodyclass"; mkdir -p "$BC/design/wireframes"
+cat > "$BC/design/ds.css" <<'EOF'
+.rc-app *, .rc-app *::before, .rc-app *::after { box-sizing: border-box; }
+.rc-card { width: 300px; padding: 0; overflow: visible; }
+.rc-input { display: block; width: 100%; padding: 8px; border: 1px solid #999; }
+EOF
+cat > "$BC/design/wireframes/Login.html" <<'EOF'
+<!doctype html>
+<html><head><title>Login</title><link rel="stylesheet" href="../ds.css">
+<style>body.rc-app .rc-btn { display:block; width:100%; padding:0 8px; border:1px solid #333; }</style></head>
+<body class="wf-page rc-app">
+<div class="wf-layout"><div class="rc-card" id="card">
+<input class="rc-input" id="user"><button class="rc-btn" id="go">Log in</button>
+</div><div class="wf-note">annotation</div></div>
+</body></html>
+EOF
+BCERR="$( cd "$BC" && node "$SUT" 2>&1 >/dev/null )"
+BH="$(cat "$BC/design/prototype.html" 2>/dev/null)"
+has   "#632 body class carried onto the screen's section" "$BH" '<section data-route="login" data-source="Login.html" data-title="Login" class="wf-page rc-app">'
+has   "#632 a screen's body.rc-app rule now targets the classed section" "$BH" 'section[data-route="login"].rc-app .rc-btn'
+has   "#632 hide rule never matches the section itself"   "$BH" '#proto-screens > section[data-route] :is([class^="wf-"]'
+has   "#632 .wf-layout is a layout wrapper, not an annotation" "$BH" ':not(.wf-layout)'
+SA="$(node "$(dirname "$SUT")/prototype-route.js" "$BC/design/prototype.html#/login" 2>&1)"
+has   "#632 standalone() gives the body class back" "$SA" '<body class="wf-page rc-app">'
+has   "#632 standalone() unscopes the classed rule to body.rc-app" "$SA" 'body.rc-app .rc-btn'
+hasnt "#632 no ds.css body.<class> warning when ds.css uses .rc-app *" "$BCERR" 'scopes rules to body.'
+cp "$BC/design/ds.css" "$BC/ds.keep"
+printf 'body.rc-app input { width: 100%%; }\n' >> "$BC/design/ds.css"
+BCERR="$( cd "$BC" && node "$SUT" 2>&1 >/dev/null )"
+has   "#632 a ds.css body.rc-app rule is named on stderr, not silently dead" "$BCERR" 'scopes rules to body.rc-app'
+cp "$BC/ds.keep" "$BC/design/ds.css"; ( cd "$BC" && node "$SUT" >/dev/null 2>&1 )
+
+# Real-Chromium overflow probe (the process-map T6/fit-probe pattern): at 390 px phone width with
+# bindings OFF, the frame must not be 0 px wide and the input/button must end inside the card.
+# Before the fix both fail: .wf-layout is display:none (0 px - the false green) and the
+# content-box input is 18 px wider than its card. Skipped, loudly, when no browser is present.
+CHROME="${CHROME:-}"
+if [ -z "$CHROME" ]; then
+  MAC_CHROME=""; [ "$(uname)" = Darwin ] && MAC_CHROME="/Applic""ations/Google Chrome.app/Contents/MacOS/Google Chrome"   # macOS only; elsewhere PATH or skipped
+  for c in "$MAC_CHROME" google-chrome chromium chromium-browser; do
+    if { [ -n "$c" ] && [ -x "$c" ]; } || command -v "$c" >/dev/null 2>&1; then CHROME="$c"; break; fi
+  done
+fi
+if [ -n "$CHROME" ]; then
+  PROBE='<script>setTimeout(function(){var c=document.querySelector(".rc-card").getBoundingClientRect();var o=0;document.querySelectorAll(".rc-card .rc-input,.rc-card .rc-btn").forEach(function(e){var r=e.getBoundingClientRect();o=Math.max(o,Math.round(r.right-c.right));});document.title="FIT:w"+Math.round(c.width)+":over"+o;},300);</script></body>'
+  node -e 'const fs=require("fs");const f=process.argv[1];fs.writeFileSync(f,fs.readFileSync(f,"utf8").replace("</body>",process.argv[2]));' "$BC/design/prototype.html" "$PROBE"
+  TO=""; command -v timeout >/dev/null 2>&1 && TO="timeout 60"   # no coreutils timeout on stock macOS
+  FIT="$( ($TO "$CHROME" --headless=new --disable-gpu --no-sandbox --virtual-time-budget=3000 --window-size=390,844 --dump-dom "file://$BC/design/prototype.html" </dev/null 2>/dev/null || true) | grep -o 'FIT:[^<]*' | head -1)"
+  case "$FIT" in
+    FIT:*) check "#632 Chromium @390px, bindings off: card 300 px wide, 0 px overflow" "$FIT" "FIT:w300:over0" ;;
+    *) echo "  skip Chromium probe unreadable" ;;
+  esac
+  # Same probe with bindings ON, so the body-class defect is measured on its own (before the fix:
+  # FIT:w300:over18 - the field run's 17-18 px).
+  ( cd "$BC" && node "$SUT" >/dev/null 2>&1 )
+  node -e 'const fs=require("fs");const f=process.argv[1];fs.writeFileSync(f,fs.readFileSync(f,"utf8").replace("</body>",process.argv[2]));' "$BC/design/prototype.html" "${PROBE/setTimeout(/document.body.classList.add(\"proto-show-bindings\");setTimeout(}"
+  FIT="$( ($TO "$CHROME" --headless=new --disable-gpu --no-sandbox --virtual-time-budget=3000 --window-size=390,844 --dump-dom "file://$BC/design/prototype.html" </dev/null 2>/dev/null || true) | grep -o 'FIT:[^<]*' | head -1)"
+  case "$FIT" in
+    FIT:*) check "#632 Chromium @390px, bindings on: inputs/buttons end inside their card" "$FIT" "FIT:w300:over0" ;;
+    *) echo "  skip Chromium probe unreadable" ;;
+  esac
+else
+  echo "  skip no Chrome/Chromium found (set CHROME=/path/to/chrome)"
+fi
+
 printf '\ntest-assemble-prototype: %d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

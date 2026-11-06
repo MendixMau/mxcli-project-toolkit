@@ -128,7 +128,7 @@ find_engine() {
   local c
   for c in "${COVERAGE_ENGINE:-}" \
            "${MXTK_ROOT:-}/bin/coverage-check.sh" \
-           "$(find_toolkit_root 2>/dev/null)/bin/coverage-check.sh" \
+           "$(t="$(find_toolkit_root 2>/dev/null)"; printf '%s' "${t:+$t/bin/coverage-check.sh}")" \
            "$(dirname "$SELF")/../bin/coverage-check.sh" \
            "$PROJECT_ROOT/bin/coverage-check.sh"; do
     [ -n "$c" ] || continue

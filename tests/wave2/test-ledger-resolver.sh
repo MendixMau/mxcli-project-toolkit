@@ -96,22 +96,30 @@ for layout in single two; do
   fi
 
   # --- 2. review-module on the single-BRD project ledger (#673) ------------------------------
+  # Both rungs are asserted past the ledger check: conformance ran (the stub's PASS row and its
+  # Orders row sliced into conformance.tsv), and coverage got as far as the BRD lookup — its
+  # FAULT here is "names no reachable *.brd.json", the fixture having no BRD, never "no ledger".
+  conf_ran() {  # conf_ran <label>
+    local S="$P/.claude/loop/review/Orders/summary.tsv" C="$P/.claude/loop/review/Orders/conformance.tsv"
+    if grep -qE "$NOLEDGER" "$WORK/out"; then
+      bad "[$layout] review-module: $1 reported as no ledger (#673)" "$(out)"
+    elif grep -qE '^conformance \(ledger claims vs live model\)	PASS	0	' "$S" 2>/dev/null \
+         && [ "$(awk -F'\t' 'NR>1 && $1=="Orders"' "$C" 2>/dev/null | grep -c .)" = 1 ] \
+         && grep -qE '^coverage .*	FAULT	2	-	\(the ledger names no reachable \*\.brd\.json\)$' "$S"; then
+      ok "[$layout] review-module: $1 found; conformance ran (PASS, 1 row), coverage reached the BRD lookup"
+    else
+      bad "[$layout] review-module: $1 — conformance or coverage rung did not run past the ledger" \
+          "$(tr '\n' '|' < "$S" 2>/dev/null)"
+    fi
+  }
   printf '# Coverage ledger\n' > "$A/coverage-ledger.md"
-  review
-  if grep -qE "$NOLEDGER" "$WORK/out"; then
-    bad "[$layout] review-module: single-BRD architecture/coverage-ledger.md reported as no ledger (#673)" "$(out)"
-  elif grep -q "conformance-check stub" "$WORK/out" || grep -q "conformance" "$P/.claude/loop/review/Orders/summary.tsv" 2>/dev/null; then
-    ok "[$layout] review-module: single-BRD ledger found; conformance ran"
-  else
-    bad "[$layout] review-module: conformance rung did not run" "$(out)"
-  fi
+  rm -rf "$P/.claude/loop/review"; review
+  conf_ran "single-BRD architecture/coverage-ledger.md"
 
   # --- 3. review-module on the flat <M>-coverage-ledger.md (#673) ----------------------------
   rm -f "$A/coverage-ledger.md"; printf '# Coverage ledger — Orders\n' > "$M/Orders-coverage-ledger.md"
-  review
-  grep -qE "$NOLEDGER" "$WORK/out" \
-    && bad "[$layout] review-module: flat Orders-coverage-ledger.md reported as no ledger (#673)" "$(out)" \
-    || ok "[$layout] review-module: flat ledger found"
+  rm -rf "$P/.claude/loop/review"; review
+  conf_ran "flat Orders-coverage-ledger.md"
 
   # --- 4. verify-module's hint knows the flat form too (#673) --------------------------------
   v="$( ROOT="$P"; MODULE=Orders; eval "$HELPER"; eval "$HINT"; resolve_ledger_hint )"

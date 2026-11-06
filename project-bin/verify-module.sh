@@ -517,7 +517,7 @@ fi
 COVERAGE_CHECK="${COVERAGE_CHECK:-}"
 if [ -z "$COVERAGE_CHECK" ]; then
   for c in "$(_tool coverage-check.sh)" "${MXTK_ROOT:-}/bin/coverage-check.sh" \
-           "$(find_toolkit_root 2>/dev/null)/bin/coverage-check.sh"; do
+           "$(t="$(find_toolkit_root 2>/dev/null)"; printf '%s' "${t:+$t/bin/coverage-check.sh}")"; do
     [ -n "$c" ] && [ -x "$c" ] && { COVERAGE_CHECK="$c"; break; }
   done
 fi

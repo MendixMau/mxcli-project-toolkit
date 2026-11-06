@@ -212,10 +212,23 @@ grep -q "DEVIATION .*useCases 'UC001' is owned by F001/F002" <<<"$OUT" \
 [ "$rc" -ne 0 ] && ok "Path B: check exits non-zero on a structural deviation" || bad "Path B: check exit 0 on deviations"
 cp "$WORK/f001.keep" "$PBB/F001-scheduling.brd.json"; cp "$WORK/f002.keep" "$PBB/F002-leave.brd.json"
 # Renaming a BRD file is not a change of owner: owners are BRD ids, not file names.
-mv "$PBB/F002-leave.brd.json" "$PBB/F002-leave.brd.json"
+# (#633 review: this case once did `mv X X` onto itself and tested nothing — move it for real.)
+mv "$PBB/F002-leave.brd.json" "$PBB/F002-leave-renamed.brd.json"
 OUT=$(bash "$SUBJECT" "$PB" check 2>&1); rc=$?
-case "$OUT" in *DEVIATION*) bad "Path B: renaming a BRD file made deviations"; echo "        $OUT" | head -3 ;; *) [ "$rc" -eq 0 ] && ok "Path B: renaming a BRD file is no deviation (owner = BRD id)" || bad "Path B: rename rc $rc" ;; esac
-mv "$PBB/F002-leave.brd.json" "$PBB/F002-leave.brd.json"
+case "$OUT" in *DEVIATION*) bad "Path B: renaming a BRD file made deviations"; echo "        $OUT" | head -3 ;; *) [ "$rc" -eq 0 ] && ok "Path B: renaming a BRD file is no deviation (owner = BRD id)" || bad "Path B: rename rc $rc"; [ -f "$PBB/F002-leave-renamed.brd.json" ] || bad "Path B: rename case did not rename" ;; esac
+mv "$PBB/F002-leave-renamed.brd.json" "$PBB/F002-leave.brd.json"
+# A real single-owner id that MOVES to another BRD id is still a DEVIATION — the owner check is
+# narrowed for per-module numbering, not removed.
+"$PY" - "$PBB/F001-scheduling.brd.json" "$PBB/F002-leave.brd.json" <<'PY'
+import json, sys
+a = json.load(open(sys.argv[1])); b = json.load(open(sys.argv[2]))
+uc = a["useCases"].pop(0); b["useCases"].append(uc)
+json.dump(a, open(sys.argv[1], "w")); json.dump(b, open(sys.argv[2], "w"))
+PY
+OUT=$(bash "$SUBJECT" "$PB" check 2>&1); rc=$?
+{ [ "$rc" -ne 0 ] && grep -q "DEVIATION .*useCases 'UC001' is owned by F002, lock says F001" <<<"$OUT"; } \
+  && ok "Path B: a single-owner use case moved to another BRD id is a DEVIATION" || { bad "Path B: moved use case not caught (rc $rc)"; echo "        $OUT" | head -3; }
+cp "$WORK/f001.keep" "$PBB/F001-scheduling.brd.json"; cp "$WORK/f002.keep" "$PBB/F002-leave.brd.json"
 "$PY" - "$PBB/F001-scheduling.brd.json" <<'PY'
 import json, sys
 a = json.load(open(sys.argv[1])); a["domainEntities"][0]["attributes"][0]["type"] = "Integer"; json.dump(a, open(sys.argv[1], "w"))
@@ -241,6 +254,23 @@ echo '{"id":"F002","domainEntities":[{"name":"Paymentplan"}]}' > "$PD/analysis/k
 OUT=$(bash "$SUBJECT" "$PD" build 2>&1); rc=$?
 { [ "$rc" -ne 0 ] && grep -q "CONFLICT  entities/paymentplan" <<<"$OUT"; } \
   && ok "Path B: an entity name spelt two ways is a CONFLICT" || { bad "Path B: entity respelling not contested (rc $rc)"; echo "        $OUT" | head -3; }
+
+# --- per-module UC001… numbering is not an owner deviation (#633 review) ----------------------
+# The extractor mappers number use cases UC001… per module and write no BRD id, so the owner is
+# the file name and a shared id has several. Adding one more module BRD after a build must not
+# turn every shared id into a DEVIATION (it failed Stage 2 on every extractor project).
+PE="$WORK/permod"; mkdir -p "$PE/analysis/knowledge-base/brd"
+for m in Orders Ship; do
+  printf '{"title":"%s","modules":["%s"],"useCases":[{"id":"UC001","title":"a"},{"id":"UC002","title":"b"}]}\n' "$m" "$m" \
+    > "$PE/analysis/knowledge-base/brd/$m.brd.json"
+done
+bash "$SUBJECT" "$PE" build >/dev/null 2>&1
+printf '{"title":"Billing","modules":["Billing"],"useCases":[{"id":"UC001","title":"c"}]}\n' > "$PE/analysis/knowledge-base/brd/Billing.brd.json"
+OUT=$(bash "$SUBJECT" "$PE" check 2>&1); rc=$?
+case "$OUT" in
+  *DEVIATION*) bad "per-module numbering: adding a module BRD with UC001 made a DEVIATION (rc $rc)"; printf '%s\n' "$OUT" | grep -m2 DEVIATION | sed 's/^/        /' ;;
+  *) [ "$rc" -eq 0 ] && ok "per-module numbering: a new module BRD sharing UC001 is no DEVIATION (exit 0)" || { bad "per-module numbering: check rc $rc"; echo "        $OUT" | head -3; } ;;
+esac
 
 # --- a near-empty lock is not agreement (#621) ------------------------------------------------------
 # A lock built before the BRDs carried (or the harvest could read) their facts: 2 facts over ~20.

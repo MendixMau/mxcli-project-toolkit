@@ -389,7 +389,15 @@ for ns, entries in sorted(frozen.items()):
                 if got != want:
                     for src in sorted(srcs):
                         struct_devs.append((src, "%s '%s' has %s '%s', lock says '%s'" % (ns, ent.get("canonical"), k, got, want)))
-        if "owners" in ent:
+        # Owner is held only where it can mean "this id moved": exactly one frozen owner, and that
+        # owner a real BRD `id`. The extractor mappers number use cases UC001… per module and write
+        # no BRD id, so the owner falls back to the file name and a shared id has several owners —
+        # adding one more module BRD then changed every shared id's owner set and failed Stage 2
+        # (#633 review: Orders + Ship with UC001/UC002, build, add Billing with UC001 → DEVIATION).
+        owners = sorted(ent.get("owners") or [])
+        real_owner = (len(owners) == 1 and not owners[0].lower().endswith(".json")
+                      and owners[0] not in (ent.get("sources") or []))
+        if real_owner:
             now = sorted(cur["props"].get("owner", {}))
             if now != sorted(ent["owners"]):
                 struct_devs.append((", ".join(now) or "(all BRDs)", "%s '%s' is owned by %s, lock says %s"

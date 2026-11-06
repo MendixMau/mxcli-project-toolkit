@@ -248,8 +248,8 @@ Each wireframe is assembled from Step 1's components — never restyled from scr
 </div>
 ```
 
-The value is the qualified entity (`Module.Entity`) or `none — <reason>`, in exactly that form
-(a later gate parses the line). `none` is a statement, not a blank: it says the page is a list, a
+The value is the qualified entity (`Module.Entity`, a trailing `(note)` allowed) or `none — <reason>`,
+in exactly that form (a later gate parses the line). `none` is a statement, not a blank: it says the page is a list, a
 home or a singleton. The `wf-` prefix makes the block annotation, so `page-fidelity.js` does not score it as
 page content and `assemble-prototype.js` hides it behind **Show bindings**. Draw the screen as the
 role named there, with that role's menu.

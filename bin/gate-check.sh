@@ -1020,6 +1020,9 @@ check_stage_2() {
             return
           fi
           grep -q -- '^  UNFROZEN' <<<"$fl_out" && fl_note="; facts lock: contested identifiers left (bin/facts-lock.sh <project> resolve)"
+          # A lock that freezes (almost) nothing is not agreement (#621): say so on the PASS line.
+          local fl_thin; fl_thin="$(printf '%s\n' "$fl_out" | grep -m1 -E '^(NEAR-EMPTY|PENDING) facts-lock' | sed -E 's/^(NEAR-EMPTY|PENDING) facts-lock: //')"
+          [ -n "$fl_thin" ] && fl_note="$fl_note; ⚠ facts lock: $fl_thin"
         else
           fl_note="; no facts lock for $nbrd BRDs (bin/facts-lock.sh <project> build, then resolve)"
         fi
@@ -1084,12 +1087,49 @@ for b in d.get("brds", []):
     m = b.get("missingRequired") or []
     if m: print("%s: %s" % (os.path.basename(b["path"]), ", ".join(m)))
 ' 2>/dev/null)"
-  [ -n "$missing" ] || return 0
-  if w="$(artifact_waived brds)"; then
-    echo "required BRD sections absent but waived — $w ($(printf '%s' "$missing" | tr '\n' ';' | sed 's/;$//'))"
-    return 0
+  local note=""
+  if [ -n "$missing" ]; then
+    if w="$(artifact_waived brds)"; then
+      note="required BRD sections absent but waived — $w ($(printf '%s' "$missing" | tr '\n' ';' | sed 's/;$//'))"
+    else
+      echo "FAIL|BRD(s) missing a required section — $(printf '%s' "$missing" | tr '\n' ';' | sed 's/;$//; s/;/; /g') (bin/brd-report.sh <project> explains each: owed by the BRD's provenance, or by every provenance) — restore the section, or record it: gate-check.sh <project> --waive artifact/brds --reason \"...\""
+      return
+    fi
   fi
-  echo "FAIL|BRD(s) missing a required section — $(printf '%s' "$missing" | tr '\n' ';' | sed 's/;$//; s/;/; /g') (bin/brd-report.sh <project> explains each: owed by the BRD's provenance, or by every provenance) — restore the section, or record it: gate-check.sh <project> --waive artifact/brds --reason \"...\""
+  # The mechanical validator (#622). validation-report.md's "Clean" is the agent's own word; on a
+  # requirements-driven project nothing else had checked it — Stage 2 PASSed on that first line
+  # alone. brd-report.sh's `validation` block is brd-validation.md's mechanically decidable subset
+  # (complete use cases, references that resolve, one owner per entity and rule id, tracked open
+  # questions), each with its denominator. Its errors on BRDs under <brd-dir> contradict "Clean".
+  # Waiver: `Waived artifact brd-validation: <reason>`.
+  local vout vverdict vsum verr
+  vout="$(printf '%s' "$out" | BRD_DIR="$(native_path "$brd_dir")" "$py" -c '
+import json, os, sys
+try: d = json.load(sys.stdin)
+except Exception: sys.exit(0)
+v = d.get("validation") or {}
+norm = lambda p: os.path.normcase(os.path.realpath(p))
+base = norm(os.environ["BRD_DIR"])
+errs = [f for f in v.get("findings", []) if f.get("severity") == "error"
+        and norm(os.path.dirname(f.get("brd", ""))) == base]
+print("%s\t%s\t%d" % (v.get("verdict", ""), v.get("summary", ""), len(errs)))
+for f in errs[:3]: print("%s [%s] %s" % (f.get("id"), f.get("check"), f.get("message")))
+' 2>/dev/null)"
+  vverdict="$(printf '%s\n' "$vout" | head -1 | cut -f1)"
+  vsum="$(printf '%s\n' "$vout" | head -1 | cut -f2)"
+  verr="$(printf '%s\n' "$vout" | head -1 | cut -f3)"
+  if [ "${verr:-0}" -gt 0 ] 2>/dev/null; then
+    local eg; eg="$(printf '%s\n' "$vout" | sed -n '2,4p' | tr '\n' ';' | sed 's/;$//; s/;/; /g')"
+    if w="$(artifact_waived brd-validation)"; then
+      note="${note:+$note; }validator: $verr error(s) but waived — $w"
+    else
+      echo "FAIL|validation-report.md says Clean, but the mechanical validator finds $verr error(s) — $eg ($vsum) — fix the BRDs (bin/brd-report.sh <project> lists every finding), or record it: gate-check.sh <project> --waive artifact/brd-validation --reason \"...\""
+      return
+    fi
+  elif [ "$vverdict" = "PASS" ]; then
+    note="${note:+$note; }validator: $vsum"
+  fi
+  printf '%s' "$note"
 }
 
 # ✋ stages need a CONFIRMED decision row in PROJECT.md's Decisions table
@@ -1209,6 +1249,82 @@ has_confirmed_decision() {
     }
     END { exit !(hdr ? tabf : anyf) }
   ' "$f"
+}
+
+# AUTO MODE AND THE ✋ GATES (#624, maintainer decision 2026-11-05). Under `Interview mode: auto`
+# (resolved by bin/interview-mode.sh, aliases and all — interview-protocol.md §"What `auto`
+# obliges you to do") every position is recorded `ASSUMED` with `consentBy: auto-mode`, so a
+# CONFIRMED-only Stage 3/4 could never pass an unattended run: it produced every artifact and
+# then FAILed twice by design, with nothing saying so. Now, in auto mode only, a Decisions row
+# for the stage that is ASSUMED with `consentBy: auto-mode` and a `consentAt` satisfies the gate.
+# The human is moved, not removed: auto_hand_pending() lists every such ✋ row on every run,
+# whatever the mode, and Stage 6 (release readiness) FAILs while one remains. A person confirms
+# or overturns one by putting their name in consentBy (any status); a row still stamped auto-mode
+# counts whatever its status says. Stage 7 (cutover) stays CONFIRMED-only — it is the release itself.
+interview_mode_is_auto() { [ "${INTERVIEW_MODE:-}" = "auto" ]; }
+
+has_auto_assumed_decision() {
+  local stage="$1" f="$REGISTER"
+  [ -n "$f" ] && [ -f "$f" ] || return 1
+  awk -F'|' -v want="$stage" '
+    !/^\|/ { intab = 0; next }
+    {
+      h = tolower($2); gsub(/^[ \t]+|[ \t]+$/, "", h)
+      if (h == "stage") { intab = 1; hdr = 1; next }
+      if ($2 ~ /^[ \t:]*-+[ \t:-]*$/) next
+      s = $2; gsub(/^[ \t]+|[ \t]+$/, "", s); sub(/^[Ss]tage[ \t]*/, "", s)
+      if (s != want) next
+      row = tolower($0); gsub(/[`*]/, "", row)
+      if (row !~ /consentby[ \t]*:[ \t]*auto-mode/ || row !~ /consentat[ \t]*:[ \t]*[0-9]/) next
+      a = 0
+      for (i = 3; i <= NF; i++) { v = toupper($i); gsub(/^[ \t]+|[ \t]+$/, "", v); if (v ~ /^ASSUMED([ \t]|$)/) a = 1 }
+      if (a) { anyf = 1; if (intab) tabf = 1 }
+    }
+    END { exit !(hdr ? tabf : anyf) }
+  ' "$f"
+}
+
+# auto_assumed_hint <N> — on the FAIL line of a non-auto run: say why the auto-mode row no longer counts.
+auto_assumed_hint() {
+  interview_mode_is_auto && return 0
+  has_auto_assumed_decision "$1" || return 0
+  printf ' (its Stage-%s row is ASSUMED by auto-mode, which passes only under Interview mode: auto — confirm it: Status CONFIRMED, consentBy a person)' "$1"
+}
+
+# auto_hand_pending → one id per line ("PROJECT.md:42 (Stage 3)") for every ✋-stage (0, 3, 4, 7)
+# Decisions row still stamped consentBy: auto-mode, plus a triage.md whose "Confirmed by:" names
+# auto-mode or the auto interview mode (field shape: "ASSUMED under Interview mode: auto on <date>").
+auto_hand_pending() {
+  local f="$REGISTER" t
+  if [ -n "$f" ] && [ -f "$f" ]; then
+    awk -F'|' -v name="$(basename "$f")" '
+      !/^\|/ { intab = 0; next }
+      {
+        h = tolower($2); gsub(/^[ \t]+|[ \t]+$/, "", h)
+        if (h == "stage") { intab = 1; hdr = 1; next }
+        if ($2 ~ /^[ \t:]*-+[ \t:-]*$/) next
+        s = $2; gsub(/^[ \t]+|[ \t]+$/, "", s); sub(/^[Ss]tage[ \t]*/, "", s)
+        if (s !~ /^[0347]$/) next
+        row = tolower($0); gsub(/[`*]/, "", row)
+        if (row !~ /consentby[ \t]*:[ \t]*auto-mode/) next
+        n++; id[n] = name ":" NR " (Stage " s ")"; tab[n] = intab
+      }
+      END { for (i = 1; i <= n; i++) if (!hdr || tab[i]) print id[i] }
+    ' "$f"
+  fi
+  t="$(resolve_stage_file "triage.md")"
+  if [ -n "$t" ] && [ "$t" != "AMBIGUOUS" ] && [ -f "$t" ] && awk '
+      /^##[ \t]+Sign-off/ { insec=1; next }
+      insec && /^##[ \t]/ { exit }
+      insec && tolower($0) ~ /confirmed by:/ {
+        v = tolower($0); sub(/^.*confirmed by:/, "", v)
+        # "auto-mode", or the field shape "ASSUMED under Interview mode: auto on <date>"
+        if (v ~ /auto-mode|interview mode:[ \t*`]*(auto|unattended)([^a-z]|$)/) found = 1
+        exit
+      }
+      END { exit !found }' "$t"; then
+    echo "triage.md (Stage 0 sign-off)"
+  fi
 }
 
 # stage_exit_recorded <N> — does the register say Stage N was APPROVED AS DONE, not merely that
@@ -1525,11 +1641,24 @@ check_stage_3() {
       fi
     done
   fi
+  # The interaction-model facts (#291), computed once before the stage loop and printed under
+  # "Interaction model (stage 3 facts)". PENDING (no artifact yet — the Artifacts block reports
+  # that) and ADOPTED/WAIVED leave this verdict alone; a finding is something examined and wrong.
+  # A FAIL returns here; a MANUAL only replaces a PASS, so it never hides the register FAIL below.
+  if [ "${MXTK_IM_STATUS:-}" = "FAIL" ]; then
+    local im_also=""
+    if ! reg_unavailable && ! has_confirmed_decision 3 && ! { interview_mode_is_auto && has_auto_assumed_decision 3; }; then im_also="; also: no Stage-3 CONFIRMED decision"; fi
+    echo "FAIL|interaction model: ${MXTK_IM_NOTE} — each finding is listed under 'Interaction model (stage 3 facts)' (skills/interaction-model.md)${im_also}"; return
+  fi
   if reg_unavailable; then reg_unavailable_note; return; fi
   if has_confirmed_decision 3; then
+    if [ "${MXTK_IM_STATUS:-}" = "MANUAL" ]; then echo "MANUAL|interaction model: ${MXTK_IM_NOTE}$wf_note"; return; fi
     echo "PASS|fit-gap, blueprint render, design system, wireframes present and a Stage-3 CONFIRMED decision is in $REGISTER$wf_note"
+  elif interview_mode_is_auto && has_auto_assumed_decision 3; then
+    if [ "${MXTK_IM_STATUS:-}" = "MANUAL" ]; then echo "MANUAL|interaction model: ${MXTK_IM_NOTE}$wf_note"; return; fi
+    echo "PASS|fit-gap, blueprint render, design system, wireframes present and a Stage-3 decision is ASSUMED by auto-mode in $REGISTER (Interview mode: auto) — a human confirms it before release$wf_note"
   else
-    echo "FAIL|artifacts exist but ${REGISTER:-PROJECT.md} has no Stage-3 CONFIRMED decision — ✋ gate: artifacts without an interview don't pass"
+    echo "FAIL|artifacts exist but ${REGISTER:-PROJECT.md} has no Stage-3 CONFIRMED decision — ✋ gate: artifacts without an interview don't pass$(auto_assumed_hint 3)"
   fi
 }
 
@@ -1552,14 +1681,19 @@ check_stage_4() {
     return ;;
   esac
   if reg_unavailable; then reg_unavailable_note; return; fi
+  local signed="a Stage-4 CONFIRMED decision is in $REGISTER"
   if ! has_confirmed_decision 4; then
-    echo "FAIL|build-plan.md exists but ${REGISTER:-PROJECT.md} has no Stage-4 CONFIRMED decision — ✋ gate: a plan nobody approved doesn't pass"
-    return
+    if interview_mode_is_auto && has_auto_assumed_decision 4; then
+      signed="a Stage-4 decision is ASSUMED by auto-mode in $REGISTER (Interview mode: auto) — a human confirms it before release"
+    else
+      echo "FAIL|build-plan.md exists but ${REGISTER:-PROJECT.md} has no Stage-4 CONFIRMED decision — ✋ gate: a plan nobody approved doesn't pass$(auto_assumed_hint 4)"
+      return
+    fi
   fi
   closing="$(stage4_closing_rows "$build_plan")"
   case "$closing" in
     FAIL\|*) echo "$closing" ;;
-    *) echo "PASS|build-plan.md present, ${closing#OK|}${content:+, $content}, and a Stage-4 CONFIRMED decision is in $REGISTER" ;;
+    *) echo "PASS|build-plan.md present, ${closing#OK|}${content:+, $content}, and $signed" ;;
   esac
 }
 
@@ -3194,6 +3328,26 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Interaction model — the Stage-3 facts over design/interaction-model.md (#291).
+#
+# The artifact check above only notices the file is absent. Once it exists, three facts are
+# read from it: every BRD role has a home row, every BRD approval/user-task use case has an
+# inbox row (or a stated reason), every wireframe carries its `Page parameter:` line. Each
+# finding prints here; check_stage_3() turns any un-waived one into a Stage-3 FAIL. Judgement
+# (is that the right home?) stays in skills/interaction-model.md. Waivers and adoption: see the
+# header of bin/lib/interaction-model-check.sh.
+MXTK_IM_STATUS=""; MXTK_IM_NOTE=""
+if [ -r "$TOOLKIT_DIR/bin/lib/interaction-model-check.sh" ] && [ -r "$TOOLKIT_DIR/bin/lib/artifact-check.sh" ]; then
+  # shellcheck source=lib/interaction-model-check.sh
+  . "$TOOLKIT_DIR/bin/lib/interaction-model-check.sh"
+  mxtk_interaction_model_check "$PROJECT_DIR" "$REGISTER" "$ANALYSIS_BASE"
+else
+  MXTK_IM_STATUS="MANUAL"
+  MXTK_IM_NOTE="bin/lib/interaction-model-check.sh missing from $TOOLKIT_DIR — cannot evaluate, which is not a pass"
+  printf 'Interaction model (stage 3 facts): MANUAL — %s\n' "$MXTK_IM_NOTE"
+fi
+
+# ---------------------------------------------------------------------------
 # Source sufficiency — was the source actually characterised, or did Stage 0
 # pass on nobody having looked?
 #
@@ -3437,6 +3591,15 @@ printf "Stage P (Kickoff): %s%s — %s\n" "$P_STATUS" "$(stage_surface_suffix P)
 # The second half of the same problem — a stage that will NEVER start, because the project
 # joined the toolkit later or its entry mode does not run that stage — is WAIVED, and is
 # declared in the register rather than inferred. See the block above stage_waiver().
+# Interview mode as bin/interview-mode.sh resolves it (#624): only `auto` lets an auto-mode
+# ASSUMED row pass Stage 3/4. AUTO_HAND is every ✋ decision still stamped auto-mode, any mode.
+INTERVIEW_MODE="$(bash "$TOOLKIT_DIR/bin/interview-mode.sh" "$PROJECT_DIR" 2>/dev/null || echo steering)"
+AUTO_HAND=""; AUTO_HAND_N=0
+if ! reg_unavailable; then
+  AUTO_HAND="$(auto_hand_pending)"
+  [ -n "$AUTO_HAND" ] && AUTO_HAND_N=$(printf '%s\n' "$AUTO_HAND" | wc -l | tr -d ' ')
+fi
+AUTO_HAND_IDS="$(printf '%s' "$AUTO_HAND" | tr '\n' ',' | sed 's/,/, /g')"
 for stage in "${STAGE_NAMES[@]}"; do
   case "$stage" in
     0) result="$(check_stage_0)" ;;
@@ -3453,6 +3616,13 @@ for stage in "${STAGE_NAMES[@]}"; do
   note="${result#*|}"
 
   apply_waiver "$stage" "$status" "$note"; status="$AW_STATUS"; note="$AW_NOTE"
+  # RELEASE NEEDS A HUMAN (#624). Stage 6 is release readiness; auto mode may pass Stage 3/4 on
+  # its own stamp, but nothing ships on it. After the waiver on purpose: a stage waiver does not
+  # excuse an unconfirmed decision.
+  if [ "$stage" = "6" ] && [ "$AUTO_HAND_N" -gt 0 ] && { [ "$status" = "PASS" ] || [ "$status" = "WAIVED" ]; }; then
+    note="$AUTO_HAND_N hand-gate decision(s) assumed by auto-mode and not yet confirmed: $AUTO_HAND_IDS — nothing ships until a person confirms or overturns each (any status, consentBy a person; interview-protocol.md §\"What \`auto\` obliges you to do\") · underlying check: $status — $note"
+    status="FAIL"
+  fi
   # APPROVED OVER A FAILING GATE (#207). The register's CONFIRMED row is what status.sh,
   # exec.sh and every agent read afterwards; the gate under it is read by nobody. Field case,
   # 2026-10-06: a delegated Stage-4 approval was recorded while the closing-rows check was red,
@@ -3483,6 +3653,10 @@ done
 # Said once, after the list, because it calibrates every line above it. A reader who
 # does not know that a missing Surface left the exit code alone will read the first one
 # they see as a failure the gate somehow let through.
+if [ "$AUTO_HAND_N" -gt 0 ]; then
+  echo "$AUTO_HAND_N ✋ decision(s) assumed by auto-mode — confirm before release: $AUTO_HAND_IDS"
+  echo "  (Interview mode: $INTERVIEW_MODE. Confirm or overturn each — any status, consentBy a person; Stage 6 FAILs until then.)"
+fi
 echo "Surface = the artifact a human READS to judge the stage (runbook §2). A missing one is"
 echo "not a gate failure and does not affect the exit code — it is a stage nobody can review."
 

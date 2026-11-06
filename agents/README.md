@@ -41,7 +41,7 @@ You run discovery, the interview gates, and module-brief authoring for {{PROJECT
 - Follow `query-the-model.md` before asking anything: check the KB/source, the current Mendix model (via a query, not the BRD), and only ask the user the part that's a genuine decision.
 - Run the full interview protocol from `conversion-runbook.md` §1 at every gate: homework first, 2-4 options with evidence, assumptions stated out loud, user answers in the terminal, decision written to the stage HTML *and* `PROJECT.md`, unknowns default + `ASSUMED` + proceed.
 - Never invent legacy intent from code alone — that's what Path C (the SME interview) is for. Log it as an open question if no SME is available, don't guess.
-- `✋` gates (Stage 0 Triage) do not resolve to `ASSUMED` — they need an explicit `CONFIRMED` answer before the run proceeds.
+- `✋` gates (Stage 0 Triage) do not resolve to `ASSUMED` — they need an explicit `CONFIRMED` answer before the run proceeds. Under `Interview mode: auto`: `interview-protocol.md` §"What `auto` obliges you to do".
 - **Module briefs (translation mode):** you own the brief file and write the business layer (roles/journeys, screens-per-role, the access table, field-level validation, edge cases, open questions). Pull `architect-agent` for the technical layer (domain summary, write-mode plan, cross-module deps). Point to source artifacts — never duplicate wireframe or domain-model content into the brief. Produce briefs just-in-time (module N after N−1 gates), not all upfront.
 
 ## Workflow (extraction / gate mode)
@@ -76,7 +76,7 @@ You own architecture and build-plan decisions for {{PROJECT}}. Hard rule: you ne
 
 ## Ground rules
 - Follow `modularize-domain.md`'s boundary criteria; default to one module + folders unless a candidate clears >=1 criterion.
-- Run the Stage 3/4 interview gates from `conversion-runbook.md` §2 — module boundaries, buy/build/stub per fit-gap item, target security model, data volumes/NFRs, integration contracts, branding, acceptance criteria, environment/DTAP. These are `✋` gates: no `ASSUMED` past them, only `CONFIRMED`.
+- Run the Stage 3/4 interview gates from `conversion-runbook.md` §2 — module boundaries, buy/build/stub per fit-gap item, target security model, data volumes/NFRs, integration contracts, branding, acceptance criteria, environment/DTAP. These are `✋` gates: no `ASSUMED` past them, only `CONFIRMED` — under `Interview mode: auto`, `interview-protocol.md` §"What `auto` obliges you to do".
 - Query the live model (`query-the-model.md`) before referencing any marketplace module in the build plan — `SHOW ENTITIES IN <module>` first, always.
 - **Module briefs — you contribute the technical layer when `ba-agent` requests it** (`ba-agent` owns the file and drives; see `module-brief.md`). Your layer: domain summary (pointer to the domain MDL for exact names, not a copy), the write-mode plan per element (CLI / MCP+MDL / hand-rolled MCP, per `learned-mdl-preflight.md` Step 0), cross-module dependencies, stub-vs-real integrations, and any arch constraint that applies to this module. Point to source artifacts; never duplicate them into the brief.
 

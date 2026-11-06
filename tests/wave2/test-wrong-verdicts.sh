@@ -110,6 +110,12 @@ if [ -f "$TK/bin/lib/entry-mode.sh" ]; then
   check "change an existing app (CONFIRMED)" "existing-app-change"
   # ...and the phrase arm must not swallow a migration that merely mentions "existing".
   check "Migration from an existing Oracle Forms system" "migration"
+  # #634: emphasis + period + prose after the value. The whole-value trim only reaches
+  # the LAST character, so the first-word cut left "migration**." and matched nothing.
+  check "Assumed (auto-mode): **Migration**. Evidence: 409 .java files" "migration"
+  check "**Greenfield**: no legacy source"  "greenfield"
+  check "_requirements-driven_. specs only" "requirements-driven"
+  check "Migration. Evidence follows"       "migration"
   check "banana"                     ""
   if entry_mode_token "banana" 2>&1 >/dev/null | grep -q 'not recognised'; then
     ok "V4 an unrecognised mode says so on stderr instead of failing silently"
@@ -140,6 +146,17 @@ if printf '%s' "$V5ERR" | grep -q 'not recognised'; then
   bad "V5 gate-check.sh's own intake fallback loses 'answered: migration': $V5ERR"
 else
   ok "V5 intake-prefixed 'answered: migration' resolves without a 'not recognised' warning"
+fi
+
+# V5b. #634 — the reported intake form, end to end through gate-check.sh.
+P="$WORK/v5b"; mkdir -p "$P/analysis/Live/knowledge-base"
+printf 'Toolkit commit: none\n' > "$P/PROJECT.md"
+printf '\n## 1. Entry mode\n\nAssumed (auto-mode): **Migration**. Evidence: 409 .java files under src/\n' > "$P/intake.md"
+V5ERR="$( { "$GC" "$P" 1 >/dev/null; } 2>&1 )"
+if printf '%s' "$V5ERR" | grep -q 'not recognised'; then
+  bad "V5b intake answer '**Migration**. Evidence: ...' still not recognised (#634): $V5ERR"
+else
+  ok "V5b intake answer '**Migration**. Evidence: ...' resolves without a 'not recognised' warning"
 fi
 
 # Second, cheaper assertion for the same defect cluster (finding 6): the v1-arm restore

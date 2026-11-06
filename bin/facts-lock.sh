@@ -33,6 +33,9 @@
 #   facts-lock.sh <project-dir> resolve    build, then freeze each casing conflict whose majority
 #                                          spelling is used by strictly more BRD sources than any
 #                                          other; record the count in the lock; ties stay contested
+#   facts-lock.sh <project-dir> forget <ns>/<key>
+#                                          drop one frozen fact (a deliberate rename or removal);
+#                                          the next build re-freezes whatever the BRDs now say
 #
 # resolve is an explicit step an agent runs, never part of build: build must not pick silently.
 # WHY (2026-10-28): conflicts are always casing (WIPStatus/WipStatus); asking the user is wrong
@@ -50,12 +53,14 @@ set -u
 
 PROJECT_DIR="${1:-}"
 CMD="${2:-show}"
+FORGET="${3:-}"
 
 [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ] || {
-  echo "usage: facts-lock.sh <project-dir> [build|check|show|resolve]" >&2; exit 2; }
+  echo "usage: facts-lock.sh <project-dir> [build|check|show|resolve|forget <ns>/<key>]" >&2; exit 2; }
 
-case "$CMD" in build|check|show|resolve) ;; *)
-  echo "usage: facts-lock.sh <project-dir> [build|check|show|resolve]" >&2; exit 2 ;; esac
+case "$CMD" in build|check|show|resolve) ;; forget) [ -n "$FORGET" ] || {
+  echo "usage: facts-lock.sh <project-dir> forget <ns>/<key>   (e.g. entities/employee)" >&2; exit 2; } ;; *)
+  echo "usage: facts-lock.sh <project-dir> [build|check|show|resolve|forget <ns>/<key>]" >&2; exit 2 ;; esac
 
 # Discovery is SHARED, not re-derived here. This script originally had its own copy and the
 # copy was wrong: it matched analysis/source (2 BRDs), silently skipped analysis/alt-source
@@ -76,11 +81,28 @@ LOCK="$PROJECT_DIR/analysis/facts.lock.json"
 
 require_py
 
-PROJECT_DIR="$PROJECT_DIR" KBS="$KBS" LOCK="$LOCK" CMD="$CMD" "$PY" - <<'PYEOF'
+PROJECT_DIR="$PROJECT_DIR" KBS="$KBS" LOCK="$LOCK" CMD="$CMD" FORGET="$FORGET" "$PY" - <<'PYEOF'
 import glob, json, os, re, sys
 from datetime import datetime, timezone
 
 LOCK, CMD = os.environ["LOCK"], os.environ["CMD"]
+if CMD == "forget":
+    ns, _, key = os.environ["FORGET"].partition("/")
+    try:
+        with open(LOCK, encoding="utf-8") as fh:
+            lk = json.load(fh)
+    except Exception as e:
+        print("facts-lock: cannot read %s (%s)" % (LOCK, e), file=sys.stderr); sys.exit(2)
+    if lk.get("facts", {}).get(ns, {}).pop(key.lower(), None) is None:
+        print("facts-lock: %s/%s is not frozen in %s" % (ns, key.lower(), LOCK), file=sys.stderr); sys.exit(1)
+    if ns == "entities":   # a renamed entity takes its attributes and values with it
+        for dep in ("attributes", "enumValues"):
+            for k in [k for k in lk["facts"].get(dep, {}) if k.startswith(key.lower() + ".")]:
+                del lk["facts"][dep][k]
+    with open(LOCK, "w", encoding="utf-8") as fh:
+        json.dump(lk, fh, indent=2, sort_keys=True); fh.write("\n")
+    print("facts-lock: forgot %s/%s — run build to re-freeze what the BRDs now say" % (ns, key.lower()))
+    sys.exit(0)
 KBS = [k for k in os.environ["KBS"].splitlines() if k.strip()]
 
 brds = []
@@ -145,6 +167,89 @@ for path in brds:
     except Exception as e:
         unreadable.append((src, str(e)))
 
+# --- the declared facts of a brd-generation.md BRD (#621) -------------------------------------
+# WHY. The keyed harvest above was tuned to extractor output (`operationId`, `entity`,
+# `targetEntity`). A BRD written by hand per brd-generation.md carries its identifiers under
+# `domainEntities[].name`, `attributes[].name`, `useCases[].id`, … — none of those keys — so on a
+# 9-BRD requirements-driven project build froze "2 fact(s)" while the BRDs shared ~25 entities and
+# ~42 business rules that had drifted between parallel writers, and check PASSed with nothing to
+# compare (field run, 2026-11-05). These are read STRUCTURALLY, from the documented shape:
+#   entities     domainEntities[]/enumerations[]/entities[] .name     + the owning module
+#   attributes   <Entity>.<attribute>                                  + its type
+#   enumValues   <Enumeration>.<value>
+#   useCases     useCases[].id                                         + the owning BRD's id
+#   businessRules businessRules[].id, or a string rule's leading id    + the owning BRD's id
+#   roles        actors[], useCases[].actors[], pages[].roles[], roles[]
+#   modules      modules[]
+# A declared fact also owes its PRESENCE: once frozen, an entity no BRD declares any more, an
+# attribute whose type changed, or a use case that moved BRD is a DEVIATION, not silence.
+DECLARED_NS = ("entities", "attributes", "enumValues", "useCases", "businessRules", "roles", "modules")
+NO_RESCAN = {"useCases", "businessRules", "attributes", "enumValues"}   # ids: UC001 vs uc001 is not a spelling
+declared = {}   # ns -> ck -> {"spellings": {spelling: set(src)}, "props": {prop: {value: set(src)}}}
+
+def declare(ns, spelling, src, **props):
+    if not isinstance(spelling, str):
+        return
+    s = spelling.strip()
+    if not s or len(s) > 80 or (" " in s and ns != "roles"):
+        return
+    d = declared.setdefault(ns, {}).setdefault(s.lower(), {"spellings": {}, "props": {}})
+    d["spellings"].setdefault(s, set()).add(src)
+    harvest.setdefault(ns, {}).setdefault(s.lower(), {}).setdefault(s, set()).add(src)
+    for k, v in props.items():
+        if isinstance(v, str) and v.strip():
+            d["props"].setdefault(k, {}).setdefault(v.strip(), set()).add(src)
+
+def _l(v):
+    return v if isinstance(v, list) else ([] if v is None else [v])
+
+# A rule written as a string carries its id first, e.g. "BR001: total over 500 needs approval".
+# Same shape bin/brd-report.sh's validator reads (#622); keep the two in step.
+RULE_ID_RE = re.compile(r'^\s*\[?([A-Z][A-Z0-9]{0,7}[-_]?\d+(?:\.\d+)*)\]?\s*(?:[:)\]\u2013\u2014-]|\.\s)')
+
+for src, doc in loaded:
+    if not isinstance(doc, dict):
+        continue
+    # The owner of a use case or rule is the BRD's own id, not its file name: renaming
+    # F001-x.brd.json must not turn every id it owns into a DEVIATION. File name only without an id.
+    owner = doc["id"].strip() if isinstance(doc.get("id"), str) and doc["id"].strip() else src
+    mods = [m for m in _l(doc.get("modules", doc.get("module"))) if isinstance(m, str)]
+    one_mod = mods[0] if len(mods) == 1 else ""
+    for m in mods:
+        declare("modules", m, src)
+    for e in _l(doc.get("domainEntities")) + _l(doc.get("enumerations")) + _l(doc.get("entities")):
+        if not isinstance(e, dict) or not isinstance(e.get("name"), str):
+            continue
+        name, mod = e["name"].strip(), e.get("module") if isinstance(e.get("module"), str) else one_mod
+        if "." in name:
+            mod, name = name.split(".", 1)
+        declare("entities", name, src, module=mod)
+        for a in _l(e.get("attributes")):
+            if isinstance(a, dict) and isinstance(a.get("name"), str) and " " not in a["name"].strip():
+                t = a.get("type") if isinstance(a.get("type"), str) else ""
+                if t == "Enumeration" and isinstance(a.get("enumeration"), str):
+                    t = "Enumeration:" + a["enumeration"].split(".")[-1]
+                declare("attributes", "%s.%s" % (name, a["name"].strip()), src, type=t)
+        for v in _l(e.get("values")):
+            vn = v.get("name") if isinstance(v, dict) else v
+            if isinstance(vn, str) and " " not in vn.strip():
+                declare("enumValues", "%s.%s" % (name, vn.strip()), src)
+    roles = _l(doc.get("actors")) + _l(doc.get("roles"))
+    for u in _l(doc.get("useCases")):
+        if isinstance(u, dict):
+            declare("useCases", u.get("id"), src, owner=owner)
+            roles += _l(u.get("actors"))
+    for r in _l(doc.get("businessRules")):
+        if isinstance(r, dict):
+            declare("businessRules", r.get("id"), src, owner=owner)
+        elif isinstance(r, str) and RULE_ID_RE.match(r):
+            declare("businessRules", RULE_ID_RE.match(r).group(1), src, owner=owner)
+    for pg in _l(doc.get("pages")):
+        if isinstance(pg, dict):
+            roles += _l(pg.get("roles"))
+    for r in roles:
+        declare("roles", r.get("name") if isinstance(r, dict) else r, src)
+
 # --- second pass: the same identifier, spelled differently somewhere else -------------------
 # Pass one only sees a string sitting under a key that declares it an identifier. That missed
 # the very conflict this tool was built for: on PROJECT-C, `QueryAISafeWIPSummary` (71 uses) and
@@ -159,6 +264,8 @@ for path in brds:
 TOKEN_RE = re.compile(r"[A-Za-z][A-Za-z0-9_]{2,}")
 known = {}
 for ns, clusters in harvest.items():
+    if ns in NO_RESCAN:
+        continue
     for ck in clusters:
         known.setdefault(ck, ns)
 
@@ -211,6 +318,10 @@ def contestable(variants):
     QueryAiSafeWipSummary. Someone typed one of them from memory.
     """
     mixed = [v for v in variants if not v.islower() and not v.isupper()]
+    # `shiftType` beside `ShiftType` is an attribute or a variable named after the entity — the
+    # camelCase/PascalCase convention, not a second opinion (#621 field shape). Only the first
+    # letter may differ for this to apply; any other casing difference is still contested.
+    mixed = [v for v in mixed if not (v[:1].islower() and (v[:1].upper() + v[1:]) in mixed)]
     return mixed if mixed else variants
 
 for ns, clusters in sorted(harvest.items()):
@@ -228,7 +339,83 @@ for ns, clusters in sorted(harvest.items()):
         else:
             conflicts.append((ns, ck, {v: sorted(spellings[v]) for v in variants}))
 
+# A declared fact whose PROPERTY disagrees between BRDs (one entity, two owning modules; one
+# attribute, two types) is contested the same way a spelling is: nothing frozen, both named.
+# `owner` is recorded, never contested — two BRDs may legitimately share a use-case numbering.
+prop_conflicts = []
+def props_of(ns, ck):
+    return (declared.get(ns, {}).get(ck) or {}).get("props", {})
+keep_new = []
+for ns, ck, canon, srcs in new_facts:
+    split = [(k, vals) for k, vals in sorted(props_of(ns, ck).items()) if k != "owner" and len(vals) > 1]
+    if split:
+        for k, vals in split:
+            prop_conflicts.append((ns, ck, canon, k, {v: sorted(x) for v, x in sorted(vals.items())}))
+    else:
+        keep_new.append((ns, ck, canon, srcs))
+new_facts = keep_new
+
+def declared_extras(ns, ck):
+    """What a declared fact carries into the lock besides its spelling."""
+    if ck not in declared.get(ns, {}):
+        return {}
+    ex = {"declared": True}
+    for k, vals in props_of(ns, ck).items():
+        if k == "owner":
+            ex["owners"] = sorted(vals)
+        elif len(vals) == 1:
+            ex[k] = next(iter(vals))
+    return ex
+
+# Presence and properties of a frozen DECLARED fact (#621). Only entries the lock marks
+# `declared` — written by a build that read the structure — are held to this, so a lock built
+# before #621 gains no new failure until it is rebuilt.
+struct_devs = []
+for ns, entries in sorted(frozen.items()):
+    for ck, ent in sorted(entries.items()):
+        if not isinstance(ent, dict) or not ent.get("declared"):
+            continue
+        cur = declared.get(ns, {}).get(ck)
+        if cur is None:
+            struct_devs.append(("(all BRDs)", "%s '%s' is frozen but no BRD declares it any more — renamed or removed? "
+                                "Restore it, or if that was deliberate: facts-lock.sh <project> forget %s/%s, then build"
+                                % (ns, ent.get("canonical"), ns, ck)))
+            continue
+        for k in ("module", "type"):
+            want = ent.get(k)
+            if not want:
+                continue
+            for got, srcs in sorted(cur["props"].get(k, {}).items()):
+                if got != want:
+                    for src in sorted(srcs):
+                        struct_devs.append((src, "%s '%s' has %s '%s', lock says '%s'" % (ns, ent.get("canonical"), k, got, want)))
+        if "owners" in ent:
+            now = sorted(cur["props"].get("owner", {}))
+            if now != sorted(ent["owners"]):
+                struct_devs.append((", ".join(now) or "(all BRDs)", "%s '%s' is owned by %s, lock says %s"
+                                    % (ns, ent.get("canonical"), "/".join(now) or "nothing", "/".join(ent["owners"]))))
+
 # --- act ----------------------------------------------------------------------------------------
+# A lock that freezes almost nothing makes `check` near-vacuous (#621: "2 fact(s) frozen" over 9
+# BRDs, then "0 conflicts"). Below MIN_FACTS frozen facts, or when the lock covers fewer than
+# half of the uncontested identifiers the BRDs carry NOW (a lock built before the BRDs grew, or
+# by a harvest that could not read their shape), the result says so instead of "agree".
+MIN_FACTS = 5
+def near_empty():
+    total = sum(len(v) for v in frozen.values())
+    if total == 0:
+        return ""
+    contested = {(ns, ck) for ns, ck, _sp in conflicts} | {(ns, ck) for ns, ck, _c, _k, _v in prop_conflicts}
+    now = [(ns, ck) for ns, cl in harvest.items() for ck in cl if (ns, ck) not in contested]
+    covered = sum(1 for ns, ck in now if canonical_of(ns, ck))
+    if covered * 2 < len(now):
+        return ("NEAR-EMPTY facts-lock: near-empty lock (%d facts) — it covers %d of %d identifier(s) the %d BRD(s) "
+                "carry now, so check compares almost nothing: run build" % (total, covered, len(now), len(brds)))
+    if total < MIN_FACTS:
+        return ("NEAR-EMPTY facts-lock: near-empty lock (%d facts) — the %d BRD(s) carry only %d uncontested "
+                "identifier(s), so check compares almost nothing" % (total, len(brds), len(now)))
+    return ""
+
 EMPTY_MSG = ("PENDING facts-lock: 0 identifiers found under any known key in %d BRD(s): the lock is empty "
              "and check proves nothing (keys read: " + ", ".join(k for ks in KEYED.values() for k in ks) + ", *_CODE_SET)")
 resolved = []
@@ -247,12 +434,24 @@ if CMD == "resolve":
     conflicts = keep
 if CMD in ("build", "resolve"):
     for ns, ck, canon, srcs in new_facts:
-        frozen.setdefault(ns, {})[ck] = {"canonical": canon, "sources": srcs}
+        frozen.setdefault(ns, {})[ck] = dict({"canonical": canon, "sources": srcs}, **declared_extras(ns, ck))
+    # A fact frozen before #621 (from a keyed harvest) that the BRDs now also DECLARE gains its
+    # declared properties, unless they are contested. Existing values are never overwritten.
+    contested_props = {(ns, ck) for ns, ck, _c, _k, _v in prop_conflicts}
+    for ns, entries in frozen.items():
+        for ck, ent in entries.items():
+            if isinstance(ent, dict) and not ent.get("declared") and (ns, ck) not in contested_props:
+                for k, v in declared_extras(ns, ck).items():
+                    ent.setdefault(k, v)
     lock["conflicts"] = [
         {"namespace": ns, "key": ck,
          "spellings": {v: s for v, s in sp.items()},
          "resolve": "set facts.%s.%s.canonical in this file to the correct spelling, then re-run build" % (ns, ck)}
         for ns, ck, sp in conflicts
+    ] + [
+        {"namespace": ns, "key": ck, "property": k, "values": vals,
+         "resolve": "make every BRD give %s '%s' one %s, then re-run build" % (ns, canon, k)}
+        for ns, ck, canon, k, vals in prop_conflicts
     ]
     lock["frozenAt"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     lock["version"] = lock.get("version", 1)
@@ -264,6 +463,8 @@ if CMD in ("build", "resolve"):
     print("            %s" % LOCK)
     if total == 0 and not conflicts:
         print(EMPTY_MSG % len(brds))
+    elif near_empty():
+        print(near_empty())
 
 for src, err in unreadable:
     print("  UNREADABLE  %s — %s (its facts are NOT in the lock)" % (src, err))
@@ -274,7 +475,7 @@ for ns, ck, win, ranked in resolved:
 if CMD in ("build", "show", "resolve"):
     if CMD == "show":
         total = sum(len(v) for v in frozen.values())
-        print("facts-lock: %d frozen, %d contested, %d BRD(s) read" % (total, len(conflicts), len(brds)))
+        print("facts-lock: %d frozen, %d contested, %d BRD(s) read" % (total, len(conflicts) + len(prop_conflicts), len(brds)))
         print("            %s" % (LOCK if os.path.exists(LOCK) else "(no lock yet — run build)"))
     for ns, ck, sp in conflicts:
         print("")
@@ -283,15 +484,27 @@ if CMD in ("build", "show", "resolve"):
             print("      %-44s %s" % (v, ", ".join(srcs)))
         print("      -> pick one, set it as canonical in the lock, re-run build.")
         print("         Do NOT ask the user which; verify against the source corpus.")
+    for ns, ck, canon, k, vals in prop_conflicts:
+        print("")
+        print("  CONFLICT  %s/%s — %d different %s values, nothing frozen:" % (ns, ck, len(vals), k))
+        for v, srcs in sorted(vals.items()):
+            print("      %-44s %s" % (v, ", ".join(srcs)))
+        print("      -> make the BRDs agree (verify against the source corpus), re-run build.")
 
 if CMD == "check":
     for ns, src, got, want in deviations:
         print("  DEVIATION  %s: %s spelled '%s', lock says '%s'" % (src, ns, got, want))
+    for src, msg in struct_devs:
+        print("  DEVIATION  %s: %s" % (src, msg))
     for ns, ck, sp in conflicts:
         print("  UNFROZEN   %s/%s is contested (%s) — build has not resolved it" % (ns, ck, "/".join(sorted(sp))))
-    if not deviations and not conflicts:
+    for ns, ck, canon, k, vals in prop_conflicts:
+        print("  UNFROZEN   %s/%s is contested (%s: %s) — build has not resolved it" % (ns, ck, k, "/".join(sorted(vals))))
+    if not deviations and not conflicts and not struct_devs and not prop_conflicts:
         total = sum(len(v) for v in frozen.values())
-        if total == 0:
+        if total and near_empty():
+            print(near_empty())
+        elif total == 0:
             # 0 compared is not agreement (#519): a lock with no facts proves nothing.
             print(EMPTY_MSG % len(brds) if not harvest else
                   "PENDING facts-lock: the lock holds 0 facts while %d identifier(s) were found in %d BRD(s): run build first; check compared nothing"
@@ -319,6 +532,6 @@ if names and not sum(len(v) for v in frozen.values()):
 if unreadable:
     sys.exit(1)
 if CMD == "check":
-    sys.exit(1 if (deviations or conflicts) else 0)
-sys.exit(1 if conflicts else 0)
+    sys.exit(1 if (deviations or conflicts or struct_devs or prop_conflicts) else 0)
+sys.exit(1 if (conflicts or prop_conflicts) else 0)
 PYEOF

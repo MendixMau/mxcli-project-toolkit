@@ -235,7 +235,7 @@ extract() {
       if (brd != "-") ptr = brd ":" ptr
       if (match(acc, /`(SHOW|DESCRIBE)[^`]*`/)) {
         cmd = substr(acc, RSTART+1, RLENGTH-2)
-        print "ROW\t" mod "\t" brd "\t" ptr "\t" st "\t" cmd "\t" raw "\t" key "\t" file
+        print "ROW\t" mod "\t" brd "\t" ptr "\t" st "\t" cmd "\t" raw "\t" key "\t" file "\t" FNR
       } else {
         print "PROSE\t" mod "\t" brd "\t" ptr "\t" st "\t"
       }
@@ -402,7 +402,7 @@ probe() {
 
 RESULTS=""
 n=0
-while IFS=$'\t' read -r kind mod brd ptr status cmd raw key lfile; do
+while IFS=$'\t' read -r kind mod brd ptr status cmd raw key lfile lno; do
   [ "$kind" = "ROW" ] || continue
   n=$((n+1))
   [ "$QUIET" -eq 1 ] || printf '\r  measuring %d/%d ' "$n" "$MEASURABLE" >&2
@@ -418,7 +418,7 @@ while IFS=$'\t' read -r kind mod brd ptr status cmd raw key lfile; do
         *)                                                               verdict="UNKNOWN-STATUS" ;;
       esac ;;
   esac
-  RESULTS+="$mod	$ptr	$status	$observed	$verdict	$cmd	$brd	$raw	$key	$lfile"$'\n'
+  RESULTS+="$mod	$ptr	$status	$observed	$verdict	$cmd	$brd	$raw	$key	$lfile	$lno"$'\n'
 done 3<<< "$ROWS" <&3
 [ "$QUIET" -eq 1 ] || printf '\r%*s\r' 30 '' >&2
 
@@ -434,16 +434,18 @@ RESULTS="$(printf '%s' "$RESULTS" | sed '/^$/d' | sort)"
 # A second run finds nothing to flip. module-close.sh calls it once per module.
 NMARKED=0
 if [ "$MARK_BUILT" -eq 1 ]; then
-  FLIP="$(printf '%s\n' "$RESULTS" | awk -F'\t' '$5=="UNDERSTATED" && ($8=="planned" || $8=="not built") {print $10"\t"$9}')"
+  FLIP="$(printf '%s\n' "$RESULTS" | awk -F'\t' '$5=="UNDERSTATED" && ($8=="planned" || $8=="not built") {print $10"\t"$11"\t"$9}')"
   NFILES=0
   while IFS= read -r lf; do
     [ -n "$lf" ] && [ -f "$lf" ] || continue
-    printf '%s\n' "$FLIP" | awk -F'\t' -v f="$lf" '$1==f {print $2}' > "$lf.keys.$$"
+    printf '%s\n' "$FLIP" | awk -F'\t' -v f="$lf" '$1==f {print $2"\t"$3}' > "$lf.keys.$$"
     awk -F'|' -v OFS='|' -v keys="$lf.keys.$$" '
-      BEGIN { while ((getline k < keys) > 0) want[k]=1 }
+      # keyed by LINE (and the pointer re-checked on it): two rows of one ledger can share a
+      # pointer, and only the one measured PRESENT may flip (PR #697 review)
+      BEGIN { while ((getline k < keys) > 0) { split(k, kv, "\t"); want[kv[1]]=kv[2] } }
       NF==9 { p=$2; gsub(/^ +| +$/, "", p); gsub(/`/, "", p)
               st=$8; gsub(/^ +| +$/, "", st); gsub(/`/, "", st)
-              if ((p in want) && (st=="planned" || st=="not built")) { sub(/planned|not built/, "built", $8) } }
+              if ((FNR in want) && want[FNR]==p && (st=="planned" || st=="not built")) { sub(/planned|not built/, "built", $8) } }
       { print }' "$lf" > "$lf.tmp.$$" && mv "$lf.tmp.$$" "$lf"
     rm -f -- "$lf.keys.$$"
     NFILES=$((NFILES+1))
@@ -580,8 +582,13 @@ if [ "$STALE" -gt 0 ] || [ "$UNDER" -gt 0 ]; then
 fi
 if [ "$UNDER" -gt 0 ]; then
   echo
-  echo "  note: ledger lags: $UNDER row(s) built but marked planned — run --mark-built${MODULE:+ --module $MODULE}"
-  echo "        (not a regression: the element is PRESENT; module-close.sh runs it once per module)"
+  # Only planned/not built rows are --mark-built's to flip; a PRESENT `blocked (...)` row is a
+  # person's call (unblock it or say why it is still blocked), so it gets its own line.
+  NLAG=$(printf '%s\n' "$RESULTS" | awk -F'\t' '$5=="UNDERSTATED" && ($8=="planned" || $8=="not built")' | grep -c . || true)
+  NBLK=$((UNDER - NLAG))
+  [ "$NLAG" -gt 0 ] && echo "  note: ledger lags: $NLAG row(s) built but marked planned — run --mark-built${MODULE:+ --module $MODULE}"
+  [ "$NBLK" -gt 0 ] && echo "  note: $NBLK row(s) marked blocked but PRESENT in the model — edit their status by hand (--mark-built leaves blocked rows alone)"
+  echo "        (not a regression: the element is PRESENT; module-close.sh runs --mark-built once per module)"
 fi
 
 if [ "$WROTE_BASELINE" -eq 1 ]; then

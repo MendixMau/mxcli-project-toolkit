@@ -8,6 +8,7 @@ that passes the scan without a y/N (--auto). Only two repos are ever addressed; 
 import argparse, datetime, ipaddress, json, os, re, shutil, subprocess, sys, tempfile, unicodedata, urllib.parse
 
 TARGETS = {"mxcli": "mendixlabs/mxcli", "toolkit": "MendixMau/mxcli-project-toolkit"}
+TOOLKIT_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 ALLOWED_REPOS = tuple(v.lower() for v in TARGETS.values())
 URL_MAX = 6000
 TITLE_URL_MAX = 1200
@@ -69,6 +70,35 @@ RE_URL = re.compile(r"\b[a-z][a-z0-9+.-]*://[^\s)>\]\"',;]*[^\s)>\]\"',;.]")
 # any dotted name whose last label is lowercase letters and not a file extension (all TLDs, no fixed list)
 RE_BARE = re.compile(r"(?<![\w.@/\\-])(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\.)+(?P<tld>[a-z]{2,24}|[A-Z]{2,24})\b(?::\d+)?"
                      r"(?:/[^\s)>\]\"',;]*[^\s)>\]\"',;.])?")
+# Dotted names that are code, not hosts (#646). Only these shapes, each kept only when no deny
+# pattern matches it (deny and name matching still run over the kept text afterwards):
+#   os.path.join( / path.join(   2-3 identifier labels directly followed by "(" whose FIRST label is a
+#                                known runtime object or module (CALL_ROOTS); acme.sap( or
+#                                erp.acme.dmz( stay hosts, since an unlisted first label may be a client;
+#                                a middle label outside CALL_SUBMODULES becomes <name>
+#   org.<org>.common.service.lib a reversed-domain package of 3+ lowercase identifier labels: the
+#                                organisation label (2nd) is replaced unless it is a public one
+#                                (PKG_PUBLIC_ORGS), the rest of the shape kept
+#   java.util.concurrent         a JDK/platform root with a known stdlib 2nd label: kept whole
+#                                (java.acme.orders becomes java.<org>.orders)
+RE_CALL = re.compile(r"^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*){1,2}$")
+RE_PKG = re.compile(r"^[a-z_][a-z0-9_]*(?:\.[a-z_][a-z0-9_]*){2,}$")
+PKG_ORG_ROOTS = set("com org net io nl de be fr uk ch at dk se no fi es it eu edu gov".split())
+PKG_PLATFORM_ROOTS = set("java javax jakarta android androidx kotlin kotlinx scala jdk sun".split())
+CALL_ROOTS = set("""os fs path json JSON Math Object Array String Number Boolean Promise Date RegExp Buffer console
+process require module exports child_process util crypto window document sys re shutil subprocess pathlib glob
+System Arrays Collections List Map Set Optional Objects Files Paths Path Integer Long Thread
+this self super""".split())
+# a 3-label call keeps its middle label only when it is one of these (os.path.join, fs.promises.readFile,
+# System.out.println); path.acme.dmz( becomes path.<name>.dmz(
+CALL_SUBMODULES = set("path posix win32 promises out err in prototype props state constructor".split())
+# java.util.concurrent stays whole; java.acme.orders becomes java.<org>.orders
+PKG_STD_SUBPKGS = set("""util io nio net lang time text sql math security beans awt rmi xml swing crypto annotation
+servlet inject ws persistence validation transaction json collections coroutines serialization jvm reflect concurrent
+app os view widget content internal misc""".split())
+PKG_PUBLIC_ORGS = set("springframework apache junit slf4j mendix google fasterxml hibernate eclipse jetbrains".split())
+CALL_TLD_NOT = set("com org net io dev app co uk de nl be fr eu ch at us info biz cloud local lan corp internal intra "
+                   "int edu gov mil".split())
 _SEG = r"[^\\/\s\"',;)]+(?: [\w.-]+){0,2}"
 RE_PATH = re.compile(r"(?i:/(?:users|home)/)(?:" + _SEG + r"[\\/]+)*[^\s\"',;)]*"
                      r"|(?i:[a-z]:\\+users\\+)(?:" + _SEG + r"\\+)*[^\s\"',;)]*"
@@ -178,6 +208,10 @@ def _toolkit_names():
                         names.add(stem)
         except OSError:
             pass
+    # the toolkit's and a scaffolded project's own top-level files: public names, never a client's
+    # (a fixed list, not a directory listing: an untracked scratch file in the clone root is not public)
+    names.update("CLAUDE.md CLAUDE.local.md AGENTS.md README.md CONTRIBUTING.md CHANGELOG.md CONVERSION-RUNBOOK.md "
+                 "ROUTING.md PROJECT.md intake.md toolkit-guide.html".split())
     return names
 
 
@@ -213,9 +247,25 @@ def ip6_ok(s):
         return False
 
 
-def host_hit(m):
-    tld = m.group("tld")
-    return tld.lower() not in FILE_EXT and not split_allowed(m.group(0))
+def code_form(m, deny):
+    """What a RE_BARE match that is code becomes (see RE_CALL / RE_PKG), or None when it is a host."""
+    s, txt = m.group(0), m.string
+    if any(rx.search(s) for rx in deny):
+        return None
+    labels = s.split(".")
+    # the call may end in a camelCase method RE_BARE stops before: fs.promises + .readFile(
+    tail = re.match(r"(\.[A-Za-z_$][\w$]*)?\(", txt[m.end():m.end() + 80])
+    chain = labels + ([tail.group(1)[1:]] if tail and tail.group(1) else [])
+    if RE_CALL.match(s) and tail and len(chain) <= 3 and labels[0] in CALL_ROOTS:
+        if len(chain) == 3 and chain[1] not in CALL_SUBMODULES:
+            return ".".join([labels[0], "<name>"] + labels[2:])
+        return s
+    if RE_PKG.match(s):
+        if labels[0] in PKG_PLATFORM_ROOTS:
+            return s if labels[1] in PKG_STD_SUBPKGS else ".".join([labels[0], "<org>"] + labels[2:])
+        if labels[0] in PKG_ORG_ROOTS:
+            return ".".join([labels[0], labels[1] if labels[1] in PKG_PUBLIC_ORGS else "<org>"] + labels[2:])
+    return None
 
 
 def hex_ok(t, m):
@@ -228,6 +278,7 @@ class Redactor:
         self.project = project
         self.warnings = []
         self.bad_deny = []
+        self.own_deny = 0
         self.deny = self._load_deny()
         self.users = self._users()
         self.hosts = self._hosts() | self._config_hosts()
@@ -240,7 +291,11 @@ class Redactor:
     def _load_deny(self):
         """$LEAKGUARD_DENY is a regex value like check-no-client-data.sh reads it ('Foo|Bar'); a value
         that names an existing file is read as a file of one pattern per line. The project's
-        .leakguard-deny is read as well. An invalid pattern is recorded in bad_deny."""
+        .leakguard-deny is read as well, and so is the toolkit clone's own .leakguard-deny
+        ($MXTK_LEAKGUARD_DENYFILE overrides it, as in init-project.sh), where init-project.sh registers
+        every scaffolded project's name (#645). That list redacts but does not count as this project's
+        deny list (own_deny): it holds other projects' names, not this client's. An invalid pattern is
+        recorded in bad_deny."""
         pats = []
 
         def add(pat, src):
@@ -258,13 +313,19 @@ class Redactor:
             files.insert(0, env)
         elif env:
             add(env, "$LEAKGUARD_DENY")
-        for f in files:
+        tk = os.environ.get("MXTK_LEAKGUARD_DENYFILE") or os.path.join(TOOLKIT_ROOT, ".leakguard-deny")
+        for f in files + [None, tk]:
+            if f is None:
+                self.own_deny = len(pats)
+                continue
             if not os.path.isfile(f):
                 continue
             for ln in open(f, errors="replace"):
                 ln = ln.strip()
                 if ln and not ln.startswith("#"):
-                    add(norm(ln), f)
+                    add(norm(ln), f if f != tk else
+                        "%s (the toolkit clone's denylist: bin/init-project.sh appends each new project's name to "
+                        "it; fix or remove that line there)" % f)
         return pats
 
     def _generic(self, w):
@@ -409,7 +470,14 @@ class Redactor:
         t = RE_EMAIL.sub("<email>", t)
         t = RE_URL.sub(lambda m: hold(url_clean(m.group(0))) if url_clean(m.group(0)) != "<url>" else "<url>", t)
         t = RE_PATH.sub("<path>", t)
-        t = RE_BARE.sub(lambda m: "<host>" if host_hit(m) else (hold(split_allowed(m.group(0))[0]) if split_allowed(m.group(0)) else m.group(0)), t)
+        def bare(m):
+            if split_allowed(m.group(0)):
+                return hold(split_allowed(m.group(0))[0])
+            if m.group("tld").lower() in FILE_EXT:
+                return m.group(0)
+            c = code_form(m, self.deny)
+            return "<host>" if c is None else c
+        t = RE_BARE.sub(bare, t)
         t = RE_IP6.sub(lambda m: "<ip>" if ip6_ok(m.group(0)) else m.group(0), t)
         t = RE_IP4.sub(lambda m: m.group(0) if RE_VERCTX.search(t[max(0, m.start() - 24):m.start()]) else "<ip>", t)
         for rx in self.deny:
@@ -450,7 +518,7 @@ class Redactor:
         if any(ip6_ok(m.group(0)) for m in RE_IP6.finditer(t)):
             bad.append("IPv6 address")
         for m in RE_BARE.finditer(t):
-            if m.group("tld").lower() not in FILE_EXT and not url_ok(m.group(0)):
+            if m.group("tld").lower() not in FILE_EXT and not url_ok(m.group(0)) and code_form(m, self.deny) is None:
                 bad.append("hostname " + m.group(0)[:40])
         for m in RE_KV.finditer(t):
             if m.group(4).strip("\"'") != "<redacted>":
@@ -501,15 +569,45 @@ def text_of(v):
     return str(v or "")
 
 
-def versions_line(vers):
-    """Only version-shaped strings, taken from the row and never run through redact()."""
-    items = vers.items() if isinstance(vers, dict) else [("version", vers)]
-    out = []
-    for k, v in items:
-        m = RE_VER.search(str(v or ""))
+RE_DESCRIBE = re.compile(r"\bv?\d+(?:\.\d+){1,3}-\d+-g[0-9a-f]{7,12}\b")
+RE_SHA = re.compile(r"(?<![0-9A-Za-z])[0-9a-f]{7,40}(?![0-9A-Za-z])")
+
+
+def toolkit_version(project):
+    """The toolkit a bug was seen on, when the row has none (#646): PROJECT.md's `Toolkit commit:`
+    line (the session-start ritual keeps it fresh), else git describe of this toolkit clone, marked
+    (at filing). A sha is cut to 12 characters: a full 40-hex one reads as an opaque token to the scan."""
+    pm = os.path.join(project, "PROJECT.md")
+    if os.path.isfile(pm):
+        for ln in open(pm, errors="replace"):
+            m = re.match(r"(?i)^[\s*>-]*toolkit commit\s*\**\s*:\s*\**\s*`?([0-9a-f]{7,40})\b", ln)
+            if m:
+                return m.group(1)[:12]
+    d = sh(["git", "-C", TOOLKIT_ROOT, "describe", "--tags", "--always"]).stdout.strip()
+    return (d + " (at filing)") if d else ""
+
+
+def versions_line(vers, project=None):
+    """Only version-shaped strings, taken from the row and never run through redact(). A toolkit
+    value may also be git-describe output or a commit sha; a row without one gets toolkit_version()."""
+    vers = dict(vers) if isinstance(vers, dict) else ({"version": vers} if vers else {})
+    out, has_tk = [], False
+    for k, v in vers.items():
+        v = str(v or "")
+        m = RE_DESCRIBE.search(v) or RE_VER.search(v)
+        if not m and str(k) == "toolkit":
+            m = RE_SHA.search(v)
         k = re.sub(r"[^A-Za-z0-9 _-]", "", str(k))[:16]
         if m and k:
-            out.append("%s %s" % (k, m.group(0)))
+            val = m.group(0)[:12] if RE_SHA.fullmatch(m.group(0)) else m.group(0)
+            out.append("%s %s" % (k, val))
+            has_tk = has_tk or k == "toolkit"
+    if not has_tk and project is not None:
+        tv = toolkit_version(project)
+        m = tv and (RE_DESCRIBE.match(tv) or RE_VER.match(tv) or RE_SHA.match(tv))
+        if m:
+            val = m.group(0)[:12] if RE_SHA.fullmatch(m.group(0)) else m.group(0)
+            out.append("toolkit " + val + (" (at filing)" if tv.endswith("(at filing)") else ""))
     return ", ".join(out) or "not recorded"
 
 
@@ -520,7 +618,7 @@ def build(r, b):
     if b.get("workaround"):
         parts.append("### Workaround\n" + text_of(b["workaround"]))
     title = re.sub(r"\s+", " ", r.redact(str(b.get("title", ""))))
-    body = "**Versions:** " + versions_line(b.get("versions")) + "\n\n" + r.redact("\n\n".join(parts))
+    body = "**Versions:** " + versions_line(b.get("versions"), r.project) + "\n\n" + r.redact("\n\n".join(parts))
     if b.get("log"):
         # redacted and scanned on its own: a log that fails is left out, never posted, and never
         # sinks the rest of the report
@@ -807,7 +905,7 @@ def main():
         if posting or a.links or a.json:
             sys.exit("file-bugs: " + msg)
         print("NOTE: " + msg + "\n")
-    nodeny = not r.deny and not r.bad_deny
+    nodeny = not r.own_deny and not r.bad_deny
     if nodeny:
         if posting or a.links or a.json:
             sys.exit("file-bugs: " + NODENY_MSG + " Posting, --links and --json are refused until then; nothing posted.")

@@ -1,0 +1,132 @@
+{
+ "entities": [
+  {
+   "entity_type": "Persistent",
+   "is_external": false,
+   "module_name": "Shop",
+   "name": "Order",
+   "qualified_name": "Shop.Order"
+  },
+  {
+   "entity_type": "NonPersistent",
+   "is_external": false,
+   "module_name": "Shop",
+   "name": "Draft",
+   "qualified_name": "Shop.Draft"
+  },
+  {
+   "entity_type": "Persistent",
+   "is_external": true,
+   "module_name": "Shop",
+   "name": "Remote",
+   "qualified_name": "Shop.Remote"
+  },
+  {
+   "entity_type": "Persistent",
+   "is_external": false,
+   "module_name": "Vend",
+   "name": "Cache",
+   "qualified_name": "Vend.Cache"
+  },
+  {
+   "entity_type": "Persistent",
+   "is_external": false,
+   "module_name": "Inv",
+   "name": "Invoice",
+   "qualified_name": "Inv.Invoice"
+  }
+ ],
+ "options": {
+  "skip_modules": "Vend, Other"
+ },
+ "permissions": [
+  {
+   "access_type": "WRITE",
+   "entity_name": "Shop.Order",
+   "is_constrained": false,
+   "module_name": "Shop",
+   "module_role_name": "Shop.Admin",
+   "xpath_constraint": ""
+  },
+  {
+   "access_type": "WRITE",
+   "entity_name": "Shop.Order",
+   "is_constrained": false,
+   "module_name": "Shop",
+   "module_role_name": "Shop.Clerk",
+   "xpath_constraint": ""
+  },
+  {
+   "access_type": "READ",
+   "entity_name": "Shop.Order",
+   "is_constrained": false,
+   "module_name": "Shop",
+   "module_role_name": "Shop.Clerk",
+   "xpath_constraint": ""
+  },
+  {
+   "access_type": "WRITE",
+   "entity_name": "Shop.Order",
+   "is_constrained": true,
+   "module_name": "Shop",
+   "module_role_name": "Shop.Employee",
+   "xpath_constraint": "[Status = 'DRAFT']"
+  },
+  {
+   "access_type": "READ",
+   "entity_name": "Shop.Order",
+   "is_constrained": false,
+   "module_name": "Shop",
+   "module_role_name": "Shop.Employee",
+   "xpath_constraint": ""
+  },
+  {
+   "access_type": "CREATE",
+   "entity_name": "Shop.Order",
+   "is_constrained": false,
+   "module_name": "Shop",
+   "module_role_name": "Shop.Clerk",
+   "xpath_constraint": ""
+  },
+  {
+   "access_type": "WRITE",
+   "entity_name": "Shop.Draft",
+   "is_constrained": false,
+   "module_name": "Shop",
+   "module_role_name": "Shop.Clerk",
+   "xpath_constraint": ""
+  },
+  {
+   "access_type": "WRITE",
+   "entity_name": "Shop.Remote",
+   "is_constrained": false,
+   "module_name": "Shop",
+   "module_role_name": "Shop.Clerk",
+   "xpath_constraint": ""
+  },
+  {
+   "access_type": "WRITE",
+   "entity_name": "Vend.Cache",
+   "is_constrained": false,
+   "module_name": "Vend",
+   "module_role_name": "Vend.Agent",
+   "xpath_constraint": ""
+  },
+  {
+   "access_type": "WRITE",
+   "entity_name": "Inv.Invoice",
+   "is_constrained": false,
+   "module_name": "Inv",
+   "module_role_name": "Inv.Admin",
+   "xpath_constraint": ""
+  },
+  {
+   "access_type": "WRITE",
+   "entity_name": "Inv.Invoice",
+   "is_constrained": false,
+   "module_name": "Inv",
+   "module_role_name": "Inv.Administrator",
+   "xpath_constraint": ""
+  }
+ ]
+}

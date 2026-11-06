@@ -150,8 +150,8 @@ still flips to `yes` in its brief when it has calculation, mapping or date/money
 ## 14. Will this project use Marketplace modules — and if so, can you create a Mendix Personal Access Token now?
 
 _Not yet asked._ `mxcli marketplace install` needs a Mendix PAT, and a confirmed Stage 3 "Buy"
-that waits for one at build time tends never to get installed (`gate-check.sh` Stage 5 now
-checks). If yes or maybe, set the token up now: where to create it, which scope, how to hand
+that waits for one at build time tends never to get installed (`gate-check.sh` build-ready
+and `exec.sh` now check). If yes or maybe, set the token up now: where to create it, which scope, how to hand
 it to mxcli — skills/learned-constants-and-secrets.md § "Creating a PAT for Marketplace
 installs". If you cannot create one, name the Mendix admin who can. "No Marketplace modules
 expected" is a fine answer; it is revisited at the Stage 3 fit-gap.

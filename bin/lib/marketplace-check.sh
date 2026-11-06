@@ -22,86 +22,102 @@
 # VERDICTS (one line, "Marketplace installs: <VERDICT> — ..."):
 #   N/A      no PROJECT.md and no architecture/ — not a pipeline project
 #   ADOPTED  the register says the project joined above Stage 5
-#   PENDING  no fit-gap yet; Buy rows not yet confirmed; no model yet; or the model could not be
-#            read (no mxcli, timeout, unparseable output) — an instrument that could not measure
-#            never reports FAIL
-#   PASS     every confirmed Buy installed (or waived); also "0 Buy rows — nothing to install"
+#   PENDING  no fit-gap yet; no table in it with a verdict column (so nothing was parsed); a Buy
+#            row not resolved (any verdict cell that mentions Buy but is not exactly "Buy"); a
+#            confirmed Buy naming no package; no model yet; or the model could not be read (no
+#            mxcli, timeout, unparseable output) — an instrument that could not measure never
+#            reports FAIL. A resolved part is shown alongside ("confirmed: ...").
+#   PASS     every confirmed Buy installed (or waived); "0 of 0" only when a verdict table WAS
+#            parsed and holds no Buy row at all
 #   WAIVED   every confirmed Buy waived: `gate-check.sh --waive marketplace/<Name> --reason ...`
 #   FAIL     a Buy is confirmed AND the model exists AND SHOW MODULES was read AND the package is
-#            not there. bin/gate-check.sh folds this into Stage 5.
+#            not there. Dominates PENDING: an unresolved row elsewhere does not hide it.
+# Also set: MXTK_MKT_CONF_STATUS (the confirmed rows alone: NONE/PASS/WAIVED/PENDING/FAIL).
 #
-# Sourced by bin/gate-check.sh (after obligation-check.sh, whose register parser it reuses) and
-# bin/doctor.sh (mxtk_mkt_buys only). Bash 3.2 safe.
+# WHERE IT BLOCKS. Nowhere in a stage verdict: gate-check prints the line, Stage 5 is not
+# changed by it (projects whose Stage 5 exit is recorded must not flip). It blocks BEFORE the
+# build instead, where the install belongs (brd-to-build-plan.md Step 0): `gate-check.sh
+# <p> build-ready` counts a FAIL, and project-bin/exec.sh refuses a domain-model script on one.
+# Neither blocks `mxcli marketplace install` or `--waive marketplace/...` (guard rule 7).
+#
+# Model and mxcli are found by project-bin/_common.sh's own find_mpr / find_project_mxcli
+# (sourced in a subshell with PROJECT_ROOT pinned, as bin/lib/artifact-check.sh does), so the
+# layouts, MPR_FILE, toolkit.env and the Windows ELF probe are the crash net's, not a copy.
+#
+# Sourced by bin/gate-check.sh (after obligation-check.sh, whose register parser it reuses),
+# bin/doctor.sh (mxtk_mkt_buys only) and project-bin/exec.sh. Bash 3.2 safe.
 
 _MKT_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 _MKT_AWK="${MXTK_OWN_MODULES_AWK:-$_MKT_LIB_DIR/../../pipelines/mendix-mpr/lib/own-modules.awk}"
+_MKT_COMMON="${MXTK_COMMON_SH:-$_MKT_LIB_DIR/../../project-bin/_common.sh}"
 
-# mxtk_mkt_buys <fit-gap.md> — one line per Buy row: "<state>\t<name>\t<line-no>".
-#   state confirmed  verdict cell starts with Buy and carries no "decide / maybe / tbd / ?"
-#         unresolved the architecture-blueprint.md example form "**Buy** — decide if needed"
-#         unnamed    confirmed, but no `Name` in backticks to check against
-# Columns are found by header ("Verdict", "...approach..."), per table; a table with no Verdict
-# header is not a fit-gap table and is skipped.
+# mxtk_mkt_buys <fit-gap.md> — one line per Buy row, tab-separated:
+#   confirmed  <name> <line>   verdict cell, markup stripped and trimmed, is exactly "buy"
+#                              (any case) and a `Name` in backticks names the package
+#   unnamed    -      <line>   exactly "buy", but no `Name` in backticks to check against
+#   unresolved -      <line>   any other verdict cell holding the word Buy: "Buy (unverified)",
+#                              "Buy (deferred, not for POC)", "Buy + Build", "Buy decision: none",
+#                              "**Buy** — decide if needed", "Native ... otherwise **Buy**"
+#   parsed     <tables> <rows> always last: verdict tables found, data rows read in them
+# A table's verdict column is found in its FIRST row (the header): "Verdict", "Decision", or a
+# slash list naming Buy ("Build/Buy/Config/Gap"); the "...approach..." column holds the package.
+# A table with no such header is not a fit-gap table and is skipped.
 mxtk_mkt_buys() {
-  [ -s "$1" ] || return 0
+  [ -s "$1" ] || { printf 'parsed\t0\t0\n'; return 0; }
   tr -d '\r' < "$1" | awk -F'|' '
     function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
+    function bare(s) { s = tolower(s); gsub(/[*_`]/, "", s); return trim(s) }
     function tick(s,   t) { if (match(s, /`[^`]+`/)) { t = substr(s, RSTART + 1, RLENGTH - 2)
         sub(/^widgets\//, "", t); sub(/\.mpk$/, "", t); return trim(t) } return "" }
-    !/^[ \t]*\|/ { vcol = 0; acol = 0; next }
+    !/^[ \t]*\|/ { row = 0; vcol = 0; acol = 0; next }
     /^[ \t]*\|[ \t:|-]+$/ { next }
     {
-      if (!vcol) {
-        for (i = 2; i < NF; i++) { h = tolower(trim($i)); gsub(/[*_`]/, "", h)
-          if (h == "verdict") vcol = i; else if (h ~ /approach/) acol = i }
+      row++
+      if (row == 1) {
+        alt = 0
+        for (i = 2; i < NF; i++) { h = bare($i)
+          if (!vcol && h ~ /^verdict([^a-z]|$)/) vcol = i
+          if (!alt && (h ~ /^decision([^a-z]|$)/ || h ~ /(^|\/) *buy *\/|\/ *buy *$/)) alt = i
+          if (h ~ /approach/) acol = i }
+        if (!vcol) vcol = alt
+        if (vcol) ntab++
         next
       }
-      v = tolower(trim($vcol)); gsub(/[*_`]/, "", v)
-      if (v !~ /^buy([^a-z]|$)/) next
-      if (v ~ /decide|maybe|tbd|undecided|proposed|candidate|if needed|\?/) { print "unresolved\t-\t" NR; next }
+      if (!vcol) next
+      nrow++
+      v = bare($vcol)
+      if (v != "buy") { if (v ~ /(^|[^a-z])buy([^a-z]|$)/) print "unresolved\t-\t" NR; next }
       name = ""
       if (acol) name = tick($acol)
       if (name == "") name = tick($vcol)
       if (name == "") for (i = 3; i < NF && name == ""; i++) if (i != vcol) name = tick($i)
       if (name !~ /^[A-Za-z0-9_.-]+$/) { print "unnamed\t-\t" NR; next }
       print "confirmed\t" name "\t" NR
-    }'
+    }
+    END { printf "parsed\t%d\t%d\n", ntab, nrow }'
 }
 
-# The model: <root>/*.mpr, else app/*.mpr (two-tree), else a single apps/*/*.mpr. MPR_FILE wins.
-# Prints the .mpr path; prints nothing when there is none; "AMBIGUOUS" for more than one.
-_mkt_find_mpr() {
-  local root="$1" f n=0 hit="" pat
-  if [ -n "${MPR_FILE:-}" ]; then
-    for f in "$root/$MPR_FILE" "$MPR_FILE"; do [ -f "$f" ] && { printf '%s\n' "$f"; return 0; }; done
-    return 0
-  fi
-  for pat in "$root"/*.mpr "$root"/app/*.mpr "$root"/apps/*/*.mpr; do
-    [ -f "$pat" ] || continue
-    n=$((n+1)); hit="$pat"
+# _mkt_locate <root> — sets _MKT_MPR (the .mpr, "AMBIGUOUS", or empty) and _MKT_MX (the
+# project's mxcli, or empty) through project-bin/_common.sh. $MXCLI wins for the binary, as
+# before. Without _common.sh beside the toolkit (a stripped install) both stay empty -> PENDING.
+_mkt_locate() {
+  local root="$1" out
+  _MKT_MPR=""; _MKT_MX=""
+  [ -f "$_MKT_COMMON" ] || return 0
+  out="$( export PROJECT_ROOT="$root"; . "$_MKT_COMMON" >/dev/null 2>&1 || exit 0
+          m="$(find_mpr 2>&1)" && printf 'mpr\t%s\n' "$m" || {
+            case "$m" in *"refusing to guess"*) printf 'mpr\tAMBIGUOUS\n' ;; esac; }
+          x="$(find_project_mxcli 2>/dev/null)" && printf 'mx\t%s\n' "$x"
+          exit 0 )"
+  local IFS=$'\n' l
+  for l in $out; do
+    case "$l" in
+      mpr$'\t'*) [ -n "$_MKT_MPR" ] || _MKT_MPR="${l#*$'\t'}" ;;
+      mx$'\t'*)  [ -n "$_MKT_MX" ]  || _MKT_MX="${l#*$'\t'}" ;;
+    esac
   done
-  # Same precedence as project-bin/_common.sh find_mpr: root first, then app/, then apps/*/.
-  if [ "$n" -gt 1 ]; then
-    n=0; hit=""
-    for f in "$root"/*.mpr; do [ -f "$f" ] && { n=$((n+1)); hit="$f"; }; done
-    if [ "$n" -eq 0 ]; then for f in "$root"/app/*.mpr; do [ -f "$f" ] && { n=$((n+1)); hit="$f"; }; done; fi
-    [ "$n" -eq 1 ] || { printf 'AMBIGUOUS\n'; return 0; }
-  fi
-  [ -n "$hit" ] && printf '%s\n' "$hit"
+  [ -n "${MXCLI:-}" ] && _MKT_MX="$MXCLI"
   return 0
-}
-
-# The project's mxcli: $MXCLI, else the project root's (mxcli.exe first under Git Bash — MSYS
-# only maps foo -> foo.exe when no file "foo" exists, project-bin/_common.sh find_project_mxcli).
-_mkt_find_mxcli() {
-  local root="$1" mdir="$2" c
-  [ -n "${MXCLI:-}" ] && { printf '%s\n' "$MXCLI"; return 0; }
-  case "$(uname -s 2>/dev/null)" in
-    MINGW*|MSYS*|CYGWIN*) set -- "$root/mxcli.exe" "$mdir/mxcli.exe" "$root/mxcli" ;;
-    *)                    set -- "$root/mxcli" "$mdir/mxcli" ;;
-  esac
-  for c in "$@"; do [ -x "$c" ] && { printf '%s\n' "$c"; return 0; }; done
-  return 1
 }
 
 # Portable timeout (macOS ships no timeout(1)); rc 124 on expiry.
@@ -143,11 +159,14 @@ _mkt_adopted_rank() { # rank of "Adopted at stage" (P=0, 0=1 ... 7=8), 0 when no
 
 _mkt_set() { MXTK_MKT_STATUS="$1"; MXTK_MKT_NOTE="$2"; printf 'Marketplace installs: %s — %s\n' "$1" "$2"; }
 
+# _mkt_lines <rows> <state> — the line numbers of one state, "a, b, c".
+_mkt_lines() { printf '%s\n' "$1" | awk -F'\t' -v s="$2" '$1==s{printf "%s%s", sep, $3; sep=", "}'; }
+
 # mxtk_mkt_report <project-dir> <register> [fit-gap path]
-# Prints one line; sets MXTK_MKT_STATUS and MXTK_MKT_NOTE.
+# Prints one line; sets MXTK_MKT_STATUS, MXTK_MKT_NOTE and MXTK_MKT_CONF_STATUS.
 mxtk_mkt_report() {
   local root="$1" reg="${2:-$1/PROJECT.md}" fg="${3:-}"
-  MXTK_MKT_STATUS=""; MXTK_MKT_NOTE=""
+  MXTK_MKT_STATUS=""; MXTK_MKT_NOTE=""; MXTK_MKT_CONF_STATUS=""
   type _ob_lc >/dev/null 2>&1 || . "$_MKT_LIB_DIR/obligation-check.sh"
   [ -n "$fg" ] || { [ -s "$root/architecture/fit-gap.md" ] && fg="$root/architecture/fit-gap.md"; }
   if [ ! -f "$reg" ] && [ ! -d "$root/architecture" ]; then
@@ -160,32 +179,75 @@ mxtk_mkt_report() {
   if [ -z "$fg" ]; then
     _mkt_set PENDING "no architecture/fit-gap.md yet (architecture-blueprint.md Step 4)"; return 0
   fi
-  local rows; rows="$(mxtk_mkt_buys "$fg")"
-  local n_conf n_unres n_unnamed
+  local rel="${fg#$root/}" rows parsed n_tab n_row n_conf n_unres n_unnamed
+  rows="$(mxtk_mkt_buys "$fg")"
+  parsed="$(printf '%s\n' "$rows" | awk -F'\t' '$1=="parsed"{print $2 " " $3}')"
+  n_tab="${parsed%% *}"; n_row="${parsed##* }"
   n_conf="$(printf '%s\n' "$rows" | grep -c '^confirmed	')"
   n_unres="$(printf '%s\n' "$rows" | grep -c '^unresolved	')"
   n_unnamed="$(printf '%s\n' "$rows" | grep -c '^unnamed	')"
-  if [ -z "$rows" ]; then
-    _mkt_set PASS "0 of 0: no Buy row in ${fg#$root/}, nothing to install"; return 0
+  if [ "${n_tab:-0}" -eq 0 ]; then
+    _mkt_set PENDING "no table in $rel has a Verdict / Decision / Build/Buy/... column, so no row was read (architecture-blueprint.md Step 4 table)"; return 0
   fi
-  local unnamed_note=""
-  [ "$n_unnamed" -gt 0 ] && unnamed_note="; $n_unnamed confirmed Buy row(s) name no package (line $(printf '%s\n' "$rows" | awk -F'\t' '$1=="unnamed"{printf "%s%s", s, $3; s=", "}')): put the module or .mpk name in backticks in the Mendix approach cell"
-  if [ "$n_conf" -eq 0 ]; then
-    _mkt_set PENDING "$n_unres Buy row(s) in ${fg#$root/} not yet confirmed (\"decide if needed\")$unnamed_note"; return 0
+  if [ "$n_conf" -eq 0 ] && [ "$n_unres" -eq 0 ] && [ "$n_unnamed" -eq 0 ]; then
+    MXTK_MKT_CONF_STATUS=NONE
+    _mkt_set PASS "0 of 0: $n_row row(s) in $n_tab verdict table(s) of $rel, no Buy row, nothing to install"; return 0
   fi
+  # What keeps the result open, whatever the confirmed rows say. The remedy names both ways out,
+  # because "Buy (unverified)" left in place stays PENDING for ever.
+  local open_note=""
+  [ "$n_unres" -gt 0 ] && open_note="$n_unres Buy row(s) in $rel not resolved (line $(_mkt_lines "$rows" unresolved)): the Verdict cell must read exactly **Buy** with the package in backticks in the Mendix approach cell, or a non-Buy verdict (Build, Config, Native, Gap)"
+  [ "$n_unnamed" -gt 0 ] && open_note="${open_note:+$open_note; }$n_unnamed confirmed Buy row(s) name no package (line $(_mkt_lines "$rows" unnamed)): put the module or .mpk name in backticks in the Mendix approach cell"
 
-  local mpr mdir names name reason todo="" n_waived=0 n_ok=0
+  _mkt_confirmed "$root" "$reg" "$rows"
+  MXTK_MKT_CONF_STATUS="$_MKT_C_STATUS"
+  _mkt_remember "$root" "$rows" "$_MKT_C_STATUS"
+  if [ "$_MKT_C_STATUS" = FAIL ]; then
+    _mkt_set FAIL "$_MKT_C_NOTE${open_note:+; also $open_note}"
+  elif [ -n "$open_note" ]; then
+    _mkt_set PENDING "$open_note; confirmed: ${_MKT_C_NOTE:-none}"
+  else
+    _mkt_set "$_MKT_C_STATUS" "$_MKT_C_NOTE"
+  fi
+  return 0
+}
+
+# _mkt_remember <root> <rows> <confirmed-status> — project-bin/exec.sh's install gate skips the
+# SHOW MODULES read when .claude/loop/marketplace-ok.txt holds exactly the current confirmed list
+# (lower case, sorted, space-separated). Written on PASS/WAIVED by whichever caller ran the check,
+# removed on FAIL; a project with no .claude/ gets no file (nothing is created for it).
+_mkt_remember() {
+  local f="$1/.claude/loop/marketplace-ok.txt" list
+  [ -d "$1/.claude" ] || return 0
+  case "$3" in
+    PASS|WAIVED)
+      list="$(printf '%s\n' "$2" | awk -F'\t' '$1=="confirmed"{print tolower($2)}' | sort -u | tr '\n' ' ')"
+      mkdir -p "${f%/*}" 2>/dev/null && printf '%s' "$list" > "$f" 2>/dev/null ;;
+    FAIL) rm -f "$f" 2>/dev/null ;;
+  esac
+  return 0
+}
+
+_mkt_c() { _MKT_C_STATUS="$1"; _MKT_C_NOTE="$2"; }
+
+# _mkt_confirmed <root> <register> <rows> — the confirmed rows alone. Sets _MKT_C_STATUS
+# (NONE/PASS/WAIVED/PENDING/FAIL) and _MKT_C_NOTE; prints nothing.
+_mkt_confirmed() {
+  local root="$1" reg="$2" rows="$3"
+  _MKT_C_STATUS=NONE; _MKT_C_NOTE=""
+  local names n_conf name reason todo="" n_waived=0 n_ok=0 mpr="" mdir=""
   names="$(printf '%s\n' "$rows" | awk -F'\t' '$1=="confirmed"{print $2}' | awk '!seen[tolower($0)]++')"
   n_conf="$(printf '%s\n' "$names" | sed '/^$/d' | wc -l | tr -d ' ')"
-  mpr="$(_mkt_find_mpr "$root")"
-  [ "$mpr" = AMBIGUOUS ] || mdir="${mpr%/*}"
+  [ "$n_conf" -gt 0 ] || return 0
+  _mkt_locate "$root"; mpr="$_MKT_MPR"
+  [ -n "$mpr" ] && [ "$mpr" != AMBIGUOUS ] && mdir="${mpr%/*}"
 
   # Waivers and widget .mpk files need no model read.
-  local w f lw
+  local f lw
   while IFS= read -r name; do
     [ -n "$name" ] || continue
     if reason="$(_mkt_waived "$reg" "$name")"; then n_waived=$((n_waived+1)); continue; fi
-    if [ -n "${mdir:-}" ] && [ -d "$mdir/widgets" ]; then
+    if [ -n "$mdir" ] && [ -d "$mdir/widgets" ]; then
       _ob_lc "$name.mpk"; lw="$_OB_LC"
       for f in "$mdir"/widgets/*.mpk; do
         [ -f "$f" ] || continue
@@ -199,31 +261,31 @@ mxtk_mkt_report() {
 $names
 EOF
 
-  local tail="" scoped=$((n_conf - n_waived))
+  local tail="" scoped=$((n_conf - n_waived)) list
   [ "$n_waived" -gt 0 ] && tail=" ($n_waived waived)"
+  list="$(printf '%s' "$todo" | tr '\n' ' ' | sed 's/^/ /;s/ $//')"
   if [ -z "$todo" ]; then
-    if [ "$scoped" -eq 0 ]; then _mkt_set WAIVED "all $n_conf confirmed Buy package(s) waived in $(basename "$reg")$unnamed_note"
-    elif [ -n "$unnamed_note" ]; then _mkt_set PENDING "$n_ok of $scoped confirmed Buy installed$tail$unnamed_note"
-    else _mkt_set PASS "$n_ok of $scoped confirmed Buy installed$tail"; fi
+    if [ "$scoped" -eq 0 ]; then _mkt_c WAIVED "all $n_conf confirmed Buy package(s) waived in $(basename "$reg")"
+    else _mkt_c PASS "$n_ok of $scoped confirmed Buy installed$tail"; fi
     return 0
   fi
   if [ -z "$mpr" ]; then
-    _mkt_set PENDING "$n_ok of $scoped confirmed Buy installed$tail; no model yet, so not checked:$(printf '%s' "$todo" | tr '\n' ' ' | sed 's/^/ /;s/ $//')$unnamed_note"; return 0
+    _mkt_c PENDING "$n_ok of $scoped confirmed Buy installed$tail; no model yet, so not checked:$list"; return 0
   fi
   if [ "$mpr" = AMBIGUOUS ]; then
-    _mkt_set PENDING "more than one .mpr; set MPR_FILE to choose, nothing checked$unnamed_note"; return 0
+    _mkt_c PENDING "more than one .mpr; set MPR_FILE to choose, nothing checked"; return 0
   fi
-  local mx out rc tmp
-  if ! mx="$(_mkt_find_mxcli "$root" "$mdir")"; then
-    _mkt_set PENDING "no project mxcli (or \$MXCLI), so SHOW MODULES was not read; not checked:$(printf '%s' "$todo" | tr '\n' ' ' | sed 's/^/ /;s/ $//')$unnamed_note"; return 0
+  local mx="$_MKT_MX" out rc tmp
+  if [ -z "$mx" ]; then
+    _mkt_c PENDING "no project mxcli (or \$MXCLI), so SHOW MODULES was not read; not checked:$list"; return 0
   fi
-  tmp="$(mktemp "${TMPDIR:-/tmp}/mkt-mods.XXXXXX")" || { _mkt_set PENDING "could not create a temp file; nothing checked"; return 0; }
+  tmp="$(mktemp "${TMPDIR:-/tmp}/mkt-mods.XXXXXX")" || { _mkt_c PENDING "could not create a temp file; nothing checked"; return 0; }
   _mkt_with_timeout "${MXTK_MKT_TIMEOUT:-60}" "$mx" -p "$mpr" -c "SHOW MODULES" > "$tmp" 2>/dev/null; rc=$?
   out="$(cat "$tmp")"; rm -f "$tmp"
   if [ "$rc" -ne 0 ] || ! printf '%s\n' "$out" | grep -q '^|-'; then
-    _mkt_set PENDING "SHOW MODULES could not be read (exit $rc$( [ "$rc" = 124 ] && echo ', timed out' )); nothing checked$unnamed_note"; return 0
+    _mkt_c PENDING "SHOW MODULES could not be read (exit $rc$( [ "$rc" = 124 ] && echo ', timed out' )); nothing checked"; return 0
   fi
-  local mkt own missing="" n_missing=0 lname cmds=""
+  local mkt own missing="" n_missing=0 lname cmds="" fromfile=""
   mkt="$(printf '%s\n' "$out" | awk -F'|' -v want=marketplace -f "$_MKT_AWK")"
   own="$(printf '%s\n' "$out" | awk -F'|' -f "$_MKT_AWK")"
   _ob_lc "$mkt"; mkt=$'\n'"$_OB_LC"$'\n'
@@ -232,21 +294,22 @@ EOF
     [ -n "$name" ] || continue
     _ob_lc "$name"; lname="$_OB_LC"
     case "$mkt" in *$'\n'"$lname"$'\n'*) n_ok=$((n_ok+1)); continue ;; esac
+    # Present by name with an empty Source: the module IS there — imported from a .mpk file,
+    # or an older mxcli that leaves Source blank. That is evidence the gate did not create
+    # (guard rule 6), so it counts, with a note, rather than failing an install that happened.
+    case "$own" in *$'\n'"$lname"$'\n'*) n_ok=$((n_ok+1)); fromfile="$fromfile${fromfile:+, }$name"; continue ;; esac
     n_missing=$((n_missing+1))
-    case "$own" in
-      *$'\n'"$lname"$'\n'*) missing="$missing $name (in the model, but its SHOW MODULES Source is not \"Marketplace v…\": installed from a file? bug-logs/mxcli-bugs.md, SHOW MODULES Source column)," ;;
-      *) missing="$missing $name," ;;
-    esac
+    missing="$missing $name,"
     cmds="$cmds${cmds:+; }mxcli marketplace search \"$name\""
   done <<EOF
 $todo
 EOF
+  local fnote=""
+  [ -n "$fromfile" ] && fnote="; $fromfile present, Source empty — imported from file? (counted as installed)"
   if [ "$n_missing" -eq 0 ]; then
-    if [ -n "$unnamed_note" ]; then _mkt_set PENDING "$n_ok of $scoped confirmed Buy installed$tail$unnamed_note"
-    else _mkt_set PASS "$n_ok of $scoped confirmed Buy installed$tail"; fi
-    return 0
+    _mkt_c PASS "$n_ok of $scoped confirmed Buy installed$tail$fnote"; return 0
   fi
-  _mkt_set FAIL "$n_ok of $scoped confirmed Buy installed$tail; NOT INSTALLED:${missing%,} — install: $cmds; then mxcli marketplace install <content-id> -p $(basename "$mpr") for each (a widget-only package lands as widgets/<Name>.mpk instead; brd-to-build-plan.md Step 0), or gate-check.sh --waive marketplace/<Name> --reason \"...\"$unnamed_note"
+  _mkt_c FAIL "$n_ok of $scoped confirmed Buy installed$tail; NOT INSTALLED:${missing%,} — install: $cmds; then mxcli marketplace install <content-id> -p $(basename "$mpr") for each (a widget-only package lands as widgets/<Name>.mpk instead; brd-to-build-plan.md Step 0), or gate-check.sh --waive marketplace/<Name> --reason \"...\"$fnote"
   return 0
 }
 

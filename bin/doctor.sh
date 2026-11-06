@@ -2033,7 +2033,7 @@ if [ -n "$PROJECT_DIR" ]; then
     # (bin/lib/marketplace-check.sh mxtk_mkt_buys: awk only, no mxcli, no network). Detecting
     # "logged in" would need `mxcli auth status`; the toolkit holds no captured output of that
     # command to parse, so this does not guess — it says it did not check, and names the guide.
-    # Whether each Buy is INSTALLED is gate-check's Stage 5 (it reads SHOW MODULES).
+    # Whether each Buy is INSTALLED is gate-check's Marketplace line / build-ready (SHOW MODULES).
     if [ "$QUICK" != 1 ] && [ -r "$TOOLKIT_ROOT/bin/lib/marketplace-check.sh" ]; then
       _fg=""
       for _f in "$PROJECT_DIR/architecture/fit-gap.md" "$PROJECT_DIR"/analysis/*/architecture/fit-gap.md; do
@@ -2047,7 +2047,7 @@ if [ -n "$PROJECT_DIR" ]; then
           note "Marketplace login: not checked (the toolkit has no captured 'mxcli auth status' output to read a login from, so it does not guess)"
           note "confirmed Buy in ${_fg#$PROJECT_DIR/}: $_buys — 'mxcli marketplace install' needs a Mendix PAT"
           note "set one up: skills/learned-constants-and-secrets.md § \"Creating a PAT for Marketplace installs\""
-          note "installed or not: bin/gate-check.sh $PROJECT_DIR 5 (reads SHOW MODULES)"
+          note "installed or not: bin/gate-check.sh $PROJECT_DIR build-ready (reads SHOW MODULES)"
         fi
       fi
     fi

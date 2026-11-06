@@ -1955,19 +1955,11 @@ stage4_closing_rows() {
 # citation in design/ui-reviews/ui-review-*.html whose screenshot is newer than the build and
 # at least 10KB, and a `Waived obligation look/<Module>` (or look/<Module.Page>) register line.
 # No owed.tsv — a project built before this, or one whose exec.sh predates it — stays MANUAL.
-# Stage 5 also fails on a confirmed Marketplace Buy that is not installed (bin/lib/
-# marketplace-check.sh, evaluated once above the stage loop). Only its FAIL is folded in: PENDING
-# there (no model, no mxcli, nothing confirmed) leaves Stage 5 exactly as the LOOK check left it.
+# The Marketplace install check (bin/lib/marketplace-check.sh) is NOT folded in: it prints its
+# own "Marketplace installs:" line and never changes this verdict, so a project whose Stage 5
+# exit is already recorded cannot flip to "approved over a failing gate". It blocks earlier, in
+# build-ready and in exec.sh before a domain-model script, where the install belongs.
 check_stage_5() {
-  local r; r="$(check_stage_5_look)"
-  if [ "${MXTK_MKT_STATUS:-}" = FAIL ]; then
-    echo "FAIL|marketplace: $MXTK_MKT_NOTE · ${r#*|}"
-  else
-    echo "$r"
-  fi
-}
-
-check_stage_5_look() {
   local owed="$PROJECT_DIR/.claude/loop/look/owed.tsv" rows proofs="" n=0 n_seen=0 n_proof=0 n_waived=0
   local unseen="" n_unseen=0 st page epoch mod rep line shot f sz mt
   if [ ! -s "$owed" ] || [ ! -f "$TOOLKIT_DIR/project-bin/look-ledger.sh" ]; then
@@ -2243,6 +2235,22 @@ check_build_ready() {
     echo "  ✗ no design system (ds.css or design-system.html) — design-artifacts.md"
     fails=$((fails+1))
   fi
+
+  # 6. Confirmed Marketplace Buys installed (bin/lib/marketplace-check.sh, evaluated above the
+  #    stage loop). Only a FAIL counts: a Buy confirmed, the model there, SHOW MODULES read, the
+  #    package absent. PENDING (no model yet, no mxcli, an unresolved row) is a note — build-ready
+  #    usually runs before the model exists, and an instrument that could not measure never fails.
+  #    The remedy (install, or --waive marketplace/<Name>) is never blocked by this (guard rule 7).
+  case "${MXTK_MKT_STATUS:-}" in
+    FAIL)
+      echo "  ✗ Marketplace: $MXTK_MKT_NOTE"
+      fails=$((fails+1)) ;;
+    PENDING)
+      echo "  ⚠ Marketplace: PENDING — $MXTK_MKT_NOTE (not counted as a FAIL)" ;;
+    "") ;;
+    *)
+      echo "  ✓ Marketplace: $MXTK_MKT_STATUS — $MXTK_MKT_NOTE" ;;
+  esac
 
   echo ""
   if [ "$fails" -eq 0 ]; then
@@ -3322,8 +3330,10 @@ fi
 #
 # architecture-blueprint.md Step 4 decides Buy; brd-to-build-plan.md Step 0 installs it. Both
 # were prose, and confirmed Buys too often never got installed. bin/lib/marketplace-check.sh
-# compares the two. Informational on its own line; only its FAIL (Buy confirmed, model present,
-# SHOW MODULES read, package absent) reaches a verdict, by failing Stage 5 (check_stage_5).
+# compares the two. Informational on its own line here, never a stage verdict (Stage 5 is not
+# changed by it). Its FAIL (Buy confirmed, model present, SHOW MODULES read, package absent)
+# blocks `gate-check <p> build-ready` (check_build_ready) and project-bin/exec.sh's domain-model
+# scripts — before the build, where brd-to-build-plan.md Step 0 installs it.
 # Owed from Stage 5, so a stage query below 5 does not evaluate it (#583: it may run mxcli).
 MXTK_MKT_STATUS=""; MXTK_MKT_NOTE=""
 case "${MXTK_ROWS_UPTO:-}" in P|p|0|1|2|3|4) ;; *)

@@ -173,6 +173,20 @@ print_scope() {
     }' "$SUMMARY"
 }
 
+# coverage_waiver → the reason of a `Waived artifact coverage-ledger: <reason>` line in the
+# register (PROJECT.md at the root or analysis/<name>/), the waiver gate-check.sh Stage 4 honours;
+# nothing when there is none. HTML comments are skipped; a line with no reason is not a waiver.
+coverage_waiver() {
+  local r
+  for r in "$ROOT/PROJECT.md" "$ROOT"/analysis/*/PROJECT.md; do
+    [ -f "$r" ] || continue
+    awk '/<!--/ { c = 1 } c { if ($0 ~ /-->/) c = 0; next }
+      { l = $0; gsub(/[*_`>]/, "", l); sub(/^[ \t-]+/, "", l)
+        if (tolower(l) ~ /^waived artifact coverage-ledger[ \t]*:/) {
+          sub(/^[^:]*:[ \t]*/, "", l); sub(/[ \t]+$/, "", l); if (l != "") { print l; exit } } }' "$r"
+  done | head -1
+}
+
 # Record a fault for something that could not even be attempted. Same bucket as a crashed
 # instrument, because the consequence is identical: that property of the module is UNMEASURED.
 fault() {
@@ -529,13 +543,20 @@ else
   # named remedy), 4 NOT APPLICABLE (no BRD at all — nothing produced a spec for this module).
   # 3 and 4 are not passes and not faults; they are graded absences, and the rung says which.
   PREFLIGHT="$(_tool coverage-preflight.sh)"
+  # A `Waived artifact coverage-ledger: <reason>` register line — the waiver gate-check.sh Stage 4
+  # honours — makes this rung informational: it still runs and prints, it no longer gates. Without
+  # it, a plan written before SECTION-WIDE (#641: `F001/microflows/* (5)` in one row) went red on
+  # every module verify after sync, with no recorded way out but rewriting the plan mid-build.
+  COV_KIND=gate; COV_NAME="coverage (BRD leaves: UNCLAIMED/PHANTOM/DOUBLE)"
+  COV_WAIVE="$(coverage_waiver)"
+  [ -n "$COV_WAIVE" ] && { COV_KIND=info; COV_NAME="$COV_NAME — waived: $COV_WAIVE"; }
   if [ -n "$PREFLIGHT" ] && [ -x "$PREFLIGHT" ]; then
-    run_launch "coverage (BRD leaves: UNCLAIMED/PHANTOM/DOUBLE)" "$OUTDIR/12-coverage.log" gate "${VM_TMO_COVERAGE:-1200}" -- \
+    run_launch "$COV_NAME" "$OUTDIR/12-coverage.log" "$COV_KIND" "${VM_TMO_COVERAGE:-1200}" -- \
       "$PREFLIGHT" --summary ${MODULE:+--module "$MODULE"}
   elif [ -f "$LEDGER" ] && [ -n "$BRD" ]; then
     # Preflight absent (an older wired project that has not synced). Fall back to the engine
     # directly — level 1 only, which is what this rung did before the grading layer existed.
-    run_launch "coverage (BRD leaves: UNCLAIMED/PHANTOM/DOUBLE)" "$OUTDIR/12-coverage.log" gate "${VM_TMO_COVERAGE:-1200}" -- \
+    run_launch "$COV_NAME" "$OUTDIR/12-coverage.log" "$COV_KIND" "${VM_TMO_COVERAGE:-1200}" -- \
       "$COVERAGE_CHECK" --summary "$BRD" "$LEDGER"
   else
     fault "coverage (BRD leaves)" \

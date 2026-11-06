@@ -54,6 +54,27 @@ v="$(hint Shipping)"
 [ "$v" = "$R/architecture/coverage-ledger.md" ] && ok "a module with neither falls back to the project ledger, as before" \
   || bad "project fallback changed" "$v"
 
+# --- the coverage rung honours `Waived artifact coverage-ledger: <reason>` (review of #651) ----
+# SECTION-WIDE (#641) made coverage-check exit 1 on a one-row-per-section plan; that exit reaches
+# this rung through coverage-preflight on every module verify. The waiver gate-check honours must
+# turn the rung informational here too.
+WF="$(awk '/^coverage_waiver\(\) \{/{on=1} on{print} on && /^\}/{exit}' "$SUT")"
+if [ -z "$WF" ]; then
+  bad "no coverage_waiver() in $SUT — the coverage rung ignores the register's waiver"
+else
+  waiver() { ( ROOT="$R"; eval "$WF"; coverage_waiver ); }
+  printf '# Register\n' > "$R/PROJECT.md"
+  [ -z "$(waiver)" ] && ok "no waiver line: nothing (the rung gates)" || bad "phantom waiver" "$(waiver)"
+  printf '<!--\nWaived artifact coverage-ledger: example\n-->\nWaived artifact coverage-ledger:\n' >> "$R/PROJECT.md"
+  [ -z "$(waiver)" ] && ok "a commented-out or reasonless line is not a waiver" || bad "comment/reasonless waiver" "$(waiver)"
+  mkdir -p "$R/analysis/src"; printf -- '- **Waived artifact coverage-ledger:** plan predates SECTION-WIDE, rows split in slice 2\n' > "$R/analysis/src/PROJECT.md"
+  [ "$(waiver)" = "plan predates SECTION-WIDE, rows split in slice 2" ] && ok "a decorated line in analysis/<name>/PROJECT.md is read, with its reason" \
+    || bad "nested register waiver" "$(waiver)"
+fi
+grep -q 'run_launch "\$COV_NAME" "\$OUTDIR/12-coverage.log" "\$COV_KIND"' "$SUT" \
+  && grep -q '\[ -n "\$COV_WAIVE" \] && { COV_KIND=info' "$SUT" \
+  && ok "the coverage rung runs as info, not gate, when waived" || bad "rung not wired to the waiver"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

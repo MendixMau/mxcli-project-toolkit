@@ -63,9 +63,29 @@ function detectHiddenRules(l) {
   return rules;
 }
 
+// Microflow names are unique per Mendix module, and one capability BRD gathers items from
+// several classes (a controller and its service both declare findByPKey). The first keeps its
+// name; a later one is qualified by its class (from uniqueId `java:<module>.<Class>.<method>`),
+// then numbered, and records `renamedFrom`, so no BRD lists two microflows with one name.
+function distinctNames(logics) {
+  const used = new Set();
+  return logics.map(l => {
+    let name = l.name;
+    if (used.has(name)) {
+      const cls = (l.uniqueId || '').split('.').slice(-2, -1)[0] || '';
+      name = cls ? `${cls}_${l.name}` : l.name;
+      for (let i = 2; used.has(name); i++) name = `${cls ? cls + '_' : ''}${l.name}_${i}`;
+    }
+    used.add(name);
+    return name;
+  });
+}
+
 function mapMicroflows(logics) {
-  return logics.map(l => ({
-    name:        l.name,
+  const names = distinctNames(logics);
+  return logics.map((l, i) => ({
+    name:        names[i],
+    ...(names[i] !== l.name ? { renamedFrom: l.name } : {}),
     kind:        KIND_LABEL[l.logicKind] || l.logicKind,
     isPublic:    l.isPublic || false,
     purpose:     inferPurpose(l.name, l.description),

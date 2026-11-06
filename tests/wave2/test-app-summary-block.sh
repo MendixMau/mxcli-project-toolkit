@@ -60,6 +60,8 @@ render() {
   local gen="$1" kb="$2"
   local run; run="$(mktemp -d "$WORK/run.XXXXXX")"
   cp "$gen" "$run/generate-report.js"
+  # A generator may load sibling helpers (java-angular's lib/config.js, #643); copy them too.
+  if [ -d "$(dirname "$gen")/lib" ]; then cp -R "$(dirname "$gen")/lib" "$run/lib"; fi
   printf '{"knowledgeBaseDir":"%s"}' "$kb" > "$run/config.json"
   node "$run/generate-report.js" >/dev/null 2>&1 || return 1
   printf '%s' "$kb/extraction-report.html"

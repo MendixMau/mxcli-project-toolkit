@@ -59,12 +59,13 @@ fi
 
 # Tools forwarded to the real binary. Everything exec.sh's clean path starts today, plus the
 # common tools a new step would plausibly add, so adding one costs a count, not a failure.
-FORWARD="bash sh env git python3 node awk sed grep egrep tr sort uniq head tail cut wc cat cp mv rm
+FORWARD="bash sh env git python3 node"  # portability-ok: Linux-only fixture (uname guard above); a name to shim, not an interpreter to run
+FORWARD="$FORWARD awk sed grep egrep tr sort uniq head tail cut wc cat cp mv rm
 mkdir rmdir mktemp ls touch uname cksum sha256sum shasum md5sum dirname basename readlink realpath
 date sleep find xargs tee chmod ln stat od diff cmp comm tac rev paste printf expr seq id hostname
 du df file gzip tar unzip jq perl curl ps kill timeout flock"
 REAL_PATH="$PATH"
-for t in bash git python3 awk sed grep; do
+for t in bash git python3 awk sed grep; do  # portability-ok: Linux-only fixture (uname guard above); a name to shim, not an interpreter to run
   command -v "$t" >/dev/null 2>&1 || { echo "  SKIP required tool missing: $t"; echo; echo "PASS=0 FAIL=0"; exit 0; }
 done
 
@@ -78,7 +79,7 @@ for t in $FORWARD; do
 done
 # Logging stubs. sqlite3 answers like a model with an 11.x product version; pgrep finds nothing.
 printf '#!%s\nprintf "%%s\\n" sqlite3 >> "$MXTK_PCOUNT_LOG"\necho 11.6.0\n' "$REAL_BASH" > "$SHIM/sqlite3"
-printf '#!%s\nprintf "%%s\\n" pgrep >> "$MXTK_PCOUNT_LOG"\nexit 1\n' "$REAL_BASH" > "$SHIM/pgrep"
+printf '#!%s\nprintf "%%s\\n" pgrep >> "$MXTK_PCOUNT_LOG"\nexit 1\n' "$REAL_BASH" > "$SHIM/pgrep"  # portability-ok: a stub named pgrep, run on Linux only
 chmod +x "$SHIM"/*
 
 P="$WORK/proj"; mkdir -p "$P/bin" "$P/.claude" "$P/mprcontents/84/77" "$P/mdlsource" "$WORK/jdk/bin"

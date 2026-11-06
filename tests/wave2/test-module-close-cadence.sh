@@ -4,20 +4,25 @@
 #
 # usage: bash tests/wave2/test-module-close-cadence.sh [toolkit-root]
 #
-# Run against a worktree of master ee12a615, 28 of the 38 cases fail; the 10 that pass there are
+# Run against a worktree of master ee12a615, 38 of the 50 cases fail; the 12 that pass there are
 # guards that master's behaviour survives where it should (high-quality = master per row, the
-# 2026-09-19 line, MXTK_PREPUSH_BUILD=always, a refused push on a failing build, the table last).
+# 2026-09-19 line, MXTK_PREPUSH_BUILD=always, a refused push on a failing build, the table last,
+# no stamp without a full build, no sync note when the line is set).
 #   E1-E7  exec.sh per-row lane (the real exec.sh, run on a stub project; it prints the lane and
 #          then refuses an uncommitted model, writing nothing), per mode. balanced (no line): one
 #          1280 LOOK, no journeys, the plain-words note; logic = the exec gate only, unless
-#          `## Test strategy` row `Every change` names a unit scope. high-speed: no LOOK per row.
+#          `## Test strategy` row `Every change` names a scope (unit and journeys columns each, E3/E8).
+#          high-speed: no LOOK per row.
 #          high-quality: master's per-row journeys + 390/1280 LOOK + per-row unit tests.
 #   I1     init-project.sh's generated CLAUDE.local.md: one viewport per page script, both at module
 #          review, and the 2026-09-19 fidelity-is-not-a-LOOK line kept.
-#   P1-P9  the pre-push hook (install-project-hooks.sh): under `Gate mode: check`, the full build runs
+#   P1-P11 the pre-push hook (install-project-hooks.sh): under `Gate mode: check`, the full build runs
 #          once per module (balanced, high-speed), every push under high-quality or
-#          MXTK_PREPUSH_BUILD=always; a v1
+#          MXTK_PREPUSH_BUILD=always; builds on: no build recorded yet, an unreadable _common.sh,
+#          N deferred pushes, a Java fingerprint change; a v1
 #          hook is replaced in place and fails --check (so sync-project.sh refreshes it).
+#   S1     sync-project.sh prints one line when PROJECT.md has no Pipeline mode line.
+#   M4     module-close.sh records a full build for the pre-push hook.
 #   M1-M3  module-close.sh's report carries the bounded polish loop: 85% / 3 rounds with no line,
 #          75/2 high-speed, 95/5 high-quality; PROJECT.md `UI polish:` overrides both numbers.
 # Golden MDL input is the toolkit's own shipped scripts (as test-exec-change-class.sh uses).
@@ -43,7 +48,7 @@ lane() {  # $1 script, $2 PROJECT.md body
   ( cd "$E" && MXTK_ROOT="$TK" timeout 120 bash bin/exec.sh "$1" 2>&1 ) | sed -n '1,6p'
 }
 out=$(lane "$UI_MDL" "# P")
-case "$out" in *"Pipeline mode: balanced"*"per row: one quick LOOK at 1280 of the page you just changed. No journeys"*) ok "E1 no line = balanced; ui-only: one 1280 LOOK, no journeys per row" ;; *) bad "E1 ui-only lane" "$out" ;; esac
+case "$out" in *"Pipeline mode: balanced"*"per row: one quick LOOK at 1280 of the page you just changed; no journeys"*) ok "E1 no line = balanced; ui-only: one 1280 LOOK, no journeys per row" ;; *) bad "E1 ui-only lane" "$out" ;; esac
 case "$out" in *"390/1280 LOOK run once at module close"*) ok "E1 ui-only: journeys + 390/1280 LOOK at module close" ;; *) bad "E1 module close" "$out" ;; esac
 case "$out" in *"$NOTE"*) ok "E1 the plain-words note prints with the lane" ;; *) bad "E1 note missing" "$out" ;; esac
 case "$out" in *"affected tests: ./bin/affected-tests.sh"*) bad "E1 still points at per-row affected tests" "$out" ;; *) ok "E1 no per-row affected-tests pointer" ;; esac
@@ -55,13 +60,20 @@ TS='## Test strategy
 out=$(lane "$LOGIC_MDL" "Unit tests default: yes
 $TS
 | Every change (build and feedback) | affected, modules on only | affected | CONFIRMED |")
-case "$out" in *"opts in"*"affected tests: ./bin/affected-tests.sh"*) ok "E3 'Every change' row with a unit scope: per-row unit tests (opt-in honoured)" ;; *) bad "E3 opt-in" "$out" ;; esac
+case "$out" in *"unit tests whose subject this change touched + the changed pages' journeys"*"opts in"*"affected tests: ./bin/affected-tests.sh"*) ok "E3 'Every change' row affected | affected: per-row unit tests AND journeys (both columns honoured)" ;; *) bad "E3 opt-in" "$out" ;; esac
 out=$(lane "$LOGIC_MDL" "Unit tests default: yes
 $TS
 | Every change (build and feedback) | none (exec gate only) | none | CONFIRMED |")
 case "$out" in *"per row: the exec gate only."*) ok "E4 'Every change' row none: exec gate only" ;; *) bad "E4 none row" "$out" ;; esac
+ROWJ="Unit tests default: no
+$TS
+| Every change | none | affected | CONFIRMED |"
+out=$(lane "$UI_MDL" "$ROWJ")
+case "$out" in *"Pipeline mode: balanced"*"(embedders of a changed snippet/layout) re-run once per row (PROJECT.md ## Test strategy 'Every change' journeys column)"*"affected tests: ./bin/affected-tests.sh"*) ok "E8 a CONFIRMED journeys column keeps per-row journeys in balanced (ui-only)" ;; *) bad "E8 journeys column ui" "$out" ;; esac
+out=$(lane "$LOGIC_MDL" "$ROWJ")
+case "$out" in *"per row: the changed pages' journeys (PROJECT.md ## Test strategy 'Every change' opts in)"*) ok "E8 ... and in the logic lane, without per-row unit tests" ;; *) bad "E8 journeys column logic" "$out" ;; esac
 out=$(lane "$UI_MDL" "**Pipeline mode:** high-speed")
-case "$out" in *"Pipeline mode: high-speed"*"per row: the exec gate only; no LOOK, no journeys"*"390/1280 LOOK run once at module close"*"$NOTE"*) ok "E5 high-speed ui-only: no LOOK per row, everything at module close" ;; *) bad "E5 high-speed" "$out" ;; esac
+case "$out" in *"Pipeline mode: high-speed"*"per row: the exec gate only; no journeys, no LOOK"*"390/1280 LOOK run once at module close"*"$NOTE"*) ok "E5 high-speed ui-only: no LOOK per row, everything at module close" ;; *) bad "E5 high-speed" "$out" ;; esac
 out=$(lane "$UI_MDL" "Pipeline mode: high-quality")
 case "$out" in *"Pipeline mode: high-quality"*"(embedders of a changed snippet/layout) re-run once, + a LOOK at 390 and 1280"*) ok "E6 high-quality ui-only: journeys + LOOK at 390 and 1280 per row (master)" ;; *) bad "E6 high-quality ui" "$out" ;; esac
 case "$out" in *"$NOTE"*) bad "E6 high-quality prints the rough-pages note" ;; *) ok "E6 high-quality: no rough-pages note" ;; esac
@@ -86,9 +98,10 @@ else bad "I1 init-project.sh wrote no CLAUDE.local.md"; fi
 IN="$IP/intake.md"
 if [ -f "$IN" ]; then
   flat=$(tr '\n' ' ' < "$IN")
-  case "$flat" in *"Pipeline mode: \`high-speed\`, \`balanced\` (default) or \`high-quality\`?"*"high-speed**: fastest"*"balanced**: about 10–15 min less per build row"*"high-quality**: checks every page after every change; slowest"*) ok "I2 intake asks the pipeline mode, three options with trade-offs" ;; *) bad "I2 intake question" ;; esac
+  case "$flat" in *"Pipeline mode: \`high-speed\`, \`balanced\` (default) or \`high-quality\`?"*"high-speed**: fastest"*"balanced**: estimated ≥8 min less per build row (measured in #686's field run)"*"high-quality**: checks every page after every change; slowest"*) ok "I2 intake asks the pipeline mode, three options with trade-offs" ;; *) bad "I2 intake question" ;; esac
 else bad "I2 init-project.sh wrote no intake.md"; fi
 grep -q '^Pipeline mode: balanced$' "$IP/PROJECT.md" 2>/dev/null && ok "I3 a new PROJECT.md says Pipeline mode: balanced" || bad "I3 PROJECT.md line"
+[ "$(grep -ciE '^[*_ >-]*Pipeline mode:' "$IP/PROJECT.md")" = 1 ] && ok "I3 exactly one line reads as the setting (no comment line looks like one)" || bad "I3 extra setting-like lines" "$(grep -niE '^[*_ >-]*Pipeline mode:' "$IP/PROJECT.md")"
 
 echo "-- P: pre-push full build once per module"
 S="$WORK/hooks"; mkdir -p "$S/bin" "$S/.claude/loop"
@@ -119,6 +132,9 @@ pp() {  # $1 = stdin line; rest = env; sets rc and out
 }
 HEAD0=$(cd "$S" && git rev-parse HEAD)
 pp "refs/heads/m $HEAD0 refs/heads/m $Z"
+{ [ "$rc" = 0 ] && [ -e "$S/.claude/full-ran" ] && [ -e "$S/.claude/loop/prepush-build.last" ] && printf '%s' "$out" | grep -q 'no full build recorded'; } \
+  && ok "P2 first push with no full build recorded here: builds once, stamp written" || bad "P2 first rc=$rc" "$out"
+pp "refs/heads/m $HEAD0 refs/heads/m $Z"
 { [ "$rc" = 0 ] && [ ! -e "$S/.claude/full-ran" ] && printf '%s' "$out" | grep -q 'deferred to module close'; } \
   && ok "P2 no Pipeline mode line (balanced), mid-module push: no full build, says it is deferred" || bad "P2 rc=$rc" "$out"
 pp "refs/heads/m $HEAD0 refs/heads/m $Z" MXTK_PREPUSH_BUILD=always
@@ -133,6 +149,24 @@ printf 'Pipeline mode: balanced\n' > "$S/PROJECT.md"
 pp "refs/heads/m $HEAD0 refs/heads/m $Z"
 { [ "$rc" = 0 ] && [ ! -e "$S/.claude/full-ran" ]; } && ok "P3 Pipeline mode: balanced: deferred to module close" || bad "P3 bal rc=$rc" "$out"
 rm -f "$S/PROJECT.md"
+# A project whose bin/_common.sh predates mxtk_pipeline_mode (master's copy): the mode cannot be read.
+cp "$S/bin/_common.sh" "$S/bin/_common.sh.new"
+( cd "$TK" && git show ee12a615:project-bin/_common.sh ) > "$S/bin/_common.sh" 2>/dev/null
+pp "refs/heads/m $HEAD0 refs/heads/m $Z"
+{ [ "$rc" = 0 ] && [ -e "$S/.claude/full-ran" ] && printf '%s' "$out" | grep -q 'could not be read'; } && ok "P9 mode unreadable (an older _common.sh): builds (the safe side)" || bad "P9 rc=$rc" "$out"
+mv "$S/bin/_common.sh.new" "$S/bin/_common.sh"
+rm -f "$S/.claude/loop/prepush-deferred"
+pp "refs/heads/m $HEAD0 refs/heads/m $Z" MXTK_PREPUSH_MAX_DEFERRED=2; r1=$rc; f1=$([ -e "$S/.claude/full-ran" ] && echo y)
+pp "refs/heads/m $HEAD0 refs/heads/m $Z" MXTK_PREPUSH_MAX_DEFERRED=2; f2=$([ -e "$S/.claude/full-ran" ] && echo y)
+pp "refs/heads/m $HEAD0 refs/heads/m $Z" MXTK_PREPUSH_MAX_DEFERRED=2
+{ [ -z "$f1" ] && [ -z "$f2" ] && [ -e "$S/.claude/full-ran" ] && printf '%s' "$out" | grep -q 'pushes in a row deferred'; } \
+  && ok "P10 no module close for N pushes (N=2): the third push builds" || bad "P10 f1=$f1 f2=$f2 rc=$rc" "$out"
+pp "refs/heads/m $HEAD0 refs/heads/m $Z" MXTK_PREPUSH_MAX_DEFERRED=2
+{ [ "$rc" = 0 ] && [ ! -e "$S/.claude/full-ran" ]; } && ok "P10 the build reset the count: next push deferred again" || bad "P10 reset rc=$rc" "$out"
+printf 'checks 1\njava 0000\n' > "$S/.claude/loop/gate-kind.state"
+pp "refs/heads/m $HEAD0 refs/heads/m $Z"
+{ [ "$rc" = 0 ] && [ -e "$S/.claude/full-ran" ] && printf '%s' "$out" | grep -q 'Java/JavaScript/theme files changed'; } && ok "P11 Java fingerprint differs from the last full build's: builds" || bad "P11 rc=$rc" "$out"
+echo "checks 1" > "$S/.claude/loop/gate-kind.state"
 rm -f "$S/.claude/loop/prepush-build.last"
 mkdir -p "$S/docs/progress/module-close"; echo "# Module close: Shop" > "$S/docs/progress/module-close/Shop.md"
 pp "refs/heads/m $HEAD0 refs/heads/m $Z" FAKE_VM_RC=1
@@ -175,6 +209,22 @@ done
 printf 'Pipeline mode: high-quality\nUI polish: 80%% / 4 rounds\n' > "$M/PROJECT.md"
 ( cd "$M" && bash bin/module-close.sh Shop >/dev/null 2>&1 ); flat=$(tr '\n' ' ' < "$R")
 case "$flat" in *"up to 4 rounds"*"fidelity ≥ 80%"*) ok "M3 UI polish overrides a mode's numbers" ;; *) bad "M3 override" "$(grep -n -i polish "$R")" ;; esac
+
+printf '#!/bin/sh\nexit 0\n' > "$M/bin/model-stamp.sh"; chmod +x "$M/bin/model-stamp.sh"; rm -f "$M/.claude/loop/prepush-build.last"
+( cd "$M" && bash bin/module-close.sh Shop >/dev/null 2>&1 )
+{ [ -e "$M/.claude/loop/prepush-build.last" ] && [ -z "$(find "$M/docs/progress/module-close" -name '*.md' -newer "$M/.claude/loop/prepush-build.last")" ]; } \
+  && ok "M4 module-close with a full stamp records the build for the pre-push hook, not older than its report" || bad "M4 stamp" "$(ls -la --time-style=full-iso "$M/.claude/loop" "$R" 2>&1)"
+printf '#!/bin/sh\nexit 1\n' > "$M/bin/model-stamp.sh"; rm -f "$M/.claude/loop/prepush-build.last"
+( cd "$M" && bash bin/module-close.sh Shop >/dev/null 2>&1 )
+[ ! -e "$M/.claude/loop/prepush-build.last" ] && ok "M4 no full stamp: nothing recorded" || bad "M4 recorded without a full build"
+
+echo "-- S: sync-project.sh names a missing Pipeline mode"
+sed -i.bak '/^Pipeline mode:/d' "$IP/PROJECT.md"; rm -f "$IP/PROJECT.md.bak"
+out=$(bash "$TK/bin/sync-project.sh" "$IP" --dry-run 2>&1)
+case "$out" in *"Pipeline mode not set → balanced: journeys, the 390+1280 LOOK and the full build now run at module close. Set \`Pipeline mode: high-quality\`"*) ok "S1 no line: sync says balanced, and how to keep the old cadence" ;; *) bad "S1 sync note" "$(printf '%s' "$out" | tail -5)" ;; esac
+printf 'Pipeline mode: high-quality\n' >> "$IP/PROJECT.md"
+out=$(bash "$TK/bin/sync-project.sh" "$IP" --dry-run 2>&1)
+case "$out" in *"Pipeline mode not set"*) bad "S1 note printed although the line is set" ;; *) ok "S1 line set: no note" ;; esac
 
 echo
 echo "module-close cadence: $PASS passed, $FAIL failed"

@@ -662,10 +662,11 @@ This table is the single source; `exec.sh`, the pre-push hook and `module-close.
 | Unit tests | per module | per module | per row |
 
 `UI polish: <N>% / <R> rounds` in PROJECT.md overrides the polish numbers of any mode. Below
-high-quality, a `## Test strategy` row `Every change` that names a unit scope still runs unit tests
-per row. Why balanced is the default (#686): rows averaged 19 min (up to 41) under per-row journeys
-and dual-viewport LOOKs, and per-row LOOKs had 0 unique catches over 42 findings; every browser-only
-defect was also visible to one journey plus a LOOK at module close. What re-runs after a change, by whom, and when the full suite runs (per
+high-quality, a `## Test strategy` row `Every change` that names a unit or journeys scope still runs
+that column per row. Why balanced is the default (#686): rows averaged 19 min (up to 41) under
+per-row journeys and dual-viewport LOOKs, and per-row LOOKs had 0 unique catches over 42 findings;
+of about 10 browser-only defects, about 7 would also be caught by one journey plus a LOOK at module
+close, 1 was unsure (a second persona), and 1 was missed by every per-row and module LOOK alike. What re-runs after a change, by whom, and when the full suite runs (per
 PROJECT.md `## Test strategy`; never batch close) is `testing-shape.md` §3; `exec.sh` prints
 the run's lane (`ui-only` / `logic`). Repeating a pass the artifacts already prove is the over-testing
 toolkit issue #274 measured: UI-only changes re-proven 5–10×.

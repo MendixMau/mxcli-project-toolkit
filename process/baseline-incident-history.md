@@ -524,4 +524,4 @@ restart-resumes (41.6M tokens, 8.5% of subagent tokens) in the 2026-10-12 run (#
 **Rows 8–9 run on every page, whichever yardstick applies** — they were added after 2026-08-22,
 when a Station page passed its LOOK review with no page title at all, an unstyled default nav bar,
 a field missing outright, and ragged field layout, because the rubric only ever interrogated the
-content region and the reviewer verified layout from CSS, not pixels (see the rule below).
+content region and the reviewer verified layout from CSS, not pixels.

@@ -500,26 +500,35 @@ fi
 #   high-speed   per row: the exec gate only            unit tests at module close
 #   balanced     per row: + one LOOK at 1280            unit tests at module close
 #   high-quality per row: journeys + LOOK 390 and 1280  unit tests per row (master before #686)
-# Below high-quality, unit tests still run per row when PROJECT.md's `## Test strategy` row
-# "Every change" names a unit scope other than none: the project opted in.
+# Below high-quality, a CONFIRMED `## Test strategy` row "Every change" is honoured column by column:
+# a unit scope other than none keeps unit tests per row, a journeys scope other than none keeps the
+# reached pages' journeys per row (PR #700 review: registers hold `| Every change | affected |
+# affected |`, and moving those to module close would override a recorded decision).
 PIPELINE_MODE="$(mxtk_pipeline_mode "$PROJECT_ROOT")"
-PER_ROW_UNIT=0
-[ "$PIPELINE_MODE" = high-quality ] && PER_ROW_UNIT=1
-if _first_match "$PROJECT_ROOT/PROJECT.md" '^\|[ *`]*[Ee]very change[^|]*\|([^|]*)\|'; then
-  _pru="$(printf '%s' "$_FM" | tr 'A-Z' 'a-z' | sed 's/[(,].*//; s/[ *`]//g')"
-  case "$_pru" in none|"") ;; *) PER_ROW_UNIT=1 ;; esac
+PER_ROW_UNIT=0; PER_ROW_J=0
+[ "$PIPELINE_MODE" = high-quality ] && { PER_ROW_UNIT=1; PER_ROW_J=1; }
+if _first_match "$PROJECT_ROOT/PROJECT.md" '^\|[ *`]*[Ee]very change[^|]*\|([^|]*\|[^|]*)\|'; then
+  _pr="$(printf '%s' "$_FM" | tr 'A-Z' 'a-z' | sed 's/[(,][^|]*//g; s/[ *`]//g')"   # unit|journeys
+  case "${_pr%%|*}" in none|"") ;; *) PER_ROW_UNIT=1 ;; esac
+  case "${_pr#*|}" in none|"") ;; *) PER_ROW_J=1 ;; esac
 fi
 _CLOSE="run once at module close (bin/module-close.sh)"
 case "$PIPELINE_MODE" in
-  high-quality) _UIROW="no .test.mdl."; _UIJ="re-run once, + a LOOK at 390 and 1280. Reviewers read the artifacts, they do not re-run" ;;
-  high-speed)   _UIROW="the exec gate only; no LOOK, no journeys, no .test.mdl."; _UIJ="+ the 390/1280 LOOK $_CLOSE" ;;
-  *)            _UIROW="one quick LOOK at 1280 of the page you just changed. No journeys, no .test.mdl."; _UIJ="+ the 390/1280 LOOK $_CLOSE" ;;
+  high-quality) _UIROW="no .test.mdl." ;;
+  high-speed)   _UIROW="the exec gate only; no LOOK, no .test.mdl." ;;
+  *)            _UIROW="one quick LOOK at 1280 of the page you just changed; no .test.mdl." ;;
 esac
+if [ "$PIPELINE_MODE" = high-quality ]; then _UIJ="re-run once, + a LOOK at 390 and 1280. Reviewers read the artifacts, they do not re-run"
+elif [ "$PER_ROW_J" = 1 ]; then _UIJ="re-run once per row (PROJECT.md ## Test strategy 'Every change' journeys column); the 390/1280 LOOK $_CLOSE"
+else _UIROW="${_UIROW%;*}; no journeys,${_UIROW#*;}"; _UIJ="+ the 390/1280 LOOK $_CLOSE"; fi
 change_lane() {
   case "$CHANGE_CLASS" in
     ui-only) echo "per row: $_UIROW The journeys of every page the change reaches (embedders of a changed snippet/layout) $_UIJ" ;;
     logic)   if [ "$PIPELINE_MODE" = high-quality ]; then echo "re-run only the tests whose subject this change touched (changed microflows + their SHOW CALLERS, changed pages' journeys). Unit tests only for affected modules with unit on; everything runs once at build complete and before each later deploy, per PROJECT.md ## Test strategy"
-             elif [ "$PER_ROW_UNIT" = 1 ]; then echo "per row: unit tests whose subject this change touched (PROJECT.md ## Test strategy 'Every change' opts in). No journeys; they $_CLOSE"
+             elif [ "$PER_ROW_UNIT" = 1 ] || [ "$PER_ROW_J" = 1 ]; then
+               _w=""; [ "$PER_ROW_UNIT" = 1 ] && _w="unit tests whose subject this change touched"
+               [ "$PER_ROW_J" = 1 ] && _w="${_w:+$_w + }the changed pages' journeys"
+               echo "per row: $_w (PROJECT.md ## Test strategy 'Every change' opts in). The rest $_CLOSE"
              else echo "per row: the exec gate only. Unit tests (modules with unit on, PROJECT.md Unit tests default) and journeys $_CLOSE"; fi ;;
   esac
 }
@@ -530,7 +539,7 @@ if [ -n "$CHANGE_CLASS" ]; then
   echo "  test lane (skills/testing-shape.md §3; Pipeline mode: $PIPELINE_MODE): $(change_lane)"
   [ "$PIPELINE_MODE" = high-quality ] || echo "  $POLISH_NOTE"
   if [ "$PATCH_MODE" != "1" ]; then
-    if [ "$PER_ROW_UNIT" = 1 ]; then echo "  affected tests: ./bin/affected-tests.sh $SCRIPT"
+    if [ "$PER_ROW_UNIT" = 1 ] || [ "$PER_ROW_J" = 1 ]; then echo "  affected tests: ./bin/affected-tests.sh $SCRIPT"
     else echo "  tests owed at module close: ./bin/affected-tests.sh --moment module --module <Module>"; fi
   fi
 fi

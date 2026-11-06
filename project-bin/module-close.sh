@@ -90,5 +90,11 @@ pt=${pt:-85}; pr=${pr:-3}; pmode=$(mxtk_pipeline_mode "$PROJECT_ROOT" 2>/dev/nul
   echo "| Page | Role | Seen (screenshot path) | Defect | Fixed in row/script |"
   echo "|---|---|---|---|---|"
 } > "$rep"
+# The module's full build is done when the stamp says full: record it for the pre-push hook
+# (install-project-hooks.sh, .claude/loop/prepush-build.last), AFTER the report is written, so the
+# next push does not build again for a report "newer than the last build" (PR #700 review).
+if bash bin/model-stamp.sh check -q --full >/dev/null 2>&1; then
+  { mkdir -p .claude/loop && touch .claude/loop/prepush-build.last && rm -f .claude/loop/prepush-deferred; } 2>/dev/null
+fi
 echo "module-close $mod: $nmine lint ⚠, verify-module exit $vm_rc, report $rep"
 [ "$nmine" -eq 0 ] || exit 1

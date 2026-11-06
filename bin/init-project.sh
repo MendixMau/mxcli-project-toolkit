@@ -205,8 +205,8 @@ Pipeline mode: balanced
      (skills/iterative-build-loop.md § Pipeline mode). -->
 
 <!-- Gate mode: check (the default, also without this line) = bin/exec.sh runs \`mx check\` per
-     script and the full mxbuild at module close (and the first push after it; every push under
-     Pipeline mode: high-quality) and when Java/theme files change (mxcli's own advice). \`Gate mode: full\` = a full mxbuild on every exec. -->
+     script and the full mxbuild at module close (every push in the high-quality pipeline mode)
+     and when Java/theme files change (mxcli's own advice). \`Gate mode: full\` = a full mxbuild on every exec. -->
 
 <!-- Bug filing: auto — take this line out of the comment to let agents post this project's open
      toolkit/mxcli bugs (docs/bugs.jsonl) as public GitHub issues with your own gh login, redacted and

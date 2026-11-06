@@ -179,10 +179,14 @@ echo "    (refuses to commit .mpr/mprcontents changes that have no mxbuild-gate 
 # Once per module, not every push (#686: one full mxbuild per push, 1-2 min, on rows that average
 # 19 min), under `Pipeline mode: balanced` (the default, also with no line) and `high-speed`.
 # module-close.sh already runs this full build at the module boundary, so mid-module pushes skip
-# it. The build runs when (a) a docs/progress/module-close/*.md report is newer than this hook's
-# last full build (.claude/loop/prepush-build.last), or (b) a pushed commit touches
-# docs/progress/module-close/. `Pipeline mode: high-quality` (read with _common.sh's
-# mxtk_pipeline_mode) or MXTK_PREPUSH_BUILD=always: a full build on every push, as before #686.
+# it. The build runs when (a) no full build was ever recorded here (.claude/loop/prepush-build.last,
+# written by this hook's and module-close.sh's passing full builds), (b) a module-close report is
+# newer than that stamp, (c) a pushed commit touches docs/progress/module-close/, (d) Java/JavaScript/
+# theme files changed since the last full build (gate-kind.state's `java` fingerprint vs
+# _common.sh mxtk_java_fp), or (e) MXTK_PREPUSH_MAX_DEFERRED (10) pushes in a row deferred it, so a
+# project that never runs module-close still gets one. `Pipeline mode: high-quality` (_common.sh
+# mxtk_pipeline_mode) or MXTK_PREPUSH_BUILD=always: every push, as before #686. If _common.sh cannot
+# be read, the hook builds: unsure means the safe side (PR #700 review).
 PP="$HOOKS/pre-push"
 PP_MARK="# mxtk-pre-push full-build hook v2"
 # Any version of our own hook is replaced in place; only a foreign hook is kept and chained.
@@ -200,14 +204,18 @@ b="\$(git rev-parse --show-toplevel)/$BIN_REL"
 "\$b/model-stamp.sh" check -q >/dev/null 2>&1 || exit 0
 "\$b/model-stamp.sh" check -q --full >/dev/null 2>&1 && exit 0
 last="\$b/../.claude/loop/prepush-build.last"
-mode="\$(PROJECT_ROOT="\$b/.." bash -c '. "\$1/_common.sh" >/dev/null 2>&1 && mxtk_pipeline_mode "\$1/.."' _ "\$b" 2>/dev/null)"
+info="\$(PROJECT_ROOT="\$b/.." bash -c '. "\$1/_common.sh" >/dev/null 2>&1 || exit 1; mxtk_pipeline_mode "\$1/.." || exit 1; d="\$(find_model_dir 2>/dev/null)" && mxtk_java_fp "\$d"' _ "\$b" 2>/dev/null)"
+mode="\$(printf '%s\n' "\$info" | sed -n 1p)"; jfp="\$(printf '%s\n' "\$info" | sed -n 2p)"
+cnt="\$b/../.claude/loop/prepush-deferred"
 if [ "\${MXTK_PREPUSH_BUILD:-module}" != always ] && [ "\$mode" != high-quality ]; then
   due=""
   mc="\$b/../docs/progress/module-close"
-  if [ -d "\$mc" ]; then
-    if [ -f "\$last" ]; then [ -n "\$(find "\$mc" -name '*.md' -newer "\$last" 2>/dev/null | head -1)" ] && due="a module-close report newer than the last pre-push build"
-    else [ -n "\$(find "\$mc" -name '*.md' 2>/dev/null | head -1)" ] && due="a module-close report and no pre-push build yet"; fi
-  fi
+  case "\$mode" in
+    balanced|high-speed) ;;
+    *) due="the pipeline mode could not be read (bin/_common.sh), so building to be safe" ;;
+  esac
+  [ -z "\$due" ] && [ ! -f "\$last" ] && due="no full build recorded on this machine yet"
+  [ -z "\$due" ] && [ -d "\$mc" ] && [ -n "\$(find "\$mc" -name '*.md' -newer "\$last" 2>/dev/null | head -1)" ] && due="a module-close report newer than the last full build"
   if [ -z "\$due" ]; then
     z=0000000000000000000000000000000000000000
     while read -r _lr lsha _rr rsha; do
@@ -217,8 +225,15 @@ if [ "\${MXTK_PREPUSH_BUILD:-module}" != always ] && [ "\$mode" != high-quality 
       printf '%s\n' "\$files" | grep -q 'docs/progress/module-close/' && { due="this push carries a module-close commit"; break; }
     done <<< "\$input"
   fi
+  if [ -z "\$due" ] && [ -n "\$jfp" ]; then
+    rec="\$(sed -n 's/^java //p' "\$b/../.claude/loop/gate-kind.state" 2>/dev/null | tail -1)"
+    [ -n "\$rec" ] && [ "\$rec" != "\$jfp" ] && due="Java/JavaScript/theme files changed since the last full build"
+  fi
+  n="\$(cat "\$cnt" 2>/dev/null)"; case "\$n" in ''|*[!0-9]*) n=0 ;; esac
+  [ -z "\$due" ] && [ "\$n" -ge "\${MXTK_PREPUSH_MAX_DEFERRED:-10}" ] && due="\$n pushes in a row deferred the full build"
   if [ -z "\$due" ]; then
-    echo "→ pre-push: model mx-checked only; full build deferred to module close (bin/module-close.sh; Pipeline mode: \${mode:-balanced}). Every push: Pipeline mode: high-quality, or MXTK_PREPUSH_BUILD=always." >&2
+    echo \$((n + 1)) > "\$cnt" 2>/dev/null
+    echo "→ pre-push: model mx-checked only; full build deferred to module close (bin/module-close.sh; Pipeline mode: \$mode). Every push: Pipeline mode: high-quality, or MXTK_PREPUSH_BUILD=always." >&2
     exit 0
   fi
   echo "→ pre-push: \$due." >&2
@@ -228,7 +243,7 @@ if [ "\${MODEL_UNVERIFIED_OK:-0}" = "1" ]; then
 fi
 echo "→ pre-push: the model was verified by mx check only; running the full build first (bin/verify-model.sh)..." >&2
 ( cd "\$b/.." && bash bin/verify-model.sh ) >&2; vrc=\$?
-[ "\$vrc" = 0 ] && { mkdir -p "\$(dirname "\$last")" && touch "\$last"; } 2>/dev/null
+[ "\$vrc" = 0 ] && { mkdir -p "\$(dirname "\$last")" && touch "\$last" && rm -f "\$cnt"; } 2>/dev/null
 if [ "\$vrc" = 1 ]; then
   echo "✗ push refused: the full build found errors (above). Fix them, commit, push again." >&2
   echo "  Deliberate override, once:   MODEL_UNVERIFIED_OK=1 git push ..." >&2

@@ -234,7 +234,9 @@ mxtk_change_class() {  # $1 = MDL script; prints "<class>\t<why>"
       }
     }
     END {
-      if (logic != "")  { printf "logic\t%s\n", logic; exit }
+      # A mixed script stays logic for its tests, and says how many page statements it has: the
+      # per-row LOOK keys on those (PR #700 mode experiment: a page with its co-located GRANT is logic).
+      if (logic != "")  { printf "logic\t%s%s\n", logic, (ui ? "; plus " ui " page/snippet/layout statement(s)" : ""); exit }
       if (ui == 0)      { printf "logic\tno page/snippet/layout statement found\n"; exit }
       printf "ui-only\t%d page/snippet/layout statement(s), nothing else\n", ui
     }' "$1"
@@ -494,6 +496,11 @@ elif [ -r "$SCRIPT" ]; then
   _cc="$(mxtk_change_class "$SCRIPT" 2>/dev/null || true)"
   CHANGE_CLASS="${_cc%%	*}"; CHANGE_WHY="${_cc#*	}"
 fi
+# Any page/snippet/layout statement owes the mode's per-row visual check, whatever the class: the
+# toolkit co-locates a page's GRANT with the page, so most page scripts classify as logic (PR #700
+# mode experiment: 8 of 10 page scripts got no per-row LOOK under balanced).
+CHANGE_UI=0
+case "$CHANGE_WHY" in *"page/snippet/layout statement(s)"*) CHANGE_UI=1 ;; esac
 # Per row vs module close, by PROJECT.md `Pipeline mode:` (#686: rows averaged 19 min, mostly
 # per-row journeys and dual-viewport LOOKs that caught nothing a module-close pass missed).
 # _common.sh mxtk_pipeline_mode; no line = balanced. Table: iterative-build-loop.md § Pipeline mode.
@@ -521,15 +528,22 @@ esac
 if [ "$PIPELINE_MODE" = high-quality ]; then _UIJ="re-run once, + a LOOK at 390 and 1280. Reviewers read the artifacts, they do not re-run"
 elif [ "$PER_ROW_J" = 1 ]; then _UIJ="re-run once per row (PROJECT.md ## Test strategy 'Every change' journeys column); the 390/1280 LOOK $_CLOSE"
 else _UIROW="${_UIROW%;*}; no journeys,${_UIROW#*;}"; _UIJ="+ the 390/1280 LOOK $_CLOSE"; fi
+case "$PIPELINE_MODE" in
+  high-quality) _VIS="Pages it writes: the journeys of every page the change reaches + a LOOK at 390 and 1280." ;;
+  high-speed)   _VIS="Pages it writes: no per-row LOOK; the 390/1280 LOOK $_CLOSE." ;;
+  *)            _VIS="Pages it writes: one quick LOOK at 1280 of each page/snippet it changed; the 390/1280 LOOK $_CLOSE." ;;
+esac
 change_lane() {
   case "$CHANGE_CLASS" in
     ui-only) echo "per row: $_UIROW The journeys of every page the change reaches (embedders of a changed snippet/layout) $_UIJ" ;;
-    logic)   if [ "$PIPELINE_MODE" = high-quality ]; then echo "re-run only the tests whose subject this change touched (changed microflows + their SHOW CALLERS, changed pages' journeys). Unit tests only for affected modules with unit on; everything runs once at build complete and before each later deploy, per PROJECT.md ## Test strategy"
+    logic)   _base=""
+             if [ "$PIPELINE_MODE" = high-quality ]; then _base="re-run only the tests whose subject this change touched (changed microflows + their SHOW CALLERS, changed pages' journeys). Unit tests only for affected modules with unit on; everything runs once at build complete and before each later deploy, per PROJECT.md ## Test strategy."
              elif [ "$PER_ROW_UNIT" = 1 ] || [ "$PER_ROW_J" = 1 ]; then
                _w=""; [ "$PER_ROW_UNIT" = 1 ] && _w="unit tests whose subject this change touched"
                [ "$PER_ROW_J" = 1 ] && _w="${_w:+$_w + }the changed pages' journeys"
-               echo "per row: $_w (PROJECT.md ## Test strategy 'Every change' opts in). The rest $_CLOSE"
-             else echo "per row: the exec gate only. Unit tests (modules with unit on, PROJECT.md Unit tests default) and journeys $_CLOSE"; fi ;;
+               _base="per row: $_w (PROJECT.md ## Test strategy 'Every change' opts in). The rest $_CLOSE."
+             else _base="per row: the exec gate only. Unit tests (modules with unit on, PROJECT.md Unit tests default) and journeys $_CLOSE."; fi
+             if [ "$CHANGE_UI" = 1 ]; then echo "$_base $_VIS"; else echo "$_base"; fi ;;
   esac
 }
 POLISH_NOTE="Screens are polished and checked at module close; mid-module pages may look rough, that's expected."

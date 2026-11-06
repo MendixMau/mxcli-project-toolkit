@@ -4,10 +4,10 @@
 #
 # usage: bash tests/wave2/test-module-close-cadence.sh [toolkit-root]
 #
-# Run against a worktree of master ee12a615, 38 of the 50 cases fail; the 12 that pass there are
+# Run against a worktree of master ee12a615, 42 of the 55 cases fail; the 13 that pass there are
 # guards that master's behaviour survives where it should (high-quality = master per row, the
 # 2026-09-19 line, MXTK_PREPUSH_BUILD=always, a refused push on a failing build, the table last,
-# no stamp without a full build, no sync note when the line is set).
+# no stamp without a full build, no sync note when the line is set, no page check without a page).
 #   E1-E7  exec.sh per-row lane (the real exec.sh, run on a stub project; it prints the lane and
 #          then refuses an uncommitted model, writing nothing), per mode. balanced (no line): one
 #          1280 LOOK, no journeys, the plain-words note; logic = the exec gate only, unless
@@ -23,8 +23,10 @@
 #          hook is replaced in place and fails --check (so sync-project.sh refreshes it).
 #   S1     sync-project.sh prints one line when PROJECT.md has no Pipeline mode line.
 #   M4     module-close.sh records a full build for the pre-push hook.
+#   M5     its report carries a `Polish: n of cap` row per page (countable cap; template only).
+#   E9     a page script with a co-located GRANT (logic) still gets its mode's per-row page check.
 #   M1-M3  module-close.sh's report carries the bounded polish loop: 85% / 3 rounds with no line,
-#          75/2 high-speed, 95/5 high-quality; PROJECT.md `UI polish:` overrides both numbers.
+#          75/2 high-speed, 90/5 high-quality; PROJECT.md `UI polish:` overrides both numbers.
 # Golden MDL input is the toolkit's own shipped scripts (as test-exec-change-class.sh uses).
 set -uo pipefail
 TK="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
@@ -38,6 +40,7 @@ echo "== subject: $TK"
 
 UI_MDL="$TK/tests/wave2/fixtures/page-fidelity-mocks/bind-contract-alter.mdl"   # ALTER PAGE → ui-only
 LOGIC_MDL="$TK/skills/agents-examples/tool-write.example.mdl"                   # microflow → logic
+GRANT_MDL="$TK/examples/stylegallery/mdlsource/gallery/90-gallery-home.mdl"     # CREATE PAGE + its GRANT → logic, with a page
 NOTE="Screens are polished and checked at module close; mid-module pages may look rough, that's expected."
 
 echo "-- E: exec.sh per-row lane"
@@ -72,6 +75,16 @@ out=$(lane "$UI_MDL" "$ROWJ")
 case "$out" in *"Pipeline mode: balanced"*"(embedders of a changed snippet/layout) re-run once per row (PROJECT.md ## Test strategy 'Every change' journeys column)"*"affected tests: ./bin/affected-tests.sh"*) ok "E8 a CONFIRMED journeys column keeps per-row journeys in balanced (ui-only)" ;; *) bad "E8 journeys column ui" "$out" ;; esac
 out=$(lane "$LOGIC_MDL" "$ROWJ")
 case "$out" in *"per row: the changed pages' journeys (PROJECT.md ## Test strategy 'Every change' opts in)"*) ok "E8 ... and in the logic lane, without per-row unit tests" ;; *) bad "E8 journeys column logic" "$out" ;; esac
+# A page script with its co-located GRANT classifies as logic; it still owes the mode's per-row look
+# (PR #700 mode experiment: 8 of 10 page scripts got no per-row LOOK under balanced).
+out=$(lane "$GRANT_MDL" "# P")
+case "$out" in *"Change class: logic"*"per row: the exec gate only."*"Pages it writes: one quick LOOK at 1280 of each page/snippet it changed"*) ok "E9 balanced, page + GRANT (logic): the 1280 LOOK per row AND the logic lane" ;; *) bad "E9 balanced page+grant" "$out" ;; esac
+out=$(lane "$GRANT_MDL" "Pipeline mode: high-quality")
+case "$out" in *"re-run only the tests whose subject"*"Pages it writes: the journeys of every page the change reaches + a LOOK at 390 and 1280"*"affected tests:"*) ok "E9 high-quality, page + GRANT: journeys + the 390/1280 LOOK per row, plus per-row tests" ;; *) bad "E9 high-quality page+grant" "$out" ;; esac
+out=$(lane "$GRANT_MDL" "Pipeline mode: high-speed")
+case "$out" in *"Pages it writes: no per-row LOOK"*) ok "E9 high-speed, page + GRANT: no per-row LOOK, said so" ;; *) bad "E9 high-speed page+grant" "$out" ;; esac
+out=$(lane "$LOGIC_MDL" "# P")
+case "$out" in *"Pages it writes"*) bad "E9 a script with no page statement got a page check" "$out" ;; *) ok "E9 no page statement: no per-row page check" ;; esac
 out=$(lane "$UI_MDL" "**Pipeline mode:** high-speed")
 case "$out" in *"Pipeline mode: high-speed"*"per row: the exec gate only; no journeys, no LOOK"*"390/1280 LOOK run once at module close"*"$NOTE"*) ok "E5 high-speed ui-only: no LOOK per row, everything at module close" ;; *) bad "E5 high-speed" "$out" ;; esac
 out=$(lane "$UI_MDL" "Pipeline mode: high-quality")
@@ -197,11 +210,12 @@ flat=$(tr '\n' ' ' < "$R" 2>/dev/null)
 case "$flat" in *"LOOK every page at 390 and 1280"*"up to 3 rounds"*"fidelity ≥ 85% AND a written LOOK with no blocking issue"*"a score alone never passes"*"UNMEASURED: the LOOK decides"*"design/ui-reviews/"*"does not block the module"*)
   ok "M1 no line (balanced) polish loop: 390 + 1280, 85% / 3 rounds, score alone never passes, gap logged, not blocking" ;; *) bad "M1 report" "$(cat "$R" 2>/dev/null)" ;; esac
 case "$flat" in *"affected-tests.sh --moment module --module Shop"*) ok "M1 journeys + unit tests owed at module close" ;; *) bad "M1 tests pointer" ;; esac
+grep -q '^| Shop.<Page> | Polish: 0 of 3 |' "$R" && ok "M5 a countable 'Polish: n of cap' row per page (template)" || bad "M5 polish row" "$(grep -n Polish "$R")"
 grep -q '^| Page | Role |' "$R" && [ "$(tail -2 "$R" | head -1 | cut -c1-7)" = "| Page " ] && ok "M1 the Page | Role table stays last (row-groups.sh reads it)" || bad "M1 table moved" "$(tail -3 "$R")"
 printf '# P\n\n**UI polish:** 90%% / 2 rounds\n' > "$M/PROJECT.md"
 ( cd "$M" && bash bin/module-close.sh Shop >/dev/null 2>&1 ); flat=$(tr '\n' ' ' < "$R")
 case "$flat" in *"up to 2 rounds"*"fidelity ≥ 90%"*) ok "M2 PROJECT.md 'UI polish: 90% / 2 rounds' overrides both" ;; *) bad "M2 override" "$(grep -n polish -i "$R")" ;; esac
-for mv in "high-speed 2 75" "high-quality 5 95"; do set -- $mv
+for mv in "high-speed 2 75" "high-quality 5 90"; do set -- $mv
   printf 'Pipeline mode: %s\n' "$1" > "$M/PROJECT.md"
   ( cd "$M" && bash bin/module-close.sh Shop >/dev/null 2>&1 ); flat=$(tr '\n' ' ' < "$R")
   case "$flat" in *"Pipeline mode: $1), up to $2 rounds"*"fidelity ≥ $3%"*) ok "M3 $1: $3% / $2 rounds" ;; *) bad "M3 $1" "$(grep -n -i polish "$R")" ;; esac

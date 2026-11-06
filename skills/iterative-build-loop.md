@@ -657,7 +657,7 @@ This table is the single source; `exec.sh`, the pre-push hook and `module-close.
 | | high-speed | balanced (default) | high-quality |
 |---|---|---|---|
 | Per row, visual | none (exec gate only) | one LOOK at 1280 of the changed page | journeys of reached pages + LOOK at 390 and 1280 |
-| Module close | journeys + polish loop, 75% fidelity AND a written LOOK, max 2 rounds | same, 85%, max 3 rounds | same, 95%, max 5 rounds |
+| Module close | journeys + polish loop, 75% fidelity AND a written LOOK, max 2 rounds | same, 85%, max 3 rounds | same, 90%, max 5 rounds |
 | Pre-push full build | once per module | once per module | every push |
 | Unit tests | per module | per module | per row |
 

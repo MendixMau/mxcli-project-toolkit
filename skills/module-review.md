@@ -47,7 +47,7 @@ written LOOK finds no blocking issue; a score alone never passes a page (2026-09
 fidelity is `UNMEASURED` the LOOK alone decides. After R rounds, log the gap in
 `design/ui-reviews/` and move on: reported at the gate, not blocking. T / R come from PROJECT.md
 `Pipeline mode:` (balanced, the default: 85% / 3; `iterative-build-loop.md` § Pipeline mode);
-`module-close.sh` prints them.
+`module-close.sh` prints them, plus a `Polish: n of R` row per page to count rounds in.
 
 ---
 

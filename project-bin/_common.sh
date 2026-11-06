@@ -1151,11 +1151,11 @@ mxtk_pipeline_mode() {
     high-speed) echo high-speed ;; high-quality) echo high-quality ;; *) echo balanced ;;
   esac
 }
-# Module-close polish loop, "<fidelity %> <max rounds>": 75 2 | 85 3 | 95 5 by mode; a PROJECT.md
+# Module-close polish loop, "<fidelity %> <max rounds>": 75 2 | 85 3 | 90 5 by mode; a PROJECT.md
 # line `UI polish: <N>% / <R> rounds` overrides either number.
 mxtk_ui_polish() {
   local r="${1:-$PROJECT_ROOT}" pt pr pol x
-  case "$(mxtk_pipeline_mode "$r")" in high-speed) pt=75; pr=2 ;; high-quality) pt=95; pr=5 ;; *) pt=85; pr=3 ;; esac
+  case "$(mxtk_pipeline_mode "$r")" in high-speed) pt=75; pr=2 ;; high-quality) pt=90; pr=5 ;; *) pt=85; pr=3 ;; esac
   pol="$(grep -m1 -iE '^[*_ -]*UI polish:' "$r/PROJECT.md" 2>/dev/null)"
   x="$(printf '%s' "$pol" | sed -n 's/[^0-9]*\([0-9][0-9]*\)[ ]*%.*/\1/p')"; [ -n "$x" ] && pt=$x
   x="$(printf '%s' "$pol" | sed -n 's/.*[^0-9]\([0-9][0-9]*\)[ ]*round.*/\1/p')"; [ -n "$x" ] && pr=$x

@@ -62,7 +62,7 @@ fi
 vm=$(bash bin/verify-module.sh "$mod" --quick 2>&1); vm_rc=$?; vm=$(printf '%s\n' "$vm" | tail -15)
 look=$(bash bin/look-ledger.sh status 2>/dev/null | grep -E "\b$mod\." || true)
 # Polish loop per page (module-review.md stage 4, #686): numbers from PROJECT.md `Pipeline mode:`
-# (75%/2, 85%/3 default, 95%/5), `UI polish: <N>% / <R> rounds` overrides either (_common.sh).
+# (75%/2, 85%/3 default, 90%/5), `UI polish: <N>% / <R> rounds` overrides either (_common.sh).
 read -r pt pr <<EOF2
 $(mxtk_ui_polish "$PROJECT_ROOT")
 EOF2
@@ -81,6 +81,14 @@ pt=${pt:-85}; pr=${pr:-3}; pmode=$(mxtk_pipeline_mode "$PROJECT_ROOT" 2>/dev/nul
   echo; echo "## 3. mx check"; echo; echo '```'; echo "$chk"; echo '```'
   echo; echo "## 4. verify-module --quick (exit $vm_rc)"; echo; echo '```'; echo "$vm"; echo '```'
   echo; echo "## 5. LOOK owed in $mod"; echo; [ -n "$look" ] && printf '%s\n' "$look" | sed 's/^/- /' || echo "none recorded"
+  # Countable round cap (PR #700 mode experiment): one row per page, `Polish: n of cap`, which the
+  # lead updates per round. A template only; no gate reads it yet.
+  echo; echo "## 5b. Polish rounds (one row per page; raise n each round, stop at $pr)"; echo
+  echo "| Page | Polish | Fidelity | LOOK verdict | Gap logged |"
+  echo "|---|---|---|---|---|"
+  pages=$(printf '%s\n' "$look" | grep -oE "\b$mod\.[A-Za-z0-9_]+" | sort -u)
+  if [ -n "$pages" ]; then printf '%s\n' "$pages" | while IFS= read -r pg; do echo "| $pg | Polish: 0 of $pr | | | |"; done
+  else echo "| $mod.<Page> | Polish: 0 of $pr | | | |"; fi
   echo; echo "## 6. Lead: roles × pages, unhappy paths, fixes"; echo
   echo "Journeys and unit tests owed: \`./bin/affected-tests.sh --moment module --module $mod\`, then its run rows."
   echo "LOOK every page at 390 and 1280. Polish loop per page (Pipeline mode: $pmode), up to $pr rounds of fix → page-fidelity → LOOK;"

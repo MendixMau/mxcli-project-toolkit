@@ -1020,6 +1020,9 @@ check_stage_2() {
             return
           fi
           grep -q -- '^  UNFROZEN' <<<"$fl_out" && fl_note="; facts lock: contested identifiers left (bin/facts-lock.sh <project> resolve)"
+          # A lock that freezes (almost) nothing is not agreement (#621): say so on the PASS line.
+          local fl_thin; fl_thin="$(printf '%s\n' "$fl_out" | grep -m1 -E '^(NEAR-EMPTY|PENDING) facts-lock' | sed -E 's/^(NEAR-EMPTY|PENDING) facts-lock: //')"
+          [ -n "$fl_thin" ] && fl_note="$fl_note; ⚠ facts lock: $fl_thin"
         else
           fl_note="; no facts lock for $nbrd BRDs (bin/facts-lock.sh <project> build, then resolve)"
         fi

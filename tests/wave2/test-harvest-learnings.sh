@@ -27,6 +27,9 @@
 #       fixtures/harvest-learnings/ (see its CAPTURE.md).
 #   T6  a heading the toolkit log carries is not drafted again when it has ~ * or ` in its first
 #       30 characters, or starts with a dash once those are stripped.
+#   T7  docs/bugs.jsonl (bin/file-bugs.sh's log, #647): open rows (status open or none) are counted
+#       and pointed at file-bugs.sh, "Nothing to harvest" is not printed while any are open, and no
+#       row text is copied into the inbox (the redacted lane is file-bugs.sh, not a raw draft).
 #
 # Usage: bash tests/wave2/test-harvest-learnings.sh /path/to/harvest-learnings.sh
 
@@ -270,6 +273,28 @@ else
     fi
   fi
 fi
+
+# ---------------------------------------------------------------------------------------------
+# T7: bugs logged with bin/file-bugs.sh --add live in docs/bugs.jsonl. Field run 2026-11-05: a
+# project with 13 such rows was told "Nothing to harvest" (#647).
+# ---------------------------------------------------------------------------------------------
+echo "== T7: docs/bugs.jsonl open rows are reported, not 'Nothing to harvest' =="
+P7="$WORK/bugsproj"; mkdir -p "$P7/docs"
+printf '%s\n' '{"id":"PBUG-01","title":"Quuxleak secret title","status":"open"}' \
+  '{"id":"PBUG-02","title":"t2","status":"filed","issue_url":"https://github.com/MendixMau/mxcli-project-toolkit/issues/1"}' \
+  '{"id":"PBUG-03","title":"t3"}' '{"id":"PBUG-04","title":"t4","status": "open"}' > "$P7/docs/bugs.jsonl"
+OUT7="$(bash "$HARVEST" "$P7" --to "$WORK/inbox7" 2>&1)"; RC7=$?
+[ "$RC7" -eq 0 ] && ok "exit 0" || bad "exit $RC7, expected 0" "$OUT7"
+if printf '%s' "$OUT7" | grep -q "bugs.jsonl: 3 logged bug(s) not filed yet" && printf '%s' "$OUT7" | grep -q "file-bugs.sh --project"; then
+  ok "3 open rows (open + no status) counted and pointed at file-bugs.sh"
+else
+  bad "open bugs.jsonl rows not reported" "$OUT7"
+fi
+printf '%s' "$OUT7" | grep -q "Nothing to harvest" && bad "'Nothing to harvest' printed while 3 bugs are open" "$OUT7" || ok "no 'Nothing to harvest' while bugs are open"
+if grep -rqs "Quuxleak" "$WORK/inbox7"; then bad "row text copied into the inbox (bypasses redaction)"; else ok "no row text in the inbox"; fi
+printf '%s\n' '{"id":"PBUG-01","status":"filed"}' > "$P7/docs/bugs.jsonl"
+OUT7="$(bash "$HARVEST" "$P7" --to "$WORK/inbox7b" 2>&1)"
+printf '%s' "$OUT7" | grep -q "logged bug(s) not filed" && bad "a fully filed log still reported as open" "$OUT7" || ok "every row filed: no open-bugs line"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL   ($WORK)"

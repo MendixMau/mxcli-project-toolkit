@@ -672,7 +672,8 @@ if [ -w "$TOOLKIT_ROOT" ]; then
     } >> "$DENYFILE" 2>/dev/null && {
       echo ""
       echo "Registered \"$PROJECT_NAME\" with the toolkit leak guard ($DENYFILE)."
-      echo "  The guard will now refuse any toolkit commit that mentions it by name."
+      echo "  The guard will now refuse any toolkit commit that mentions it by name, and"
+      echo "  bin/file-bugs.sh reads it too, so a public bug report redacts the name."
       echo "  If you also need variants (a client name, a codename, an internal host),"
       echo "  add them there — one extended-regex pattern per line."
     }

@@ -225,6 +225,19 @@ if [ -f "$E2ESRC/config.js" ] && [ -f "$E2ESRC/project.config.template.js" ]; th
     && ok "V12: placeholder password, TEST_PASS unset: one credentials FAULT with its reason; journeys + monkey SKIPPED, never started" \
     || bad "V12: credentials rows=$_cr" "$sum"
   [ -n "${CAPTURE:-}" ] && cp "$_vl/summary.tsv" "$CAPTURE/credentials.summary.tsv"
+  # An older hand-edited config.js (pre-#329: no passSource) with a real password and TEST_PASS
+  # unset must not be refused here; its instruments' own preflights decide.
+  cp "$P/tests/e2e/config.js" "$WORK/stub/config.js.keep"
+  node -e 'const f=process.argv[1],fs=require("fs");let s=fs.readFileSync(f,"utf8");
+    s=s.replace(/^\s*passSource: passwordSource\(\),\n/m,"");fs.writeFileSync(f,s)' "$P/tests/e2e/config.js"
+  sed -i.bak "s/^const DEFAULT_PASS = .*/const DEFAULT_PASS = 'RealDemoPw-1';/" "$P/tests/e2e/project.config.js"
+  _np="$(cd "$P" && PROJECT_ROOT="$P" ALLOW_UNVERIFIED_APP=1 TEST_PASS= APP_PASS= node -e 'const c=require(process.argv[1]).cfg; console.log(String(c.passSource)+"|"+c.pass)' "$P/tests/e2e/config.js" 2>&1 | tail -1)"
+  TEST_PASS= APP_PASS= ALLOW_CONFIG_CREDENTIALS= vm MyFirstModule
+  { [ "$_np" = "undefined|RealDemoPw-1" ] && ! printf '%s' "$sum" | grep -q '^e2e credentials' \
+      && row '^journeys [(]UI' | grep -q '^PASS' && row '^monkey' | grep -q '^INFO'; } \
+    && ok "V12: old config.js without passSource + real password, TEST_PASS unset: no credentials FAULT" \
+    || bad "V12: false credentials FAULT on an old config.js (probe: $_np)" "$sum"
+  cp "$WORK/stub/config.js.keep" "$P/tests/e2e/config.js"; mv "$P/tests/e2e/project.config.js.bak" "$P/tests/e2e/project.config.js"
   TEST_PASS=x vm MyFirstModule
   { ! printf '%s' "$sum" | grep -q '^e2e credentials' && row '^journeys [(]UI' | grep -q '^PASS' && row '^monkey' | grep -q '^INFO'; } \
     && ok "V12: TEST_PASS set: no credentials row, journeys and monkey run" || bad "V12: TEST_PASS set" "$sum"

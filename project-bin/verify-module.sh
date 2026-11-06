@@ -675,8 +675,9 @@ fi
 # placeholder password in its own preflight (#278), but monkey.js has no preflight: it logged in as
 # the placeholder user three times, then the fallback account, and each rejected attempt counts
 # toward the demo account's lockout. Same rule as journey-runner.js's preflight: config.js's
-# passSource === 'template placeholder' (an older config.js without passSource: the password did not
-# come from the env), unless ALLOW_CONFIG_CREDENTIALS=1. One FAULT row carries the reason; journeys
+# passSource === 'template placeholder', unless ALLOW_CONFIG_CREDENTIALS=1. An older hand-edited
+# config.js without passSource is NOT refused here (it may carry a real password while TEST_PASS
+# is unset): its instruments' own preflights decide, as when config.js cannot be loaded. One FAULT row carries the reason; journeys
 # and monkey are SKIPPED as its dependents. config.js is only read here (ALLOW_UNVERIFIED_APP=1 lets
 # it load without the stack's ownership marker; nothing is contacted). A config.js that cannot be
 # read leaves CRED_OK=1: each instrument's own preflight still decides.
@@ -686,7 +687,7 @@ if [ "$SKIP_JOURNEYS" -eq 0 ] || [ "$SKIP_MONKEY" -eq 0 ]; then
   for _d in ${_E2E_DIRS[@]+"${_E2E_DIRS[@]}"}; do [ -f "$_d/config.js" ] && { _cfg_js="$_d/config.js"; break; }; done
   if [ -n "$_cfg_js" ] && [ "${ALLOW_CONFIG_CREDENTIALS:-}" != 1 ] && command -v node >/dev/null 2>&1; then
     _cred="$(ALLOW_UNVERIFIED_APP=1 node -e 'const c = (require(process.argv[1]).cfg) || {};
-      const ph = c.passSource !== undefined ? c.passSource === "template placeholder" : !c.passFromEnv;
+      const ph = c.passSource === "template placeholder";
       console.log(ph ? `placeholder\t${c.user || ""}` : "ok")' "$_cfg_js" 2>/dev/null | tail -1)"
     case "$_cred" in
       placeholder*)

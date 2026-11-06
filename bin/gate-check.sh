@@ -1225,9 +1225,11 @@ reg_unavailable_note() {
 #   - so does a new header row (followed by a separator) whose first cell is not "Stage", so an
 #     Open-questions table after a blank line ("| # | Question | Raised at | Status |") is
 #     never read as Decisions. A new "| Stage |" header falls through and re-opens the table.
+# The separator test allows a trailing \r: a CRLF register's separator must still mark the
+# Open-questions header, or its rows read as Decisions after a blank line (a false PASS).
 # Line numbers in the reader bodies must use FNR, not NR (NR counts both passes).
 DECISIONS_TABLE_AWK='
-    FNR == NR { if ($0 ~ /^\|[ \t:|-]*-[ \t:|-]*$/) sep[FNR] = 1; next }
+    FNR == NR { if ($0 ~ /^\|[ \t:|-]*-[ \t\r:|-]*$/) sep[FNR] = 1; next }
     /^[ \t\r]*$/ { next }
     !/^\|/ { intab = 0; next }
     sep[FNR + 1] { h0 = tolower($2); gsub(/^[ \t]+|[ \t]+$/, "", h0); if (h0 != "stage") { intab = 0; next } }

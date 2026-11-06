@@ -19,7 +19,8 @@
 # POSITIVE CONTROL. Against the pre-fix script (origin/master ee12a615) D1, D2 and D4 FAIL.
 # D3 is a [guard]: it passes on master, and FAILs on a naive fix that only skips blank lines
 # (measured: the Open-questions rows then pass Stages 4 and 7). D4 would also FAIL on a fix
-# that kept NR for the line id, since NR counts both passes of the two-pass read.
+# that kept NR for the line id, since NR counts both passes of the two-pass read. D3c is D3
+# on a CRLF register: it FAILs (a false PASS) when the separator test does not allow \r.
 #
 # Keep gate-check.sh under the toolkit's bin/ (it derives TOOLKIT_DIR from BASH_SOURCE).
 set -uo pipefail
@@ -96,6 +97,29 @@ esac
 case "$L7" in
   *': PASS'*) bad "Open-questions row read as the Stage-7 cutover decision: $L7" ;;
   *) ok "an Open-questions '| 7 | … | CONFIRMED |' row does not pass Stage 7" ;;
+esac
+
+echo "== D3c: [guard] D3 with CRLF line endings — Open-questions rows still NOT decisions =="
+P="$(mkproj d3c <<'EOF'
+| Stage | Decision | Status | Notes |
+|---|---|---|---|
+| 3 | Architecture | CONFIRMED | |
+
+| # | Question | Raised at | Status |
+|---|---|---|---|
+| 4 | Who signs the plan? | Stage 2 | CONFIRMED |
+| 7 | Cutover weekend? | Stage 2 | CONFIRMED |
+EOF
+)"
+sed 's/$/\r/' "$P/PROJECT.md" > "$P/PROJECT.md.crlf" && mv "$P/PROJECT.md.crlf" "$P/PROJECT.md"
+L4="$(stage_line "$("$GATE" --no-html "$P" 4 2>&1)" 4)"; L7="$(stage_line "$("$GATE" --no-html "$P" 7 2>&1)" 7)"
+case "$L4" in
+  *': PASS'*) bad "CRLF: Open-questions row read as a Stage-4 decision: $L4" ;;
+  *) ok "CRLF: an Open-questions '| 4 | … | CONFIRMED |' row does not pass Stage 4" ;;
+esac
+case "$L7" in
+  *': PASS'*) bad "CRLF: Open-questions row read as the Stage-7 cutover decision: $L7" ;;
+  *) ok "CRLF: an Open-questions '| 7 | … | CONFIRMED |' row does not pass Stage 7" ;;
 esac
 
 echo "== D4: auto_hand_pending still names the register line, not a doubled one =="

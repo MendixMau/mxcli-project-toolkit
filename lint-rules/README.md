@@ -7,6 +7,8 @@ and configure the marked constants — **after** running `mxcli init`, never bef
 | Rule | What it catches | Configure? |
 |---|---|---|
 | `conv009_max_microflow_objects.star` | CONV009 — a microflow over the object threshold. Replaces the stock rule, which hard-codes 15 and ignores the `maxObjects` option its own generated `lint-config.yaml` advertises | in `.claude/lint-config.yaml`, never in the file: `rules: CONV009: options: maxObjects: 20`, `countLoopBodies: true` (default 15 / false) |
+| `conv007_xpath_on_all_access.star` | CONV007 — an entity whose non-admin role has an unscoped WRITE (optional `check_read` adds unscoped READ). Replaces the stock rule, which flags every Admin read as well (217 hits on ProcureFlow, 29 after) | optional — `skip_roles` (default `Admin, Administrator`), `skip_modules`, `check_read`, one comma-separated text each |
+| `mxtk_sec015_flow_execute_rights.star` | MXTK-SEC015 — a microflow or nanoflow a role can execute that a role matrix in `lint-config.yaml` does not allow it to. Silent without a matrix. Opt-in `heuristic: true` also warns on an `ACT_` flow whose executing role has no WRITE on the entities it changes | yes — `matrix` (see below); `heuristic` |
 | `conv010_act_microflow_content.star` | `ACT_` page-action microflows holding business logic instead of delegating to `SUB_` | if your prefixes differ — `ACTION_PREFIX`, `DELEGATE_PREFIX` |
 | `mxtk_ux003_action_user_feedback.star` | MXTK-UX003 (was CONV020, see "Rule IDs" below) — page-triggered microflows that commit / import / delete but tell the user nothing | no — `PROJECT_MODULES` defaults to `"*"` (all modules the lint run includes, minus `.claude/lint-vendor-modules.txt`); `ACTION_PREFIX` if your prefixes differ |
 | `data_change_microflows.star` | ARCH002 — persistent entities written from pages instead of microflows | no |
@@ -329,3 +331,31 @@ Known limitation, documented in the rule rather than hidden: `refs_to()` reports
 are indistinguishable. `MXTK-UX003` therefore filters on the `ACT_` naming convention. A real
 user action named something else is missed. That is a deliberate false-negative, chosen over
 firing a notification warning on every page load.
+
+## MXTK-SEC015 role matrix (example)
+
+CONV007 and SEC015 are configured under `lint-config.yaml` `rules:` `options:`. Lists are one
+comma text or a multi-line text, because the pinned mxcli passes only text, bool, int and float
+options.
+
+```yaml
+rules:
+  CONV007:
+    options:
+      skip_roles: "Admin, Administrator"
+      skip_modules: "Marketplace_Vendor"   # modules not yours to fix
+      check_read: false
+  MXTK-SEC015:
+    options:
+      heuristic: false                     # true adds the ACT_ write-right warning
+      matrix: |
+        Procurement.ACT_Vendor_Approve = Admin, ProcurementOfficer
+        Procurement.ACT_Vendor_* = Admin, ProcurementOfficer
+        Procurement.ACT_ApprovalStep_Decide = Admin, DepartmentManager, ProcurementOfficer, FinanceApprover
+```
+
+Left side is a qualified flow name (`*` matches any run of characters). Right side is the USER
+roles allowed to execute it (not module roles). When several lines match a flow, a role must be
+allowed by every one. A matrix role that is not a user role, a pattern that matches no flow, or a
+malformed line is reported as a `_rule` finding, so a typo cannot pass silently. The heuristic is
+noisy (49 hits on ProcureFlow, 46 workflow user-task flows): run it behind the baseline.

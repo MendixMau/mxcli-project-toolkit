@@ -251,7 +251,17 @@ rm -f "$P/tests/k.test.md" "$P/tests/m.test.md"
 
 echo "-- review: a rollback-scan.sh in the project gives a flagged file its own boot; absent = unchanged"
 printf '/**\n * @test commits\n */\n' > "$P/tests/commits.test.mdl"
-printf '#!/usr/bin/env bash\ncase "$1" in *commits*) echo "commit in own transaction" ;; esac\nexit 0\n' > "$P/bin/rollback-scan.sh"
+# Stub of the real contract: always exit 0, --json, an A line only for the committing file; the
+# others get a B line (autonumber), which must NOT split the boot.
+cat > "$P/bin/rollback-scan.sh" <<'STUB'
+#!/usr/bin/env bash
+[ "$1" = --json ] || { echo "rollback-scan: 1 root flow(s) · 0 effect line(s)"; exit 0; }
+case "$2" in
+  *commits*) echo '{"reached":2,"effects":[{"cls":"A","effect":"SEPARATE-COMMIT"}]}' ;;
+  *) echo '{"reached":1,"effects":[{"cls":"B","effect":"AUTONUMBER"}]}' ;;
+esac
+exit 0
+STUB
 OUT="$(run r1 -- tests/a.test.mdl tests/commits.test.mdl tests/b.test.mdl --local)"
 [ "$(wc -l < "$WORK/rec.r1.calls" | tr -d ' ')" = 2 ] && has "flagged file alone" "$(sed -n 2p "$WORK/rec.r1.calls")" "test tests/commits.test.mdl --local" || bad "calls: $(cat "$WORK/rec.r1.calls")"
 has "says why" "$OUT" "reaches an effect a rollback does not undo"

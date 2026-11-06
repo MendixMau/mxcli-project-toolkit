@@ -318,8 +318,9 @@ for _a in "$@"; do
 done
 # Own boot when the file keeps its rows on purpose (@cleanup none, in a .test.mdl or a .test.md), or when
 # the project's rollback-scan.sh (it lands with another change; absent = skipped) finds an effect a rollback
-# does not undo. Contract assumed: `rollback-scan.sh <file>` prints a line per reached effect, or exits
-# non-zero; a clean file prints nothing and exits 0. About 0.3 s a file.
+# does not undo and others would see (an A line: REST, file, separate commit, queue, mail, workflow).
+# B lines (autonumber, log) and U lines (unclassified Java) share the boot. Read from `--json`; the
+# scan always exits 0 and prints a summary, so a scan that cannot run means shared boot. About 0.3 s a file.
 LEAK_WHY=""
 SCAN=""; for _s in "$PROJECT_ROOT/bin/rollback-scan.sh" "$PROJECT_ROOT/project-bin/rollback-scan.sh"; do [ -f "$_s" ] && { SCAN="$_s"; break; }; done
 leaky() {
@@ -327,7 +328,13 @@ leaky() {
   [ -f "$MODEL_DIR/$_p" ] && _p="$MODEL_DIR/$_p"
   if grep -Eq '@cleanup[[:space:]]+none' "$_p" 2>/dev/null; then LEAK_WHY="has @cleanup none"; return 0; fi
   if [ -n "$SCAN" ]; then
-    if ! _o="$(cd "$PROJECT_ROOT" && bash "$SCAN" "$_p" 2>/dev/null)" || [ -n "$_o" ]; then LEAK_WHY="reaches an effect a rollback does not undo (rollback-scan)"; return 0; fi
+    _o="$(cd "$PROJECT_ROOT" && bash "$SCAN" --json "$_p" 2>/dev/null)" || _o=""
+    if printf '%s' "$_o" | python3 -c 'import json,sys
+try: d=json.load(sys.stdin)
+except Exception: sys.exit(1)
+sys.exit(0 if any(e.get("cls")=="A" for e in d.get("effects",[])) else 1)' 2>/dev/null; then
+      LEAK_WHY="reaches an effect a rollback does not undo (rollback-scan A line)"; return 0
+    fi
   fi
   return 1
 }

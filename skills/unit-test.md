@@ -134,6 +134,20 @@ Rules, each from the runner's behaviour:
 - Keep the plain rollback test for the logic cases. The read-back is one extra test per committing flow.
 - Path length: a copy of the app under a long path (a session scratch folder) made mxbuild fail with
   `IO_PathTooLong`. Run from a short path.
+- An enumeration value in `@verify` is a quoted string (`= 'CANCELLED'`), not `Module.Enum.CANCELLED`.
+  `--list` shows it before a run.
+- Fixture rows the test creates (users, vendors) stay too: unique keys for those as well, per file,
+  or a later file fails with "already in use".
+
+Gotchas found by a blind run of this section on seeded bugs (4 of 4 caught):
+
+- `count()` is not allowed inside a `set` expression (CE0117): count into a variable first.
+- A variable is `declare`d before its first `set`.
+- An AutoNumber attribute cannot be set on create (CE0852). Its boundaries (9/10, 99/100) are
+  reachable only by filler commits and still depend on the counter, so list them as skipped
+  rather than guess.
+- When the flow retrieves its own copy of an object, the test's variable is stale after the call:
+  re-retrieve before asserting on it, or read it back with `@verify`.
 
 ## 3. Check before you run: free, no model write
 

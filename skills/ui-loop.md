@@ -246,7 +246,7 @@ app uses `bin/test-stack-up.sh --restart` instead. This is the one restart an im
 without the lead (`dispatching.md`).
 
 **Under `mxcli run --local`, restarts matched every "it signs me out" report** in one field app,
-and the trial licence's own 2–4 h stop is a restart too. If a human may be using the app, say so
+and the trial licence's own 2–4 h stop is a restart too. Before a long suite run `bin/licence-budget.py` and restart first when the batch will not fit. If a human may be using the app, say so
 in chat **before** restarting. When a human reports "it keeps signing me out", compare the runtime
 log's `successfully started` lines with the times first: 7 starts in ~90 min of theme work lined up
 with the reports (#337). That is a **timing match**; no session table was inspected, and sessions

@@ -104,7 +104,7 @@ leaves it alive against the runtime's session cap.
 users ("Maximum number of sessions exceeded!") and stops itself after a random 2 to 4 hours
 ("LicenseService: Maximum run time exceeded"). Both read as the app failing under load. On a
 local trial, more than 6 sessions is not a test: use a licensed runtime or a cloud sandbox for
-user counts above 6, and check uptime before a long run. Concurrent *requests* on one session
+user counts above 6, and check uptime before a long run: `python3 bin/licence-budget.py . --runs N --minutes M` (exit 1 = restart first with `bin/app-restart.sh`, exit 2 = not measured, never a pass). Concurrent *requests* on one session
 hit no such cap in the field runs: the 1000 and 2000 bursts ran on one session.
 
 **10. The trace store samples.** Jaeger's query caps at a few hundred traces; one burst makes

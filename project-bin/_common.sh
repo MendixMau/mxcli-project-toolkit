@@ -1139,6 +1139,29 @@ project_name() {
   basename "$mpr" .mpr
 }
 
+# --- Pipeline mode (#686) ------------------------------------------------------------------
+# PROJECT.md `Pipeline mode: high-speed | balanced | high-quality`. No line, or a value not
+# recognised, = balanced. Env MXTK_PIPELINE_MODE wins. Read by exec.sh (per-row lane), the pre-push
+# hook (install-project-hooks.sh) and module-close.sh; the table is iterative-build-loop.md
+# § "Pipeline mode". $1 = project root (default $PROJECT_ROOT).
+mxtk_pipeline_mode() {
+  local v="${MXTK_PIPELINE_MODE:-}"
+  [ -n "$v" ] || v="$(sed -n 's/^[*_ >-]*Pipeline mode:[*_ `]*\([A-Za-z-]*\).*/\1/p' "${1:-$PROJECT_ROOT}/PROJECT.md" 2>/dev/null | head -1)"
+  case "$(printf '%s' "$v" | tr 'A-Z' 'a-z')" in
+    high-speed) echo high-speed ;; high-quality) echo high-quality ;; *) echo balanced ;;
+  esac
+}
+# Module-close polish loop, "<fidelity %> <max rounds>": 75 2 | 85 3 | 95 5 by mode; a PROJECT.md
+# line `UI polish: <N>% / <R> rounds` overrides either number.
+mxtk_ui_polish() {
+  local r="${1:-$PROJECT_ROOT}" pt pr pol x
+  case "$(mxtk_pipeline_mode "$r")" in high-speed) pt=75; pr=2 ;; high-quality) pt=95; pr=5 ;; *) pt=85; pr=3 ;; esac
+  pol="$(grep -m1 -iE '^[*_ -]*UI polish:' "$r/PROJECT.md" 2>/dev/null)"
+  x="$(printf '%s' "$pol" | sed -n 's/[^0-9]*\([0-9][0-9]*\)[ ]*%.*/\1/p')"; [ -n "$x" ] && pt=$x
+  x="$(printf '%s' "$pol" | sed -n 's/.*[^0-9]\([0-9][0-9]*\)[ ]*round.*/\1/p')"; [ -n "$x" ] && pr=$x
+  echo "$pt $pr"
+}
+
 # --- Python 3 ------------------------------------------------------------------------------
 # The project-side twin of bin/lib/portable.sh's require_py. It cannot simply source that file:
 # portable.sh is toolkit-side and no installer copies it into a project, while these scripts

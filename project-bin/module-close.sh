@@ -12,6 +12,8 @@
 #      when the model has not had one since its last change
 #   4. bin/verify-module.sh <Module> --quick (conformance, graph sweep, coverage; diagnostic only)
 #   5. bin/look-ledger.sh status: pages of this module still owed a LOOK
+#   6. the lead's checklist: journeys + unit tests owed, the 390 + 1280 LOOK, and the bounded polish
+#      loop (by `Pipeline mode:`, 85% / 3 rounds when balanced; `UI polish:` overrides; module-review.md)
 # Then the lead does what no script can: open each owed page as each role that can reach it,
 # run the module's unhappy paths, and fix every ⚠ that is real. Record those in the same report.
 #
@@ -59,6 +61,12 @@ full build (bin/verify-model.sh): $(bash bin/verify-model.sh 2>&1 | grep -E '^(�
 fi
 vm=$(bash bin/verify-module.sh "$mod" --quick 2>&1); vm_rc=$?; vm=$(printf '%s\n' "$vm" | tail -15)
 look=$(bash bin/look-ledger.sh status 2>/dev/null | grep -E "\b$mod\." || true)
+# Polish loop per page (module-review.md stage 4, #686): numbers from PROJECT.md `Pipeline mode:`
+# (75%/2, 85%/3 default, 95%/5), `UI polish: <N>% / <R> rounds` overrides either (_common.sh).
+read -r pt pr <<EOF2
+$(mxtk_ui_polish "$PROJECT_ROOT")
+EOF2
+pt=${pt:-85}; pr=${pr:-3}; pmode=$(mxtk_pipeline_mode "$PROJECT_ROOT" 2>/dev/null || echo balanced)
 
 {
   echo "# Module close: $mod ($(now), $(( $(date +%s) - t0 )) s of instruments)"
@@ -74,6 +82,11 @@ look=$(bash bin/look-ledger.sh status 2>/dev/null | grep -E "\b$mod\." || true)
   echo; echo "## 4. verify-module --quick (exit $vm_rc)"; echo; echo '```'; echo "$vm"; echo '```'
   echo; echo "## 5. LOOK owed in $mod"; echo; [ -n "$look" ] && printf '%s\n' "$look" | sed 's/^/- /' || echo "none recorded"
   echo; echo "## 6. Lead: roles × pages, unhappy paths, fixes"; echo
+  echo "Journeys and unit tests owed: \`./bin/affected-tests.sh --moment module --module $mod\`, then its run rows."
+  echo "LOOK every page at 390 and 1280. Polish loop per page (Pipeline mode: $pmode), up to $pr rounds of fix → page-fidelity → LOOK;"
+  echo "stop at fidelity ≥ $pt% AND a written LOOK with no blocking issue (a score alone never passes; UNMEASURED: the LOOK decides)."
+  echo "Gap left after $pr rounds: log it in design/ui-reviews/ and report it at the gate; it does not block the module."
+  echo
   echo "| Page | Role | Seen (screenshot path) | Defect | Fixed in row/script |"
   echo "|---|---|---|---|---|"
 } > "$rep"

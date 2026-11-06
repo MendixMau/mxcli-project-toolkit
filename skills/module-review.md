@@ -41,6 +41,14 @@ looking. That is how a module ships with 31/31 green checks and a broken grid on
 Stages 1–3 are cheap and mechanical. **Stage 4 is the one with the yield** and the one that
 costs attention. Budget for it; do not let a green stage 3 buy an exemption from it.
 
+**Stage 4 cadence and the polish loop.** Every page gets a LOOK at 390 **and** 1280. Then, per
+page, up to R rounds of fix → `page-fidelity.js` → LOOK. Stop when fidelity ≥ T% **and** the
+written LOOK finds no blocking issue; a score alone never passes a page (2026-09-19), and where
+fidelity is `UNMEASURED` the LOOK alone decides. After R rounds, log the gap in
+`design/ui-reviews/` and move on: reported at the gate, not blocking. T / R come from PROJECT.md
+`Pipeline mode:` (balanced, the default: 85% / 3; `iterative-build-loop.md` § Pipeline mode);
+`module-close.sh` prints them.
+
 ---
 
 ## Stage 4 — the intelligence check
@@ -52,13 +60,8 @@ where **every component appears at once, in the real Atlas cascade**, which give
 defect yield per screenshot of any page in the app — and a defect found there is *one* defect, while
 the same defect found page by page is one per page, each diagnosed separately and usually wrongly.
 
-Measured on a 2026-08-26 field run: one look at a gallery that had never been opened surfaced, in
-order, a badge rendering at 7.5px instead of 12px (a stylesheet-wide unit error), a component
-rendering as a full-width bar with its text underneath (a class on the wrong widget carrier),
-white-on-pale-green text (a rule that set `background` and inherited `color`), and a table reading
-"0 to 0 of 0" that led back to a seed microflow silently regressed three scripts earlier. Three of
-the four were invisible to `mx check`, `mxcli lint` and the wireframe comparison, and all four had
-already survived a full module review.
+One look at a never-opened gallery found four defects, three invisible to `mx check`, lint and
+the wireframe compare (2026-08-26; `process/baseline-incident-history.md` § UI6).
 
 **If the gallery has no navigation entry, that is finding number one** — record it, wire it, then
 look. A gallery that exists and is unreachable is why this rung is stated as an order and not a
@@ -209,10 +212,8 @@ consequence (2026-08-23, sibling project): a decorative full-bleed `.card-hero::
 `pointer-events: none` sat over the card's real buttons — every screenshot review passed; only
 clicking found them dead.
 
-**Rows 8–9 run on every page, whichever yardstick applies** — they were added after 2026-08-22,
-when a Station page passed its LOOK review with no page title at all, an unstyled default nav bar,
-a field missing outright, and ragged field layout, because the rubric only ever interrogated the
-content region and the reviewer verified layout from CSS, not pixels (see the rule below).
+**Rows 8–9 run on every page, whichever yardstick applies** — a page once passed with no title
+and a field missing (2026-08-22; `process/baseline-incident-history.md` § UI7).
 
 **The pixel rule: a visual verdict cites what the screenshot shows, never what the CSS declares.**
 The 2026-08-22 escape was written as *"fields render in a clean 4-column grid

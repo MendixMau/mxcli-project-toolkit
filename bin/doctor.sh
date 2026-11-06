@@ -498,7 +498,7 @@ mxcli_latest_advice() {
 #   0. MH_STALE (machine_health): the project runs older local copies of the speed scripts -> upgrade them
 #      first; every other measurement is of the old path. Then MH_SYNC (project in a sync folder) -> move it.
 #   a. PROJECT.md says `Gate mode: full` -> remove that line: `mx check` per exec is the default, with the
-#      full build before every push (offered even when nothing is slow: it helps every machine).
+#      full build at module close (offered even when nothing is slow: it helps every machine).
 #   b. process starts are slow AND this is Git Bash AND `wsl.exe --status` succeeds -> run the toolkit in WSL.
 #   c. slow AND a docker/podman CLI is present and runs (`--version`, no daemon call) -> a dev container.
 #   d. slow, none of the above -> let Claude work in the cloud (Claude Code on the web), pull with git pull.
@@ -524,7 +524,7 @@ recommended_fix() {
     _rf_pm="$(sed -n 's/^[*_ ]*Gate mode:[*_ ]*\([A-Za-z]*\).*/\1/p' "$PROJECT_DIR/PROJECT.md" 2>/dev/null | head -1 | tr 'A-Z' 'a-z')"
     if [ "$_rf_pm" = full ]; then
       echo "  Remove \"Gate mode: full\" from PROJECT.md (one line). Each model write is then checked with the quick"
-      echo "  mx check instead of a full build, and the full build runs before you push and at module close."
+      echo "  mx check instead of a full build, and the full build runs at module close (and before the next push after it)."
       return 0
     fi
   fi

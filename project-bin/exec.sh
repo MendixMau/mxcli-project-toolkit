@@ -494,17 +494,45 @@ elif [ -r "$SCRIPT" ]; then
   _cc="$(mxtk_change_class "$SCRIPT" 2>/dev/null || true)"
   CHANGE_CLASS="${_cc%%	*}"; CHANGE_WHY="${_cc#*	}"
 fi
+# Per row vs module close, by PROJECT.md `Pipeline mode:` (#686: rows averaged 19 min, mostly
+# per-row journeys and dual-viewport LOOKs that caught nothing a module-close pass missed).
+# _common.sh mxtk_pipeline_mode; no line = balanced. Table: iterative-build-loop.md § Pipeline mode.
+#   high-speed   per row: the exec gate only            unit tests at module close
+#   balanced     per row: + one LOOK at 1280            unit tests at module close
+#   high-quality per row: journeys + LOOK 390 and 1280  unit tests per row (master before #686)
+# Below high-quality, unit tests still run per row when PROJECT.md's `## Test strategy` row
+# "Every change" names a unit scope other than none: the project opted in.
+PIPELINE_MODE="$(mxtk_pipeline_mode "$PROJECT_ROOT")"
+PER_ROW_UNIT=0
+[ "$PIPELINE_MODE" = high-quality ] && PER_ROW_UNIT=1
+if _first_match "$PROJECT_ROOT/PROJECT.md" '^\|[ *`]*[Ee]very change[^|]*\|([^|]*)\|'; then
+  _pru="$(printf '%s' "$_FM" | tr 'A-Z' 'a-z' | sed 's/[(,].*//; s/[ *`]//g')"
+  case "$_pru" in none|"") ;; *) PER_ROW_UNIT=1 ;; esac
+fi
+_CLOSE="run once at module close (bin/module-close.sh)"
+case "$PIPELINE_MODE" in
+  high-quality) _UIROW="no .test.mdl."; _UIJ="re-run once, + a LOOK at 390 and 1280. Reviewers read the artifacts, they do not re-run" ;;
+  high-speed)   _UIROW="the exec gate only; no LOOK, no journeys, no .test.mdl."; _UIJ="+ the 390/1280 LOOK $_CLOSE" ;;
+  *)            _UIROW="one quick LOOK at 1280 of the page you just changed. No journeys, no .test.mdl."; _UIJ="+ the 390/1280 LOOK $_CLOSE" ;;
+esac
 change_lane() {
   case "$CHANGE_CLASS" in
-    ui-only) echo "re-run the journeys of every page the change reaches (embedders of a changed snippet/layout) once + a LOOK. No .test.mdl; reviewers read the artifacts, they do not re-run" ;;
-    logic)   echo "re-run only the tests whose subject this change touched (changed microflows + their SHOW CALLERS, changed pages' journeys). Unit tests only for affected modules with unit on; everything runs once at build complete and before each later deploy, per PROJECT.md ## Test strategy" ;;
+    ui-only) echo "per row: $_UIROW The journeys of every page the change reaches (embedders of a changed snippet/layout) $_UIJ" ;;
+    logic)   if [ "$PIPELINE_MODE" = high-quality ]; then echo "re-run only the tests whose subject this change touched (changed microflows + their SHOW CALLERS, changed pages' journeys). Unit tests only for affected modules with unit on; everything runs once at build complete and before each later deploy, per PROJECT.md ## Test strategy"
+             elif [ "$PER_ROW_UNIT" = 1 ]; then echo "per row: unit tests whose subject this change touched (PROJECT.md ## Test strategy 'Every change' opts in). No journeys; they $_CLOSE"
+             else echo "per row: the exec gate only. Unit tests (modules with unit on, PROJECT.md Unit tests default) and journeys $_CLOSE"; fi ;;
   esac
 }
+POLISH_NOTE="Screens are polished and checked at module close; mid-module pages may look rough, that's expected."
 [ -n "$CR_ID" ] && echo "→ Change request: $CR_ID (PROJECT.md '## Change log'; cite this run's commit in its Closed-by)"
 if [ -n "$CHANGE_CLASS" ]; then
   echo "→ Change class: $CHANGE_CLASS ($CHANGE_WHY)"
-  echo "  test lane (skills/testing-shape.md §3): $(change_lane)"
-  [ "$PATCH_MODE" = "1" ] || echo "  affected tests: ./bin/affected-tests.sh $SCRIPT"
+  echo "  test lane (skills/testing-shape.md §3; Pipeline mode: $PIPELINE_MODE): $(change_lane)"
+  [ "$PIPELINE_MODE" = high-quality ] || echo "  $POLISH_NOTE"
+  if [ "$PATCH_MODE" != "1" ]; then
+    if [ "$PER_ROW_UNIT" = 1 ]; then echo "  affected tests: ./bin/affected-tests.sh $SCRIPT"
+    else echo "  tests owed at module close: ./bin/affected-tests.sh --moment module --module <Module>"; fi
+  fi
 fi
 
 cd "$PROJECT_ROOT"

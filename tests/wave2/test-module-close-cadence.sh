@@ -1,0 +1,181 @@
+#!/usr/bin/env bash
+# Fixture for #686 speed cuts 1, 2 and 3 as PROJECT.md `Pipeline mode: high-speed | balanced |
+# high-quality` (no line = balanced): what runs per build row, and what waits for module close.
+#
+# usage: bash tests/wave2/test-module-close-cadence.sh [toolkit-root]
+#
+# Run against a worktree of master ee12a615, 28 of the 38 cases fail; the 10 that pass there are
+# guards that master's behaviour survives where it should (high-quality = master per row, the
+# 2026-09-19 line, MXTK_PREPUSH_BUILD=always, a refused push on a failing build, the table last).
+#   E1-E7  exec.sh per-row lane (the real exec.sh, run on a stub project; it prints the lane and
+#          then refuses an uncommitted model, writing nothing), per mode. balanced (no line): one
+#          1280 LOOK, no journeys, the plain-words note; logic = the exec gate only, unless
+#          `## Test strategy` row `Every change` names a unit scope. high-speed: no LOOK per row.
+#          high-quality: master's per-row journeys + 390/1280 LOOK + per-row unit tests.
+#   I1     init-project.sh's generated CLAUDE.local.md: one viewport per page script, both at module
+#          review, and the 2026-09-19 fidelity-is-not-a-LOOK line kept.
+#   P1-P9  the pre-push hook (install-project-hooks.sh): under `Gate mode: check`, the full build runs
+#          once per module (balanced, high-speed), every push under high-quality or
+#          MXTK_PREPUSH_BUILD=always; a v1
+#          hook is replaced in place and fails --check (so sync-project.sh refreshes it).
+#   M1-M3  module-close.sh's report carries the bounded polish loop: 85% / 3 rounds with no line,
+#          75/2 high-speed, 95/5 high-quality; PROJECT.md `UI polish:` overrides both numbers.
+# Golden MDL input is the toolkit's own shipped scripts (as test-exec-change-class.sh uses).
+set -uo pipefail
+TK="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/mc-cadence.XXXXXX")"
+export MXTK_LEAKGUARD_DENYFILE="$WORK/denylist"
+trap 'rm -rf "$WORK"' EXIT
+PASS=0; FAIL=0
+ok()  { PASS=$((PASS+1)); printf '  ok   %s\n' "$1"; }
+bad() { FAIL=$((FAIL+1)); printf '  FAIL %s\n' "$1"; [ -n "${2:-}" ] && printf '%s\n' "$2" | sed 's/^/       /'; return 0; }
+echo "== subject: $TK"
+
+UI_MDL="$TK/tests/wave2/fixtures/page-fidelity-mocks/bind-contract-alter.mdl"   # ALTER PAGE → ui-only
+LOGIC_MDL="$TK/skills/agents-examples/tool-write.example.mdl"                   # microflow → logic
+NOTE="Screens are polished and checked at module close; mid-module pages may look rough, that's expected."
+
+echo "-- E: exec.sh per-row lane"
+E="$WORK/exec"; mkdir -p "$E/bin"; cp "$TK/project-bin/exec.sh" "$TK/project-bin/_common.sh" "$E/bin/"
+printf 'x' > "$E/App.mpr"; ( cd "$E" && git init -q )
+lane() {  # $1 script, $2 PROJECT.md body
+  printf '%s\n' "$2" > "$E/PROJECT.md"
+  ( cd "$E" && MXTK_ROOT="$TK" timeout 120 bash bin/exec.sh "$1" 2>&1 ) | sed -n '1,6p'
+}
+out=$(lane "$UI_MDL" "# P")
+case "$out" in *"Pipeline mode: balanced"*"per row: one quick LOOK at 1280 of the page you just changed. No journeys"*) ok "E1 no line = balanced; ui-only: one 1280 LOOK, no journeys per row" ;; *) bad "E1 ui-only lane" "$out" ;; esac
+case "$out" in *"390/1280 LOOK run once at module close"*) ok "E1 ui-only: journeys + 390/1280 LOOK at module close" ;; *) bad "E1 module close" "$out" ;; esac
+case "$out" in *"$NOTE"*) ok "E1 the plain-words note prints with the lane" ;; *) bad "E1 note missing" "$out" ;; esac
+case "$out" in *"affected tests: ./bin/affected-tests.sh"*) bad "E1 still points at per-row affected tests" "$out" ;; *) ok "E1 no per-row affected-tests pointer" ;; esac
+out=$(lane "$LOGIC_MDL" "# P")
+case "$out" in *"per row: the exec gate only."*"run once at module close"*"tests owed at module close"*) ok "E2 balanced logic, no strategy row: exec gate only, unit tests at module close" ;; *) bad "E2 logic lane" "$out" ;; esac
+TS='## Test strategy
+| Moment | Unit tests | Journeys | Status |
+|---|---|---|---|'
+out=$(lane "$LOGIC_MDL" "Unit tests default: yes
+$TS
+| Every change (build and feedback) | affected, modules on only | affected | CONFIRMED |")
+case "$out" in *"opts in"*"affected tests: ./bin/affected-tests.sh"*) ok "E3 'Every change' row with a unit scope: per-row unit tests (opt-in honoured)" ;; *) bad "E3 opt-in" "$out" ;; esac
+out=$(lane "$LOGIC_MDL" "Unit tests default: yes
+$TS
+| Every change (build and feedback) | none (exec gate only) | none | CONFIRMED |")
+case "$out" in *"per row: the exec gate only."*) ok "E4 'Every change' row none: exec gate only" ;; *) bad "E4 none row" "$out" ;; esac
+out=$(lane "$UI_MDL" "**Pipeline mode:** high-speed")
+case "$out" in *"Pipeline mode: high-speed"*"per row: the exec gate only; no LOOK, no journeys"*"390/1280 LOOK run once at module close"*"$NOTE"*) ok "E5 high-speed ui-only: no LOOK per row, everything at module close" ;; *) bad "E5 high-speed" "$out" ;; esac
+out=$(lane "$UI_MDL" "Pipeline mode: high-quality")
+case "$out" in *"Pipeline mode: high-quality"*"(embedders of a changed snippet/layout) re-run once, + a LOOK at 390 and 1280"*) ok "E6 high-quality ui-only: journeys + LOOK at 390 and 1280 per row (master)" ;; *) bad "E6 high-quality ui" "$out" ;; esac
+case "$out" in *"$NOTE"*) bad "E6 high-quality prints the rough-pages note" ;; *) ok "E6 high-quality: no rough-pages note" ;; esac
+out=$(lane "$LOGIC_MDL" "Pipeline mode: high-quality")
+case "$out" in *"re-run only the tests whose subject this change touched"*"affected tests: ./bin/affected-tests.sh"*) ok "E7 high-quality logic: unit tests per row (master)" ;; *) bad "E7 high-quality logic" "$out" ;; esac
+out=$(lane "$LOGIC_MDL" "Pipeline mode: turbo")
+case "$out" in *"Pipeline mode: balanced"*"per row: the exec gate only."*) ok "E7 an unknown value reads as balanced" ;; *) bad "E7 unknown value" "$out" ;; esac
+
+echo "-- I: init-project.sh generated CLAUDE.local.md"
+mkdir -p "$WORK/fakebin"; for s in open xdg-open; do printf '#!/bin/sh\nexit 0\n' > "$WORK/fakebin/$s"; chmod +x "$WORK/fakebin/$s"; done
+IP="$WORK/initproj"; mkdir -p "$IP"
+PATH="$WORK/fakebin:$PATH" bash "$TK/bin/init-project.sh" "$IP" >/dev/null 2>&1
+CL="$IP/CLAUDE.local.md"
+if [ -f "$CL" ]; then
+  flat=$(tr '\n' ' ' < "$CL" | tr -s ' ')
+  case "$flat" in *"look at the page at one viewport (1280px)"*) ok "I1 one viewport per page script" ;; *) bad "I1 per-script viewport" "$(grep -n -A3 'Before any page MDL' "$CL")" ;; esac
+  case "$flat" in *"Both 1280px and 390px, journeys and the polish loop run once at module review"*) ok "I1 both viewports at module review" ;; *) bad "I1 module review" ;; esac
+  case "$flat" in *"1280px and 390px and write what you saw"*) bad "I1 still asks for both viewports per page script" ;; *) ok "I1 no dual-viewport per page script" ;; esac
+  case "$flat" in *"a 100% fidelity score once matched under half its wireframe (2026-09-19)"*) ok "I1 protected 2026-09-19 line kept" ;; *) bad "I1 2026-09-19 line lost" ;; esac
+else bad "I1 init-project.sh wrote no CLAUDE.local.md"; fi
+
+IN="$IP/intake.md"
+if [ -f "$IN" ]; then
+  flat=$(tr '\n' ' ' < "$IN")
+  case "$flat" in *"Pipeline mode: \`high-speed\`, \`balanced\` (default) or \`high-quality\`?"*"high-speed**: fastest"*"balanced**: about 10–15 min less per build row"*"high-quality**: checks every page after every change; slowest"*) ok "I2 intake asks the pipeline mode, three options with trade-offs" ;; *) bad "I2 intake question" ;; esac
+else bad "I2 init-project.sh wrote no intake.md"; fi
+grep -q '^Pipeline mode: balanced$' "$IP/PROJECT.md" 2>/dev/null && ok "I3 a new PROJECT.md says Pipeline mode: balanced" || bad "I3 PROJECT.md line"
+
+echo "-- P: pre-push full build once per module"
+S="$WORK/hooks"; mkdir -p "$S/bin" "$S/.claude/loop"
+cp "$TK/project-bin/model-stamp.sh" "$TK/project-bin/_common.sh" "$TK/project-bin/install-project-hooks.sh" "$S/bin/"
+printf '#!/usr/bin/env bash\necho ran > .claude/full-ran; exit "${FAKE_VM_RC:-0}"\n' > "$S/bin/verify-model.sh"; chmod +x "$S/bin/"*.sh
+( cd "$S" && git init -q && git config user.email t@t && git config user.name t && printf 'm' > App.mpr \
+  && mkdir mprcontents && echo u > mprcontents/u && git add -A && git commit -qm i ) >/dev/null 2>&1
+st() { ( cd "$S" && PROJECT_ROOT="$S" "$@" ) >/dev/null 2>&1; }
+# A v1 hook from an earlier toolkit: --check must fail on it, and the install must replace it, not chain it.
+printf '#!/usr/bin/env bash\n# mxtk-pre-push full-build hook v1 — old\nexit 0\n' > "$S/.git/hooks/pre-push"; chmod +x "$S/.git/hooks/pre-push"
+st bash bin/install-project-hooks.sh
+chk=$( cd "$S" && PROJECT_ROOT="$S" bash bin/install-project-hooks.sh --check 2>&1 )
+printf '%s\n' "$chk" | grep -q 'pre-push full-build hook installed' \
+  && ok "P1 v1 hook replaced by v2; --check passes" || bad "P1 --check after install"
+[ ! -e "$S/.git/hooks/pre-push.pre-mxtk" ] && ok "P1 the old v1 hook was replaced in place, not chained" || bad "P1 v1 hook chained as pre-push.pre-mxtk"
+cp "$S/.git/hooks/pre-push" "$WORK/pp-v2"
+printf '#!/usr/bin/env bash\n# mxtk-pre-push full-build hook v1 — old\nexit 0\n' > "$S/.git/hooks/pre-push"
+( cd "$S" && PROJECT_ROOT="$S" bash bin/install-project-hooks.sh --check ) >/dev/null 2>&1 && bad "P1 --check passed on a v1 hook" || ok "P1 --check fails on a v1 hook (sync-project.sh refreshes it)"
+cp "$WORK/pp-v2" "$S/.git/hooks/pre-push"
+PPH="$S/.git/hooks/pre-push"
+echo "checks 1" > "$S/.claude/loop/gate-kind.state"
+st env MXTK_STAMP_KIND=check MXTK_STAMP_ERRORS=0 bash bin/model-stamp.sh write pass "exec.sh x (mx check)"
+Z=0000000000000000000000000000000000000000
+pp() {  # $1 = stdin line; rest = env; sets rc and out
+  local line="$1"; shift
+  rm -f "$S/.claude/full-ran"
+  out=$( cd "$S" && printf '%s\n' "$line" | env "$@" "$PPH" origin x 2>&1 ); rc=$?
+}
+HEAD0=$(cd "$S" && git rev-parse HEAD)
+pp "refs/heads/m $HEAD0 refs/heads/m $Z"
+{ [ "$rc" = 0 ] && [ ! -e "$S/.claude/full-ran" ] && printf '%s' "$out" | grep -q 'deferred to module close'; } \
+  && ok "P2 no Pipeline mode line (balanced), mid-module push: no full build, says it is deferred" || bad "P2 rc=$rc" "$out"
+pp "refs/heads/m $HEAD0 refs/heads/m $Z" MXTK_PREPUSH_BUILD=always
+{ [ "$rc" = 0 ] && [ -e "$S/.claude/full-ran" ]; } && ok "P3 MXTK_PREPUSH_BUILD=always: full build on every push" || bad "P3 rc=$rc" "$out"
+printf 'Pipeline mode: high-quality\n' > "$S/PROJECT.md"
+pp "refs/heads/m $HEAD0 refs/heads/m $Z"
+{ [ "$rc" = 0 ] && [ -e "$S/.claude/full-ran" ]; } && ok "P3 Pipeline mode: high-quality: full build on every push" || bad "P3 hq rc=$rc" "$out"
+printf 'Pipeline mode: high-speed\n' > "$S/PROJECT.md"
+pp "refs/heads/m $HEAD0 refs/heads/m $Z"
+{ [ "$rc" = 0 ] && [ ! -e "$S/.claude/full-ran" ] && printf '%s' "$out" | grep -q 'Pipeline mode: high-speed'; } && ok "P3 Pipeline mode: high-speed: deferred to module close" || bad "P3 hs rc=$rc" "$out"
+printf 'Pipeline mode: balanced\n' > "$S/PROJECT.md"
+pp "refs/heads/m $HEAD0 refs/heads/m $Z"
+{ [ "$rc" = 0 ] && [ ! -e "$S/.claude/full-ran" ]; } && ok "P3 Pipeline mode: balanced: deferred to module close" || bad "P3 bal rc=$rc" "$out"
+rm -f "$S/PROJECT.md"
+rm -f "$S/.claude/loop/prepush-build.last"
+mkdir -p "$S/docs/progress/module-close"; echo "# Module close: Shop" > "$S/docs/progress/module-close/Shop.md"
+pp "refs/heads/m $HEAD0 refs/heads/m $Z" FAKE_VM_RC=1
+{ [ "$rc" = 1 ] && [ -e "$S/.claude/full-ran" ] && [ ! -e "$S/.claude/loop/prepush-build.last" ]; } \
+  && ok "P4 module-close report, build fails: push refused, no marker written" || bad "P4 rc=$rc" "$out"
+pp "refs/heads/m $HEAD0 refs/heads/m $Z"
+{ [ "$rc" = 0 ] && [ -e "$S/.claude/full-ran" ] && [ -e "$S/.claude/loop/prepush-build.last" ]; } \
+  && ok "P5 module-close report newer than the last build: full build runs, marker written" || bad "P5 rc=$rc" "$out"
+pp "refs/heads/m $HEAD0 refs/heads/m $Z"
+{ [ "$rc" = 0 ] && [ ! -e "$S/.claude/full-ran" ]; } && ok "P6 next push in the same module: no full build" || bad "P6 rc=$rc" "$out"
+( cd "$S" && git add docs && git commit -qm "module close Shop" ) >/dev/null 2>&1; HEAD1=$(cd "$S" && git rev-parse HEAD)
+touch -t 200001010000 "$S/docs/progress/module-close/Shop.md"
+pp "refs/heads/m $HEAD1 refs/heads/m $HEAD0"
+{ [ "$rc" = 0 ] && [ -e "$S/.claude/full-ran" ] && printf '%s' "$out" | grep -q 'module-close commit'; } \
+  && ok "P7 a pushed module-close commit: full build runs" || bad "P7 rc=$rc" "$out"
+st env MXTK_STAMP_ERRORS=0 bash bin/model-stamp.sh write pass "verify-model.sh"
+pp "refs/heads/m $HEAD1 refs/heads/m $HEAD0" MXTK_PREPUSH_BUILD=always
+{ [ "$rc" = 0 ] && [ ! -e "$S/.claude/full-ran" ]; } && ok "P8 full stamp: no build, whatever the mode" || bad "P8 rc=$rc" "$out"
+
+echo "-- M: module-close.sh polish loop"
+M="$WORK/mc"; mkdir -p "$M/bin"
+cp "$TK/project-bin/module-close.sh" "$TK/project-bin/_common.sh" "$M/bin/"; : > "$M/App.mpr"
+printf '#!/bin/sh\ncase "$1" in docker) echo "Build succeeded" ;; esac\n' > "$M/mxcli"
+for f in metrics-ledger verify-module look-ledger; do printf '#!/bin/sh\nexit 0\n' > "$M/bin/$f.sh"; done
+chmod +x "$M/mxcli" "$M/bin/"*.sh
+( cd "$M" && bash bin/module-close.sh Shop >/dev/null 2>&1 ); R="$M/docs/progress/module-close/Shop.md"
+flat=$(tr '\n' ' ' < "$R" 2>/dev/null)
+case "$flat" in *"LOOK every page at 390 and 1280"*"up to 3 rounds"*"fidelity ≥ 85% AND a written LOOK with no blocking issue"*"a score alone never passes"*"UNMEASURED: the LOOK decides"*"design/ui-reviews/"*"does not block the module"*)
+  ok "M1 no line (balanced) polish loop: 390 + 1280, 85% / 3 rounds, score alone never passes, gap logged, not blocking" ;; *) bad "M1 report" "$(cat "$R" 2>/dev/null)" ;; esac
+case "$flat" in *"affected-tests.sh --moment module --module Shop"*) ok "M1 journeys + unit tests owed at module close" ;; *) bad "M1 tests pointer" ;; esac
+grep -q '^| Page | Role |' "$R" && [ "$(tail -2 "$R" | head -1 | cut -c1-7)" = "| Page " ] && ok "M1 the Page | Role table stays last (row-groups.sh reads it)" || bad "M1 table moved" "$(tail -3 "$R")"
+printf '# P\n\n**UI polish:** 90%% / 2 rounds\n' > "$M/PROJECT.md"
+( cd "$M" && bash bin/module-close.sh Shop >/dev/null 2>&1 ); flat=$(tr '\n' ' ' < "$R")
+case "$flat" in *"up to 2 rounds"*"fidelity ≥ 90%"*) ok "M2 PROJECT.md 'UI polish: 90% / 2 rounds' overrides both" ;; *) bad "M2 override" "$(grep -n polish -i "$R")" ;; esac
+for mv in "high-speed 2 75" "high-quality 5 95"; do set -- $mv
+  printf 'Pipeline mode: %s\n' "$1" > "$M/PROJECT.md"
+  ( cd "$M" && bash bin/module-close.sh Shop >/dev/null 2>&1 ); flat=$(tr '\n' ' ' < "$R")
+  case "$flat" in *"Pipeline mode: $1), up to $2 rounds"*"fidelity ≥ $3%"*) ok "M3 $1: $3% / $2 rounds" ;; *) bad "M3 $1" "$(grep -n -i polish "$R")" ;; esac
+done
+printf 'Pipeline mode: high-quality\nUI polish: 80%% / 4 rounds\n' > "$M/PROJECT.md"
+( cd "$M" && bash bin/module-close.sh Shop >/dev/null 2>&1 ); flat=$(tr '\n' ' ' < "$R")
+case "$flat" in *"up to 4 rounds"*"fidelity ≥ 80%"*) ok "M3 UI polish overrides a mode's numbers" ;; *) bad "M3 override" "$(grep -n -i polish "$R")" ;; esac
+
+echo
+echo "module-close cadence: $PASS passed, $FAIL failed"
+[ "$FAIL" -eq 0 ]

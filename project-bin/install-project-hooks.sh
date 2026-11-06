@@ -101,8 +101,9 @@ if [ "${1:-}" = "--check" ]; then
   else echo "  ✗ pre-commit model-verification hook missing — run ./bin/install-project-hooks.sh"; rc=1; fi
   # Missing pre-push = rc 1, so sync-project.sh (which installs only when --check fails) adds it
   # to existing projects: `Gate mode: check` is the default, and this hook is its full build.
-  if [ -f "$HOOKS/pre-push" ] && grep -q "^# mxtk-pre-push full-build hook v1" "$HOOKS/pre-push"; then echo "  ✓ pre-push full-build hook installed"
-  else echo "  ✗ pre-push full-build hook missing — run ./bin/install-project-hooks.sh"; rc=1; fi
+  # v2 (#686): full build once per module. A v1 hook fails --check so sync-project.sh refreshes it.
+  if [ -f "$HOOKS/pre-push" ] && grep -q "^# mxtk-pre-push full-build hook v2" "$HOOKS/pre-push"; then echo "  ✓ pre-push full-build hook installed"
+  else echo "  ✗ pre-push full-build hook missing or older than v2 — run ./bin/install-project-hooks.sh"; rc=1; fi
   for h in post-commit post-rewrite; do
     if [ -f "$HOOKS/$h" ] && grep -q "^$NOTE_MARK" "$HOOKS/$h"; then echo "  ✓ $h revision-note hook installed"
     else echo "  ✗ $h revision-note hook missing — run ./bin/install-project-hooks.sh"; rc=1; fi
@@ -174,9 +175,18 @@ echo "    (refuses to commit .mpr/mprcontents changes that have no mxbuild-gate 
 # refuses only when that full build finds errors. Every other project: a no-op (no gate-kind state,
 # or a full-build stamp, or a stamp that does not match — the pre-commit hook's business).
 # MODEL_UNVERIFIED_OK=1 pushes anyway, once, out loud.
+#
+# Once per module, not every push (#686: one full mxbuild per push, 1-2 min, on rows that average
+# 19 min), under `Pipeline mode: balanced` (the default, also with no line) and `high-speed`.
+# module-close.sh already runs this full build at the module boundary, so mid-module pushes skip
+# it. The build runs when (a) a docs/progress/module-close/*.md report is newer than this hook's
+# last full build (.claude/loop/prepush-build.last), or (b) a pushed commit touches
+# docs/progress/module-close/. `Pipeline mode: high-quality` (read with _common.sh's
+# mxtk_pipeline_mode) or MXTK_PREPUSH_BUILD=always: a full build on every push, as before #686.
 PP="$HOOKS/pre-push"
-PP_MARK="# mxtk-pre-push full-build hook v1"
-if [ -f "$PP" ] && ! grep -q "^$PP_MARK" "$PP"; then
+PP_MARK="# mxtk-pre-push full-build hook v2"
+# Any version of our own hook is replaced in place; only a foreign hook is kept and chained.
+if [ -f "$PP" ] && ! grep -q "^# mxtk-pre-push full-build hook v" "$PP"; then
   mv "$PP" "$PP.pre-mxtk"
   echo "  existing pre-push hook kept as pre-push.pre-mxtk and chained first"
 fi
@@ -189,11 +199,36 @@ b="\$(git rev-parse --show-toplevel)/$BIN_REL"
 [ -x "\$b/model-stamp.sh" ] && [ -f "\$b/verify-model.sh" ] && [ -f "\$b/../.claude/loop/gate-kind.state" ] || exit 0
 "\$b/model-stamp.sh" check -q >/dev/null 2>&1 || exit 0
 "\$b/model-stamp.sh" check -q --full >/dev/null 2>&1 && exit 0
+last="\$b/../.claude/loop/prepush-build.last"
+mode="\$(PROJECT_ROOT="\$b/.." bash -c '. "\$1/_common.sh" >/dev/null 2>&1 && mxtk_pipeline_mode "\$1/.."' _ "\$b" 2>/dev/null)"
+if [ "\${MXTK_PREPUSH_BUILD:-module}" != always ] && [ "\$mode" != high-quality ]; then
+  due=""
+  mc="\$b/../docs/progress/module-close"
+  if [ -d "\$mc" ]; then
+    if [ -f "\$last" ]; then [ -n "\$(find "\$mc" -name '*.md' -newer "\$last" 2>/dev/null | head -1)" ] && due="a module-close report newer than the last pre-push build"
+    else [ -n "\$(find "\$mc" -name '*.md' 2>/dev/null | head -1)" ] && due="a module-close report and no pre-push build yet"; fi
+  fi
+  if [ -z "\$due" ]; then
+    z=0000000000000000000000000000000000000000
+    while read -r _lr lsha _rr rsha; do
+      [ -n "\$lsha" ] && [ "\$lsha" != "\$z" ] || continue
+      if [ -n "\$rsha" ] && [ "\$rsha" != "\$z" ] && git cat-file -e "\$rsha" 2>/dev/null; then files="\$(git diff --name-only "\$rsha" "\$lsha" 2>/dev/null)"
+      else files="\$(git log --name-only --format= "\$lsha" --not --remotes 2>/dev/null)"; fi
+      printf '%s\n' "\$files" | grep -q 'docs/progress/module-close/' && { due="this push carries a module-close commit"; break; }
+    done <<< "\$input"
+  fi
+  if [ -z "\$due" ]; then
+    echo "→ pre-push: model mx-checked only; full build deferred to module close (bin/module-close.sh; Pipeline mode: \${mode:-balanced}). Every push: Pipeline mode: high-quality, or MXTK_PREPUSH_BUILD=always." >&2
+    exit 0
+  fi
+  echo "→ pre-push: \$due." >&2
+fi
 if [ "\${MODEL_UNVERIFIED_OK:-0}" = "1" ]; then
   echo "⚠ MODEL_UNVERIFIED_OK=1 — pushing a model verified by mx check only (no Java compile)." >&2; exit 0
 fi
 echo "→ pre-push: the model was verified by mx check only; running the full build first (bin/verify-model.sh)..." >&2
 ( cd "\$b/.." && bash bin/verify-model.sh ) >&2; vrc=\$?
+[ "\$vrc" = 0 ] && { mkdir -p "\$(dirname "\$last")" && touch "\$last"; } 2>/dev/null
 if [ "\$vrc" = 1 ]; then
   echo "✗ push refused: the full build found errors (above). Fix them, commit, push again." >&2
   echo "  Deliberate override, once:   MODEL_UNVERIFIED_OK=1 git push ..." >&2
@@ -205,7 +240,7 @@ fi
 exit 0
 HOOKEOF
 chmod +x "$PP"
-echo "  ✓ pre-push hook installed (runs the full build before a model only mx-checked leaves this machine)"
+echo "  ✓ pre-push hook installed (full build once per module; every push under Pipeline mode: high-quality)"
 
 # --- revision notes for Studio Pro History (post-commit + post-rewrite) -------------------------
 # Both hooks find Python through bin/_common.sh's resolve_py (executes each candidate, skips the

@@ -493,3 +493,35 @@ Re-probed on mxcli v0.24.0 / Mendix 11.13.0 (2026-09-30); rules that now work or
 | 31 | Bind a data-view widget's attribute across 2+ associations | **One hop per step: nest a data view.** | `check` passes; mxbuild CE1613. A database-sourced Gallery allows it: `learned-page-patterns.md` §ContentParams Multi-Hop. #445 |
 | 32 | Give a widget's `show page` any argument outside a data view/list/grid row, or besides its context object | **Call a microflow that shows the page.** | v0.26.0 `check` refuses: MDL-PAGEARG01. BUG-70/95. #445 |
 | 33 | Change a flow's return type, update callers in a **later** script | **STOP → one script: the change and every caller update.** Find callers: `SHOW CALLERS OF Mod.TheFlow`. | v0.27.0, none→Boolean via `create or modify`: `mx check` CE0112 at a Studio Pro-authored caller after script 1 (mxcli-written: none); `check`/`exec` silent. Workflows: `learned-workflow-patterns.md` §16 |
+
+## UI5 — Why the per-script look exists (moved from `ui-loop.md`, 2026-11-06)
+
+Measured (2026-08-24, field validation run): a two-column detail page shipped stacked full-width
+because its layout class was never defined in the real theme. It was introduced in build script
+09 and survived scripts 10, 11, 12 and all of Stage 6 prep — mxbuild clean, every journey green,
+21 of 21 interactive elements wired — until a human looked at module close. Nothing before that
+moment asks what a page looks like. Four scripts of blast radius, from a defect that a
+thirty-second look at script 09 would have caught.
+
+## UI6 — The StyleGallery look first (moved from `module-review.md` § 4a-0, 2026-11-06)
+
+Measured on a 2026-08-26 field run: one look at a gallery that had never been opened surfaced, in
+order, a badge rendering at 7.5px instead of 12px (a stylesheet-wide unit error), a component
+rendering as a full-width bar with its text underneath (a class on the wrong widget carrier),
+white-on-pale-green text (a rule that set `background` and inherited `color`), and a table reading
+"0 to 0 of 0" that led back to a seed microflow silently regressed three scripts earlier. Three of
+the four were invisible to `mx check`, `mxcli lint` and the wireframe comparison, and all four had
+already survived a full module review.
+
+## DP1 — Why implementers restart their own app (moved from `dispatching.md`, 2026-11-06)
+
+The old lead-only rule came from a broad kill
+in one lane that took down another lane's app; the helper cannot do that, and the rule cost 24 implementer
+restart-resumes (41.6M tokens, 8.5% of subagent tokens) in the 2026-10-12 run (#289).
+
+## UI7 — Why rubric rows 8–9 run on every page (moved from `module-review.md` § stage 4, 2026-11-06)
+
+**Rows 8–9 run on every page, whichever yardstick applies** — they were added after 2026-08-22,
+when a Station page passed its LOOK review with no page title at all, an unstyled default nav bar,
+a field missing outright, and ragged field layout, because the rubric only ever interrogated the
+content region and the reviewer verified layout from CSS, not pixels (see the rule below).

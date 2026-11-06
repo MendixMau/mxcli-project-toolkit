@@ -99,8 +99,11 @@ Measured on a 2750-unit app, 4 files / 15 tests (44-250 ms of test time per file
 3. **The warm copy.** The scratch copy now persists and keeps `.mxcli` (unit index) and `deployment/`,
    so a later run skips the copy and the index rebuild. The model is re-synced from the live tree
    every run, and the live run record is never copied. It is dropped and rebuilt on `--cold`, a new
-   `mxcli`, after 7 days, or when an interrupted run left an injection in it. `mxbuild` still runs
-   (about a minute here): this is not a sub-10-second loop.
+   `mxcli`, a new Mendix version, changed `userlib/` `javasource/` `widgets/`, after 7 days, or when an
+   earlier run on it did not finish or left an injection in it. `mxbuild` still runs
+   (about a minute here): this is not a sub-10-second loop. The default `TMPDIR` on macOS is cleaned
+   after about 3 days, so set `MXTK_SCRATCH_DIR` to a short stable folder. One boot is now per call, so
+   "every run starts on an empty database" applies per call, not per file.
 4. **When the cache must not be trusted: the gate.** Build complete and before each deploy run
    everything once with `--cold`. The loop in between (impacted tests per change, see the test
    strategy) may use the warm copy. `--no-cache` restores the old throwaway copy.

@@ -31,30 +31,22 @@
 # the opposite of a scratch run. Never touches the live model, the live app, or Studio Pro.
 #
 # SPEED (measured on a 2750-unit app, 4 files / 15 tests: ~95-175 s per file, 44-250 ms of tests):
-#   ONE BOOT. Several test files in one call boot once, not once per file. Default. A file with
-#     `@cleanup none` keeps its rows for every later test of that boot, so it gets a boot of its own
-#     (printed). Constants are per boot: files that need different --constant values go in
-#     separate calls. --per-file (or MXTK_TEST_ONE_BOOT=0) gives every file its own boot.
+#   ONE BOOT. Several test files (*.test.mdl or *.test.md, or a directory of them) in one call boot
+#     once, not once per file. Default. A file with `@cleanup none`, or one that bin/rollback-scan.sh
+#     (when the project has it) says reaches an effect a rollback does not undo, gets a boot of its own
+#     (printed). ONE --constant set serves the whole call and the script cannot tell that two files
+#     need different values: put such files in separate calls yourself. --per-file (or
+#     MXTK_TEST_ONE_BOOT=0) gives every file its own boot.
 #   WARM COPY. The copy lives on between runs (<scratch dir>/<App>-test-cache.<hash>) and keeps its
 #     .mxcli (unit index) and deployment/ (build output), so a later run skips the ~1.5 min unit-index
 #     rebuild and the full copy; the model itself is re-synced from the live project every run (rsync),
-#     the live .mxcli/run-state is never copied. It is dropped and rebuilt cold when: --cold (or
-#     MXTK_TEST_COLD=1) · the mxcli version changed · it is older than MXTK_TEST_CACHE_DAYS (7) ·
-#     an interrupted run left a test injection in it. The gate (build complete, before a deploy)
-#     runs --cold. --no-cache (or MXTK_TEST_CACHE=0) is the old behaviour: a throwaway copy, deleted after.
-#
-# SPEED (measured on a 2750-unit app, 4 files / 15 tests: 95-175 s per file for 44-250 ms of tests):
-#   ONE BOOT. Several test files in one call boot once, not once per file. Default. A file with
-#     `@cleanup none` keeps its rows for every later test of that boot, so it gets a boot of its own
-#     (printed). Constants are per boot: files that need different --constant values go in separate
-#     calls. --per-file (or MXTK_TEST_ONE_BOOT=0) gives every file its own boot.
-#   WARM COPY. The copy lives on between runs (<scratch dir>/<App>-test-cache.<hash>) and keeps its
-#     .mxcli (unit index) and deployment/ (build output), so a later run skips the unit-index rebuild
-#     and the full copy. The model itself is re-synced from the live project on every run (rsync) and
-#     the live .mxcli/run-state is never copied. The copy is dropped and built cold when: --cold (or
-#     MXTK_TEST_COLD=1) · the mxcli version changed · it is older than MXTK_TEST_CACHE_DAYS (7) · an
-#     interrupted run left a test injection in it. The gate (build complete, before a deploy) runs
-#     --cold. --no-cache (or MXTK_TEST_CACHE=0) is the old behaviour: a throwaway copy, deleted after.
+#     the live .mxcli/run-state is never copied (mprcontents/ and the .mpr are compared by checksum). It
+#     is dropped and rebuilt cold when: --cold (or MXTK_TEST_COLD=1) · the mxcli or Mendix version
+#     changed · userlib/, javasource/ or widgets/ changed (names + sizes) · it is older than
+#     MXTK_TEST_CACHE_DAYS (7) · an earlier run on it did not finish (in-progress marker) · an
+#     interrupted run left a test injection in it. One run at a time per copy: a second run waits
+#     (MXTK_TEST_LOCK_WAIT, 300 s) and then uses a private cold copy. The gate (build complete, before
+#     a deploy) runs --cold. --no-cache (or MXTK_TEST_CACHE=0) is the old behaviour: a throwaway copy, deleted after.
 # Bash 3.2 / Git Bash / macOS / Linux; no flock (absent on macOS and Git Bash).
 set -uo pipefail
 . "$(dirname "$0")/_common.sh"
@@ -181,9 +173,10 @@ release() { local f="$1" own; own="$(head -1 "$f" 2>/dev/null || true)"; [ "${ow
 
 EXEC_LOCK="$PROJECT_ROOT/.mpr-snapshots/.exec.lock"
 PORT_LOCK="${TMPDIR:-/tmp}/mxtk-test-ports-$(printf '%s' "$PORTS" | tr -c '0-9' '-').lock"
-SCRATCH=""
+SCRATCH=""; CLOCK=""
 cleanup() {
   release "$EXEC_LOCK"; release "$PORT_LOCK"
+  if [ -n "$CLOCK" ]; then release "$CLOCK/owner" ; rm -rf "$CLOCK" 2>/dev/null; fi
   if [ -n "$SCRATCH" ] && [ -d "$SCRATCH" ]; then
     if [ "$CACHE" = 1 ]; then :   # the warm copy stays for the next run (dropped by --cold, a new mxcli, or age)
     elif [ "$KEEP" = 1 ]; then echo "  scratch copy kept: $SCRATCH"
@@ -200,6 +193,33 @@ for _p in $PORTS; do
     exit 3
   fi
 done
+# The warm copy is ONE directory: two runs (different ports, say) must not rebuild it at once.
+# Lock the cache folder itself (mkdir is atomic; <cache>.lock/owner names the holder), for the whole run
+# including mxcli. A dead holder's lock is moved aside and taken. Waiting is out loud; after
+# MXTK_TEST_LOCK_WAIT seconds this run gives up the cache and builds a private cold copy instead.
+if [ "$CACHE" = 1 ]; then
+  _key="$(printf '%s' "$MODEL_DIR" | cksum | cut -d' ' -f1)"
+  CACHE_DIR="${MXTK_SCRATCH_DIR:-${TMPDIR:-/tmp}}/$(basename "$MPR_NAME" .mpr)-test-cache.$_key"
+  mkdir -p "$(dirname "$CACHE_DIR")"
+  _w=0; _max="${MXTK_TEST_LOCK_WAIT:-300}"; _said=0
+  while :; do
+    if mkdir "$CACHE_DIR.lock" 2>/dev/null; then
+      printf '%s %s %s\n' "$$" "$(date +%s)" "test-scratch.sh" > "$CACHE_DIR.lock/owner"; CLOCK="$CACHE_DIR.lock"; break
+    fi
+    _h="$(head -1 "$CACHE_DIR.lock/owner" 2>/dev/null || true)"
+    if [ -n "$_h" ] && ! holder_live "${_h%% *}"; then
+      echo "  (stale cache lock from PID ${_h%% *}, not running, taking it over)"
+      mv "$CACHE_DIR.lock" "$CACHE_DIR.lock.stale.$$" 2>/dev/null && rm -rf "$CACHE_DIR.lock.stale.$$"
+      continue
+    fi
+    if [ "$_w" -ge "$_max" ]; then
+      echo "→ test-scratch: the warm copy is still in use by PID ${_h%% *} after ${_max}s; this run uses a private cold copy"
+      CACHE=0; break
+    fi
+    [ "$_said" = 1 ] || { echo "→ test-scratch: another run uses the warm copy (PID ${_h%% *}); waiting up to ${_max}s"; _said=1; }
+    sleep 1; _w=$((_w+1))
+  done
+fi
 mkdir -p "$(dirname "$EXEC_LOCK")"
 take_lock "$EXEC_LOCK" "this project's model (an exec.sh is writing it)" || exit 3
 
@@ -209,18 +229,29 @@ take_lock "$EXEC_LOCK" "this project's model (an exec.sh is writing it)" || exit
 # copy of the model tree without them, as before.
 MXCLI_VER="$("$MXCLI" --version 2>/dev/null | head -1)"
 WARM=0
-stamp_new() { printf 'mxcli=%s\ncreated=%s\n' "$MXCLI_VER" "$(date +%s)" > "$SCRATCH/.mxcli/test-scratch.stamp"; }
+# What else makes a kept build wrong: the Mendix version of the model, and the jars/widgets that go into
+# the build (a listing of names + sizes of userlib/, javasource/, widgets/).
+MX_VER=""
+if [ -n "${MXTK_MODEL_VERSION:-}" ]; then MX_VER="$MXTK_MODEL_VERSION"
+elif command -v mxtk_model_version >/dev/null 2>&1; then MX_VER="$(mxtk_model_version "$MPR" 2>/dev/null || true)"; fi
+LIBS_SIG="$(for _d in userlib javasource widgets; do
+  [ -d "$MODEL_DIR/$_d" ] && find "$MODEL_DIR/$_d" -type f | LC_ALL=C sort | while IFS= read -r _f; do printf '%s %s\n' "${_f#"$MODEL_DIR"/}" "$(wc -c < "$_f" | tr -d ' ')"; done
+done | cksum | cut -d' ' -f1)"
+stamp_new() { printf 'mxcli=%s\nmendix=%s\nlibs=%s\ncreated=%s\n' "$MXCLI_VER" "$MX_VER" "$LIBS_SIG" "$(date +%s)" > "$SCRATCH/.mxcli/test-scratch.stamp"; }
 if [ "$CACHE" = 1 ]; then
-  _key="$(printf '%s' "$MODEL_DIR" | cksum | cut -d' ' -f1)"
-  SCRATCH="${MXTK_SCRATCH_DIR:-${TMPDIR:-/tmp}}/$(basename "$MPR_NAME" .mpr)-test-cache.$_key"
+  SCRATCH="$CACHE_DIR"
   if [ -d "$SCRATCH" ]; then
     _st="$SCRATCH/.mxcli/test-scratch.stamp"
     _cv="$(sed -n 's/^mxcli=//p' "$_st" 2>/dev/null | head -1)"; _ce="$(sed -n 's/^created=//p' "$_st" 2>/dev/null | head -1)"
+    _cm="$(sed -n 's/^mendix=//p' "$_st" 2>/dev/null | head -1)"; _cl="$(sed -n 's/^libs=//p' "$_st" 2>/dev/null | head -1)"
     case "$_ce" in ''|*[!0-9]*) _ce=0 ;; esac
     _why=""
     if   [ "$COLD" = 1 ]; then _why="--cold"
     elif [ ! -f "$_st" ]; then _why="no stamp: not made by this script"
+    elif [ -e "$SCRATCH/.mxcli/test-scratch.running" ]; then _why="an earlier run on it did not finish"
     elif [ "$_cv" != "$MXCLI_VER" ]; then _why="mxcli changed: $_cv -> $MXCLI_VER"
+    elif [ "$_cm" != "$MX_VER" ]; then _why="Mendix version changed: ${_cm:-?} -> ${MX_VER:-?}"
+    elif [ "$_cl" != "$LIBS_SIG" ]; then _why="userlib/javasource/widgets changed"
     elif [ $(( $(date +%s) - _ce )) -gt $(( CACHE_DAYS * 86400 )) ]; then _why="older than $CACHE_DAYS days"
     else WARM=1; fi
     [ "$WARM" = 1 ] || { echo "→ test-scratch: dropping the warm copy ($_why); this run builds cold"; rm -rf "$SCRATCH"; }
@@ -236,8 +267,13 @@ if [ "$CACHE" = 1 ]; then
   fi
   copy_model() {
     if command -v rsync >/dev/null 2>&1; then
+      # Size + mtime is not proof a model file is unchanged (a same-size rewrite in the same second):
+      # the model itself, mprcontents/ and the .mpr, is compared by checksum; the rest by size + time.
       rsync -a --delete --exclude=/.git --exclude=/.mpr-snapshots --exclude=/deployment --exclude=/.mxcli \
-            --exclude=/node_modules "$MODEL_DIR/" "$SCRATCH/"
+            --exclude=/node_modules --exclude=/mprcontents --exclude="/$MPR_NAME" "$MODEL_DIR/" "$SCRATCH/" || return 1
+      if [ -d "$MODEL_DIR/mprcontents" ]; then rsync -ac --delete "$MODEL_DIR/mprcontents/" "$SCRATCH/mprcontents/" || return 1
+      else rm -rf "$SCRATCH/mprcontents"; fi
+      rsync -ac "$MODEL_DIR/$MPR_NAME" "$SCRATCH/" || return 1
     else   # no rsync (Git Bash): clear the model tree, keep .mxcli + deployment, copy again
       find "$SCRATCH" -mindepth 1 -maxdepth 1 ! -name .mxcli ! -name deployment -exec rm -rf {} + &&
       tar -C "$MODEL_DIR" --exclude=./.git --exclude=./.mpr-snapshots --exclude=./deployment \
@@ -271,16 +307,30 @@ release "$EXEC_LOCK"
 FILES=(); REST=()
 for _a in "$@"; do
   case "$_a" in
-    *.test.mdl) if [ -f "$MODEL_DIR/$_a" ] || [ -f "$_a" ]; then FILES+=("$_a"); continue; fi ;;
+    *.test.mdl|*.test.md) if [ -f "$MODEL_DIR/$_a" ] || [ -f "$_a" ]; then FILES+=("$_a"); continue; fi ;;
     -*) ;;
     *) if [ -d "$MODEL_DIR/$_a" ]; then
-         while IFS= read -r _f; do FILES+=("${_f#$MODEL_DIR/}"); done < <(find "$MODEL_DIR/$_a" -type f -name '*.test.mdl' | LC_ALL=C sort)
+         while IFS= read -r _f; do FILES+=("${_f#"$MODEL_DIR"/}"); done < <(find "$MODEL_DIR/$_a" -type f \( -name '*.test.mdl' -o -name '*.test.md' \) | LC_ALL=C sort)
          continue
        fi ;;
   esac
   REST+=("$_a")
 done
-leaky() { grep -Eq '@cleanup[[:space:]]+none' "$MODEL_DIR/$1" 2>/dev/null || grep -Eq '@cleanup[[:space:]]+none' "$1" 2>/dev/null; }
+# Own boot when the file keeps its rows on purpose (@cleanup none, in a .test.mdl or a .test.md), or when
+# the project's rollback-scan.sh (it lands with another change; absent = skipped) finds an effect a rollback
+# does not undo. Contract assumed: `rollback-scan.sh <file>` prints a line per reached effect, or exits
+# non-zero; a clean file prints nothing and exits 0. About 0.3 s a file.
+LEAK_WHY=""
+SCAN=""; for _s in "$PROJECT_ROOT/bin/rollback-scan.sh" "$PROJECT_ROOT/project-bin/rollback-scan.sh"; do [ -f "$_s" ] && { SCAN="$_s"; break; }; done
+leaky() {
+  local _p="$1" _o
+  [ -f "$MODEL_DIR/$_p" ] && _p="$MODEL_DIR/$_p"
+  if grep -Eq '@cleanup[[:space:]]+none' "$_p" 2>/dev/null; then LEAK_WHY="has @cleanup none"; return 0; fi
+  if [ -n "$SCAN" ]; then
+    if ! _o="$(cd "$PROJECT_ROOT" && bash "$SCAN" "$_p" 2>/dev/null)" || [ -n "$_o" ]; then LEAK_WHY="reaches an effect a rollback does not undo (rollback-scan)"; return 0; fi
+  fi
+  return 1
+}
 LEAKY_CALLS=(); CALLS=()   # one entry per boot: its test files, one per line
 if [ "${#FILES[@]}" -le 1 ]; then
   CALLS+=("${FILES[0]:-}")
@@ -288,7 +338,7 @@ else
   _grp=""
   for _f in "${FILES[@]}"; do
     if [ "$ONE_BOOT" != 1 ]; then CALLS+=("$_f")
-    elif leaky "$_f"; then LEAKY_CALLS+=("$_f"); echo "  $_f has @cleanup none: its own boot, so its rows cannot reach the other files"
+    elif leaky "$_f"; then LEAKY_CALLS+=("$_f"); echo "  $_f $LEAK_WHY: its own boot, so its rows cannot reach the other files"
     else _grp="${_grp:+$_grp
 }$_f"; fi
   done
@@ -297,7 +347,8 @@ else
   echo "→ test-scratch: ${#FILES[@]} test files → ${#CALLS[@]} boot(s)$( [ "$ONE_BOOT" != 1 ] && echo ' (--per-file)')"
 fi
 
-# 4. Run.
+# 4. Run. An in-progress marker in the copy says a run started and did not end: the next run builds cold.
+[ "$CACHE" = 1 ] && date +%s > "$SCRATCH/.mxcli/test-scratch.running"
 RC=0; _n=0
 for _call in "${CALLS[@]}"; do
   _n=$((_n+1)); _args=()
@@ -307,5 +358,6 @@ for _call in "${CALLS[@]}"; do
   _rc=$?
   [ "$_rc" -gt "$RC" ] && RC=$_rc
 done
+rm -f "$SCRATCH/.mxcli/test-scratch.running"
 echo "← mxcli test exit $RC — the live model and the live app were not touched."
 exit "$RC"

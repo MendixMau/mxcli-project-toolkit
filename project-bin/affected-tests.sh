@@ -525,6 +525,8 @@ fi
 # ── Run rows ─────────────────────────────────────────────────────────────────
 _uf="$(cut -f1 "$WORK/unit.sel" | tr '\n' ' ' | sed 's/ $//')"
 _jf="$(cut -f1 "$WORK/journey.sel" | tr '\n' ' ' | sed 's/ $//')"
-[ -n "$_uf" ] && out "run	./bin/test-scratch.sh -- $_uf --local"
+# Full-run moments (build complete, before a deploy) must not trust the warm copy; per-change ones may.
+_cold=""; [ "$MOMENT" = deploy ] && _cold="--cold "
+[ -n "$_uf" ] && out "run	./bin/test-scratch.sh ${_cold}-- $_uf --local"
 [ -n "$_jf" ] && out "run	node tests/e2e/journey-runner.js $_jf"
 exit 0

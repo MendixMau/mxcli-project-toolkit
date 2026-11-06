@@ -192,8 +192,8 @@ fault() {
 #
 # A timeout is a FAULT, never a FAIL. "The instrument did not finish" and "the feature is broken" are
 # different reports, and collapsing them sends you to debug a page that was never measured. Measured:
-# conformance-check spends ~25s per ledger row (a 22-row module ≈ 9 min), so these budgets are
-# generous on purpose — a budget tight enough to clip a healthy run manufactures faults, which is its
+# conformance-check once spent ~25s per ledger row (22 rows ≈ 9 min); since the 2026-09-02 watchdog fix
+# it is ~1s per row (22 rows: 22.7s, 2026-11-06). These budgets stay generous on purpose — a budget tight enough to clip a healthy run manufactures faults, which is its
 # own kind of lie.
 #
 # Neither the instrument nor its watchdog keeps fds 3/4 (the script's own stdout/stderr, pinned
@@ -565,7 +565,7 @@ run_join_all
 # lands rc 2 in the FAULT bucket even for an info rung — a report that could not be written is a
 # hole, not a formality.
 #
-# --reuse-conformance: conformance was measured at rung 1 (~9 min for a 22-row ledger). Measuring it
+# --reuse-conformance: conformance was measured at rung 1 (~1s per ledger row). Measuring it
 # a second time in the same pass buys nothing. The path is passed unconditionally: if rung 1 faulted
 # the file is absent, review says so and FAULTS, which is the truth — nothing was measured — and it
 # costs seconds instead of minutes.

@@ -185,7 +185,9 @@ run F --moment deploy "$TOTAL" >/dev/null
 has F "unit=full journeys=full" && [ "$(grep -c '^unit	' "$WORK/out.F")" = 5 ] && [ "$(grep -c '^journey	' "$WORK/out.F")" = 6 ] \
   && ok "all 5 test files, all 6 journey files" || bad "F full" "$(grep -e ^unit -e ^journey "$WORK/out.F")"
 [ "$(calls)" = 0 ] && ok "no mxcli call at deploy-ready" || bad "F called mxcli"
+has F "run	./bin/test-scratch.sh --cold -- " && ok "deploy moment: the printed command carries --cold" || bad "F cold" "$(grep ^run "$WORK/out.F")"
 run F2 --moment module --module Admin >/dev/null
+has F2 "run	./bin/test-scratch.sh -- " && lacks F2 "--cold" && ok "module moment stays warm (no --cold)" || bad "F2 warm" "$(grep ^run "$WORK/out.F2")"
 has F2 "Other.test.mdl	names module Admin" && has F2 "journeys/Admin.journey.json" && ok "module close of a named module, no script needed" || bad "F2" "$(cat "$WORK/out.F2")"
 
 echo "== G: an entity change selects its module's tests, no caller query =="

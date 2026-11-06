@@ -13,6 +13,15 @@
 # is refused; a dead holder's port lock is taken over; a live exec.sh on the project refuses the
 # copy; --attach and -p are refused; mxcli's exit code is passed through; the copy is deleted;
 # a bin/_common.sh older than the shared mxtest helpers stops with exit 2 and the sync remedy.
+# Speed (feat/test-speed-one-boot): several test files run in ONE mxcli call; a file with
+# `@cleanup none` and, with --per-file, every file gets its own; a flag value is never taken for a file;
+# the warm copy keeps .mxcli + deployment between runs, is re-synced from the live model every time,
+# never carries the live run record, and is dropped on --cold, a new mxcli, age, a leftover test
+# injection; --no-cache is the old throwaway copy.
+# Review fixes: *.test.md files are collected from a directory and a named one is a file; one run at a
+# time per warm copy (a second waits, then falls back to a private cold copy); an in-progress marker
+# makes the next run cold; a Mendix version or userlib/javasource/widgets listing change makes it cold;
+# mprcontents/ is compared by checksum; a project rollback-scan.sh gives a flagged file its own boot.
 # No real mxcli: a stub records its cwd and argv.
 set -uo pipefail
 TOOLKIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -35,7 +44,10 @@ printf 'test\n' > "$P/tests/a.test.mdl"
 cp "$TOOLKIT/project-bin/_common.sh" "$P/bin/"; cp "$SUBJECT" "$P/bin/test-scratch.sh"
 cat > "$P/mxcli" <<'STUB'
 #!/usr/bin/env bash
+[ "${1:-}" = "--version" ] && { echo "mxcli version ${STUB_VER:-stub-1}"; exit 0; }
+echo "$*" >> "${REC}.calls"
 { echo "cwd=$(pwd -P)"; echo "args=$*"; ls -A; ls "${TMPDIR:-/tmp}" | grep -c mxtk-test-ports; } > "$REC"
+ls -A .mxcli > "$REC.mx" 2>/dev/null
 sleep "${STUB_SLEEP:-0}"
 echo "TESTRUNNER injected" >> Fixture.mpr      # what a real test run does to ITS model
 exit "${STUB_RC:-0}"
@@ -45,7 +57,7 @@ export TMPDIR="$WORK/tmp" MXTK_TEST_PORTS="$(( 30000 + RANDOM % 20000 )) $(( 300
 run() { ( cd "$P" && REC="$WORK/rec.$1" ./bin/test-scratch.sh "${@:2}" ) 2>&1; }
 
 echo "-- a scratch run"
-OUT="$(run a -- tests/a.test.mdl --local)"; RC=$?
+OUT="$(run a --no-cache -- tests/a.test.mdl --local)"; RC=$?
 [ "$RC" -eq 0 ] && ok "exit 0" || bad "exit $RC: $OUT"
 R="$(cat "$WORK/rec.a" 2>/dev/null)"
 case "$R" in *"cwd=$WORK/tmp/Fixture-test."*) ok "mxcli ran in the scratch copy" ;; *) bad "mxcli cwd: $(printf '%s' "$R" | head -1)" ;; esac
@@ -145,6 +157,179 @@ has "an empty takeover file over a minute old is stale → taken" "$OUT" "rc=0"
 [ -e "$L.takeover" ] && bad "takeover file left behind" || ok "and no takeover file is left behind"
 kill -KILL "$LIVE" 2>/dev/null; wait "$LIVE" 2>/dev/null
 
+echo "-- speed: several files run in ONE mxcli call (one boot), flags go to it once, a flag VALUE is not a file"
+rm -rf "$WORK/tmp"/Fixture-test*
+printf '/**\n * @test one\n * @expect $A = 1\n */\n$A = 1;\n/\n' > "$P/tests/b.test.mdl"
+printf '/**\n * @test two\n * @expect $A = 1\n */\n$A = 1;\n/\n' > "$P/tests/c.test.mdl"
+printf '/**\n * @test keeps rows\n * @cleanup none\n * @expect $A = 1\n */\n$A = 1;\n/\n' > "$P/tests/leaky.test.mdl"
+OUT="$(run s1 -- tests/a.test.mdl tests/b.test.mdl tests/c.test.mdl --local --db-type hsqldb --constant M.X=1)"; RC=$?
+[ "$RC" -eq 0 ] && ok "exit 0" || bad "exit $RC: $OUT"
+[ "$(wc -l < "$WORK/rec.s1.calls" | tr -d ' ')" = 1 ] && ok "3 files → 1 mxcli call" || bad "calls: $(cat "$WORK/rec.s1.calls")"
+has "all three files in it" "$(cat "$WORK/rec.s1.calls")" "test tests/a.test.mdl tests/b.test.mdl tests/c.test.mdl --local --db-type hsqldb --constant M.X=1"
+has "says 1 boot" "$OUT" "3 test files → 1 boot(s)"
+
+echo "-- speed: a file with @cleanup none gets its own boot, after the shared one; flags reach both"
+OUT="$(run s2 -- tests/a.test.mdl tests/leaky.test.mdl tests/b.test.mdl --local)"; RC=$?
+[ "$(wc -l < "$WORK/rec.s2.calls" | tr -d ' ')" = 2 ] && ok "2 mxcli calls" || bad "calls: $(cat "$WORK/rec.s2.calls")"
+has "shared boot first, without the leaky file" "$(sed -n 1p "$WORK/rec.s2.calls")" "test tests/a.test.mdl tests/b.test.mdl --local"
+has "leaky file alone, same flags" "$(sed -n 2p "$WORK/rec.s2.calls")" "test tests/leaky.test.mdl --local"
+has "says why" "$OUT" "tests/leaky.test.mdl has @cleanup none: its own boot"
+
+echo "-- speed: --per-file (and MXTK_TEST_ONE_BOOT=0) opt out: one boot per file"
+OUT="$(run s3 --per-file -- tests/a.test.mdl tests/b.test.mdl tests/c.test.mdl --local)"
+[ "$(wc -l < "$WORK/rec.s3.calls" | tr -d ' ')" = 3 ] && ok "--per-file → 3 calls" || bad "calls: $(cat "$WORK/rec.s3.calls")"
+OUT="$(MXTK_TEST_ONE_BOOT=0 run s4 -- tests/a.test.mdl tests/b.test.mdl --local)"
+[ "$(wc -l < "$WORK/rec.s4.calls" | tr -d ' ')" = 2 ] && ok "MXTK_TEST_ONE_BOOT=0 → 2 calls" || bad "calls: $(cat "$WORK/rec.s4.calls")"
+
+echo "-- speed: a directory is expanded to its test files, in sorted order; one file or none passes through as given"
+OUT="$(run s5 -- tests --local)"
+has "dir → files, leaky one separate" "$(cat "$WORK/rec.s5.calls")" "test tests/a.test.mdl tests/b.test.mdl tests/c.test.mdl --local"
+[ "$(wc -l < "$WORK/rec.s5.calls" | tr -d ' ')" = 2 ] && ok "dir with a leaky file → 2 boots" || bad "calls: $(cat "$WORK/rec.s5.calls")"
+OUT="$(run s6 -- tests/a.test.mdl --list)"
+[ "$(cat "$WORK/rec.s6.calls")" = "test tests/a.test.mdl --list -p $(sed -n 's/^args=.* -p //p' "$WORK/rec.s6")" ] && ok "one file: unchanged call" || bad "$(cat "$WORK/rec.s6.calls")"
+
+echo "-- speed: the exit code is the worst of the boots"
+OUT="$(STUB_RC=3 run s7 -- tests/a.test.mdl tests/leaky.test.mdl)"; RC=$?
+[ "$RC" -eq 3 ] && ok "boots 3,3 → 3" || bad "exit $RC"
+
+echo "-- speed: the warm copy keeps .mxcli + deployment, re-syncs the model, never carries the live run record"
+rm -rf "$WORK/tmp"/Fixture-test*
+run w1 -- tests/a.test.mdl >/dev/null; C="$(ls -d "$WORK/tmp"/Fixture-test-cache.* 2>/dev/null | head -1)"
+[ -d "$C" ] && ok "cold run leaves the copy for next time" || bad "no cache dir"
+[ -f "$C/.mxcli/test-scratch.stamp" ] && ok "stamp written (mxcli version + created)" || bad "no stamp"
+mkdir -p "$C/deployment/run"; echo idx > "$C/.mxcli/unit-index"; echo built > "$C/deployment/run/out"
+echo '{"pid":2}' > "$C/.mxcli/run-state.json"; echo stray > "$C/stray.txt"
+echo changed > "$P/tests/a.test.mdl"; rm -f "$P/tests/c.test.mdl"
+OUT="$(run w2 -- tests/a.test.mdl)"
+has "second run is warm" "$OUT" "warm copy"
+[ -f "$C/.mxcli/unit-index" ] && [ -f "$C/deployment/run/out" ] && ok ".mxcli index and deployment build output kept" || bad "cache contents lost"
+[ ! -e "$C/.mxcli/run-state.json" ] && ok "a run record in the copy is removed" || bad "run-state.json survived"
+[ ! -e "$C/stray.txt" ] && [ ! -e "$C/tests/c.test.mdl" ] && ok "model re-synced: strays and deleted files gone" || bad "copy drifted from the live model"
+[ "$(cat "$C/tests/a.test.mdl")" = changed ] && ok "edited test file arrives" || bad "stale test file"
+printf 'test\n' > "$P/tests/a.test.mdl"
+[ "$(cat "$P/Fixture.mpr")" = model ] && ok "live .mpr still untouched" || bad "live .mpr written"
+printf '%s' "$(cat "$WORK/rec.w2")" | grep -qx '.mxcli' && ok "mxcli sees the copy's own .mxcli" || bad "no .mxcli in the copy"
+[ -e "$P/.mxcli/test-scratch.stamp" ] && bad "stamp written into the live project" || ok "live project gets no stamp"
+
+echo "-- speed: dropped and rebuilt cold on --cold, a new mxcli, age"
+OUT="$(run w3 --cold -- tests/a.test.mdl)"
+has "--cold says so" "$OUT" "dropping the warm copy (--cold)"
+[ ! -e "$C/deployment/run/out" ] && ok "--cold: build output gone" || bad "--cold kept the cache"
+mkdir -p "$C/deployment/run"; echo built > "$C/deployment/run/out"
+OUT="$(STUB_VER=stub-2 run w4 -- tests/a.test.mdl)"
+has "new mxcli says so" "$OUT" "mxcli changed"
+[ ! -e "$C/deployment/run/out" ] && ok "new mxcli: build output gone" || bad "new mxcli kept the cache"
+mkdir -p "$C/deployment/run"; echo built > "$C/deployment/run/out"; sed -i.bak 's/^created=.*/created=1000/' "$C/.mxcli/test-scratch.stamp"; rm -f "$C/.mxcli/test-scratch.stamp.bak"
+OUT="$(STUB_VER=stub-2 run w5 -- tests/a.test.mdl)"
+has "old copy says so" "$OUT" "older than 7 days"
+[ ! -e "$C/deployment/run/out" ] && ok "age: build output gone" || bad "an old cache was kept"
+mkdir -p "$C/deployment/run"; echo built > "$C/deployment/run/out"; rm -f "$C/.mxcli/test-scratch.stamp"
+OUT="$(STUB_VER=stub-2 run w6 -- tests/a.test.mdl)"
+has "a directory this script did not make is not trusted" "$OUT" "no stamp"
+OUT="$(MXTK_TEST_COLD=1 STUB_VER=stub-2 run w7 -- tests/a.test.mdl)"
+has "MXTK_TEST_COLD=1 = --cold" "$OUT" "dropping the warm copy (--cold)"
+
+echo "-- speed: --no-cache is the old throwaway copy, and leaves no warm copy behind"
+rm -rf "$WORK/tmp"/Fixture-test*
+OUT="$(run n1 --no-cache -- tests/a.test.mdl)"
+ls "$WORK/tmp" | grep -q 'Fixture-test' && bad "a copy was left behind" || ok "copy deleted, no cache made"
+OUT="$(MXTK_TEST_CACHE=0 run n2 -- tests/a.test.mdl)"
+ls "$WORK/tmp" | grep -q 'Fixture-test' && bad "MXTK_TEST_CACHE=0 left a copy" || ok "MXTK_TEST_CACHE=0 = --no-cache"
+
+
+echo "-- review: *.test.md specs are test files (named, or found in a directory), never a flag run twice"
+rm -rf "$WORK/tmp"/Fixture-test*
+printf '@test md one\n' > "$P/tests/m.test.md"; rm -f "$P/tests/leaky.test.mdl"
+OUT="$(run t1 -- tests/a.test.mdl tests/m.test.md --local)"
+[ "$(wc -l < "$WORK/rec.t1.calls" | tr -d ' ')" = 1 ] && has "named .test.md joins the one boot" "$(cat "$WORK/rec.t1.calls")" "test tests/a.test.mdl tests/m.test.md --local -p" || bad "calls: $(cat "$WORK/rec.t1.calls")"
+OUT="$(run t2 -- tests --local)"
+has "directory collects .test.md too" "$(cat "$WORK/rec.t2.calls")" "test tests/a.test.mdl tests/b.test.mdl tests/m.test.md --local"
+printf '/**\n * @test md keeps\n * @cleanup none\n */\n' > "$P/tests/k.test.md"
+OUT="$(run t3 -- tests/a.test.mdl tests/k.test.md --local)"
+[ "$(wc -l < "$WORK/rec.t3.calls" | tr -d ' ')" = 2 ] && has "@cleanup none in a .test.md: own boot" "$OUT" "tests/k.test.md has @cleanup none" || bad "calls: $(cat "$WORK/rec.t3.calls")"
+rm -f "$P/tests/k.test.md" "$P/tests/m.test.md"
+
+echo "-- review: a rollback-scan.sh in the project gives a flagged file its own boot; absent = unchanged"
+printf '/**\n * @test commits\n */\n' > "$P/tests/commits.test.mdl"
+# Stub of the real contract: always exit 0, --json, an A line only for the committing file; the
+# others get a B line (autonumber), which must NOT split the boot.
+cat > "$P/bin/rollback-scan.sh" <<'STUB'
+#!/usr/bin/env bash
+[ "$1" = --json ] || { echo "rollback-scan: 1 root flow(s) · 0 effect line(s)"; exit 0; }
+case "$2" in
+  *commits*) echo '{"reached":2,"effects":[{"cls":"A","effect":"SEPARATE-COMMIT"}]}' ;;
+  *) echo '{"reached":1,"effects":[{"cls":"B","effect":"AUTONUMBER"}]}' ;;
+esac
+exit 0
+STUB
+OUT="$(run r1 -- tests/a.test.mdl tests/commits.test.mdl tests/b.test.mdl --local)"
+[ "$(wc -l < "$WORK/rec.r1.calls" | tr -d ' ')" = 2 ] && has "flagged file alone" "$(sed -n 2p "$WORK/rec.r1.calls")" "test tests/commits.test.mdl --local" || bad "calls: $(cat "$WORK/rec.r1.calls")"
+has "says why" "$OUT" "reaches an effect a rollback does not undo"
+rm -f "$P/bin/rollback-scan.sh"
+OUT="$(run r2 -- tests/a.test.mdl tests/commits.test.mdl tests/b.test.mdl --local)"
+[ "$(wc -l < "$WORK/rec.r2.calls" | tr -d ' ')" = 1 ] && ok "no scanner: one boot as before" || bad "calls: $(cat "$WORK/rec.r2.calls")"
+rm -f "$P/tests/commits.test.mdl"
+
+echo "-- review: no in-progress marker after a clean run; a leftover marker makes the next run cold"
+rm -rf "$WORK/tmp"/Fixture-test*
+run u1 -- tests/a.test.mdl >/dev/null; C="$(ls -d "$WORK/tmp"/Fixture-test-cache.* 2>/dev/null | head -1)"
+grep -q 'test-scratch.running' "$WORK/rec.u1.mx" && ok "marker present while mxcli runs" || bad "no marker during the run"
+[ -e "$C/.mxcli/test-scratch.running" ] && bad "marker left after a clean run" || ok "marker cleared on clean exit"
+mkdir -p "$C/deployment/run"; echo built > "$C/deployment/run/out"; date +%s > "$C/.mxcli/test-scratch.running"
+OUT="$(run u2 -- tests/a.test.mdl)"
+has "unfinished run: cold, with a note" "$OUT" "an earlier run on it did not finish"
+[ ! -e "$C/deployment/run/out" ] && ok "unfinished run: build output gone" || bad "an unfinished copy was trusted"
+
+echo "-- review: a Mendix version or a userlib/javasource/widgets listing change makes the copy cold"
+mkdir -p "$C/deployment/run"; echo built > "$C/deployment/run/out"
+OUT="$(MXTK_MODEL_VERSION=11.1.0 run v1 -- tests/a.test.mdl)"
+has "first stamp carries the version (cold, no mendix in the old stamp)" "$OUT" "Mendix version changed"
+mkdir -p "$C/deployment/run"; echo built > "$C/deployment/run/out"
+OUT="$(MXTK_MODEL_VERSION=11.1.0 run v2 -- tests/a.test.mdl)"
+has "same version: warm" "$OUT" "warm copy"
+OUT="$(MXTK_MODEL_VERSION=11.2.0 run v3 -- tests/a.test.mdl)"
+has "new Mendix version: cold" "$OUT" "Mendix version changed: 11.1.0 -> 11.2.0"
+mkdir -p "$C/deployment/run"; echo built > "$C/deployment/run/out"
+mkdir -p "$P/userlib"; echo jar > "$P/userlib/a.jar"
+OUT="$(MXTK_MODEL_VERSION=11.2.0 run v4 -- tests/a.test.mdl)"
+has "a jar added to userlib/: cold" "$OUT" "userlib/javasource/widgets changed"
+mkdir -p "$C/deployment/run"; echo built > "$C/deployment/run/out"
+OUT="$(MXTK_MODEL_VERSION=11.2.0 run v5 -- tests/a.test.mdl)"
+has "unchanged listing: warm" "$OUT" "warm copy"
+echo jarjar > "$P/userlib/a.jar"
+OUT="$(MXTK_MODEL_VERSION=11.2.0 run v6 -- tests/a.test.mdl)"
+has "a jar changed size: cold" "$OUT" "userlib/javasource/widgets changed"
+rm -rf "$P/userlib"; MXTK_MODEL_VERSION=11.2.0 run v7 -- tests/a.test.mdl >/dev/null
+
+echo "-- review: mprcontents/ is compared by checksum (same size, same mtime, different bytes)"
+if command -v rsync >/dev/null 2>&1; then
+  MXTK_MODEL_VERSION=11.2.0 run x1 -- tests/a.test.mdl >/dev/null
+  printf 'unix\n' > "$P/mprcontents/a.mxunit"; touch -r "$C/mprcontents/a.mxunit" "$P/mprcontents/a.mxunit"
+  MXTK_MODEL_VERSION=11.2.0 run x2 -- tests/a.test.mdl >/dev/null
+  [ "$(cat "$C/mprcontents/a.mxunit")" = unix ] && ok "same-size same-second rewrite reaches the copy" || bad "the copy kept stale bytes: $(cat "$C/mprcontents/a.mxunit")"
+  printf 'unit\n' > "$P/mprcontents/a.mxunit"
+else echo "  [skip] rsync missing"; fi
+
+echo "-- review: two runs on one warm copy: the second waits, then falls back to a private cold copy"
+SAVE_PORTS="$MXTK_TEST_PORTS"
+( cd "$P" && MXTK_MODEL_VERSION=11.2.0 STUB_SLEEP=5 REC="$WORK/rec.y1" exec ./bin/test-scratch.sh -- tests/a.test.mdl ) >/dev/null 2>&1 &
+H=$!; BG="$BG $H"
+for i in $(seq 1 50); do [ -f "$WORK/rec.y1" ] && break; sleep 0.1; done
+[ -d "$C.lock" ] && ok "cache lock held during the run" || bad "no lock on the cache folder"
+export MXTK_TEST_PORTS="$(( 30000 + RANDOM % 20000 )) $(( 30000 + RANDOM % 20000 ))"
+OUT="$(MXTK_MODEL_VERSION=11.2.0 MXTK_TEST_LOCK_WAIT=1 run y2 -- tests/a.test.mdl)"; RC=$?
+has "second run says it waits" "$OUT" "another run uses the warm copy (PID $H)"
+has "and then goes private" "$OUT" "private cold copy"
+[ "$RC" -eq 0 ] && ok "private run succeeds" || bad "exit $RC"
+case "$(cat "$WORK/rec.y2" 2>/dev/null)" in *"cwd=$WORK/tmp/Fixture-test."*) ok "it ran in a throwaway copy, not the cache" ;; *) bad "cwd: $(head -1 "$WORK/rec.y2")" ;; esac
+wait "$H" 2>/dev/null
+[ -d "$C.lock" ] && bad "cache lock left behind" || ok "cache lock released on exit"
+echo "-- review: the cache lock of a dead run is taken over"
+mkdir -p "$C.lock"; printf '999999 1 test-scratch.sh\n' > "$C.lock/owner"
+OUT="$(MXTK_MODEL_VERSION=11.2.0 run y3 -- tests/a.test.mdl)"
+has "stale cache lock taken" "$OUT" "stale cache lock"
+export MXTK_TEST_PORTS="$SAVE_PORTS"
+
 echo "-- #244: an after-startup left on an mxcli test injection is refused before anything is copied"
 if command -v node >/dev/null 2>&1; then
   GU="$TOOLKIT/tests/wave2/fixtures/mxtest-guard/settings-unit.mxunit"
@@ -161,7 +346,7 @@ if command -v node >/dev/null 2>&1; then
   OUT="$(run j -- tests/a.test.mdl)"; RC=$?
   [ "$RC" -eq 0 ] && ok "a project's own after-startup → runs" || bad "own after-startup refused (exit $RC)"
   node "$SETAS" "$GU" "$UNIT" "MxTest.RegisterEndpoint"
-  rm -rf "$WORK/tmp"/Fixture-test.*
+  rm -rf "$WORK/tmp"/Fixture-test*
   OUT="$(run k -- tests/a.test.mdl)"; RC=$?
   [ "$RC" -eq 3 ] && ok "MxTest.RegisterEndpoint → refused (exit 3)" || bad "exit $RC: $(printf '%s' "$OUT" | tail -3)"
   has "names the leftover" "$OUT" "after-startup microflow is MxTest.RegisterEndpoint"

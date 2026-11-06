@@ -427,7 +427,9 @@ against its database, so restart before any journey that counts rows.
 while it copies (so it never copies a half-written model), copies the model tree to a scratch dir
 without `.git`, `deployment/` or `.mxcli/` (the live app's run --local record), takes a machine-wide
 lock on the test ports 8081/8091 (a live holder refuses, a dead one is taken over), runs `mxcli test`
-there with `-p` on the copy, and deletes the copy. The live model, its `deployment/` and the running
+there with `-p` on the copy. The copy is a warm one that keeps its own `.mxcli` and `deployment/`
+between runs (`--cold` for the gate, `--no-cache` for a throwaway), and several test files run in one
+boot (`@cleanup none` files get their own); `unit-test.md` § 4a has the numbers and the limits. The live model, its `deployment/` and the running
 app are never touched, so no restart is owed afterwards. It refuses `--attach`, which by design runs
 against the live app. (Field case: 2026-10-12, one unlocked `mxcli test` in the live repo broke the
 running app with `NoClassDefFoundError`, .mpr unchanged; #278.)

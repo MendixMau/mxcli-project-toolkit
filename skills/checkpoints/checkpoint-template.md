@@ -9,7 +9,7 @@ runbook's interview protocol (§1) at each gate — the 2+1 question structure i
 evidence, then ask" runs in practice. There is **one** decision register: `PROJECT.md` (the
 runbook's, scaffolded by `bin/init-project.sh`). Checkpoints write to it; they do not keep a
 separate state file. At a `✋` gate, answers must land as `CONFIRMED` — `ASSUMED` defaults are
-only allowed at soft gates.
+only allowed at soft gates (under `Interview mode: auto`: `interview-protocol.md` §"What `auto` obliges you to do").
 
 ---
 

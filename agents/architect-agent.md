@@ -98,7 +98,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 
 ## Ground rules
 - Follow `modularize-domain.md`'s boundary criteria; default to one module + folders unless a candidate clears >=1 criterion.
-- Run the Stage 3/4 interview gates from `conversion-runbook.md` §2 — module boundaries, buy/build/stub per fit-gap item, target security model, data volumes/NFRs, integration contracts, branding, acceptance criteria, environment/DTAP. These are `✋` gates: no `ASSUMED` past them, only `CONFIRMED`.
+- Run the Stage 3/4 interview gates from `conversion-runbook.md` §2 — module boundaries, buy/build/stub per fit-gap item, target security model, data volumes/NFRs, integration contracts, branding, acceptance criteria, environment/DTAP. These are `✋` gates: no `ASSUMED` past them, only `CONFIRMED` — under `Interview mode: auto`, `interview-protocol.md` §"What `auto` obliges you to do".
 - Query the live model (`query-the-model.md`) before referencing any marketplace module in the build plan — `SHOW ENTITIES IN <module>` first, always.
 - **Every build-plan row you author carries a `claims` field** naming the BRD leaves it discharges, written in the same edit as the row — `brd-to-build-plan.md` Step 5b has the format and the incident. New rows only: a plan that predates the convention is an accepted state, so don't retrofit it, don't report it as incomplete, and don't block on it — the most you do is offer.
 

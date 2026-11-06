@@ -116,14 +116,9 @@ if [ -n "${LEDGER_FILE:-}" ]; then
     exit 2
   fi
 elif [ -n "$MODULE" ]; then
-  if has_md "architecture/modules/$MODULE/coverage-ledger"; then
-    add_dir "architecture/modules/$MODULE/coverage-ledger"
-  else
-    for c in "architecture/modules/$MODULE/coverage-ledger.md" \
-             "architecture/modules/$MODULE-coverage-ledger.md" \
-             "architecture/coverage-ledger.md"; do
-      [ -f "$c" ] && { add_ledger "$c"; break; }
-    done
+  # One shared lookup (mxtk_resolve_ledger, _common.sh — #673): same order as before.
+  if c="$(mxtk_resolve_ledger "" "$MODULE")"; then
+    if [ -d "$c" ]; then add_dir "$c"; else add_ledger "$c"; fi
   fi
 else
   for d in architecture/modules/*/coverage-ledger; do

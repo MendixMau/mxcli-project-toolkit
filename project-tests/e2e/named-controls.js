@@ -12,13 +12,17 @@
 // about the named claim. The control's persona must equal the run's user (TEST_USER); a mismatch
 // is a FAULT and the control does not run. Findings go to artifacts/control-<id>.json via the
 // runner's --out=, never over the real walk's file. Exit 0 only when every control is PROVEN.
+// A runner exit 2 is an instrument fault (preflight abort, playwright missing), not a failed
+// proof: the row is FAULT and carries the runner's last INSTRUMENT FAULT / SETUP line (#660).
+// Exit codes: 0 all PROVEN, 1 any NOT PROVEN, 2 any FAULT (not measured).
 // Field case (card-disbursement build, 2026-09-26): a journey passed every rung and its positive
 // control proved every rung, yet its claim was true by accident; this control read NOT PROVEN.
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-function judge(exitCode, results, mustFail) {
+function judge(exitCode, results, mustFail, cause) {
+  if (exitCode === 2) return { verdict: 'FAULT', why: `runner exited 2 (instrument fault): ${cause || 'no INSTRUMENT FAULT or SETUP line in its output'}` };
   if (exitCode !== 1) return { verdict: 'NOT PROVEN', why: `runner exited ${exitCode}, not 1` };
   const named = results.filter(r => String(r.name || '').includes(mustFail));
   if (!named.length) {
@@ -34,6 +38,14 @@ function judge(exitCode, results, mustFail) {
   return { verdict: 'PROVEN', why: `${named.length} named check(s) FAIL, nothing else red` };
 }
 
+// The last INSTRUMENT FAULT / SETUP line of the runner's output, trimmed: the cause of an exit 2.
+// Anchored at line start, so "Fix the SETUP line(s) above" in the summary does not match.
+function faultLine(text) {
+  const hits = String(text || '').split(/\r?\n/).map(l => l.trim()).filter(l => /^(INSTRUMENT FAULT|SETUP)\b/.test(l));
+  const l = hits.length ? hits[hits.length - 1] : '';
+  return l.length > 400 ? l.slice(0, 397) + '...' : l;
+}
+
 function runControl(file, { user, artifactsDir, runner = path.join(__dirname, 'journey-runner.js') }) {
   if (!file.endsWith('.control.json')) return { id: path.basename(file), verdict: 'FAULT', why: 'not named *.control.json; not run' };
   const j = JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -42,12 +54,18 @@ function runControl(file, { user, artifactsDir, runner = path.join(__dirname, 'j
   if (j.persona !== user) return { id: j.id, of: c.of, verdict: 'FAULT', why: `persona "${j.persona}" is not the run user "${user}"; not run` };
   const out = path.join(artifactsDir, `control-${j.id}.json`);
   fs.rmSync(out, { force: true });          // a stale file from an earlier run must not be read
-  const r = spawnSync(process.execPath, [runner, file, `--out=${out}`], { stdio: 'inherit' });
+  // stdout and stderr are piped, then replayed, so the cause line can be kept for the verdict:
+  // SETUP lines go to stdout, INSTRUMENT FAULT to stderr.
+  const r = spawnSync(process.execPath, [runner, file, `--out=${out}`],
+    { stdio: ['inherit', 'pipe', 'pipe'], encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+  if (r.stdout) process.stdout.write(r.stdout);
+  if (r.stderr) process.stderr.write(r.stderr);
+  if (r.status === 2) return { id: j.id, of: c.of, ...judge(2, [], c.mustFail, faultLine(`${r.stdout || ''}\n${r.stderr || ''}`)) };
   if (!fs.existsSync(out)) return { id: j.id, of: c.of, verdict: 'NOT PROVEN', why: `runner exited ${r.status}; wrote no findings` };
   return { id: j.id, of: c.of, ...judge(r.status, JSON.parse(fs.readFileSync(out, 'utf8')).results || [], c.mustFail) };
 }
 
-module.exports = { judge, runControl };
+module.exports = { judge, runControl, faultLine };
 
 if (require.main === module) {
   const files = process.argv.slice(2).filter(a => !a.startsWith('--'));
@@ -59,5 +77,7 @@ if (require.main === module) {
   for (const r of rows) console.log(`  ${r.verdict.padEnd(10)} ${r.id}${r.of ? ` (of ${r.of})` : ''} — ${r.why}`);
   const n = rows.filter(r => r.verdict === 'PROVEN').length;
   console.log(`  ${n} of ${rows.length} named controls PROVEN`);
-  process.exit(n === rows.length ? 0 : 1);
+  const faults = rows.filter(r => r.verdict === 'FAULT').length;
+  if (faults) console.log(`  ${faults} FAULT — not measured; fix the cause named on the row`);
+  process.exit(faults ? 2 : n === rows.length ? 0 : 1);
 }

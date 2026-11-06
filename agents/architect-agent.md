@@ -110,7 +110,7 @@ checked against the requirement it came from. It fires only if someone runs it, 
 here rather than behind a link. Write the numbers into
 **`architecture/workflow-count.md`** — the `workflow-count` obligation
 (`bin/lib/obligations.tsv`, from-stage 3) expects a denominator on its first line, and a project
-with no workflow discharges it with *"0 workflows, nothing to count"*.
+with no workflow discharges it with *"0 of 0 workflows — nothing to count"*.
 
 Run it at Stage 3 against the **drawn** diagram, and again at Stage 5 against the written MDL.
 

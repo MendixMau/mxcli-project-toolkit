@@ -163,5 +163,5 @@ and state the cost in the PR body's 'Time cost:' line (docs/RELEASE-PROCESS.md Â
 fi
 [ "${MXTK_PCOUNT_VERBOSE:-0}" = 1 ] && sort "$LOG" | uniq -c | sort -rn
 
-echo; echo "PASS=$PASS FAIL=$FAIL"
+echo; echo "PASS=$PASS FAIL=$FAIL starts=${COUNT:-?}"   # starts= reaches run-all.sh's summary line, so CI shows the count
 [ "$FAIL" -eq 0 ]

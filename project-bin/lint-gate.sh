@@ -12,11 +12,26 @@
 # 2026-08-14). This script therefore does not need RULE 1 approval, unlike exec/test.
 #
 # Usage:
-#   bin/lint-gate.sh                    # check against baseline; exit 1 if any rule rose
+#   bin/lint-gate.sh                    # check against baseline; exit 1 if any rule rose or a finding is new
 #   bin/lint-gate.sh --update-baseline  # accept current counts as the new baseline
 #       --reason "<why>"                # REQUIRED when the update raises any rule's count;
 #                                       # a raise also asks the USER to type `loosen` at a terminal
 #   bin/lint-gate.sh --full             # ignore the vendor exclusion (rarely useful)
+#
+# NEW FINDING = FAIL, EVEN WITH A FIX ELSEWHERE IN THE SAME RULE. With mxcli >= v0.30.0 the gate
+# also runs `mxcli lint --baseline .claude/lint-mxcli-baseline.json` and fails on any finding that
+# file does not know, though no rule's count rose (one CONV007 row fixed, another broken: count
+# unchanged, finding new). mxcli matches a finding on rule + document, not message or line, so
+# renames and rule rewording do not make old debt look new. Files, both committed:
+#   .claude/lint-baseline.json         counts + finding multiset (ratchet, acceptance log, collapse guard)
+#   .claude/lint-mxcli-baseline.json   mxcli's own finding list (created by the first --update-baseline)
+# --update-baseline writes both; accepting findings the compare calls new needs --reason and the
+# user's `loosen`, like a count rise. A baseline file deleted from the tree is read from git HEAD.
+# Older mxcli (no `lint --baseline`; checked by version, else by --help) or LINT_MXCLI_BASELINE=0:
+# the count ratchet alone, with a note on every run. No mxcli baseline file yet: a note, not a
+# failure; the gate cannot see a swap until the file exists. Known blind spot, from mxcli: a rule
+# that emits several findings per document (CONV007: one per role per entity) pairs duplicates by
+# count, so a swap WITHIN one document can read as a reworded finding; net rises still show.
 #
 # Exit codes: 0 clean or unchanged · 1 a rule increased, or BLIND (a rule inspected nothing,
 #             or the toolkit rules reverted to stock — see below) · 2 could not run (or a
@@ -60,7 +75,7 @@
 # .claude/lint-acceptances.tsv (ts, total before/after, per-rule rises, security flag, reason)
 # — commit it with the baseline. A first baseline (taken with the user right after the first
 # scaffold step, #496) and a pure ratchet-down need no reason.
-# A rise in a security-tier rule (default SEC* and CONV006; override, one id or glob per line,
+# A rise in a security-tier rule (default SEC*, MXTK-SEC* and CONV006, CONV007; override, one id or glob per line,
 # in .claude/lint-security-rules.txt) is flagged in the prompt and the log.
 #
 # LOOSENING IS THE USER'S OWN COMMAND (#348). --approved-in-chat was a flag the agent whose
@@ -181,7 +196,7 @@ while [ $# -gt 0 ]; do
               REASON="$2"; shift ;;
     --reason=*) REASON="${1#--reason=}" ;;
     --approved-in-chat) ;;  # ignored since #348: a flag the agent can type is no approval
-    -h|--help) sed -n '2,83p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,103p' "$0"; exit 0 ;;
     *) echo "lint-gate: unknown argument '$1'" >&2; exit 2 ;;
   esac
   shift
@@ -453,11 +468,70 @@ else
 fi
 [ -s "$OUT" ] || { echo "lint-gate: lint produced no output" >&2; exit 2; }
 
+# NATIVE BASELINE (mxcli >= v0.30.0, `mxcli lint --baseline`). The count ratchet below decides on
+# per-rule TOTALS, so a fix elsewhere in a rule hides a new finding in the same rule (a swap).
+# mxcli's own baseline decides on FINDINGS: a finding is matched on rule + document (not message,
+# not line), so a swap is "1 new" and an mxcli rule rewording is not. This block runs the compare;
+# the python below turns "any new finding" into FAIL on top of the ratchet. Both baselines are
+# kept: .claude/lint-baseline.json (counts, acceptance log, collapse guard) and
+# .claude/lint-mxcli-baseline.json (mxcli's finding list). Commit both. --update-baseline writes both.
+# Older mxcli, or LINT_MXCLI_BASELINE=0: the count ratchet alone, with a note on every run.
+MXB="$ROOT/.claude/lint-mxcli-baseline.json"
+MXB_REF=""            # the baseline file the compare reads
+MXB_STATE="off"       # off | active | missing
+NEW_OUT="${TMPDIR:-/tmp}/lint-gate-new-$$.json"
+trap 'rm -f "$OUT" "$NEW_OUT" "${MXB_TMP:-}"' EXIT
+_mx_has_baseline() {  # 0 when this mxcli has `lint --baseline`: a semver >= 0.30.0, else a --help probe (nightly builds carry no semver)
+  _mxv="$("$MXCLI" --version 2>/dev/null | head -1 | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' | head -1)"; _mxv="${_mxv#v}"
+  if [ -n "$_mxv" ]; then
+    _mxmaj="${_mxv%%.*}"; _mxrest="${_mxv#*.}"; _mxmin="${_mxrest%%.*}"
+    [ "$_mxmaj" -gt 0 ] 2>/dev/null && return 0
+    [ "$_mxmin" -ge 30 ] 2>/dev/null && return 0
+    return 1
+  fi
+  "$MXCLI" lint --help 2>/dev/null | grep -q -- '--baseline'
+}
+if [ -n "${LINT_JSON:-}" ]; then
+  # Fixture mode: a captured `mxcli lint --baseline --format json` result stands in for the compare.
+  if [ -n "${LINT_NEW_JSON:-}" ]; then
+    [ -f "$LINT_NEW_JSON" ] || { echo "lint-gate: LINT_NEW_JSON=$LINT_NEW_JSON not found" >&2; exit 2; }
+    cp "$LINT_NEW_JSON" "$NEW_OUT"; MXB_STATE="active"
+  fi
+elif [ "${LINT_MXCLI_BASELINE:-1}" = "0" ]; then
+  echo "note: mxcli native baseline switched off (LINT_MXCLI_BASELINE=0): count ratchet only, a new finding offset by a fix in the same rule passes" >&2
+elif ! _mx_has_baseline; then
+  echo "note: this mxcli has no 'lint --baseline' (needs v0.30.0 or newer): count ratchet only, a new finding offset by a fix in the same rule passes. Upgrade mxcli to close that gap" >&2
+else
+  # The bar is the baseline file in the tree; deleted from the tree, git HEAD's copy is still the
+  # bar (same rule as the count baseline, #348): rm must not turn the finding check off.
+  if [ -f "$MXB" ]; then MXB_REF="$MXB"
+  elif git -C "$ROOT" cat-file -e "HEAD:.claude/lint-mxcli-baseline.json" 2>/dev/null; then
+    MXB_TMP="${TMPDIR:-/tmp}/lint-gate-mxb-$$.json"
+    git -C "$ROOT" show "HEAD:.claude/lint-mxcli-baseline.json" > "$MXB_TMP" 2>/dev/null && MXB_REF="$MXB_TMP"
+    [ -n "$MXB_REF" ] && echo "note: .claude/lint-mxcli-baseline.json is deleted from the tree; comparing against the copy git HEAD holds" >&2
+  fi
+  if [ -n "$MXB_REF" ]; then
+    # Same project, same exclusions, same rules as the run above; mxcli exits non-zero on new
+    # findings, which is the answer, not an error: the JSON is what counts.
+    if [ -n "$EXCLUDE" ]; then
+      "$MXCLI" lint -p "$MPR" -e "$EXCLUDE" --baseline "$MXB_REF" --format json > "$NEW_OUT" 2>/dev/null
+    else
+      "$MXCLI" lint -p "$MPR" --baseline "$MXB_REF" --format json > "$NEW_OUT" 2>/dev/null
+    fi
+    if grep -q '"violations"' "$NEW_OUT" 2>/dev/null; then MXB_STATE="active"
+    else echo "note: 'mxcli lint --baseline' gave no result; count ratchet only for this run" >&2; fi
+  else
+    MXB_STATE="missing"
+    echo "note: no .claude/lint-mxcli-baseline.json yet, so a new finding offset by a fix in the same rule is not caught. Create it once, with the user: bin/lint-gate.sh --update-baseline" >&2
+  fi
+fi
+
 # Exit 10 = "this update loosens; ask the user" (#348). The question is asked in bash below, not in
 # Python: native Windows Python under Git Bash's mintty sees a pipe where bash sees the terminal.
 _lint_py() {
 BASELINE="$BASELINE" OUT="$OUT" UPDATE="$UPDATE" REASON="$REASON" \
-  SECURITY_FILE="$SECURITY_FILE" ACCEPT_LOG="$ACCEPT_LOG" MXCLI_VER="$MXCLI_VER" "$PY" - <<'PY'
+  SECURITY_FILE="$SECURITY_FILE" ACCEPT_LOG="$ACCEPT_LOG" MXCLI_VER="$MXCLI_VER" \
+  MXB_STATE="$MXB_STATE" NEW_OUT="$NEW_OUT" "$PY" - <<'PY'
 import json, os, sys, collections, datetime, fnmatch, subprocess
 
 out_path  = os.environ["OUT"]
@@ -571,10 +645,26 @@ def fkey(v):
 fcounts = collections.Counter(fkey(v) for v in viol)
 new_by_rule = {}  # rule -> every new-or-changed finding; the FAIL view caps it, lint-last.json keeps all
 
+# NATIVE BASELINE RESULT (see the bash block above): findings that `mxcli lint --baseline` calls
+# new. _rule self-reports and crashed rules are not findings (the blind logic above owns them).
+mx_state = os.environ.get("MXB_STATE", "off")
+mx_new = []
+if mx_state == "active":
+    try:
+        _nr = open(os.environ["NEW_OUT"]).read()
+        mx_new = [v for v in (json.loads(_nr[_nr.index("{"):]).get("violations") or [])
+                  if v.get("module") != "_rule" and "Starlark rule error" not in (v.get("message") or "")]
+    except (ValueError, IndexError, OSError):
+        mx_state = "off"
+        print("lint-gate: could not parse the 'mxcli lint --baseline' result; count ratchet only", file=sys.stderr)
+mx_new_by_rule = collections.OrderedDict()
+for v in mx_new:
+    mx_new_by_rule.setdefault(v["ruleId"], []).append(v)
+
 if update:
     # Accepting a rise is a decision; record it. See the header ("ACCEPTING DEBT ...").
     reason   = os.environ.get("REASON", "").strip()
-    sec_pats = ["SEC*", "CONV006"]
+    sec_pats = ["SEC*", "MXTK-SEC*", "CONV006", "CONV007"]
     sec_file = os.environ.get("SECURITY_FILE", "")
     if sec_file and os.path.exists(sec_file):
         sec_pats = [l.strip() for l in open(sec_file)
@@ -597,16 +687,21 @@ if update:
     if old_base is not None:
         raised = [(r, old_base.get(r, 0), c) for r, c in sorted(counts.items())
                   if c > old_base.get(r, 0)]
-    sec_raised = [x for x in raised if is_sec(x[0])]
-    if raised and not reason:
-        print("lint-gate: REFUSED — this update raises %d rule(s): %s" % (len(raised),
-              ", ".join("%s %d->%d" % x for x in raised)), file=sys.stderr)
+    # Findings the native baseline calls new but whose rule's count did not rise (a fix elsewhere in
+    # the rule offset them): accepting them is as much a loosening as a count rise.
+    raised_ids = {r for r, _, _ in raised}
+    swapped = [(r, len(vs)) for r, vs in mx_new_by_rule.items() if r not in raised_ids]
+    sec_raised = [x for x in raised if is_sec(x[0])] + [(r, 0, n) for r, n in swapped if is_sec(r)]
+    swap_txt = ", ".join("%s +%d new, count unchanged" % x for x in swapped)
+    if (raised or swapped) and not reason:
+        print("lint-gate: REFUSED — this update raises %d rule(s): %s" % (len(raised) + len(swapped),
+              ", ".join(["%s %d->%d" % x for x in raised] + ([swap_txt] if swapped else []))), file=sys.stderr)
         print("           Accepting debt needs a reason on the record:", file=sys.stderr)
         print("           bin/lint-gate.sh --update-baseline --reason \"<why each rise is acceptable>\"",
               file=sys.stderr)
         sys.exit(2)
-    if raised and os.environ.get("_MXTK_LOOSEN_OK") != "1":  # the user's keystrokes, never a flag (#348)
-        print("lint-gate: this update LOOSENS the baseline: %s" % ", ".join("%s %d->%d" % x for x in raised),
+    if (raised or swapped) and os.environ.get("_MXTK_LOOSEN_OK") != "1":  # the user's keystrokes, never a flag (#348)
+        print("lint-gate: this update LOOSENS the baseline: %s" % ", ".join(["%s %d->%d" % x for x in raised] + ([swap_txt] if swapped else [])),
               file=sys.stderr)
         if sec_raised:
             print("           security-tier: %s" % ", ".join(r for r, _, _ in sec_raised), file=sys.stderr)
@@ -614,7 +709,7 @@ if update:
                 print("             %s | %s | %s" % (v["ruleId"], v.get("document") or v.get("module") or "",
                       (v.get("message") or "")[:110]), file=sys.stderr)
         sys.exit(10)  # bash asks at the terminal, or refuses
-    if raised:
+    if raised or swapped:
         log = os.environ.get("ACCEPT_LOG", "")
         try:
             new_log = not os.path.exists(log)
@@ -624,7 +719,7 @@ if update:
                 f.write("%s\t%d\t%d\t%s\t%s\t%s\n" % (
                     datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                     sum(old_base.values()), len(viol),
-                    " ".join("%s+%d" % (r, n - w) for r, w, n in raised),
+                    " ".join(["%s+%d" % (r, n - w) for r, w, n in raised] + ["%s+%dnew" % x for x in swapped]),
                     "yes" if sec_raised else "-",
                     reason.replace("\t", " ").replace("\n", " ")))
             print("==> acceptance recorded in %s — commit it with the baseline" % os.path.relpath(log))
@@ -636,7 +731,8 @@ if update:
                "findings": dict(sorted(fcounts.items())),
                "note": "Per-rule finding counts on OUR modules, plus a multiset of findings "
                        "(rule|module|document|message) so a rise can name the new ones. "
-                       "Gate fails when any count rises.",
+                       "Gate fails when any count rises, or when mxcli (>= v0.30.0) reports a new "
+                       "finding against .claude/lint-mxcli-baseline.json.",
                **({"mxcli_version": os.environ["MXCLI_VER"]} if os.environ.get("MXCLI_VER") else {})},
               open(base_path, "w"), indent=2)
     open(base_path, "a").write("\n")
@@ -664,6 +760,8 @@ for r in sorted(set(counts) | set(base)):
     elif now < was: fell.append((r, was, now))
 
 print("==> %d findings on our modules (baseline %d)" % (len(viol), sum(base.values())))
+if mx_state == "active":
+    print("==> mxcli native baseline: %d new finding(s) since .claude/lint-mxcli-baseline.json" % len(mx_new))
 
 if blind:
     print("\n!! A RULE COULD NOT READ THE MODEL — a clean result here means nothing:")
@@ -697,14 +795,21 @@ if collapsed:
     write_last("FAIL-COLLAPSE", viol, counts)
     sys.exit(1)
 
-if not rose:
+# Rules with new findings whose count did NOT rise: a fix in the same rule offset the new finding.
+rose_ids = {r for r, _, _ in rose}
+swap_rules = [r for r in mx_new_by_rule if r not in rose_ids]
+for r in swap_rules:
+    new_by_rule[r] = ["%s | %s | %s" % (v.get("module") or "(project)", v.get("document") or "-", v["message"][:120])
+                      for v in mx_new_by_rule[r]]
+
+if not rose and not swap_rules:
     print("\nPASS — nothing got worse.")
     if fell:
         print("       %d rule(s) improved. Run --update-baseline to lock the gain in." % len(fell))
     write_last("PASS-BLIND" if blind else "PASS", viol, counts)
     sys.exit(1 if blind else 0)
 
-print("\nFAIL — %d rule(s) got worse:\n" % len(rose))
+print("\nFAIL — %d rule(s) got worse:\n" % (len(rose) + len(swap_rules)))
 # Work out every rule's new findings first, so the top of the output can be a SUMMARY: one
 # line per rule (rule, severity, base -> now, net rise, new findings). In one field build ~90%
 # of runs rose (#496), and with the findings interleaved the rule list was lost in the detail.
@@ -726,8 +831,9 @@ for r, was, now in rose:
 for r, was, now in rose:
     tail = ("  %d new" % len(new_lists[r])) if r in new_lists else ""
     print("   %-8s %-8s %d -> %d  (+%d)%s" % (r, sev.get(r, "?"), was, now, now - was, tail))
-print("   detail: up to 3 new findings per rule below; all of them in .claude/loop/lint-last.json (new_findings)\n"
-      if base_findings is not None else "")
+if rose:
+    print("   detail: up to 3 new findings per rule below; all of them in .claude/loop/lint-last.json (new_findings)\n"
+          if base_findings is not None else "")
 for r, was, now in rose:
     print("   %s:" % r)
     if r in new_lists:
@@ -746,6 +852,17 @@ for r, was, now in rose:
         for v in [x for x in viol if x["ruleId"] == r][:3]:
             print("        %s | %s" % (v.get("module") or "(project)", v["message"][:120]))
     print()
+if swap_rules:
+    print("   NEW since the baseline although the rule's count did not rise (a fix elsewhere in the rule offset it):")
+    for r in swap_rules:
+        print("   %-8s %-8s %d -> %d  (+0)  %d new" % (r, sev.get(r, "?"), base.get(r, 0), counts.get(r, 0), len(new_by_rule[r])))
+    for r in swap_rules:
+        print("   %s:" % r)
+        for line in new_by_rule[r][:3]:
+            print("        + " + line)
+        if len(new_by_rule[r]) > 3:
+            print("        + ... %d more in .claude/loop/lint-last.json (new_findings)" % (len(new_by_rule[r]) - 3))
+        print()
 write_last("FAIL", viol, counts)
 sys.exit(1)
 PY
@@ -769,6 +886,19 @@ if [ "$_RC" -eq 10 ]; then
   [ "$_ans" = loosen ] || { echo "lint-gate: not accepted; baseline unchanged." >&2; exit 2; }
   _MXTK_LOOSEN_OK=1; export _MXTK_LOOSEN_OK
   _lint_py; _RC=$?
+fi
+
+# Record the same findings in mxcli's own baseline (see NATIVE BASELINE above). Only after the
+# count update was accepted (rc 0), so a refused loosening leaves both baselines untouched.
+if [ "$UPDATE" -eq 1 ] && [ "$_RC" -eq 0 ] && [ -z "${LINT_JSON:-}" ] && [ "${LINT_MXCLI_BASELINE:-1}" != "0" ] && _mx_has_baseline; then
+  mkdir -p "$ROOT/.claude" 2>/dev/null
+  if [ -n "$EXCLUDE" ]; then
+    "$MXCLI" lint -p "$MPR" -e "$EXCLUDE" --baseline "$MXB" --update-baseline >/dev/null 2>&1
+  else
+    "$MXCLI" lint -p "$MPR" --baseline "$MXB" --update-baseline >/dev/null 2>&1
+  fi
+  if [ -s "$MXB" ]; then echo "==> mxcli native baseline written: $(basename "$MXB") (commit it with lint-baseline.json)"
+  else echo "lint-gate: could not write $MXB with 'mxcli lint --baseline --update-baseline'; the count baseline is written, the finding check stays off" >&2; fi
 fi
 
 # Receipt project-edited bundled rules (#524). After a baseline is written, every

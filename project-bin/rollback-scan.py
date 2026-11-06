@@ -7,7 +7,8 @@ test reaches, classifies what it finds with rollback-effects.tsv. Prints; never 
 import fnmatch, json, os, re, sqlite3, sys, time
 from collections import deque
 
-CALL_RE = re.compile(r'\b(?:call\s+(?:microflow|nanoflow)|@setup|@teardown)\s+([A-Za-z_]\w*\.[A-Za-z_]\w*)', re.I)
+CALL_RE = re.compile(r'\b(?:call\s+(?:microflow|nanoflow|java\s+action)|@setup|@teardown)\s+([A-Za-z_]\w*\.[A-Za-z_]\w*)', re.I)
+COMMENT_RE = re.compile(r'/\*.*?\*/|--[^\n]*', re.S)
 QUAL_RE = re.compile(r'^[A-Za-z_]\w*\.[A-Za-z_]\w*$')
 FLOW_TYPES = ('MICROFLOW', 'NANOFLOW', 'WORKFLOW')
 U_CAP = 10
@@ -31,7 +32,7 @@ def roots_from(args):
         if os.path.isfile(a):
             files.append(a)
             with open(a, encoding='utf-8', errors='replace') as fh:
-                for m in CALL_RE.finditer(fh.read()):
+                for m in CALL_RE.finditer(COMMENT_RE.sub(' ', fh.read())):
                     if m.group(1) not in roots:
                         roots.append(m.group(1))
         elif QUAL_RE.match(a):
@@ -158,7 +159,12 @@ def main(argv):
     # walk: parent pointers give one shortest path per reached flow
     parent, via, order = {}, {}, []
     q = deque()
+    java_known = set(t for v in calls.values() for t, tt in v if tt == 'JAVA_ACTION')
     for r in roots:
+        if r in java_known and r not in known:   # `call java action X.Y` as a test root
+            parent[r] = None
+            order.append(r)
+            continue
         if r not in known:
             out['unknownRoots'].append(r)
             continue
@@ -174,8 +180,12 @@ def main(argv):
                 continue
             nxt.append((t, tt, None))
         for ent in touches.get(f, ()):
-            for h in events.get(ent, []):
-                nxt.append((h, 'MICROFLOW', 'event on ' + ent))
+            e, guard = ent, set()
+            while e and e not in guard:   # handlers on a parent entity fire for its children too
+                guard.add(e)
+                for h in events.get(e, []):
+                    nxt.append((h, 'MICROFLOW', 'event on ' + (e if e == ent else '%s, parent of %s' % (e, ent))))
+                e = parent_ent.get(e)
         for t, tt, why in nxt:
             if t in parent or tt not in FLOW_TYPES + ('JAVA_ACTION',):
                 continue
@@ -213,6 +223,11 @@ def main(argv):
         return False
 
     for f in order:
+        if parent.get(f, 0) is None and f in java_known and f not in known:
+            r = call_match(f)
+            if r:
+                add(r['cls'], r['effect'], f, f, r, r['note'])
+            continue
         if f not in calls and f not in acts and f not in touches:
             continue
         for at in sorted(acts.get(f, ())):

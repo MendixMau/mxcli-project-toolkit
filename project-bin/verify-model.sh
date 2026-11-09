@@ -58,10 +58,15 @@ fi
 mkdir -p .claude/loop 2>/dev/null && printf '%s\n' "$PLACE" > .claude/loop/last-full-build 2>/dev/null || true
 ERR="$(mktemp "${TMPDIR:-/tmp}/verify-model-errors.XXXXXX")"; OUT="$(mktemp "${TMPDIR:-/tmp}/verify-model-out.XXXXXX")"
 RC=0
-"$MXBUILD" --java-home="$JAVA_HOME" --java-exe-path="$JAVA_EXE" --write-errors="$ERR" --target=deploy "$BUILD_MPR" > "$OUT" 2>&1 < /dev/null || RC=$?
+# mxtk_reaped (_common.sh): stops the deno helper this mxbuild leaves behind, and nothing else (#708).
+mxtk_reaped "$MXBUILD" --java-home="$JAVA_HOME" --java-exe-path="$JAVA_EXE" --write-errors="$ERR" --target=deploy "$BUILD_MPR" > "$OUT" 2>&1 < /dev/null || RC=$?
+command -v mxtk_build_lock_release >/dev/null 2>&1 && mxtk_build_lock_release   # taken in mxtk_build_tree
 if [ "$PLACE" = copy ] && [ -n "${MXTK_BUILD_DST:-}" ]; then   # copy paths in mxbuild's output → the real files
   _o="$(cat "$OUT")"; printf '%s\n' "${_o//$MXTK_BUILD_DST/$MXTK_BUILD_SRC}" > "$OUT"
 fi
+# Killed for lack of memory (exit 137 / OOM text): name the cause instead of "errors file unreadable".
+_out_txt=""; [ "$RC" -eq 0 ] || _mxtk_slurp _out_txt "$OUT"
+mxtk_mxbuild_oom_note "$RC" "$_out_txt" && WHY="$MXTK_MXBUILD_OOM"
 
 if [ ! -s "$ERR" ] && [ "$RC" -eq 0 ]; then
   COUNT=0; CODES=""
@@ -72,7 +77,7 @@ elif [ -s "$ERR" ]; then
   # mismatch, JDK/gradle) and said why in errors[]. That read as "0 errors" and WROTE THE
   # PASS STAMP (field project 2026-09-26, mxbuild 11.14.0 vs an 11.12.2 model, exit 3).
   if [ "$COUNT" = "0" ] && [ "$RC" -ne 0 ]; then
-    COUNT="?"; WHY="$(mxtk_mxbuild_why "$ERR" "$PY" 2>/dev/null || true)"
+    COUNT="?"; _w="$(mxtk_mxbuild_why "$ERR" "$PY" 2>/dev/null || true)"; WHY="$_w${_w:+${WHY:+; }}$WHY"
   fi
 else
   COUNT="?"; CODES=""

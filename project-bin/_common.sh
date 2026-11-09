@@ -859,6 +859,7 @@ mxtk_build_tree() {
   [ -f "$_r/bin/build-tree.py" ] || { MXTK_BUILD_NOTE="bin/build-tree.py not installed (sync-project.sh)"; return 0; }
   _py="${PY:-${MXTK_PY_MEMO:-$(resolve_py 2>/dev/null || true)}}"
   [ -n "$_py" ] || { MXTK_BUILD_NOTE="no Python 3"; return 0; }
+  mxtk_build_lock_take "$_r" || { MXTK_BUILD_NOTE="$MXTK_BUILD_LOCK_NOTE"; return 0; }
   if _o="$("$_py" -I "$(native_path "$_r/bin/build-tree.py")" "$(native_path "$1")" "$(native_path "$_r/.mxtk/build/model")" 2>&1)"; then
     MXTK_BUILD_MPR="${_o##*$'\n'}"; MXTK_BUILD_MPR="${MXTK_BUILD_MPR%$'\r'}"
     case "$MXTK_BUILD_MPR" in [A-Za-z]:*) MXTK_BUILD_MPR="$(mxtk_posix_path "$MXTK_BUILD_MPR")" ;; esac
@@ -872,6 +873,45 @@ mxtk_build_tree() {
   fi
   MXTK_BUILD_NOTE="the copy failed: ${_o##*$'\n'}"
 }
+# One full build at a time in the copy (#686 review). The exec gate and a pre-push or module-close
+# verify-model.sh can build at the same moment, and two syncs + two mxbuilds in one folder would
+# corrupt each other's output. Lock: <root>/.mpr-snapshots/.build.lock, "<pid> <epoch> <who>",
+# taken with noclobber (O_EXCL, no process start) — the same shape as exec.sh's .exec.lock. A
+# held lock is waited on (2 s polls, MXTK_BUILD_LOCK_WAIT, default 900 s: a build takes minutes);
+# a lock whose pid is gone is stale and taken over; still held after the wait → this build runs
+# in place, said out loud (correct verdict; only the watch client may need a restart). Taken in
+# mxtk_build_tree, released after the build: by mxtk_gate_mxbuild (unless MXTK_BUILD_LOCK_KEEP=1 —
+# exec.sh, which removes it with its own lock on exit), and by verify-model.sh.
+MXTK_BUILD_LOCK=""; MXTK_BUILD_LOCK_NOTE=""
+mxtk_build_lock_take() {  # $1 = project root. 0 = ours (taken now or already), 1 = not taken
+  local f="$1/.mpr-snapshots/.build.lock" held hp waited=0 max="${MXTK_BUILD_LOCK_WAIT:-900}" told=0
+  MXTK_BUILD_LOCK_NOTE=""
+  [ -d "$1/.mpr-snapshots" ] || mkdir -p "$1/.mpr-snapshots" 2>/dev/null
+  while :; do
+    if ( set -o noclobber; printf '%s %s %s\n' "$$" "${EPOCHSECONDS:-$(date +%s)}" "${0##*/}" > "$f" ) 2>/dev/null; then
+      MXTK_BUILD_LOCK="$f"; return 0
+    fi
+    held=""; read -r held < "$f" 2>/dev/null || true; hp="${held%% *}"
+    [ "$hp" = "$$" ] && { MXTK_BUILD_LOCK="$f"; return 0; }
+    if [ -n "$hp" ] && ! kill -0 "$hp" 2>/dev/null; then
+      # Stale: remove it only if it still holds the line judged stale, then try again.
+      local now=""; read -r now < "$f" 2>/dev/null || true; [ "$now" = "$held" ] && rm -f "$f"; continue
+    fi
+    if [ "$waited" -ge "$max" ]; then
+      MXTK_BUILD_LOCK_NOTE="another full build (pid ${hp:-?}) held .mxtk/build/ for ${waited}s"; return 1
+    fi
+    [ "$told" = 1 ] || { echo "  … another full build (pid ${hp:-?}: ${held#* * }) is using .mxtk/build/ — waiting for it" >&2; told=1; }
+    sleep 2; waited=$((waited + 2))
+  done
+}
+mxtk_build_lock_release() {  # removes the lock only while it is ours
+  local own=""
+  [ -n "$MXTK_BUILD_LOCK" ] && [ -f "$MXTK_BUILD_LOCK" ] || return 0
+  read -r own < "$MXTK_BUILD_LOCK" 2>/dev/null || true
+  [ "${own%% *}" = "$$" ] && rm -f "$MXTK_BUILD_LOCK"
+  MXTK_BUILD_LOCK=""; return 0
+}
+
 # mxtk_build_tree_paths — a Java compile error printed from the copy names the copy's file; point it
 # back at the real one, so nobody edits .mxtk/build/. Pure bash, no process.
 mxtk_build_tree_paths() {
@@ -929,8 +969,144 @@ mxtk_gate_mxbuild() {
         esac
       fi ;;
   esac
+  [ "${MXTK_BUILD_LOCK_KEEP:-0}" = 1 ] || mxtk_build_lock_release   # exec.sh releases it with its own lock
   mxtk_resume_watchers
   return "$_rc"
+}
+
+# ---------------------------------------------------------------------------
+# Reaping the deno helper a toolkit-started mxbuild leaves behind (#708).
+#
+# WHY. mxbuild (and `mx`, and mxcli's `docker check`/`docker build`, which run mxbuild) starts
+# modeler/tools/deno/<platform>/deno (WebExtensionsRunner), ~290 MB, that outlives it with
+# parent PID 1 and never exits. Field, 2026-11-06 (pipeline-mode experiment for #700, 16 GB
+# container): 47 of them held 13 GB, and every later build was OOM-killed. doctor --cleanup lists
+# them, but nothing called it, so each exec, module close, doctor probe and fixture added one.
+#
+# HOW (process group, never a name match on the whole machine). mxtk_reap_launch_begin turns on
+# bash job control (`set -m`) for the ONE `cmd &` that follows, so that cmd leads a new process
+# group whose id is its own pid; mxtk_reap_launch_end turns it back off. Everything the cmd starts
+# inherits that group, deno included, and keeps it after mxbuild exits and deno is re-parented to
+# PID 1. mxtk_reap_group <pid>, called once the cmd has exited, stops only processes that are BOTH
+# in that group AND named deno / deno.exe. A deno the toolkit did not start (Studio Pro's, another
+# session's, a user's `deno run`) is in another group and is never touched; no `pkill`, no pattern
+# over the process table. A group id is not reused while any member lives, so the group still names
+# this invocation's children when it is read. `set -m` in a non-interactive bash neither moves the
+# shell into another group nor takes the terminal (checked under a pty and in a pipeline).
+# Field run (2026-11-09, Linux x86-64, real mxbuild 11.13.0 on a copy of a 197 MB test app, while
+# another experiment's mxbuild ran on the same machine): through mxtk_gate_mxbuild, mxbuild pid
+# 22279 / pgid 22279 started deno pid 25497 / ppid 22279 / pgid 22279, still alive 19 s in; the call
+# reaped 1 and no deno of that group was left. Through mxtk_reaped: mxbuild 23436 / pgid 23436, deno
+# 27070 / pgid 23436, gone afterwards, while two orphaned denos of the other experiment (pgid 11043
+# and 21660, ppid 1) were left running, untouched.
+# Cost: when the group is already empty (the common case: nothing stray) the check is the `kill -0`
+# builtin, no process start; one `ps` only when something of the group is still alive.
+# Platforms: Linux and macOS (bash 3.2 has `set -m`; no `setsid` needed). Git Bash: skipped —
+# mxbuild.exe and deno.exe are native Windows processes outside MSYS process groups, so group
+# membership cannot be read reliably there; doctor --cleanup (wmic) stays the path on Windows.
+# MXTK_NO_REAP=1 turns all of this off (the old behaviour).
+MXTK_REAPED_N=0
+_MXTK_REAP_ON=0
+_MXTK_REAP_HADM=0
+mxtk_reap_launch_begin() {
+  _MXTK_REAP_ON=0; _MXTK_REAP_HADM=0
+  [ "${MXTK_NO_REAP:-0}" = 1 ] && return 0
+  case "${OSTYPE:-}" in msys*|cygwin*|win*) return 0 ;; esac
+  case $- in *m*) _MXTK_REAP_HADM=1 ;; esac
+  set -m 2>/dev/null || true
+  case $- in *m*) _MXTK_REAP_ON=1 ;; esac
+  return 0
+}
+mxtk_reap_launch_end() {
+  [ "$_MXTK_REAP_HADM" = 1 ] || set +m 2>/dev/null || true
+  return 0
+}
+# mxtk_reap_group <pid> — stop the deno processes still in <pid>'s process group. Sets MXTK_REAPED_N.
+mxtk_reap_group() {
+  local _g="$1" _p _pg _c _kill=""
+  MXTK_REAPED_N=0
+  [ "$_MXTK_REAP_ON" = 1 ] && [ -n "$_g" ] || return 0
+  kill -0 -- "-$_g" 2>/dev/null || return 0
+  while read -r _p _pg _c; do
+    [ "$_pg" = "$_g" ] && [ "$_p" != "$_g" ] || continue
+    case "${_c##*/}" in deno|deno.exe) _kill="$_kill $_p"; MXTK_REAPED_N=$((MXTK_REAPED_N + 1)) ;; esac
+  done <<EOT
+$(ps -A -o pid=,pgid=,comm= 2>/dev/null)
+EOT
+  # shellcheck disable=SC2086
+  [ -z "$_kill" ] || kill $_kill 2>/dev/null || true
+  return 0
+}
+# mxtk_reaped <cmd...> — run cmd in the foreground (the caller's redirections apply; give it
+# `< /dev/null`), then reap its deno. Returns cmd's exit code.
+# Signals. In its own group, cmd no longer receives the terminal's Ctrl-C. So the wait runs in a
+# ( ... ) subshell that stays in the caller's (foreground) group: on INT/TERM that subshell stops
+# cmd's group and ends (130/143), while the caller gets the same Ctrl-C and runs its own trap or
+# default action, exactly as before. The INT/TERM trap is set only inside that subshell: the
+# caller's traps are never read, reset or re-raised (bash 3.2 has no BASHPID, and `trap -p` in a
+# subshell shows the parent's traps, so save/restore/re-raise could not be done right there).
+# A TERM sent to the caller's pid alone reaches the caller only, as it did before this helper.
+# NOT reaped (#708 review): a command that starts mxbuild in a NEW process group of its own.
+# mxcli does (field run, 2026-11-09, this machine: an `mxcli run --local` pid 21500 / pgid 21500
+# had its mxbuild at pid 21600 / pgid 21600, and that mxbuild's deno at pgid 21600). So for
+# `mxcli docker check/build/reload` the deno sits in mxbuild's group, not mxcli's, and this stops
+# nothing; bin/doctor.sh --cleanup is the fallback there. Direct mxbuild / mx calls are reaped.
+mxtk_reaped() {
+  local _rc=0
+  mxtk_reap_launch_begin
+  if [ "$_MXTK_REAP_ON" != 1 ]; then mxtk_reap_launch_end; "$@" || _rc=$?; return "$_rc"; fi
+  mxtk_reap_launch_end
+  (
+    _r=0
+    mxtk_reap_launch_begin
+    "$@" &
+    _p=$!
+    mxtk_reap_launch_end
+    trap 'kill -TERM -- "-$_p" 2>/dev/null; exit 130' INT
+    trap 'kill -TERM -- "-$_p" 2>/dev/null; exit 143' TERM
+    wait "$_p" || _r=$?
+    mxtk_reap_group "$_p"
+    exit "$_r"
+  ) || _rc=$?
+  return "$_rc"
+}
+
+# mxtk_deno_orphans — the mxbuild helpers (a deno under modeler/tools/deno) whose parent is not a
+# live mxbuild / mx / dotnet / Studio Pro: sets MXTK_ORPHAN_N and MXTK_ORPHAN_KB (resident memory).
+# Same parent rule as bin/doctor.sh's mh_leftovers, without its 10-minute age floor: at an OOM, every
+# orphan counts. Linux/macOS only (0 0 on Git Bash, where doctor --cleanup reads wmic instead).
+mxtk_deno_orphans() {
+  MXTK_ORPHAN_N=0; MXTK_ORPHAN_KB=0
+  case "${OSTYPE:-}" in msys*|cygwin*|win*) return 0 ;; esac
+  set -- $(ps -A -o pid=,ppid=,rss=,args= 2>/dev/null | awk '
+    { pid = $1; pp[pid] = $2; rss[pid] = $3; a = $0; sub(/^ *[0-9]+ +[0-9]+ +[0-9]+ +/, "", a); args[pid] = a; ord[++n] = pid }
+    END { c = 0; kb = 0
+      for (i = 1; i <= n; i++) { p = ord[i]
+        if (args[p] !~ /modeler\/tools\/deno\/[^ ]*deno(\.exe)?( |$)/) continue
+        q = pp[p]
+        if (q in args) { g = args[q]; sub(/ .*/, "", g); sub(/.*\//, "", g)
+          if (g ~ /^(mxbuild|mx|mxutil|dotnet|MxBuild)(\.exe)?$/ || args[q] ~ /[Ss]tudio/) continue }
+        c++; kb += rss[p] }
+      print c, kb }')
+  MXTK_ORPHAN_N="${1:-0}"; MXTK_ORPHAN_KB="${2:-0}"
+}
+
+# mxtk_mxbuild_oom_note <exit> [output] — when an mxbuild run was killed for lack of memory (exit
+# 137, or an out-of-memory message in its output), print the plain cause and set MXTK_MXBUILD_OOM
+# to it; returns 1 (and leaves it empty) otherwise. The count is what --cleanup can free.
+MXTK_MXBUILD_OOM=""
+mxtk_mxbuild_oom_note() {
+  local _gb
+  MXTK_MXBUILD_OOM=""
+  [ "${1:-0}" != 0 ] || return 1
+  if [ "$1" != 137 ]; then
+    case "${2:-}" in *OutOfMemory*|*"out of memory"*|*"Out of memory"*|*"Cannot allocate memory"*|*"OOM-kill"*|*"oom-kill"*) ;; *) return 1 ;; esac
+  fi
+  mxtk_deno_orphans
+  _gb="$(( MXTK_ORPHAN_KB / 1048576 )).$(( MXTK_ORPHAN_KB * 10 / 1048576 % 10 ))"
+  MXTK_MXBUILD_OOM="build killed for lack of memory: $MXTK_ORPHAN_N orphaned deno processes hold $_gb GB — run bin/doctor.sh --cleanup"
+  echo "  ✗ $MXTK_MXBUILD_OOM" >&2
+  return 0
 }
 
 # ---------------------------------------------------------------------------
@@ -1010,10 +1186,12 @@ mxtk_mxbuild_error_count() {
   fi
   _out=$(mktemp /tmp/mxbuild-out.XXXXXX) || { [ "$_own_ef" -eq 1 ] && rm -f "$_ef"; echo "?"; return 2; }
 
+  mxtk_reap_launch_begin
   "$_mb" --java-home="$_jh" --java-exe-path="$_je" \
          --write-errors="$_ef" --target=deploy "$_mpr" \
          > "$_out" 2>&1 < /dev/null &
   _pid=$!
+  mxtk_reap_launch_end   # its deno is reaped by group below (#708)
   # _timeout 0 = unbounded: exec.sh's real gate passes 0 unless MXTK_GATE_TIMEOUT is set,
   # because a large model's deploy build legitimately runs past any fixed default, and a
   # timed-out gate reads as "non-zero exit, no errors file" = FAIL = auto-restore of work
@@ -1023,7 +1201,7 @@ mxtk_mxbuild_error_count() {
   if [ "$_timeout" -gt 0 ]; then
     while kill -0 "$_pid" 2>/dev/null; do
       if [ "$_waited" -ge "$_timeout" ]; then
-        kill "$_pid" 2>/dev/null; wait "$_pid" 2>/dev/null
+        kill "$_pid" 2>/dev/null; wait "$_pid" 2>/dev/null; mxtk_reap_group "$_pid"
         _mxtk_slurp MXTK_MXBUILD_OUT "$_out"; rm -f "$_out"
         MXTK_MXBUILD_EXIT=124
         [ "$_own_ef" -eq 1 ] && rm -f "$_ef"
@@ -1033,8 +1211,10 @@ mxtk_mxbuild_error_count() {
     done
   fi
   wait "$_pid" || _exit=$?
+  mxtk_reap_group "$_pid"
   _mxtk_slurp MXTK_MXBUILD_OUT "$_out"; rm -f "$_out"
   MXTK_MXBUILD_EXIT="$_exit"
+  mxtk_mxbuild_oom_note "$_exit" "$MXTK_MXBUILD_OUT" || true
 
   if [ ! -s "$_ef" ] && [ "$_exit" -eq 0 ]; then
     [ "$_own_ef" -eq 1 ] && rm -f "$_ef"
@@ -1048,6 +1228,7 @@ mxtk_mxbuild_error_count() {
   fi
   _count=$("$_py" -c "import json;d=json.load(open('$(native_path "$_ef")'));print(len([x for x in d.get('problems',[]) if x.get('severity')=='Error']))" 2>/dev/null)
   MXTK_MXBUILD_WHY=$(mxtk_mxbuild_why "$_ef" "$_py")
+  [ -z "$MXTK_MXBUILD_WHY" ] && MXTK_MXBUILD_WHY="$MXTK_MXBUILD_OOM"   # BUILD-LOG names the cause (#708)
   [ "$_own_ef" -eq 1 ] && rm -f "$_ef"
   if [ -z "$_count" ]; then echo "?"; return 1; fi
   # Non-zero exit and ZERO Error problems: mxbuild stopped BEFORE checking the model — a
@@ -1158,12 +1339,14 @@ mxtk_mx_check_error_count() {
   _out=$(mktemp /tmp/mxcheck-out.XXXXXX) || { echo "?"; return 2; }
   _js=$(mktemp /tmp/mxcheck-json.XXXXXX) || { rm -f "$_out"; echo "?"; return 2; }
   rm -f "$_js"   # mx writes the file itself; an empty pre-existing one would read as "no output"
+  mxtk_reap_launch_begin
   "$_mx" check "$_mpr" -j "$(native_path "$_js")" > "$_out" 2>&1 < /dev/null &
   _pid=$!
+  mxtk_reap_launch_end
   if [ "$_timeout" -gt 0 ]; then   # unbounded: `wait`, no per-second sleep process
     while kill -0 "$_pid" 2>/dev/null; do
       if [ "$_waited" -ge "$_timeout" ]; then
-        kill "$_pid" 2>/dev/null; wait "$_pid" 2>/dev/null
+        kill "$_pid" 2>/dev/null; wait "$_pid" 2>/dev/null; mxtk_reap_group "$_pid"
         _mxtk_slurp MXTK_MXBUILD_OUT "$_out"; rm -f "$_out" "$_js"
         MXTK_MXBUILD_EXIT=124; [ "$_own_ef" -eq 1 ] && rm -f "$_ef"
         echo "?"; return 3
@@ -1172,14 +1355,16 @@ mxtk_mx_check_error_count() {
     done
   fi
   wait "$_pid" || _exit=$?
+  mxtk_reap_group "$_pid"
   _mxtk_slurp MXTK_MXBUILD_OUT "$_out"; rm -f "$_out"
   MXTK_MXBUILD_EXIT="$_exit"
+  mxtk_mxbuild_oom_note "$_exit" "$MXTK_MXBUILD_OUT" || true
   if [ -s "$_js" ]; then _count=$(mxtk_mx_check_to_mxbuild "$_js" "$_ef"); fi
   rm -f "$_js"
   [ "$_own_ef" -eq 1 ] && rm -f "$_ef"
   case "${_count:-}" in
     ''|*[!0-9]*)
-      MXTK_MXBUILD_WHY="mx check wrote no readable JSON (exit $_exit): $(printf '%s' "$MXTK_MXBUILD_OUT" | tail -3 | tr '\n' ' ' | cut -c1-240)"
+      MXTK_MXBUILD_WHY="${MXTK_MXBUILD_OOM:+$MXTK_MXBUILD_OOM; }mx check wrote no readable JSON (exit $_exit): $(printf '%s' "$MXTK_MXBUILD_OUT" | tail -3 | tr '\n' ' ' | cut -c1-240)"
       echo "?"; return 1 ;;
   esac
   # exit 1 with errors is the normal "model has errors" answer; any other non-zero exit

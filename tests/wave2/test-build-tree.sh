@@ -25,6 +25,9 @@
 #   B5 a compile error printed from the copy names the REAL file, not .mxtk/build/
 #   B6 MXTK_GATE_IN_PLACE=1 builds in place, as before, and says so
 #   B7 the pre-push hook prints the restart line only after an in-place build
+#   B8 one build at a time in the copy: a live holder of .mpr-snapshots/.build.lock is waited for,
+#      still held after MXTK_BUILD_LOCK_WAIT → in place with the reason; a dead holder's lock is
+#      taken over; the lock is released after the build
 set -uo pipefail
 
 TOOLKIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -138,6 +141,26 @@ if [ -x "$H/.git/hooks/pre-push" ]; then
   OUT="$(hook in-place)"
   has "B7 built in place → the restart line" "$OUT" "mxcli run restart"
 else bad "B7 [setup] no pre-push hook installed"; fi
+
+echo "-- B8 one full build at a time in the copy (.mpr-snapshots/.build.lock)"
+L="$P/.mpr-snapshots/.build.lock"; mkdir -p "$P/.mpr-snapshots"
+[ ! -e "$L" ] && ok "B8 no lock left behind by the builds above" || bad "B8 a lock was left behind: $(cat "$L")"
+sleep 300 & HOLD=$!
+printf '%s %s exec.sh\n' "$HOLD" "$(date +%s)" > "$L"
+( sleep 3; rm -f "$L" ) & REL=$!
+OUT="$(vm "$P" MXTK_BUILD_LOCK_WAIT=30)"; RC=$?
+wait "$REL" 2>/dev/null
+[ "$RC" -eq 0 ] && ok "B8 exit 0" || bad "B8 exit $RC: $(printf '%s' "$OUT" | tail -3)"
+has "B8 a live holder is waited for, out loud" "$OUT" "is using .mxtk/build/ — waiting for it"
+has "B8   then the build runs in the copy" "$OUT" "built in .mxtk/build/"
+printf '%s %s exec.sh\n' "$HOLD" "$(date +%s)" > "$L"
+OUT="$(vm "$P" MXTK_BUILD_LOCK_WAIT=2)"; RC=$?
+has "B8 still held after the wait → builds in place, saying why" "$OUT" "building in place: another full build (pid $HOLD)"
+[ "$(cat "$L" 2>/dev/null)" != "" ] && [ "$(cut -d' ' -f1 "$L")" = "$HOLD" ] && ok "B8 the holder's lock is left alone" || bad "B8 the holder's lock was touched"
+kill "$HOLD" 2>/dev/null; wait "$HOLD" 2>/dev/null
+OUT="$(vm "$P")"; RC=$?
+has "B8 a lock whose pid is gone is stale: taken over, built in the copy" "$OUT" "built in .mxtk/build/"
+[ ! -e "$L" ] && ok "B8 released after the build" || bad "B8 lock left: $(cat "$L")"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"

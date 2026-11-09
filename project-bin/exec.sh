@@ -841,9 +841,17 @@ exec_lock_live() {  # $1 = pid from the lock; 0 iff that process is alive and pl
 exec_lock_try() { ( set -o noclobber; printf '%s %s %s\n' "$$" "${EPOCHSECONDS:-$(date +%s)}" "$LOG_NAME" > "$LOCK" ) 2>/dev/null; }
 exec_lock_release() {  # the trap: remove the lock only while it is still ours
   _own="$(cat "$LOCK" 2>/dev/null || true)"
+  # The full-build copy's lock (mxtk_build_lock_take, _common.sh), held from the first gate build
+  # to here so the gate's builds take it once: removed in the same rm, only while it is ours.
+  _bl=""; [ -n "${MXTK_BUILD_LOCK:-}" ] && { read -r _bl < "$MXTK_BUILD_LOCK" 2>/dev/null || true; }
+  if [ "${_bl%% *}" = "$$" ]; then
+    if [ "${_own%% *}" = "$$" ]; then rm -f "$LOCK" "$MXTK_BUILD_LOCK"; else rm -f "$MXTK_BUILD_LOCK"; fi
+    return 0
+  fi
   [ "${_own%% *}" = "$$" ] && rm -f "$LOCK"
   return 0
 }
+MXTK_BUILD_LOCK_KEEP=1   # the gate keeps the copy's lock; exec_lock_release drops it
 # Taking over a stale lock is serialised through a second O_EXCL file, $LOCK.takeover. Under
 # it the lock is re-read and removed ONLY if it still holds exactly the stale line judged above;
 # nothing else ever removes a lock that is not its own, so the compare-then-rm cannot hit a

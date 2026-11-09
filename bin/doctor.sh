@@ -164,7 +164,13 @@ probe_capture() {
   _pc_var="$1"; shift
   _pc_file=$(mktemp "${TMPDIR:-/tmp}/doctor-probe.XXXXXX")
   _pc_exit=0
-  "$@" > "$_pc_file" 2>&1 < /dev/null || _pc_exit=$?
+  # Through mxtk_reaped (project-bin/_common.sh, loaded before the toolchain probes) when it is
+  # there: each mxbuild probe left one ~290 MB deno helper running for good (#708).
+  if declare -F mxtk_reaped >/dev/null 2>&1; then
+    mxtk_reaped "$@" > "$_pc_file" 2>&1 < /dev/null || _pc_exit=$?
+  else
+    "$@" > "$_pc_file" 2>&1 < /dev/null || _pc_exit=$?
+  fi
   eval "$_pc_var=\$(cat \"\$_pc_file\")"
   rm -f "$_pc_file"
   return "$_pc_exit"
@@ -673,6 +679,7 @@ mh_fmt_mb() {
 # callers (#591 review). session-check still shows the line, because it greps for WARN.
 advise() { printf '  WARN  %s\n' "$*"; }
 MH_BAD=0
+MH_N=0; MH_KB=0; MH_CAN=0
 machine_health() {
   head_ "Machine health"
   _mh_free="$(mh_free_mb)"
@@ -684,6 +691,7 @@ machine_health() {
     _mh_sum="$(printf '%s\n' "$_mh_left" | awk '{ n++; kb += $3; if ($2 > old) old = $2 } END { print n, kb, old }')"
     set -- $_mh_sum; _mh_n=$1; _mh_kb=$2; _mh_old=$3
   fi
+  MH_N="$_mh_n"; MH_KB="$_mh_kb"; MH_CAN="$_mh_can"   # repeated in the Verdict (#708)
   _mh_bad=0
   if [ -z "$_mh_free" ]; then
     note "free memory: not measured on this platform"
@@ -2330,6 +2338,12 @@ if [ -n "$PROJECT_DIR" ] && [ -f "$_lb" ] && [ -n "$_lb_now" ]; then
 fi
 
 head_ "Verdict"
+# Leftover mxbuild helpers in the summary too (#708): they are what turns a later build into exit 137.
+if [ "$MH_CAN" = 1 ]; then
+  mh_fmt_mb "$((MH_KB / 1024))"
+  if [ "$MH_N" -gt 0 ]; then note "orphaned deno (mxbuild helper) processes over $((MH_MIN_AGE / 60)) min old: $MH_N, holding $MH_FMT; stop them with bin/doctor.sh --cleanup"
+  else note "orphaned deno (mxbuild helper) processes over $((MH_MIN_AGE / 60)) min old: 0"; fi
+fi
 
 # Leave a dated receipt in the project so gate-check can tell "doctor ran and passed" from
 # "nobody ever ran doctor here". Informational only — nothing gates on it, because a machine

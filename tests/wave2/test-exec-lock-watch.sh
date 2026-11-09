@@ -424,6 +424,7 @@ OUT="$(FAKE_WRITE=1 run "$P" mdlsource/grant.mdl)"
 has "E4 with build-tree.py the full gate builds the copy" "$OUT" "full build ran in .mxtk/build/"
 [ -f "$P/.ar-calls" ] && bad "E4 app-restart.sh was asked about a client the build never touched" || ok "E4 no client check, no restart after a build in the copy"
 has "E4 the script's own restart need is still reported" "$OUT" "→ Watch: restart needed: "
+[ ! -e "$P/.mpr-snapshots/.build.lock" ] && ok "E4 the copy's build lock is gone after the exec" || bad "E4 exec left .mpr-snapshots/.build.lock behind"
 rm -f "$P/bin/app-restart.sh" "$P/.ar-calls" "$P/bin/build-tree.py"
 ( cd "$P" && git add -A mprcontents bin && git -c user.email=t@t -c user.name=t commit -qm w3 ) >/dev/null 2>&1
 

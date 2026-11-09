@@ -236,7 +236,7 @@ tpp
 printf '# P\n\nGate mode: check\n' > "$T/PROJECT.md"
 mkdir -p "$T/tools"; for x in mxbuild mx; do printf '#!/bin/sh\nexit 0\n' > "$T/tools/$x"; chmod +x "$T/tools/$x"; done
 printf 'alter page Mod.P set title = '"'"'x'"'"';\n' > "$WORK/tt.mdl"
-tgk() { ( cd "$T" && . "$TK/project-bin/_common.sh" && PROJECT_ROOT="$T" SCRIPT="$WORK/tt.mdl" PATCH_MODE=0 MXBUILD="$T/tools/mxbuild" && . "$WORK/gk.sh" && gate_kind_decide && echo "$GATE_KIND|$GATE_KIND_WHY" ) 2>/dev/null; }
+tgk() { ( cd "$T" && . "$TK/project-bin/_common.sh" && PROJECT_ROOT="$T" SCRIPT="$WORK/tt.mdl" PATCH_MODE=0 MXBUILD="$T/tools/mxbuild" MXBUILD_PATH="$T/tools/mxbuild" && . "$WORK/gk.sh" && gate_kind_decide && echo "$GATE_KIND|$GATE_KIND_WHY" ) 2>/dev/null; }
 gk=$(tgk)
 case "$gk" in "full|Java/JavaScript"*) ok "T3 two-tree, exec.sh on a Java change: full build" ;; *) bad "T3 exec gate kind" "$gk" ;; esac
 printf 'checks 1\njava %s\n' "$(gkfp)" > "$T/.claude/loop/gate-kind.state"

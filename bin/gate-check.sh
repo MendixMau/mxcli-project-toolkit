@@ -161,14 +161,21 @@ fi
 # --closeout, never on a stage query, never a verdict, never an exit code (CLAUDE.md guard rule 7:
 # a reminder must not block). A finding about the toolkit or mxcli that stays in the project's
 # log reaches nobody — 8 real toolkit findings sat in one project's FINDINGS.md that way. A row
-# counts as open when its status is "open" or it has none (file-bugs.py's own default).
+# counts as open when its status is "open" or it has none (file-bugs.py's own default); a "bundled"
+# row (file-bugs.sh --bundle: mailed to the maintainer) is counted on its own line, not yet filed either.
 bugs_unfiled_line() {
-  local f="$PROJECT_DIR/docs/bugs.jsonl" n
+  local f="$PROJECT_DIR/docs/bugs.jsonl" n b
   [ -f "$f" ] || return 0
   n="$(grep -E '^[[:space:]]*\{' "$f" 2>/dev/null \
        | awk '/"status"[[:space:]]*:[[:space:]]*"open"/ || !/"status"[[:space:]]*:/ { c++ } END { print c + 0 }')"
-  [ "${n:-0}" -gt 0 ] 2>/dev/null || return 0
-  echo "note: $n toolkit/mxcli bug(s) logged but not filed — run bin/file-bugs.sh --auto (or --links)"
+  b="$(grep -E '^[[:space:]]*\{' "$f" 2>/dev/null | grep -cE '"status"[[:space:]]*:[[:space:]]*"bundled"')"
+  if [ "${n:-0}" -gt 0 ] 2>/dev/null; then
+    echo "note: $n toolkit/mxcli bug(s) logged but not filed — run bin/file-bugs.sh --auto (or --links)"
+  fi
+  if [ "${b:-0}" -gt 0 ] 2>/dev/null; then
+    echo "note: $b toolkit/mxcli bug(s) bundled, not yet filed — mail the toolkit-bugs-*.md file, or file one with bin/file-bugs.sh --file PBUG-NN (or --links)"
+  fi
+  return 0
 }
 
 # Machine preflight receipt — informational only, on full runs only (stage queries run inside

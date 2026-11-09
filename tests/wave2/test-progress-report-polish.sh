@@ -23,7 +23,7 @@
 #   P8  tabs: six sections (Overview, Build, Changes, Performance, Pages, Notes) and a tab bar beside the section
 #       links; without JavaScript every section shows and the section links stay. The Changes tab reads the PROJECT.md
 #       Change log, counts waiting rows, leads a split sentence with its "(part: ...)" and counts plan rows that name the CR.
-#   P9  bugs in the Notes tab: docs/bugs.jsonl rows; an open bug gets "File to ..." buttons that copy its file-bugs.sh
+#   P9  bugs in the Notes tab: docs/bugs.jsonl rows; an open or bundled bug gets "File to ..." buttons that copy its file-bugs.sh
 #       command (gh in the terminal, y/N), one per repo, and no browser new-issue link; a filed bug links its issue(s);
 #       without a deny list there is no button and the tab says why.
 #   P10 Build tab: the phase being built (open) and the three unfinished phases with the latest built date as
@@ -240,13 +240,15 @@ P9="$WORK/p9"; mkproj "$P9" "**Stage 5 - Build**, in progress - gates passed: P,
 cat > "$P9/docs/bugs.jsonl" <<'JL'
 {"id": "PBUG-01", "date": "2026-10-17", "target": "toolkit", "title": "Report rolls back a stage", "repro": "run it", "expected": "stays", "actual": "rolls back", "versions": {}, "status": "open", "issue_url": ""}
 {"id": "PBUG-02", "date": "2026-10-16", "target": "mxcli", "title": "Old one", "repro": "r", "expected": "e", "actual": "a", "versions": {}, "status": "filed", "issue_url": "https://github.com/mendixlabs/mxcli/issues/1", "also": {"toolkit": "https://github.com/MendixMau/mxcli-project-toolkit/issues/9"}}
+{"id": "PBUG-03", "date": "2026-11-09", "target": "toolkit", "title": "Mailed one", "repro": "r", "expected": "e", "actual": "a", "versions": {}, "status": "bundled", "bundled": "2026-11-09", "issue_url": ""}
 JL
 LEAKGUARD_DENY='Acmebank' CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$P9" --html >/dev/null 2>&1
 R="$P9/architecture/progress-report.html"
 has "$R" "<h2 id=bugs>Encountered bugs or limitations</h2>" "bugs sit in the notes tab as Encountered bugs or limitations"
 hasnt "$R" "id=tab-bugs" "no separate Bugs tab"
 has "$R" "Nothing breaks: the bug stays here" "the tab says what happens without gh or a GitHub account"
-has "$R" "2 bug(s): 1 open, 1 filed, 0 fixed" "Bugs tab counts open and filed"
+has "$R" "3 bug(s): 1 open, 1 bundled, 1 filed, 0 fixed" "Bugs tab counts open, bundled and filed"
+has "$R" "class='filebtn' data-cmd='[^']*file-bugs.sh --project [^']* --file PBUG-03'" "a bundled (mailed, not filed) bug still gets a file button"
 has "$R" "class='filebtn' data-cmd='[^']*file-bugs.sh --project [^']* --file PBUG-01'" "open bug gets a button that copies its file-bugs.sh command"
 has "$R" ">File to the toolkit</button>" "button names the target"
 has "$R" "class='filebtn alt' data-cmd='[^']*--file PBUG-01 --to mxcli'" "second button files the same bug to the other repo"

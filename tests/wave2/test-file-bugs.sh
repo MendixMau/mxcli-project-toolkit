@@ -67,7 +67,7 @@ cat > "$BIN/gh" <<'GH'
 #!/usr/bin/env bash
 echo "$*" >> "$GHLOG"
 case "$1 $2" in
-  "issue list") echo '[{"number":77,"title":"Similar widget crash","state":"OPEN","url":"https://github.com/mendixlabs/mxcli/issues/77"}]' ;;
+  "issue list") echo '[{"number":77,"title":"Similar widget crash","state":"OPEN","url":"https://github.com/'"${4:-mendixlabs/mxcli}"'/issues/77"}]' ;;
   "issue create")
     r=mendixlabs/mxcli
     for a in "$@"; do case "$a" in --body-file=*) cp "${a#--body-file=}" "$GHLOG.body"; cat "${a#--body-file=}" >> "$GHLOG.all" ;; --repo=*) r="${a#--repo=}" ;;
@@ -76,7 +76,8 @@ case "$1 $2" in
   "auth status") exit "${GH_AUTH_RC:-0}" ;;
   "label list") echo "${GH_LABELS:-[]}" ;;
   "label create") exit "${GH_LABEL_CREATE_RC:-0}" ;;
-  "repo view") [ -n "${GH_REPO_RC:-}" ] && exit "$GH_REPO_RC"; echo "${GH_PERM:-READ}" ;;
+  "repo view") echo "${GH_PERM:-READ}" ;;
+  "api repos/"*) [ -n "${GH_REPO_RC:-}" ] && exit "$GH_REPO_RC"; echo true ;;
   "--version "*) echo "gh version stub" ;;
 esac
 exit 0
@@ -460,11 +461,13 @@ chk "a log that fails the scan is dropped from the row, never stored raw" 'echo 
 chk "the redacted log goes into the auto-filed body, last lines only" 'grep -q "### Log (last lines, redacted)" "$GHLOG.all" && grep -q "line 49 ok" "$GHLOG.all" && ! grep -q "line 48 ok" "$GHLOG.all"'
 chk "the posted log carries no raw name or token" '! grep -q "Quuxmod\|ghp_\|/Users/\|A8f3" "$GHLOG.all"'
 chk "--log without --add is refused" '! "$SUBJ" --project "$PA" --log "$LOGF" >/dev/null 2>&1'
-chk "permissions: --file/--all denied, --auto matched by no deny rule" '"$PY" -I - "$TOOLKIT/bin/install-claude-permissions.sh" <<'"'"'PYX'"'"'
+chk "permissions: --file/--all/--import (also --dry-run) denied, --auto matched by no deny rule" '"$PY" -I - "$TOOLKIT/bin/install-claude-permissions.sh" <<'"'"'PYX'"'"'
 import fnmatch, re, sys
 pats = re.findall(r"\"Bash\((\*file-bugs[^)]*)\)\"", open(sys.argv[1]).read())
 m = lambda c: any(fnmatch.fnmatchcase(c, p) for p in pats)
-sys.exit(not (pats and m("bin/file-bugs.sh --all") and m("bin/file-bugs.sh --file PBUG-01") and not m("bin/file-bugs.sh --auto")))
+sys.exit(not (pats and m("bin/file-bugs.sh --all") and m("bin/file-bugs.sh --file PBUG-01") and not m("bin/file-bugs.sh --auto")
+              and m("bin/file-bugs.sh --import b.md") and m("bin/file-bugs.sh --import b.md --dry-run")
+              and m("python3 bin/lib/file-bugs.py --import b.md") and not m("bin/file-bugs.sh --bundle")))
 PYX'
 chk "init-project ships the opt-in commented out" 'grep -q "<!-- Bug filing: auto" "$TOOLKIT/bin/init-project.sh"'
 GC="$W/gc"; rm -rf "$GC"; mkdir -p "$GC/docs"; printf '# PROJECT.md\n\n## Current stage\n' > "$GC/PROJECT.md"
@@ -568,6 +571,18 @@ chk "--bundle: rows marked bundled with the date, the held-back row untouched" '
 chk "--bundle: the file is gitignored" 'git -C "$PR" check-ignore -q "$BF"'
 OUT="$(rr --bundle 2>&1)"
 chk "a second --bundle does not re-bundle: no new file" 'echo "$OUT" | grep -q "no clean open bugs to bundle" && [ "$(ls "$PR"/toolkit-bugs-*.md | wc -l | tr -d " ")" = 1 ]'
+L="$(rr --links 2>/dev/null)"; J="$(rr --json 2>/dev/null)"; DR="$(rr 2>/dev/null)"
+chk "a bundled row is still reachable: --links and --json carry it, the plain dry run does not" 'echo "$L" | grep -q "^PBUG-01  Gate passes" && echo "$J" | grep -q "\"id\": \"PBUG-01\"" && ! echo "$DR" | grep -q "^PBUG-01 ->"'
+cp "$PR/docs/bugs.jsonl" "$W/pr.bundled"; : > "$GHLOG"
+ANS=y "$PY" "$W/ptyrun.py" tty "$SUBJ" --project "$PR" --file PBUG-03 >/dev/null 2>&1
+chk "--file files a bundled row (y/N), status becomes filed" 'grep -q "issue create --repo=mendixlabs/mxcli --title=Similar widget crash" "$GHLOG" && grep "\"PBUG-03\"" "$PR/docs/bugs.jsonl" | grep -q "\"status\": \"filed\""'
+cp "$W/pr.bundled" "$PR/docs/bugs.jsonl"
+GC2="$W/gc2"; rm -rf "$GC2"; mkdir -p "$GC2/docs"; printf '# PROJECT.md\n\n## Current stage\n' > "$GC2/PROJECT.md"
+printf '%s\n' '{"id":"PBUG-01","status":"open"}' '{"id":"PBUG-02","status":"bundled"}' '{"id":"PBUG-03","status":"bundled"}' > "$GC2/docs/bugs.jsonl"
+OUT="$("$TOOLKIT/bin/gate-check.sh" --closeout "$GC2" 0 2>&1)"
+chk "gate-check closeout counts bundled rows as bundled, not yet filed, beside the open ones" 'echo "$OUT" | grep -q "1 toolkit/mxcli bug(s) logged but not filed" && echo "$OUT" | grep -q "2 toolkit/mxcli bug(s) bundled, not yet filed"'
+mkdir -p "$W/inbox"; OUT="$("$TOOLKIT/bin/harvest-learnings.sh" "$GC2" --to "$W/inbox" 2>&1)"
+chk "harvest-learnings counts bundled rows as bundled, not yet filed" 'echo "$OUT" | grep -q "2 bug(s) bundled, not yet filed"'
 OUT="$(MXTK_BUG_EMAIL=bugs@example.com rr --bundle --all 2>&1)"
 chk "--bundle --all re-bundles into a new file, never overwriting the first" '[ -f "$PR/toolkit-bugs-$D-2.md" ] && grep -q "^ids: PBUG-01 PBUG-03$" "$PR/toolkit-bugs-$D-2.md"'
 chk "MXTK_BUG_EMAIL names the address on the top line" 'grep -q "^\*\*Mail this file to bugs@example.com.\*\*" "$PR/toolkit-bugs-$D-2.md"'
@@ -588,6 +603,7 @@ git -C "$PR" add PROJECT.md && git -C "$PR" -c user.name=t -c user.email=tester 
 rm -f "$PR"/toolkit-bugs-*.md; cp "$W/pr.before" "$PR/docs/bugs.jsonl"; : > "$GHLOG"
 OUT="$(PATH="$NOGH" rr --auto 2>&1)"; RC=$?
 chk "--auto, no gh, no account: says why, writes the bundle, exit 0, nothing posted" '[ $RC = 0 ] && echo "$OUT" | grep -q "NOTE: --auto cannot post: GitHub CLI not installed" && echo "$OUT" | grep -q "Fastest: a free GitHub account" && [ -f "$BF" ] && ! grep -q "issue create" "$GHLOG"'
+chk "--auto: the LAST line names the bundle path and who to mail it to" '[ "$(echo "$OUT" | tail -1)" = "Bundle written: $BF — mail it to whoever gave you the toolkit" ]'
 rm -f "$PR"/toolkit-bugs-*.md; cp "$W/pr.before" "$PR/docs/bugs.jsonl"
 OUT="$(GH_AUTH_RC=1 rr --auto 2>&1)"
 chk "--auto, signed out, no account: says run gh auth login --web, bundles" 'echo "$OUT" | grep -qF "cannot post: not signed in: run \`gh auth login --web\`" && [ -f "$BF" ] && ! grep -q "issue create" "$GHLOG"'
@@ -596,7 +612,7 @@ OUT="$(GH_REPO_RC=1 rr --auto --github-account 2>&1)"
 chk "--auto, signed in without access, has an account: says so, prints links, no bundle" 'echo "$OUT" | grep -q "cannot post: signed in, but this GitHub account has no access" && echo "$OUT" | grep -q "issues/new?title=" && [ ! -f "$BF" ] && ! grep -q "issue create" "$GHLOG"'
 cp "$W/pr.before" "$PR/docs/bugs.jsonl"; : > "$GHLOG"
 OUT="$(rr --auto 2>&1)"
-chk "--auto, gh ready: checks repo access, then posts as before (no bundle, no fallback note)" 'grep -q "^repo view MendixMau/mxcli-project-toolkit --json hasIssuesEnabled" "$GHLOG" && grep -q "issue create" "$GHLOG" && ! echo "$OUT" | grep -q "cannot post\|Fastest:" && [ ! -f "$BF" ]'
+chk "--auto, gh ready: checks repo access, then posts as before (no bundle, no fallback note)" 'grep -q "^api repos/MendixMau/mxcli-project-toolkit --jq .has_issues" "$GHLOG" && grep -q "issue create" "$GHLOG" && ! echo "$OUT" | grep -q "cannot post\|Fastest:" && [ ! -f "$BF" ]'
 # --- import, on the maintainer's side
 cp "$W/pr.before" "$PR/docs/bugs.jsonl"; rr --bundle "$W/mail.md" >/dev/null 2>&1
 sed -i.bak 's/^reporter:$/reporter: Jane Tester/' "$W/mail.md"
@@ -609,7 +625,7 @@ open(p, "w").write(t.replace("### Expected\nFAIL", "### Expected\nFAIL, ask leak
 PYX
 : > "$GHLOG"; : > "$GHLOG.all"; OUT="$(GH_LABELS='[{"name":"auto-filed"},{"name":"via-email"}]' rr --import "$W/mail.md" 2>&1)"; RC=$?
 chk "--import re-redacts: an address and host added to the bundle never reach gh" '[ $RC = 0 ] && echo "$OUT" | grep -q "re-redaction changed" && ! grep -q "leaked@\|build-srv\|zonkco" "$GHLOG" "$GHLOG.all" && grep -q "<email>\|<host>" "$GHLOG.all"'
-chk "--import dedupes: the exact-title bug is skipped and its link listed" '! grep "issue create" "$GHLOG" | grep -q "Similar widget" && echo "$OUT" | grep -q "skipped duplicates 1 (https://github.com/mendixlabs/mxcli/issues/77)"'
+chk "--import dedupes: the exact-title bug is skipped and its link listed" '! grep "issue create" "$GHLOG" | grep -q "Similar widget" && echo "$OUT" | grep -q "skipped duplicates 1 (https://github.com/MendixMau/mxcli-project-toolkit/issues/77)"'
 chk "--import files the rest with auto-filed and via-email (labels that exist), never creates one" 'echo "$OUT" | grep -q "filed 1," && grep "issue create" "$GHLOG" | grep -q -- "--label=auto-filed --label=via-email" && ! grep -q "label create" "$GHLOG"'
 chk "--import: the duplicate search ran before the create" '[ "$(grep -n "issue list" "$GHLOG" | head -1 | cut -d: -f1)" -lt "$(grep -n "issue create" "$GHLOG" | cut -d: -f1)" ]'
 chk "--import footer names the reporter, via email bundle" 'grep -q "^Reported by: Jane Tester via email bundle$" "$GHLOG.all"'
@@ -623,6 +639,38 @@ chk "--import refuses a bundle whose header does not match its bugs" '[ $RC -ne 
 import sys
 open(sys.argv[2], "w").write(open(sys.argv[1]).read().replace("### Actual", "token A8f3K2m9Qz7Lp4Xw1Vb6Nc5Rd0Ty8Ue3Ig\n\n### Actual", 1))
 PYX
+"$PY" -I - "$W/mail.md" "$W/ping.md" <<'PYX'
+import sys
+t = open(sys.argv[1]).read().replace("### Actual", "ping @someone and @some-org/team, see #1 and acme/widgets#2\n\n### Actual", 1)
+open(sys.argv[2], "w").write(t.replace("Title: Gate passes", "Title: @maint #3 Gate passes", 1))
+PYX
+: > "$GHLOG"; : > "$GHLOG.all"; OUT="$(rr --import "$W/ping.md" 2>&1)"
+chk "--import neutralises @user, @org/team, #N and owner/repo#N in title and body (zero-width joiner)" '"$PY" -I - "$GHLOG" "$GHLOG.all" <<'"'"'PYX'"'"'
+import re, sys
+log, body = open(sys.argv[1], encoding="utf-8").read(), open(sys.argv[2], encoding="utf-8").read()
+z = "\u200d"
+ok = all(x in body for x in ("@" + z + "someone", "@" + z + "some-org/team", "#" + z + "1", "widgets#" + z + "2"))
+ok = ok and not re.search(r"@[A-Za-z0-9]|(?<![\w])#\d(?![^\n]*Possibly related)", body.split("\n---\n")[0])
+ok = ok and "--title=@" + z + "maint #" + z + "3 Gate passes" in log
+sys.exit(not ok)
+PYX'
+chk "--import keeps its own footer links live (Possibly related: #77)" 'grep -q "^Possibly related: #77.$" "$GHLOG.all"'
+sed 's/^<!-- mxtk-bug id=PBUG-03 target=mxcli -->$/<!-- mxtk-bug id=PBUG-03 target=mxcli -->/; s/^Title: Similar widget crash$/Title: Different widget crash/' "$W/mail.md" > "$W/mx.md"
+: > "$GHLOG"; : > "$GHLOG.all"; OUT="$(rr --import "$W/mx.md" 2>&1)"
+chk "--import ignores target=mxcli: filed to the toolkit repo with a note, never upstream" '! grep -q "issue create --repo=mendixlabs" "$GHLOG" && grep -q "issue create --repo=MendixMau/mxcli-project-toolkit --title=Different widget crash" "$GHLOG" && grep -q "^The reporter marked this as an mxcli bug; filed here for triage, not upstream.$" "$GHLOG.all"'
+: > "$GHLOG"; OUT="$(rr --import "$W/mail.md" --max 1 2>&1)"; RC=$?
+chk "--import enforces the cap (--max 1 on a 2-bug bundle): refused, no gh call" '[ $RC -ne 0 ] && echo "$OUT" | grep -q "more than the cap of 1 per import" && [ ! -s "$GHLOG" ]'
+"$PY" -I - "$W/mail.md" "$W/big.md" <<'PYX'
+import re, sys
+t = open(sys.argv[1]).read()
+sec = re.search(r"(?ms)^<!-- mxtk-bug id=PBUG-01 .*?^<!-- mxtk-bug-end -->\n", t).group(0)
+ids = ["PBUG-%02d" % i for i in range(1, 22)]
+body = "".join(sec.replace("PBUG-01", i) for i in ids)
+head = re.sub(r"(?m)^count: .*$", "count: 21", re.sub(r"(?m)^ids: .*$", "ids: " + " ".join(ids), t[:t.index("<!-- mxtk-bug id=")]))
+open(sys.argv[2], "w").write(head + body)
+PYX
+: > "$GHLOG"; OUT="$(rr --import "$W/big.md" --dry-run 2>&1)"; RC=$?
+chk "--import default cap is 20 bugs" '[ $RC -ne 0 ] && echo "$OUT" | grep -q "holds 21 bugs, more than the cap of 20" && [ ! -s "$GHLOG" ]'
 : > "$GHLOG"; OUT="$(rr --import "$W/unsafe.md" 2>&1)"
 chk "--import refuses a bug that still fails the scan after re-redaction" 'echo "$OUT" | grep -q "^REFUSED: after re-redaction" && ! grep -qi "A8f3" "$GHLOG" && echo "$OUT" | grep -q "refused 1"'
 

@@ -53,7 +53,7 @@
 # and issue_url back, keeping the file mode.
 # WHICH PATH. --auto and the dry run name, in one line, why gh can or cannot post: "GitHub CLI
 # not installed", "not signed in: run `gh auth login --web`", or "signed in, but this GitHub account has no
-# access to <repo>" (gh repo view). gh unusable: --auto falls back to --links when the person has a GitHub
+# access to <repo>" (gh api repos/<repo>). gh unusable: --auto falls back to --links when the person has a GitHub
 # account (--github-account or MXTK_GITHUB_ACCOUNT=1), else to --bundle. A Mendix account is not a GitHub one.
 # --bundle [PATH] writes ONE markdown file (default <project>/toolkit-bugs-<date>.md, never overwritten,
 # /toolkit-bugs-*.md added to .gitignore in a git repo) holding every clean open row, title and body exactly
@@ -62,11 +62,16 @@
 # (blank; the sender may add a name). Top line: "Mail this file to <$MXTK_BUG_EMAIL, else MXTK_BUG_EMAIL= or
 # `Bug email:` in <project>/.claude/toolkit.env or ~/.mxcli-toolkit.env, else a `Bug email:` line in the README.md
 # of the company brain wired in CLAUDE.local.md>", else "send this file to whoever gave you the toolkit". Bundled
-# rows get status=bundled + bundled=<date>; --bundle --all bundles them again. --import BUNDLE (the maintainer)
-# refuses a file without that header or whose ids/count do not match its bugs, re-redacts and re-scans every
-# bug with the maintainer's deny list (one is required), runs the duplicate search (an exact title is skipped,
-# its URL listed), files the rest with gh and the labels auto-filed / via-email only where the repo already
-# has them (never created), footer "Reported by: <reporter or 'toolkit user'> via email bundle". --dry-run files nothing.
+# rows get status=bundled + bundled=<date>: the dry run and --auto skip them, --file/--all/--links/--json still
+# reach them, --bundle --all bundles them again; gate-check and harvest-learnings count them as "bundled, not yet
+# filed". --import BUNDLE (the maintainer; denied to agents, --dry-run included) refuses a file without that header,
+# whose ids/count do not match its bugs, or with more than --max (20) bugs; re-redacts and re-scans every bug with
+# the maintainer's deny list (one is required); always files to the toolkit repo (a target=mxcli row gets a line
+# saying the reporter marked it as an mxcli bug, never an upstream post); runs the duplicate search (an exact title
+# is skipped, its URL listed); asks y/N per bug when stdin is a terminal; puts a zero-width joiner after every @
+# and every # before a digit in the reporter's text (no @mention, team ping or #N / owner/repo#N reference); files
+# with gh and the labels auto-filed / via-email only where the repo already has them (never created), footer
+# "Reported by: <reporter or 'toolkit user'> via email bundle". --dry-run files nothing.
 # Row fields: id date target title repro expected actual versions{mxcli,mendix,toolkit}
 # workaround status(open|filed|bundled|fixed) issue_url [log] [duplicate] [bundled]. Dry run, --links, --json
 # and --bundle post nothing.

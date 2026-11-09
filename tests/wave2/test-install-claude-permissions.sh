@@ -83,6 +83,8 @@ EXPECTED_DENY=(
   "Bash(*file-bugs.sh*--all*)"
   "Bash(*file-bugs.py*--file*)"
   "Bash(*file-bugs.py*--all*)"
+  "Bash(*file-bugs.sh*--import*)"
+  "Bash(*file-bugs.py*--import*)"
 )
 SESSION_HOOK="bash bin/session-check.sh || true"
 

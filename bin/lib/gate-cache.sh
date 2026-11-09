@@ -276,7 +276,7 @@ gc_s4cov_values() {
   done
 }
 
-# gc_s4cov_resolve <value> — prints the existing file or directory it names, or returns 1.
+# gc_s4cov_resolve <value> — prints every existing file or directory it may name, or returns 1.
 # A Windows path (C:\x, C:/x — pasted as-is into toolkit.env, which _common.sh allows) is
 # normalised first: `cygpath -u` where Git Bash has it, else X:\ / X:/ -> /x/ (mxtk_posix_path's
 # rule). A relative value is tried as given and against the project dir.
@@ -293,10 +293,14 @@ gc_s4cov_resolve() {
       fi
       v="$u" ;;
   esac
+  # EVERY existing candidate is printed, not the first: the measurement runs inside the project
+  # (preflight reads the value from there), while this runs from gate-check's cwd, so a decoy
+  # copy beside the cwd must not stand in for the project's file (re-review of #715).
+  local hit=1
   for c in "$v" "$PROJECT_DIR/$v"; do
-    { [ -f "$c" ] || [ -d "$c" ]; } && { printf '%s\n' "$c"; return 0; }
+    { [ -f "$c" ] || [ -d "$c" ]; } && { printf '%s\n' "$c"; hit=0; }
   done
-  return 1
+  return $hit
 }
 
 # gc_s4cov_pointed — NUL-separated files that BRD_FILE / LEDGER_FILE / COVERAGE_ENGINE point at,

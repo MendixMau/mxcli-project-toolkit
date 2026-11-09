@@ -16,10 +16,13 @@
 #   T9 — a Windows-style BRD_FILE in toolkit.env (C:\proj\F001.brd.json; re-review of #715):
 #   T9a with a cygpath stub mapping C: to a temp dir, editing that file is a miss;
 #   T9b with no way to resolve it, nothing is cached (never a hit on the path alone).
+#   T10 — a relative BRD_FILE, gate-check run from a directory holding a decoy copy: editing the
+#   PROJECT's copy (the one the measurement reads) is a miss (re-review of #715).
 # Hit/miss is observed through MXTK_GATE_CACHE_TRACE=1 ("s4cov-cache: hit|miss" on stderr).
 # Project files are synthetic (shape of test-bug03-gates.sh T21); no tool output is parsed.
 set -uo pipefail
 GATE="${1:?usage: test-gate-s4cov-cache.sh /path/to/gate-check.sh}"
+GATE="$(cd "$(dirname "$GATE")" && pwd)/$(basename "$GATE")"   # T10 runs from another cwd
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/s4cov.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 PASS=0; FAIL=0
@@ -133,6 +136,19 @@ printf '%s\n' 'BRD_FILE=C:\nowhere\F001.brd.json' > "$P/.claude/toolkit.env"
 run; run
 case "$T" in *hit*) bad "T9b: an unresolvable BRD_FILE was cached by its path" "$T" ;; *) ok "T9b: an unresolvable BRD_FILE is never a hit" ;; esac
 [ ! -e "$P/.mxtk/gate-cache-s4cov" ] && ok "T9b: and no cache file is written" || bad "T9b: a cache file was written"
+
+echo "== T10: relative BRD_FILE, decoy copy in the caller's cwd =="
+mkproj t10; mkdir -p "$WORK/t10-cwd"
+cp "$P/analysis/src/knowledge-base/brd/F001.brd.json" "$P/b.json"
+cp "$P/b.json" "$WORK/t10-cwd/b.json"
+export BRD_FILE=b.json
+( cd "$WORK/t10-cwd" && run && run && printf '%s\n' "$T" > "$WORK/t10-t1" )
+case "$(cat "$WORK/t10-t1")" in *hit*) ;; *) bad "T10 setup did not hit" "$(cat "$WORK/t10-t1")" ;; esac
+edit_keep_mtime "$P/b.json" 's/"title":"Submit"}/"title":"Submit"},{"id":"UC2","title":"Approve"}/'
+( cd "$WORK/t10-cwd" && run && printf '%s\n' "$T" > "$WORK/t10-t2" && printf '%s\n' "$V" > "$WORK/t10-v2" )
+case "$(cat "$WORK/t10-t2")" in *miss*) ok "T10: editing the project's b.json is a miss (the cwd decoy is not the key)" ;; *) bad "T10: stale replay — only the cwd decoy was hashed" "$(cat "$WORK/t10-t2")" ;; esac
+case "$(cat "$WORK/t10-v2")" in *FAIL*'UNCLAIMED 2'*) ok "T10: Stage 4 FAILs (UNCLAIMED 2), no stale PASS" ;; *) bad "T10: stale verdict" "$(cat "$WORK/t10-v2")" ;; esac
+unset BRD_FILE
 
 echo
 echo "SCORE: $PASS/$((PASS+FAIL))"

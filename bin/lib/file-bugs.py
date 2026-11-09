@@ -819,7 +819,11 @@ def gh_path(repos):
     for repo in sorted(repos):
         p = sh([gh, "api", "repos/" + repo, "--jq", ".has_issues"])   # REST: works where GraphQL is blocked
         if p.returncode != 0:
-            return None, "signed in, but this GitHub account has no access to %s" % repo
+            err = (p.stderr or p.stdout or "").strip()
+            if re.search(r"\bHTTP (?:403|404)\b", err):
+                return None, "signed in, but this GitHub account has no access to %s" % repo
+            # anything else (proxy refusal, DNS, timeout) is not an answer about access
+            return None, "cannot reach GitHub (network/proxy): %s" % ((err.splitlines() or ["gh api exited %d" % p.returncode])[0][:160])
         if p.stdout.strip().lower() == "false":
             return None, "signed in, but %s does not take issues" % repo
     return gh, None
@@ -991,9 +995,11 @@ IMPORT_MAX = 20
 
 
 def neutralise(t):
-    """No @mention, team ping or #N / owner/repo#N cross-reference from reporter text: a zero-width
-    joiner after the @ or #. GitHub then links nothing and notifies nobody; the text reads the same."""
+    """No @mention, team ping or #N / owner/repo#N / GH-N / github.com issue or PR URL cross-reference
+    from reporter text: a zero-width joiner after the @, # or GH-, and before the number in the URL. GitHub then links nothing and notifies nobody; the text reads the same."""
     t = re.sub(r"@(?=[A-Za-z0-9])", "@" + ZWJ, t)
+    t = re.sub(r"(?i)\b(GH-)(?=\d)", r"\1" + ZWJ, t)
+    t = re.sub(r"(?i)(github\.com/[\w.-]+/[\w.-]+/(?:issues|pull)/)(?=\d)", r"\1" + ZWJ, t)
     return re.sub(r"#(?=\d)", "#" + ZWJ, t)
 
 

@@ -53,7 +53,8 @@
 # and issue_url back, keeping the file mode.
 # WHICH PATH. --auto and the dry run name, in one line, why gh can or cannot post: "GitHub CLI
 # not installed", "not signed in: run `gh auth login --web`", or "signed in, but this GitHub account has no
-# access to <repo>" (gh api repos/<repo>). gh unusable: --auto falls back to --links when the person has a GitHub
+# access to <repo>" (gh api repos/<repo> answered HTTP 403/404), or "cannot reach GitHub (network/proxy): <first
+# stderr line>" (any other failure). gh unusable: --auto falls back to --links when the person has a GitHub
 # account (--github-account or MXTK_GITHUB_ACCOUNT=1), else to --bundle. A Mendix account is not a GitHub one.
 # --bundle [PATH] writes ONE markdown file (default <project>/toolkit-bugs-<date>.md, never overwritten,
 # /toolkit-bugs-*.md added to .gitignore in a git repo) holding every clean open row, title and body exactly
@@ -69,7 +70,8 @@
 # the maintainer's deny list (one is required); always files to the toolkit repo (a target=mxcli row gets a line
 # saying the reporter marked it as an mxcli bug, never an upstream post); runs the duplicate search (an exact title
 # is skipped, its URL listed); asks y/N per bug when stdin is a terminal; puts a zero-width joiner after every @
-# and every # before a digit in the reporter's text (no @mention, team ping or #N / owner/repo#N reference); files
+# and every # before a digit, after GH- and before the number of a github.com issue/PR URL in the reporter's text
+# (no @mention, team ping or #N / owner/repo#N / GH-N / URL cross-reference); files
 # with gh and the labels auto-filed / via-email only where the repo already has them (never created), footer
 # "Reported by: <reporter or 'toolkit user'> via email bundle". --dry-run files nothing.
 # Row fields: id date target title repro expected actual versions{mxcli,mendix,toolkit}

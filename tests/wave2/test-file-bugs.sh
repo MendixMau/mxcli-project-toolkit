@@ -77,7 +77,7 @@ case "$1 $2" in
   "label list") echo "${GH_LABELS:-[]}" ;;
   "label create") exit "${GH_LABEL_CREATE_RC:-0}" ;;
   "repo view") echo "${GH_PERM:-READ}" ;;
-  "api repos/"*) [ -n "${GH_REPO_RC:-}" ] && exit "$GH_REPO_RC"; echo true ;;
+  "api repos/"*) [ -n "${GH_REPO_ERR:-}" ] && echo "$GH_REPO_ERR" >&2; [ -n "${GH_REPO_RC:-}" ] && exit "$GH_REPO_RC"; echo true ;;
   "--version "*) echo "gh version stub" ;;
 esac
 exit 0
@@ -547,8 +547,12 @@ OUT="$(PATH="$NOGH" rr 2>&1)"
 chk "dry run, no gh: one plain line says GitHub CLI not installed, plus the upgrade hint" 'echo "$OUT" | grep -q "^Filing path: GitHub CLI not installed, so use --links (with a GitHub account) or --bundle" && echo "$OUT" | grep -qF "Fastest: a free GitHub account (2 min, github.com/signup) makes this one click per bug with --links; no install needed."'
 OUT="$(GH_AUTH_RC=1 rr 2>&1)"
 chk "dry run, signed out: says run gh auth login --web" 'echo "$OUT" | grep -qF "Filing path: not signed in: run \`gh auth login --web\`"'
-OUT="$(GH_REPO_RC=1 rr 2>&1)"
-chk "dry run, signed in without access: says so, names the repo" 'echo "$OUT" | grep -q "Filing path: signed in, but this GitHub account has no access to "'
+OUT="$(GH_REPO_RC=1 GH_REPO_ERR="gh: Not Found (HTTP 404)" rr 2>&1)"
+chk "dry run, signed in, HTTP 404: no access, names the repo" 'echo "$OUT" | grep -q "Filing path: signed in, but this GitHub account has no access to "'
+OUT="$(GH_REPO_RC=1 GH_REPO_ERR="gh: Resource not accessible by integration (HTTP 403)" rr 2>&1)"
+chk "dry run, signed in, HTTP 403: no access" 'echo "$OUT" | grep -q "Filing path: signed in, but this GitHub account has no access to "'
+OUT="$(GH_REPO_RC=1 GH_REPO_ERR="Get \"https://api.github.com/repos/x\": proxyconnect tcp: dial tcp: connection refused" rr 2>&1)"
+chk "dry run, network error: cannot reach GitHub with the first stderr line, never no access" 'echo "$OUT" | grep -q "^Filing path: cannot reach GitHub (network/proxy): Get .*connection refused, so use --links" && ! echo "$OUT" | grep -q "no access"'
 OUT="$(rr 2>&1)"
 chk "dry run, gh ready: says it posts directly, no upgrade hint, log unchanged" 'echo "$OUT" | grep -q "^Filing path: gh is installed and signed in" && ! echo "$OUT" | grep -q "Fastest:" && cmp -s "$PR/docs/bugs.jsonl" "$W/pr.before"'
 rr --json > "$W/pr.json" 2>/dev/null
@@ -608,9 +612,12 @@ rm -f "$PR"/toolkit-bugs-*.md; cp "$W/pr.before" "$PR/docs/bugs.jsonl"
 OUT="$(GH_AUTH_RC=1 rr --auto 2>&1)"
 chk "--auto, signed out, no account: says run gh auth login --web, bundles" 'echo "$OUT" | grep -qF "cannot post: not signed in: run \`gh auth login --web\`" && [ -f "$BF" ] && ! grep -q "issue create" "$GHLOG"'
 rm -f "$PR"/toolkit-bugs-*.md; cp "$W/pr.before" "$PR/docs/bugs.jsonl"
-OUT="$(GH_REPO_RC=1 rr --auto --github-account 2>&1)"
+OUT="$(GH_REPO_RC=1 GH_REPO_ERR="gh: Not Found (HTTP 404)" rr --auto --github-account 2>&1)"
 chk "--auto, signed in without access, has an account: says so, prints links, no bundle" 'echo "$OUT" | grep -q "cannot post: signed in, but this GitHub account has no access" && echo "$OUT" | grep -q "issues/new?title=" && [ ! -f "$BF" ] && ! grep -q "issue create" "$GHLOG"'
-cp "$W/pr.before" "$PR/docs/bugs.jsonl"; : > "$GHLOG"
+rm -f "$PR"/toolkit-bugs-*.md; cp "$W/pr.before" "$PR/docs/bugs.jsonl"; : > "$GHLOG"
+OUT="$(GH_REPO_RC=1 GH_REPO_ERR="dial tcp: lookup api.github.com: no such host" rr --auto 2>&1)"
+chk "--auto, network error, no account: says cannot reach GitHub, falls through to the bundle" 'echo "$OUT" | grep -q "cannot post: cannot reach GitHub (network/proxy): dial tcp" && [ -f "$BF" ] && ! grep -q "issue create" "$GHLOG" && echo "$OUT" | tail -1 | grep -q "^Bundle written: "'
+rm -f "$PR"/toolkit-bugs-*.md; cp "$W/pr.before" "$PR/docs/bugs.jsonl"; : > "$GHLOG"
 OUT="$(rr --auto 2>&1)"
 chk "--auto, gh ready: checks repo access, then posts as before (no bundle, no fallback note)" 'grep -q "^api repos/MendixMau/mxcli-project-toolkit --jq .has_issues" "$GHLOG" && grep -q "issue create" "$GHLOG" && ! echo "$OUT" | grep -q "cannot post\|Fastest:" && [ ! -f "$BF" ]'
 # --- import, on the maintainer's side
@@ -641,15 +648,15 @@ open(sys.argv[2], "w").write(open(sys.argv[1]).read().replace("### Actual", "tok
 PYX
 "$PY" -I - "$W/mail.md" "$W/ping.md" <<'PYX'
 import sys
-t = open(sys.argv[1]).read().replace("### Actual", "ping @someone and @some-org/team, see #1 and acme/widgets#2\n\n### Actual", 1)
+t = open(sys.argv[1]).read().replace("### Actual", "ping @someone and @some-org/team, see #1 and acme/widgets#2, GH-5 and https://github.com/MendixMau/mxcli-project-toolkit/pull/6\n\n### Actual", 1)
 open(sys.argv[2], "w").write(t.replace("Title: Gate passes", "Title: @maint #3 Gate passes", 1))
 PYX
 : > "$GHLOG"; : > "$GHLOG.all"; OUT="$(rr --import "$W/ping.md" 2>&1)"
-chk "--import neutralises @user, @org/team, #N and owner/repo#N in title and body (zero-width joiner)" '"$PY" -I - "$GHLOG" "$GHLOG.all" <<'"'"'PYX'"'"'
+chk "--import neutralises @user, @org/team, #N, owner/repo#N, GH-N and issue/PR URLs in title and body (zero-width joiner)" '"$PY" -I - "$GHLOG" "$GHLOG.all" <<'"'"'PYX'"'"'
 import re, sys
 log, body = open(sys.argv[1], encoding="utf-8").read(), open(sys.argv[2], encoding="utf-8").read()
 z = "\u200d"
-ok = all(x in body for x in ("@" + z + "someone", "@" + z + "some-org/team", "#" + z + "1", "widgets#" + z + "2"))
+ok = all(x in body for x in ("@" + z + "someone", "@" + z + "some-org/team", "#" + z + "1", "widgets#" + z + "2", "GH-" + z + "5", "mxcli-project-toolkit/pull/" + z + "6"))
 ok = ok and not re.search(r"@[A-Za-z0-9]|(?<![\w])#\d(?![^\n]*Possibly related)", body.split("\n---\n")[0])
 ok = ok and "--title=@" + z + "maint #" + z + "3 Gate passes" in log
 sys.exit(not ok)

@@ -44,7 +44,8 @@
 #     is dropped and rebuilt cold when: --cold (or MXTK_TEST_COLD=1) · the mxcli or Mendix version
 #     changed · userlib/, javasource/ or widgets/ changed (names + sizes) · it is older than
 #     MXTK_TEST_CACHE_DAYS (7) · an earlier run on it did not finish (in-progress marker) · an
-#     interrupted run left a test injection in it. One run at a time per copy: a second run waits
+#     interrupted run left a test injection in it. deployment/model.mda is deleted before every boot,
+#     so a failed build can never run the tests against an earlier one. One run at a time per copy: a second run waits
 #     (MXTK_TEST_LOCK_WAIT, 300 s) and then uses a private cold copy. The gate (build complete, before
 #     a deploy) runs --cold. --no-cache (or MXTK_TEST_CACHE=0) is the old behaviour: a throwaway copy, deleted after.
 # Bash 3.2 / Git Bash / macOS / Linux; no flock (absent on macOS and Git Bash).
@@ -67,6 +68,8 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
+# --keep is for the throwaway copy; the warm copy is kept anyway. Say so rather than ignore the flag.
+[ "$KEEP" = 1 ] && [ "$CACHE" = 1 ] && echo "→ test-scratch: --keep has no effect on the warm copy (it is always kept, its path is printed); --no-cache --keep keeps a throwaway copy" >&2
 [ $# -gt 0 ] || { echo "usage: $0 [--cold] [--no-cache] [--per-file] [--keep] [--ports \"8081 8091\"] -- <mxcli test args>" >&2; exit 2; }
 for _a in "$@"; do
   case "$_a" in
@@ -83,6 +86,24 @@ if [ -x "$PROJECT_ROOT/mxcli" ]; then MXCLI="$PROJECT_ROOT/mxcli"
 elif [ -x "$MODEL_DIR/mxcli" ]; then MXCLI="$MODEL_DIR/mxcli"
 elif command -v mxcli >/dev/null 2>&1; then MXCLI="$(command -v mxcli)"
 else echo "✗ test-scratch: no mxcli (project root or PATH)." >&2; exit 3; fi
+
+# Test files named in the arguments (a *.test.mdl / *.test.md, or a directory of them); everything else
+# (flags, --constant) is REST and goes to every call unchanged. Collected before any lock or copy: a
+# directory with no test files in it is a mistake to report, not an empty mxcli call to make.
+FILES=(); REST=()
+for _a in "$@"; do
+  case "$_a" in
+    *.test.mdl|*.test.md) if [ -f "$MODEL_DIR/$_a" ] || [ -f "$_a" ]; then FILES+=("$_a"); continue; fi ;;
+    -*) ;;
+    *) if [ -d "$MODEL_DIR/$_a" ]; then
+         _before=${#FILES[@]}
+         while IFS= read -r _f; do FILES+=("${_f#"$MODEL_DIR"/}"); done < <(find "$MODEL_DIR/$_a" -type f \( -name '*.test.mdl' -o -name '*.test.md' \) | LC_ALL=C sort)
+         [ "${#FILES[@]}" -gt "$_before" ] || { echo "✗ test-scratch: $_a/ holds no *.test.mdl or *.test.md files — nothing to run." >&2; exit 2; }
+         continue
+       fi ;;
+  esac
+  REST+=("$_a")
+done
 
 # ── After-startup left on an mxcli test injection (#244, BUG-157) ───────────
 # The reader and the refusal (mxtest_after_startup / mxtest_left / mxtest_refusal) live in
@@ -121,7 +142,8 @@ holder_live() {
 # dead or it is older than 10 s (an EMPTY one once it is over a minute old: find -mmin +1); it is moved aside, and put
 # back with `ln` (fails if a new one exists — never clobbers) if what was moved is not the one
 # judged stale. The machine-wide port lock uses the same protocol.
-take_over() {  # $1 = lock file, $2 = the stale lock line. 0 iff it was removed (or already gone)
+take_over() {  # $1 = lock file (or lock dir), $2 = the stale lock line, $3 = where that line is read
+               # (default $1; a lock dir passes its owner file). 0 iff it was removed (or already gone)
   local _tk="$1.takeover" _t _tpid _tsince _tstale _now _mine
   _mine="$$ $(date +%s)"
   if ! ( set -o noclobber; printf '%s\n' "$_mine" > "$_tk" ) 2>/dev/null; then
@@ -145,8 +167,11 @@ take_over() {  # $1 = lock file, $2 = the stale lock line. 0 iff it was removed 
     fi
     return 1
   fi
-  _now="$(head -1 "$1" 2>/dev/null || true)"
-  [ "$_now" = "$2" ] && rm -f "$1"
+  _now="$(head -1 "${3:-$1}" 2>/dev/null || true)"
+  if [ "$_now" = "$2" ]; then
+    # a lock dir is renamed away first (atomic), so no mkdir can land in a half-removed one
+    if [ -d "$1" ]; then mv "$1" "$1.stale.$$" 2>/dev/null && rm -rf "$1.stale.$$"; else rm -f "$1"; fi
+  fi
   [ "$(head -1 "$_tk" 2>/dev/null || true)" = "$_mine" ] && rm -f "$_tk"   # only our own takeover file
   return 0
 }
@@ -168,6 +193,31 @@ take_lock() {  # $1 = lock file, $2 = what it guards (for messages). 0 = taken, 
     fi
   done
   echo "✗ test-scratch: could not take the lock on $2 after 8 attempts." >&2; return 1
+}
+# The warm copy's lock is a directory (mkdir is atomic; <dir>/owner names the holder). A dead holder's
+# lock goes through take_over above: re-read under <dir>.takeover and removed only if the owner line is
+# still the one judged stale. WHY (independent review of #690): the first version read the owner and
+# then `mv`'d the dir aside without re-reading it, so two runs that judged the same dead holder could
+# both end up holding the warm copy (#304's port-lock race, a second time). 0 = taken; 1 = still held
+# by a live run after $2 seconds (DIR_LOCK_HOLDER names it).
+take_dir_lock() {
+  local d="$1" max="$2" w=0 said=0 h
+  DIR_LOCK_HOLDER=""
+  while :; do
+    if mkdir "$d" 2>/dev/null; then
+      printf '%s %s %s\n' "$$" "$(date +%s)" "test-scratch.sh" > "$d/owner"; return 0
+    fi
+    h="$(head -1 "$d/owner" 2>/dev/null || true)"
+    if [ -n "$h" ] && ! holder_live "${h%% *}"; then
+      if take_over "$d" "$h" "$d/owner"; then
+        echo "  (stale cache lock from PID ${h%% *}, not running, taking it over)"; continue
+      fi
+    elif [ "$said" = 0 ] && [ "$max" -gt 0 ]; then
+      echo "→ test-scratch: another run uses the warm copy (PID ${h%% *}); waiting up to ${max}s"; said=1
+    fi
+    [ "$w" -ge "$max" ] && { DIR_LOCK_HOLDER="${h%% *}"; return 1; }
+    sleep 1; w=$((w+1))
+  done
 }
 release() { local f="$1" own; own="$(head -1 "$f" 2>/dev/null || true)"; [ "${own%% *}" = "$$" ] && rm -f "$f"; return 0; }
 
@@ -201,24 +251,12 @@ if [ "$CACHE" = 1 ]; then
   _key="$(printf '%s' "$MODEL_DIR" | cksum | cut -d' ' -f1)"
   CACHE_DIR="${MXTK_SCRATCH_DIR:-${TMPDIR:-/tmp}}/$(basename "$MPR_NAME" .mpr)-test-cache.$_key"
   mkdir -p "$(dirname "$CACHE_DIR")"
-  _w=0; _max="${MXTK_TEST_LOCK_WAIT:-300}"; _said=0
-  while :; do
-    if mkdir "$CACHE_DIR.lock" 2>/dev/null; then
-      printf '%s %s %s\n' "$$" "$(date +%s)" "test-scratch.sh" > "$CACHE_DIR.lock/owner"; CLOCK="$CACHE_DIR.lock"; break
-    fi
-    _h="$(head -1 "$CACHE_DIR.lock/owner" 2>/dev/null || true)"
-    if [ -n "$_h" ] && ! holder_live "${_h%% *}"; then
-      echo "  (stale cache lock from PID ${_h%% *}, not running, taking it over)"
-      mv "$CACHE_DIR.lock" "$CACHE_DIR.lock.stale.$$" 2>/dev/null && rm -rf "$CACHE_DIR.lock.stale.$$"
-      continue
-    fi
-    if [ "$_w" -ge "$_max" ]; then
-      echo "→ test-scratch: the warm copy is still in use by PID ${_h%% *} after ${_max}s; this run uses a private cold copy"
-      CACHE=0; break
-    fi
-    [ "$_said" = 1 ] || { echo "→ test-scratch: another run uses the warm copy (PID ${_h%% *}); waiting up to ${_max}s"; _said=1; }
-    sleep 1; _w=$((_w+1))
-  done
+  _max="${MXTK_TEST_LOCK_WAIT:-300}"; case "$_max" in ''|*[!0-9]*) _max=300 ;; esac
+  if take_dir_lock "$CACHE_DIR.lock" "$_max"; then CLOCK="$CACHE_DIR.lock"
+  else
+    echo "→ test-scratch: the warm copy is still in use by PID ${DIR_LOCK_HOLDER:-?} after ${_max}s; this run uses a private cold copy"
+    CACHE=0
+  fi
 fi
 mkdir -p "$(dirname "$EXEC_LOCK")"
 take_lock "$EXEC_LOCK" "this project's model (an exec.sh is writing it)" || exit 3
@@ -299,37 +337,31 @@ fi
 release "$EXEC_LOCK"
 [ -f "$SCRATCH/$MPR_NAME" ] || { echo "✗ test-scratch: $MPR_NAME missing from the copy." >&2; exit 3; }
 
-# 3. Plan the boots. Test files named in the arguments (a *.test.mdl, or a directory of them) run in ONE
-# `mxcli test` call = one injection, one build, one boot; per-test rollback still isolates each test's
-# main transaction. A file with `@cleanup none` (rows kept on purpose) would leak into every later test
-# of the boot, so it gets a boot of its own. Everything else in the arguments (flags, --constant) goes to
-# every call unchanged; one file, or none at all, is passed through exactly as given.
-FILES=(); REST=()
-for _a in "$@"; do
-  case "$_a" in
-    *.test.mdl|*.test.md) if [ -f "$MODEL_DIR/$_a" ] || [ -f "$_a" ]; then FILES+=("$_a"); continue; fi ;;
-    -*) ;;
-    *) if [ -d "$MODEL_DIR/$_a" ]; then
-         while IFS= read -r _f; do FILES+=("${_f#"$MODEL_DIR"/}"); done < <(find "$MODEL_DIR/$_a" -type f \( -name '*.test.mdl' -o -name '*.test.md' \) | LC_ALL=C sort)
-         continue
-       fi ;;
-  esac
-  REST+=("$_a")
-done
+# 3. Plan the boots. The test files (FILES, collected above) run in ONE `mxcli test` call = one injection,
+# one build, one boot; per-test rollback still isolates each test's main transaction. A file with
+# `@cleanup none` (rows kept on purpose) would leak into every later test of the boot, so it gets a boot
+# of its own. One file, or none at all, is passed through exactly as given.
 # Own boot when the file keeps its rows on purpose (@cleanup none, in a .test.mdl or a .test.md), or when
 # the project's rollback-scan.sh (it lands with another change; absent = skipped) finds an effect a rollback
 # does not undo and others would see (an A line: REST, file, separate commit, queue, mail, workflow).
 # B lines (autonumber, log) and U lines (unclassified Java) share the boot. Read from `--json`; the
 # scan always exits 0 and prints a summary, so a scan that cannot run means shared boot. About 0.3 s a file.
-LEAK_WHY=""
+# The JSON is read with _common.sh's resolve_py (probe by executing; the project-side twin of the
+# toolkit's portable.sh, which is not installed into projects). No Python 3 = the scan's answer cannot
+# be read, so the file gets its own boot: fail safe, never a silent shared boot.
+LEAK_WHY=""; PY=""; PY_PROBED=0
 SCAN=""; for _s in "$PROJECT_ROOT/bin/rollback-scan.sh" "$PROJECT_ROOT/project-bin/rollback-scan.sh"; do [ -f "$_s" ] && { SCAN="$_s"; break; }; done
 leaky() {
   local _p="$1" _o
   [ -f "$MODEL_DIR/$_p" ] && _p="$MODEL_DIR/$_p"
   if grep -Eq '@cleanup[[:space:]]+none' "$_p" 2>/dev/null; then LEAK_WHY="has @cleanup none"; return 0; fi
   if [ -n "$SCAN" ]; then
+    if [ "$PY_PROBED" = 0 ]; then
+      PY_PROBED=1; command -v resolve_py >/dev/null 2>&1 && PY="$(resolve_py 2>/dev/null)" || PY=""
+    fi
+    if [ -z "$PY" ]; then LEAK_WHY="cannot be checked by rollback-scan.sh (no Python 3 to read its answer)"; return 0; fi
     _o="$(cd "$PROJECT_ROOT" && bash "$SCAN" --json "$_p" 2>/dev/null)" || _o=""
-    if printf '%s' "$_o" | python3 -c 'import json,sys
+    if printf '%s' "$_o" | "$PY" -c 'import json,sys
 try: d=json.load(sys.stdin)
 except Exception: sys.exit(1)
 sys.exit(0 if any(e.get("cls")=="A" for e in d.get("effects",[])) else 1)' 2>/dev/null; then
@@ -359,6 +391,9 @@ fi
 RC=0; _n=0
 for _call in "${CALLS[@]}"; do
   _n=$((_n+1)); _args=()
+  # A kept build must never stand in for this one: a failed mxbuild would otherwise leave the previous
+  # run's model.mda (warm copy, or an earlier boot of this call) for the tests to run against.
+  rm -f "$SCRATCH/deployment/model.mda"
   while IFS= read -r _f; do [ -n "$_f" ] && _args+=("$_f"); done <<<"$_call"
   echo "→ $(basename "$MXCLI") test ${_args[@]+"${_args[@]}"} ${REST[@]+"${REST[@]}"} -p $SCRATCH/$MPR_NAME   (ports $PORTS locked$( [ "${#CALLS[@]}" -gt 1 ] && echo "; boot $_n of ${#CALLS[@]}" ))"
   ( cd "$SCRATCH" && "$MXCLI" test ${_args[@]+"${_args[@]}"} ${REST[@]+"${REST[@]}"} -p "$SCRATCH/$MPR_NAME" )

@@ -22,6 +22,9 @@
 # time per warm copy (a second waits, then falls back to a private cold copy); an in-progress marker
 # makes the next run cold; a Mendix version or userlib/javasource/widgets listing change makes it cold;
 # mprcontents/ is compared by checksum; a project rollback-scan.sh gives a flagged file its own boot.
+# #690 review: the cache-lock takeover re-reads the owner (race replay); no Python 3 = a scanned file
+# gets its own boot; a failed build on a warm copy is red (model.mda deleted before each boot); an
+# empty test directory exits 2 before anything runs; --keep with the warm copy warns.
 # No real mxcli: a stub records its cwd and argv.
 set -uo pipefail
 TOOLKIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -50,6 +53,11 @@ echo "$*" >> "${REC}.calls"
 ls -A .mxcli > "$REC.mx" 2>/dev/null
 sleep "${STUB_SLEEP:-0}"
 echo "TESTRUNNER injected" >> Fixture.mpr      # what a real test run does to ITS model
+if [ -n "${STUB_MDA:-}" ]; then   # model the build: ok writes model.mda; fail does not, and tests then
+  case "$*" in *"${STUB_MDA_FAIL_ON:-@none@}"*) STUB_MDA=fail ;; esac
+  [ "$STUB_MDA" = ok ] && { mkdir -p deployment; echo built > deployment/model.mda; }   # run on whatever
+  [ -f deployment/model.mda ] || { echo "no deployment/model.mda: nothing to test"; exit 1; }   # mda is there
+fi
 exit "${STUB_RC:-0}"
 STUB
 chmod +x "$P/mxcli" "$P/bin/test-scratch.sh"
@@ -123,7 +131,7 @@ echo "-- #304 review: a stale-lock takeover never removes a lock another run too
 # the lock too — two holders. Taking over must re-read and leave a changed lock alone.
 H="$WORK/harness.sh"; L="$WORK/race.lock"
 awk '/^holder_live\(\) \{/ {p=1} /^release\(\) \{/ {p=0} p' "$SUBJECT" > "$H"
-grep -q '^take_lock() {' "$H" && ok "[setup] lifted holder_live..take_lock from the subject" || bad "[setup] could not lift take_lock"
+grep -q '^take_lock() {' "$H" && grep -q '^take_dir_lock() {' "$H" && ok "[setup] lifted holder_live..take_lock from the subject" || bad "[setup] could not lift take_lock"
 sleep 300 & LIVE=$!; BG="$BG $LIVE"
 OUT="$( L="$L" LIVE="$LIVE" bash -c '
   . "$1"
@@ -155,6 +163,26 @@ touch -t 200001010000 "$L.takeover"
 OUT="$( L="$L" bash -c '. "$1"; holder_live() { return 1; }; take_lock "$L" "race lock"; echo "rc=$?"' _ "$H" 2>&1 )"
 has "an empty takeover file over a minute old is stale → taken" "$OUT" "rc=0"
 [ -e "$L.takeover" ] && bad "takeover file left behind" || ok "and no takeover file is left behind"
+echo "-- #690 review: the warm copy's lock dir: a stale takeover re-reads the owner, never takes a lock another run took"
+# Same replay as #304's: while this run judges the dead owner, another run finishes ITS takeover and
+# writes a live owner. The first version `mv`'d the dir aside without re-reading — two holders.
+D="$WORK/race.cache.lock"; rm -rf "$D" "$D.takeover"; mkdir -p "$D"; printf '999999 1 test-scratch.sh\n' > "$D/owner"
+OUT="$( D="$D" LIVE="$LIVE" bash -c '
+  . "$1"
+  holder_live() {
+    [ "$1" = 999999 ] && printf "%s %s %s\n" "$LIVE" "$(date +%s)" "test-scratch.sh" > "$D/owner"
+    [ "$1" = "$LIVE" ]
+  }
+  take_dir_lock "$D" 0; echo "rc=$? holder=$DIR_LOCK_HOLDER"
+' _ "$H" 2>&1 )"
+has "the second taker does not get the lock" "$OUT" "rc=1 holder=$LIVE"
+[ "$(cut -d' ' -f1 "$D/owner" 2>/dev/null)" = "$LIVE" ] && ok "the lock dir still names the live holder" || bad "the live holder's lock dir was replaced: $(cat "$D/owner" 2>/dev/null)"
+[ -e "$D.takeover" ] && bad "takeover marker left behind" || ok "takeover marker cleared"
+ls -d "$D".stale.* >/dev/null 2>&1 && bad "a stale dir copy left behind" || ok "no stale dir left"
+printf '999999 1 test-scratch.sh\n' > "$D/owner"
+OUT="$( D="$D" bash -c '. "$1"; holder_live() { return 1; }; take_dir_lock "$D" 0; echo "rc=$?"' _ "$H" 2>&1 )"
+has "a truly dead owner's lock dir is taken" "$OUT" "rc=0"
+[ "$(cut -d' ' -f1 "$D/owner" 2>/dev/null)" != 999999 ] && ok "and now names the taker" || bad "stale owner still there"
 kill -KILL "$LIVE" 2>/dev/null; wait "$LIVE" 2>/dev/null
 
 echo "-- speed: several files run in ONE mxcli call (one boot), flags go to it once, a flag VALUE is not a file"
@@ -265,6 +293,10 @@ STUB
 OUT="$(run r1 -- tests/a.test.mdl tests/commits.test.mdl tests/b.test.mdl --local)"
 [ "$(wc -l < "$WORK/rec.r1.calls" | tr -d ' ')" = 2 ] && has "flagged file alone" "$(sed -n 2p "$WORK/rec.r1.calls")" "test tests/commits.test.mdl --local" || bad "calls: $(cat "$WORK/rec.r1.calls")"
 has "says why" "$OUT" "reaches an effect a rollback does not undo"
+cp "$P/bin/_common.sh" "$WORK/common.save"; printf '\nresolve_py() { return 1; }\n' >> "$P/bin/_common.sh"
+OUT="$(run r3 -- tests/a.test.mdl tests/b.test.mdl --local)"
+[ "$(wc -l < "$WORK/rec.r3.calls" | tr -d ' ')" = 2 ] && has "no Python 3: a scanned file gets its own boot (fail safe)" "$OUT" "no Python 3 to read its answer" || bad "no Python shared the boot: $(cat "$WORK/rec.r3.calls")"
+cp "$WORK/common.save" "$P/bin/_common.sh"
 rm -f "$P/bin/rollback-scan.sh"
 OUT="$(run r2 -- tests/a.test.mdl tests/commits.test.mdl tests/b.test.mdl --local)"
 [ "$(wc -l < "$WORK/rec.r2.calls" | tr -d ' ')" = 1 ] && ok "no scanner: one boot as before" || bad "calls: $(cat "$WORK/rec.r2.calls")"
@@ -309,6 +341,27 @@ if command -v rsync >/dev/null 2>&1; then
   [ "$(cat "$C/mprcontents/a.mxunit")" = unix ] && ok "same-size same-second rewrite reaches the copy" || bad "the copy kept stale bytes: $(cat "$C/mprcontents/a.mxunit")"
   printf 'unit\n' > "$P/mprcontents/a.mxunit"
 else echo "  [skip] rsync missing"; fi
+
+echo "-- #690 review: a failed build on a warm copy is red, never a run against the previous model.mda"
+OUT="$(MXTK_MODEL_VERSION=11.2.0 STUB_MDA=ok run z1 -- tests/a.test.mdl)"; RC=$?
+[ "$RC" -eq 0 ] && [ -f "$C/deployment/model.mda" ] && ok "[setup] a good build leaves model.mda in the warm copy" || bad "[setup] exit $RC, no mda"
+OUT="$(MXTK_MODEL_VERSION=11.2.0 STUB_MDA=fail run z2 -- tests/a.test.mdl)"; RC=$?
+has "[setup] the second run is warm" "$OUT" "warm copy"
+[ "$RC" -ne 0 ] && ok "failed build → red (exit $RC)" || bad "failed build ran green against the kept model.mda"
+printf '/**\n * @test keeps\n * @cleanup none\n */\n' > "$P/tests/leaky2.test.mdl"
+OUT="$(MXTK_MODEL_VERSION=11.2.0 STUB_MDA=ok STUB_MDA_FAIL_ON=leaky2 run z3 -- tests/a.test.mdl tests/b.test.mdl tests/leaky2.test.mdl)"; RC=$?
+[ "$(wc -l < "$WORK/rec.z3.calls" | tr -d ' ')" = 2 ] && ok "[setup] 2 boots" || bad "[setup] calls: $(cat "$WORK/rec.z3.calls")"
+[ "$RC" -ne 0 ] && ok "boot 2's failed build is red, not run on boot 1's model.mda (exit $RC)" || bad "boot 2 ran green on boot 1's build"
+rm -f "$P/tests/leaky2.test.mdl"
+
+echo "-- #690 review: a directory with no test files exits 2 before anything runs; --keep on the warm copy warns"
+mkdir -p "$P/emptytests"; printf 'x\n' > "$P/emptytests/readme.txt"
+OUT="$(run e1 -- emptytests --local)"; RC=$?
+[ "$RC" -eq 2 ] && has "names the empty directory" "$OUT" "emptytests/ holds no *.test.mdl" || bad "empty dir exit $RC: $OUT"
+[ -f "$WORK/rec.e1" ] && bad "mxcli ran on an empty directory" || ok "nothing run"
+rm -rf "$P/emptytests"
+OUT="$(MXTK_MODEL_VERSION=11.2.0 run e2 --keep -- tests/a.test.mdl)"; RC=$?
+[ "$RC" -eq 0 ] && has "--keep with the warm copy warns" "$OUT" "--keep has no effect on the warm copy" || bad "--keep exit $RC"
 
 echo "-- review: two runs on one warm copy: the second waits, then falls back to a private cold copy"
 SAVE_PORTS="$MXTK_TEST_PORTS"

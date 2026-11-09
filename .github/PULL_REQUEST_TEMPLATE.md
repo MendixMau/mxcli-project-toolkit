@@ -19,7 +19,7 @@ not. Reviewers check each row against the diff (`docs/RELEASE-PROCESS.md` §4a).
 | **Dependencies** — shared files touched (`_common.sh`, `exec.sh`, `skill-routing.tsv`, …); order vs other open PRs; new tools/platform assumptions; new artifact reads + their producer | |
 | **Context cost** — always-loaded words per role at the affected stage(s), base → head, and baseline total vs 80,000, pasted from `bin/render-routing.sh --check` on both — or "none: no routed or always-loaded file touched" | |
 | **Behaviour** — A/B result for agent-read text (`process/preflight-skill-baseline-2026-08-31.md`), or "NOT RUN: <why>", or "n/a: scripts only" (process docs that review agents read are agent-read text) | |
-| **Runtime** — seconds/resources added or saved per exec, gate or check: measured, or "n/a" | |
+| **Runtime** — seconds/resources added or saved per exec, gate or check: measured, or "n/a". Any PR that adds or widens a check, gate, obligation or test step also writes `Time cost: <per exec/row/module/stage/project/none> · <measured s> on <machine> · can force rework: y/n · offset: <what it removes or cheapens, or "maintainer OK">` (`docs/RELEASE-PROCESS.md` §4a, Per-row budget) | |
 
 **Field evidence** — which real project this ran against / was observed in, and what it measured
 or fixed there (CLAUDE.md → "Shipping an instrument", rule 4; required for any instrument change):

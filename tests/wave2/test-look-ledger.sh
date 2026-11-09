@@ -194,6 +194,53 @@ else
   bad "gate-check.sh not found at $GATE — cannot run G1-G3"
 fi
 
+# ── D1-D5: DROP PAGE leaves the denominator; a re-create owes again (#681) ─────────────────
+# The #681 repro: create Order_Edit and Order_Old, drop Order_Old, look only at Order_Edit.
+# DROP PAGE shapes: the issue's `drop page M.P;` (lower case, verbatim), plus upper case with
+# IF EXISTS and a quoted name.
+P="$WORK/p-drop"; mkproject "$P" root
+cat > "$P/mdlsource/20-orders.mdl" <<'MDL'
+create page Orders.Order_Edit (Title: 'Edit') { }
+create page Orders.Order_Old (Title: 'Old') { }
+MDL
+cat > "$P/mdlsource/21-drop.mdl" <<'MDL'
+-- drop page Orders.Order_Edit;
+drop page Orders.Order_Old;
+MDL
+cat > "$P/mdlsource/22-inscript.mdl" <<'MDL'
+CREATE PAGE Orders.Scratch { }
+DROP PAGE IF EXISTS "Orders"."Scratch";
+DROP PAGE Orders.Gone;
+CREATE PAGE Orders.Gone { }
+MDL
+got="$(bash "$P/bin/look-ledger.sh" pages "$P/mdlsource/22-inscript.mdl" | tr '\n' ' ')"
+[ "$got" = "Orders.Gone " ] \
+  && ok "D1: parser — created-then-dropped is not owed, dropped-then-created is" \
+  || bad "D1: parser got '$got' (want 'Orders.Gone ')"
+( cd "$P" && bash bin/look-ledger.sh owe "$P/mdlsource/20-orders.mdl" >/dev/null \
+          && bash bin/look-ledger.sh owe "$P/mdlsource/21-drop.mdl" >/dev/null )
+printf 'png' > "$P/shots/order-edit.png"; touch "$P/shots/order-edit.png"
+hook "$P/shots/order-edit.png" | ( cd "$P" && bash bin/look-ledger.sh seen )
+st="$(cd "$P" && bash bin/look-ledger.sh status | cut -f1,2 | tr '\t\n' ': ')"
+[ "$st" = "SEEN:Orders.Order_Edit " ] \
+  && ok "D2: after drop page Orders.Order_Old, status lists only Order_Edit (SEEN)" \
+  || bad "D2: status after the drop was '$st' (the #681 symptom: Order_Old stays OWED)"
+grep -q 'Order_Edit' "$P/.claude/loop/look/owed.tsv" \
+  && ok "D3: a commented-out drop removes nothing" || bad "D3: '-- drop page' removed Order_Edit's row"
+if [ -f "$GATE" ]; then
+  cp "$WORK/p-none/PROJECT.md" "$P/" 2>/dev/null || printf '# PROJECT\n' > "$P/PROJECT.md"
+  sed -i.bak '/Waived obligation/d' "$P/PROJECT.md"
+  line="$(bash "$GATE" "$P" 5 2>&1 | grep -E '^Stage 5 ')"
+  printf '%s' "$line" | grep -q '1 of 1 built page(s) accounted for' && ! printf '%s' "$line" | grep -q FAIL \
+    && ok "D4: Stage 5 no longer FAILs on the dropped page (1 of 1 accounted for)" \
+    || bad "D4: Stage 5 still counts the dropped page: $line"
+fi
+printf 'create page Orders.Order_Old { }\n' > "$P/mdlsource/23-recreate.mdl"
+( cd "$P" && bash bin/look-ledger.sh owe "$P/mdlsource/23-recreate.mdl" >/dev/null )
+st="$(cd "$P" && bash bin/look-ledger.sh status | awk -F'\t' '$2=="Orders.Order_Old"{print $1}')"
+[ "$st" = OWED ] && ok "D5: re-creating the dropped page owes it again" \
+                 || bad "D5: re-created Order_Old reads '${st:-absent}', want OWED"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

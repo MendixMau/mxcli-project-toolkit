@@ -233,4 +233,27 @@ function resolveTarget() {
   return t;
 }
 
-module.exports = { cfg, NAV, TARGETS, resolveTarget, resolveAdmin, passwordSource, TEMPLATE_PASSWORDS };
+// The NAV project.config.template.js ships: the toolkit's sample app, not this project (#679).
+// A project.config.js still carrying it navigates menu captions the app does not have, so a
+// monkey run reaches nothing and measures nothing. Compared like TEMPLATE_PASSWORDS above;
+// tests/wave2/test-monkey-template-nav.sh asserts this copy equals the template's.
+const TEMPLATE_NAV = {
+  dashboard:    ['Dashboard'],
+  equipment:    ['Assets & Barcodes', 'Equipment'],
+  locations:    ['Assets & Barcodes', 'Locations'],
+  fieldScan:    ['Assets & Barcodes', 'Field Scan'],
+  barcodeLabel: ['Assets & Barcodes', 'Barcode Labels'],
+  aiAssistant:  ['AI', 'AI Assistant'],
+  aiAdmin:      ['AI', 'AI Admin'],
+  designSystem: ['Configuration', 'Design System'],
+};
+// True when every NAV entry is the template's, entry for entry (key order ignored).
+// ALLOW_TEMPLATE_NAV=1 overrides, for the one app whose menu really is the sample's.
+function navIsTemplate({ nav = NAV, env = process.env } = {}) {
+  if (env.ALLOW_TEMPLATE_NAV === '1' || !nav) return false;
+  const norm = o => JSON.stringify(Object.keys(o).sort().map(k => [k, o[k]]));
+  return norm(nav) === norm(TEMPLATE_NAV);
+}
+
+module.exports = { cfg, NAV, TARGETS, resolveTarget, resolveAdmin, passwordSource, TEMPLATE_PASSWORDS,
+                   TEMPLATE_NAV, navIsTemplate };

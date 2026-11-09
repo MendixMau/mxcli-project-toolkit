@@ -1311,6 +1311,39 @@ find_toolkit_root() {
   return 1
 }
 
+# ---------------------------------------------------------------------------
+# mxtk_resolve_ledger <root> <module> — the ONE coverage-ledger lookup for a module. Echoes
+# the first that exists and returns 0, or returns 1:
+#   1. <root>/architecture/modules/<M>/coverage-ledger/    per-BRD directory (holds >=1 *.md;
+#                                                           wins over the index file beside it)
+#   2. <root>/architecture/modules/<M>/coverage-ledger.md  canonical per-module file
+#   3. <root>/architecture/modules/<M>-coverage-ledger.md  flat module layout
+#   4. <root>/architecture/coverage-ledger.md              single-BRD project file
+# An empty <module> tries only 4. An empty <root> echoes paths relative to the current dir.
+# Explicit overrides (LEDGER_FILE, a positional ledger) stay with each caller: their failure
+# semantics differ (conformance-check refuses to fall back, verify-module passes a hint).
+# Used by conformance-check.sh, coverage-preflight.sh, review-module.sh and verify-module.sh.
+# Why one helper (#673): those four each carried their own copy of this chain, and the copies
+# drifted — review-module knew 2 of the 4 forms, verify-module 3 — so a project with a valid
+# single-BRD ledger passed conformance and coverage run alone and FAULTed both rungs of the
+# module review. Duplicated discovery logic drifts and the fix does not travel (the same lesson
+# as bin/lib/discover-brds.sh's header, and CLAUDE.md "Writing in this toolkit — generic first").
+# ---------------------------------------------------------------------------
+mxtk_resolve_ledger() {
+  local p="${1:+$1/}" m="${2:-}" c
+  if [ -n "$m" ]; then
+    c="${p}architecture/modules/$m/coverage-ledger"
+    [ -d "$c" ] && ls "$c"/*.md >/dev/null 2>&1 && { printf '%s\n' "$c"; return 0; }
+    for c in "${p}architecture/modules/$m/coverage-ledger.md" \
+             "${p}architecture/modules/$m-coverage-ledger.md"; do
+      [ -f "$c" ] && { printf '%s\n' "$c"; return 0; }
+    done
+  fi
+  c="${p}architecture/coverage-ledger.md"
+  [ -f "$c" ] && { printf '%s\n' "$c"; return 0; }
+  return 1
+}
+
 # mxtk_sha256 — SHA-256 of stdin, whichever tool this machine has (sha256sum on
 # Linux/Git Bash, shasum on macOS, openssl as the last resort).
 mxtk_sha256() {

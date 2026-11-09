@@ -10,7 +10,9 @@
 #      this is where the score is taken; exec.sh scores per exec only under `Score: every exec`.
 #   3. mxcli docker check (= mx check), plus a full mxbuild (bin/verify-model.sh) under `Gate mode: check`
 #      when the model has not had one since its last change
-#   4. bin/verify-module.sh <Module> --quick (conformance, graph sweep, coverage; diagnostic only)
+#   4. bin/conformance-check.sh --module <M> --mark-built: the ledger rows this module built go
+#      planned -> built, once per module instead of by hand per row (#671); then
+#      bin/verify-module.sh <Module> --quick (conformance, graph sweep, coverage; diagnostic only)
 #   5. bin/look-ledger.sh status: pages of this module still owed a LOOK
 #   6. the lead's checklist: journeys + unit tests owed, the 390 + 1280 LOOK, and the bounded polish
 #      loop (by `Pipeline mode:`, 85% / 3 rounds when balanced; `UI polish:` overrides; module-review.md)
@@ -59,6 +61,9 @@ if [ -f .claude/loop/gate-kind.state ] && grep -q '^kind: check' .claude/.model-
   chk="$chk
 full build (bin/verify-model.sh): $(bash bin/verify-model.sh 2>&1 | grep -E '^(✓|✗)' | tail -2)"
 fi
+# Before verify-module, so its conformance rung measures the ledger as it now stands. Its exit is
+# not this script's verdict: verify-module's conformance rung reports the same rows right after.
+marked=$(bash bin/conformance-check.sh --module "$mod" --mark-built --quiet 2>/dev/null | grep -- '--mark-built:' || true)
 vm=$(bash bin/verify-module.sh "$mod" --quick 2>&1); vm_rc=$?; vm=$(printf '%s\n' "$vm" | tail -15)
 look=$(bash bin/look-ledger.sh status 2>/dev/null | grep -E "\b$mod\." || true)
 # Polish loop per page (module-review.md stage 4, #686): numbers from PROJECT.md `Pipeline mode:`
@@ -79,7 +84,9 @@ pt=${pt:-85}; pr=${pr:-3}; pmode=$(mxtk_pipeline_mode "$PROJECT_ROOT" 2>/dev/nul
   echo; echo "Whole model: $(printf '%s\n' "$lint" | grep -c '⚠') ⚠, $(printf '%s\n' "$lint" | grep -c 'ℹ') ℹ."
   echo; echo "## 2. Score"; echo; echo "$score"
   echo; echo "## 3. mx check"; echo; echo '```'; echo "$chk"; echo '```'
-  echo; echo "## 4. verify-module --quick (exit $vm_rc)"; echo; echo '```'; echo "$vm"; echo '```'
+  echo; echo "## 4. verify-module --quick (exit $vm_rc)"; echo
+  [ -n "$marked" ] && { echo "Ledger: ${marked#conformance }"; echo; }
+  echo '```'; echo "$vm"; echo '```'
   echo; echo "## 5. LOOK owed in $mod"; echo; [ -n "$look" ] && printf '%s\n' "$look" | sed 's/^/- /' || echo "none recorded"
   # Countable round cap (PR #700 mode experiment): one row per page, `Polish: n of cap`, which the
   # lead updates per round. A template only; no gate reads it yet.

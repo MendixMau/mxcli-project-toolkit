@@ -244,6 +244,21 @@ run validator  →  validation-report.md
 `validation-report.md` follows the same shape as the existing `reports/gaps-report.md` — one
 section per check type, each finding with: module, concept, sources checked, severity.
 
+**Where the report goes, and the heading Stage 2 reads.** Write it to
+`<KB>/reports/validation-report.md`, where `<KB>` is the knowledge-base directory the BRDs sit in
+(`analysis/<source>/knowledge-base/`, `brd-generation.md` → "Store in"); Stage 2 reads it there
+and nowhere else. The verdict is a real `## Stop condition` heading whose first non-empty line
+starts with `Clean`:
+
+```markdown
+## Stop condition
+
+Clean — 0 findings outside the known-gap baseline (3 × no-db-table-found, accepted).
+```
+
+Bold text (`**Stop condition:** clean`) is not a heading: Stage 2 FAILs with "'## Stop condition'
+section not found or empty".
+
 **Stop condition:** clean means zero findings outside the project's documented "known gap
 noise" baseline (e.g. `no-db-table-found` when there's genuinely no DB source,
 `fk-unresolved:User/Group/Role` mapping to platform entities). Don't chase every reference

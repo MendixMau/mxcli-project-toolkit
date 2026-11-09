@@ -66,8 +66,10 @@ skeleton	mdl	project	path	docs/skeleton-proof.md	yes	no	5	skills/walking-skeleto
 # used, at Stage 4, with the plan already written. No gate in the pipeline compares a targeting
 # mechanism against the sentence it came from; §12 row 5 is that check.
 #
-# A project with no workflow discharges this in one line — "0 workflows, nothing to count" is a
-# legal mark and a real statement, and §12's own rows 2/3/4/9 are written the same way ("0 of 0").
+# A project with no workflow discharges this in one line — "0 of 0 workflows — nothing to count" is
+# a legal mark and a real statement, and §12's own rows 2/3/4/9 are written the same way ("0 of 0").
+# Write the "0 of 0": _ob_has_denominator (obligation-check.sh) needs N of M or N/M, so "0 workflows,
+# nothing to count" alone reports NO-DENOM (#684).
 # That is deliberately NOT an optin row: an artifact a project must think of in order to owe is
 # an artifact nobody owes, which is the disease this whole table was built for.
 workflow-count	architect	project	path	architecture/workflow-count.md	yes	yes	3	skills/workflow-structure-rules.md

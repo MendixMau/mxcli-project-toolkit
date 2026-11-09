@@ -120,7 +120,9 @@ else
   [ "$(j OR 'blankHits.join()')" = "blank page — no .mx-page or nav tree" ] && ok "#562 a blank page stays crash-class (unchanged)" \
     || bad "#562 blank page handling changed" "$(get OR)"
 fi
-grep -q "finding('slow'" "$SUT" && awk '/process\.exit\(crashes\.length/ {f=1} END{exit !f}' "$SUT" \
+# #679 moved the exit decision into exitCode(); it is still fed crash-class findings only.
+grep -q "finding('slow'" "$SUT" && { awk '/process\.exit\(crashes\.length/ {f=1} END{exit !f}' "$SUT" \
+  || { grep -qF 'exitCode({ crashes: crashes.length,' "$SUT" && grep -qF "const crashes = findings.filter(f => f.severity === 'crash');" "$SUT"; }; } \
   && ok "#562 round() files slow as its own severity; the exit code counts crash-class only" \
   || bad "#562 round() does not file slow, or the exit code changed"
 

@@ -129,6 +129,97 @@ rc="$(run)"
   && ok "bare acceptance text: exit 2 and the FAULT says rows were found but are prose" \
   || bad "prose-only ledger FAULT wrong (rc=$rc)" "$(out)"
 
+# --- 9-14. a built `planned` row is not a regression; --mark-built (#671) ----------------------
+# The #671 repro: a ledger row `planned`, absent at baseline (OK), then built. Master scored it
+# "was OK, now UNDERSTATED" (exit 1) and refused --update-baseline as a loosening (exit 2).
+# Three ledger shapes at once: per-module, per-BRD directory, flat.
+rm -rf "$P/docs/conformance" "$P/architecture/modules"
+mkdir -p "$P/architecture/modules/Orders" "$P/architecture/modules/Billing/coverage-ledger"
+cat > "$P/architecture/modules/Orders/coverage-ledger.md" <<EOF
+| Pointer | Kind | Name | Row | Proof | Acceptance | Status |
+|---|---|---|---|---|---|---|
+| \`/domainEntities/0\` | entity | Order | 1.1 | exec.sh | \`DESCRIBE ENTITY Orders.Order\` | built |
+| \`/microflows/0\` | microflow | ACT_Later | 1.2 | exec.sh | \`DESCRIBE MICROFLOW Orders.ACT_Later\` | planned |
+| \`/microflows/1\` | microflow | ACT_Prose | 1.3 | exec.sh | runs on save | planned |
+EOF
+cat > "$P/architecture/modules/Billing/coverage-ledger/F001.md" <<EOF
+| Pointer | Kind | Name | Row | Proof | Acceptance | Status |
+|---|---|---|---|---|---|---|
+| /domainEntities/0 | entity | Invoice | 2.1 | exec.sh | \`DESCRIBE ENTITY Billing.Invoice\` | \`planned\` |
+| /microflows/0 | microflow | ACT_Blocked | 2.2 | exec.sh | \`DESCRIBE MICROFLOW Billing.ACT_Blocked\` | blocked (needs API) |
+EOF
+cat > "$P/architecture/modules/Ship-coverage-ledger.md" <<EOF
+| Pointer | Kind | Name | Row | Proof | Acceptance | Status |
+|---|---|---|---|---|---|---|
+| /domainEntities/0 | entity | Parcel | 3.1 | exec.sh | \`DESCRIBE ENTITY Ship.Parcel\` | not built |
+EOF
+printf 'Orders.Order\n' > "$P/PRESENT"
+rc="$(run)"
+[ "$rc" = 0 ] && ok "9: baseline with the planned rows absent (OK)" || bad "9: baseline run rc=$rc" "$(out)"
+printf 'Orders.Order\nOrders.ACT_Later\nBilling.Invoice\nBilling.ACT_Blocked\nShip.Parcel\n' > "$P/PRESENT"
+rc="$(run)"
+[ "$rc" = 0 ] && ! grep -q "was OK, now UNDERSTATED" "$WORK/out" \
+  && ok "10: building the planned rows is not a regression (exit 0)" \
+  || bad "10: a correct build scored as a regression (the #671 symptom)" "rc=$rc $(out)"
+grep -q "ledger lags: 3 row(s) built but marked planned — run --mark-built" "$WORK/out" \
+  && grep -q "1 row(s) marked blocked but PRESENT" "$WORK/out" \
+  && ok "10b: the lag is a note naming --mark-built (3 planned/not built); the blocked row has its own line" \
+  || bad "10b: wrong ledger-lags / blocked notes" "$(out)"
+rc="$(run --update-baseline </dev/null)"
+[ "$rc" = 0 ] && ok "11: --update-baseline over a lagging ledger is not refused as a loosening" \
+  || bad "11: --update-baseline refused (rc=$rc)" "$(out)"
+cp -R "$P/architecture" "$WORK/arch.before"
+rc="$(run --mark-built)"
+grep -q "3 row(s) marked built in 3 ledger(s)" "$WORK/out" && [ "$rc" = 0 ] \
+  && ok "12: --mark-built flips the 3 planned/not-built rows across per-module, per-BRD and flat ledgers" \
+  || bad "12: --mark-built did not report 3 rows / 3 ledgers" "rc=$rc $(out)"
+d="$(diff -r "$WORK/arch.before" "$P/architecture" | grep '^[<>]')"
+want='< | `/microflows/0` | microflow | ACT_Later | 1.2 | exec.sh | `DESCRIBE MICROFLOW Orders.ACT_Later` | planned |
+> | `/microflows/0` | microflow | ACT_Later | 1.2 | exec.sh | `DESCRIBE MICROFLOW Orders.ACT_Later` | built |
+< | /domainEntities/0 | entity | Invoice | 2.1 | exec.sh | `DESCRIBE ENTITY Billing.Invoice` | `planned` |
+> | /domainEntities/0 | entity | Invoice | 2.1 | exec.sh | `DESCRIBE ENTITY Billing.Invoice` | `built` |
+< | /domainEntities/0 | entity | Parcel | 3.1 | exec.sh | `DESCRIBE ENTITY Ship.Parcel` | not built |
+> | /domainEntities/0 | entity | Parcel | 3.1 | exec.sh | `DESCRIBE ENTITY Ship.Parcel` | built |'
+[ "$(printf '%s\n' "$d" | sort)" = "$(printf '%s\n' "$want" | sort)" ] \
+  && ok "13: only the status cells of PRESENT planned/not-built rows changed (prose and blocked rows kept)" \
+  || bad "13: --mark-built changed more or less than the 3 status cells" "$d"
+cp -R "$P/architecture" "$WORK/arch.after"
+rc="$(run --mark-built)"
+grep -q "0 row(s) marked built" "$WORK/out" && diff -r "$WORK/arch.after" "$P/architecture" >/dev/null \
+  && ok "14: --mark-built is idempotent (second run: 0 rows, no file changed)" \
+  || bad "14: second --mark-built changed something" "$(out)"
+! grep -q "ledger lags" "$WORK/out" && grep -q "1 row(s) marked blocked but PRESENT" "$WORK/out" \
+  && ok "14b: after --mark-built the run-mark-built note is gone; only the blocked row is still named" \
+  || bad "14b: the lag note survives --mark-built (it counted the blocked row it never flips)" "$(out)"
+# --- 15. ...and the guard still holds: a marked-built row that goes missing is a regression ----
+sed -i.bak '/^Orders.ACT_Later$/d' "$P/PRESENT"
+rc="$(run)"
+[ "$rc" = 1 ] && grep -q "Orders.*was OK, now STALE" "$WORK/out" \
+  && ok "15: a built row going absent still fails the run (OK -> STALE)" \
+  || bad "15: the regression guard was weakened" "rc=$rc $(out)"
+grep -q -- "--mark-built" "$(dirname "$SUT")/module-close.sh" 2>/dev/null \
+  && ok "16: module-close.sh runs --mark-built once per module" \
+  || bad "16: module-close.sh does not call conformance-check --mark-built"
+
+# --- 17. two rows of one ledger share a pointer: only the PRESENT one flips (PR #697 review) ----
+mv "$P/PRESENT.bak" "$P/PRESENT"
+rm -rf "$P/docs/conformance" "$P/architecture/modules"
+mkdir -p "$P/architecture/modules/Orders"
+cat > "$P/architecture/modules/Orders/coverage-ledger.md" <<EOF
+| Pointer | Kind | Name | Row | Proof | Acceptance | Status |
+|---|---|---|---|---|---|---|
+| \`/entities/0\` | entity | Order | 1.1 | exec.sh | \`DESCRIBE ENTITY Orders.Order\` | planned |
+| \`/entities/0\` | entity | Draft | 1.2 | exec.sh | \`DESCRIBE ENTITY Orders.Draft\` | planned |
+EOF
+printf 'Orders.Order\n' > "$P/PRESENT"
+rc="$(run --mark-built)"
+st="$(awk -F'|' 'NR>2 {gsub(/ /, "", $4); gsub(/ /, "", $8); printf "%s=%s ", $4, $8}' "$P/architecture/modules/Orders/coverage-ledger.md")"
+[ "$st" = "Order=built Draft=planned " ] && ok "17: duplicate pointer — only the PRESENT row flips" \
+  || bad "17: duplicate pointer flipped the wrong rows" "$st"
+rc="$(run)"
+[ "$rc" = 0 ] && grep -Eq "STALE +0 " "$WORK/out" \
+  && ok "17b: the next run has no STALE row (exit 0)" || bad "17b: the next run failed (rc=$rc)" "$(out)"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

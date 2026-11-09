@@ -234,7 +234,9 @@ mxtk_change_class() {  # $1 = MDL script; prints "<class>\t<why>"
       }
     }
     END {
-      if (logic != "")  { printf "logic\t%s\n", logic; exit }
+      # A mixed script stays logic for its tests, and says how many page statements it has: the
+      # per-row LOOK keys on those (PR #700 mode experiment: a page with its co-located GRANT is logic).
+      if (logic != "")  { printf "logic\t%s%s\n", logic, (ui ? "; plus " ui " page/snippet/layout statement(s)" : ""); exit }
       if (ui == 0)      { printf "logic\tno page/snippet/layout statement found\n"; exit }
       printf "ui-only\t%d page/snippet/layout statement(s), nothing else\n", ui
     }' "$1"
@@ -494,17 +496,72 @@ elif [ -r "$SCRIPT" ]; then
   _cc="$(mxtk_change_class "$SCRIPT" 2>/dev/null || true)"
   CHANGE_CLASS="${_cc%%	*}"; CHANGE_WHY="${_cc#*	}"
 fi
+# Any page/snippet/layout statement owes the mode's per-row visual check, whatever the class: the
+# toolkit co-locates a page's GRANT with the page, so most page scripts classify as logic (PR #700
+# mode experiment: 8 of 10 page scripts got no per-row LOOK under balanced).
+CHANGE_UI=0
+case "$CHANGE_WHY" in *"page/snippet/layout statement(s)"*) CHANGE_UI=1 ;; esac
+# Per row vs module close, by PROJECT.md `Pipeline mode:` (#686: rows averaged 19 min, mostly
+# per-row journeys and dual-viewport LOOKs that caught nothing a module-close pass missed).
+# _common.sh mxtk_pipeline_mode; no line = balanced. Table: iterative-build-loop.md § Pipeline mode.
+#   high-speed   per row: the exec gate only            unit tests at module close
+#   balanced     per row: + one LOOK at 1280            unit tests at module close
+#   high-quality per row: journeys + LOOK 390 and 1280  unit tests per row (master before #686)
+# Below high-quality, a CONFIRMED `## Test strategy` row "Every change" is honoured column by column:
+# a unit scope other than none keeps unit tests per row, a journeys scope other than none keeps the
+# reached pages' journeys per row (PR #700 review: registers hold `| Every change | affected |
+# affected |`, and moving those to module close would override a recorded decision).
+PIPELINE_MODE="$(mxtk_pipeline_mode "$PROJECT_ROOT")"
+PER_ROW_UNIT=0; PER_ROW_J=0
+[ "$PIPELINE_MODE" = high-quality ] && { PER_ROW_UNIT=1; PER_ROW_J=1; }
+if _first_match "$PROJECT_ROOT/PROJECT.md" '^\|[ *`]*[Ee]very change[^|]*\|([^|]*\|[^|]*)\|'; then
+  _pr="$(printf '%s' "$_FM" | tr 'A-Z' 'a-z' | sed 's/[(,][^|]*//g; s/[ *`]//g')"   # unit|journeys
+  case "${_pr%%|*}" in none|"") ;; *) PER_ROW_UNIT=1 ;; esac
+  case "${_pr#*|}" in none|"") ;; *) PER_ROW_J=1 ;; esac
+fi
+_CLOSE="run once at module close (bin/module-close.sh)"
+case "$PIPELINE_MODE" in
+  high-quality) _UIROW="no .test.mdl." ;;
+  high-speed)   _UIROW="the exec gate only; no LOOK, no .test.mdl." ;;
+  *)            _UIROW="one quick LOOK at 1280 of the page you just changed; no .test.mdl." ;;
+esac
+# balanced runs the journeys that reach a changed page once per page row (~1 min): in the PR #700
+# run-2 experiment only journeys found the functional defects (a save error, a blocking modal).
+if [ "$PIPELINE_MODE" = high-quality ]; then _UIJ="re-run once, + a LOOK at 390 and 1280. Reviewers read the artifacts, they do not re-run"
+elif [ "$PER_ROW_J" = 1 ]; then _UIJ="re-run once per row (PROJECT.md ## Test strategy 'Every change' journeys column); the 390/1280 LOOK $_CLOSE"
+elif [ "$PIPELINE_MODE" = balanced ]; then _UIJ="run once per row (~1 min); the 390/1280 LOOK and the full journey set $_CLOSE"
+else _UIROW="${_UIROW%;*}; no journeys,${_UIROW#*;}"; _UIJ="+ the 390/1280 LOOK $_CLOSE"; fi
+case "$PIPELINE_MODE" in
+  high-quality) _VIS="Pages it writes: the journeys of every page the change reaches + a LOOK at 390 and 1280." ;;
+  high-speed)   _VIS="Pages it writes: no per-row LOOK; the 390/1280 LOOK $_CLOSE." ;;
+  *)            _VIS="Pages it writes: one quick LOOK at 1280 of each page/snippet it changed + one run of the journeys that reach it; the 390/1280 LOOK and the full journey set $_CLOSE." ;;
+esac
 change_lane() {
   case "$CHANGE_CLASS" in
-    ui-only) echo "re-run the journeys of every page the change reaches (embedders of a changed snippet/layout) once + a LOOK. No .test.mdl; reviewers read the artifacts, they do not re-run" ;;
-    logic)   echo "re-run only the tests whose subject this change touched (changed microflows + their SHOW CALLERS, changed pages' journeys). Unit tests only for affected modules with unit on; everything runs once at build complete and before each later deploy, per PROJECT.md ## Test strategy" ;;
+    ui-only) echo "per row: $_UIROW The journeys of every page the change reaches (embedders of a changed snippet/layout) $_UIJ" ;;
+    logic)   _base=""
+             if [ "$PIPELINE_MODE" = high-quality ]; then _base="re-run only the tests whose subject this change touched (changed microflows + their SHOW CALLERS, changed pages' journeys). Unit tests only for affected modules with unit on; everything runs once at build complete and before each later deploy, per PROJECT.md ## Test strategy."
+             elif [ "$PER_ROW_UNIT" = 1 ] || [ "$PER_ROW_J" = 1 ]; then
+               _w=""; [ "$PER_ROW_UNIT" = 1 ] && _w="unit tests whose subject this change touched"
+               [ "$PER_ROW_J" = 1 ] && _w="${_w:+$_w + }the changed pages' journeys"
+               _base="per row: $_w (PROJECT.md ## Test strategy 'Every change' opts in). The rest $_CLOSE."
+             else _base="per row: the exec gate only. Unit tests (modules with unit on, PROJECT.md Unit tests default) and journeys $_CLOSE."; fi
+             if [ "$CHANGE_UI" = 1 ]; then echo "$_base $_VIS"; else echo "$_base"; fi ;;
   esac
 }
+POLISH_NOTE="Screens are polished and checked at module close; mid-module pages may look rough, that's expected."
 [ -n "$CR_ID" ] && echo "→ Change request: $CR_ID (PROJECT.md '## Change log'; cite this run's commit in its Closed-by)"
 if [ -n "$CHANGE_CLASS" ]; then
   echo "→ Change class: $CHANGE_CLASS ($CHANGE_WHY)"
-  echo "  test lane (skills/testing-shape.md §3): $(change_lane)"
-  [ "$PATCH_MODE" = "1" ] || echo "  affected tests: ./bin/affected-tests.sh $SCRIPT"
+  echo "  test lane (skills/testing-shape.md §3; Pipeline mode: $PIPELINE_MODE): $(change_lane)"
+  [ "$PIPELINE_MODE" = high-quality ] || echo "  $POLISH_NOTE"
+  if [ "$PATCH_MODE" != "1" ]; then
+    if [ "$PER_ROW_UNIT" = 1 ] || [ "$PER_ROW_J" = 1 ]; then echo "  affected tests: ./bin/affected-tests.sh $SCRIPT"
+    else
+      [ "$CHANGE_UI" = 1 ] && [ "$PIPELINE_MODE" = balanced ] && echo "  journeys that reach it: ./bin/affected-tests.sh $SCRIPT (its journey rows; unit tests wait for module close)"
+      echo "  tests owed at module close: ./bin/affected-tests.sh --moment module --module <Module>"
+    fi
+  fi
 fi
 
 cd "$PROJECT_ROOT"
@@ -1778,7 +1835,7 @@ gate_kind_decide() {
   GATE_KIND=full; GATE_KIND_WHY=""
   # javasource/*/proxies/ is excluded: mxbuild regenerates those from the model on every
   # full build, so counting them made each full build look like a Java change (field run).
-  _gk_java_fp() { mxtk_java_fp "$PROJECT_ROOT"; }
+  _gk_java_fp() { mxtk_model_java_fp "$PROJECT_ROOT"; }
   # Same job as _first_match (top of file); nested because the gate-kind fixture extracts this
   # function on its own, so it must not lean on a helper defined elsewhere in exec.sh.
   _gk_first() {  # <file> <ERE from ^, one capture without newlines> -> _FM
@@ -1803,7 +1860,7 @@ gate_kind_decide() {
     elif ! mxtk_find_mx >/dev/null 2>&1; then GATE_KIND_WHY="no mx tool beside $MXBUILD"
     elif [ -z "$_gk_checks" ] || [ -z "$_gk_java" ]; then GATE_KIND_WHY="no full build recorded yet"
     elif [ "$_gk_java" != "$(_gk_java_fp)" ]; then GATE_KIND_WHY="Java/JavaScript/theme/widgets changed since the last full build"
-    elif ls "$PROJECT_ROOT"/javasource/*/actions/*.java >/dev/null 2>&1 \
+    elif ls "$(find_model_dir 2>/dev/null || echo "$PROJECT_ROOT")"/javasource/*/actions/*.java >/dev/null 2>&1 \
          && grep -Ei '^[[:space:]]*(drop|rename)[[:space:]]|^[[:space:]]*alter[[:space:]].*[[:space:]](drop|rename)[[:space:]]' "$SCRIPT" 2>/dev/null \
             | grep -Eiqv '[[:space:]]if[[:space:]]+exists[[:space:]]'; then
       # `drop … if exists X` is the re-runnable re-create idiom (X is created again below it),
@@ -2533,8 +2590,26 @@ fi
 # built every page and opened no screenshot of any). Written here, after the restore branch,
 # because a restored script built nothing. Never blocks this exec or the next one — only
 # gate-check.sh's Stage 5 "done" claim reads it. Not for --patch: a patch is opaque.
+# First page row of a module (PR #700 run-2 experiment: a 390 LOOK at a module's first page row
+# caught a phone-layout defect at row 8 instead of at module close). Every mode but high-speed. A
+# module is "new" when owed.tsv held no page of it before this script's rows; builtins only (the
+# process budget, #687).
+FIRST_PAGE_MODS=""
+_owed="$PROJECT_ROOT/.claude/loop/look/owed.tsv"; _owed_n0=0; _owed_mods=" "
+if [ "$PATCH_MODE" = 0 ] && [ "$CHANGE_UI" = 1 ] && [ "$PIPELINE_MODE" != high-speed ] && [ -f "$_owed" ]; then
+  while IFS=$'\t' read -r _e _i _pg _s; do _owed_n0=$((_owed_n0 + 1)); _owed_mods="$_owed_mods${_pg%%.*} "; done < "$_owed"
+fi
 if [ "$PATCH_MODE" = 0 ] && [ -f "$_XD/look-ledger.sh" ]; then
   bash "$_XD/look-ledger.sh" owe "$SCRIPT" || true
+fi
+if [ "$PATCH_MODE" = 0 ] && [ "$CHANGE_UI" = 1 ] && [ "$PIPELINE_MODE" != high-speed ] && [ -f "$_owed" ]; then
+  _k=0
+  while IFS=$'\t' read -r _e _i _pg _s; do
+    _k=$((_k + 1)); [ "$_k" -le "$_owed_n0" ] && continue
+    _m="${_pg%%.*}"; [ -n "$_m" ] || continue
+    case "$_owed_mods" in *" $_m "*) continue ;; esac
+    case " $FIRST_PAGE_MODS " in *" $_m "*) ;; *) FIRST_PAGE_MODS="${FIRST_PAGE_MODS:+$FIRST_PAGE_MODS }$_m" ;; esac
+  done < "$_owed"
 fi
 # Last writer of each document this script names (script-owners.sh ledger), so a later check can
 # tell a replay that reverts nothing from one that does. Same place and reason as LOOK owed: a
@@ -2661,6 +2736,10 @@ _EL=$(( ${EPOCHSECONDS:-$(date +%s)} - _T0 ))
 echo "  elapsed: ${_EL}s (check + snapshot + exec + mxbuild gate)"
 if [ -n "$STEP_TIMES" ]; then echo "  steps: $STEP_TIMES"; fi
 [ -n "$CHANGE_CLASS" ] && echo "  change class: $CHANGE_CLASS — test lane: $(change_lane)"
+[ -n "$FIRST_PAGE_MODS" ] && echo "  first page row of $FIRST_PAGE_MODS: also a LOOK at 390 (phone layout) of the page(s) it wrote, on top of this mode's per-row check"
+# A full build replaces the bundle a running `mxcli run --local --watch` serves (/dist/index.js 404
+# until a restart; PR #700 run-2 experiment). One line, no behaviour change.
+[ "${GATE_KIND:-}" = full ] && [ "$GATE_STATE" = pass ] && echo "  $MXTK_WATCH_NOTE"
 # A budget, not a gate: a normal run is 30-90 s on a healthy machine. Past 4 minutes the
 # usual cause is the machine (Defender scanning every fork, OneDrive, a slow disk), and
 # doctor --quick names which — the reader should not have to guess "is it me or the toolkit".

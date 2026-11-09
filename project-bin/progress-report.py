@@ -2173,6 +2173,7 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
     # build progress (Stage 5): the plan's own phases, stacked built / partial / not built
     w("<section class=tab id=tab-build>")
     w("<h2 id=build-detail>Build progress: Stage 5 plan, scripts and proof</h2>")
+    w("<p class=sub>Screens are polished and checked at module close; mid-module pages may look rough, that's expected.</p>")  # #686
     if bp:
         kinds = bp["kinds"]; tr = ""
         runs_by = {str(k_[0]): d["runs"] for k_, d in (facts["phases"] if facts else []) if k_[0] != ""}

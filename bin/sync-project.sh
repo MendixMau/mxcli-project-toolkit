@@ -841,6 +841,14 @@ if [ -f "$PROJECT_DIR/PROJECT.md" ] && ! mxtk_change_log_has_section "$PROJECT_D
   CHANGES=$((CHANGES + 1))
 fi
 
+# --- 2b1b. PROJECT.md: say out loud what a missing `Pipeline mode:` line means (#686) --------
+# No line = balanced (project-bin/_common.sh mxtk_pipeline_mode), which moved journeys, the
+# 390 + 1280 LOOK and the pre-push full build from per row to module close. Report only: the
+# project picks the mode (intake Q15), so nothing is written here.
+if [ -f "$PROJECT_DIR/PROJECT.md" ] && ! grep -qiE '^[*_ >-]*Pipeline mode:' "$PROJECT_DIR/PROJECT.md"; then
+  echo "Note: Pipeline mode not set → balanced: journeys, the 390+1280 LOOK and the full build now run at module close. Set \`Pipeline mode: high-quality\` in PROJECT.md to keep the old per-row cadence."
+fi
+
 # --- 2b2. CLAUDE.local.md: retire the two "read the whole runbook" lines ------------------
 # WHY (field run 2026-10-07, requirements-driven build). init-project.sh stopped telling sessions
 # to read conversion-runbook.md whole on 2026-09-30, but a CLAUDE.local.md is never overwritten

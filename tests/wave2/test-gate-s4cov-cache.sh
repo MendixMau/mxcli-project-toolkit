@@ -13,6 +13,9 @@
 #   T5 a symlinked architecture/ dir, T6 a symlinked ledger file, T7 BRD_FILE set in
 #   .claude/toolkit.env (then repointed), T8 BRD_FILE outside the project with its content edited.
 #   Each one: an uncached run FAILs (UNCLAIMED 2) and the cache must miss, never replay PASS.
+#   T9 — a Windows-style BRD_FILE in toolkit.env (C:\proj\F001.brd.json; re-review of #715):
+#   T9a with a cygpath stub mapping C: to a temp dir, editing that file is a miss;
+#   T9b with no way to resolve it, nothing is cached (never a hit on the path alone).
 # Hit/miss is observed through MXTK_GATE_CACHE_TRACE=1 ("s4cov-cache: hit|miss" on stderr).
 # Project files are synthetic (shape of test-bug03-gates.sh T21); no tool output is parsed.
 set -uo pipefail
@@ -105,6 +108,31 @@ mkproj t8; mkdir -p "$WORK/ext"; cp "$P/analysis/src/knowledge-base/brd/F001.brd
 export BRD_FILE="$WORK/ext/F001.brd.json"
 primed T8 && { edit_keep_mtime "$BRD_FILE" 's/"title":"Submit"}/"title":"Submit"},{"id":"UC2","title":"Approve"}/'; stale_check T8; }
 unset BRD_FILE
+
+echo "== T9: Windows-style BRD_FILE in toolkit.env =="
+mkproj t9; mkdir -p "$P/.claude" "$WORK/cdrive/proj" "$WORK/stub"
+cp "$P/analysis/src/knowledge-base/brd/F001.brd.json" "$WORK/cdrive/proj/F001.brd.json"
+printf '%s\n' 'BRD_FILE=C:\proj\F001.brd.json' > "$P/.claude/toolkit.env"
+# Git Bash's cygpath, stubbed: `cygpath -u -- C:\x\y` -> $WORK/cdrive/x/y.
+{ printf '#!/usr/bin/env bash\nroot=%q\n' "$WORK/cdrive"
+  cat <<'STUB'
+[ "$1" = -u ] || exit 1; shift; [ "$1" = -- ] && shift
+p="${1#[A-Za-z]:}"; printf '%s\n' "$root${p//\\//}"
+STUB
+} > "$WORK/stub/cygpath"
+chmod +x "$WORK/stub/cygpath"
+SAVEPATH="$PATH"; export PATH="$WORK/stub:$PATH"
+run; run
+case "$T" in *hit*) ok "T9a: the cygpath-resolved file is cached (hit)" ;; *) bad "T9a: no hit with cygpath resolving the path" "$T" ;; esac
+edit_keep_mtime "$WORK/cdrive/proj/F001.brd.json" 's/"title":"Submit"}/"title":"Submit"},{"id":"UC2","title":"Approve"}/'
+run
+case "$T" in *miss*) ok "T9a: editing the file C:\\proj\\F001.brd.json maps to is a miss" ;; *) bad "T9a: stale replay after editing the mapped file" "$T" ;; esac
+export PATH="$SAVEPATH"
+mkproj t9b; mkdir -p "$P/.claude"
+printf '%s\n' 'BRD_FILE=C:\nowhere\F001.brd.json' > "$P/.claude/toolkit.env"
+run; run
+case "$T" in *hit*) bad "T9b: an unresolvable BRD_FILE was cached by its path" "$T" ;; *) ok "T9b: an unresolvable BRD_FILE is never a hit" ;; esac
+[ ! -e "$P/.mxtk/gate-cache-s4cov" ] && ok "T9b: and no cache file is written" || bad "T9b: a cache file was written"
 
 echo
 echo "SCORE: $PASS/$((PASS+FAIL))"

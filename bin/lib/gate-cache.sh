@@ -256,33 +256,64 @@ gc_s4cov_enabled() {
   GC_S4_FILE="$PROJECT_DIR/.mxtk/gate-cache-s4cov"
 }
 
-# gc_s4cov_pointed — NUL-separated list of the files BRD_FILE / LEDGER_FILE / COVERAGE_ENGINE
-# point at, wherever they are. Every candidate value is taken — the shell's, and each line of
-# both env files mxtk_load_env reads — so a value that is shadowed is hashed too (over-inclusive
-# is a miss at worst, never a stale hit). A relative value is tried as given and against the
-# project dir; a directory (a per-BRD ledger dir) contributes every file under it.
+# gc_s4cov_values — every candidate value of BRD_FILE / LEDGER_FILE / COVERAGE_ENGINE, one per
+# line: the shell's, and each such line of both env files mxtk_load_env reads. A shadowed value is
+# listed too (over-inclusive is a miss at worst, never a stale hit).
+gc_s4cov_values() {
+  local v k f line
+  printf '%s\n' "${BRD_FILE:-}" "${LEDGER_FILE:-}" "${COVERAGE_ENGINE:-}"
+  for f in "$PROJECT_DIR/.claude/toolkit.env" "${HOME:-/nonexistent}/.mxcli-toolkit.env"; do
+    [ -f "$f" ] || continue
+    while IFS= read -r line || [ -n "$line" ]; do
+      line="${line%$'\r'}"
+      case "$line" in *=*) ;; *) continue ;; esac
+      k="${line%%=*}"; k="${k#"${k%%[![:space:]]*}"}"; k="${k#export}"; k="${k//[[:space:]]/}"
+      case "$k" in BRD_FILE|LEDGER_FILE|COVERAGE_ENGINE) ;; *) continue ;; esac
+      v="${line#*=}"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"
+      case "$v" in \"*\") v="${v#\"}"; v="${v%\"}" ;; \'*\') v="${v#\'}"; v="${v%\'}" ;; esac
+      printf '%s\n' "$v"
+    done < "$f"
+  done
+}
+
+# gc_s4cov_resolve <value> — prints the existing file or directory it names, or returns 1.
+# A Windows path (C:\x, C:/x — pasted as-is into toolkit.env, which _common.sh allows) is
+# normalised first: `cygpath -u` where Git Bash has it, else X:\ / X:/ -> /x/ (mxtk_posix_path's
+# rule). A relative value is tried as given and against the project dir.
+gc_s4cov_resolve() {
+  local v="$1" u c
+  case "$v" in
+    [A-Za-z]:*|*\\*)
+      u=""
+      command -v cygpath >/dev/null 2>&1 && u="$(cygpath -u -- "$v" 2>/dev/null)"
+      if [ -z "$u" ]; then
+        u="$v"
+        case "$u" in [A-Za-z]:*) u="/$(printf '%s' "${u%%:*}" | tr '[:upper:]' '[:lower:]')${u#*:}" ;; esac
+        u="${u//\\//}"
+      fi
+      v="$u" ;;
+  esac
+  for c in "$v" "$PROJECT_DIR/$v"; do
+    { [ -f "$c" ] || [ -d "$c" ]; } && { printf '%s\n' "$c"; return 0; }
+  done
+  return 1
+}
+
+# gc_s4cov_pointed — NUL-separated files that BRD_FILE / LEDGER_FILE / COVERAGE_ENGINE point at,
+# wherever they live; a directory (a per-BRD ledger dir) contributes every file under it.
+# Returns 1 when any value names nothing that exists: then the key is not computed and nothing is
+# cached (review of #715 — hashing only the PATH of an unresolvable file let a Windows-style
+# value replay a stale PASS after the file it really meant was edited).
 gc_s4cov_pointed() {
-  local v k f line c
-  {
-    printf '%s\n' "${BRD_FILE:-}" "${LEDGER_FILE:-}" "${COVERAGE_ENGINE:-}"
-    for f in "$PROJECT_DIR/.claude/toolkit.env" "${HOME:-/nonexistent}/.mxcli-toolkit.env"; do
-      [ -f "$f" ] || continue
-      while IFS= read -r line || [ -n "$line" ]; do
-        line="${line%$'\r'}"
-        case "$line" in *=*) ;; *) continue ;; esac
-        k="${line%%=*}"; k="${k#"${k%%[![:space:]]*}"}"; k="${k#export}"; k="${k//[[:space:]]/}"
-        case "$k" in BRD_FILE|LEDGER_FILE|COVERAGE_ENGINE) ;; *) continue ;; esac
-        v="${line#*=}"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"
-        case "$v" in \"*\") v="${v#\"}"; v="${v%\"}" ;; \'*\') v="${v#\'}"; v="${v%\'}" ;; esac
-        printf '%s\n' "$v"
-      done < "$f"
-    done
-  } | while IFS= read -r v; do
+  local v r out=""
+  while IFS= read -r v; do
     [ -n "$v" ] || continue
-    for c in "$v" "$PROJECT_DIR/$v"; do
-      if [ -d "$c" ]; then find -L "$c" -type f -print0 2>/dev/null
-      elif [ -f "$c" ]; then printf '%s\0' "$c"; fi
-    done
+    r="$(gc_s4cov_resolve "$v")" || return 1
+    out="$out$r"$'\n'
+  done < <(gc_s4cov_values)
+  printf '%s' "$out" | while IFS= read -r r; do
+    [ -n "$r" ] || continue
+    if [ -d "$r" ]; then find -L "$r" -type f -print0 2>/dev/null; else printf '%s\0' "$r"; fi
   done
 }
 
@@ -294,6 +325,7 @@ gc_s4cov_key() {
   local arch="$1" abs s f
   GC_S4_KEY=""
   abs="$(cd "$PROJECT_DIR" 2>/dev/null && pwd -P)" || return 1
+  gc_s4cov_pointed >/dev/null || return 1
   s="$( {
           [ -d "$arch" ] && find -L "$arch" -type f -print0 2>/dev/null
           for f in "$PROJECT_DIR"/analysis/*/brd/*.brd.json "$PROJECT_DIR"/analysis/*/knowledge-base/brd/*.brd.json \

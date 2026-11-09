@@ -49,7 +49,11 @@ fi
 echo "→ mxbuild gate on $(basename "$MPR") ($MXBUILD)..."
 ERR="$(mktemp "${TMPDIR:-/tmp}/verify-model-errors.XXXXXX")"; OUT="$(mktemp "${TMPDIR:-/tmp}/verify-model-out.XXXXXX")"
 RC=0
-"$MXBUILD" --java-home="$JAVA_HOME" --java-exe-path="$JAVA_EXE" --write-errors="$ERR" --target=deploy "$MPR" > "$OUT" 2>&1 < /dev/null || RC=$?
+# mxtk_reaped (_common.sh): stops the deno helper this mxbuild leaves behind, and nothing else (#708).
+mxtk_reaped "$MXBUILD" --java-home="$JAVA_HOME" --java-exe-path="$JAVA_EXE" --write-errors="$ERR" --target=deploy "$MPR" > "$OUT" 2>&1 < /dev/null || RC=$?
+# Killed for lack of memory (exit 137 / OOM text): name the cause instead of "errors file unreadable".
+_out_txt=""; [ "$RC" -eq 0 ] || _mxtk_slurp _out_txt "$OUT"
+mxtk_mxbuild_oom_note "$RC" "$_out_txt" && WHY="$MXTK_MXBUILD_OOM"
 
 if [ ! -s "$ERR" ] && [ "$RC" -eq 0 ]; then
   COUNT=0; CODES=""
@@ -60,7 +64,7 @@ elif [ -s "$ERR" ]; then
   # mismatch, JDK/gradle) and said why in errors[]. That read as "0 errors" and WROTE THE
   # PASS STAMP (field project 2026-09-26, mxbuild 11.14.0 vs an 11.12.2 model, exit 3).
   if [ "$COUNT" = "0" ] && [ "$RC" -ne 0 ]; then
-    COUNT="?"; WHY="$(mxtk_mxbuild_why "$ERR" "$PY" 2>/dev/null || true)"
+    COUNT="?"; _w="$(mxtk_mxbuild_why "$ERR" "$PY" 2>/dev/null || true)"; WHY="$_w${_w:+${WHY:+; }}$WHY"
   fi
 else
   COUNT="?"; CODES=""

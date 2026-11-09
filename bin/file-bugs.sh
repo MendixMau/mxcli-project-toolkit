@@ -8,6 +8,8 @@
 #   bin/file-bugs.sh --auto                           # opted-in project only: post every clean open bug, no y/N
 #   bin/file-bugs.sh --links                          # prefilled github new-issue URL per open bug
 #   bin/file-bugs.sh --json                           # redacted bugs + URLs as JSON (for the report)
+#   bin/file-bugs.sh --bundle [PATH]                  # no GitHub: every clean open bug in ONE file to mail
+#   bin/file-bugs.sh --import BUNDLE [--dry-run]      # maintainer: file a mailed bundle with your own gh
 #   bin/file-bugs.sh --add --target mxcli|toolkit --title T --repro R --expected E --actual A \
 #                    [--workaround W] [--mxcli V] [--mendix V] \
 #                    [--log FILE [--log-lines N]]  # append a row, next free PBUG-NN; last N (40) log lines, redacted
@@ -43,14 +45,31 @@
 # exact title is already an issue gets that URL recorded instead of a second issue), label
 # `auto-filed` when the repo has it or the user may create it (else none), status=filed + issue_url
 # written back. The deny list stays mandatory; a row that fails the scan is reported, never posted.
-# --auto never takes --to and never re-posts a filed row. No gh, or not signed in: it prints the --links and exits 0. Without the opt-in line, --auto is a
+# --auto never takes --to and never re-posts a filed row. gh unusable: --links or --bundle (below), exit 0. Without the opt-in line, --auto is a
 # dry run. The shipped permissions deny --file/--all but not --auto (the opt-in line is the gate).
 # --log FILE on --add stores the last --log-lines (40) lines, redacted; a log that still fails the
 # scan is not stored, and a stored log that fails at posting time is left out of the issue. The id is project-local
 # (PBUG-NN, not a toolkit BUG-n); the public number is the issue. Success writes status=filed
 # and issue_url back, keeping the file mode.
+# WHICH PATH. --auto and the dry run name, in one line, why gh can or cannot post: "GitHub CLI
+# not installed", "not signed in: run `gh auth login --web`", or "signed in, but this GitHub account has no
+# access to <repo>" (gh repo view). gh unusable: --auto falls back to --links when the person has a GitHub
+# account (--github-account or MXTK_GITHUB_ACCOUNT=1), else to --bundle. A Mendix account is not a GitHub one.
+# --bundle [PATH] writes ONE markdown file (default <project>/toolkit-bugs-<date>.md, never overwritten,
+# /toolkit-bugs-*.md added to .gitignore in a git repo) holding every clean open row, title and body exactly
+# as --json gives them; a row the scan holds back is left out, as for posting. It needs the deny list like
+# --json. Header: format mxtk-bug-bundle/1, toolkit version, count, ids (the bugs.jsonl row ids), reporter
+# (blank; the sender may add a name). Top line: "Mail this file to <$MXTK_BUG_EMAIL, else MXTK_BUG_EMAIL= or
+# `Bug email:` in <project>/.claude/toolkit.env or ~/.mxcli-toolkit.env, else a `Bug email:` line in the README.md
+# of the company brain wired in CLAUDE.local.md>", else "send this file to whoever gave you the toolkit". Bundled
+# rows get status=bundled + bundled=<date>; --bundle --all bundles them again. --import BUNDLE (the maintainer)
+# refuses a file without that header or whose ids/count do not match its bugs, re-redacts and re-scans every
+# bug with the maintainer's deny list (one is required), runs the duplicate search (an exact title is skipped,
+# its URL listed), files the rest with gh and the labels auto-filed / via-email only where the repo already
+# has them (never created), footer "Reported by: <reporter or 'toolkit user'> via email bundle". --dry-run files nothing.
 # Row fields: id date target title repro expected actual versions{mxcli,mendix,toolkit}
-# workaround status(open|filed|fixed) issue_url [log] [duplicate]. Dry run, --links and --json post nothing.
+# workaround status(open|filed|bundled|fixed) issue_url [log] [duplicate] [bundled]. Dry run, --links, --json
+# and --bundle post nothing.
 set -eu
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib/portable.sh"

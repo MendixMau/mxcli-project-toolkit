@@ -745,7 +745,8 @@ def gh_create(repo, title, body, label=None):
         with os.fdopen(fd, "w") as f:
             f.write(body)
         cmd = [gh_bin() or "gh", "issue", "create", "--repo=" + repo, "--title=" + title, "--body-file=" + bf]
-        return sh(cmd + (["--label=" + label] if label else []))
+        labels = [label] if isinstance(label, str) else (label or [])
+        return sh(cmd + ["--label=" + x for x in labels])
     finally:
         try:
             os.unlink(bf)
@@ -781,16 +782,6 @@ def opted_in(project):
     return True, (lg.stdout.strip() or "unknown commit")
 
 
-def gh_ready():
-    """(gh path, None) when gh is installed and signed in, else (None, why)."""
-    gh = gh_bin()
-    if not gh:
-        return None, "gh is not installed"
-    if sh([gh, "auth", "status"]).returncode != 0:
-        return None, "gh is installed but not signed in (`gh auth login`)"
-    return gh, None
-
-
 def auto_label(gh, repo, cache):
     """The auto-filed label when the repo has it, or when this user may create it (WRITE or more);
     otherwise None and the issue is filed without a label."""
@@ -810,6 +801,263 @@ def auto_label(gh, repo, cache):
                        "--description", "Filed by an agent with bin/file-bugs.sh --auto"]).returncode == 0
     cache[repo] = AUTO_LABEL if have else None
     return cache[repo]
+
+
+# --- which path works: gh, a GitHub account (--links), or no GitHub at all (--bundle) ---------
+UPGRADE_HINT = ("Fastest: a free GitHub account (2 min, github.com/signup) makes this one click per bug with --links; "
+                "no install needed.")
+
+
+def gh_path(repos):
+    """(gh, None) when gh can post to every repo in repos, else (None, the plain reason)."""
+    gh = gh_bin()
+    if not gh:
+        return None, "GitHub CLI not installed"
+    if sh([gh, "auth", "status"]).returncode != 0:
+        return None, "not signed in: run `gh auth login --web`"
+    for repo in sorted(repos):
+        p = sh([gh, "repo", "view", repo, "--json", "hasIssuesEnabled", "--jq", ".hasIssuesEnabled"])
+        if p.returncode != 0:
+            return None, "signed in, but this GitHub account has no access to %s" % repo
+        if p.stdout.strip().lower() == "false":
+            return None, "signed in, but %s does not take issues" % repo
+    return gh, None
+
+
+def env_files(project):
+    return [os.path.join(project, ".claude", "toolkit.env"), os.path.join(os.path.expanduser("~"), ".mxcli-toolkit.env")]
+
+
+def setting(project, key, label):
+    """$key, else a `key=value` or `label: value` line in toolkit.env (project, then ~), else a
+    `label: value` line in the README.md of the company brain wired into CLAUDE.local.md."""
+    v = os.environ.get(key, "").strip()
+    if v:
+        return v
+    kv = re.compile(r"^\s*(?:export\s+)?%s\s*=\s*(.*?)\s*$" % re.escape(key))
+    lab = re.compile(r"(?i)^[\s>*+-]*%s\s*:\s*(.*?)\s*$" % re.escape(label))
+    for f in env_files(project):
+        try:
+            for ln in open(f, errors="replace"):
+                m = kv.match(ln) or lab.match(ln.replace("*", "").replace("`", ""))
+                if m and m.group(1).strip("\"'"):
+                    return m.group(1).strip("\"'")
+        except OSError:
+            pass
+    try:
+        cl = open(os.path.join(project, "CLAUDE.local.md"), errors="replace").read()
+        m = re.search(r"A company brain is wired at `([^`]+)`", cl)
+        txt = open(os.path.join(m.group(1), "README.md"), errors="replace").read() if m else ""
+    except OSError:
+        txt = ""
+    for ln in re.sub(r"(?s)<!--.*?-->", "", txt).splitlines():
+        m = lab.match(ln.replace("*", "").replace("`", ""))
+        if m and m.group(1):
+            return m.group(1)
+    return ""
+
+
+def bug_email(project):
+    v = setting(project, "MXTK_BUG_EMAIL", "Bug email")
+    return v if RE_EMAIL.fullmatch(v) else ""
+
+
+def has_github_account(a):
+    v = os.environ.get("MXTK_GITHUB_ACCOUNT", "").strip().lower()
+    return bool(a.github_account) or v in ("1", "y", "yes", "true")
+
+
+BUNDLE_FMT = "mxtk-bug-bundle/1"
+BUNDLE_END = "<!-- mxtk-bug-end -->"
+RE_BUNDLE_BEGIN = re.compile(r"^<!-- mxtk-bug id=([A-Za-z0-9_-]+) target=([a-z]+) -->$")
+RE_BUNDLE_HEAD = re.compile(r"(?ms)^" + FENCE + r"mxtk-bug-bundle[ \t]*\n(.*?)^" + FENCE + r"[ \t]*$")
+
+
+def bundle_toolkit(project):
+    tv = toolkit_version(project)
+    m = tv and (RE_DESCRIBE.match(tv) or RE_VER.match(tv) or RE_SHA.match(tv))
+    return m.group(0)[:40] if m else "unknown"
+
+
+def write_bundle(r, project, path, todo, dest, a):
+    """One file holding every clean row, title and body exactly as --json gives them; rows the
+    redaction held back are left out (same rule as posting). Bundled rows get status=bundled."""
+    today = datetime.date.today().isoformat()
+    default = not dest
+    dest = os.path.abspath(dest or os.path.join(project, "toolkit-bugs-%s.md" % today))
+    n = 1
+    while default and os.path.exists(dest):   # never overwrite a bundle that may not be mailed yet
+        n += 1
+        dest = os.path.join(project, "toolkit-bugs-%s-%d.md" % (today, n))
+    items, held = [], []
+    for _, d in todo:
+        target = d.get("target")
+        if not (isinstance(target, str) and target in TARGETS):
+            sys.stderr.write("file-bugs: %s has target %s, not one of %s; skipped\n" %
+                             (d.get("id"), json.dumps(target)[:40], "/".join(TARGETS)))
+            continue
+        title, body, problems = build(r, d)
+        if problems or any(RE_BUNDLE_BEGIN.match(x) or x.strip() == BUNDLE_END for x in body.splitlines()):
+            held.append(str(d.get("id")))
+            continue
+        items.append((str(d.get("id")), target, title, body))
+    for h in held:
+        print("%s  held back: the redaction scan did not pass (run the dry run to see why); not in the bundle" % h)
+    if not items:
+        print("file-bugs: no clean open bugs to bundle; no file written")
+        return
+    addr = bug_email(project)
+    who = ("**Mail this file to %s.**" % addr) if addr else "**Send this file to whoever gave you the toolkit.**"
+    out = ["# Toolkit bug reports (%d)" % len(items), "",
+           who + " It holds %d bug report(s) from `bin/file-bugs.sh --bundle`, redacted exactly as a GitHub issue "
+           "would be. No GitHub account is needed. Optional: put your name after `reporter:` below so the "
+           "maintainer can credit you." % len(items), "",
+           FENCE + "mxtk-bug-bundle", "format: " + BUNDLE_FMT, "toolkit: " + bundle_toolkit(project),
+           "created: " + today, "count: %d" % len(items), "ids: " + " ".join(i[0] for i in items), "reporter:", FENCE, ""]
+    for bid, target, title, body in items:
+        out += ["<!-- mxtk-bug id=%s target=%s -->" % (bid, target), "## %s -> %s" % (bid, TARGETS[target]), "",
+                "Title: " + title, "", body, BUNDLE_END, ""]
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    with open(dest, "w") as f:
+        f.write("\n".join(out))
+    if sh(["git", "-C", os.path.dirname(dest), "rev-parse", "--is-inside-work-tree"]).returncode == 0 and \
+            sh(["git", "-C", os.path.dirname(dest), "check-ignore", "-q", dest]).returncode != 0:
+        if default:
+            gi = os.path.join(project, ".gitignore")
+            pre = "\n" if os.path.isfile(gi) and open(gi, "rb").read()[-1:] not in (b"", b"\n") else ""
+            with open(gi, "a") as f:
+                f.write(pre + "# Bug bundles from bin/file-bugs.sh --bundle: mailed, never committed\n/toolkit-bugs-*.md\n")
+            print("(added /toolkit-bugs-*.md to the project's .gitignore)")
+        else:
+            print("NOTE: %s is not gitignored; do not commit it." % dest)
+    for bid, _, _, _ in items:
+        write_back(path, bid, {"status": "bundled", "bundled": today})
+    print("file-bugs: wrote %d bug(s) to %s and marked them bundled in docs/bugs.jsonl" % (len(items), dest))
+    print(who.strip("*") if addr else "Send this file to whoever gave you the toolkit (" +
+          "set MXTK_BUG_EMAIL or a `Bug email:` line in toolkit.env to name the address).")
+
+
+def parse_bundle(fp):
+    """(header dict, [(id, target, title, body)]) or sys.exit when the file is not an intact bundle."""
+    try:
+        txt = open(fp, errors="replace").read().replace("\r\n", "\n")
+    except OSError as e:
+        sys.exit("file-bugs: cannot read %s (%s); nothing filed" % (fp, e.strerror))
+    m = RE_BUNDLE_HEAD.search(txt)
+    head = {}
+    for ln in (m.group(1).splitlines() if m else []):
+        k, _, v = ln.partition(":")
+        head[k.strip().lower()] = v.strip()
+    if head.get("format") != BUNDLE_FMT:
+        sys.exit("file-bugs: %s is not a bug bundle (no %smxtk-bug-bundle header with format: %s); nothing filed"
+                 % (fp, FENCE, BUNDLE_FMT))
+    bugs, lines, i = [], txt[m.end():].split("\n"), 0
+    while i < len(lines):
+        b = RE_BUNDLE_BEGIN.match(lines[i])
+        i += 1
+        if not b:
+            continue
+        j = i
+        while j < len(lines) and lines[j] != BUNDLE_END:
+            j += 1
+        sec = lines[i:j]
+        k = next((n for n, x in enumerate(sec) if x.startswith("Title: ")), None)
+        if j >= len(lines) or k is None:
+            sys.exit("file-bugs: %s is damaged: bug %s has no Title line or no end marker; nothing filed" % (fp, b.group(1)))
+        bugs.append((b.group(1), b.group(2), sec[k][7:], "\n".join(sec[k + 2:])))
+        i = j + 1
+    ids = head.get("ids", "").split()
+    if ids != [x[0] for x in bugs] or head.get("count") != str(len(bugs)):
+        sys.exit("file-bugs: %s is damaged or edited: the header lists %s (count %s), the file holds %s; nothing filed"
+                 % (fp, " ".join(ids) or "none", head.get("count", "?"), " ".join(x[0] for x in bugs) or "none"))
+    return head, bugs
+
+
+def repo_labels(gh, repo, want):
+    p = sh([gh, "label", "list", "--repo", repo, "--limit", "200", "--json", "name"])
+    try:
+        have = {str(x.get("name", "")).lower() for x in json.loads(p.stdout or "[]")} if p.returncode == 0 else set()
+    except (ValueError, AttributeError):
+        have = set()
+    return [w for w in want if w in have]
+
+
+def import_bundle(fp, project, names, dry):
+    """Maintainer side: re-redact every bug, search for duplicates, file the rest with gh."""
+    head, bugs = parse_bundle(fp)
+    r = Redactor(project, names)
+    if r.bad_deny or not r.deny:
+        msg = ("invalid deny pattern (%s)" % "; ".join(r.bad_deny)) if r.bad_deny else \
+              "no deny list at all (LEAKGUARD_DENY, <project>/.leakguard-deny or the toolkit clone's .leakguard-deny)"
+        if not dry:
+            sys.exit("file-bugs: --import needs a working deny list to re-redact: %s; nothing filed" % msg)
+        print("NOTE: %s; a real import is refused until it is fixed.\n" % msg)
+    reporter = re.sub(r"[^A-Za-z .'-]", "", head.get("reporter", "")).strip()[:60]
+    if not reporter or r.scan(reporter) or r.redact(reporter) != reporter:
+        reporter = "toolkit user"
+    repos = {TARGETS[t] for _, t, _, _ in bugs if t in TARGETS}
+    gh = None
+    if not dry:
+        gh, why = gh_path(repos)
+        if not gh:
+            sys.exit("file-bugs: --import cannot file: %s; nothing filed" % why)
+    filed, dups, refused, held, cache = [], [], [], [], {}
+    for bid, target, title0, body0 in bugs:
+        repo = TARGETS.get(target)
+        if not repo:
+            print("%s: target %s is not one of %s; skipped" % (bid, target, "/".join(TARGETS)))
+            held.append(bid)
+            continue
+        title = re.sub(r"\s+", " ", r.redact(title0)).strip()
+        body = r.redact(body0)
+        problems = r.scan(title + "\n" + body)
+        print("=" * 72 + "\n%s -> %s%s" % (bid, repo, "   [dry run, nothing is filed]" if dry else ""))
+        if problems:
+            print("REFUSED: after re-redaction it still looks unsafe (%s); not filed." % ", ".join(problems))
+            refused.append(bid)
+            continue
+        if (title, body) != (title0, body0):
+            print("NOTE: the re-redaction changed this bug's text; the redacted text is what gets filed.")
+        print("TITLE: " + title)
+        dp = dupes(repo, title)
+        if dp is None:
+            print("Duplicates: search unavailable (gh missing or not authenticated); not filed.")
+            held.append(bid)
+            continue
+        same = [x for x in dp if re.sub(r"\s+", " ", str(x.get("title", ""))).strip().lower() == title.lower()
+                and re.match(r"https://github\.com/%s/issues/\d+$" % re.escape(repo), str(x.get("url", "")))]
+        if same:
+            print("Duplicate: %s has the same title; skipped." % same[0]["url"])
+            dups.append(same[0]["url"])
+            continue
+        rel = [x.get("number") for x in dp if str(x.get("number", "")).isdigit()]
+        body += "\n\n---\nReported by: %s via email bundle" % reporter
+        if rel:
+            body += "\nPossibly related: " + ", ".join("#%s" % n for n in rel) + "."
+        again = r.scan(title + "\n" + body)
+        if again:
+            print("REFUSED: the footer failed the scan (%s); not filed." % ", ".join(again))
+            refused.append(bid)
+            continue
+        if dry:
+            print("would file (Possibly related: %s)" % (", ".join("#%s" % n for n in rel) or "none"))
+            filed.append(bid)
+            continue
+        if repo not in cache:
+            cache[repo] = repo_labels(gh, repo, [AUTO_LABEL, "via-email"])
+        p = gh_create(repo, title, body, cache[repo])
+        if cache[repo] and p.returncode != 0:
+            p = gh_create(repo, title, body)
+        m = re.search(r"https://github\.com/%s/issues/\d+" % re.escape(repo), p.stdout or "")
+        if p.returncode != 0 or not m:
+            print("gh issue create failed: " + (p.stderr or p.stdout).strip()[:300])
+            held.append(bid)
+            continue
+        print("filed: " + m.group(0))
+        filed.append(m.group(0))
+    print("\nfile-bugs --import%s: %s %d, skipped duplicates %d%s, refused %d, not filed %d" % (
+        " (dry run)" if dry else "", "would file" if dry else "filed", len(filed), len(dups),
+        (" (" + " ".join(dups) + ")") if dups else "", len(refused), len(held)))
 
 
 def log_tail(r, path, n):
@@ -838,13 +1086,23 @@ def main():
                "posting, need a deny list (<project>/.leakguard-deny or $LEAKGUARD_DENY). --auto is the one way an "
                "agent posts: only in a project whose PROJECT.md has the line `Bug filing: auto` (the person's "
                "decision), every open row that passes the scan, with the person's own gh login, no y/N; without "
-               "that line it is a dry run. No gh or not signed in: it prints the --links instead and exits 0.")
+               "that line it is a dry run. gh unusable (the run says why): the --links with --github-account, else a --bundle "
+               "file to mail (no GitHub needed; a Mendix account is not a GitHub account); exit 0. The maintainer files "
+               "a mailed bundle with --import BUNDLE [--dry-run].")
     ap.add_argument("--project", default=".")
     ap.add_argument("--file", action="append", default=[], metavar="PBUG-NN")
     ap.add_argument("--all", action="store_true")
     ap.add_argument("--auto", action="store_true", help="post every open row that passes the scan, no y/N; only when "
                     "PROJECT.md says `Bug filing: auto`, otherwise a dry run")
     ap.add_argument("--links", action="store_true")
+    ap.add_argument("--bundle", nargs="?", const="", default=None, metavar="PATH",
+                    help="no GitHub needed: write every clean open bug (redacted as --json) to ONE file to mail, default "
+                    "toolkit-bugs-<date>.md in the project root (gitignored); rows are marked bundled (--all re-bundles them)")
+    ap.add_argument("--import", dest="import_file", metavar="BUNDLE", help="maintainer: file a mailed bundle with your own "
+                    "gh -- re-redacted, duplicate search first, labels auto-filed/via-email only when they exist")
+    ap.add_argument("--dry-run", action="store_true", help="with --import: show what would be filed, file nothing")
+    ap.add_argument("--github-account", action="store_true", help="you have a GitHub account (also MXTK_GITHUB_ACCOUNT=1): "
+                    "when gh cannot be used, --auto falls back to --links instead of --bundle")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--name", action="append", default=[], help="extra project name to redact")
     ap.add_argument("--to", choices=sorted(TARGETS), help="file to this repo instead of the row's target: a finding that is "
@@ -857,6 +1115,14 @@ def main():
     for k in ("target", "title", "repro", "expected", "actual", "workaround", "mxcli", "mendix", "toolkit-version"):
         ap.add_argument("--" + k)
     a = ap.parse_args()
+    if a.import_file is not None:
+        if a.add or a.auto or a.all or a.links or a.json or a.file or a.to or a.bundle is not None:
+            sys.exit("file-bugs: --import takes only --project, --name and --dry-run")
+        return import_bundle(a.import_file, os.path.abspath(a.project), a.name, a.dry_run)
+    if a.dry_run:
+        sys.exit("file-bugs: --dry-run goes with --import (every other run without --file/--all/--auto is already a dry run)")
+    if a.bundle is not None and (a.auto or a.links or a.json or a.add or a.to):
+        sys.exit("file-bugs: --bundle cannot be combined with --auto, --links, --json, --add or --to")
     if a.log and not a.add:
         sys.exit("file-bugs: --log goes with --add")
     if a.auto and (a.all or a.links or a.json or a.add or a.to):
@@ -874,7 +1140,9 @@ def main():
     want = set(a.file)
     sid = lambda d: str(d.get("id"))
     also = lambda d: bool(a.to) and a.to != d.get("target")   # a second submission, to the other repo
-    todo = [(i, d) for i, d in rows if (d.get("status", "open") == "open" or (also(d) and d.get("status") == "filed"))
+    reb = a.bundle is not None and a.all   # --bundle --all: bundle the already-bundled rows again
+    todo = [(i, d) for i, d in rows if (d.get("status", "open") == "open" or (also(d) and d.get("status") == "filed")
+                                        or (reb and d.get("status") == "bundled"))
             and not (also(d) and (d.get("also") or {}).get(a.to)) and (not want or sid(d) in want)]
     for w in want:
         if not any(sid(d) == w for _, d in rows):
@@ -894,7 +1162,7 @@ def main():
                   "person decides that line, in a commit; until then a human files with "
                   "`!bin/file-bugs.sh --file PBUG-NN`.\n" % info)
             a.auto = False
-    posting = bool(want or a.all or a.auto) and not (a.links or a.json or auto_off)
+    posting = bool(want or a.all or a.auto) and not (a.links or a.json or auto_off or a.bundle is not None)
     tty = None
     r = Redactor(project, a.name)
     for w in r.warnings:
@@ -902,22 +1170,29 @@ def main():
     if r.bad_deny:
         msg = ("invalid deny pattern (%s): fix it in the deny list. Posting, --links and --json are refused "
                "until then; nothing posted." % "; ".join(r.bad_deny))
-        if posting or a.links or a.json:
+        if posting or a.links or a.json or a.bundle is not None:
             sys.exit("file-bugs: " + msg)
         print("NOTE: " + msg + "\n")
     nodeny = not r.own_deny and not r.bad_deny
     if nodeny:
-        if posting or a.links or a.json:
-            sys.exit("file-bugs: " + NODENY_MSG + " Posting, --links and --json are refused until then; nothing posted.")
+        if posting or a.links or a.json or a.bundle is not None:
+            sys.exit("file-bugs: " + NODENY_MSG + " Posting, --links, --json and --bundle are refused until then; nothing posted.")
         print("NOTE: " + NODENY_MSG + " Posting, --links and --json are refused until then.\n")
     gh, labels, tally = None, {}, {"filed": 0, "refused": 0, "held": 0}
+    repos = {TARGETS[d["target"]] for _, d in todo if isinstance(d.get("target"), str) and d["target"] in TARGETS}
+    if a.bundle is not None:
+        return write_bundle(r, project, path, todo, a.bundle, a)
     if a.auto:
-        gh, why = gh_ready()
-        if not gh:
+        gh, why = gh_path(repos)
+        if not gh and has_github_account(a):
             # never a failure: the rows stay open with their workarounds; links let anyone file them
             print("NOTE: --auto cannot post: %s. Nothing posted; here are the pre-filled links instead "
                   "(anyone with a GitHub account can open one):\n" % why)
             a.auto, a.links, posting = False, True, False
+        elif not gh:
+            print("NOTE: --auto cannot post: %s. Nothing posted; writing a bundle to mail instead (no GitHub needed; "
+                  "with a GitHub account, add --github-account for one-click links).\n%s\n" % (why, UPGRADE_HINT))
+            return write_bundle(r, project, path, todo, "", a)
     elif posting:
         tty = tty_open()
         if tty is None:
@@ -1010,6 +1285,13 @@ def main():
         print(json.dumps(out, indent=2, ensure_ascii=False))
     elif not out and not a.links:
         print("file-bugs: no open bugs")
+    if not (posting or a.links or a.json) and out:
+        gh, why = gh_path(repos)
+        if gh:
+            print("\nFiling path: gh is installed and signed in, so --auto (opted-in project) or --file posts directly.")
+        else:
+            print("\nFiling path: %s, so use --links (with a GitHub account) or --bundle (no GitHub: mail the file).\n%s"
+                  % (why, UPGRADE_HINT))
     if a.auto and out:
         print("\nfile-bugs --auto: %d filed, %d refused by the redaction scan (never posted: run the dry run, fix the row), "
               "%d not posted (duplicate recorded, search unavailable or gh failed)" % (tally["filed"], tally["refused"], tally["held"]))

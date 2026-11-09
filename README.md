@@ -94,7 +94,7 @@ commands that run at every step: `docs/pipeline-walks.html`.
 | **Process map + BRD report** (`bin/brd-report.sh`) | Stages 2 and 3 | Swimlanes per process, questions pinned to each step |
 | **Progress report** (`architecture/progress-report.html`) | Stage 5 onward | Stages P to 6, phases built and proven, time and cost |
 | **Project dashboard** (`index.html`) | Every gate run | Gate status per stage and module |
-| **Bug log** (`docs/bugs.jsonl`, `bin/file-bugs.sh`) | Any time | Bugs, redacted before filing |
+| **Bug log** (`docs/bugs.jsonl`, `bin/file-bugs.sh`) | Any time | Bugs, redacted before filing: by gh, a link, or a file to mail (CONTRIBUTING.md → "Reporting a toolkit bug") |
 
 ## Ways to use it
 

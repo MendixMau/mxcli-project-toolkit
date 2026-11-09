@@ -44,7 +44,9 @@ t0=$(date +%s)
 if [ "$mode" != restart ] && [ -n "$admin" ]; then
   args=(-p "$MPR" --direct --port "$admin"); [ "$mode" = css ] && args+=(--css) || { args+=(--skip-check); while IFS= read -r a; do args+=("$a"); done < <(mxb); }
   _ro=$(mktemp "${TMPDIR:-/tmp}/reload-out.XXXXXX"); _rrc=0
-  mxtk_reaped "$MX" docker reload "${args[@]}" > "$_ro" 2>&1 < /dev/null || _rrc=$?   # reaps its mxbuild's deno (#708)
+  # NOT reaped (#708): mxcli puts mxbuild in its own process group, out of mxtk_reaped's reach;
+  # bin/doctor.sh --cleanup is the fallback. Output to a file: that deno can hold stdout open.
+  mxtk_reaped "$MX" docker reload "${args[@]}" > "$_ro" 2>&1 < /dev/null || _rrc=$?
   out=$(cat "$_ro"); rm -f "$_ro"
   if [ "$_rrc" -eq 0 ]; then
     up && { echo "reload.sh: $mode via --direct OK in $(( $(date +%s) - t0 )) s"; exit 0; }
@@ -53,7 +55,8 @@ if [ "$mode" != restart ] && [ -n "$admin" ]; then
 fi
 [ -z "$admin" ] && echo "reload.sh: app not running (no admin port mapped); starting it"
 args=(-p "$MPR"); while IFS= read -r a; do args+=("$a"); done < <(mxb)
-# mxtk_reaped (_common.sh): stop the deno helper this build's mxbuild leaves behind (#708).
+# NOT reaped (#708): mxcli runs mxbuild in its own process group (see mxtk_reaped, _common.sh);
+# bin/doctor.sh --cleanup is the fallback for its deno.
 _bo=$(mktemp "${TMPDIR:-/tmp}/reload-build.XXXXXX")
 mxtk_reaped "$MX" docker build "${args[@]}" > "$_bo" 2>&1 < /dev/null || true
 grep -E 'rror|BUILD|CE[0-9]' "$_bo" | tail -3; rm -f "$_bo"

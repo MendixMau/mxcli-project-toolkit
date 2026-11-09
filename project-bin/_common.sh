@@ -910,6 +910,12 @@ mxtk_gate_mxbuild() {
 # over the process table. A group id is not reused while any member lives, so the group still names
 # this invocation's children when it is read. `set -m` in a non-interactive bash neither moves the
 # shell into another group nor takes the terminal (checked under a pty and in a pipeline).
+# Field run (2026-11-09, Linux x86-64, real mxbuild 11.13.0 on a copy of a 197 MB test app, while
+# another experiment's mxbuild ran on the same machine): through mxtk_gate_mxbuild, mxbuild pid
+# 22279 / pgid 22279 started deno pid 25497 / ppid 22279 / pgid 22279, still alive 19 s in; the call
+# reaped 1 and no deno of that group was left. Through mxtk_reaped: mxbuild 23436 / pgid 23436, deno
+# 27070 / pgid 23436, gone afterwards, while two orphaned denos of the other experiment (pgid 11043
+# and 21660, ppid 1) were left running, untouched.
 # Cost: when the group is already empty (the common case: nothing stray) the check is the `kill -0`
 # builtin, no process start; one `ps` only when something of the group is still alive.
 # Platforms: Linux and macOS (bash 3.2 has `set -m`; no `setsid` needed). Git Bash: skipped —
@@ -949,26 +955,36 @@ EOT
   return 0
 }
 # mxtk_reaped <cmd...> — run cmd in the foreground (the caller's redirections apply; give it
-# `< /dev/null`), then reap its deno. Returns cmd's exit code. Ctrl-C / TERM while it runs stops
-# cmd's whole group: in its own group it no longer receives the terminal's Ctrl-C directly.
-_MXTK_REAPED_PID=""
-_mxtk_reaped_sig() {
-  [ -n "$_MXTK_REAPED_PID" ] && kill -TERM -- "-$_MXTK_REAPED_PID" 2>/dev/null
-  trap - INT TERM
-  kill -s "$1" "${BASHPID:-$$}"
-}
+# `< /dev/null`), then reap its deno. Returns cmd's exit code.
+# Signals. In its own group, cmd no longer receives the terminal's Ctrl-C. So the wait runs in a
+# ( ... ) subshell that stays in the caller's (foreground) group: on INT/TERM that subshell stops
+# cmd's group and ends (130/143), while the caller gets the same Ctrl-C and runs its own trap or
+# default action, exactly as before. The INT/TERM trap is set only inside that subshell: the
+# caller's traps are never read, reset or re-raised (bash 3.2 has no BASHPID, and `trap -p` in a
+# subshell shows the parent's traps, so save/restore/re-raise could not be done right there).
+# A TERM sent to the caller's pid alone reaches the caller only, as it did before this helper.
+# NOT reaped (#708 review): a command that starts mxbuild in a NEW process group of its own.
+# mxcli does (field run, 2026-11-09, this machine: an `mxcli run --local` pid 21500 / pgid 21500
+# had its mxbuild at pid 21600 / pgid 21600, and that mxbuild's deno at pgid 21600). So for
+# `mxcli docker check/build/reload` the deno sits in mxbuild's group, not mxcli's, and this stops
+# nothing; bin/doctor.sh --cleanup is the fallback there. Direct mxbuild / mx calls are reaped.
 mxtk_reaped() {
   local _rc=0
   mxtk_reap_launch_begin
   if [ "$_MXTK_REAP_ON" != 1 ]; then mxtk_reap_launch_end; "$@" || _rc=$?; return "$_rc"; fi
-  "$@" &
-  _MXTK_REAPED_PID=$!
   mxtk_reap_launch_end
-  trap '_mxtk_reaped_sig INT' INT; trap '_mxtk_reaped_sig TERM' TERM
-  wait "$_MXTK_REAPED_PID" || _rc=$?
-  trap - INT TERM
-  mxtk_reap_group "$_MXTK_REAPED_PID"
-  _MXTK_REAPED_PID=""
+  (
+    _r=0
+    mxtk_reap_launch_begin
+    "$@" &
+    _p=$!
+    mxtk_reap_launch_end
+    trap 'kill -TERM -- "-$_p" 2>/dev/null; exit 130' INT
+    trap 'kill -TERM -- "-$_p" 2>/dev/null; exit 143' TERM
+    wait "$_p" || _r=$?
+    mxtk_reap_group "$_p"
+    exit "$_r"
+  ) || _rc=$?
   return "$_rc"
 }
 

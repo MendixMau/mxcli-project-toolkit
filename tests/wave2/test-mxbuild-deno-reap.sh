@@ -19,7 +19,11 @@
 #       same, and the command's exit code comes back unchanged.
 #   R3  exit 137: the gate prints "build killed for lack of memory: N orphaned deno processes hold
 #       X GB — run bin/doctor.sh --cleanup", and MXTK_MXBUILD_WHY (BUILD-LOG's reason) carries it.
-# On master all three FAIL: nothing reaps (R1, R2) and exit 137 is unexplained (R3).
+#   R4  mxtk_reaped puts the caller's own INT/TERM traps back (it used to reset them).
+#   R5  Ctrl-C (INT to the whole foreground group) during mxtk_reaped, BASHPID unset as on bash
+#       3.2: the build and its deno stop, and the caller's own INT trap runs (it no longer carries on).
+# On master R1-R3 FAIL: nothing reaps (R1, R2) and exit 137 is unexplained (R3); R4 and R5 FAIL on
+# the first version of this PR (R4: trap reset to default; R5: no INT reached the build's group).
 #
 # Only processes this fixture started are ever signalled, by recorded pid; nothing on the machine
 # is matched by name. Linux and macOS; skipped on Git Bash, where the reap is skipped by design.
@@ -114,6 +118,43 @@ case "$ERR" in *"WHY=build killed for lack of memory"*) ok "R3: MXTK_MXBUILD_WHY
   *) fail "R3: MXTK_MXBUILD_WHY does not name the memory kill" ;; esac
 OWN="$(cat "$T/r3.pid" 2>/dev/null)"
 [ -n "$OWN" ] && gone_within "$OWN" && ok "[guard] R3: the killed build's deno was stopped too" || fail "R3: the killed build's deno (pid ${OWN:-?}) is still running"
+
+# ── R4: the caller's own INT/TERM traps survive ─────────────────────────────
+echo "== R4: mxtk_reaped leaves the caller's INT/TERM traps as they were =="
+OUT=$(run_in "DENO_PIDFILE=$T/r4.pid" "trap 'echo caller-int' INT; trap 'echo caller-term' TERM
+mxtk_reaped '$T/mx/modeler/mxbuild' > /dev/null 2>&1 < /dev/null; trap -p INT TERM" 2>&1)
+case "$OUT" in *"echo caller-int"*"SIGINT"*) ok "R4: the caller's INT trap is still set" ;; *) fail "R4: caller's INT trap lost; trap -p now: $(printf '%s' "$OUT" | tr '\n' ' ')" ;; esac
+case "$OUT" in *"echo caller-term"*"SIGTERM"*) ok "R4: the caller's TERM trap is still set" ;; *) fail "R4: caller's TERM trap lost" ;; esac
+
+# ── R5: Ctrl-C (INT to the foreground group) during mxtk_reaped ─────────────
+# The script runs in a process group of its own, standing in for a terminal's foreground group;
+# INT goes to that whole group, as Ctrl-C does. BASHPID is unset as on bash 3.2.
+echo "== R5: Ctrl-C during mxtk_reaped: the build and its deno stop, the caller's own INT trap runs =="
+cat > "$T/r5.sh" <<R5
+unset BASHPID
+. '$COMMON'
+trap 'echo caller-int-trap-ran > "$T/r5.trap"; exit 7' INT
+mxtk_reaped '$T/mx/modeler/mxbuild' > /dev/null 2>&1 < /dev/null
+echo caller-carried-on
+R5
+set -m
+env -i PATH="$PATH" HOME="$T" PROJECT_ROOT="$T/proj" FAKE_DENO="$DENO_DIR/deno" DENO_PIDFILE="$T/r5.pid" STUB_LINGER=30 \
+  bash "$T/r5.sh" > "$T/r5.out" 2>&1 &
+G=$!
+set +m
+i=0; while [ ! -s "$T/r5.pid" ] && [ $i -lt 50 ]; do sleep 0.1; i=$((i + 1)); done
+# Only this fixture's stub, by its full path (another mxbuild may well be running on this machine).
+STUB_PID="$(ps -A -o pid=,pgid=,args= | awk -v g="$G" -v stub="$T/mx/modeler/mxbuild" '$2 != g && index($0, stub) && $0 !~ /awk/ { print $1; exit }')"
+kill -INT -- "-$G" 2>/dev/null
+wait "$G"; R5RC=$?
+OUT="$(cat "$T/r5.out" "$T/r5.trap" 2>/dev/null)"   # the trap writes a file: it runs inside mxtk_reaped's > /dev/null
+case "$OUT" in *caller-int-trap-ran*) ok "R5: the caller's own INT trap ran" ;; *) fail "R5: caller's INT trap did not run: $(printf '%s' "$OUT" | tr '\n' ' ')" ;; esac
+[ "$R5RC" = 7 ] && ok "R5: the caller exited with its trap's code (7)" || fail "R5: caller exit $R5RC, expected 7"
+case "$OUT" in *caller-carried-on*) fail "R5: the caller carried on past Ctrl-C" ;; esac
+OWN="$(cat "$T/r5.pid" 2>/dev/null)"
+[ -n "$OWN" ] && gone_within "$OWN" && ok "R5: the interrupted build's deno was stopped" || fail "R5: the interrupted build's deno (pid ${OWN:-?}) is still running"
+if [ -n "$STUB_PID" ]; then gone_within "$STUB_PID" && ok "R5: the interrupted mxbuild itself was stopped" || fail "R5: the interrupted mxbuild (pid $STUB_PID) is still running"
+else fail "R5: could not see the stub mxbuild in its own group while it ran"; fi
 
 wait "$DURING_SH" 2>/dev/null
 echo ""

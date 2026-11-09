@@ -1865,7 +1865,27 @@ stage4_briefs_missing() {
 # level would write into docs/coverage/, which a gate must not do. Read only for architecture/ at
 # the project root, the layout preflight resolves; the nested analysis/<name>/architecture layout
 # is not measured here (said in the note, never a FAIL).
+#
+# Cached by its inputs (#686 speed audit): the measurement is ~25 s of every Stage 5+ round on a
+# field project and its inputs rarely change between rounds. The key is a content checksum of
+# architecture/, every BRD and the toolkit code that measures (bin/lib/gate-cache.sh,
+# "Stage-4 coverage cache", says exactly what and why a stale verdict cannot replay).
 stage4_coverage() {
+  local arch="$1" r
+  if gc_s4cov_enabled && gc_s4cov_key "$arch"; then
+    if gc_s4cov_get; then
+      [ -n "${MXTK_GATE_CACHE_TRACE:-}" ] && echo "s4cov-cache: hit" >&2
+      return 0
+    fi
+    r="$(stage4_coverage_measure "$arch")"
+    gc_s4cov_put "$arch" "$r"
+    [ -n "${MXTK_GATE_CACHE_TRACE:-}" ] && echo "s4cov-cache: miss" >&2
+    [ -n "$r" ] && printf '%s\n' "$r"
+    return 0
+  fi
+  stage4_coverage_measure "$arch"
+}
+stage4_coverage_measure() {
   local arch="$1" pf="$TOOLKIT_DIR/project-bin/coverage-preflight.sh" m mods="" out rc r bad="" nm="" n=0
   [ -f "$pf" ] || return 0
   [ -n "$(discover_brds "$PROJECT_DIR")" ] || return 0

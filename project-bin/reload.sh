@@ -43,14 +43,20 @@ up() { for i in $(seq 1 90); do [ "$(curl -s -o /dev/null -w '%{http_code}' "$ap
 t0=$(date +%s)
 if [ "$mode" != restart ] && [ -n "$admin" ]; then
   args=(-p "$MPR" --direct --port "$admin"); [ "$mode" = css ] && args+=(--css) || { args+=(--skip-check); while IFS= read -r a; do args+=("$a"); done < <(mxb); }
-  if out=$("$MX" docker reload "${args[@]}" 2>&1); then
+  _ro=$(mktemp "${TMPDIR:-/tmp}/reload-out.XXXXXX"); _rrc=0
+  mxtk_reaped "$MX" docker reload "${args[@]}" > "$_ro" 2>&1 < /dev/null || _rrc=$?   # reaps its mxbuild's deno (#708)
+  out=$(cat "$_ro"); rm -f "$_ro"
+  if [ "$_rrc" -eq 0 ]; then
     up && { echo "reload.sh: $mode via --direct OK in $(( $(date +%s) - t0 )) s"; exit 0; }
   fi
   echo "reload.sh: $mode failed, falling back to restart: $(printf '%s' "$out" | grep -v WARNING | tail -1)"
 fi
 [ -z "$admin" ] && echo "reload.sh: app not running (no admin port mapped); starting it"
 args=(-p "$MPR"); while IFS= read -r a; do args+=("$a"); done < <(mxb)
-"$MX" docker build "${args[@]}" 2>&1 | grep -E 'rror|BUILD|CE[0-9]' | tail -3
+# mxtk_reaped (_common.sh): stop the deno helper this build's mxbuild leaves behind (#708).
+_bo=$(mktemp "${TMPDIR:-/tmp}/reload-build.XXXXXX")
+mxtk_reaped "$MX" docker build "${args[@]}" > "$_bo" 2>&1 < /dev/null || true
+grep -E 'rror|BUILD|CE[0-9]' "$_bo" | tail -3; rm -f "$_bo"
 "$MX" docker up -p "$MPR" --detach >/dev/null 2>&1 || (cd "$DK" && docker compose up -d >/dev/null 2>&1)
 up && { echo "reload.sh: restart OK in $(( $(date +%s) - t0 )) s"; exit 0; }
 echo "reload.sh: app not answering on $app_url after $(( $(date +%s) - t0 )) s"; exit 1

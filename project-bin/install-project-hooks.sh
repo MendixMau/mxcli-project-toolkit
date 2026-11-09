@@ -245,6 +245,7 @@ fi
 echo "→ pre-push: the model was verified by mx check only; running the full build first (bin/verify-model.sh)..." >&2
 ( cd "\$b/.." && bash bin/verify-model.sh ) >&2; vrc=\$?
 [ "\$vrc" = 0 ] && { mkdir -p "\$(dirname "\$last")" && touch "\$last" && rm -f "\$cnt"; } 2>/dev/null
+[ "\$vrc" = 0 ] && echo "→ pre-push: full build done: if the app runs with --watch, run \\\`mxcli run restart\\\` before the next LOOK" >&2
 if [ "\$vrc" = 1 ]; then
   echo "✗ push refused: the full build found errors (above). Fix them, commit, push again." >&2
   echo "  Deliberate override, once:   MODEL_UNVERIFIED_OK=1 git push ..." >&2

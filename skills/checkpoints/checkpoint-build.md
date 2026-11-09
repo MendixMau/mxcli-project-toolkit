@@ -114,8 +114,9 @@ developer may change any cell in the same answer:
 > | Module done | module, modules on only | module |
 > | Build complete, and before every later deploy | full | full |
 >
-> Per change (`Pipeline mode: balanced`, intake Q15): no tests, one LOOK at 1280; tests, journeys
-> and the 390 + 1280 LOOK run at module close (#686). Write `affected` in the first row to run
+> Per change (`Pipeline mode: balanced`, intake Q15): no unit tests; a changed page gets one LOOK
+> at 1280 and one run of the journeys that reach it. Unit tests, the full journey set and the
+> 390 + 1280 LOOK run at module close (#686). Write `affected` in the first row to run
 > touched tests per change; `Pipeline mode: high-quality` runs them per change too.
 > `affected` = what the change touched and its callers (`bin/affected-tests.sh`); `module` = the
 > module's own (`--moment module --module <M>`); `full` = everything once; `none` = skip.

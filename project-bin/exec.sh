@@ -525,13 +525,16 @@ case "$PIPELINE_MODE" in
   high-speed)   _UIROW="the exec gate only; no LOOK, no .test.mdl." ;;
   *)            _UIROW="one quick LOOK at 1280 of the page you just changed; no .test.mdl." ;;
 esac
+# balanced runs the journeys that reach a changed page once per page row (~1 min): in the PR #700
+# run-2 experiment only journeys found the functional defects (a save error, a blocking modal).
 if [ "$PIPELINE_MODE" = high-quality ]; then _UIJ="re-run once, + a LOOK at 390 and 1280. Reviewers read the artifacts, they do not re-run"
 elif [ "$PER_ROW_J" = 1 ]; then _UIJ="re-run once per row (PROJECT.md ## Test strategy 'Every change' journeys column); the 390/1280 LOOK $_CLOSE"
+elif [ "$PIPELINE_MODE" = balanced ]; then _UIJ="run once per row (~1 min); the 390/1280 LOOK and the full journey set $_CLOSE"
 else _UIROW="${_UIROW%;*}; no journeys,${_UIROW#*;}"; _UIJ="+ the 390/1280 LOOK $_CLOSE"; fi
 case "$PIPELINE_MODE" in
   high-quality) _VIS="Pages it writes: the journeys of every page the change reaches + a LOOK at 390 and 1280." ;;
   high-speed)   _VIS="Pages it writes: no per-row LOOK; the 390/1280 LOOK $_CLOSE." ;;
-  *)            _VIS="Pages it writes: one quick LOOK at 1280 of each page/snippet it changed; the 390/1280 LOOK $_CLOSE." ;;
+  *)            _VIS="Pages it writes: one quick LOOK at 1280 of each page/snippet it changed + one run of the journeys that reach it; the 390/1280 LOOK and the full journey set $_CLOSE." ;;
 esac
 change_lane() {
   case "$CHANGE_CLASS" in
@@ -554,7 +557,10 @@ if [ -n "$CHANGE_CLASS" ]; then
   [ "$PIPELINE_MODE" = high-quality ] || echo "  $POLISH_NOTE"
   if [ "$PATCH_MODE" != "1" ]; then
     if [ "$PER_ROW_UNIT" = 1 ] || [ "$PER_ROW_J" = 1 ]; then echo "  affected tests: ./bin/affected-tests.sh $SCRIPT"
-    else echo "  tests owed at module close: ./bin/affected-tests.sh --moment module --module <Module>"; fi
+    else
+      [ "$CHANGE_UI" = 1 ] && [ "$PIPELINE_MODE" = balanced ] && echo "  journeys that reach it: ./bin/affected-tests.sh $SCRIPT (its journey rows; unit tests wait for module close)"
+      echo "  tests owed at module close: ./bin/affected-tests.sh --moment module --module <Module>"
+    fi
   fi
 fi
 
@@ -2584,8 +2590,26 @@ fi
 # built every page and opened no screenshot of any). Written here, after the restore branch,
 # because a restored script built nothing. Never blocks this exec or the next one — only
 # gate-check.sh's Stage 5 "done" claim reads it. Not for --patch: a patch is opaque.
+# First page row of a module (PR #700 run-2 experiment: a 390 LOOK at a module's first page row
+# caught a phone-layout defect at row 8 instead of at module close). Every mode but high-speed. A
+# module is "new" when owed.tsv held no page of it before this script's rows; builtins only (the
+# process budget, #687).
+FIRST_PAGE_MODS=""
+_owed="$PROJECT_ROOT/.claude/loop/look/owed.tsv"; _owed_n0=0; _owed_mods=" "
+if [ "$PATCH_MODE" = 0 ] && [ "$CHANGE_UI" = 1 ] && [ "$PIPELINE_MODE" != high-speed ] && [ -f "$_owed" ]; then
+  while IFS=$'\t' read -r _e _i _pg _s; do _owed_n0=$((_owed_n0 + 1)); _owed_mods="$_owed_mods${_pg%%.*} "; done < "$_owed"
+fi
 if [ "$PATCH_MODE" = 0 ] && [ -f "$_XD/look-ledger.sh" ]; then
   bash "$_XD/look-ledger.sh" owe "$SCRIPT" || true
+fi
+if [ "$PATCH_MODE" = 0 ] && [ "$CHANGE_UI" = 1 ] && [ "$PIPELINE_MODE" != high-speed ] && [ -f "$_owed" ]; then
+  _k=0
+  while IFS=$'\t' read -r _e _i _pg _s; do
+    _k=$((_k + 1)); [ "$_k" -le "$_owed_n0" ] && continue
+    _m="${_pg%%.*}"; [ -n "$_m" ] || continue
+    case "$_owed_mods" in *" $_m "*) continue ;; esac
+    case " $FIRST_PAGE_MODS " in *" $_m "*) ;; *) FIRST_PAGE_MODS="${FIRST_PAGE_MODS:+$FIRST_PAGE_MODS }$_m" ;; esac
+  done < "$_owed"
 fi
 # Last writer of each document this script names (script-owners.sh ledger), so a later check can
 # tell a replay that reverts nothing from one that does. Same place and reason as LOOK owed: a
@@ -2712,6 +2736,10 @@ _EL=$(( ${EPOCHSECONDS:-$(date +%s)} - _T0 ))
 echo "  elapsed: ${_EL}s (check + snapshot + exec + mxbuild gate)"
 if [ -n "$STEP_TIMES" ]; then echo "  steps: $STEP_TIMES"; fi
 [ -n "$CHANGE_CLASS" ] && echo "  change class: $CHANGE_CLASS — test lane: $(change_lane)"
+[ -n "$FIRST_PAGE_MODS" ] && echo "  first page row of $FIRST_PAGE_MODS: also a LOOK at 390 (phone layout) of the page(s) it wrote, on top of this mode's per-row check"
+# A full build replaces the bundle a running `mxcli run --local --watch` serves (/dist/index.js 404
+# until a restart; PR #700 run-2 experiment). One line, no behaviour change.
+[ "${GATE_KIND:-}" = full ] && [ "$GATE_STATE" = pass ] && echo "  $MXTK_WATCH_NOTE"
 # A budget, not a gate: a normal run is 30-90 s on a healthy machine. Past 4 minutes the
 # usual cause is the machine (Defender scanning every fork, OneDrive, a slow disk), and
 # doctor --quick names which — the reader should not have to guess "is it me or the toolkit".

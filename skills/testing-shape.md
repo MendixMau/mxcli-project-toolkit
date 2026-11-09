@@ -152,7 +152,7 @@ Per-row columns below are `Pipeline mode: balanced`, the default (other modes:
 
 | Change class | Per row | At module close | Never |
 |---|---|---|---|
-| **UI-only** — `ALTER PAGE`/`ALTER SNIPPET`, styling, captions, visibility, layout; **no** microflow, entity, association, enum, security or navigation change (`exec.sh` tag `ui-only`) | One **LOOK** at 1280 of the changed page (screenshot, actually opened) | The journeys of every page the changes reach (embedders included), plus the 390 + 1280 LOOK (`module-review.md` stage 4) | `.test.mdl`; full `mxcli test` |
+| **UI-only** — `ALTER PAGE`/`ALTER SNIPPET`, styling, captions, visibility, layout; **no** microflow, entity, association, enum, security or navigation change (`exec.sh` tag `ui-only`) | One **LOOK** at 1280 of the changed page (screenshot, actually opened; 390 too on a module's first page row) + one run of the journeys that reach it | The full journey set (embedders included), plus the 390 + 1280 LOOK (`module-review.md` stage 4) | `.test.mdl`; full `mxcli test` |
 | **Logic** — anything else (`exec.sh` tag `logic`; a mixed script is logic) | The exec gate only; unit tests or journeys only if `## Test strategy` row `Every change` names a scope for that column | The subject set above: changed microflows' and callers' tests (modules with unit on), changed pages' journeys | Tests whose subject no change touched |
 
 **Who re-runs:** the implementer, once per gate. **Reviewers verify artifacts** — the diff, the

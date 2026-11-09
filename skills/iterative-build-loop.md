@@ -656,8 +656,9 @@ This table is the single source; `exec.sh`, the pre-push hook and `module-close.
 
 | | high-speed | balanced (default) | high-quality |
 |---|---|---|---|
-| Per row, visual | none (exec gate only) | one LOOK at 1280 of the changed page | journeys of reached pages + LOOK at 390 and 1280 |
-| Module close | journeys + polish loop, 75% fidelity AND a written LOOK, max 2 rounds | same, 85%, max 3 rounds | same, 90%, max 5 rounds |
+| Per row, visual | none (exec gate only) | one LOOK at 1280 of the changed page + one run of the journeys that reach it (~1 min) | journeys of reached pages + LOOK at 390 and 1280 |
+| A module's first page row | as above | + a LOOK at 390 | as above (390 included) |
+| Module close | journeys + polish loop, 75% fidelity AND a written LOOK, max 3 rounds | same, 85%, max 3 rounds | same, 90%, max 5 rounds |
 | Pre-push full build | once per module | once per module | every push |
 | Unit tests | per module | per module | per row |
 
@@ -666,7 +667,14 @@ high-quality, a `## Test strategy` row `Every change` that names a unit or journ
 that column per row. Why balanced is the default (#686): rows averaged 19 min (up to 41) under
 per-row journeys and dual-viewport LOOKs, and per-row LOOKs had 0 unique catches over 42 findings;
 of about 10 browser-only defects, about 7 would also be caught by one journey plus a LOOK at module
-close, 1 was unsure (a second persona), and 1 was missed by every per-row and module LOOK alike. What re-runs after a change, by whom, and when the full suite runs (per
+close, 1 was unsure (a second persona), and 1 was missed by every per-row and module LOOK alike.
+The PR #700 mode experiment (run 2, a 5-page app): balanced 3.25 min/row net of module close vs
+high-quality 4.65 and high-speed 2.05, 0 missed defects. Only journeys found the functional defects
+(a save error, a blocking modal), hence one journey run per page row in balanced; the 390 LOOK at a
+module's first page row caught a phone-layout defect at row 8 instead of at close; and in every arm
+one polish round went to undoing a regression, hence 3 rounds for high-speed. `exec.sh`, the
+pre-push hook and `module-close.sh` print one line after a full build: a running `--watch` client
+needs `mxcli run restart`. What re-runs after a change, by whom, and when the full suite runs (per
 PROJECT.md `## Test strategy`; never batch close) is `testing-shape.md` §3; `exec.sh` prints
 the run's lane (`ui-only` / `logic`). Repeating a pass the artifacts already prove is the over-testing
 toolkit issue #274 measured: UI-only changes re-proven 5–10×.

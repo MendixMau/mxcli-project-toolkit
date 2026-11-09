@@ -1,7 +1,7 @@
 # Skill: ui-loop — look at the page you just built, before you build the next one
 
 **Applies to:** any project building pages or snippets.
-**Runs:** after every page-building script (`Pipeline mode: balanced`: one viewport, 1280; 390 + 1280 at module close, `module-review.md`), and any time someone says the UI looks wrong.
+**Runs:** after every page-building script (`Pipeline mode: balanced`: one viewport, 1280, plus 390 on a module's first page row; 390 + 1280 at module close, `module-review.md`), and any time someone says the UI looks wrong.
 **Cost:** minutes. That is the point — it is cheap enough to run ten times per module.
 
 ---
@@ -124,9 +124,7 @@ verdict is written. Journey harnesses have the same failure mode as the instrume
 "Related" below: they are code, they are read as ground truth, and nobody scores them
 (`tool-output-is-not-ground-truth.md`).
 
-The high-code build in the same comparison never hit either defect, because its harness created
-a fresh context per screen per width. That is a harness difference, not a platform
-difference — do not let a screenshot artefact become a finding about Mendix.
+A screenshot artefact is never a finding about Mendix (`process/baseline-incident-history.md` § UI8).
 
 ---
 

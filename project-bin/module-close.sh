@@ -59,7 +59,9 @@ chk=$("$MX" docker check -p "$MPR" ${MXB:+--mxbuild-path "$MXB"} 2>&1 | grep -v 
 if [ -f .claude/loop/gate-kind.state ] && grep -q '^kind: check' .claude/.model-verified 2>/dev/null \
    && ! bash bin/model-stamp.sh check -q --full >/dev/null 2>&1; then
   chk="$chk
-full build (bin/verify-model.sh): $(bash bin/verify-model.sh 2>&1 | grep -E '^(✓|✗)' | tail -2)"
+full build (bin/verify-model.sh): $(bash bin/verify-model.sh 2>&1 | grep -E '^(✓|✗)' | tail -2)
+${MXTK_WATCH_NOTE:-full build done: if the app runs with --watch, run \`mxcli run restart\` before the next LOOK}"
+  echo "module-close $mod: ${MXTK_WATCH_NOTE:-full build done: if the app runs with --watch, run \`mxcli run restart\` before the next LOOK}"
 fi
 # Before verify-module, so its conformance rung measures the ledger as it now stands. Its exit is
 # not this script's verdict: verify-module's conformance rung reports the same rows right after.
@@ -67,7 +69,7 @@ marked=$(bash bin/conformance-check.sh --module "$mod" --mark-built --quiet 2>/d
 vm=$(bash bin/verify-module.sh "$mod" --quick 2>&1); vm_rc=$?; vm=$(printf '%s\n' "$vm" | tail -15)
 look=$(bash bin/look-ledger.sh status 2>/dev/null | grep -E "\b$mod\." || true)
 # Polish loop per page (module-review.md stage 4, #686): numbers from PROJECT.md `Pipeline mode:`
-# (75%/2, 85%/3 default, 90%/5), `UI polish: <N>% / <R> rounds` overrides either (_common.sh).
+# (75%/3, 85%/3 default, 90%/5), `UI polish: <N>% / <R> rounds` overrides either (_common.sh).
 read -r pt pr <<EOF2
 $(mxtk_ui_polish "$PROJECT_ROOT")
 EOF2

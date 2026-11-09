@@ -64,8 +64,9 @@ MxTest after-startup in place (exit 5, nothing started), the implementer reports
 `BLOCKED NEEDS_RESTART` with its output, as before.
 
 **STOP: a per-row brief carries only the per-row checks of the project's `Pipeline mode:`**
-(balanced: the exec gate, one 1280 LOOK on a page row; `.test.mdl` only when the module's Unit is
-yes and the `Every change` row opts in). Journeys, second personas and the 390 + 1280 LOOK go in the module-close brief. Journey-demanding
+(balanced: the exec gate; on a page row one 1280 LOOK and one run of the journeys that reach it;
+`.test.mdl` only when the module's Unit is yes and the `Every change` row opts in). The full journey
+set, second personas and the 390 + 1280 LOOK go in the module-close brief. Journey-demanding
 row briefs took 36–41 min; a batch brief without one applied two rows in ~10 min (#686).
 
 **Prefix you do not control.** Every subagent turn also carries the harness's skill listing,

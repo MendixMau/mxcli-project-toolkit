@@ -335,11 +335,12 @@ This project uses the shared toolkit at \`$TOOLKIT_ROOT\`. For ANY pipeline work
 5. **Before any page MDL:** read \`$TOOLKIT_ROOT/skills/ui-preflight-pages.md\` in full — its
    *text*; a delegated page draft carries the text or reads the file first. **After it:** the
    \`check-page-shell\`, \`page-fidelity\` and \`ui-loop\` rows below, then look at the page at
-   one viewport (1280px) and write what you saw to \`design/ui-reviews/\` — a 100% fidelity score
-   once matched under half its wireframe (2026-09-19). Both 1280px and 390px, journeys and the
-   polish loop run once at module review (\`module-review.md\`). That is \`Pipeline mode:
-   balanced\` (PROJECT.md; \`high-speed\` skips the per-page look, \`high-quality\` adds 390px and
-   journeys per page script).
+   one viewport (1280px; 390px too on a module's first page), run the journeys that reach it once,
+   and write what you saw to \`design/ui-reviews/\` — a 100% fidelity score once matched under
+   half its wireframe (2026-09-19). Both 1280px and 390px on every page, the full journey set and
+   the polish loop run once at module review (\`module-review.md\`). That is \`Pipeline mode:
+   balanced\` (PROJECT.md; \`high-speed\` skips the per-page look and journeys,
+   \`high-quality\` adds 390px and all reached journeys per page script).
 
 EOF
   echo "Created: CLAUDE.local.md (runbook-first wiring + baseline routing)"

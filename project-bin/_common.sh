@@ -1053,14 +1053,15 @@ print('; '.join(one(e) for e in d.get('errors',[]) or [])[:300])" 2>/dev/null ||
 # it from the model on every full build. exec.sh (gate kind) and verify-model.sh record it.
 mxtk_java_fp() {
   ( cd "$1" 2>/dev/null || exit 0
-    # --full-name + hashing from the top level: `git hash-object --stdin-paths` reads paths from the
-    # repository top, so in a model folder below it (app/ on a two-tree checkout, apps/<X>/) the
-    # cwd-relative names failed to open and every fingerprint hashed the same (PR #700 review).
-    # On a single-tree checkout the names and so the fingerprint are unchanged.
-    _l="$(git ls-files -co --exclude-standard --full-name -- javasource javascriptsource theme userlib widgets 2>/dev/null \
-          | grep -Ev '(^|/)javasource/[^/]*/proxies/' || true)"
-    _top="$(git rev-parse --show-toplevel 2>/dev/null)"
-    { printf '%s\n' "$_l"; [ -z "$_l" ] || printf '%s\n' "$_l" | ( cd "$_top" 2>/dev/null && git hash-object --stdin-paths ) 2>/dev/null; } \
+    # File ARGUMENTS, not --stdin-paths: git resolves stdin paths from the repository top, so in a
+    # model folder below it (app/ on a two-tree checkout, apps/<X>/) the cwd-relative names failed
+    # to open and every fingerprint hashed the same (PR #700 review). Arguments are cwd-relative.
+    # Same names and hashes as before on a single-tree checkout, and no extra process (#687 budget).
+    _l="$(git ls-files -co --exclude-standard -- javasource javascriptsource theme userlib widgets 2>/dev/null \
+          | grep -v '^javasource/[^/]*/proxies/' || true)"
+    { printf '%s\n' "$_l"
+      if [ -n "$_l" ]; then ( set -f; IFS='
+'; git hash-object -- $_l ) 2>/dev/null; fi; } \
       | cksum | { read -r _ck _; printf '%s\n' "$_ck"; } )
 }
 
@@ -1161,17 +1162,30 @@ project_name() {
 # hook (install-project-hooks.sh) and module-close.sh; the table is iterative-build-loop.md
 # § "Pipeline mode". $1 = project root (default $PROJECT_ROOT).
 mxtk_pipeline_mode() {
-  local v="${MXTK_PIPELINE_MODE:-}"
-  [ -n "$v" ] || v="$(sed -n 's/^[*_ >-]*Pipeline mode:[*_ `]*\([A-Za-z-]*\).*/\1/p' "${1:-$PROJECT_ROOT}/PROJECT.md" 2>/dev/null | head -1)"
-  case "$(printf '%s' "$v" | tr 'A-Z' 'a-z')" in
-    high-speed) echo high-speed ;; high-quality) echo high-quality ;; *) echo balanced ;;
+  # Bash builtins only (no sed/tr): exec.sh calls this on every run, and tests/wave2/
+  # test-exec-process-budget.sh counts the processes one exec starts (#687).
+  local v="${MXTK_PIPELINE_MODE:-}" f="${1:-$PROJECT_ROOT}/PROJECT.md" l re='^[*_ >-]*[Pp]ipeline mode:[*_ `]*([A-Za-z-]*)'
+  if [ -z "$v" ] && [ -r "$f" ]; then
+    while IFS= read -r l || [ -n "$l" ]; do
+      if [[ $l =~ $re ]]; then v="${BASH_REMATCH[1]}"; break; fi
+    done < "$f"
+  fi
+  case "$v" in
+    [Hh][Ii][Gg][Hh]-[Ss][Pp][Ee][Ee][Dd]) echo high-speed ;;
+    [Hh][Ii][Gg][Hh]-[Qq][Uu][Aa][Ll][Ii][Tt][Yy]) echo high-quality ;;
+    *) echo balanced ;;
   esac
 }
-# Module-close polish loop, "<fidelity %> <max rounds>": 75 2 | 85 3 | 90 5 by mode; a PROJECT.md
+# Printed wherever the toolkit runs a full build (exec.sh's full gate, module-close.sh, the pre-push
+# hook): a full build replaces the bundle a running `mxcli run --local --watch` serves, and the client
+# 404s on /dist/index.js until a restart (PR #700 run-2 experiment). Advice only.
+MXTK_WATCH_NOTE="full build done: if the app runs with --watch, run \`mxcli run restart\` before the next LOOK"
+# Module-close polish loop, "<fidelity %> <max rounds>": 75 3 | 85 3 | 90 5 by mode (high-speed
+# 3 rounds, not 2: in every arm of the PR #700 run-2 experiment one round went to undoing a regression); a PROJECT.md
 # line `UI polish: <N>% / <R> rounds` overrides either number.
 mxtk_ui_polish() {
   local r="${1:-$PROJECT_ROOT}" pt pr pol x
-  case "$(mxtk_pipeline_mode "$r")" in high-speed) pt=75; pr=2 ;; high-quality) pt=90; pr=5 ;; *) pt=85; pr=3 ;; esac
+  case "$(mxtk_pipeline_mode "$r")" in high-speed) pt=75; pr=3 ;; high-quality) pt=90; pr=5 ;; *) pt=85; pr=3 ;; esac
   pol="$(grep -m1 -iE '^[*_ -]*UI polish:' "$r/PROJECT.md" 2>/dev/null)"
   x="$(printf '%s' "$pol" | sed -n 's/[^0-9]*\([0-9][0-9]*\)[ ]*%.*/\1/p')"; [ -n "$x" ] && pt=$x
   x="$(printf '%s' "$pol" | sed -n 's/.*[^0-9]\([0-9][0-9]*\)[ ]*round.*/\1/p')"; [ -n "$x" ] && pr=$x

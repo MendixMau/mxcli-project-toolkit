@@ -525,3 +525,9 @@ restart-resumes (41.6M tokens, 8.5% of subagent tokens) in the 2026-10-12 run (#
 when a Station page passed its LOOK review with no page title at all, an unstyled default nav bar,
 a field missing outright, and ragged field layout, because the rubric only ever interrogated the
 content region and the reviewer verified layout from CSS, not pixels.
+
+## UI8 — The harness, not the platform (moved from `ui-loop.md` § "The screenshot harness is an instrument too", 2026-11-09)
+
+The high-code build in the same comparison never hit either defect, because its harness created
+a fresh context per screen per width. That is a harness difference, not a platform
+difference — do not let a screenshot artefact become a finding about Mendix.

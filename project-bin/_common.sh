@@ -855,6 +855,7 @@ _mxtk_slurp() {
 mxtk_build_tree() {
   local _r="${PROJECT_ROOT:-$(dirname "$1")}" _o _py
   MXTK_BUILD_MPR="$1"; MXTK_BUILD_PLACE=in-place; MXTK_BUILD_NOTE=""; MXTK_BUILD_SRC=""; MXTK_BUILD_DST=""
+  MXTK_BUILD_SRC_N=""; MXTK_BUILD_DST_N=""
   [ "${MXTK_GATE_IN_PLACE:-0}" = 1 ] && { MXTK_BUILD_NOTE="MXTK_GATE_IN_PLACE=1"; return 0; }
   [ -f "$_r/bin/build-tree.py" ] || { MXTK_BUILD_NOTE="bin/build-tree.py not installed (sync-project.sh)"; return 0; }
   _py="${PY:-${MXTK_PY_MEMO:-$(resolve_py 2>/dev/null || true)}}"
@@ -862,17 +863,70 @@ mxtk_build_tree() {
   mxtk_build_lock_take "$_r" || { MXTK_BUILD_NOTE="$MXTK_BUILD_LOCK_NOTE"; return 0; }
   if _o="$("$_py" -I "$(native_path "$_r/bin/build-tree.py")" "$(native_path "$1")" "$(native_path "$_r/.mxtk/build/model")" 2>&1)"; then
     MXTK_BUILD_MPR="${_o##*$'\n'}"; MXTK_BUILD_MPR="${MXTK_BUILD_MPR%$'\r'}"
+    MXTK_BUILD_SRC="${_o%$'\n'*}"; MXTK_BUILD_SRC="${MXTK_BUILD_SRC##*$'\n'}"; MXTK_BUILD_SRC="${MXTK_BUILD_SRC%$'\r'}"
+    # Python prints native paths: C:\... on Windows, which is also how mxbuild.exe names files in
+    # its output there. Keep that form for the rewrite (mxtk_build_tree_unmap), use the POSIX one here.
+    MXTK_BUILD_SRC_N="$MXTK_BUILD_SRC"; MXTK_BUILD_DST_N="${MXTK_BUILD_MPR%[\\/]*}"
     case "$MXTK_BUILD_MPR" in [A-Za-z]:*) MXTK_BUILD_MPR="$(mxtk_posix_path "$MXTK_BUILD_MPR")" ;; esac
+    case "$MXTK_BUILD_SRC" in [A-Za-z]:*) MXTK_BUILD_SRC="$(mxtk_posix_path "$MXTK_BUILD_SRC")" ;; esac
     if [ -f "$MXTK_BUILD_MPR" ]; then
       MXTK_BUILD_PLACE=copy; MXTK_BUILD_DST="${MXTK_BUILD_MPR%/*}"
-      MXTK_BUILD_SRC="${_o%$'\n'*}"; MXTK_BUILD_SRC="${MXTK_BUILD_SRC##*$'\n'}"; MXTK_BUILD_SRC="${MXTK_BUILD_SRC%$'\r'}"
-      case "$MXTK_BUILD_SRC" in [A-Za-z]:*) MXTK_BUILD_SRC="$(mxtk_posix_path "$MXTK_BUILD_SRC")" ;; esac
       return 0
     fi
+    MXTK_BUILD_SRC=""; MXTK_BUILD_SRC_N=""; MXTK_BUILD_DST_N=""
     MXTK_BUILD_MPR="$1"
   fi
   MXTK_BUILD_NOTE="the copy failed: ${_o##*$'\n'}"
 }
+# Stale-lock takeover, shared by exec.sh's .exec.lock and the full-build copy's .build.lock.
+# Taking over is serialised through a second O_EXCL file, <lock>.takeover; under it the lock is
+# re-read and removed ONLY if it still holds exactly the stale line judged by the caller, so the
+# compare-then-rm cannot hit a fresh lock (independent review of #304: 12 contenders gave up to 3
+# holders with a plain check-then-rm; the #721 review reproduced 4 on the first .build.lock).
+# A takeover file left by a holder killed inside those microseconds is stale once its pid is dead
+# or it is older than 10 s (an empty one once it is over a minute old, review of #324); it is
+# moved aside and put back with `ln` (never clobbers) if what was moved is not the one judged stale.
+mxtk_lock_takeover() {  # $1 = lock file, $2 = the stale lock line; 0 iff it was removed (or already gone)
+  local _lk="$1" _stale="$2" _tk _mine _t _tpid _tsince _tstale _now
+  _tk="$_lk.takeover"; _mine="$$ ${EPOCHSECONDS:-$(date +%s)}"
+  if ! ( set -o noclobber; printf '%s\n' "$_mine" > "$_tk" ) 2>/dev/null; then
+    _t="$(head -1 "$_tk" 2>/dev/null || true)"; _tpid="${_t%% *}"; _tsince="${_t#* }"
+    case "$_tsince" in ''|*[!0-9]*) _tsince=0 ;; esac
+    _tstale=0
+    if [ -n "$_t" ]; then
+      { ! kill -0 "$_tpid" 2>/dev/null || [ $(( ${EPOCHSECONDS:-$(date +%s)} - _tsince )) -gt 10 ]; } && _tstale=1
+    elif [ -n "$(find "$_tk" -mmin +1 2>/dev/null)" ]; then
+      _tstale=1   # empty for over a minute: its creator died between the create and the write
+    fi
+    if [ "$_tstale" = 1 ]; then
+      if mv "$_tk" "$_tk.stale.$$" 2>/dev/null; then
+        # Remove what was moved ONLY if it is what was judged stale; anything else is someone's
+        # live takeover file: put it back (ln never clobbers), and if that fails leave it be.
+        # Same body as test-scratch.sh's take_over() — keep the two in step (PR #322).
+        if [ "$(head -1 "$_tk.stale.$$" 2>/dev/null || true)" = "$_t" ]; then rm -f "$_tk.stale.$$"
+        else ln "$_tk.stale.$$" "$_tk" 2>/dev/null && rm -f "$_tk.stale.$$"; fi
+      fi
+    fi
+    return 1
+  fi
+  _now="$(head -1 "$_lk" 2>/dev/null || true)"
+  [ "$_now" = "$_stale" ] && rm -f "$_lk"
+  [ "$(head -1 "$_tk" 2>/dev/null || true)" = "$_mine" ] && rm -f "$_tk"   # only our own takeover file
+  return 0
+}
+# mxtk_lock_live <pid> <who> — 0 iff the pid is alive, not a zombie, and (where ps can show it) its
+# command line names <who>, the script that wrote the lock; otherwise the pid was reused.
+mxtk_lock_live() {
+  local a
+  case "${1:-}" in ''|*[!0-9]*) return 1 ;; esac
+  kill -0 "$1" 2>/dev/null || return 1
+  case "$(sed 's/.*) //' "/proc/$1/stat" 2>/dev/null | cut -d' ' -f1)" in Z) return 1 ;; esac
+  [ -n "${2:-}" ] || return 0
+  a="$(ps -o args= -p "$1" 2>/dev/null || true)"
+  case "$a" in ""|*"$2"*) return 0 ;; esac
+  return 1
+}
+
 # One full build at a time in the copy (#686 review). The exec gate and a pre-push or module-close
 # verify-model.sh can build at the same moment, and two syncs + two mxbuilds in one folder would
 # corrupt each other's output. Lock: <root>/.mpr-snapshots/.build.lock, "<pid> <epoch> <who>",
@@ -893,9 +947,11 @@ mxtk_build_lock_take() {  # $1 = project root. 0 = ours (taken now or already), 
     fi
     held=""; read -r held < "$f" 2>/dev/null || true; hp="${held%% *}"
     [ "$hp" = "$$" ] && { MXTK_BUILD_LOCK="$f"; return 0; }
-    if [ -n "$hp" ] && ! kill -0 "$hp" 2>/dev/null; then
-      # Stale: remove it only if it still holds the line judged stale, then try again.
-      local now=""; read -r now < "$f" 2>/dev/null || true; [ "$now" = "$held" ] && rm -f "$f"; continue
+    if [ -z "$held" ]; then sleep 1; waited=$((waited + 1)); [ "$waited" -lt "$max" ] && continue; fi   # being written
+    if [ -n "$held" ] && ! mxtk_lock_live "$hp" "${held#* * }"; then
+      # Stale (dead, zombie, or pid reused): the shared O_EXCL takeover, then try again.
+      mxtk_lock_takeover "$f" "$held" || { sleep 1; waited=$((waited + 1)); }
+      continue
     fi
     if [ "$waited" -ge "$max" ]; then
       MXTK_BUILD_LOCK_NOTE="another full build (pid ${hp:-?}) held .mxtk/build/ for ${waited}s"; return 1
@@ -914,9 +970,22 @@ mxtk_build_lock_release() {  # removes the lock only while it is ours
 
 # mxtk_build_tree_paths — a Java compile error printed from the copy names the copy's file; point it
 # back at the real one, so nobody edits .mxtk/build/. Pure bash, no process.
-mxtk_build_tree_paths() {
+mxtk_build_tree_paths() { mxtk_build_tree_unmap MXTK_MXBUILD_OUT; }
+# mxtk_build_tree_unmap <variable name> — rewrite the copy's paths in that variable to the real
+# model folder's: the POSIX form, the native C:\... form mxbuild.exe prints on Git Bash, and that
+# form with forward slashes. The pattern is quoted, so a [ * ? in the project path is literal
+# (#721 review). Bash builtins only; printf -v is bash 3.1+.
+mxtk_build_tree_unmap() {
   [ "${MXTK_BUILD_PLACE:-}" = copy ] && [ -n "$MXTK_BUILD_DST" ] || return 0
-  MXTK_MXBUILD_OUT="${MXTK_MXBUILD_OUT//$MXTK_BUILD_DST/$MXTK_BUILD_SRC}"
+  local _v _f _t
+  eval "_v=\${$1-}"
+  _v="${_v//"$MXTK_BUILD_DST"/$MXTK_BUILD_SRC}"
+  if [ -n "$MXTK_BUILD_DST_N" ] && [ "$MXTK_BUILD_DST_N" != "$MXTK_BUILD_DST" ]; then
+    _v="${_v//"$MXTK_BUILD_DST_N"/$MXTK_BUILD_SRC_N}"
+    _f="${MXTK_BUILD_DST_N//\\//}"; _t="${MXTK_BUILD_SRC_N//\\//}"
+    _v="${_v//"$_f"/$_t}"
+  fi
+  printf -v "$1" '%s' "$_v"
 }
 
 # mxtk_gate_mxbuild <mpr> <timeout-seconds> <errors-file> - the exec gate's way to run

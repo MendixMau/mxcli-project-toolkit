@@ -14,7 +14,7 @@ served folder alone: mxbuild then writes <dest>/deployment/.
 The copy is the WHOLE model directory, as bin/doctor.sh's gate self-test copies it (two field
 reports: a copy that leaves out a folder mxbuild reads fails the build falsely), minus what a build
 never reads. It is kept between builds and synced incrementally: a file is copied only when its size
-or mtime differs, and a file or folder that is gone from the model is removed from the copy, so a
+or mtime (nanoseconds) differs, and a file or folder that is gone from the model is removed from the copy, so a
 deleted javasource file cannot linger and compile. <dest>/deployment/ is the build's own output and
 is never touched here.
 
@@ -56,12 +56,14 @@ def sync_dir(src, dst, top, stats):
             st = e.stat()
             try:
                 dt = os.stat(d)
-                same = os.path.isfile(d) and dt.st_size == st.st_size and int(dt.st_mtime) == int(st.st_mtime)
+                same = os.path.isfile(d) and dt.st_size == st.st_size and dt.st_mtime_ns == st.st_mtime_ns
             except OSError:
                 same = False
             if not same:
                 if os.path.isdir(d) and not os.path.islink(d):
                     shutil.rmtree(d)
+                elif os.path.lexists(d):
+                    os.remove(d)  # a read-only copy (copy2 keeps the source's mode) cannot be opened for writing
                 shutil.copy2(s, d)
                 stats[0] += 1
     with os.scandir(dst) as it:

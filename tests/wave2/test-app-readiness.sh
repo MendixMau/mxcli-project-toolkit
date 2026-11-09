@@ -8,8 +8,11 @@
 # WHY (#686, field run 2026-11): about 9 false "not proven up after 240s" from app-restart.sh while
 # the app was serving; the agent re-proved each by hand at 2-4 min. The probe demanded Mendix words
 # in login.html / index.html — Mendix 11's login.html has none (the login page served below is the
-# shape of a Mendix 11.x deployment/web/login.html: no mxui / mx-name / "Mendix" / mxclientsystem),
-# and a themed index.html need not either. And a full mxbuild into deployment/ leaves a running
+# CAPTURED Mendix 11.13 deployment/web/login.html in fixtures/mendix11-web/: no mxui / mx-name /
+# "Mendix" / mxclientsystem), and a themed index.html need not either. The default index.html
+# does carry "Mendix" (its <title>), so a default app passed the old check: the false negatives
+# in #686 most likely came from the bundle 404 after an in-place full build and cold boots past
+# 240 s (R2, R4); the themed page (R1) is the third way. And a full mxbuild into deployment/ leaves a running
 # `run --local --watch` with no web client (/dist/index.js 404) until `mxcli run restart` (PR #700
 # run-2 experiment, R22).
 #
@@ -38,6 +41,8 @@ TOOLKIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SUBJECT="${1:-$TOOLKIT/project-bin/app-restart.sh}"
 case "$SUBJECT" in /*) ;; *) SUBJECT="$PWD/$SUBJECT" ;; esac
 GOLDEN="$TOOLKIT/tests/wave2/fixtures/run-local/run-local.json"
+WEB="$TOOLKIT/tests/wave2/fixtures/mendix11-web"   # captured index.html + login.html (Mendix 11.13)
+BUNDLE_SRC="$(grep -oE 'src="dist/index\.js[^"]*"' "$WEB/index.html" | head -1 | sed 's/^src="//; s/"$//')"
 PASS=0; FAIL=0
 ok()  { PASS=$((PASS+1)); echo "  ok   — $1"; }
 bad() { FAIL=$((FAIL+1)); echo "  FAIL — $1"; }
@@ -77,11 +82,12 @@ if (process.argv[2] === 'run' && process.argv[3] === 'restart') {   // mxcli's o
   for (let i = 0; i < 100 && !(fs.existsSync(hs) && recPid() !== old); i++) sleep(100);
   process.exit(0);
 }
-const login = '<!DOCTYPE html><html><head><meta charset="utf-8" /><title>Login</title><link rel="stylesheet" href="theme.compiled.css?1"></head>' +
-  '<body><div class="loginpage"><form id="loginForm" class="loginpage-form"><input id="usernameInput" class="form-control" type="text" /></form></div></body></html>';
-const index = has('.themed')
-  ? '<!DOCTYPE html><html lang="en"><head><title>Crew Roster</title></head><body><div id="root"></div><script src="dist/index.js?abc123" type="module"></script></body></html>'
-  : '<html><head><title>Mendix</title><script src="dist/index.js?abc123"></script></head><body class="mxui"></body></html>';
+// The pages are CAPTURED from a Mendix 11.13 deployment/web (fixtures/mendix11-web/, verbatim).
+// .themed = that index.html with its <title> changed, as a project theme may do.
+const web = process.env.FAKE_WEB;
+const login = fs.readFileSync(path.join(web, 'login.html'), 'utf8');
+let index = fs.readFileSync(path.join(web, 'index.html'), 'utf8');
+if (has('.themed')) index = index.replace('<title>Mendix</title>', '<title>Shop Portal</title>');
 const delay = has('.delay') ? parseInt(fs.readFileSync(path.join(dir, '.delay'), 'utf8'), 10) : 0;
 const quiet = has('.quiet');
 fs.writeFileSync(path.join(dir, '.fakepid'), String(process.pid));
@@ -115,12 +121,12 @@ JS
 }
 start_app() {  # $1 = project dir, $2 = extra flags; waits for the record
   rm -f "$1/.mxcli/run-local.json"
-  ( cd "$1" && FAKE_GOLDEN="$GOLDEN" setsid nohup ./mxcli run --local --watch ${2:-} -p Fixture.mpr >"$1/first.log" 2>&1 </dev/null & )
+  ( cd "$1" && FAKE_GOLDEN="$GOLDEN" FAKE_WEB="$WEB" setsid nohup ./mxcli run --local --watch ${2:-} -p Fixture.mpr >"$1/first.log" 2>&1 </dev/null & )
   local i; for i in $(seq 1 100); do [ -f "$1/.mxcli/run-local.json" ] && return 0; sleep 0.2; done; return 1
 }
 hs_pid() { sed -n 's/^  "pid": *\([0-9]*\).*/\1/p' "$1/.mxcli/run-local.json" 2>/dev/null; }
 alive() { [ -n "${1:-}" ] && kill -0 "$1" 2>/dev/null || return 1; case "$(ps -o stat= -p "$1" 2>/dev/null)" in Z*) return 1 ;; esac; }
-ar() { ( cd "$1" && shift && FAKE_GOLDEN="$GOLDEN" LOGDIR="$WORK" ./bin/app-restart.sh "$@" ) 2>&1; }
+ar() { ( cd "$1" && shift && FAKE_GOLDEN="$GOLDEN" FAKE_WEB="$WEB" LOGDIR="$WORK" ./bin/app-restart.sh "$@" ) 2>&1; }
 track() { KILL_LIST="$KILL_LIST $(hs_pid "$1")"; }
 
 PORT=$(( 20000 + RANDOM % 20000 ))
@@ -132,7 +138,7 @@ start_app "$P" && ok "[setup] stand-in app up" || bad "[setup] stand-in app neve
 track "$P"
 OUT="$(ar "$P" --timeout 12)"; RC=$?; track "$P"
 [ "$RC" -eq 0 ] && ok "R1 restarted and proven up (exit 0)" || bad "R1 exit $RC: $(printf '%s' "$OUT" | tail -3)"
-has "R1 proves the bundle the page loads" "$OUT" "dist/index.js?abc123 answers"
+has "R1 proves the bundle the page loads" "$OUT" "$BUNDLE_SRC answers"
 echo "-- R10 the restart recorded the new pid as toolkit-started"
 [ "$(cat "$P/.claude/loop/app-restart/owner.pid" 2>/dev/null)" = "$(hs_pid "$P")" ] && ok "R10 owner.pid is the new recorded pid" \
   || bad "R10 owner.pid '$(cat "$P/.claude/loop/app-restart/owner.pid" 2>/dev/null)' vs record '$(hs_pid "$P")'"
@@ -162,7 +168,7 @@ touch "$P/.break-next"   # the restarted process serves its pages but no bundle
 T0=$(date +%s)
 OUT="$(MXTK_RESTART_MAX=60 MXTK_RESTART_QUIET=30 ar "$P" --timeout 5)"; RC=$?; EL=$(( $(date +%s) - T0 )); track "$P"
 [ "$RC" -eq 1 ] && ok "R4 exit 1" || bad "R4 exit $RC: $(printf '%s' "$OUT" | tail -3)"
-has "R4 names the client bundle and its HTTP code" "$OUT" "down: client bundle http://127.0.0.1:$PORT/dist/index.js?abc123 → HTTP 404"
+has "R4 names the client bundle and its HTTP code" "$OUT" "down: client bundle http://127.0.0.1:$PORT/$BUNDLE_SRC → HTTP 404"
 has "R4 keeps the blank-page line" "$OUT" "Page bundle not served"
 hasnt "R4 does not wait on as if booting" "$OUT" "still booting"
 [ "$EL" -lt 25 ] && ok "R4 gave up at the timeout (${EL}s)" || bad "R4 waited ${EL}s for a client that a wait cannot bring back"

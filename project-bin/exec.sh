@@ -865,33 +865,8 @@ MXTK_BUILD_LOCK_KEEP=1   # the gate keeps the copy's lock; exec_lock_release dro
 # stale and a third contender got in: review of #324). It is moved aside, and put back with `ln`
 # (never clobbers; left on disk if that fails) if what was moved is not the one judged stale.
 # The holder removes the takeover file only while it still holds the line it wrote.
-exec_lock_takeover() {  # $1 = the stale lock line; 0 iff it was removed (or already gone)
-  _tk="$LOCK.takeover"; _mine="$$ ${EPOCHSECONDS:-$(date +%s)}"
-  if ! ( set -o noclobber; printf '%s\n' "$_mine" > "$_tk" ) 2>/dev/null; then
-    _t="$(head -1 "$_tk" 2>/dev/null || true)"; _tpid="${_t%% *}"; _tsince="${_t#* }"
-    case "$_tsince" in ''|*[!0-9]*) _tsince=0 ;; esac
-    _tstale=0
-    if [ -n "$_t" ]; then
-      { ! kill -0 "$_tpid" 2>/dev/null || [ $(( ${EPOCHSECONDS:-$(date +%s)} - _tsince )) -gt 10 ]; } && _tstale=1
-    elif [ -n "$(find "$_tk" -mmin +1 2>/dev/null)" ]; then
-      _tstale=1   # empty for over a minute: its creator died between the create and the write
-    fi
-    if [ "$_tstale" = 1 ]; then
-      if mv "$_tk" "$_tk.stale.$$" 2>/dev/null; then
-        # Remove what was moved ONLY if it is what was judged stale; anything else is someone's
-        # live takeover file: put it back (ln never clobbers), and if that fails leave it be.
-        # Same body as test-scratch.sh's take_over() — keep the two in step (PR #322).
-        if [ "$(head -1 "$_tk.stale.$$" 2>/dev/null || true)" = "$_t" ]; then rm -f "$_tk.stale.$$"
-        else ln "$_tk.stale.$$" "$_tk" 2>/dev/null && rm -f "$_tk.stale.$$"; fi
-      fi
-    fi
-    return 1
-  fi
-  _now="$(head -1 "$LOCK" 2>/dev/null || true)"
-  [ "$_now" = "$1" ] && rm -f "$LOCK"
-  [ "$(head -1 "$_tk" 2>/dev/null || true)" = "$_mine" ] && rm -f "$_tk"   # only our own takeover file
-  return 0
-}
+# The protocol lives in _common.sh (mxtk_lock_takeover), shared with the full-build copy's lock.
+exec_lock_takeover() { mxtk_lock_takeover "$LOCK" "$1"; }   # $1 = the stale lock line (_common.sh)
 LOCK_TAKEN=0
 for _try in 1 2 3 4 5 6; do
   if exec_lock_try; then LOCK_TAKEN=1; break; fi
@@ -2668,7 +2643,22 @@ watch_theme_changes() {  # prints up to 3 theme files newer than the run --local
 # and each one cost a 40 s+ restart. The evidence is model-scope.py's count above (units vs HEAD,
 # the model having been committed when this exec started): 0 real changes. Without that count
 # (v1 single-file model, MXTK_NO_SCOPE, an uncommitted start) nothing changes here.
-_model_same() { case "${SCOPE_NOTE:-}" in "scope: "[0-9]*" unit file(s) changed, 0 real"*) return 0 ;; esac; return 1; }
+# Never "same" for a --patch script (opaque), nor when this exec wrote Java/JavaScript actions,
+# theme, userlib or widgets beside the model (#721 review: those need a restart with 0 units
+# changed). Evidence for the second: a file there newer than this exec's pre-write snapshot
+# (javasource/*/proxies/ excluded: a build regenerates them). One `find`, only on this path.
+_model_same() {
+  [ "$PATCH_MODE" = 1 ] && return 1
+  case "${SCOPE_NOTE:-}" in "scope: "[0-9]*" unit file(s) changed, 0 real"*) ;; *) return 1 ;; esac
+  [ -n "${SNAP_NOW:-}" ] && [ -d "$SNAP_NOW" ] || return 1
+  _side=""
+  for _sd in javasource javascriptsource theme themesource userlib widgets; do
+    [ -d "$MODEL_DIR/$_sd" ] && _side="$_side $MODEL_DIR/$_sd"
+  done
+  [ -z "$_side" ] && return 0
+  # shellcheck disable=SC2086
+  [ -z "$(find $_side -path '*/javasource/*/proxies' -prune -o -type f -newer "$SNAP_NOW" -print 2>/dev/null | head -1)" ]
+}
 _hs_present() { [ -f "$(cd "${MPR%/*}" && pwd)/.mxcli/run-local.json" ] || [ -f "$MODEL_DIR/.mxcli/run-local.json" ]; }
 # After a full build into deployment/, a running `run --local --watch` serves no web client
 # (/dist/index.js 404, PR #700 run-2) until it is restarted. The gate builds a copy

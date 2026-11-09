@@ -61,8 +61,8 @@ RC=0
 # mxtk_reaped (_common.sh): stops the deno helper this mxbuild leaves behind, and nothing else (#708).
 mxtk_reaped "$MXBUILD" --java-home="$JAVA_HOME" --java-exe-path="$JAVA_EXE" --write-errors="$ERR" --target=deploy "$BUILD_MPR" > "$OUT" 2>&1 < /dev/null || RC=$?
 command -v mxtk_build_lock_release >/dev/null 2>&1 && mxtk_build_lock_release   # taken in mxtk_build_tree
-if [ "$PLACE" = copy ] && [ -n "${MXTK_BUILD_DST:-}" ]; then   # copy paths in mxbuild's output → the real files
-  _o="$(cat "$OUT")"; printf '%s\n' "${_o//$MXTK_BUILD_DST/$MXTK_BUILD_SRC}" > "$OUT"
+if [ "$PLACE" = copy ] && command -v mxtk_build_tree_unmap >/dev/null 2>&1; then   # copy paths in mxbuild's output → the real files
+  _o="$(cat "$OUT")"; mxtk_build_tree_unmap _o; printf '%s\n' "$_o" > "$OUT"
 fi
 # Killed for lack of memory (exit 137 / OOM text): name the cause instead of "errors file unreadable".
 _out_txt=""; [ "$RC" -eq 0 ] || _mxtk_slurp _out_txt "$OUT"

@@ -25,7 +25,8 @@
 #   #686:   E1 a restart-class script that changed nothing in the model (model-scope.py: 0 real)
 #           asks for no restart; E2 the same script that did change it still does; E3 a full gate
 #           built in place with an app recorded asks app-restart.sh --if-client-gone and reports the
-#           restart done; E4 a full gate built in the copy (.mxtk/build/) asks nothing.
+#           restart done; E4 a full gate built in the copy (.mxtk/build/) asks nothing; E5 a Java
+#           action written with 0 units changed, E6 an opaque --patch script → restart still asked.
 #
 # NOTHING here touches a real .mpr, mxcli, mxbuild or app. Throwaway git repos with stubs, as
 # in test-bug07-08.sh.
@@ -427,6 +428,28 @@ has "E4 the script's own restart need is still reported" "$OUT" "→ Watch: rest
 [ ! -e "$P/.mpr-snapshots/.build.lock" ] && ok "E4 the copy's build lock is gone after the exec" || bad "E4 exec left .mpr-snapshots/.build.lock behind"
 rm -f "$P/bin/app-restart.sh" "$P/.ar-calls" "$P/bin/build-tree.py"
 ( cd "$P" && git add -A mprcontents bin && git -c user.email=t@t -c user.name=t commit -qm w3 ) >/dev/null 2>&1
+# #721 review: 0 units changed is not "no restart" when the exec wrote beside the model (a Java
+# action, theme, userlib, widgets) or ran an opaque --patch script.
+mkdir -p "$P/javasource/shop/actions"; printf 'class A {}\n' > "$P/javasource/shop/actions/A.java"
+( cd "$P" && git add javasource && git -c user.email=t@t -c user.name=t commit -qm java ) >/dev/null 2>&1
+cat > "$P/mxcli" <<'MXCLI'
+#!/usr/bin/env bash
+case "${1:-}" in check) exit 0 ;; exec) echo "fake mxcli exec"; [ -n "${FAKE_JAVA:-}" ] && printf 'class A { int x; }\n' > javasource/shop/actions/A.java; exit 0 ;; esac
+exit 0
+MXCLI
+chmod +x "$P/mxcli"
+OUT="$(FAKE_JAVA=1 run "$P" mdlsource/grant.mdl)"
+has "E5 0 units changed but a Java action rewritten → restart needed" "$OUT" "→ Watch: restart needed: "
+hasnt "E5   not 'changed nothing'" "$OUT" "changed nothing in the model"
+( cd "$P" && git add javasource && git -c user.email=t@t -c user.name=t commit -qm java2 ) >/dev/null 2>&1
+printf '#!/usr/bin/env bash\nexit 0\n' > "$P/mdlsource/noop-patch.sh"; chmod +x "$P/mdlsource/noop-patch.sh"
+( cd "$P" && git add mdlsource && git -c user.email=t@t -c user.name=t commit -qm patch ) >/dev/null 2>&1
+OUT="$(run "$P" --patch mdlsource/noop-patch.sh)"
+case "$OUT" in *"→ Watch:"*)
+  has "E6 a --patch script that changed no unit → still restart needed (opaque)" "$OUT" "→ Watch: restart needed: --patch script"
+  hasnt "E6   not 'changed nothing'" "$OUT" "changed nothing in the model" ;;
+  *) bad "E6 [setup] the --patch exec did not reach the watch advisory: $(printf '%s' "$OUT" | tail -4)" ;;
+esac
 
 echo "-- lint-gate's SEC014 note reaches a clean exec (#312)"
 # The note line is lint-gate.sh's own text in PR #312 (project-bin/lint-gate.sh, stderr, rc 0).

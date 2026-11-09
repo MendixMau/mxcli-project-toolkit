@@ -50,7 +50,13 @@ case "$score" in *"unknown mode"*) score=$(bash bin/metrics-ledger.sh score 2>&1
 # mxcli v0.29.0 changed what this checks (ako/mxcli#568, #646): `docker check` now checks the
 # project as stored, so a stale widget definition (CE0463) that passed here on v0.28 is reported
 # now. That is a real finding about the model, not a toolkit regression: `mxcli fix widgets`.
-chk=$("$MX" docker check -p "$MPR" ${MXB:+--mxbuild-path "$MXB"} 2>&1 | grep -v WARNING | tail -3)
+# Output goes to a file, never $(...): mxbuild's deno helper can hold stdout open (#708).
+# NOT reaped: mxcli starts mxbuild in a process group of its own, so mxtk_reaped (_common.sh) sees
+# none of that deno; bin/doctor.sh --cleanup is the fallback. Kept on mxtk_reaped so the reap
+# applies the day mxcli keeps its children in its group.
+_chk_out=$(mktemp "${TMPDIR:-/tmp}/module-close-check.XXXXXX")
+mxtk_reaped "$MX" docker check -p "$MPR" ${MXB:+--mxbuild-path "$MXB"} > "$_chk_out" 2>&1 < /dev/null || true
+chk=$(grep -v WARNING "$_chk_out" | tail -3); rm -f "$_chk_out"
 # `Gate mode: check` (exec.sh): the module's execs were `mx check`ed, which compiles no Java. The
 # module boundary is one of the natural places for the full build, so run it here when the stamp
 # says the model has not had one (bin/verify-model.sh: mxbuild deploy build, stamps when clean).

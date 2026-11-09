@@ -45,6 +45,8 @@
 #   bin/doctor.sh --cleanup                 # list leftover mxbuild helper processes (deno from modeler/tools/deno,
 #                                           # older than 10 min, no live mxbuild parent) and stop exactly those after
 #                                           # you type y. With no terminal it prints the command and stops nothing.
+#                                           # Also offers to remove <project>/.mxtk/build/ (the copy the toolkit's
+#                                           # full builds run in, #686; rebuilt on the next full build).
 #                                           # Every normal run also has a "Machine health" section (same leftovers
 #                                           # plus free memory): mxbuild is killed with exit 137 when memory runs out.
 #   bin/doctor.sh --gate-selftest [<dir>]   # force the gate self-test section to run even
@@ -735,6 +737,20 @@ machine_health() {
 
 # --cleanup: list the leftovers machine_health counts, stop them ONLY after a typed y at a terminal.
 if [ "$CLEANUP" = 1 ]; then
+  # The full-build copy (#686: mxtk_build_tree in project-bin/_common.sh) is a cache: one copy of
+  # the model directory plus its deployment/ output. Removing it costs one cold build next time.
+  _bt="${PROJECT_DIR:-.}/.mxtk/build"
+  if [ -d "$_bt" ]; then
+    head_ "Cleanup: the full-build copy ($_bt)"
+    note "$(du -sh "$_bt" 2>/dev/null | awk '{print $1}') on disk; the next full build recreates it (one cold build)."
+    if [ -t 0 ] && [ -t 1 ]; then
+      printf '  Remove it? Type y to confirm, anything else keeps it: '
+      _bt_ans=""; read -r _bt_ans || true
+      if [ "$_bt_ans" = y ] || [ "$_bt_ans" = Y ]; then rm -rf "$_bt" && ok "removed $_bt"; else note "Kept."; fi
+    else
+      note "No terminal to ask on, so it was kept. To remove it yourself:  rm -rf $_bt"
+    fi
+  fi
   head_ "Cleanup: leftover mxbuild helpers (deno)"
   if [ "$MH_OS" = gitbash ]; then command -v wmic >/dev/null 2>&1 || { bad "cannot list processes: wmic is missing. Use Task Manager (deno.exe under modeler\\tools\\deno)."; exit 1; }
   else command -v ps >/dev/null 2>&1 || { bad "cannot list processes: no ps on this machine."; exit 1; }; fi
@@ -2161,7 +2177,7 @@ gate_selftest() {
   # this self-test would then report as "gate cannot read mxbuild's error file", a false FAIL
   # on a healthy gate (reported 2026-09-22 by Yvann).
   model_dir="$(dirname "$MPR")"
-  copy_excl=".git deployment node_modules .mpr-snapshots"
+  copy_excl=".git deployment node_modules .mpr-snapshots .mxtk"
   copy_ok=1
   for entry in "$model_dir"/* "$model_dir"/.[!.]*; do
     [ -e "$entry" ] || continue

@@ -2655,6 +2655,33 @@ watch_theme_changes() {  # prints up to 3 theme files newer than the run --local
       -newer "$_hs" -print 2>/dev/null
   done | head -3 | sed "s|^$MODEL_DIR/||"
 }
+# An exec that changed nothing in the model needs no restart for itself (#686): the second run of
+# "exec every change twice", or a re-applied idempotent GRANT, printed "restart needed" every time,
+# and each one cost a 40 s+ restart. The evidence is model-scope.py's count above (units vs HEAD,
+# the model having been committed when this exec started): 0 real changes. Without that count
+# (v1 single-file model, MXTK_NO_SCOPE, an uncommitted start) nothing changes here.
+_model_same() { case "${SCOPE_NOTE:-}" in "scope: "[0-9]*" unit file(s) changed, 0 real"*) return 0 ;; esac; return 1; }
+_hs_present() { [ -f "$(cd "${MPR%/*}" && pwd)/.mxcli/run-local.json" ] || [ -f "$MODEL_DIR/.mxcli/run-local.json" ]; }
+# After a full build into deployment/, a running `run --local --watch` serves no web client
+# (/dist/index.js 404, PR #700 run-2) until it is restarted. The gate builds a copy
+# (mxtk_build_tree, _common.sh), so this is the rare case: MXTK_GATE_IN_PLACE=1, no Python, or
+# a copy that failed. Then, when an app is recorded, check it:
+# still served → nothing; gone → app-restart.sh restarts it if the toolkit started it, or prints
+# the hint (exit 6). No record → the one-line note, as before. CLIENT_RESTARTED=1 when it restarted.
+CLIENT_RESTARTED=0
+after_full_build() {
+  if [ "${MXTK_BUILD_PLACE:-}" = copy ]; then
+    echo "  full build ran in .mxtk/build/ — the running app's deployment/ was not touched"; return 0
+  fi
+  [ -n "${MXTK_BUILD_NOTE:-}" ] && echo "  full build ran in place (${MXTK_BUILD_NOTE}): deployment/ was rewritten"
+  if _hs_present && [ -f "$_XD/app-restart.sh" ]; then
+    _ar_out="$(bash "$_XD/app-restart.sh" --if-client-gone 2>&1)"; _ar_rc=$?
+    printf '%s\n' "$_ar_out" | sed 's/^/  /'
+    [ "$_ar_rc" = 0 ] && case "$_ar_out" in *"restarts it now"*) CLIENT_RESTARTED=1 ;; esac
+  else
+    echo "  $MXTK_WATCH_NOTE"
+  fi
+}
 print_watch_compat() {
   if [ "$PATCH_MODE" = 1 ]; then
     _wc="restart	--patch script (opaque to the classifier — assume it needs one)"
@@ -2663,13 +2690,23 @@ print_watch_compat() {
   fi
   _why="${_wc#*	}"
   _theme="$(watch_theme_changes 2>/dev/null | tr '\n' ' ' || true)"
+  if _model_same && [ "${_wc%%	*}" != watch ]; then
+    _wc="same	"
+  fi
   if [ -n "$_theme" ]; then
     [ "${_wc%%	*}" = restart ] && _why="$_why; " || _why=""
     _wc="restart"; _why="${_why}theme SCSS/JS changed since the app booted: ${_theme% }"
   fi
   echo ""
   case "${_wc%%	*}" in
+    same)
+      echo "→ Watch: no restart for this exec — it changed nothing in the model (${SCOPE_NOTE#scope: })."
+      echo "  A restart an earlier exec asked for still stands." ;;
     restart)
+      if [ "$CLIENT_RESTARTED" = 1 ]; then
+        echo "→ Watch: restart needed: $_why — done: the app was restarted after the full build (above)"
+        return 0
+      fi
       echo "→ Watch: restart needed: $_why"
       echo "  run --local --watch keeps serving the OLD model for these. Restart this app only:"
       echo "  ./bin/app-restart.sh   (stale-runtime symptoms + what watch covers: toolkit skills/ui-loop.md)" ;;
@@ -2682,6 +2719,7 @@ print_watch_compat() {
       else echo "→ Watch: watch can apply this"; fi ;;
   esac
 }
+[ "${GATE_KIND:-}" = full ] && [ "$GATE_STATE" = pass ] && { echo ""; after_full_build || true; }
 print_watch_compat || true
 
 if [ "$GATE_STATE" != "pass" ]; then
@@ -2737,9 +2775,6 @@ echo "  elapsed: ${_EL}s (check + snapshot + exec + mxbuild gate)"
 if [ -n "$STEP_TIMES" ]; then echo "  steps: $STEP_TIMES"; fi
 [ -n "$CHANGE_CLASS" ] && echo "  change class: $CHANGE_CLASS — test lane: $(change_lane)"
 [ -n "$FIRST_PAGE_MODS" ] && echo "  first page row of $FIRST_PAGE_MODS: also a LOOK at 390 (phone layout) of the page(s) it wrote, on top of this mode's per-row check"
-# A full build replaces the bundle a running `mxcli run --local --watch` serves (/dist/index.js 404
-# until a restart; PR #700 run-2 experiment). One line, no behaviour change.
-[ "${GATE_KIND:-}" = full ] && [ "$GATE_STATE" = pass ] && echo "  $MXTK_WATCH_NOTE"
 # A budget, not a gate: a normal run is 30-90 s on a healthy machine. Past 4 minutes the
 # usual cause is the machine (Defender scanning every fork, OneDrive, a slow disk), and
 # doctor --quick names which — the reader should not have to guess "is it me or the toolkit".

@@ -840,6 +840,45 @@ _mxtk_slurp() {
   printf -v "$1" '%s' "$_s"
 }
 
+# mxtk_build_tree <mpr> — where the toolkit's full build runs. Sets MXTK_BUILD_MPR to the .mpr
+# inside <project>/.mxtk/build/model/, a synced copy of the model directory (bin/build-tree.py: one
+# Python start, incremental), and MXTK_BUILD_PLACE=copy; or, when that cannot be done, to <mpr>
+# itself with MXTK_BUILD_PLACE=in-place and MXTK_BUILD_NOTE saying why.
+# WHY (#686): mxbuild writes <app dir>/deployment/ whatever --target or --output says (measured on
+# mxbuild 11.13.0: the deploy AND the package target both rewrote deployment/web/dist), and a
+# running `mxcli run --local --watch` serves deployment/web — every toolkit full build left it with
+# no web client (/dist/index.js 404) until a restart. deployment/ is now only for what mxcli run
+# builds. The errors file, the error count and its CE codes come from the same model bytes; the
+# stamp and fingerprints are taken from the real model by their own callers. Cost: one Python
+# start per build plus a copy of the model directory and one deployment/ under .mxtk/build/ on disk
+# (bin/doctor.sh --cleanup removes it). MXTK_GATE_IN_PLACE=1 builds in place, as before.
+mxtk_build_tree() {
+  local _r="${PROJECT_ROOT:-$(dirname "$1")}" _o _py
+  MXTK_BUILD_MPR="$1"; MXTK_BUILD_PLACE=in-place; MXTK_BUILD_NOTE=""; MXTK_BUILD_SRC=""; MXTK_BUILD_DST=""
+  [ "${MXTK_GATE_IN_PLACE:-0}" = 1 ] && { MXTK_BUILD_NOTE="MXTK_GATE_IN_PLACE=1"; return 0; }
+  [ -f "$_r/bin/build-tree.py" ] || { MXTK_BUILD_NOTE="bin/build-tree.py not installed (sync-project.sh)"; return 0; }
+  _py="${PY:-${MXTK_PY_MEMO:-$(resolve_py 2>/dev/null || true)}}"
+  [ -n "$_py" ] || { MXTK_BUILD_NOTE="no Python 3"; return 0; }
+  if _o="$("$_py" -I "$(native_path "$_r/bin/build-tree.py")" "$(native_path "$1")" "$(native_path "$_r/.mxtk/build/model")" 2>&1)"; then
+    MXTK_BUILD_MPR="${_o##*$'\n'}"; MXTK_BUILD_MPR="${MXTK_BUILD_MPR%$'\r'}"
+    case "$MXTK_BUILD_MPR" in [A-Za-z]:*) MXTK_BUILD_MPR="$(mxtk_posix_path "$MXTK_BUILD_MPR")" ;; esac
+    if [ -f "$MXTK_BUILD_MPR" ]; then
+      MXTK_BUILD_PLACE=copy; MXTK_BUILD_DST="${MXTK_BUILD_MPR%/*}"
+      MXTK_BUILD_SRC="${_o%$'\n'*}"; MXTK_BUILD_SRC="${MXTK_BUILD_SRC##*$'\n'}"; MXTK_BUILD_SRC="${MXTK_BUILD_SRC%$'\r'}"
+      case "$MXTK_BUILD_SRC" in [A-Za-z]:*) MXTK_BUILD_SRC="$(mxtk_posix_path "$MXTK_BUILD_SRC")" ;; esac
+      return 0
+    fi
+    MXTK_BUILD_MPR="$1"
+  fi
+  MXTK_BUILD_NOTE="the copy failed: ${_o##*$'\n'}"
+}
+# mxtk_build_tree_paths — a Java compile error printed from the copy names the copy's file; point it
+# back at the real one, so nobody edits .mxtk/build/. Pure bash, no process.
+mxtk_build_tree_paths() {
+  [ "${MXTK_BUILD_PLACE:-}" = copy ] && [ -n "$MXTK_BUILD_DST" ] || return 0
+  MXTK_MXBUILD_OUT="${MXTK_MXBUILD_OUT//$MXTK_BUILD_DST/$MXTK_BUILD_SRC}"
+}
+
 # mxtk_gate_mxbuild <mpr> <timeout-seconds> <errors-file> - the exec gate's way to run
 # mxbuild: mxtk_mxbuild_error_count with this project's watcher paused around it, and ONE
 # retry when mxbuild exits 1 or 3 and left no sign of a model problem (no CE code in its
@@ -864,7 +903,9 @@ mxtk_gate_mxbuild() {
     return "$_rc"
   fi
   mxtk_pause_watchers "${PROJECT_ROOT:-$(dirname "$_mpr")}"
+  mxtk_build_tree "$_mpr"; _mpr="$MXTK_BUILD_MPR"   # a copy: deployment/ is the running app's (#686)
   mxtk_mxbuild_error_count "$_mpr" "$_timeout" "$_ef" >/dev/null || _rc=$?
+  mxtk_build_tree_paths
   case "${MXTK_MXBUILD_EXIT:-}" in
     1|3)
       # A deploy-stage message that already survived one retry in this run (the baseline's)
@@ -879,6 +920,7 @@ mxtk_gate_mxbuild() {
         : > "$_ef"
         _rc=0
         mxtk_mxbuild_error_count "$_mpr" "$_timeout" "$_ef" >/dev/null || _rc=$?
+        mxtk_build_tree_paths
         # Same deploy-stage failure twice: remember its text, so a later build in this run
         # (the gate after the baseline) does not retry it again (#494 review).
         case "${MXTK_MXBUILD_EXIT:-}" in
@@ -1413,6 +1455,52 @@ mxtk_holder_text() {
     [ -n "$pp" ] && [ "$pp" != 1 ] && [ -n "$pn" ] && printf ' (parent: %s pid %s)' "$pn" "$pp"
   fi
   printf '\n'
+}
+
+# mxtk_app_probe <app port> [admin port] — is a run --local app serving its client? One pass, no wait.
+# 0 = up: <app port> serves /index.html (2xx/3xx) AND the client bundle that page loads (dist/*.js or
+# mxui.js; /dist/index.js when the page names neither — a themed index.html) answers 2xx with a body
+# that is not HTML (an SPA catch-all answers every path with its index page).
+# 1 = not up. MXTK_PROBE_DOWN names the part that is down, in words a reader can act on; the admin
+# API (127.0.0.1:<admin port>, where mxcli always binds it) only sharpens that message — it is never
+# required, so a wrong admin port can not turn a serving app into "down".
+# Sets MXTK_PROBE_BUNDLE (the bundle URL tried, with its HTTP code when it failed).
+# WHY (#686: 9 false "not proven up after 240s" in one field run while the app served, each
+# re-proved by hand at 2-4 min). app-restart.sh required Mendix words in login.html / index.html.
+# Mendix 11's login.html carries none (checked on a Mendix 11 deployment/web), and a themed
+# index.html need not either, so a serving app could read "does not serve a Mendix page" for the
+# whole wait. The record's pid and port already say whose app it is (ports are ownership-checked
+# before the start); the bundle answering as JavaScript says the client is there. 127.0.0.1, not
+# localhost: mxcli binds the app (and always the admin API) to 127.0.0.1 by default.
+mxtk_app_probe() {
+  local p="$1" a="${2:-}" h="http://127.0.0.1" code src first adm=""
+  MXTK_PROBE_DOWN=""; MXTK_PROBE_BUNDLE=""
+  if [ -n "$a" ]; then
+    code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 -X POST -H 'Content-Type: application/json' \
+      -d '{"action":"runtime_status","params":{}}' "$h:$a/" 2>/dev/null)"
+    case "$code" in ''|000) adm="the runtime's admin API :$a does not answer either — the runtime is not up" ;;
+                    *) adm="the runtime's admin API :$a answers — the runtime is up, its app is not (yet)" ;; esac
+  fi
+  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 4 "$h:$p/index.html" 2>/dev/null)"
+  case "$code" in
+    2??|3??) ;;
+    *) MXTK_PROBE_DOWN="app port :$p does not serve index.html (HTTP ${code:-none})${adm:+; $adm}"; return 1 ;;
+  esac
+  src="$(curl -s --max-time 4 "$h:$p/index.html" 2>/dev/null | head -c 50000 \
+        | grep -oE 'src="[^"]*(dist/[^"]*\.js|mxui\.js)[^"]*"' | head -1 | sed 's/^src="//; s/"$//')"
+  [ -n "$src" ] || src="/dist/index.js"
+  case "$src" in http*) ;; /*) src="$h:$p$src" ;; *) src="$h:$p/$src" ;; esac
+  MXTK_PROBE_BUNDLE="$src"
+  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 6 "$src" 2>/dev/null)"
+  case "$code" in
+    2??) first="$(curl -s --max-time 6 "$src" 2>/dev/null | head -c 512 | tr -d ' \t\r\n' | cut -c1)"
+         [ "$first" != "<" ] && return 0
+         MXTK_PROBE_BUNDLE="$src → HTML, not JavaScript"
+         MXTK_PROBE_DOWN="client bundle $src answers with an HTML page, not JavaScript — no Mendix client is served"; return 1 ;;
+  esac
+  MXTK_PROBE_BUNDLE="$src → HTTP ${code:-none}"
+  MXTK_PROBE_DOWN="client bundle $src → HTTP ${code:-none}: the runtime serves pages but no web client (after a full build into deployment/, a run --local --watch app serves none until it is restarted)"
+  return 1
 }
 
 # mxtk_pid_in_tree <pid> <root pid> — 0 when <pid> is <root pid> or a descendant of it (walked up

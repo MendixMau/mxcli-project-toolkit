@@ -2,6 +2,7 @@
 # verify-model.sh — run the mxbuild gate on the model AS IT IS, and stamp it if clean.
 #
 #   ./bin/verify-model.sh            # mxbuild --target=deploy, print the error count, stamp on 0
+#                                    # (built in a synced copy, .mxtk/build/model/ — never the app's deployment/, #686)
 #   ./bin/verify-model.sh --no-stamp # just the verdict
 #
 # The standalone half of the verification stamp (bin/model-stamp.sh). exec.sh stamps the
@@ -47,9 +48,20 @@ if [ -z "$PY" ]; then
 fi
 
 echo "→ mxbuild gate on $(basename "$MPR") ($MXBUILD)..."
+# Build a synced copy (.mxtk/build/model/, mxtk_build_tree in _common.sh): mxbuild writes
+# <app dir>/deployment/, which a running `mxcli run --local --watch` serves (#686).
+BUILD_MPR="$MPR"; PLACE=in-place
+if command -v mxtk_build_tree >/dev/null 2>&1; then
+  mxtk_build_tree "$MPR"; BUILD_MPR="$MXTK_BUILD_MPR"; PLACE="$MXTK_BUILD_PLACE"
+  [ "$PLACE" = copy ] || echo "  (building in place: ${MXTK_BUILD_NOTE:-old _common.sh} — deployment/ is rewritten)"
+fi
+mkdir -p .claude/loop 2>/dev/null && printf '%s\n' "$PLACE" > .claude/loop/last-full-build 2>/dev/null || true
 ERR="$(mktemp "${TMPDIR:-/tmp}/verify-model-errors.XXXXXX")"; OUT="$(mktemp "${TMPDIR:-/tmp}/verify-model-out.XXXXXX")"
 RC=0
-"$MXBUILD" --java-home="$JAVA_HOME" --java-exe-path="$JAVA_EXE" --write-errors="$ERR" --target=deploy "$MPR" > "$OUT" 2>&1 < /dev/null || RC=$?
+"$MXBUILD" --java-home="$JAVA_HOME" --java-exe-path="$JAVA_EXE" --write-errors="$ERR" --target=deploy "$BUILD_MPR" > "$OUT" 2>&1 < /dev/null || RC=$?
+if [ "$PLACE" = copy ] && [ -n "${MXTK_BUILD_DST:-}" ]; then   # copy paths in mxbuild's output → the real files
+  _o="$(cat "$OUT")"; printf '%s\n' "${_o//$MXTK_BUILD_DST/$MXTK_BUILD_SRC}" > "$OUT"
+fi
 
 if [ ! -s "$ERR" ] && [ "$RC" -eq 0 ]; then
   COUNT=0; CODES=""
@@ -85,6 +97,7 @@ for x in [p for p in d.get('problems',[]) if p.get('severity')=='Error'][:15]:
   rm -f "$ERR" "$OUT"; exit 1
 fi
 echo "✓ mxbuild: 0 errors — model is clean."
+[ "$PLACE" = copy ] && echo "  (built in .mxtk/build/ — the running app's deployment/ was not touched)"
 rm -f "$ERR" "$OUT"
 [ "$STAMP" = 1 ] && MXTK_STAMP_KIND=full MXTK_STAMP_ERRORS=0 ./bin/model-stamp.sh write pass "verify-model.sh"
 # `Gate mode: check` bookkeeping (exec.sh "Gate kind"): this full build compiled the Java of

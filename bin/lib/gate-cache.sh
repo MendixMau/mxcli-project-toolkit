@@ -216,3 +216,88 @@ gc_cache_end() {
   rm -f "$out" "$GC_CACHE_REF.new" "$GC_CACHE_FILE" "$GC_CACHE_REF" "$GC_CACHE_REF2" 2>/dev/null
   return 0
 }
+
+# ---------------------------------------------------------------------------------------------
+# Stage-4 coverage cache (#686 speed audit). stage4_coverage runs coverage-preflight.sh once per
+# module ledger on EVERY gate-check round — ~25 s of a Stage 5+ query on a field project — to
+# re-derive a verdict whose inputs rarely change between rounds. The whole-evaluation cache
+# above cannot help: during a build something in the project changes every round.
+#
+# So this one is keyed on exactly what the measurement reads, by CONTENT, never by mtime:
+#   - every file under <project>/architecture/ (ledgers in all four shapes, build plans, briefs:
+#     a superset of what preflight reads, so no ledger shape can be missed);
+#   - every BRD where coverage-preflight.sh or discover-brds.sh looks
+#     (analysis/*/brd, analysis/*/knowledge-base/brd, analysis/knowledge-base/brd, knowledge-base/brd);
+#   - the toolkit code that produces the verdict (preflight, coverage-check, _common, _claims,
+#     gate-check, this file, discover-brds), so a toolkit pull is a miss;
+#   - the absolute project dir and the environment the measurement reads (COVERAGE_ENGINE,
+#     LEDGER_FILE, BRD_FILE, COVERAGE_CHECK_CAP, PATH).
+# `cksum` prints each file's path, size and CRC, so an edit, an overwrite that keeps the old mtime
+# (cp -p, touch -d), an added file and a deleted one all change the key. The signature is taken
+# before AND after the measurement and the result is stored only when both match, so an edit
+# made while preflight ran is never stored under the old key. Any failure to compute it is a
+# miss, never a hit. File: <project>/.mxtk/gate-cache-s4cov (the name keeps it out of the
+# whole-evaluation cache's freshness scan); written only where gc_cache_begin would write.
+# Opt-out: MXTK_S4COV_CACHE=0, or MXTK_GATE_CACHE_TTL_MIN=0 (turns every gate cache off).
+# ---------------------------------------------------------------------------------------------
+
+# gc_s4cov_enabled — may this run read/write the stage-4 coverage cache? Sets GC_S4_FILE.
+gc_s4cov_enabled() {
+  GC_S4_FILE=""
+  [ "${MXTK_S4COV_CACHE:-1}" = "0" ] && return 1
+  [ "${MXTK_GATE_CACHE_TTL_MIN:-30}" = "0" ] && return 1
+  [ -d "${PROJECT_DIR:-/nonexistent}" ] || return 1
+  if [ ! -d "$PROJECT_DIR/.mxtk" ]; then
+    grep -qsE '^/?\.mxtk/?[[:space:]]*$' "$PROJECT_DIR/.gitignore" 2>/dev/null || return 1
+  fi
+  GC_S4_FILE="$PROJECT_DIR/.mxtk/gate-cache-s4cov"
+}
+
+# gc_s4cov_key <architecture-dir> — sets GC_S4_KEY (one line); returns 1 if it cannot be computed.
+gc_s4cov_key() {
+  local arch="$1" abs s f
+  GC_S4_KEY=""
+  abs="$(cd "$PROJECT_DIR" 2>/dev/null && pwd -P)" || return 1
+  s="$( {
+          [ -d "$arch" ] && find "$arch" -type f -print0 2>/dev/null
+          for f in "$PROJECT_DIR"/analysis/*/brd/*.brd.json "$PROJECT_DIR"/analysis/*/knowledge-base/brd/*.brd.json \
+                   "$PROJECT_DIR"/analysis/knowledge-base/brd/*.brd.json "$PROJECT_DIR"/knowledge-base/brd/*.brd.json \
+                   "$TOOLKIT_DIR"/project-bin/coverage-preflight.sh "$TOOLKIT_DIR"/project-bin/_common.sh \
+                   "$TOOLKIT_DIR"/project-bin/_claims.sh "$TOOLKIT_DIR"/bin/coverage-check.sh \
+                   "$TOOLKIT_DIR"/bin/gate-check.sh "$TOOLKIT_DIR"/bin/lib/gate-cache.sh \
+                   "$TOOLKIT_DIR"/bin/lib/discover-brds.sh; do
+            [ -f "$f" ] && printf '%s\0' "$f"
+          done
+        } | LC_ALL=C sort -z | xargs -0 cksum 2>/dev/null | cksum 2>/dev/null )" || return 1
+  [ -n "$s" ] || return 1
+  GC_S4_KEY="s4cov-v1|dir=$abs|arch=$arch|sig=${s// /-}|engine=${COVERAGE_ENGINE:-}|ledger=${LEDGER_FILE:-}|brd=${BRD_FILE:-}|cap=${COVERAGE_CHECK_CAP:-}|path=${PATH:-}"
+  GC_S4_KEY="${GC_S4_KEY//$'\n'/ }"
+}
+
+# gc_s4cov_get — on a hit prints the cached result (may be empty) and returns 0; else returns 1.
+# Needs GC_S4_FILE and GC_S4_KEY.
+gc_s4cov_get() {
+  local all
+  [ -n "${GC_S4_FILE:-}" ] && [ -n "${GC_S4_KEY:-}" ] && [ -f "$GC_S4_FILE" ] || return 1
+  IFS= read -r -d '' all < "$GC_S4_FILE" || true
+  [ "${all%%$'\n'*}" = "$GC_S4_KEY" ] || return 1
+  case "$all" in *$'\n'"# s4cov-end"*) ;; *) return 1 ;; esac
+  all="${all#*$'\n'}"; all="${all%# s4cov-end*}"; all="${all%$'\n'}"
+  printf '%s' "$all"
+  [ -n "$all" ] && printf '\n'
+  return 0
+}
+
+# gc_s4cov_put <architecture-dir> <result> — stores <result> under GC_S4_KEY, but only when the
+# inputs still have that key (nothing changed while the measurement ran). Never fails the run.
+gc_s4cov_put() {
+  local arch="$1" res="$2" before="${GC_S4_KEY:-}" tmp
+  [ -n "${GC_S4_FILE:-}" ] && [ -n "$before" ] || return 0
+  gc_s4cov_key "$arch" || return 0
+  [ "$GC_S4_KEY" = "$before" ] || { rm -f "$GC_S4_FILE" 2>/dev/null; return 0; }
+  mkdir -p "$PROJECT_DIR/.mxtk" 2>/dev/null || return 0
+  tmp="$GC_S4_FILE.new.$$"
+  { printf '%s\n' "$GC_S4_KEY"; [ -n "$res" ] && printf '%s\n' "$res"; printf '# s4cov-end\n'; } > "$tmp" 2>/dev/null \
+    && mv -f "$tmp" "$GC_S4_FILE" 2>/dev/null || rm -f "$tmp" 2>/dev/null
+  return 0
+}

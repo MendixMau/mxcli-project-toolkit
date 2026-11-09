@@ -197,10 +197,16 @@ Exec approval: auto
 Permission profile: project
 Unit tests default: no
 Gate mode: check
+Pipeline mode: balanced
+
+<!-- Pipeline mode (intake Q15; no line = balanced): high-speed = per row the exec gate only;
+     balanced = plus one LOOK at 1280 of a changed page; high-quality = journeys + LOOK at 390 and
+     1280 and unit tests per row. All three run journeys and the polish loop at module close
+     (skills/iterative-build-loop.md § Pipeline mode). -->
 
 <!-- Gate mode: check (the default, also without this line) = bin/exec.sh runs \`mx check\` per
-     script and the full mxbuild before every push, at module close and when Java/theme files
-     change (mxcli's own advice). \`Gate mode: full\` = a full mxbuild on every exec. -->
+     script and the full mxbuild at module close (every push in the high-quality pipeline mode)
+     and when Java/theme files change (mxcli's own advice). \`Gate mode: full\` = a full mxbuild on every exec. -->
 
 <!-- Bug filing: auto — take this line out of the comment to let agents post this project's open
      toolkit/mxcli bugs (docs/bugs.jsonl) as public GitHub issues with your own gh login, redacted and
@@ -329,8 +335,12 @@ This project uses the shared toolkit at \`$TOOLKIT_ROOT\`. For ANY pipeline work
 5. **Before any page MDL:** read \`$TOOLKIT_ROOT/skills/ui-preflight-pages.md\` in full — its
    *text*; a delegated page draft carries the text or reads the file first. **After it:** the
    \`check-page-shell\`, \`page-fidelity\` and \`ui-loop\` rows below, then look at the page at
-   1280px and 390px and write what you saw to \`design/ui-reviews/\` — a 100% fidelity score
-   once matched under half its wireframe (2026-09-19).
+   one viewport (1280px; 390px too on a module's first page), run the journeys that reach it once,
+   and write what you saw to \`design/ui-reviews/\` — a 100% fidelity score once matched under
+   half its wireframe (2026-09-19). Both 1280px and 390px on every page, the full journey set and
+   the polish loop run once at module review (\`module-review.md\`). That is \`Pipeline mode:
+   balanced\` (PROJECT.md; \`high-speed\` skips the per-page look and journeys,
+   \`high-quality\` adds 390px and all reached journeys per page script).
 
 EOF
   echo "Created: CLAUDE.local.md (runbook-first wiring + baseline routing)"

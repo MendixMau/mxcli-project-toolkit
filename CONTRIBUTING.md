@@ -11,6 +11,26 @@ projects, weeks apart**, because upstreaming felt like a chore. A contribution t
 your project helps one project; the moment it lands here it travels to all of them on the next
 `git pull`.
 
+## Reporting a toolkit bug: three ways
+
+Log it first with `bin/file-bugs.sh --add ...`. Every way below sends the same redacted text,
+and none of them needs you to rewrite anything.
+
+1. **GitHub CLI (`gh`) installed and signed in: automatic.** `bin/file-bugs.sh --auto` in a
+   project whose `PROJECT.md` says `Bug filing: auto`, or `!bin/file-bugs.sh --file PBUG-NN`.
+   When gh cannot be used, the run says why in one line (not installed / not signed in: run
+   `gh auth login --web` / no access) and switches to 2 or 3.
+2. **A free GitHub account, no install: `bin/file-bugs.sh --links`.** One pre-filled link per
+   bug; open it in the browser and click *Submit*. Signing up takes two minutes at github.com/signup.
+3. **No GitHub at all: `bin/file-bugs.sh --bundle`.** It writes one file,
+   `toolkit-bugs-<date>.md` in the project root (gitignored), with every bug in it. Mail that
+   file to the address on its first line, or to whoever gave you the toolkit. The maintainer
+   files it with `bin/file-bugs.sh --import <file>`.
+
+A Mendix account is not a GitHub account: signing in to Mendix gives you nothing on GitHub.
+Whoever hands out the toolkit can set the address once, with `MXTK_BUG_EMAIL` or a
+`Bug email: ...` line in `.claude/toolkit.env` or `~/.mxcli-toolkit.env`.
+
 ## Three lanes, by friction
 
 ### Lane 1 — the inbox (default; near-zero friction)

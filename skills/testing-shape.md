@@ -146,12 +146,14 @@ script is the change list; `bin/exec.sh` tags its lane and `bin/affected-tests.s
 
 Anything outside that set was not at risk from this change and is not re-run.
 
-**Two lanes, by change class:**
+**Two lanes, by change class.** The subject set runs **once at module close**, not per row.
+Per-row columns below are `Pipeline mode: balanced`, the default (other modes:
+`iterative-build-loop.md` § Pipeline mode):
 
-| Change class | What re-runs | What does not |
-|---|---|---|
-| **UI-only** — `ALTER PAGE`/`ALTER SNIPPET`, styling, captions, visibility, layout; **no** microflow, entity, association, enum, security or navigation change (`exec.sh` tag `ui-only`) | The journeys of every page the change reaches (embedders of a changed snippet/layout included), **once**, plus a **LOOK** (screenshot, actually opened — `module-review.md` stage 4) | No `.test.mdl`. No journeys of pages the change does not reach. No full `mxcli test`. |
-| **Logic** — anything else (`exec.sh` tag `logic`; a mixed script is logic) | The subject set above: the changed microflows' tests and their callers' tests, the changed pages' journeys | Tests whose subject this change did not touch. |
+| Change class | Per row | At module close | Never |
+|---|---|---|---|
+| **UI-only** — `ALTER PAGE`/`ALTER SNIPPET`, styling, captions, visibility, layout; **no** microflow, entity, association, enum, security or navigation change (`exec.sh` tag `ui-only`) | One **LOOK** at 1280 of the changed page (screenshot, actually opened; 390 too on a module's first page row) + one run of the journeys that reach it | The full journey set (embedders included), plus the 390 + 1280 LOOK (`module-review.md` stage 4) | `.test.mdl`; full `mxcli test` |
+| **Logic** — anything else (`exec.sh` tag `logic`; a mixed script is logic) | The exec gate only; unit tests or journeys only if `## Test strategy` row `Every change` names a scope for that column | The subject set above: changed microflows' and callers' tests (modules with unit on), changed pages' journeys | Tests whose subject no change touched |
 
 **Who re-runs:** the implementer, once per gate. **Reviewers verify artifacts** — the diff, the
 screenshots, the journey report — and **never re-run** what the implementer already ran and
@@ -159,13 +161,13 @@ recorded. A reviewer who doubts an artifact says which claim it fails to prove; 
 not a second run.
 
 **Each project picks what runs when** at CAC-5: PROJECT.md `## Test strategy` (`checkpoint-build.md`;
-defaults `affected`, `module`, `full`). Unit is off unless named (`Unit modules:`/`Unit flows:`).
+defaults `none` per change, `module`, `full`). Unit is off unless named (`Unit modules:`/`Unit flows:`).
 Never at batch close, after a fix, or because a change "felt wide".
 
 | Event | What happens |
 |---|---|
-| A fix to an existing script | **Re-run its subject set**, in its lane. No questions, no re-authoring. |
-| A new script within agreed scope | Re-run its subject set. Extend the suite only for a *behaviour* the coverage checklist doesn't already cover. |
+| A fix to an existing script | Its lane's per-row step; its subject set joins module close. No questions, no re-authoring. |
+| A new script within agreed scope | Same. Extend the suite only for a *behaviour* the coverage checklist doesn't already cover. |
 | A new behaviour / scope change | The coverage checklist changes — the existing drift-sync path. The suite extends with it. |
 | Module done | That module's own journeys, once; its unit tests only if on (`module-review.md` PROVE). |
 | Build complete (developer-declared) | Everything once: all journeys, all unit tests. |
@@ -180,7 +182,7 @@ built yet and claims nothing until it lands.
 | Moment | Budget | What runs |
 |---|---|---|
 | **Every exec** | ~1 minute (mxbuild 22–65 s per script, `iterative-build-loop.md` → Gate cost) | `exec.sh` includes: lock → module-brief advisory → `mxcli check` → snapshot → apply → mxbuild delta gate → auto-restore on a new error → lint ratchet. Static STOP-row scan (planned: #349); Studio Pro warning ratchet (planned: #351); human-locked baselines (planned: #348). |
-| **Module done** | minutes | The module's journeys, unit tests if on (row above). New page or action has a test (planned: #354); that module's server-side security tests (planned: #352). |
+| **Module done** | minutes | The module's journeys, unit tests if on (row above), the 390 + 1280 LOOK, the polish loop (`module-review.md`). New page or action has a test (planned: #354); that module's server-side security tests (planned: #352). |
 | **Build complete / deploy** | as needed | Every test and journey, once (rows above). Page × role smoke on the production DB engine (planned: #353); full security report (planned: #352); language/RTL layout, multi-language apps only (planned: #354). |
 
 > **Why scoped (#274):** unscoped regression re-proved each UI-only change 5-10x, and **143

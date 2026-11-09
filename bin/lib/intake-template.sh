@@ -155,6 +155,18 @@ and `exec.sh` now check). If yes or maybe, set the token up now: where to create
 it to mxcli — skills/learned-constants-and-secrets.md § "Creating a PAT for Marketplace
 installs". If you cannot create one, name the Mendix admin who can. "No Marketplace modules
 expected" is a fine answer; it is revisited at the Stage 3 fit-gap.
+
+## 15. Pipeline mode: `high-speed`, `balanced` (default) or `high-quality`?
+
+_Not yet asked._ How to verify: ask the user; default is `balanced`. The trade-off, in plain words:
+- **high-speed**: fastest; pages are only polished at module close, so mid-module pages are roughest.
+- **balanced**: each changed page gets one quick look and one run of the journeys that reach it;
+  less time per build row than checking every page after every change (1.4 min less on a 5-page
+  app in PR #700's experiment; estimated ≥8 min on #686's larger app); pages are polished at
+  module close.
+- **high-quality**: checks every page after every change; slowest, maximum polish while building.
+Record it as `Pipeline mode:` in PROJECT.md (no line = balanced). The table is
+`skills/iterative-build-loop.md` § "Pipeline mode".
 MXTK_INTAKE_EOF
 }
 

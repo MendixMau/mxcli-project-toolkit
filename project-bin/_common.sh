@@ -1193,10 +1193,27 @@ print('; '.join(one(e) for e in d.get('errors',[]) or [])[:300])" 2>/dev/null ||
 # it from the model on every full build. exec.sh (gate kind) and verify-model.sh record it.
 mxtk_java_fp() {
   ( cd "$1" 2>/dev/null || exit 0
+    # File ARGUMENTS, not --stdin-paths: git resolves stdin paths from the repository top, so in a
+    # model folder below it (app/ on a two-tree checkout, apps/<X>/) the cwd-relative names failed
+    # to open and every fingerprint hashed the same (PR #700 review). Arguments are cwd-relative.
+    # Same names and hashes as before on a single-tree checkout, and no extra process (#687 budget).
     _l="$(git ls-files -co --exclude-standard -- javasource javascriptsource theme userlib widgets 2>/dev/null \
           | grep -v '^javasource/[^/]*/proxies/' || true)"
-    { printf '%s\n' "$_l"; [ -z "$_l" ] || printf '%s\n' "$_l" | git hash-object --stdin-paths 2>/dev/null; } \
+    { printf '%s\n' "$_l"
+      if [ -n "$_l" ]; then ( set -f; IFS='
+'; git hash-object -- $_l ) 2>/dev/null; fi; } \
       | cksum | { read -r _ck _; printf '%s\n' "$_ck"; } )
+}
+
+# mxtk_model_java_fp [project root] — mxtk_java_fp of the MODEL's folder, where javasource/,
+# javascriptsource/, theme/, userlib/ and widgets/ sit beside the .mpr (app/ on a two-tree checkout).
+# The one fingerprint exec.sh (gate kind), verify-model.sh and the pre-push hook record and compare:
+# fingerprinting the project root on a two-tree checkout saw no Java at all, and a hook that used the
+# model dir against a root-recorded value read every push as a Java change (PR #700 review).
+mxtk_model_java_fp() {
+  local r="${1:-$PROJECT_ROOT}" d
+  d="$(PROJECT_ROOT="$r" find_model_dir 2>/dev/null)" || d=""
+  mxtk_java_fp "${d:-$r}"
 }
 
 # mxtk_find_mx — the `mx` tool beside the resolved mxbuild (same version by construction).
@@ -1281,6 +1298,42 @@ project_name() {
   local mpr
   mpr=$(find_mpr) || return 1
   basename "$mpr" .mpr
+}
+
+# --- Pipeline mode (#686) ------------------------------------------------------------------
+# PROJECT.md `Pipeline mode: high-speed | balanced | high-quality`. No line, or a value not
+# recognised, = balanced. Env MXTK_PIPELINE_MODE wins. Read by exec.sh (per-row lane), the pre-push
+# hook (install-project-hooks.sh) and module-close.sh; the table is iterative-build-loop.md
+# § "Pipeline mode". $1 = project root (default $PROJECT_ROOT).
+mxtk_pipeline_mode() {
+  # Bash builtins only (no sed/tr): exec.sh calls this on every run, and tests/wave2/
+  # test-exec-process-budget.sh counts the processes one exec starts (#687).
+  local v="${MXTK_PIPELINE_MODE:-}" f="${1:-$PROJECT_ROOT}/PROJECT.md" l re='^[*_ >-]*[Pp]ipeline mode:[*_ `]*([A-Za-z-]*)'
+  if [ -z "$v" ] && [ -r "$f" ]; then
+    while IFS= read -r l || [ -n "$l" ]; do
+      if [[ $l =~ $re ]]; then v="${BASH_REMATCH[1]}"; break; fi
+    done < "$f"
+  fi
+  case "$v" in
+    [Hh][Ii][Gg][Hh]-[Ss][Pp][Ee][Ee][Dd]) echo high-speed ;;
+    [Hh][Ii][Gg][Hh]-[Qq][Uu][Aa][Ll][Ii][Tt][Yy]) echo high-quality ;;
+    *) echo balanced ;;
+  esac
+}
+# Printed wherever the toolkit runs a full build (exec.sh's full gate, module-close.sh, the pre-push
+# hook): a full build replaces the bundle a running `mxcli run --local --watch` serves, and the client
+# 404s on /dist/index.js until a restart (PR #700 run-2 experiment). Advice only.
+MXTK_WATCH_NOTE="full build done: if the app runs with --watch, run \`mxcli run restart\` before the next LOOK"
+# Module-close polish loop, "<fidelity %> <max rounds>": 75 3 | 85 3 | 90 5 by mode (high-speed
+# 3 rounds, not 2: in every arm of the PR #700 run-2 experiment one round went to undoing a regression); a PROJECT.md
+# line `UI polish: <N>% / <R> rounds` overrides either number.
+mxtk_ui_polish() {
+  local r="${1:-$PROJECT_ROOT}" pt pr pol x
+  case "$(mxtk_pipeline_mode "$r")" in high-speed) pt=75; pr=3 ;; high-quality) pt=90; pr=5 ;; *) pt=85; pr=3 ;; esac
+  pol="$(grep -m1 -iE '^[*_ -]*UI polish:' "$r/PROJECT.md" 2>/dev/null)"
+  x="$(printf '%s' "$pol" | sed -n 's/[^0-9]*\([0-9][0-9]*\)[ ]*%.*/\1/p')"; [ -n "$x" ] && pt=$x
+  x="$(printf '%s' "$pol" | sed -n 's/.*[^0-9]\([0-9][0-9]*\)[ ]*round.*/\1/p')"; [ -n "$x" ] && pr=$x
+  echo "$pt $pr"
 }
 
 # --- Python 3 ------------------------------------------------------------------------------

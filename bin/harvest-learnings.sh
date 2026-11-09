@@ -261,17 +261,21 @@ fi
 # ---- 5. Bugs logged in docs/bugs.jsonl and not filed ---------------------------------------
 # Counted the way gate-check.sh's bugs_unfiled_line does: a row is open when its status is "open"
 # or it has none (file-bugs.py's own default).
-BUGS_OPEN=0
+BUGS_OPEN=0; BUGS_BUNDLED=0
 if [ -f "$PROJECT_DIR/docs/bugs.jsonl" ]; then
   BUGS_OPEN="$(grep -E '^[[:space:]]*\{' "$PROJECT_DIR/docs/bugs.jsonl" 2>/dev/null \
     | awk '/"status"[[:space:]]*:[[:space:]]*"open"/ || !/"status"[[:space:]]*:/ { c++ } END { print c + 0 }')"
+  BUGS_BUNDLED="$(grep -E '^[[:space:]]*\{' "$PROJECT_DIR/docs/bugs.jsonl" 2>/dev/null | grep -cE '"status"[[:space:]]*:[[:space:]]*"bundled"')"
+  if [ "${BUGS_BUNDLED:-0}" -gt 0 ] 2>/dev/null; then
+    echo "  bugs.jsonl: $BUGS_BUNDLED bug(s) bundled, not yet filed (file-bugs.sh --bundle: mail the toolkit-bugs-*.md file, or --file PBUG-NN)."
+  fi
 fi
 if [ "${BUGS_OPEN:-0}" -gt 0 ] 2>/dev/null; then
   echo "  bugs.jsonl: $BUGS_OPEN logged bug(s) not filed yet — not drafted here (raw rows are not redacted)."
   echo "    Review and file them: bin/file-bugs.sh --project \"$PROJECT_DIR\" (dry run), then --links or --auto."
 else
   BUGS_OPEN=0
-  echo "  bugs.jsonl: no unfiled bugs (or no docs/bugs.jsonl)"
+  [ "${BUGS_BUNDLED:-0}" -gt 0 ] 2>/dev/null || echo "  bugs.jsonl: no unfiled bugs (or no docs/bugs.jsonl)"
 fi
 
 echo ""

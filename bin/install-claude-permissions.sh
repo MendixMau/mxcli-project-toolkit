@@ -204,11 +204,15 @@ DENY=(
   "Bash(*file-bugs.sh*--all*)"
   "Bash(*file-bugs.py*--file*)"
   "Bash(*file-bugs.py*--all*)"
+  "Bash(*file-bugs.sh*--import*)"
+  "Bash(*file-bugs.py*--import*)"
 )
 # `file-bugs.sh --auto` is deliberately NOT denied, and needs no rule of its own: `bin/*.sh:*`
 # above already allows it. It posts only in a project whose PROJECT.md has the person's line
 # `Bug filing: auto`, only rows that pass the redaction scan, and never without a deny list —
 # that line, not a y/N an agent could type into a pty, is the gate. --file/--all stay denied.
+# `--import` (the maintainer filing a mailed bundle with their own gh, no opt-in line) is denied
+# too, --dry-run included: a deny rule is a glob with no negation, so it cannot spare the dry run.
 ASK=()
 
 # `project` profile: relative, committable, shared. mkdir/cp/mv/rm are not here — a Bash rule

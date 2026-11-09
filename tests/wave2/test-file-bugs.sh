@@ -467,7 +467,7 @@ pats = re.findall(r"\"Bash\((\*file-bugs[^)]*)\)\"", open(sys.argv[1]).read())
 m = lambda c: any(fnmatch.fnmatchcase(c, p) for p in pats)
 sys.exit(not (pats and m("bin/file-bugs.sh --all") and m("bin/file-bugs.sh --file PBUG-01") and not m("bin/file-bugs.sh --auto")
               and m("bin/file-bugs.sh --import b.md") and m("bin/file-bugs.sh --import b.md --dry-run")
-              and m("python3 bin/lib/file-bugs.py --import b.md") and not m("bin/file-bugs.sh --bundle")))
+              and m("bin/lib/file-bugs.py --import b.md") and not m("bin/file-bugs.sh --bundle")))
 PYX'
 chk "init-project ships the opt-in commented out" 'grep -q "<!-- Bug filing: auto" "$TOOLKIT/bin/init-project.sh"'
 GC="$W/gc"; rm -rf "$GC"; mkdir -p "$GC/docs"; printf '# PROJECT.md\n\n## Current stage\n' > "$GC/PROJECT.md"

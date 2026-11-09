@@ -29,6 +29,8 @@
 #   | Every change | affected | affected | CONFIRMED |
 #   | Module done | module | module | CONFIRMED |
 #   | Build complete | full | full | CONFIRMED |
+# (#686) A missing 'Every change' row still LISTS the touched set here, but exec.sh only points a row
+# at this script when that row names a unit scope; otherwise the set is owed at module close.
 # Scopes: none | affected | module | full. No section, or no row for the moment: these defaults,
 # and the strategy row says "default". --moment picks the row (change is the default):
 #   change = every change (build and feedback) · module = module done · deploy = build complete and

@@ -90,7 +90,7 @@ rm -f "$ERR" "$OUT"
 # `Gate mode: check` bookkeeping (exec.sh "Gate kind"): this full build compiled the Java of
 # the moment, so the check-only run count starts again and the Java fingerprint is current.
 if [ -f .claude/loop/gate-kind.state ]; then
-  printf 'checks 0\njava %s\n' "$(mxtk_java_fp "$PROJECT_ROOT")" > .claude/loop/gate-kind.state 2>/dev/null || true
+  printf 'checks 0\njava %s\n' "$(mxtk_model_java_fp "$PROJECT_ROOT")" > .claude/loop/gate-kind.state 2>/dev/null || true
   touch .claude/loop/mxbuild-warm 2>/dev/null || true
 fi
 exit 0

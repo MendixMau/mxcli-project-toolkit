@@ -9,6 +9,10 @@
 #   T2 — a ledger edit that keeps the old mtime (touch -r) is a miss, and the gap FAILs.
 #   T3 — a BRD edit that keeps the old mtime is a miss, and the new leaves FAIL as UNCLAIMED.
 #   T4 — no .mxtk/ in .gitignore: nothing is written (the same rule as the closeout cache).
+#   T5-T8 — the four stale PASSes the independent review of #715 reproduced on its first head:
+#   T5 a symlinked architecture/ dir, T6 a symlinked ledger file, T7 BRD_FILE set in
+#   .claude/toolkit.env (then repointed), T8 BRD_FILE outside the project with its content edited.
+#   Each one: an uncached run FAILs (UNCLAIMED 2) and the cache must miss, never replay PASS.
 # Hit/miss is observed through MXTK_GATE_CACHE_TRACE=1 ("s4cov-cache: hit|miss" on stderr).
 # Project files are synthetic (shape of test-bug03-gates.sh T21); no tool output is parsed.
 set -uo pipefail
@@ -19,6 +23,8 @@ PASS=0; FAIL=0
 ok()  { PASS=$((PASS+1)); printf '  ok   %s\n' "$1"; }
 bad() { FAIL=$((FAIL+1)); printf '  FAIL %s\n' "$1"; [ -n "${2:-}" ] && printf '       got: %s\n' "$2"; }
 export MXTK_NO_FETCH=1 MXTK_GATE_CACHE_TRACE=1
+# A user's ~/.mxcli-toolkit.env must not leak into the fixture (mxtk_load_env reads it).
+export HOME="$WORK/home"; mkdir -p "$HOME"
 
 mkproj() {
   P="$WORK/$1"; mkdir -p "$P/architecture/modules/Purchasing" "$P/analysis/src/knowledge-base/brd"
@@ -69,6 +75,36 @@ echo "== T4: .mxtk/ not in .gitignore -> no cache =="
 mkproj t4; rm "$P/.gitignore"
 run; run
 [ -z "$T" ] && [ ! -e "$P/.mxtk" ] && ok "no trace and no .mxtk/ written" || bad "cache used without the .gitignore opt-in" "$T"
+
+# stale_check <label> — after an edit that makes the uncached verdict FAIL: miss + FAIL, never PASS
+stale_check() {
+  run
+  case "$T" in *miss*) ok "$1: the cache misses" ;; *) bad "$1: the cache replayed" "$T" ;; esac
+  case "$V" in *FAIL*'UNCLAIMED 2'*) ok "$1: Stage 4 FAILs (UNCLAIMED 2), no stale PASS" ;; *) bad "$1: stale verdict" "$V" ;; esac
+}
+primed() { run; run; case "$T:$V" in *hit*:*PASS*) return 0 ;; esac; bad "$1 setup: no cached PASS" "$T | $V"; return 1; }
+BRD2='{"id":"F001","modules":["Purchasing"],"useCases":[{"id":"UC1","title":"Submit"},{"id":"UC2","title":"Approve"}]}'
+
+echo "== T5: symlinked architecture/ dir, ledger edited in the target =="
+mkproj t5; mv "$P/architecture" "$WORK/t5-arch"; ln -s "$WORK/t5-arch" "$P/architecture"
+primed T5 && { edit_keep_mtime "$WORK/t5-arch/coverage-ledger.md" '/useCases\/0/d'; stale_check T5; }
+
+echo "== T6: symlinked ledger file, target edited =="
+mkproj t6; mv "$P/architecture/coverage-ledger.md" "$WORK/t6-ledger.md"; ln -s "$WORK/t6-ledger.md" "$P/architecture/coverage-ledger.md"
+primed T6 && { edit_keep_mtime "$WORK/t6-ledger.md" '/useCases\/0/d'; stale_check T6; }
+
+echo "== T7: BRD_FILE in .claude/toolkit.env, repointed =="
+mkproj t7; mkdir -p "$P/.claude" "$P/specs"
+cp "$P/analysis/src/knowledge-base/brd/F001.brd.json" "$P/specs/F001.brd.json"
+printf '%s\n' "$BRD2" > "$P/specs/F001-v2.brd.json"
+printf 'BRD_FILE=specs/F001.brd.json\n' > "$P/.claude/toolkit.env"
+primed T7 && { edit_keep_mtime "$P/.claude/toolkit.env" 's#specs/F001.brd.json#specs/F001-v2.brd.json#'; stale_check T7; }
+
+echo "== T8: BRD_FILE outside the project, content edited (old mtime kept) =="
+mkproj t8; mkdir -p "$WORK/ext"; cp "$P/analysis/src/knowledge-base/brd/F001.brd.json" "$WORK/ext/F001.brd.json"
+export BRD_FILE="$WORK/ext/F001.brd.json"
+primed T8 && { edit_keep_mtime "$BRD_FILE" 's/"title":"Submit"}/"title":"Submit"},{"id":"UC2","title":"Approve"}/'; stale_check T8; }
+unset BRD_FILE
 
 echo
 echo "SCORE: $PASS/$((PASS+FAIL))"

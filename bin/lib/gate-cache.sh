@@ -231,7 +231,10 @@ gc_cache_end() {
 #   - the toolkit code that produces the verdict (preflight, coverage-check, _common, _claims,
 #     gate-check, this file, discover-brds), so a toolkit pull is a miss;
 #   - the absolute project dir and the environment the measurement reads (COVERAGE_ENGINE,
-#     LEDGER_FILE, BRD_FILE, COVERAGE_CHECK_CAP, PATH).
+#     LEDGER_FILE, BRD_FILE, COVERAGE_CHECK_CAP, PATH); the two env files mxtk_load_env reads
+#     (.claude/toolkit.env, ~/.mxcli-toolkit.env); and the CONTENT of whatever BRD_FILE,
+#     LEDGER_FILE or COVERAGE_ENGINE points at, from either source, wherever it lives;
+#   - symlinks are followed (find -L), so a linked architecture/ or ledger is hashed by content.
 # `cksum` prints each file's path, size and CRC, so an edit, an overwrite that keeps the old mtime
 # (cp -p, touch -d), an added file and a deleted one all change the key. The signature is taken
 # before AND after the measurement and the result is stored only when both match, so an edit
@@ -253,24 +256,59 @@ gc_s4cov_enabled() {
   GC_S4_FILE="$PROJECT_DIR/.mxtk/gate-cache-s4cov"
 }
 
+# gc_s4cov_pointed — NUL-separated list of the files BRD_FILE / LEDGER_FILE / COVERAGE_ENGINE
+# point at, wherever they are. Every candidate value is taken — the shell's, and each line of
+# both env files mxtk_load_env reads — so a value that is shadowed is hashed too (over-inclusive
+# is a miss at worst, never a stale hit). A relative value is tried as given and against the
+# project dir; a directory (a per-BRD ledger dir) contributes every file under it.
+gc_s4cov_pointed() {
+  local v k f line c
+  {
+    printf '%s\n' "${BRD_FILE:-}" "${LEDGER_FILE:-}" "${COVERAGE_ENGINE:-}"
+    for f in "$PROJECT_DIR/.claude/toolkit.env" "${HOME:-/nonexistent}/.mxcli-toolkit.env"; do
+      [ -f "$f" ] || continue
+      while IFS= read -r line || [ -n "$line" ]; do
+        line="${line%$'\r'}"
+        case "$line" in *=*) ;; *) continue ;; esac
+        k="${line%%=*}"; k="${k#"${k%%[![:space:]]*}"}"; k="${k#export}"; k="${k//[[:space:]]/}"
+        case "$k" in BRD_FILE|LEDGER_FILE|COVERAGE_ENGINE) ;; *) continue ;; esac
+        v="${line#*=}"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"
+        case "$v" in \"*\") v="${v#\"}"; v="${v%\"}" ;; \'*\') v="${v#\'}"; v="${v%\'}" ;; esac
+        printf '%s\n' "$v"
+      done < "$f"
+    done
+  } | while IFS= read -r v; do
+    [ -n "$v" ] || continue
+    for c in "$v" "$PROJECT_DIR/$v"; do
+      if [ -d "$c" ]; then find -L "$c" -type f -print0 2>/dev/null
+      elif [ -f "$c" ]; then printf '%s\0' "$c"; fi
+    done
+  done
+}
+
 # gc_s4cov_key <architecture-dir> — sets GC_S4_KEY (one line); returns 1 if it cannot be computed.
+# find -L: a symlinked architecture/ or ledger is hashed by its target's content (review of #715:
+# without it both replayed a stale PASS). The two env files are hashed (they can set the keys the
+# measurement reads), and so are the files those keys point at — a path in the key is not enough.
 gc_s4cov_key() {
   local arch="$1" abs s f
   GC_S4_KEY=""
   abs="$(cd "$PROJECT_DIR" 2>/dev/null && pwd -P)" || return 1
   s="$( {
-          [ -d "$arch" ] && find "$arch" -type f -print0 2>/dev/null
+          [ -d "$arch" ] && find -L "$arch" -type f -print0 2>/dev/null
           for f in "$PROJECT_DIR"/analysis/*/brd/*.brd.json "$PROJECT_DIR"/analysis/*/knowledge-base/brd/*.brd.json \
                    "$PROJECT_DIR"/analysis/knowledge-base/brd/*.brd.json "$PROJECT_DIR"/knowledge-base/brd/*.brd.json \
+                   "$PROJECT_DIR"/.claude/toolkit.env "${HOME:-/nonexistent}"/.mxcli-toolkit.env \
                    "$TOOLKIT_DIR"/project-bin/coverage-preflight.sh "$TOOLKIT_DIR"/project-bin/_common.sh \
                    "$TOOLKIT_DIR"/project-bin/_claims.sh "$TOOLKIT_DIR"/bin/coverage-check.sh \
                    "$TOOLKIT_DIR"/bin/gate-check.sh "$TOOLKIT_DIR"/bin/lib/gate-cache.sh \
                    "$TOOLKIT_DIR"/bin/lib/discover-brds.sh; do
             [ -f "$f" ] && printf '%s\0' "$f"
           done
-        } | LC_ALL=C sort -z | xargs -0 cksum 2>/dev/null | cksum 2>/dev/null )" || return 1
+          gc_s4cov_pointed
+        } | LC_ALL=C sort -zu | xargs -0 cksum 2>/dev/null | cksum 2>/dev/null )" || return 1
   [ -n "$s" ] || return 1
-  GC_S4_KEY="s4cov-v1|dir=$abs|arch=$arch|sig=${s// /-}|engine=${COVERAGE_ENGINE:-}|ledger=${LEDGER_FILE:-}|brd=${BRD_FILE:-}|cap=${COVERAGE_CHECK_CAP:-}|path=${PATH:-}"
+  GC_S4_KEY="s4cov-v2|dir=$abs|arch=$arch|sig=${s// /-}|engine=${COVERAGE_ENGINE:-}|ledger=${LEDGER_FILE:-}|brd=${BRD_FILE:-}|cap=${COVERAGE_CHECK_CAP:-}|path=${PATH:-}"
   GC_S4_KEY="${GC_S4_KEY//$'\n'/ }"
 }
 

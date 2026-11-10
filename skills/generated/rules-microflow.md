@@ -457,6 +457,29 @@ submit of an empty form tells them apart.
 
 ---
 
+## A Queued Call With a Retry Policy Blocks Rewriting the Microflow
+
+`DESCRIBE MICROFLOW` prints a task-queue call as `call microflow … in queue …` and shows **no
+retry policy**. MDL cannot express one, so `exec` refuses to rewrite a microflow whose queued call
+has it:
+
+```
+Error: microflow <Module>.<Microflow> has 1 queued call(s) with a retry policy
+(<Module>.<TaskQueue>), and MDL cannot express one — rewriting the microflow would reset it.
+```
+
+- **Before planning a rewrite, grep the description for `in queue`.** Treat every hit as possibly
+  un-rewritable until Studio Pro shows its retry setting.
+- **Do not copy it into a new microflow.** The copy is written without the retry, silently.
+- **What works:** leave it untouched and post-process its result in the caller. A queued task
+  runs only after the queuing transaction commits, so the caller's changes are in place when the
+  task picks them up.
+
+The refusal fails the script at that statement, after the statements above it were applied. The
+model is then dirty and unstamped: run `./bin/verify-model.sh`, commit, then retry. Field run on
+mxcli v0.24.0 / Mendix 11.12 (an unattended CI harness on a Mendix-internal app, 2026-10-14); the
+refusal text is unchanged in v0.30.0.
+
 ## The current time is a token, not a function
 
 `mxcli check` (v0.26.0) rejects `currentDateTime()`. Write `[%CurrentDateTime%]`, e.g. `addDays([%CurrentDateTime%], 3)`.

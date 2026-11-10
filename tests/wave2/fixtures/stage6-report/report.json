@@ -1,0 +1,233 @@
+{
+  "schemaVersion": "1.2",
+  "aborted": null,
+  "project": {
+    "branch": "master",
+    "displayName": "PurchaseApp",
+    "gitCommit": "7e805e4",
+    "id": "rr-app",
+    "mendixVersion": "11.13.0",
+    "mpr": "PurchaseApp.mpr",
+    "mprModifiedAt": "2026-11-10T02:02:27.834Z",
+    "toolkitCommit": "a088b4e0"
+  },
+  "run": {
+    "env": {
+      "baseUrl": "http://localhost:8080",
+      "database": "HSQLDB default",
+      "host": "studio-pro",
+      "ownership": "asserted",
+      "ownershipBasis": "deployment/model/config.json (ApplicationRootUrl=http://localhost:8080/, matches baseUrl)",
+      "user": "requester",
+      "userFallbackUsed": false
+    },
+    "evidenceSpansMultipleRuns": false,
+    "evidenceTimestamps": [
+      "2026-11-10T02:06:54.723Z"
+    ],
+    "finishedAt": "2026-11-10T02:06:54.723Z",
+    "reproduce": {
+      "command": "node tests/e2e/journey-runner.js journeys/J-APP-01.journey.json",
+      "monkeySeed": null,
+      "seeds": null
+    },
+    "startedAt": "2026-11-10T02:06:54.723Z",
+    "target": "J-APP-01",
+    "trigger": "journey"
+  },
+  "checks": [
+    {
+      "blocks": [],
+      "detail": "verify loop reported FINDING (rc 1)",
+      "evidence": [
+        {
+          "path": "../.claude/loop/verify/Purchasing/00-stack.log",
+          "type": "log"
+        }
+      ],
+      "id": "loop/purchasing/stack-test-stack-up-check",
+      "instrument": "verify-loop",
+      "journey": null,
+      "kind": "stack",
+      "measuredAt": "2026-11-10T01:36:25.396Z",
+      "module": "Purchasing",
+      "nonVacuity": {
+        "controlRan": false,
+        "note": "no positive control for the verify loop"
+      },
+      "provenance": "measured",
+      "remediation": {
+        "action": "Re-run the named stage and read its log (this check's evidence[] carries the path). Fix the stage before trusting any later gate for Purchasing.",
+        "actionKind": "harness",
+        "blastRadius": "the module's own verify stage is red; anything downstream of it in the loop ran against an unverified build",
+        "class": "loop-stack",
+        "measures": "stack (test-stack-up --check)",
+        "needsApproval": false,
+        "where": ".claude/loop/verify/Purchasing",
+        "why": "verify loop reported FINDING (rc 1)"
+      },
+      "requirement": null,
+      "stepIndex": null,
+      "stepName": null,
+      "title": "stack (test-stack-up --check)",
+      "verdict": "fail"
+    },
+    {
+      "blocks": [],
+      "detail": "20 walk check(s) each have a same-verdict twin in results[]; checks[] was derived from the walk.",
+      "evidence": [],
+      "id": "derivation/j-req-01/walk-is-the-source",
+      "instrument": "journey-runner",
+      "journey": null,
+      "kind": "conformance",
+      "measuredAt": "2026-11-10T02:06:54.723Z",
+      "module": null,
+      "nonVacuity": {
+        "controlRan": false,
+        "note": "structural reconciliation; no product control applies"
+      },
+      "provenance": "measured",
+      "requirement": null,
+      "stepIndex": null,
+      "stepName": null,
+      "title": "walks[] and results[] agree, so checks[] can be derived from one of them",
+      "verdict": "pass"
+    },
+    {
+      "blocks": [],
+      "detail": "ds.css 28 classes; deployed theme 3204 classes from deployment/web/theme.compiled.css, deployment/web/dist/widgets.css; wireframe-inline 0 classes across 8 files. 10 ds.css classes are absent from the deployed theme overall — the never-promoted check is therefore capable of firing; whether it does depends on which of them a page references.",
+      "evidence": [
+        {
+          "path": "../design/ds.css",
+          "type": "log"
+        }
+      ],
+      "id": "design-audit/corpus/defined-classes",
+      "instrument": "design-audit",
+      "journey": null,
+      "kind": "conformance",
+      "measuredAt": "2026-11-10T02:07:32.515Z",
+      "module": null,
+      "nonVacuity": {
+        "controlRan": false,
+        "note": "see design-audit --positive-control"
+      },
+      "page": null,
+      "provenance": "measured",
+      "requirement": null,
+      "stepIndex": null,
+      "stepName": null,
+      "tags": [],
+      "title": "the defined-class corpus was actually loaded",
+      "verdict": "pass"
+    },
+    {
+      "blocks": [],
+      "detail": "describe returned 29 tree nodes for 29 declared widgets; no unread slot detected",
+      "evidence": [
+        {
+          "command": "./mxcli -p PurchaseApp.mpr describe --format elk page Approval.Dashboard",
+          "type": "command"
+        }
+      ],
+      "id": "design-audit/read/Approval.Dashboard/complete",
+      "instrument": "design-audit",
+      "journey": null,
+      "kind": "ui",
+      "measuredAt": "2026-11-10T02:07:32.832Z",
+      "module": "Approval",
+      "nonVacuity": {
+        "controlRan": false,
+        "note": "positive control not run for this build (--positive-control absent)"
+      },
+      "page": "Approval.Dashboard",
+      "provenance": "measured",
+      "requirement": null,
+      "stepIndex": null,
+      "stepName": null,
+      "tags": [],
+      "title": "ELK tree carries the whole page (mxcli #891 content-slot guard)",
+      "verdict": "pass"
+    },
+    {
+      "blocks": [],
+      "detail": "partially-read: describe returned 19 tree nodes for 21 widgets declared in the page's own mdlSource. Unread widgets: container emptyDecideLines, dynamictext txtEmptyDecideLines. customContent columns: none. controlbars: none. empty groups: none. Every class finding below is therefore a LOWER BOUND, not a clean bill of health.",
+      "evidence": [
+        {
+          "command": "./mxcli -p PurchaseApp.mpr describe --format elk page Approval.Approval_Decide",
+          "type": "command"
+        }
+      ],
+      "id": "design-audit/read/Approval.Approval_Decide/complete",
+      "instrument": "design-audit",
+      "journey": null,
+      "kind": "ui",
+      "measuredAt": "2026-11-10T02:07:32.651Z",
+      "module": "Approval",
+      "nonVacuity": {
+        "controlRan": false,
+        "note": "positive control not run for this build (--positive-control absent)"
+      },
+      "page": "Approval.Approval_Decide",
+      "provenance": "measured",
+      "remediation": {
+        "action": "Until mxcli #891 lands, audit the unread widgets from the page's mdlSource directly (container emptyDecideLines, dynamictext txtEmptyDecideLines) rather than from DESCRIBE, or extend tests/e2e/design-audit.js to parse mdlSource as a second source and reconcile the two. Do not silence the row — a lower bound reported as a pass is the failure mode this guard exists for.",
+        "actionKind": "harness",
+        "blastRadius": "EVERY class-based rung on Approval.Approval_Decide is a LOWER BOUND. \"no invented classes\" here means \"none among the ones we could see\" — a green that cannot be trusted as a clean bill of health. Unread: container emptyDecideLines, dynamictext txtEmptyDecideLines",
+        "class": "design-partial-read",
+        "measures": "that the auditor saw the WHOLE page — every widget the page's own mdlSource declares — before pronouncing on its classes",
+        "needsApproval": false,
+        "where": "Approval.Approval_Decide",
+        "why": "DESCRIBE returned 19 tree nodes for 21 declared widgets. This is mxcli #891: widgets inside data-grid customContent columns, control bars and some containers are not walked by the describe tree"
+      },
+      "requirement": null,
+      "stepIndex": null,
+      "stepName": null,
+      "tags": [
+        "partially-read"
+      ],
+      "title": "ELK tree carries the whole page (mxcli #891 content-slot guard)",
+      "verdict": "fault"
+    },
+    {
+      "blocks": [],
+      "detail": "partially-read: describe returned 6 tree nodes for 9 widgets declared in the page's own mdlSource. Unread widgets: container emptyInbox, dynamictext txtEmptyInbox, actionbutton btnReview. customContent columns: none. controlbars: none. empty groups: none. Every class finding below is therefore a LOWER BOUND, not a clean bill of health.",
+      "evidence": [
+        {
+          "command": "./mxcli -p PurchaseApp.mpr describe --format elk page Approval.Approval_Inbox",
+          "type": "command"
+        }
+      ],
+      "id": "design-audit/read/Approval.Approval_Inbox/complete",
+      "instrument": "design-audit",
+      "journey": null,
+      "kind": "ui",
+      "measuredAt": "2026-11-10T02:07:32.737Z",
+      "module": "Approval",
+      "nonVacuity": {
+        "controlRan": false,
+        "note": "positive control not run for this build (--positive-control absent)"
+      },
+      "page": "Approval.Approval_Inbox",
+      "provenance": "measured",
+      "remediation": {
+        "action": "Until mxcli #891 lands, audit the unread widgets from the page's mdlSource directly (container emptyInbox, dynamictext txtEmptyInbox, actionbutton btnReview) rather than from DESCRIBE, or extend tests/e2e/design-audit.js to parse mdlSource as a second source and reconcile the two. Do not silence the row — a lower bound reported as a pass is the failure mode this guard exists for.",
+        "actionKind": "harness",
+        "blastRadius": "EVERY class-based rung on Approval.Approval_Inbox is a LOWER BOUND. \"no invented classes\" here means \"none among the ones we could see\" — a green that cannot be trusted as a clean bill of health. Unread: container emptyInbox, dynamictext txtEmptyInbox, actionbutton btnReview",
+        "class": "design-partial-read",
+        "measures": "that the auditor saw the WHOLE page — every widget the page's own mdlSource declares — before pronouncing on its classes",
+        "needsApproval": false,
+        "where": "Approval.Approval_Inbox",
+        "why": "DESCRIBE returned 6 tree nodes for 9 declared widgets. This is mxcli #891: widgets inside data-grid customContent columns, control bars and some containers are not walked by the describe tree"
+      },
+      "requirement": null,
+      "stepIndex": null,
+      "stepName": null,
+      "tags": [
+        "partially-read"
+      ],
+      "title": "ELK tree carries the whole page (mxcli #891 content-slot guard)",
+      "verdict": "fault"
+    }
+  ]
+}

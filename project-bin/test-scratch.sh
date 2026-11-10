@@ -272,9 +272,17 @@ WARM=0
 MX_VER=""
 if [ -n "${MXTK_MODEL_VERSION:-}" ]; then MX_VER="$MXTK_MODEL_VERSION"
 elif command -v mxtk_model_version >/dev/null 2>&1; then MX_VER="$(mxtk_model_version "$MPR" 2>/dev/null || true)"; fi
-LIBS_SIG="$(for _d in userlib javasource widgets; do
-  [ -d "$MODEL_DIR/$_d" ] && find "$MODEL_DIR/$_d" -type f | LC_ALL=C sort | while IFS= read -r _f; do printf '%s %s\n' "${_f#"$MODEL_DIR"/}" "$(wc -c < "$_f" | tr -d ' ')"; done
-done | cksum | cut -d' ' -f1)"
+# One stat call for all files: a fork per file (wc -c) cost 25 to 30 s on a 600-file javasource on macOS.
+_libs_list() {
+  local _ds=() _d
+  for _d in userlib javasource widgets; do [ -d "$MODEL_DIR/$_d" ] && _ds+=("$_d"); done
+  [ "${#_ds[@]}" -gt 0 ] || return 0
+  ( cd "$MODEL_DIR" || exit 0
+    if stat -c '%n %s' /dev/null >/dev/null 2>&1; then find "${_ds[@]}" -type f -exec stat -c '%n %s' {} +
+    elif stat -f '%N %z' /dev/null >/dev/null 2>&1; then find "${_ds[@]}" -type f -exec stat -f '%N %z' {} +
+    else find "${_ds[@]}" -type f | while IFS= read -r _f; do printf '%s %s\n' "$_f" "$(wc -c < "$_f" | tr -d ' ')"; done; fi ) | LC_ALL=C sort
+}
+LIBS_SIG="$(_libs_list | cksum | cut -d' ' -f1)"
 stamp_new() { printf 'mxcli=%s\nmendix=%s\nlibs=%s\ncreated=%s\n' "$MXCLI_VER" "$MX_VER" "$LIBS_SIG" "$(date +%s)" > "$SCRATCH/.mxcli/test-scratch.stamp"; }
 if [ "$CACHE" = 1 ]; then
   SCRATCH="$CACHE_DIR"

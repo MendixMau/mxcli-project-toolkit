@@ -4,6 +4,9 @@ const http = require('http');
 const { makeLink, startControl, client } = require('./link-proxy');
 const { assertExactlyOnce } = require('./exactly-once');
 let fails = 0;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+process.on('uncaughtException', (e) => { console.log('FAIL process died: ' + e.message); process.exit(1); });
+process.on('unhandledRejection', (e) => { console.log('FAIL unhandled rejection: ' + (e && e.message)); process.exit(1); });
 const check = (n, ok, d = '') => { console.log(`${ok ? 'PASS' : 'FAIL'} ${n}${d ? '  [' + d + ']' : ''}`); if (!ok) fails++; };
 const free = () => new Promise((r) => { const s = http.createServer().listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => r(p)); }); });
 (async () => {
@@ -37,6 +40,25 @@ const free = () => new Promise((r) => { const s = http.createServer().listen(0, 
   const r2 = assertExactlyOnce([...new Set(received)], ['a', 'd', 'e', 'f']);
   check('helper passes when deduplicated', r2.ok, r2.message);
   check('helper flags missing', assertExactlyOnce(['a'], ['a', 'z']).missing[0] === 'z');
+
+  check('helper fails on empty expected (no vacuous green)', assertExactlyOnce([], []).ok === false && assertExactlyOnce(['a'], []).ok === false);
+
+  // count 0 (default) = every request: a standing fault, not a silent no-op
+  await c.mode('refuse');
+  const st1 = await send('s1'), st2 = await send('s2'); await c.mode('normal');
+  check('mode() without count refuses every request until reset', st1 === 503 && st2 === 503 && !received.includes('s1') && !received.includes('s2'), `${st1}/${st2}`);
+  check('mode normal restores pass-through', (await send('s3')) === 200);
+
+  // client aborts mid-body: the proxy must survive and answer the next request
+  await new Promise((resolve) => {
+    const net = require('net'); const s = net.connect(lp, '127.0.0.1', () => {
+      s.write('POST /x HTTP/1.1\r\nHost: x\r\nContent-Length: 1000\r\n\r\npartial'); setTimeout(() => { s.destroy(); resolve(); }, 50);
+    });
+    s.on('error', () => {});
+  });
+  await sleep(100);
+  check('proxy survives a client abort mid-body', (await send('after-abort')) === 200 && received.includes('after-abort'));
+  check('abort is logged', (await c.log()).some((r) => r.outcome === 'client-abort'));
 
   ctl.close(); link.srv.close(); target.close(); process.exit(fails ? 1 : 0);
 })();

@@ -7,6 +7,8 @@
 //   POST /ctl/<name>/mode    {mode, count, method?, status?}
 //        normal       pass through
 //        down         every connection is destroyed on arrival
+//        <count> arms a fault for that many requests; count 0 or absent means EVERY request until the mode
+//        is set back to 'normal' (so mode('refuse') is a standing fault, never a silent no-op).
 //        request-lost the next <count> requests are dropped before they reach the target
 //        reply-lost   the next <count> requests reach the target, the reply is destroyed (sender cannot know)
 //        refuse       the next <count> requests get <status> (default 503) without reaching the target
@@ -26,11 +28,19 @@ function makeLink(name, listenPort, targetPort, host = '127.0.0.1') {
   const agent = new http.Agent({ keepAlive: true });
   // Consume one armed fault when the request matches; returns true if it applies to this request.
   const take = (m, method) => {
-    if (st.mode !== m || st.count <= 0 || (st.only && st.only !== method)) return false;
-    if (--st.count === 0) st.mode = 'normal';
+    if (st.mode !== m || (st.only && st.only !== method)) return false;
+    if (st.count > 0 && --st.count === 0) st.mode = 'normal';   // count 0 = every request
     return true;
   };
-  const srv = http.createServer(async (req, res) => {
+  // A client that aborts mid-body (timeouts and dropped clients are the normal case for a fault tool)
+  // makes readBody throw ECONNRESET. Never let that reach the process: log the row, drop the socket.
+  const srv = http.createServer((req, res) => {
+    handle(req, res).catch((e) => {
+      st.log.push({ t: new Date().toISOString(), link: name, tag: st.tag, method: req.method, url: req.url, status: null, outcome: 'client-abort', error: e && e.code || String(e) });
+      req.socket.destroy();
+    });
+  });
+  const handle = async (req, res) => {
     const t0 = Date.now(), sock = req.socket;
     const row = { t: new Date(t0).toISOString(), link: name, tag: st.tag, method: req.method, url: req.url, reqBytes: 0, respBytes: 0, status: null, ms: 0, outcome: 'ok' };
     const body = await readBody(req);
@@ -45,7 +55,8 @@ function makeLink(name, listenPort, targetPort, host = '127.0.0.1') {
     const replyLost = take('reply-lost', req.method);
     const headers = { ...req.headers }; delete headers.connection;
     const up = http.request({ host, port: targetPort, method: req.method, path: req.url, headers, agent }, async (ur) => {
-      const rb = await readBody(ur);
+      let rb;
+      try { rb = await readBody(ur); } catch { row.status = 502; finish('target-error'); return sock.destroy(); }
       row.status = ur.statusCode;
       row.respBytes = 15 + ur.rawHeaders.join('').length + ur.rawHeaders.length * 2 + 2 + rb.length;
       if (replyLost) { finish('reply-lost'); return sock.destroy(); }
@@ -55,14 +66,17 @@ function makeLink(name, listenPort, targetPort, host = '127.0.0.1') {
     });
     up.on('error', () => { row.status = 502; finish('target-error'); sock.destroy(); });
     up.end(body);
-  });
+  };
   srv.keepAliveTimeout = 60000;
   srv.on('clientError', (e, s) => s.destroy());
   return { name, st, srv, listenPort, listen: () => new Promise((r) => srv.listen(listenPort, host, r)) };
 }
 
 function startControl(links, port, host = '127.0.0.1') {
-  const ctl = http.createServer(async (req, res) => {
+  const ctl = http.createServer((req, res) => {
+    handleCtl(req, res).catch(() => req.socket.destroy());
+  });
+  const handleCtl = async (req, res) => {
     const send = (c, o) => { res.writeHead(c, { 'content-type': 'application/json' }); res.end(JSON.stringify(o)); };
     const m = /^\/ctl\/([\w-]+)\/(profile|mode|tag|log|state)$/.exec(req.url);
     if (!m || !links[m[1]]) return send(404, { error: 'unknown link or route' });
@@ -73,7 +87,7 @@ function startControl(links, port, host = '127.0.0.1') {
     if (m[2] === 'mode') { L.mode = b.mode || 'normal'; L.count = +b.count || 0; L.only = (b.method || '').toUpperCase(); L.status = +b.status || 503; }
     if (m[2] === 'tag') L.tag = b.tag || '';
     const { log, ...rest } = L; send(200, { ...rest, logRows: log.length });
-  });
+  };
   return new Promise((r) => ctl.listen(port, host, () => r(ctl)));
 }
 
@@ -81,7 +95,7 @@ function startControl(links, port, host = '127.0.0.1') {
 const client = (port, name) => {
   const call = async (what, body, method) => (await fetch(`http://127.0.0.1:${port}/ctl/${name}/${what}`, { method: method || (body ? 'POST' : 'GET'), body: body ? JSON.stringify(body) : undefined })).json();
   return {
-    profile: (p) => call('profile', p), mode: (mode, count = 0, method, status) => call('mode', { mode, count, method, status }),
+    profile: (p) => call('profile', p), mode: (mode, count = 0, method, status)  /* count 0 = every request */ => call('mode', { mode, count, method, status }),
     tag: (tag) => call('tag', { tag }), log: () => call('log'), clearLog: () => call('log', null, 'DELETE'), state: () => call('state'),
   };
 };

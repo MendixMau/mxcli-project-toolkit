@@ -18,6 +18,7 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 `docs/RELEASE-PROCESS.md` §8.
 
 ## Unreleased
+- new(e2e): `project-tests/e2e/link-proxy.js` (latency, bandwidth, loss, down, request-lost, reply-lost, refuse; JSON control API) and `exactly-once.js`, installed into projects via `MXTK_PROJECT_TESTS`; survives client aborts mid-body, a mode without a count applies to every request, an empty expectation fails; selftest 16 checks + `tests/wave2/test-link-proxy.sh`; field run: proxy in front of the tcc-mocks payments mock, one refuse and one reply-lost fault, exactly-once flagged the redelivered key — #701 ask 3, review of #705
 
 ## v2026.11.10
 - new(bin): `bin/check-stubs-filled.sh <project-root> [agent]` names unfilled `{{...}}` stub slots before dispatch (exit 3, read-only; counts as "N occurrence(s) of M slot(s)") — an unfilled mdl-agent stub refused its first row after 125k tokens; fixture `tests/wave2/test-check-stubs-filled.sh` — speed-night experiment C, 2026-11-09

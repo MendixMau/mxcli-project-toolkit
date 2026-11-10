@@ -66,9 +66,17 @@ PRISTINE="$TMP/pristine"; cp -R "$P" "$PRISTINE"
 [ -f "$P/triage.md" ] && ok "init writes triage.md" || bad "init writes triage.md"
 
 OUT=$("$GATE" "$P" 0 2>&1); RC=$?
-# Stage 0 is advisory since cec7a1e: the VERDICT is FAIL, the exit code is 0. Pin both.
+# Stage 0 is advisory since cec7a1e: the exit code is 0. An UNTOUCHED scaffold is not started,
+# so its verdict is PENDING, not FAIL (#635 — "not started is not failed"); it never passes.
 check "a freshly scaffolded triage.md is advisory at the exit code" "$RC" "0"
-has "  but the verdict is FAIL" "$OUT" "Stage 0 (Triage): FAIL"
+has "  and the verdict is PENDING (#635)" "$OUT" "Stage 0 (Triage): PENDING"
+has "  and the reason is the untouched scaffold" "$OUT" "untouched scaffold init-project.sh wrote"
+hasnt "  not listed under needs attention" "$OUT" "  Stage 0 — "
+# Filled in, but the placeholder sign-off kept: that IS there-and-wrong, still FAIL (#620).
+FILLED="$TMP/filled"; clone "$PRISTINE" "$FILLED"
+sed 's/{{[^}]*}}/x/g' "$FILLED/triage.md" > "$FILLED/t" && mv "$FILLED/t" "$FILLED/triage.md"
+OUT=$("$GATE" "$FILLED" 0 2>&1)
+has "  filled-in sheet, placeholder sign-off: FAIL" "$OUT" "Stage 0 (Triage): FAIL"
 has "  and the reason is the unsigned sign-off" "$OUT" "still holds the shipped placeholder"
 hasnt "  it is not reported as a pass" "$OUT" "Stage 0 (Triage): PASS"
 

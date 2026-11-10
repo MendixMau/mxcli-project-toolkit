@@ -175,6 +175,29 @@ probe_capture() {
   rm -f "$_pc_file"
   return "$_pc_exit"
 }
+# mxcli_wrong_format_say <file> <elf|macho> <project-dir> — the project's ./mxcli was built for another
+# OS (#728: on macOS `mxcli new` leaves a Linux ELF). A FAIL that names the cause and the remedy in
+# plain words. It never blocks the remedy: nothing here moves or deletes the file, and --install
+# below sets the foreign file aside itself, then fetches the right build.
+mxcli_wrong_format_say() {
+  local kind="Linux" host="macOS"; [ "$2" = macho ] && { kind="macOS"; host="Linux"; }
+  bad "the project's mxcli is a $kind program, but this computer runs $host, so it cannot start: $1"
+  note "Not a permissions problem; chmod cannot fix it. The file is built for another operating system"
+  note "(typical after 'mxcli new' on a Mac). Fix, keeping the old file for a Dev Container:"
+  note "  mv mxcli mxcli.$(echo "$kind" | tr 'A-Z' 'a-z') && cp \"\$(command -v mxcli)\" mxcli && echo mxcli.$(echo "$kind" | tr 'A-Z' 'a-z') >> .gitignore"
+  note "  (run in $3; needs an mxcli for $host on PATH), or let doctor do it: bin/doctor.sh --install $3"
+}
+
+# true_bin — path of the real `true` executable, or nothing. `command -v true` prints the builtin's
+# NAME (never a path), so the old "absolute path else /bin/true" fallback always ran, and macOS has
+# only /usr/bin/true (#711). `type -P` skips builtins and exists in bash 3.2.
+true_bin() {
+  local p
+  p="$(type -P true 2>/dev/null)"; case "$p" in /*) echo "$p"; return 0 ;; esac
+  for p in /usr/bin/true /bin/true; do [ -x "$p" ] && { echo "$p"; return 0; }; done
+  return 0
+}
+
 probe_runs() {
   PROBE_OUT=""; PROBE_HOW=""
   _pr_exit=0
@@ -886,11 +909,12 @@ if [ "$BENCH" = 1 ]; then
   printf '  %-30s %13s %11s %8s\n' "step" "this machine" "reference" "factor"
 
   # 1. process starts
-  _bt="$(command -v true 2>/dev/null)"; case "$_bt" in /*) ;; *) _bt=/bin/true ;; esac
+  _bt="$(true_bin)"
   b_clock; _t0="$B_MS"; _i=0
-  while [ $_i -lt 50 ]; do "$_bt"; _i=$((_i + 1)); done
+  if [ -n "$_bt" ]; then while [ $_i -lt 50 ]; do "$_bt"; _i=$((_i + 1)); done; else _t0=""; fi
   b_clock; _t1="$B_MS"
-  if [ -n "$_t0" ] && [ -n "$_t1" ]; then b_row spawn50 "50 process starts" "$((_t1 - _t0))" "$BENCH_REF_SPAWN50_MS" ""
+  if [ -z "$_bt" ]; then b_row spawn50 "50 process starts" "" "$BENCH_REF_SPAWN50_MS" "no true binary found"
+  elif [ -n "$_t0" ] && [ -n "$_t1" ]; then b_row spawn50 "50 process starts" "$((_t1 - _t0))" "$BENCH_REF_SPAWN50_MS" ""
   else b_row spawn50 "50 process starts" "" "$BENCH_REF_SPAWN50_MS" "no sub-second clock"; fi
 
   # 2. git status. One untimed warm-up first: a copied or freshly cloned project has a stale index, and the
@@ -1038,15 +1062,18 @@ esac
 # Process-start cost (#584/#585). Every toolkit script is many small process starts; exec.sh
 # alone makes hundreds. On a Windows machine whose antivirus scans each start, one start cost
 # 58-94 ms (vs ~1-3 ms on Linux/macOS), about 69 s of bookkeeping per exec before any build.
-# 20 starts of /bin/true (or `true` on PATH) measured with one clock read each side.
+# 20 starts of the real `true` binary (true_bin: not the builtin, not a hardcoded /bin/true, which
+# macOS lacks — #711) measured with one clock read each side. No binary found: not measured.
 _spawn_ms=""
-if command -v date >/dev/null 2>&1 && _t0=$(date +%s%N 2>/dev/null) && [ "${_t0%N}" = "$_t0" ]; then
-  _i=0; _tbin="$(command -v true 2>/dev/null)"; case "$_tbin" in /*) ;; *) _tbin=/bin/true ;; esac
+_tbin="$(true_bin)"
+if [ -z "$_tbin" ]; then :
+elif command -v date >/dev/null 2>&1 && _t0=$(date +%s%N 2>/dev/null) && [ "${_t0%N}" = "$_t0" ]; then
+  _i=0
   while [ $_i -lt 20 ]; do "$_tbin"; _i=$((_i + 1)); done
   _t1=$(date +%s%N); _spawn_ms=$(( (_t1 - _t0) / 20000000 ))
 elif [ -n "${EPOCHREALTIME:-}" ]; then
   _t0=${EPOCHREALTIME/[.,]/}; _i=0
-  while [ $_i -lt 20 ]; do /bin/true 2>/dev/null || true; _i=$((_i + 1)); done
+  while [ $_i -lt 20 ]; do "$_tbin" 2>/dev/null || true; _i=$((_i + 1)); done
   _t1=${EPOCHREALTIME/[.,]/}; _spawn_ms=$(( (_t1 - _t0) / 20000 ))
 fi
 if [ -z "$_spawn_ms" ]; then
@@ -1399,10 +1426,14 @@ if [ "$INSTALL" -eq 1 ]; then
   # MDL session needs anyway) and the mxbuild toolchain (which the gate needs).
   NEED_TOOLCHAIN=1
   if [ -n "$MXBUILD" ] && [ -x "$MXBUILD" ] && probe_runs "$MXBUILD"; then NEED_TOOLCHAIN=0; fi
-  NEED_MXCLI=0
+  NEED_MXCLI=0; WRONG_MXCLI=""
   PMXCLI="$(find_project_mxcli 2>/dev/null || true)"
   if [ -n "$PROJECT_DIR" ] && [ -z "$PMXCLI" ]; then
     NEED_MXCLI=1
+  elif [ -n "$PMXCLI" ] && _wf="$(mxtk_mxcli_wrong_format "$PMXCLI" 2>/dev/null)"; then
+    # #728: a foreign-OS ./mxcli is as good as none. The fetch below sets it aside first, never overwrites.
+    NEED_MXCLI=1; WRONG_MXCLI="$PMXCLI"; PMXCLI=""
+    note "--install: $WRONG_MXCLI is a $_wf-format program built for another OS; it will be kept as $(basename "$WRONG_MXCLI").$_wf and the right build fetched."
   fi
 
   if [ "$NEED_TOOLCHAIN" -eq 0 ] && [ "$NEED_MXCLI" -eq 0 ]; then
@@ -1523,6 +1554,13 @@ if [ "$INSTALL" -eq 1 ]; then
       else
         MXCLI_READY=1
         if [ "$NEED_MXCLI" -eq 1 ]; then
+          ASIDE_MXCLI=""
+          if [ -n "$WRONG_MXCLI" ] && [ -f "$WRONG_MXCLI" ]; then
+            # never overwrite an earlier set-aside file: take the first free name (mxcli.elf, mxcli.elf.1, ...)
+            ASIDE_MXCLI="$WRONG_MXCLI.$_wf"; _n=0
+            while [ -e "$ASIDE_MXCLI" ]; do _n=$((_n + 1)); ASIDE_MXCLI="$WRONG_MXCLI.$_wf.$_n"; done
+            mv "$WRONG_MXCLI" "$ASIDE_MXCLI"
+          fi
           note "fetching $MXCLI_ASSET from the mxcli releases..."
           if ! $MXCLI_FETCH "$PROJECT_DIR/$MXCLI_DEST" "$MXCLI_URL" && [ -n "$MXCLI_FALLBACK_ASSET" ]; then
             warn "$MXCLI_ASSET is not published for this mxcli version; trying $MXCLI_FALLBACK_ASSET (runs emulated)."
@@ -1535,6 +1573,7 @@ if [ "$INSTALL" -eq 1 ]; then
             PMXCLI="$PROJECT_DIR/$MXCLI_DEST"
           else
             rm -f "$PROJECT_DIR/$MXCLI_DEST" 2>/dev/null
+            [ -n "$ASIDE_MXCLI" ] && [ -f "$ASIDE_MXCLI" ] && mv "$ASIDE_MXCLI" "$WRONG_MXCLI"
             MXCLI_READY=0
             bad "--install: fetching mxcli failed (network/proxy, or the binary would not run here)."
             note "Download it yourself into the project root, then re-run:  $MXCLI_URL"
@@ -1940,7 +1979,11 @@ if [ -n "$PROJECT_DIR" ]; then
       note "If the model lives elsewhere, point doctor at the folder that contains it;"
       note "a brand-new project gets its .mpr from 'mxcli init' or a Studio Pro export."; }
     PMXCLI_PROBE="$(find_project_mxcli 2>/dev/null || true)"
-    if [ -n "$PMXCLI_PROBE" ]; then
+    _wf=""; [ -n "$PMXCLI_PROBE" ] && _wf="$(mxtk_mxcli_wrong_format "$PMXCLI_PROBE" 2>/dev/null)"
+    if [ -n "$_wf" ]; then
+      # #728: `mxcli new` on macOS leaves a Linux ./mxcli. Say so in words, before any probe.
+      mxcli_wrong_format_say "$PMXCLI_PROBE" "$_wf" "$PROJECT_DIR"
+    elif [ -n "$PMXCLI_PROBE" ]; then
       # Present is not enough — a wrong-platform binary is present, executable, and exits 126.
       MXCLI_EXIT=0
       probe_runs "$PMXCLI_PROBE" || MXCLI_EXIT=$?

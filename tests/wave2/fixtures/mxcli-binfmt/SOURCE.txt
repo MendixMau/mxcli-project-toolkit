@@ -1,0 +1,7 @@
+Captured 2026-11-10 on a Linux x86_64 box (no macOS machine available). Each .bin is the first 64
+bytes of a REAL executable, not hand-written:
+  elf-x86_64-exec-header.bin     head -c 64 /bin/ls   (Linux x86-64 ELF)
+  macho-amd64-exec-header.bin    head -c 64 of Go's src/debug/macho/testdata/gcc-amd64-darwin-exec
+                                 (base64-decoded; a real gcc-built macOS x86-64 Mach-O executable)
+  macho-fat-header.bin           head -c 64 of testdata/fat-gcc-386-amd64-darwin-exec (universal/fat Mach-O)
+NOT captured: an arm64 Mach-O (same magic feedfacf as amd64; unverified) and a `mxcli` from a Mac.

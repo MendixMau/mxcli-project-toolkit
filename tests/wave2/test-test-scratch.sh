@@ -334,6 +334,18 @@ echo jarjar > "$P/userlib/a.jar"
 OUT="$(MXTK_MODEL_VERSION=11.2.0 run v6 -- tests/a.test.mdl)"
 has "a jar changed size: cold" "$OUT" "userlib/javasource/widgets changed"
 rm -rf "$P/userlib"; MXTK_MODEL_VERSION=11.2.0 run v7 -- tests/a.test.mdl >/dev/null
+# one batched stat for the whole tree: a nested javasource file whose name has a space must still be seen
+mkdir -p "$P/javasource/my mod"; echo one > "$P/javasource/my mod/A B.java"
+mkdir -p "$C/deployment/run"; echo built > "$C/deployment/run/out"
+OUT="$(MXTK_MODEL_VERSION=11.2.0 run v8 -- tests/a.test.mdl)"
+has "a nested javasource file with a space added: cold" "$OUT" "userlib/javasource/widgets changed"
+mkdir -p "$C/deployment/run"; echo built > "$C/deployment/run/out"
+OUT="$(MXTK_MODEL_VERSION=11.2.0 run v9 -- tests/a.test.mdl)"
+has "same tree again: warm" "$OUT" "warm copy"
+echo oneone > "$P/javasource/my mod/A B.java"
+OUT="$(MXTK_MODEL_VERSION=11.2.0 run v10 -- tests/a.test.mdl)"
+has "that file changed size: cold" "$OUT" "userlib/javasource/widgets changed"
+rm -rf "$P/javasource"; MXTK_MODEL_VERSION=11.2.0 run v11 -- tests/a.test.mdl >/dev/null
 
 echo "-- review: mprcontents/ is compared by checksum (same size, same mtime, different bytes)"
 if command -v rsync >/dev/null 2>&1; then

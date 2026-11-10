@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Fixture for bin/check-stubs-filled.sh. usage: test-check-stubs-filled.sh /path/to/check-stubs-filled.sh
+# Fixture for bin/check-stubs-filled.sh.
+# usage: test-check-stubs-filled.sh /path/to/check-stubs-filled.sh
 # Stubs come from the REAL bin/init-agents.sh (not hand-written), so the slot syntax is the shipped one.
 set -uo pipefail
 CK="${1:?usage: test-check-stubs-filled.sh /path/to/check-stubs-filled.sh}"

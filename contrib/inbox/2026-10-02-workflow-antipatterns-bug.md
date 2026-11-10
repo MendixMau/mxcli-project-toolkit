@@ -14,6 +14,8 @@ but an mxcli serialisation defect with runtime consequences (§4).
 
 ## 1. A Call Microflow with true/false outcomes that both do nothing
 
+> **Promoted 2026-11-04:** the rule is now preflight STOP row 34 and `learned-workflow-patterns.md` §16, with a second project's field count in `2026-11-04-wf-empty-outcomes-and-subworkflow-field-report.md`. The proposed lint warning is still open (that file, part 3). Delete this section when the lint rule lands.
+
 ### What happened
 
 ```

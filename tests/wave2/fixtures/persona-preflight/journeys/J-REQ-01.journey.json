@@ -1,0 +1,190 @@
+{
+  "id": "J-REQ-01",
+  "title": "Requester drafts a request with a line and submits it",
+  "persona": "requester",
+  "requirement": [
+    "F001#/useCases/1/mainFlow/0",
+    "F001#/useCases/6/mainFlow/2"
+  ],
+  "seeds": [
+    {
+      "name": "supplierName",
+      "sql": "SELECT Name AS n FROM Purchasing.Supplier WHERE IsActive = true LIMIT 1"
+    }
+  ],
+  "steps": [
+    {
+      "name": "open my requests",
+      "requirement": [
+        "F001#/useCases/0/mainFlow/0"
+      ],
+      "actions": [
+        {
+          "do": "nav",
+          "group": "Purchasing",
+          "item": "My requests",
+          "settleMs": 2500
+        }
+      ],
+      "ui": {
+        "ready": ".mx-name-dgRequests",
+        "checks": [
+          "btnNewRequest"
+        ]
+      }
+    },
+    {
+      "name": "start a new request",
+      "actions": [
+        {
+          "do": "click",
+          "widget": "btnNewRequest",
+          "label": "New request",
+          "settleMs": 2000
+        }
+      ],
+      "ui": {
+        "ready": ".mx-name-dvRequest",
+        "checks": [
+          "tbTitle",
+          "cbSupplier",
+          "btnSave",
+          "btnSubmit"
+        ]
+      }
+    },
+    {
+      "name": "fill header and save",
+      "requirement": [
+        "F001#/useCases/1/mainFlow/3"
+      ],
+      "actions": [
+        {
+          "do": "fill",
+          "widget": "tbTitle",
+          "value": "Journey chairs",
+          "label": "Title",
+          "settleMs": 500
+        },
+        {
+          "do": "combobox",
+          "widget": "cbSupplier",
+          "match": "{{supplierName}}",
+          "label": "Supplier",
+          "settleMs": 800
+        },
+        {
+          "do": "click",
+          "widget": "btnSave",
+          "label": "Save",
+          "settleMs": 2500
+        }
+      ],
+      "ui": {
+        "ready": ".mx-name-dgLines"
+      },
+      "spans": {
+        "ordered": [
+          "Purchasing.ACT_Request_Save"
+        ],
+        "mustNotFire": [
+          "ACT_Request_Submit"
+        ]
+      },
+      "data": {
+        "creates": "Purchasing.PurchaseRequest",
+        "delta": 1
+      }
+    },
+    {
+      "name": "add a line",
+      "requirement": [
+        "F001#/useCases/3/mainFlow/3"
+      ],
+      "actions": [
+        {
+          "do": "click",
+          "widget": "btnAddLine",
+          "label": "Add line",
+          "settleMs": 2000
+        },
+        {
+          "do": "fill",
+          "widget": "tbDescription",
+          "value": "Chair",
+          "label": "Description",
+          "settleMs": 500
+        },
+        {
+          "do": "fill",
+          "widget": "tbQuantity",
+          "value": "2",
+          "label": "Quantity",
+          "settleMs": 500
+        },
+        {
+          "do": "fill",
+          "widget": "tbUnitPrice",
+          "value": "100",
+          "label": "Unit price",
+          "settleMs": 500
+        },
+        {
+          "do": "click",
+          "widget": "btnLineSave",
+          "label": "Save",
+          "settleMs": 2500
+        }
+      ],
+      "ui": {
+        "ready": ".mx-name-dgLines",
+        "textPresent": [
+          "Chair",
+          "200.00"
+        ]
+      },
+      "spans": {
+        "ordered": [
+          "Purchasing.ACT_Line_Save"
+        ]
+      },
+      "data": {
+        "creates": "Purchasing.RequestLine",
+        "delta": 1
+      }
+    },
+    {
+      "name": "submit for approval",
+      "requirement": [
+        "F001#/useCases/6/mainFlow/2"
+      ],
+      "actions": [
+        {
+          "do": "click",
+          "widget": "btnSubmit",
+          "label": "Submit for approval",
+          "settleMs": 4000
+        }
+      ],
+      "ui": {
+        "ready": ".mx-name-dgRequests",
+        "textPresent": [
+          "Journey chairs",
+          "Submitted"
+        ]
+      },
+      "spans": {
+        "ordered": [
+          "Purchasing.ACT_Request_Submit"
+        ],
+        "mustNotFire": [
+          "ACT_Request_Delete"
+        ]
+      }
+    }
+  ],
+  "outcome": {
+    "sql": "SELECT COUNT(*) AS n FROM Purchasing.PurchaseRequest WHERE Title = 'Journey chairs' AND Status = 'Submitted'",
+    "atLeast": 1
+  }
+}

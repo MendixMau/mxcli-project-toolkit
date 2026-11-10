@@ -1,0 +1,10 @@
+WARNING: This is a vibe-coded PoC, alpha quality, use with caution.
+| User Name          | User Roles    |
+|--------------------|---------------|
+| demo_administrator | Administrator |
+| demo_user          | User          |
+| requester          | Requester     |
+| approver           | Approver      |
+| admin              | Admin         |
+
+(5 demo users)

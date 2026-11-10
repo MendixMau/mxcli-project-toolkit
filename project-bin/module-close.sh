@@ -109,6 +109,7 @@ pt=${pt:-85}; pr=${pr:-3}; pmode=$(mxtk_pipeline_mode "$PROJECT_ROOT" 2>/dev/nul
   echo "LOOK every page at 390 and 1280. Polish loop per page (Pipeline mode: $pmode), up to $pr rounds of fix → page-fidelity → LOOK;"
   echo "stop at fidelity ≥ $pt% AND a written LOOK with no blocking issue (a score alone never passes; UNMEASURED: the LOOK decides)."
   echo "Gap left after $pr rounds: log it in design/ui-reviews/ and report it at the gate; it does not block the module."
+  echo "First LOOK: every page. Polish round 2+: re-shoot only \`./bin/look-ledger.sh reshoot $mod\` (K of N, N=$(printf '%s\n' "$pages" | sed '/^$/d' | wc -l | tr -d ' ') here); the report keeps 'N of N pages reviewed' and adds an addendum for the K."
   echo
   echo "| Page | Role | Seen (screenshot path) | Defect | Fixed in row/script |"
   echo "|---|---|---|---|---|"

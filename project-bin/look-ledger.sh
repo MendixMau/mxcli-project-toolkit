@@ -4,6 +4,10 @@
 #   bin/look-ledger.sh owe <script.mdl>   called by bin/exec.sh after a script lands
 #   bin/look-ledger.sh seen               PostToolUse(Read) hook; reads the hook JSON on stdin
 #   bin/look-ledger.sh status             prints one line per owed page: SEEN or OWED
+#   bin/look-ledger.sh reshoot [Module] [--all]
+#                                         which pages a polish round must re-shoot (390 + 1280): the pages
+#                                         built after their last seen LOOK, plus every page when a layout,
+#                                         snippet or style file changed after it. K of N, never silence
 #   bin/look-ledger.sh shots [findings.json...]
 #                                         which owed page a journey run's screenshots already show:
 #                                         OPEN <page> <png> (read it), UNREACHED <page> (no journey did)
@@ -65,6 +69,7 @@ LOOK_DIR="$PROJECT_ROOT/.claude/loop/look"
 OWED="$LOOK_DIR/owed.tsv"
 SEEN="$LOOK_DIR/seen.tsv"
 SHOTS="$LOOK_DIR/shots.tsv"
+SHARED="$LOOK_DIR/shared.tsv"
 
 # mtime in whole seconds, GNU first (on GNU `stat -f` succeeds with a different meaning).
 _mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0; }
@@ -100,6 +105,22 @@ look_pages_in() {
     END { for (i=1; i<=k; i++) if (last[ord[i]]==mode) print ord[i] }' "$1" 2>/dev/null
 }
 
+# Every layout or snippet a script writes: "<kind> <Module.Name>", one per line (same comment rules as look_pages_in).
+look_shared_in() {
+  awk '
+    /^[[:space:]]*\/\*/ { inc=1 }
+    inc { if ($0 ~ /\*\//) inc=0; next }
+    /^[[:space:]]*--/ { next }
+    { l=toupper($0) }
+    l ~ /^[[:space:]]*(CREATE([[:space:]]+OR[[:space:]]+(REPLACE|MODIFY))?|ALTER|DROP)[[:space:]]+(LAYOUT|SNIPPET)[[:space:]]/ {
+      s=$0; sub(/^[[:space:]]*/, "", s); n=split(s, w, /[[:space:]]+/)
+      for (i=1; i<=n; i++) { u=toupper(w[i]); if (u=="LAYOUT" || u=="SNIPPET") { k=tolower(u); j=i+1; break } }
+      if (toupper(w[j])=="IF" && toupper(w[j+1])=="EXISTS") j+=2
+      name=w[j]; sub(/[(;{].*$/, "", name); gsub(/"/, "", name)
+      if (name ~ /^[A-Za-z0-9_]+\.[A-Za-z0-9_]+$/) print k "\t" name
+    }' "$1" 2>/dev/null
+}
+
 # _forget_dropped <script> — remove every owed.tsv row of a page the script ends by dropping
 # (#681): a dropped page cannot be looked at, so it leaves the denominator. A later script that
 # re-creates it appends a fresh row, which owes again. Rewritten through a temp file + mv.
@@ -128,6 +149,14 @@ cmd_owe() {
     printf '%s\t%s\t%s\t%s\n' "$now" "$iso" "$p" "${script#"$PROJECT_ROOT"/}" >> "$OWED" && n=$((n+1))
   done <<EOF
 $(look_pages_in "$script")
+EOF
+  # A layout or snippet change alters pages this script never names: recorded apart from owed.tsv (it is
+  # not a page and cannot be SEEN), read by `reshoot` so a polish round after it re-shoots every page.
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    printf '%s\t%s\t%s\t%s\n' "$now" "$iso" "$p" "${script#"$PROJECT_ROOT"/}" >> "$SHARED" 2>/dev/null
+  done <<EOF
+$(look_shared_in "$script")
 EOF
   if [ "$n" -gt 0 ]; then
     echo "  👁  $n page(s) built — each is owed a LOOK: screenshot it, open the PNG, compare to its"
@@ -168,7 +197,10 @@ cmd_seen() {
 # look_status — one line per owed page, newest build only:  SEEN|OWED <TAB> Module.Page <TAB> epoch
 # One awk pass over both ledgers: a per-row fork costs ~150ms under Git Bash on Windows, and a
 # join of 50 pages against 300 reads would otherwise take minutes (obligation-check.sh, 2026-08-25).
-look_status() {
+look_status() { _look_status_ex | cut -f1-3; }
+# _look_status_ex — look_status plus, for a SEEN page, the epoch and path of its newest matching screenshot
+# (cols 4, 5; 0 and empty when OWED). `status` still prints cols 1-3 only: other tools parse those.
+_look_status_ex() {
   [ -s "$OWED" ] || return 0
   local seenf=/dev/null shotf=/dev/null
   [ -s "$SEEN" ] && seenf="$SEEN"
@@ -191,13 +223,14 @@ look_status() {
     NF>=3 { if (!($3 in last) || $1+0 > last[$3]) last[$3]=$1+0 }
     END {
       for (p in last) {
-        short=p; sub(/^[^.]*\./, "", short); short=norm(short); ok=0
+        short=p; sub(/^[^.]*\./, "", short); short=norm(short); ok=0; sa=0; si=""
         for (i=1; i<=n; i++) {
           if (!(at[i]>=last[p] && mt[i]>=last[p])) continue
-          if (index(base[i], short)) { ok=1; break }
-          if (((p SUBSEP full[i]) in shotmt) && shotmt[p SUBSEP full[i]]>=last[p]) { ok=1; break }
+          if (index(base[i], short) || (((p SUBSEP full[i]) in shotmt) && shotmt[p SUBSEP full[i]]>=last[p])) {
+            ok=1; if (at[i]>=sa) { sa=at[i]; si=full[i] }
+          }
         }
-        print (ok ? "SEEN" : "OWED") "\t" p "\t" last[p]
+        print (ok ? "SEEN" : "OWED") "\t" p "\t" last[p] "\t" sa "\t" si
       }
     }' "$OWED" 2>/dev/null | sort -k2,2
 }
@@ -276,12 +309,63 @@ LOOKSHOTS_PAGES
   return 0
 }
 
+# _style_newer_than <image> — the first theme/themesource .scss/.css file modified after that screenshot (relative
+# path), or nothing. Per page, because a polish round that restyles after page A's shot but before page B's must
+# not re-shoot B.
+_style_newer_than() {
+  local d f
+  for d in "$PROJECT_ROOT/theme" "$PROJECT_ROOT/themesource"; do
+    [ -d "$d" ] || continue
+    f="$(find "$d" -type f \( -name '*.scss' -o -name '*.css' \) -not -path '*/node_modules/*' -newer "$1" 2>/dev/null | head -1)"
+    [ -n "$f" ] && { printf '%s\n' "${f#"$PROJECT_ROOT"/}"; return 0; }
+  done
+  return 0
+}
+
+# cmd_reshoot [Module] [--all] — the pages a polish round re-shoots, and the denominator it closes against.
+# A page is RESHOOT when it was built after its last seen LOOK (OWED), or when SEEN but a layout/snippet script
+# (shared.tsv) or a theme/themesource .scss/.css file is newer than THAT page's screenshot: a shared change moves
+# pages no script named. Everything else is SEEN at its last build and is NOT re-shot. K of N is always printed;
+# an empty ledger is "NOT MEASURED" (full LOOK), never "0 of 0 to re-shoot". Reads the ledgers only.
+cmd_reshoot() {
+  local mod="" all=0 rows n k st pg built sa si iso reason f d
+  while [ $# -gt 0 ]; do case "$1" in --all) all=1 ;; *) mod="$1" ;; esac; shift; done
+  rows="$(_look_status_ex | awk -F'\t' -v m="$mod" 'm == "" || index($2, m ".") == 1')"
+  n="$(printf '%s\n' "$rows" | sed '/^$/d' | wc -l | tr -d ' ')"
+  if [ "$n" -eq 0 ]; then
+    echo "reshoot ${mod:-all modules}: NOT MEASURED -- no owed page recorded${mod:+ for $mod} in $OWED. The LOOK denominator is unknown: run the full LOOK (390 + 1280, every page), not a narrowed one."
+    return 0
+  fi
+  k=0
+  while IFS='	' read -r st pg built sa si; do
+    [ -n "$pg" ] || continue
+    reason=""
+    if [ "$st" = OWED ]; then
+      if [ -n "${EPOCHSECONDS:-}" ]; then TZ=UTC printf -v iso '%(%Y-%m-%dT%H:%M:%SZ)T' "${built:-0}"; else iso="$(date -u -d "@${built:-0}" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -r "${built:-0}" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "$built")"; fi
+      reason="built $iso, after its last LOOK"
+    elif [ "$all" = 1 ]; then reason="--all"
+    elif [ -n "$si" ] && [ ! -f "$si" ]; then reason="its screenshot ${si##*/} is gone, so a style change cannot be ruled out"
+    elif [ -n "$si" ] && f="$(_style_newer_than "$si")" && [ -n "$f" ]; then reason="style file changed after its last LOOK: $f"
+    elif [ -s "$SHARED" ]; then
+      f="$(awk -F'\t' -v sa="${sa:-0}" '$1+0 > sa+0 { print $3 " " $4; exit }' "$SHARED")"
+      [ -n "$f" ] && reason="shared $f changed after its last LOOK"
+    fi
+    [ -n "$reason" ] || continue
+    k=$((k+1)); printf 'RESHOOT\t%s\t%s\n' "$pg" "$reason"
+  done <<RESHOOT_ROWS2
+$rows
+RESHOOT_ROWS2
+  echo "reshoot ${mod:-all modules}: $k of $n page(s) to re-shoot at 390 and 1280; $((n-k)) SEEN after their last build and untouched by a layout, snippet or style change, so not re-shot. The look report keeps its headline 'N of N pages reviewed' (N=$n) and gains an addendum: its own VALID AT and $k PROOF-OF-LOOK line(s)."
+  return 0
+}
+
 case "${1:-}" in
+  reshoot) shift; cmd_reshoot "$@" ;;
   owe)    shift; cmd_owe "$@" ;;
   seen)   cmd_seen ;;
   status) look_status ;;
   shots)  shift; cmd_shots "$@" ;;
   pages)  shift; look_pages_in "${1:-/dev/null}" ;;
-  *) echo "usage: $0 owe <script.mdl> | seen < hook-json | status | shots [findings.json...] | pages <script.mdl>" >&2; exit 2 ;;
+  *) echo "usage: $0 owe <script.mdl> | seen < hook-json | status | reshoot [Module] [--all] | shots [findings.json...] | pages <script.mdl>" >&2; exit 2 ;;
 esac
 exit 0

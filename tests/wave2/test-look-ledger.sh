@@ -100,6 +100,38 @@ st="$(cd "$P" && bash bin/look-ledger.sh status | awk -F'\t' '{printf "%s=%s ", 
   && ok "L5: status — two pages seen, the one with only a stale screenshot still owed" \
   || bad "L5: status got '$st'"
 
+# ── R: reshoot -- a polish round re-shoots only the pages it changed (speed-night D/B) ─────────
+# State from L1-L5 (p-app): Billing.Invoice_View OWED (its only screenshot predates the build), Orders.Order_Edit and
+# Orders.Order_Overview SEEN. The ledgers are the real ones owe/seen wrote above; nothing is hand-written but the
+# future-dated style file and the future-dated shared row, which stand in for "changed after the LOOK".
+P="$WORK/p-app"
+r="$(cd "$P" && bash bin/look-ledger.sh reshoot)"
+printf '%s\n' "$r" | grep -q '^RESHOOT	Billing.Invoice_View	built .*, after its last LOOK' && [ "$(printf '%s\n' "$r" | grep -c '^RESHOOT')" = 1 ] \
+  && printf '%s\n' "$r" | grep -q '^reshoot all modules: 1 of 3 page(s) to re-shoot at 390 and 1280; 2 SEEN' \
+  && ok "R1: after the round only the owed page is re-shot -- 1 of 3, the denominator printed" || bad "R1: got '$r'"
+r="$(cd "$P" && bash bin/look-ledger.sh reshoot Orders)"
+printf '%s\n' "$r" | grep -q '^reshoot Orders: 0 of 2 page(s) to re-shoot' && ! printf '%s\n' "$r" | grep -q '^RESHOOT' \
+  && ok "R2: a module whose pages are all SEEN says 0 of 2 (a measured zero, with N)" || bad "R2: got '$r'"
+printf 'x' > "$WORK/empty-ledger-marker"
+r="$(cd "$WORK/p-root" && bash bin/look-ledger.sh reshoot Nope)"
+printf '%s\n' "$r" | grep -q '^reshoot Nope: NOT MEASURED' && ok "R3: a module with no owed row is NOT MEASURED -- run the full LOOK, never '0 to re-shoot'" || bad "R3: got '$r'"
+mkdir -p "$P/themesource/orders/web"; printf '.a{}' > "$P/themesource/orders/web/main.scss"; touch -t 203001010000 "$P/themesource/orders/web/main.scss"
+r="$(cd "$P" && bash bin/look-ledger.sh reshoot)"
+[ "$(printf '%s\n' "$r" | grep -c '^RESHOOT')" = 3 ] && printf '%s\n' "$r" | grep -q 'style file changed after its last LOOK: themesource/orders/web/main.scss' \
+  && printf '%s\n' "$r" | grep -q '3 of 3 page(s) to re-shoot' && ok "R4: a style file newer than the LOOK re-shoots every page (a shared change moves pages no script named)" || bad "R4: got '$r'"
+rm -rf "$P/themesource"
+printf 'create or modify layout Orders.App_Default (Type: Responsive) { }\n-- create snippet Orders.Commented { }\ncreate snippet Orders.Order_Header { }\n' > "$P/mdlsource/20-shared.mdl"
+rm -f "$P/.claude/loop/look/shared.tsv"; (cd "$P" && bash bin/look-ledger.sh owe "$P/mdlsource/20-shared.mdl" >/dev/null)
+[ "$(cut -f3 "$P/.claude/loop/look/shared.tsv" | tr '\n' ' ')" = "layout snippet " ] && [ "$(cut -f4 "$P/.claude/loop/look/shared.tsv" | tr '\n' ' ')" = "Orders.App_Default Orders.Order_Header " ] \
+  && ok "R5: owe records the layout and the snippet (comment skipped) apart from the owed pages" || bad "R5: shared.tsv '$(cat "$P/.claude/loop/look/shared.tsv" 2>/dev/null)'"
+[ "$(wc -l < "$P/.claude/loop/look/owed.tsv" | tr -d ' ')" = 3 ] && ok "R5: shared changes add no owed row (status denominator unchanged)" || bad "R5: owed.tsv changed"
+printf '9999999999\t2286-01-01T00:00:00Z\tlayout\tOrders.App_Default\tmdlsource/20-shared.mdl\n' > "$P/.claude/loop/look/shared.tsv"
+r="$(cd "$P" && bash bin/look-ledger.sh reshoot)"
+printf '%s\n' "$r" | grep -q 'RESHOOT	Orders.Order_Edit	shared layout Orders.App_Default changed after its last LOOK' && printf '%s\n' "$r" | grep -q '3 of 3 page(s)' \
+  && ok "R6: a layout changed after the LOOK re-shoots the SEEN pages too" || bad "R6: got '$r'"
+r="$(cd "$P" && rm -f .claude/loop/look/shared.tsv && bash bin/look-ledger.sh reshoot --all Orders)"
+printf '%s\n' "$r" | grep -q 'RESHOOT	Orders.Order_Edit	--all' && ok "R7: --all forces the full set, labelled" || bad "R7: got '$r'"
+
 # ── S: journey screenshots as LOOK evidence (speed experiment E2) ──────────────────────────
 # Golden input is a real journey run: fixtures/look-shots/journey-findings.json and its PNGs were
 # written by journey-runner.js against a finished Purchasing/Approval lab app (mxcli v0.28.0), and

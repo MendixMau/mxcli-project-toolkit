@@ -771,6 +771,21 @@ else
     printf 'journeys\tSKIPPED\t0\t-\t(not run: credentials, see the e2e credentials row)\n' >> "$SUMMARY"
   else
     [ "${#JOURNEY_FILES[@]}" -gt 1 ] && echo "  journeys: ${#JOURNEY_FILES[@]} file(s) in ${JOURNEY#$ROOT/}"
+    # Persona preflight: a persona that is not a demo user fails every login after ~100 s each
+    # (speed-night B: 11 runs, 19 min, unflagged). One `show demo users` first; ONE LINE PER MISSING
+    # PERSONA, and the journeys are not started. Unmeasurable (rc 2) is named and does not block.
+    _PPF="$BIN/persona-preflight.sh"; _PPF_RC=0
+    if [ -f "$_PPF" ]; then
+      _PPF_OUT="$(bash "$_PPF" "${JOURNEY_FILES[@]}" 2>&1)" || _PPF_RC=$?
+      case "$_PPF_RC" in
+        0) echo "  $(printf '%s\n' "$_PPF_OUT" | tail -1)" ;;
+        1) fault "journeys" "persona preflight: a persona the journeys log in as is not a usable demo user -- journeys NOT started" \
+                 "$(printf '%s\n' "$_PPF_OUT" | sed 's/^/      /')"
+           printf '%s\n' "$_PPF_OUT" > "$OUTDIR/19-persona-preflight.log" ;;
+        *) echo "  ! persona preflight could not measure (rc $_PPF_RC): $(printf '%s\n' "$_PPF_OUT" | tail -1)" ;;
+      esac
+    fi
+    if [ "$_PPF_RC" -ne 1 ]; then
     _exec "journeys (UI + ordered spans + data effects)" "$OUTDIR/20-journeys.log" gate "${VM_TMO_JOURNEYS:-900}" -- \
       node "$JOURNEY_RUNNER" "${JOURNEY_FILES[@]}"
     # Non-vacuity: a journey that cannot fail is not evidence. Skipped under --quick because it
@@ -778,6 +793,7 @@ else
     [ "$QUICK" -eq 1 ] || _exec "journeys (positive control — MUST detect a broken precondition)" \
       "$OUTDIR/21-journeys-control.log" gate "${VM_TMO_JOURNEYS:-900}" -- \
       node "$JOURNEY_RUNNER" "${JOURNEY_FILES[@]}" --positive-control
+    fi
   fi
 
   if [ "$SKIP_MONKEY" -eq 1 ]; then

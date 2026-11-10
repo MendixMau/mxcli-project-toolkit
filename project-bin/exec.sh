@@ -2651,13 +2651,14 @@ _model_same() {
   [ "$PATCH_MODE" = 1 ] && return 1
   case "${SCOPE_NOTE:-}" in "scope: "[0-9]*" unit file(s) changed, 0 real"*) ;; *) return 1 ;; esac
   [ -n "${SNAP_NOW:-}" ] && [ -d "$SNAP_NOW" ] || return 1
-  _side=""
+  # An array, quoted at the call: a MODEL_DIR holding a space must not split into two find roots
+  # (find would fail silently and call the model "same" — #721 review). bash 3.2-safe.
+  _side=()
   for _sd in javasource javascriptsource theme themesource userlib widgets; do
-    [ -d "$MODEL_DIR/$_sd" ] && _side="$_side $MODEL_DIR/$_sd"
+    [ -d "$MODEL_DIR/$_sd" ] && _side[${#_side[@]}]="$MODEL_DIR/$_sd"
   done
-  [ -z "$_side" ] && return 0
-  # shellcheck disable=SC2086
-  [ -z "$(find $_side -path '*/javasource/*/proxies' -prune -o -type f -newer "$SNAP_NOW" -print 2>/dev/null | head -1)" ]
+  [ "${#_side[@]}" = 0 ] && return 0
+  [ -z "$(find "${_side[@]}" -path '*/javasource/*/proxies' -prune -o -type f -newer "$SNAP_NOW" -print 2>/dev/null | head -1)" ]
 }
 _hs_present() { [ -f "$(cd "${MPR%/*}" && pwd)/.mxcli/run-local.json" ] || [ -f "$MODEL_DIR/.mxcli/run-local.json" ]; }
 # After a full build into deployment/, a running `run --local --watch` serves no web client

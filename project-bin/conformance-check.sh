@@ -307,7 +307,10 @@ runnable() {
 # Portable timeout: macOS has no coreutils `timeout`. Running mxcli unguarded risks a stall
 # that looks identical to a slow project. (An earlier version of this script used `timeout`
 # and silently measured nothing at all, because the binary does not exist here — rc=127.)
-TIMEOUT_S=25
+# MXTK_CONFORMANCE_TIMEOUT_S overrides the 25 s deadline (whole seconds); the fixture uses it to
+# prove a hanging probe is still killed without waiting 25 s per case.
+TIMEOUT_S="${MXTK_CONFORMANCE_TIMEOUT_S:-25}"
+case "$TIMEOUT_S" in ''|*[!0-9]*|0) TIMEOUT_S=25 ;; esac
 run_guarded() {
   local cmd="$1" tmp rc pid killer
   tmp="$(mktemp)"
@@ -330,12 +333,21 @@ run_guarded() {
   # command finishing (nothing to cancel, no orphaned `sleep` left behind), and it still kills a
   # genuinely stuck command at the deadline. `kill -0` is a liveness test, not a signal. SIGKILL
   # on the cancel path because, unlike SIGTERM, it cannot be deferred.
+  #
+  # THE WATCHDOG WRITES NOWHERE (#686 speed audit, 2026-11-09). run_guarded is called as
+  # `out="$(run_guarded ...)"`, and a background subshell inherits that command substitution's
+  # pipe as its stdout. Killing the watchdog does not kill the `sleep 1` it is blocked in, and
+  # `$(…)` returns only when the LAST holder of the pipe closes it — so every probe still took
+  # ~1 s, however fast mxcli answered. With stdout and stderr on /dev/null the orphaned sleep
+  # holds nothing and the probe returns when mxcli does: a 22-row pass with the stub mxcli of
+  # test-conformance-baseline-scope.sh went from 22.6 s to 2.7 s. The deadline kill is unchanged
+  # (tests/wave2/test-conformance-probe-speed.sh proves both).
   ( i=0
     while [ "$i" -lt "$TIMEOUT_S" ]; do
       sleep 1; i=$((i+1))
       kill -0 "$pid" 2>/dev/null || exit 0
     done
-    kill -9 "$pid" 2>/dev/null ) & killer=$!
+    kill -9 "$pid" 2>/dev/null ) >/dev/null 2>&1 & killer=$!
   wait "$pid" 2>/dev/null; rc=$?
   kill -9 "$killer" 2>/dev/null; wait "$killer" 2>/dev/null
   cat "$tmp"; rm -f "$tmp"

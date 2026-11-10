@@ -450,6 +450,13 @@ case "$OUT" in *"→ Watch:"*)
   hasnt "E6   not 'changed nothing'" "$OUT" "changed nothing in the model" ;;
   *) bad "E6 [setup] the --patch exec did not reach the watch advisory: $(printf '%s' "$OUT" | tail -4)" ;;
 esac
+# E5b: the same Java rewrite in a project whose path holds a space. An unquoted `find $_side`
+# split the path, failed silently and called the model "same" (#721 review).
+SP="$WORK/my proj"; cp -a "$P" "$SP"
+( cd "$SP" && git add -A javasource mdlsource && git -c user.email=t@t -c user.name=t commit -qm sp ) >/dev/null 2>&1
+OUT="$(FAKE_JAVA=1 run "$SP" mdlsource/grant.mdl)"
+has "E5b a space in MODEL_DIR: Java action rewritten → restart needed" "$OUT" "→ Watch: restart needed: "
+hasnt "E5b   not 'changed nothing'" "$OUT" "changed nothing in the model"
 
 echo "-- lint-gate's SEC014 note reaches a clean exec (#312)"
 # The note line is lint-gate.sh's own text in PR #312 (project-bin/lint-gate.sh, stderr, rc 0).

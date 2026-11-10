@@ -16,19 +16,24 @@ Sibling to `../outsystems` and `../node-express-react` — see
 ```bash
 cd pipeline
 
-# 1. Extract Java + Angular source, merge (writes to config.json's knowledgeBaseDir, NOT here — see
+# 0. Project-owned config, kept in the project — never edit pipeline/config.json (the template)
+#    in the shared toolkit clone. Relative paths in it resolve against the file's own folder.
+cp config.json <project-root>/analysis/<source-name>/pipeline-config.json   # then fill it in
+CFG=<project-root>/analysis/<source-name>/pipeline-config.json             # or: export MXTK_PIPELINE_CONFIG=$CFG
+
+# 1. Extract Java + Angular source, merge (writes to the config's knowledgeBaseDir, NOT here — see
 #    "Project Workspace Convention" in migration-pipeline.md)
-node run.js 2
+node run.js 2 --config "$CFG"
 
 # 2. Generate BRD scaffolds (one .brd.json per business capability) + grouping proposal
-node run.js 3
+node run.js 3 --config "$CFG"
 # → review <knowledgeBaseDir>/brd/grouping-proposal.md at CAC-2 (checkpoint-brd.md Q0)
 
 # 3. Phase 4 — enrich the BRDs (human/conversational step, not mechanical — see
 #    migration-pipeline.md's "extractors capture structure, mappers/review supply narrative")
 
 # 4. Generate the extraction dashboard
-npm run reports
+npm run reports -- --config "$CFG"
 # → <knowledgeBaseDir>/extraction-report.html      (raw extraction + gaps, interactive drilldown)
 
 # 5. Stage 2 — the business-facing BRD surface
@@ -41,13 +46,15 @@ npm run reports
 # generate-enrichment-report.js on 2026-08-19 — see CLAUDE.md, "Writing in this toolkit".
 ```
 
-Set `javaSourceDir`, `angularSourceDir`, and **`knowledgeBaseDir`** in `pipeline/config.json` before
-running. `knowledgeBaseDir` points at `<project-root>/analysis/<source-name>/knowledge-base`
+Set `javaSourceDir`, `angularSourceDir`, and **`knowledgeBaseDir`** in your project's copy of
+`pipeline/config.json` before running, and pass it with `--config <file>` (or `MXTK_PIPELINE_CONFIG`).
+`run.js` refuses the tracked template while it still holds `/path/to/your` placeholders; a clone
+whose tracked file was already filled in keeps working, but move that config into the project. `knowledgeBaseDir` points at `<project-root>/analysis/<source-name>/knowledge-base`
 (**inside the project folder, never a sibling** — see migration-pipeline.md's Project Workspace
 Convention). Never leave it unset for a real run, and never commit real local paths; this tool
 must never accumulate project-specific output inside its own directory tree.
 
-Optional `config.json` keys:
+Optional config keys:
 
 - `"project": { "title", "description", "techTags": [] }` — drives the enrichment report's hero
   block (a placeholder hero renders without it).
@@ -132,6 +139,19 @@ java-angular/
 | `@Service`/controller method | `logic` (`logicKind: 'action'`) | Microflow |
 | Angular `@Component` (routed, dialog, or embedded) | `screen` | Page / Popup |
 | `@ManyToOne`/`@OneToOne` field | synthetic `"<Entity> Identifier"` attribute | Association |
+| Java `enum` (nested: named `Outer_Inner`, label `Outer.Inner`, `outerType` set) | `staticEntity` | Enumeration |
+
+**REST endpoints.** Every `@Get/Post/Put/Delete/Patch/RequestMapping` on a method of a
+`*Controller`-stereotyped class lands as an `httpEndpoint` on a `logic` item; path constants
+(`API_LOCATIONS + "/{pKey}"`, `TMSApi.TRANSPORT_ORDERS`) are evaluated from the `String`
+constants declared in the same source. If a service method in the controller's own package has
+the controller method's name, it carries the endpoint (the pilot shape). Otherwise the controller
+method itself becomes the item (`layer: "controller"`) and `delegatesTo[]` names the service
+methods it calls through its injected fields, resolved by type, so a controller and its
+`*ServiceImpl` in different packages still link. An endpoint with no resolvable delegate carries
+the gap `endpoint-delegate-unresolved`. Independently, the extractor regex-counts the mapping
+annotations in each controller file; `reports/gaps-report.md` and `summary.md` print
+"captured N of M", and any shortfall is added to the gaps total.
 
 ---
 

@@ -1,0 +1,6 @@
+{
+  "executable": true,
+  "mdl": "mdl 1;\ncreate or modify published odata service MyFirstModule.CarOdataApi (\n  Path: 'odata/carodataapi/v1/',\n  Version: '1.0.0',\n  ODataVersion: OData4,\n  Namespace: 'DefaultNamespace',\n  ServiceName: 'CarOdataApi',\n  PublishAssociations: Yes,\n  SupportsGraphQL: Yes,\n  Authentication: (basic)\n)\n{\n  publish entity MyFirstModule.VCar as 'VCars' (\n    ReadMode: ReadFromDatabase,\n    InsertMode: NotSupported,\n    UpdateMode: NotSupported,\n    DeleteMode: NotSupported\n  )\n  expose (\n    ModelID as 'ModelID' (Filterable, Sortable, KEY),\n    Brand as 'Brand' (Filterable, Sortable)\n  );\n\n};\n\ngrant access on published odata service MyFirstModule.CarOdataApi to MyFirstModule.User;\n",
+  "name": "MyFirstModule.CarOdataApi",
+  "type": "odataservice"
+}

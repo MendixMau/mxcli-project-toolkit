@@ -54,8 +54,13 @@ Examples:
   F004-corporate-search.brd.json
 ```
 
-Store in: `extraction/knowledge-base/brd/`
-Also maintain: `extraction/knowledge-base/brd/index.json` (list of all BRDs)
+Store in: `<KB>/brd/`, where `<KB>` is `analysis/<source>/knowledge-base/` — the gate and
+`discover-brds.sh` look in `analysis/*/knowledge-base/`, `analysis/knowledge-base/` and
+`knowledge-base/`; with more than one `analysis/*` knowledge base, gate-check needs
+`GATE_WORKSTREAM=<name>`. A BRD under `extraction/knowledge-base/` is never seen by the Stage 2 gate.
+Also maintain: `<KB>/brd/index.json` (list of all BRDs)
+Validation report: `<KB>/reports/validation-report.md`, with a `## Stop condition` heading
+(`brd-validation.md` → "Stop condition").
 
 ---
 
@@ -281,7 +286,7 @@ several, list every one of them in `modules[]`. Aim for 3-8 use cases per BRD.
 
 Collect before prompting:
 
-1. Relevant KB files (from `extraction/knowledge-base/share/`)
+1. Relevant KB files (from `<KB>/share/`, `<KB>` as in "Store in" above)
 2. Relevant extracted JSON sections (entities, screens, logics for this feature)
 3. Cross-reference map (`cross-reference-map.json`) for dependencies
 4. Any OS screen action names from `logics.json` that map to this feature
@@ -384,6 +389,15 @@ Once frozen, the lock wins. Parallel agents read it instead of re-deriving, and 
 any BRD that drifts — at write time, where it costs one edit, instead of at gate time, where it
 costs the user's attention.
 
+On a BRD of the shape above the lock holds what parallel writers drift on: entity names and
+their module, `Entity.attribute` with its type, enumeration values, use-case and business-rule
+ids with the BRD that owns each, actors/roles and modules. After a build, an entity no BRD
+declares any more, a changed attribute type or a use-case id that turns up in another BRD is a
+`DEVIATION` (Stage 2 FAILs on it). A deliberate rename: `facts-lock.sh <project> forget
+entities/<name>` (it takes the entity's attributes with it), then `build`. A lock that covers
+almost nothing says `near-empty lock (k facts)` instead of agreeing — rebuild it (field run,
+#621: 9 hand-written BRDs, "2 fact(s) frozen", and check said all clear).
+
 **Its blind spot, stated plainly:** it compares BRDs against each other, so it cannot detect a
 mistake every BRD makes identically. It replaces N inconsistent guesses with one consistent
 guess — which is strictly better and still a guess until someone checks it against the source.
@@ -394,7 +408,7 @@ run poisons one file instead of a capability.
 ## Step 5 — Maintain the BRD index
 
 ```json
-// extraction/knowledge-base/brd/index.json
+// <KB>/brd/index.json   (<KB> = analysis/<source>/knowledge-base)
 {
   "generated": "YYYY-MM-DD",
   "brds": [

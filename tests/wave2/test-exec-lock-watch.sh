@@ -22,6 +22,11 @@
 #           statements not found in any shipped script are grepped out of the bug log / pending
 #           issue that recorded them verbatim); the post-exec line in a real run; theme SCSS
 #           newer than the run --local record (the captured handshake fixture) means restart.
+#   #686:   E1 a restart-class script that changed nothing in the model (model-scope.py: 0 real)
+#           asks for no restart; E2 the same script that did change it still does; E3 a full gate
+#           built in place with an app recorded asks app-restart.sh --if-client-gone and reports the
+#           restart done; E4 a full gate built in the copy (.mxtk/build/) asks nothing; E5 a Java
+#           action written with 0 units changed, E6 an opaque --patch script → restart still asked.
 #
 # NOTHING here touches a real .mpr, mxcli, mxbuild or app. Throwaway git repos with stubs, as
 # in test-bug07-08.sh.
@@ -368,6 +373,90 @@ has "a page-only script after an SCSS edit → restart, naming the file" "$OUT" 
 touch "$P/.mxcli/run-local.json"
 OUT="$(run "$P" mdlsource/page.mdl)"
 has "same script, SCSS older than the boot → watch applies it" "$OUT" "→ Watch: watch can apply this"
+
+echo "-- #686: restart only when the change needs it"
+# model-scope.py counts what this exec changed against HEAD (the model was committed when it
+# started). The stub `mxcli exec` writes nothing unless FAKE_WRITE=1, so a GRANT-carrying script
+# re-applied (the second run of "exec every change twice") changed nothing: no restart for it.
+cp "$TOOLKIT/project-bin/model-scope.py" "$TOOLKIT/project-bin/mxpatch.py" "$TOOLKIT/project-bin/mxunit_bson.py" "$P/bin/"
+cat > "$P/mxcli" <<'MXCLI'
+#!/usr/bin/env bash
+case "${1:-}" in check) exit 0 ;; exec) echo "fake mxcli exec"; [ -n "${FAKE_WRITE:-}" ] && printf 'x' >> mprcontents/a.mxunit; exit 0 ;; esac
+exit 0
+MXCLI
+chmod +x "$P/mxcli"
+cp "$GAL/05-demo-data.mdl" "$P/mdlsource/grant.mdl"
+( cd "$P" && git add mdlsource bin && git -c user.email=t@t -c user.name=t commit -qm grant ) >/dev/null 2>&1
+OUT="$(run "$P" mdlsource/grant.mdl)"
+has "E1 restart-class script that changed nothing → no restart for it" "$OUT" "→ Watch: no restart for this exec — it changed nothing in the model (0 unit file(s) changed, 0 real"
+hasnt "E1   and no restart prompt" "$OUT" "restart needed"
+has "E1   an earlier exec's restart still stands" "$OUT" "A restart an earlier exec asked for still stands"
+OUT="$(FAKE_WRITE=1 run "$P" mdlsource/grant.mdl)"
+has "E2 the same script when it did change the model → restart needed, naming the grants" "$OUT" "→ Watch: restart needed: "
+has "E2   (the grants)" "$OUT" "access rule changed (GRANT)"
+hasnt "E2   no 'nothing changed'" "$OUT" "changed nothing in the model"
+( cd "$P" && git add -A mprcontents && git -c user.email=t@t -c user.name=t commit -qm w ) >/dev/null 2>&1
+# A full gate with an app recorded: exec asks app-restart.sh --if-client-gone (stubbed here; its
+# own behaviour is tests/wave2/test-app-readiness.sh). When it restarted the app, the restart this
+# script needs is done and exec says so instead of asking for another.
+cat > "$P/bin/app-restart.sh" <<'AR'
+#!/usr/bin/env bash
+echo "$*" >> "$(dirname "$0")/../.ar-calls"
+echo "→ app-restart: after the full build :8180 is not serving (client bundle → HTTP 404)."
+echo "  The toolkit started this app (pid 4242), so it restarts it now."
+echo "✓ app-restart: serving on :8180 after 3s — bundle http://127.0.0.1:8180/dist/index.js answers"
+AR
+chmod +x "$P/bin/app-restart.sh"
+OUT="$(FAKE_WRITE=1 run "$P" mdlsource/grant.mdl)"
+if grep -q -- '--if-client-gone' "$P/.ar-calls" 2>/dev/null; then
+  ok "E3 a full gate with an app recorded asks app-restart.sh --if-client-gone"
+  has "E3   its answer is shown" "$OUT" "so it restarts it now"
+  has "E3   the script's own restart is reported done, not asked again" "$OUT" "done: the app was restarted after the full build"
+  hasnt "E3   no second restart prompt" "$OUT" "Restart this app only"
+else
+  bad "E3 app-restart.sh --if-client-gone was not called after the full gate: $(printf '%s' "$OUT" | grep -iE 'gate|watch|full' | tail -4)"
+fi
+( cd "$P" && git add -A mprcontents && git -c user.email=t@t -c user.name=t commit -qm w2 ) >/dev/null 2>&1
+# E3 is the in-place case (no bin/build-tree.py here). Installed, the gate builds a copy under
+# .mxtk/build/ and the app's deployment/ is not touched, so there is no client to check (#686).
+rm -f "$P/.ar-calls"; cp "$TOOLKIT/project-bin/build-tree.py" "$P/bin/"
+( cd "$P" && git add bin && git -c user.email=t@t -c user.name=t commit -qm bt ) >/dev/null 2>&1
+OUT="$(FAKE_WRITE=1 run "$P" mdlsource/grant.mdl)"
+has "E4 with build-tree.py the full gate builds the copy" "$OUT" "full build ran in .mxtk/build/"
+[ -f "$P/.ar-calls" ] && bad "E4 app-restart.sh was asked about a client the build never touched" || ok "E4 no client check, no restart after a build in the copy"
+has "E4 the script's own restart need is still reported" "$OUT" "→ Watch: restart needed: "
+[ ! -e "$P/.mpr-snapshots/.build.lock" ] && ok "E4 the copy's build lock is gone after the exec" || bad "E4 exec left .mpr-snapshots/.build.lock behind"
+rm -f "$P/bin/app-restart.sh" "$P/.ar-calls" "$P/bin/build-tree.py"
+( cd "$P" && git add -A mprcontents bin && git -c user.email=t@t -c user.name=t commit -qm w3 ) >/dev/null 2>&1
+# #721 review: 0 units changed is not "no restart" when the exec wrote beside the model (a Java
+# action, theme, userlib, widgets) or ran an opaque --patch script.
+mkdir -p "$P/javasource/shop/actions"; printf 'class A {}\n' > "$P/javasource/shop/actions/A.java"
+( cd "$P" && git add javasource && git -c user.email=t@t -c user.name=t commit -qm java ) >/dev/null 2>&1
+cat > "$P/mxcli" <<'MXCLI'
+#!/usr/bin/env bash
+case "${1:-}" in check) exit 0 ;; exec) echo "fake mxcli exec"; [ -n "${FAKE_JAVA:-}" ] && printf 'class A { int x; }\n' > javasource/shop/actions/A.java; exit 0 ;; esac
+exit 0
+MXCLI
+chmod +x "$P/mxcli"
+OUT="$(FAKE_JAVA=1 run "$P" mdlsource/grant.mdl)"
+has "E5 0 units changed but a Java action rewritten → restart needed" "$OUT" "→ Watch: restart needed: "
+hasnt "E5   not 'changed nothing'" "$OUT" "changed nothing in the model"
+( cd "$P" && git add javasource && git -c user.email=t@t -c user.name=t commit -qm java2 ) >/dev/null 2>&1
+printf '#!/usr/bin/env bash\nexit 0\n' > "$P/mdlsource/noop-patch.sh"; chmod +x "$P/mdlsource/noop-patch.sh"
+( cd "$P" && git add mdlsource && git -c user.email=t@t -c user.name=t commit -qm patch ) >/dev/null 2>&1
+OUT="$(run "$P" --patch mdlsource/noop-patch.sh)"
+case "$OUT" in *"→ Watch:"*)
+  has "E6 a --patch script that changed no unit → still restart needed (opaque)" "$OUT" "→ Watch: restart needed: --patch script"
+  hasnt "E6   not 'changed nothing'" "$OUT" "changed nothing in the model" ;;
+  *) bad "E6 [setup] the --patch exec did not reach the watch advisory: $(printf '%s' "$OUT" | tail -4)" ;;
+esac
+# E5b: the same Java rewrite in a project whose path holds a space. An unquoted `find $_side`
+# split the path, failed silently and called the model "same" (#721 review).
+SP="$WORK/my proj"; cp -a "$P" "$SP"
+( cd "$SP" && git add -A javasource mdlsource && git -c user.email=t@t -c user.name=t commit -qm sp ) >/dev/null 2>&1
+OUT="$(FAKE_JAVA=1 run "$SP" mdlsource/grant.mdl)"
+has "E5b a space in MODEL_DIR: Java action rewritten → restart needed" "$OUT" "→ Watch: restart needed: "
+hasnt "E5b   not 'changed nothing'" "$OUT" "changed nothing in the model"
 
 echo "-- lint-gate's SEC014 note reaches a clean exec (#312)"
 # The note line is lint-gate.sh's own text in PR #312 (project-bin/lint-gate.sh, stderr, rc 0).

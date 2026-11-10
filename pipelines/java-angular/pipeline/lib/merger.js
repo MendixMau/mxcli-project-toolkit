@@ -212,6 +212,7 @@ class Merger {
    */
   _loadAll() {
     const items = [];
+    this.endpointCoverage = { expected: 0, captured: 0, disagreements: 0, pathUnresolved: 0, files: [], sources: 0 };
     if (!fs.existsSync(this.extractedDir)) return items;
     const files = fs.readdirSync(this.extractedDir)
       .filter(f => /^(java|angular)(-.+)?\.json$/.test(f));
@@ -221,6 +222,16 @@ class Merger {
       try {
         const data = JSON.parse(fs.readFileSync(full, 'utf8'));
         items.push(...(data.items || []));
+        const ec = data.meta && data.meta.endpointCoverage;
+        if (ec) {
+          this.endpointCoverage.sources++;
+          this.endpointCoverage.expected += ec.expected || 0;
+          this.endpointCoverage.captured += ec.captured || 0;
+          this.endpointCoverage.pathUnresolved += ec.pathUnresolved || 0;
+          this.endpointCoverage.disagreements += ec.disagreements !== undefined
+            ? ec.disagreements : Math.max(0, (ec.expected || 0) - (ec.captured || 0));
+          for (const fc of (ec.files || [])) this.endpointCoverage.files.push({ ...fc, extract: f });
+        }
       } catch (e) {
         this.logger.error(`  [merge] Failed to load ${full}: ${e.message}`);
       }
@@ -283,6 +294,20 @@ class Merger {
       if (lowConf.length) lines.push(`**Low-confidence links:** ${lowConf.map(l => l.id).join(', ')}  `);
       lines.push('');
     }
+    // Source-side shortfalls: mapping annotations the extractor's own independent count saw in
+    // controller files but no endpoint record captured (issue #637 — 69 endpoints missed while
+    // this report and summary.md said 0 gaps).
+    const ec = this.endpointCoverage;
+    if (ec && ec.sources) {
+      const missed = ec.disagreements;
+      lines.push('## REST endpoint coverage');
+      lines.push(`**Captured:** ${ec.captured} of ${ec.expected} mapping annotations found in controller source  `);
+      if (ec.pathUnresolved) lines.push(`**Paths left unresolved (constant not found in this source):** ${ec.pathUnresolved}  `);
+      for (const fc of ec.files) lines.push(`- \`${fc.file}\`: ${fc.captured} captured of ${fc.expected}` +
+        (fc.captured > fc.expected ? ' (the AST found more than the independent count; check both)' : ''));
+      if (!missed && !ec.files.length) lines.push('No uncaptured mapping annotations.');
+      lines.push('');
+    }
     const reportsDir = path.join(this.knowledgeBaseDir, 'reports');
     fs.mkdirSync(reportsDir, { recursive: true });
     fs.writeFileSync(path.join(reportsDir, 'gaps-report.md'), lines.join('\n'), 'utf8');
@@ -312,7 +337,9 @@ class Merger {
     const counts = {};
     for (const i of items) counts[i.type] = (counts[i.type] || 0) + 1;
     const totalLinks = Object.values(crossRef).reduce((s, v) => s + v.linkedTo.length, 0);
-    const totalGaps  = Object.values(crossRef).reduce((s, v) => s + v.gaps.length, 0);
+    const ec = this.endpointCoverage || { sources: 0 };
+    const missedEndpoints = ec.sources ? ec.disagreements : 0;
+    const totalGaps  = Object.values(crossRef).reduce((s, v) => s + v.gaps.length, 0) + missedEndpoints;
     const lines = [
       '# Knowledge Base Summary\n',
       '## Construct Counts\n',
@@ -322,6 +349,8 @@ class Merger {
       '## Cross-Reference Summary\n',
       `- Total cross-references established: **${totalLinks}**`,
       `- Total gaps (missing links): **${totalGaps}**`,
+      ...(ec.sources ? [`- REST endpoints captured: **${ec.captured} of ${ec.expected}** mapping annotations in controller source` +
+        (missedEndpoints ? ` — **${missedEndpoints} missed or disputed** (regex vs AST, per file), counted in the gaps total above` : '')] : []),
       '',
       '> Review `reports/gaps-report.md` for constructs requiring human confirmation.',
     ];
@@ -334,7 +363,9 @@ class Merger {
 
 if (require.main === module) {
   const path = require('path');
-  const config = JSON.parse(require('fs').readFileSync('config.json', 'utf8'));
+  // Same lookup as run.js (--config, MXTK_PIPELINE_CONFIG, then the tracked template) — run.js
+  // exports MXTK_PIPELINE_CONFIG to this child so both always read the same project config.
+  const { config } = require('./config').loadConfig({ argv: process.argv.slice(2) });
   // config.knowledgeBaseDir points at the per-project analysis folder — see migration-pipeline.md's
   // "Project Workspace Convention." Falls back to a local knowledge-base/ (gitignored scratch
   // space) only when no knowledgeBaseDir is configured, e.g. quick standalone testing.

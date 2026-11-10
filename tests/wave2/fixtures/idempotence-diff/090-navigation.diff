@@ -1,0 +1,11 @@
+WARNING: This is a vibe-coded PoC, alpha quality, use with caution.
+Reference error: statement 1: alter navigation Responsive: drop 'Home': menu item 'Home' not found: the menu has 'Suppliers', 'Purchasing', 'Approval' at the top level, and a caption matches at any depth
+Refused: exec would refuse to run this script, and write nothing.
+
+Refusing to execute: 1 unresolved reference(s) above. Nothing was written.
+  A name that resolves to nothing is written into the model as it stands and
+  is not reported until mxbuild rejects it (CE1613) — and a misspelled MODULE
+  is created rather than refused.
+  Fix them, or re-run with --no-check to apply the script anyway.
+
+Summary: 0 new, 0 modified, 0 removed — exec would write nothing

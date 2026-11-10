@@ -2,6 +2,7 @@
 # verify-model.sh — run the mxbuild gate on the model AS IT IS, and stamp it if clean.
 #
 #   ./bin/verify-model.sh            # mxbuild --target=deploy, print the error count, stamp on 0
+#                                    # (built in a synced copy, .mxtk/build/model/ — never the app's deployment/, #686)
 #   ./bin/verify-model.sh --no-stamp # just the verdict
 #
 # The standalone half of the verification stamp (bin/model-stamp.sh). exec.sh stamps the
@@ -47,9 +48,25 @@ if [ -z "$PY" ]; then
 fi
 
 echo "→ mxbuild gate on $(basename "$MPR") ($MXBUILD)..."
+# Build a synced copy (.mxtk/build/model/, mxtk_build_tree in _common.sh): mxbuild writes
+# <app dir>/deployment/, which a running `mxcli run --local --watch` serves (#686).
+BUILD_MPR="$MPR"; PLACE=in-place
+if command -v mxtk_build_tree >/dev/null 2>&1; then
+  mxtk_build_tree "$MPR"; BUILD_MPR="$MXTK_BUILD_MPR"; PLACE="$MXTK_BUILD_PLACE"
+  [ "$PLACE" = copy ] || echo "  (building in place: ${MXTK_BUILD_NOTE:-old _common.sh} — deployment/ is rewritten)"
+fi
+mkdir -p .claude/loop 2>/dev/null && printf '%s\n' "$PLACE" > .claude/loop/last-full-build 2>/dev/null || true
 ERR="$(mktemp "${TMPDIR:-/tmp}/verify-model-errors.XXXXXX")"; OUT="$(mktemp "${TMPDIR:-/tmp}/verify-model-out.XXXXXX")"
 RC=0
-"$MXBUILD" --java-home="$JAVA_HOME" --java-exe-path="$JAVA_EXE" --write-errors="$ERR" --target=deploy "$MPR" > "$OUT" 2>&1 < /dev/null || RC=$?
+# mxtk_reaped (_common.sh): stops the deno helper this mxbuild leaves behind, and nothing else (#708).
+mxtk_reaped "$MXBUILD" --java-home="$JAVA_HOME" --java-exe-path="$JAVA_EXE" --write-errors="$ERR" --target=deploy "$BUILD_MPR" > "$OUT" 2>&1 < /dev/null || RC=$?
+command -v mxtk_build_lock_release >/dev/null 2>&1 && mxtk_build_lock_release   # taken in mxtk_build_tree
+if [ "$PLACE" = copy ] && command -v mxtk_build_tree_unmap >/dev/null 2>&1; then   # copy paths in mxbuild's output → the real files
+  _o="$(cat "$OUT")"; mxtk_build_tree_unmap _o; printf '%s\n' "$_o" > "$OUT"
+fi
+# Killed for lack of memory (exit 137 / OOM text): name the cause instead of "errors file unreadable".
+_out_txt=""; [ "$RC" -eq 0 ] || _mxtk_slurp _out_txt "$OUT"
+mxtk_mxbuild_oom_note "$RC" "$_out_txt" && WHY="$MXTK_MXBUILD_OOM"
 
 if [ ! -s "$ERR" ] && [ "$RC" -eq 0 ]; then
   COUNT=0; CODES=""
@@ -60,7 +77,7 @@ elif [ -s "$ERR" ]; then
   # mismatch, JDK/gradle) and said why in errors[]. That read as "0 errors" and WROTE THE
   # PASS STAMP (field project 2026-09-26, mxbuild 11.14.0 vs an 11.12.2 model, exit 3).
   if [ "$COUNT" = "0" ] && [ "$RC" -ne 0 ]; then
-    COUNT="?"; WHY="$(mxtk_mxbuild_why "$ERR" "$PY" 2>/dev/null || true)"
+    COUNT="?"; _w="$(mxtk_mxbuild_why "$ERR" "$PY" 2>/dev/null || true)"; WHY="$_w${_w:+${WHY:+; }}$WHY"
   fi
 else
   COUNT="?"; CODES=""
@@ -85,12 +102,13 @@ for x in [p for p in d.get('problems',[]) if p.get('severity')=='Error'][:15]:
   rm -f "$ERR" "$OUT"; exit 1
 fi
 echo "✓ mxbuild: 0 errors — model is clean."
+[ "$PLACE" = copy ] && echo "  (built in .mxtk/build/ — the running app's deployment/ was not touched)"
 rm -f "$ERR" "$OUT"
 [ "$STAMP" = 1 ] && MXTK_STAMP_KIND=full MXTK_STAMP_ERRORS=0 ./bin/model-stamp.sh write pass "verify-model.sh"
 # `Gate mode: check` bookkeeping (exec.sh "Gate kind"): this full build compiled the Java of
 # the moment, so the check-only run count starts again and the Java fingerprint is current.
 if [ -f .claude/loop/gate-kind.state ]; then
-  printf 'checks 0\njava %s\n' "$(mxtk_java_fp "$PROJECT_ROOT")" > .claude/loop/gate-kind.state 2>/dev/null || true
+  printf 'checks 0\njava %s\n' "$(mxtk_model_java_fp "$PROJECT_ROOT")" > .claude/loop/gate-kind.state 2>/dev/null || true
   touch .claude/loop/mxbuild-warm 2>/dev/null || true
 fi
 exit 0

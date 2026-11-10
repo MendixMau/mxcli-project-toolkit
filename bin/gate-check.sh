@@ -9,7 +9,7 @@
 #
 # Usage: bin/gate-check.sh [--html|--no-html] [--ack-protocol [--approved-in-chat]|--force-stale] [--verbose]
 #                          [--adopt <stage> --reason "..."]
-#                          [--waive <stage|obligation[/module]|source/<file>> --reason "..."]
+#                          [--waive <stage|obligation[/module]|source/<file>|marketplace/<Name>> --reason "..."]
 #                          <project-dir> [stage]
 #   - With a stage-number, additionally exits non-zero if that specific stage's check fails.
 #   - Without one, evaluates and reports all stages, exits 0 regardless (informational run).
@@ -41,6 +41,8 @@
 #   - --waive source/<rel-or-basename> --reason "..." waives one SOURCE FILE of the Stage 0
 #     inventory (bin/source-ledger.sh): deliberately not extracted, says who and why. The
 #     ledger otherwise BLOCKS Stages 1 and 2 while any file has no disposition that holds up.
+#   - --waive marketplace/<Name> --reason "..." waives one confirmed fit-gap Buy that is
+#     deliberately not installed (bin/lib/marketplace-check.sh); bare `marketplace` waives all.
 #
 # VERDICT VOCABULARY (four, and the difference between the first two is the whole point):
 #   PASS    — checked, and it holds.
@@ -155,12 +157,34 @@ if [ "$CLOSEOUT" = "1" ]; then
   trap 'rc=$?; if [ -n "$CLOSEOUT_LOG" ] && [ -f "$CLOSEOUT_LOG" ]; then exec 1>&3 2>&4; cat "$CLOSEOUT_LOG" >&2; rm -f "$CLOSEOUT_LOG"; fi; exit $rc' EXIT
 fi
 
+# Bugs logged but not filed (docs/bugs.jsonl, bin/file-bugs.sh): one line on a full run and at
+# --closeout, never on a stage query, never a verdict, never an exit code (CLAUDE.md guard rule 7:
+# a reminder must not block). A finding about the toolkit or mxcli that stays in the project's
+# log reaches nobody — 8 real toolkit findings sat in one project's FINDINGS.md that way. A row
+# counts as open when its status is "open" or it has none (file-bugs.py's own default); a "bundled"
+# row (file-bugs.sh --bundle: mailed to the maintainer) is counted on its own line, not yet filed either.
+bugs_unfiled_line() {
+  local f="$PROJECT_DIR/docs/bugs.jsonl" n b
+  [ -f "$f" ] || return 0
+  n="$(grep -E '^[[:space:]]*\{' "$f" 2>/dev/null \
+       | awk '/"status"[[:space:]]*:[[:space:]]*"open"/ || !/"status"[[:space:]]*:/ { c++ } END { print c + 0 }')"
+  b="$(grep -E '^[[:space:]]*\{' "$f" 2>/dev/null | grep -cE '"status"[[:space:]]*:[[:space:]]*"bundled"')"
+  if [ "${n:-0}" -gt 0 ] 2>/dev/null; then
+    echo "note: $n toolkit/mxcli bug(s) logged but not filed — run bin/file-bugs.sh --auto (or --links)"
+  fi
+  if [ "${b:-0}" -gt 0 ] 2>/dev/null; then
+    echo "note: $b toolkit/mxcli bug(s) bundled, not yet filed — mail the toolkit-bugs-*.md file, or file one with bin/file-bugs.sh --file PBUG-NN (or --links)"
+  fi
+  return 0
+}
+
 # Machine preflight receipt — informational only, on full runs only (stage queries run inside
 # agent loops and hooks and must stay quiet). bin/doctor.sh writes the receipt; a missing one
 # means nobody ever checked whether the mxbuild gate can even run on this machine, which is
 # how a Windows training round shipped unverified model writes for a whole exercise. This
 # line never affects a verdict or an exit code: a machine check is not a stage gate.
 if [ -z "$REQUESTED_STAGE" ]; then
+  bugs_unfiled_line
   _DOCTOR_RECEIPT="$PROJECT_DIR/.claude/.doctor-receipt"
   if [ -f "$_DOCTOR_RECEIPT" ]; then
     case "$(cat "$_DOCTOR_RECEIPT" 2>/dev/null)" in
@@ -197,13 +221,18 @@ for opt_pair in "--adopt:$ADOPT_STAGE" "--waive:$WAIVE_STAGE"; do
     P|p|[0-7]) continue ;;
   esac
   if [ "$opt_name" = "--waive" ] && _gc_is_obligation "$opt_val"; then continue; fi
+  # A confirmed Marketplace Buy that is deliberately not installed (bin/lib/marketplace-check.sh).
+  case "$opt_val" in marketplace|marketplace/?*) [ "$opt_name" = "--waive" ] && continue ;; esac
   # A SOURCE FILE is the third waivable thing: `--waive source/<rel-path-or-basename>` records
   # that a file in the Stage 0 inventory is deliberately not extracted (bin/source-ledger.sh
   # reads the line). Same flag, same mandatory reason, same register — the user's "if I agree
   # to skip it, skip it" is exactly a waiver with a name on it, never a silent gap.
   case "$opt_val" in source/?*) [ "$opt_name" = "--waive" ] && continue ;; esac
+  # An ARTIFACT (bin/lib/artifact-manifest.tsv id, or a content check's id — see artifact_waived)
+  # is the fourth: `--waive artifact/<id>` writes `Waived artifact <id>: <reason>`.
+  case "$opt_val" in artifact/?*) [ "$opt_name" = "--waive" ] && continue ;; esac
   if [ "$opt_name" = "--waive" ]; then
-    echo "Error: --waive takes a stage (P or 0-7), an obligation target, or source/<file>, got '$opt_val'." >&2
+    echo "Error: --waive takes a stage (P or 0-7), an obligation target, source/<file> or artifact/<id>, got '$opt_val'." >&2
     echo "Obligations (bin/lib/obligations.tsv): $(awk -F'\t' '!/^#/ && NF>=9 && $1!="obligation"{printf "%s ", $1}' \
       "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/obligations.tsv" 2>/dev/null)" >&2
     echo "  per module:  --waive look/Orders  --reason \"...\"" >&2
@@ -636,9 +665,22 @@ ENTRY_MODE="$(entry_mode_token "$ENTRY_RAW")"
 #              the plan is real, people will build from it, and "greenfield" never said otherwise.
 stage_waiver() {
   local st="$1" w
-  for w in $WAIVED_LIST; do
+  # STAGE_WAIVER_NO_DECLARED=1: only adoption and entry mode (apply_waiver asks it when a declared
+  # line turned out to carry no reason).
+  [ "${STAGE_WAIVER_NO_DECLARED:-0}" = "1" ] || for w in $WAIVED_LIST; do
     if [ "$w" = "$(printf '%s' "$st" | tr '[:lower:]' '[:upper:]')" ]; then
       local r; r="$(waived_reason_for "$w")"
+      # A waiver with no reason is not a waiver (CLAUDE.md: WAIVED is "declared out of scope in the
+      # register, with a reason"; --waive refuses to write one without --reason). A hand-written
+      # `Waived stage 4:` with nothing after it read WAIVED-clean, or PASS, with no trace of the
+      # line (regression experiment, 2026-11-05). Scope `noreason`: apply_waiver() FAILs the stage
+      # when this line is what would have excused it, and only WARNs when it excuses nothing.
+      if [ -z "$(printf '%s' "$r" | tr -d '[:space:]')" ]; then
+        printf 'noreason|%s in %s has no reason — a waiver must say why; add one (bin/gate-check.sh <project> --waive %s --reason "...") or delete the line\n' \
+          "$( [ -n "$(printf '%s' "$WAIVED_REASONS" | awk -F'\t' -v s="$w" '$1 == s { print 1; exit }')" ] && printf "'Waived stage %s:'" "$w" || printf "'Waived stages:'" )" \
+          "$(basename "${REGISTER:-PROJECT.md}")" "$w"
+        return 0
+      fi
       printf 'declared|waived in %s%s\n' "$(basename "${REGISTER:-PROJECT.md}")" "${r:+ — $r}"
       return 0
     fi
@@ -688,6 +730,30 @@ waiver_applies() {
              case "$3" in *✋*) return 0 ;; esac; return 1 ;;
   esac
   return 1
+}
+
+# apply_waiver <stage> <status> <note> — sets AW_STATUS / AW_NOTE: the verdict after the register's
+# waivers have had their say. A declared line with no reason is not a waiver. It FAILs the stage
+# only when it is the thing that would have excused it (an empty stage, an unsigned ✋) and nothing
+# else does (adoption, entry mode); on a stage that passes, or one the entry mode already skips,
+# it is a WARN on the line — the line is wrong, the stage is not (review of #618).
+apply_waiver() {
+  local st="$1" w w2
+  AW_STATUS="$2"; AW_NOTE="$3"
+  w="$(stage_waiver "$st")" || return 0
+  if [ "${w%%|*}" = "noreason" ]; then
+    if waiver_applies declared "$2" "$3"; then
+      if w2="$(STAGE_WAIVER_NO_DECLARED=1 stage_waiver "$st")" && waiver_applies "${w2%%|*}" "$2" "$3"; then
+        AW_NOTE="${w2#*|} · underlying check: $2 · ⚠ WARN: ${w#*|}"; AW_STATUS="WAIVED"
+      else
+        AW_NOTE="${w#*|} · underlying check: $2 — $3"; AW_STATUS="FAIL"
+      fi
+    else
+      AW_NOTE="$3 · ⚠ WARN: ${w#*|}"
+    fi
+  elif waiver_applies "${w%%|*}" "$2" "$3"; then
+    AW_NOTE="${w#*|} · underlying check: $2"; AW_STATUS="WAIVED"
+  fi
 }
 
 # The pre-12828e4 Q9 body. gate-check NEVER rewrites it — the repair lives in
@@ -795,6 +861,18 @@ check_stage_P() {
   fi
 }
 
+# True when a 'Confirmed by:' value is an obvious "not yet" (#620): `_pending_`, TBD, n/a, a
+# lone dash or question mark — markdown emphasis and surrounding punctuation stripped, case
+# ignored. A whole-value match only, so "pending legal review, confirmed in chat" still passes.
+_signoff_is_not_yet() {
+  local v
+  v=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -e 's/[_*`]//g' -e 's/^[[:space:].:]*//' -e 's/[[:space:].:]*$//')
+  case "$v" in
+    ''|pending|tbd|todo|tba|n/a|na|none|'-'|'--'|'?'|'??'|'…'|'...'|'—'|'–') return 0 ;;
+  esac
+  return 1
+}
+
 check_stage_0() {
   # MERGE NOTE: bug02 supplies the resolver (root-first resolve_artifact grades the abandoned
   # copy on a nested-layout project), bug03 supplies the anchored sign-off test. They touch
@@ -831,6 +909,8 @@ check_stage_0() {
     # §"Map the app first"): there is nothing to sign off yet, so this is not-started, not wrong.
     # Without it a parked project read "needs attention" forever (existing-app field run, 2026-09-22).
     echo "PENDING|app mapped (analysis/app-report.html), waiting on the change — triage.md is signed off at Stage 0b, once the user says what to work on and what it touches is written ($f, ## Sign-off)"
+  elif _signoff_is_not_yet "$signer"; then
+    echo "FAIL|'Confirmed by:' says the sign-off has not happened yet: \"$signer\" — ask the user, then replace it with whatever they actually said (\"confirmed in chat 2026-08-20\" is fine) ($f, ## Sign-off)"
   elif grep -q '\[' <<<"$signer"; then
     echo "FAIL|'Confirmed by:' still holds the shipped placeholder: \"$signer\" — replace it with whatever the user actually said (\"confirmed in chat 2026-08-20\" is fine; a full name is not required) ($f, ## Sign-off)"
   else
@@ -938,25 +1018,129 @@ check_stage_2() {
       # that a BRD spells differently is a FAIL; no lock yet is a note, never a FAIL. WHY
       # (2026-10-28): facts-lock.sh reached 1 of 6 projects as advice; 20 parallel BRDs on
       # PROJECT-C carried 10 casing conflicts into Stage 3 as "open questions".
-      local nbrd fl_out fl_dev fl_note=""
+      local nbrd fl_out fl_dev fl_note="" req
+      req="$(stage2_brd_required "$brd_dir")"
+      case "$req" in FAIL\|*) echo "$req"; return ;; esac
       nbrd=$(find "$brd_dir" -maxdepth 1 -name '*.brd.json' 2>/dev/null | wc -l | tr -d ' ')
       if [ "${nbrd:-0}" -ge 2 ] && [ -f "$TOOLKIT_DIR/bin/facts-lock.sh" ]; then
         if [ -f "$PROJECT_DIR/analysis/facts.lock.json" ]; then
           fl_out=$(bash "$TOOLKIT_DIR/bin/facts-lock.sh" "$PROJECT_DIR" check 2>&1)
           fl_dev=$(printf '%s\n' "$fl_out" | grep -c '^  DEVIATION' || true)
           if [ "${fl_dev:-0}" -gt 0 ]; then
-            echo "FAIL|$fl_dev BRD identifier(s) contradict analysis/facts.lock.json, e.g.$(printf '%s\n' "$fl_out" | grep -m1 '^  DEVIATION' | sed 's/^  DEVIATION//') — fix the BRD to the lock's spelling (bin/facts-lock.sh <project> check lists all)"
+            echo "FAIL|$fl_dev BRD identifier(s) contradict analysis/facts.lock.json, e.g.$(printf '%s\n' "$fl_out" | grep -m1 '^  DEVIATION' | sed 's/^  DEVIATION//') — fix the BRD to the lock's spelling (bin/facts-lock.sh <project> check lists all); a module/type/owner change or a fact \"no longer declared\" that was deliberate: bin/facts-lock.sh <project> forget <ns>/<key>, then build"
             return
           fi
           grep -q -- '^  UNFROZEN' <<<"$fl_out" && fl_note="; facts lock: contested identifiers left (bin/facts-lock.sh <project> resolve)"
+          # A lock that freezes (almost) nothing is not agreement (#621): say so on the PASS line.
+          local fl_thin; fl_thin="$(printf '%s\n' "$fl_out" | grep -m1 -E '^(NEAR-EMPTY|PENDING) facts-lock' | sed -E 's/^(NEAR-EMPTY|PENDING) facts-lock: //')"
+          [ -n "$fl_thin" ] && fl_note="$fl_note; ⚠ facts lock: $fl_thin"
         else
           fl_note="; no facts lock for $nbrd BRDs (bin/facts-lock.sh <project> build, then resolve)"
         fi
       fi
-      echo "PASS|brd/*.brd.json present, Stop condition reads \"$first\"$fl_note" ;;
+      echo "PASS|brd/*.brd.json present, Stop condition reads \"$first\"${req:+; $req}$fl_note" ;;
     *)
       echo "FAIL|'## Stop condition' in $validation reads \"$first\" — it must START with \"Clean\"; a report that merely contains the word (\"NOT clean, 14 findings\") is not a clean stop" ;;
   esac
+}
+
+# artifact_waived <id> — the reason from a `Waived artifact <id>: <reason>` register line (the
+# form bin/lib/artifact-check.sh already reads), or nothing. A line with no reason is not a
+# waiver: reg_field returns only non-empty values. The content checks added 2026-11-05
+# (required BRD sections, wireframe references, module briefs, plan dependencies, the coverage
+# ledger) are skippable through this and nothing else — never through `Waived stage N`, which
+# excuses an EMPTY stage, not one whose artifacts exist and disagree (waiver_applies()).
+artifact_waived() {
+  local r
+  r="$(reg_field "waived artifact $1" 2>/dev/null)" || return 1
+  [ -n "$r" ] || return 1
+  printf '%s' "$r"
+}
+
+# stage2_brd_required <brd-dir> → "" (nothing to say), "FAIL|…", or a short note for the PASS line.
+#
+# WHY (regression experiment, 2026-11-05). Stage 2 read validation-report.md only. A BRD with
+# its `useCases` section deleted still passed, because the report had been written before the
+# deletion — while bin/brd-report.sh, run on the same files, listed the section as absent and
+# exited 0 (it is a renderer, not a gate). This asks brd-report.sh, the one reader of BRD shape
+# (discover-brds.sh underneath), which sections each BRD owes and lacks: its `fault` verdicts
+# (owed by the BRD's provenance, or by every provenance) and a BRD that names no module. The
+# rule is brd-report.sh's EXPECT table; nothing about BRD shape is restated here.
+# Only BRDs under <brd-dir> are judged — the workstream this verdict describes.
+# Waiver: `Waived artifact brds: <reason>`.
+stage2_brd_required() {
+  local brd_dir="$1" rep="$TOOLKIT_DIR/bin/brd-report.sh" out rc tmp w
+  [ -f "$rep" ] || return 0
+  tmp="$(mktemp "${TMPDIR:-/tmp}/gc-brd.XXXXXX")" || return 0
+  # --html into a temp file: the gate must not rewrite the project's page (and a write inside the
+  # project would also defeat bin/lib/gate-cache.sh, which treats any project write as a change).
+  out="$(bash "$rep" "$PROJECT_DIR" --json --quiet --html "$tmp" 2>&1)"; rc=$?
+  rm -f "$tmp"
+  case "$rc" in
+    0) ;;
+    4) if w="$(artifact_waived brds)"; then echo "BRD shape not checked: waived — $w"; return 0; fi
+       echo "FAIL|a BRD is not valid JSON — $(printf '%s\n' "$out" | grep -m1 'not valid JSON' | sed 's/^brd-report: //') — fix it (bin/brd-report.sh <project> names it)"
+       return ;;
+    3) return 0 ;;   # no BRDs: the presence check above already said PENDING
+    *) echo "BRD shape not checked (bin/brd-report.sh exit $rc — cannot evaluate, which is not a pass)"; return 0 ;;
+  esac
+  local missing py
+  . "$TOOLKIT_DIR/bin/lib/portable.sh"
+  py="$(resolve_py)" || { echo "BRD shape not checked (no Python 3 — cannot evaluate, which is not a pass)"; return 0; }
+  missing="$(printf '%s' "$out" | BRD_DIR="$(native_path "$brd_dir")" "$py" -c '
+import json, os, sys
+try: d = json.load(sys.stdin)
+except Exception: sys.exit(0)
+norm = lambda p: os.path.normcase(os.path.realpath(p))
+base = norm(os.environ["BRD_DIR"])
+for b in d.get("brds", []):
+    if norm(os.path.dirname(b.get("path", ""))) != base: continue
+    m = b.get("missingRequired") or []
+    if m: print("%s: %s" % (os.path.basename(b["path"]), ", ".join(m)))
+' 2>/dev/null)"
+  local note=""
+  if [ -n "$missing" ]; then
+    if w="$(artifact_waived brds)"; then
+      note="required BRD sections absent but waived — $w ($(printf '%s' "$missing" | tr '\n' ';' | sed 's/;$//'))"
+    else
+      echo "FAIL|BRD(s) missing a required section — $(printf '%s' "$missing" | tr '\n' ';' | sed 's/;$//; s/;/; /g') (bin/brd-report.sh <project> explains each: owed by the BRD's provenance, or by every provenance) — restore the section, or record it: gate-check.sh <project> --waive artifact/brds --reason \"...\""
+      return
+    fi
+  fi
+  # The mechanical validator (#622). validation-report.md's "Clean" is the agent's own word; on a
+  # requirements-driven project nothing else had checked it — Stage 2 PASSed on that first line
+  # alone. brd-report.sh's `validation` block is brd-validation.md's mechanically decidable subset
+  # (complete use cases, references that resolve, one owner per entity and rule id, tracked open
+  # questions), each with its denominator. Its errors on BRDs under <brd-dir> contradict "Clean".
+  # Waiver: `Waived artifact brd-validation: <reason>`.
+  local vout vverdict vsum verr
+  vout="$(printf '%s' "$out" | BRD_DIR="$(native_path "$brd_dir")" "$py" -c '
+import json, os, sys
+try: d = json.load(sys.stdin)
+except Exception: sys.exit(0)
+v = d.get("validation") or {}
+norm = lambda p: os.path.normcase(os.path.realpath(p))
+base = norm(os.environ["BRD_DIR"])
+errs = [f for f in v.get("findings", []) if f.get("severity") == "error"
+        and norm(os.path.dirname(f.get("brd", ""))) == base]
+print("%s\t%s\t%d" % (v.get("verdict", ""), v.get("summary", ""), len(errs)))
+for f in errs[:3]: print("%s [%s] %s" % (f.get("id"), f.get("check"), f.get("message")))
+' 2>/dev/null)"
+  vverdict="$(printf '%s\n' "$vout" | head -1 | cut -f1)"
+  vsum="$(printf '%s\n' "$vout" | head -1 | cut -f2)"
+  verr="$(printf '%s\n' "$vout" | head -1 | cut -f3)"
+  if [ "${verr:-0}" -gt 0 ] 2>/dev/null; then
+    local eg; eg="$(printf '%s\n' "$vout" | sed -n '2,4p' | tr '\n' ';' | sed 's/;$//; s/;/; /g')"
+    if w="$(artifact_waived brd-validation)"; then
+      note="${note:+$note; }validator: $verr error(s) but waived — $w"
+    else
+      echo "FAIL|validation-report.md says Clean, but the mechanical validator finds $verr error(s) — $eg ($vsum) — fix the BRDs (bin/brd-report.sh <project> lists every finding), or record it: gate-check.sh <project> --waive artifact/brd-validation --reason \"...\""
+      return
+    fi
+  elif [ "$vverdict" = "PASS" ]; then
+    note="${note:+$note; }validator: $vsum"
+  fi
+  printf '%s' "$note"
 }
 
 # ✋ stages need a CONFIRMED decision row in PROJECT.md's Decisions table
@@ -1038,6 +1222,26 @@ reg_unavailable_note() {
   echo "MANUAL|cannot evaluate: $REG_COUNT differing decision registers exist and none is named — see the ⚠ notice above; set GATE_REGISTER or add the CLAUDE.local.md ## Wiring row"
 }
 
+# DECISIONS_TABLE_AWK — the shared prefix every Decisions-table reader below starts with (#676).
+# Pass the register TWICE ("$f" "$f"): the first pass records which lines are separator rows
+# (|---|---|), so the second can tell a header row from a data row by looking one line ahead.
+#   - a blank line is skipped, never an end of table: a Decisions table split by a blank line
+#     ("| 1 | scope | OPEN |", blank, "| 3 | architecture | CONFIRMED |") used to hide every row
+#     after the blank, and Stage 3 FAILed over a CONFIRMED row in plain sight;
+#   - any other non-pipe line (a heading, prose) still ends the table;
+#   - so does a new header row (followed by a separator) whose first cell is not "Stage", so an
+#     Open-questions table after a blank line ("| # | Question | Raised at | Status |") is
+#     never read as Decisions. A new "| Stage |" header falls through and re-opens the table.
+# The separator test allows a trailing \r: a CRLF register's separator must still mark the
+# Open-questions header, or its rows read as Decisions after a blank line (a false PASS).
+# Line numbers in the reader bodies must use FNR, not NR (NR counts both passes).
+DECISIONS_TABLE_AWK='
+    FNR == NR { if ($0 ~ /^\|[ \t:|-]*-[ \t\r:|-]*$/) sep[FNR] = 1; next }
+    /^[ \t\r]*$/ { next }
+    !/^\|/ { intab = 0; next }
+    sep[FNR + 1] { h0 = tolower($2); gsub(/^[ \t]+|[ \t]+$/, "", h0); if (h0 != "stage") { intab = 0; next } }
+'
+
 has_confirmed_decision() {
   local stage="$1"
   local f="$REGISTER"
@@ -1046,8 +1250,7 @@ has_confirmed_decision() {
   # "Stage") count. Scanning every pipe row let the Open-questions table
   # ("| 7 | ... | Raised at | CONFIRMED |") stand in for a stage decision. A register with
   # no such header anywhere falls back to scanning every table, as before.
-  awk -F'|' -v want="$stage" '
-    !/^\|/ { intab = 0; next }
+  awk -F'|' -v want="$stage" "$DECISIONS_TABLE_AWK"'
     {
       h = tolower($2); gsub(/^[ \t]+|[ \t]+$/, "", h)
       if (h == "stage") { intab = 1; hdr = 1; next }
@@ -1075,7 +1278,81 @@ has_confirmed_decision() {
       }
     }
     END { exit !(hdr ? tabf : anyf) }
-  ' "$f"
+  ' "$f" "$f"
+}
+
+# AUTO MODE AND THE ✋ GATES (#624, maintainer decision 2026-11-05). Under `Interview mode: auto`
+# (resolved by bin/interview-mode.sh, aliases and all — interview-protocol.md §"What `auto`
+# obliges you to do") every position is recorded `ASSUMED` with `consentBy: auto-mode`, so a
+# CONFIRMED-only Stage 3/4 could never pass an unattended run: it produced every artifact and
+# then FAILed twice by design, with nothing saying so. Now, in auto mode only, a Decisions row
+# for the stage that is ASSUMED with `consentBy: auto-mode` and a `consentAt` satisfies the gate.
+# The human is moved, not removed: auto_hand_pending() lists every such ✋ row on every run,
+# whatever the mode, and Stage 6 (release readiness) FAILs while one remains. A person confirms
+# or overturns one by putting their name in consentBy (any status); a row still stamped auto-mode
+# counts whatever its status says. Stage 7 (cutover) stays CONFIRMED-only — it is the release itself.
+interview_mode_is_auto() { [ "${INTERVIEW_MODE:-}" = "auto" ]; }
+
+has_auto_assumed_decision() {
+  local stage="$1" f="$REGISTER"
+  [ -n "$f" ] && [ -f "$f" ] || return 1
+  awk -F'|' -v want="$stage" "$DECISIONS_TABLE_AWK"'
+    {
+      h = tolower($2); gsub(/^[ \t]+|[ \t]+$/, "", h)
+      if (h == "stage") { intab = 1; hdr = 1; next }
+      if ($2 ~ /^[ \t:]*-+[ \t:-]*$/) next
+      s = $2; gsub(/^[ \t]+|[ \t]+$/, "", s); sub(/^[Ss]tage[ \t]*/, "", s)
+      if (s != want) next
+      row = tolower($0); gsub(/[`*]/, "", row)
+      if (row !~ /consentby[ \t]*:[ \t]*auto-mode/ || row !~ /consentat[ \t]*:[ \t]*[0-9]/) next
+      a = 0
+      for (i = 3; i <= NF; i++) { v = toupper($i); gsub(/^[ \t]+|[ \t]+$/, "", v); if (v ~ /^ASSUMED([ \t]|$)/) a = 1 }
+      if (a) { anyf = 1; if (intab) tabf = 1 }
+    }
+    END { exit !(hdr ? tabf : anyf) }
+  ' "$f" "$f"
+}
+
+# auto_assumed_hint <N> — on the FAIL line of a non-auto run: say why the auto-mode row no longer counts.
+auto_assumed_hint() {
+  interview_mode_is_auto && return 0
+  has_auto_assumed_decision "$1" || return 0
+  printf ' (its Stage-%s row is ASSUMED by auto-mode, which passes only under Interview mode: auto — confirm it: Status CONFIRMED, consentBy a person)' "$1"
+}
+
+# auto_hand_pending → one id per line ("PROJECT.md:42 (Stage 3)") for every ✋-stage (0, 3, 4, 7)
+# Decisions row still stamped consentBy: auto-mode, plus a triage.md whose "Confirmed by:" names
+# auto-mode or the auto interview mode (field shape: "ASSUMED under Interview mode: auto on <date>").
+auto_hand_pending() {
+  local f="$REGISTER" t
+  if [ -n "$f" ] && [ -f "$f" ]; then
+    awk -F'|' -v name="$(basename "$f")" "$DECISIONS_TABLE_AWK"'
+      {
+        h = tolower($2); gsub(/^[ \t]+|[ \t]+$/, "", h)
+        if (h == "stage") { intab = 1; hdr = 1; next }
+        if ($2 ~ /^[ \t:]*-+[ \t:-]*$/) next
+        s = $2; gsub(/^[ \t]+|[ \t]+$/, "", s); sub(/^[Ss]tage[ \t]*/, "", s)
+        if (s !~ /^[0347]$/) next
+        row = tolower($0); gsub(/[`*]/, "", row)
+        if (row !~ /consentby[ \t]*:[ \t]*auto-mode/) next
+        n++; id[n] = name ":" FNR " (Stage " s ")"; tab[n] = intab
+      }
+      END { for (i = 1; i <= n; i++) if (!hdr || tab[i]) print id[i] }
+    ' "$f" "$f"
+  fi
+  t="$(resolve_stage_file "triage.md")"
+  if [ -n "$t" ] && [ "$t" != "AMBIGUOUS" ] && [ -f "$t" ] && awk '
+      /^##[ \t]+Sign-off/ { insec=1; next }
+      insec && /^##[ \t]/ { exit }
+      insec && tolower($0) ~ /confirmed by:/ {
+        v = tolower($0); sub(/^.*confirmed by:/, "", v)
+        # "auto-mode", or the field shape "ASSUMED under Interview mode: auto on <date>"
+        if (v ~ /auto-mode|interview mode:[ \t*`]*(auto|unattended)([^a-z]|$)/) found = 1
+        exit
+      }
+      END { exit !found }' "$t"; then
+    echo "triage.md (Stage 0 sign-off)"
+  fi
 }
 
 # stage_exit_recorded <N> — does the register say Stage N was APPROVED AS DONE, not merely that
@@ -1114,7 +1391,7 @@ stage_exit_recorded() {
   local stage="$1"
   local f="$REGISTER"
   [ -n "$f" ] && [ -f "$f" ] || return 1
-  awk -F'|' -v want="$stage" '
+  awk -F'|' -v want="$stage" "$DECISIONS_TABLE_AWK"'
     function rank(s) { s = toupper(s); if (s == "P") return 0; if (s ~ /^[0-7]$/) return s + 1; return -1 }
     BEGIN {
       wr = rank(want); w = tolower(want); r6 = rank("6")
@@ -1123,7 +1400,6 @@ stage_exit_recorded() {
       SEP = "([ \t:-]|—|–)*"
       ARTS = "^(the )?(build plan|plan|blueprint|architecture|design( system)?|wireframes?|scope|triage|brds?|requirements)"
     }
-    !/^\|/ { intab = 0; next }
     {
       h = tolower($2); gsub(/^[ \t]+|[ \t]+$/, "", h)
       if (h == "stage") { intab = 1; hdr = 1; next }
@@ -1152,7 +1428,7 @@ stage_exit_recorded() {
       }
     }
     END { exit !(hdr ? (texit || (town && tlater)) : (aexit || (aown && alater))) }
-  ' "$f"
+  ' "$f" "$f"
 }
 
 # Counts the Screen Inventory table in design/target-ui.md (design-artifacts.md Step 2): a
@@ -1177,6 +1453,86 @@ count_screen_inventory() {
   ' "$1"
 }
 
+# wireframe_refs_missing <wireframes-dir> <docs, one per line> → "doc: ref, ref; doc: ref" for every
+# wireframe a document names that is not on disk (non-empty), or nothing.
+#
+# WHY (regression experiment, 2026-11-05). The one wireframe check was the Screen Inventory count,
+# and it is skipped whenever design/target-ui.md is absent — so a wireframe that the module
+# definitions and the build plan point at could be deleted and Stage 3 and 4 stayed PASS. The
+# denominator here is what the documents themselves cite, which exists in every project that has
+# any: a path `wireframes/<name>.html` (with or without `design/`), or a bare `<name>.html` in a
+# table column headed Wireframe / Source screen (module definitions write it that way). A
+# placeholder (`<kebab-case page>.html`, a glob) is not a reference. A bare name may sit anywhere
+# under design/wireframes/ (per-flow subfolders are legal, check_stage_3 recurses too).
+wireframe_refs_missing() {
+  local wdir="$1" docs="$2" doc kind ref out="" refs miss
+  [ -n "$wdir" ] && [ -d "$wdir" ] || return 0
+  while IFS= read -r doc; do
+    [ -n "$doc" ] && [ -f "$doc" ] || continue
+    refs="$(tr -d '\r' < "$doc" | awk '
+      function trim(s) { gsub(/[`*]/, "", s); gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
+      { line = $0
+        while (match(line, /wireframes\/[A-Za-z0-9_.\/-]+\.html/)) {
+          print "P\t" substr(line, RSTART + 11, RLENGTH - 11); line = substr(line, RSTART + RLENGTH) }
+      }
+      # Header = the row above a |---| separator; its columns hold until the next header.
+      /^[ \t]*\|[ \t:|-]+$/ { n = split(prev, c, "|"); split("", wcol)
+        for (i = 2; i < n; i++) { h = tolower(trim(c[i]))
+          wcol[i] = (h ~ /wireframe/) ? "B" : (h ~ /source screen/) ? "S" NR "_" i : "" }
+        next }
+      /^[ \t]*\|/ {
+        prev = $0
+        n = split($0, c, "|")
+        for (i = 2; i < n; i++) if (wcol[i] != "") { v = trim(c[i]); if (v ~ /^[A-Za-z0-9_.-]+\.html$/) print wcol[i] "\t" v }
+        next
+      }
+      /^#/ { split("", wcol) }' | sort -u)"
+    # A "Source screen" column (architecture-blueprint.md's page table) holds a wireframe name on
+    # a requirements-driven project and a LEGACY screen on a migration one (order-list.component
+    # .html). It is read as wireframes only when at least one of its names is a wireframe on disk;
+    # a column none of whose names resolve is the legacy kind and is not this check's (review of #618).
+    local wf_groups="" found
+    while IFS="$(printf '\t')" read -r kind ref; do
+      case "$kind" in S*) ;; *) continue ;; esac
+      found="$(find "$wdir" -name "$ref" -type f -size +0c -print -quit 2>/dev/null)"
+      [ -n "$found" ] && wf_groups="$wf_groups $kind "
+    done <<EOF_REFS
+$refs
+EOF_REFS
+    miss=""
+    while IFS="$(printf '\t')" read -r kind ref; do
+      [ -n "$ref" ] || continue
+      case "$kind" in
+        P) [ -s "$wdir/$ref" ] && continue ;;
+        S*) case "$wf_groups" in *" $kind "*) ;; *) continue ;; esac
+            [ -n "$(find "$wdir" -name "$ref" -type f -size +0c -print -quit 2>/dev/null)" ] && continue ;;
+        B) [ -n "$(find "$wdir" -name "$ref" -type f -size +0c -print -quit 2>/dev/null)" ] && continue ;;
+      esac
+      miss="${miss:+$miss, }$ref"
+    done <<EOF_REFS
+$refs
+EOF_REFS
+    [ -n "$miss" ] && out="${out:+$out; }${doc#"$PROJECT_DIR"/}: $miss"
+  done <<EOF_DOCS
+$docs
+EOF_DOCS
+  printf '%s' "$out"
+}
+
+# stage3_ref_docs <architecture-dir> <design-dir> — the Stage-3 documents that cite wireframes:
+# architecture/*.md and architecture/modules/**.md, minus the Stage-4 artifacts (build plan,
+# module briefs, coverage ledgers — check_stage_4 reads those), plus design/*.md.
+stage3_ref_docs() {
+  local a="$1" d="$2" f
+  for f in "$a"/*.md "$a"/modules/*.md "$a"/modules/*/*.md "$d"/*.md; do
+    [ -f "$f" ] || continue
+    case "$(basename "$f")" in
+      build-plan.md|module-brief.md|*-brief.md|coverage-ledger.md|*-coverage-ledger.md) continue ;;
+    esac
+    printf '%s\n' "$f"
+  done
+}
+
 check_stage_3() {
   # Collect ALL FOUR results before reporting. This used to be a chain of first-failure
   # returns, so the message was always about the first gap in source order and never about
@@ -1185,7 +1541,7 @@ check_stage_3() {
   # present, so the reader can see how far along they actually are.
   #
   # Every test is [ -s ], not [ -e ]: see resolve_artifact_nonempty().
-  local fit_gap design_system wireframes_dir blueprint_html wf_hit
+  local fit_gap design_system wireframes_dir blueprint_html wf_hit wf_note=""
   fit_gap="$(resolve_artifact_nonempty "architecture/fit-gap.md")"
   design_system="$(resolve_artifact_nonempty "design/design-system.html")"
   blueprint_html="$(resolve_artifact_nonempty "architecture/blueprint.html")"
@@ -1220,6 +1576,45 @@ check_stage_3() {
     fi
     echo "PENDING|missing:${missing:- none} | present:${present:- none}${note} (design-artifacts.md Step 3 wants one wireframe per screen; architecture-blueprint.md Step 7 the blueprint render)"
     return
+  fi
+  # Every wireframe the Stage-3 documents NAME must exist (2026-11-05): see wireframe_refs_missing().
+  local wf_missing w
+  wf_missing="$(wireframe_refs_missing "$wireframes_dir" "$(stage3_ref_docs "$(dirname "$blueprint_html")" "$(dirname "$wireframes_dir")")")"
+  if [ -n "$wf_missing" ]; then
+    if w="$(artifact_waived wireframes)"; then
+      wf_note="; referenced wireframe(s) absent but waived — $w"
+    else
+      echo "FAIL|wireframe(s) referenced but not in $wireframes_dir — $wf_missing — draw them (design-artifacts.md Step 3) or correct the reference; to excuse it: gate-check.sh <project> --waive artifact/wireframes --reason \"...\""
+      return
+    fi
+  fi
+  # The assembled prototype, where there is one: check-prototype-links.js is design-artifacts.md
+  # Step 3b's mechanical half and brd-validation.md check 8 (dead links, orphan screens, unbound
+  # controls, screens no use case walks). It exited 1 on a broken copy whose Stage 3 still read
+  # PASS, because nothing ran it (regression experiment, 2026-11-05). Only exit 1 is a finding;
+  # exit 2 (no screens, or a BRD set that predates the route convention) is not this gate's.
+  # Run from the project root with project-relative paths: a native Windows node cannot open the
+  # /c/... form Git Bash would hand it.
+  local proto_out proto_rc proto_rel brd_rel=""
+  proto_rel="$(dirname "$wireframes_dir")/prototype.html"; proto_rel="${proto_rel#"$PROJECT_DIR"/}"
+  if [ -s "$PROJECT_DIR/$proto_rel" ] && [ -f "$TOOLKIT_DIR/project-bin/check-prototype-links.js" ] \
+     && command -v node >/dev/null 2>&1; then
+    [ -n "$KB_DIR" ] && [ -d "$KB_DIR/brd" ] && brd_rel="${KB_DIR#"$PROJECT_DIR"/}/brd"
+    proto_out="$(cd "$PROJECT_DIR" && node "$TOOLKIT_DIR/project-bin/check-prototype-links.js" "$proto_rel" \
+                 ${brd_rel:+--brd "$brd_rel"} 2>&1)"; proto_rc=$?
+    # --brd exits 2 when the BRDs name no #/route (they predate the convention) — before it checks
+    # the prototype itself. Its own half (dead links, orphans, unbound controls) still applies.
+    if [ "$proto_rc" = "2" ] && [ -n "$brd_rel" ]; then
+      proto_out="$(cd "$PROJECT_DIR" && node "$TOOLKIT_DIR/project-bin/check-prototype-links.js" "$proto_rel" 2>&1)"; proto_rc=$?
+    fi
+    if [ "$proto_rc" = "1" ]; then
+      if w="$(artifact_waived prototype)"; then
+        wf_note="$wf_note; prototype link findings waived — $w"
+      else
+        echo "FAIL|$proto_rel: $(printf '%s\n' "$proto_out" | tail -1 | sed 's/^check-prototype-links: //; s/\.$//'), e.g. $(printf '%s\n' "$proto_out" | grep -m1 "$(printf '\t')" | tr '\t' ' ') — fix per design-artifacts.md Step 3b (project-bin/check-prototype-links.js lists all), or excuse it: gate-check.sh <project> --waive artifact/prototype --reason \"...\""
+        return
+      fi
+    fi
   fi
   # design-artifacts.md Step 2 promises one wireframe per inventoried screen. Where the
   # inventory exists (design/target-ui.md's Screen Inventory table), count it against
@@ -1273,11 +1668,24 @@ check_stage_3() {
       fi
     done
   fi
+  # The interaction-model facts (#291), computed once before the stage loop and printed under
+  # "Interaction model (stage 3 facts)". PENDING (no artifact yet — the Artifacts block reports
+  # that) and ADOPTED/WAIVED leave this verdict alone; a finding is something examined and wrong.
+  # A FAIL returns here; a MANUAL only replaces a PASS, so it never hides the register FAIL below.
+  if [ "${MXTK_IM_STATUS:-}" = "FAIL" ]; then
+    local im_also=""
+    if ! reg_unavailable && ! has_confirmed_decision 3 && ! { interview_mode_is_auto && has_auto_assumed_decision 3; }; then im_also="; also: no Stage-3 CONFIRMED decision"; fi
+    echo "FAIL|interaction model: ${MXTK_IM_NOTE} — each finding is listed under 'Interaction model (stage 3 facts)' (skills/interaction-model.md)${im_also}"; return
+  fi
   if reg_unavailable; then reg_unavailable_note; return; fi
   if has_confirmed_decision 3; then
-    echo "PASS|fit-gap, blueprint render, design system, wireframes present and a Stage-3 CONFIRMED decision is in $REGISTER"
+    if [ "${MXTK_IM_STATUS:-}" = "MANUAL" ]; then echo "MANUAL|interaction model: ${MXTK_IM_NOTE}$wf_note"; return; fi
+    echo "PASS|fit-gap, blueprint render, design system, wireframes present and a Stage-3 CONFIRMED decision is in $REGISTER$wf_note"
+  elif interview_mode_is_auto && has_auto_assumed_decision 3; then
+    if [ "${MXTK_IM_STATUS:-}" = "MANUAL" ]; then echo "MANUAL|interaction model: ${MXTK_IM_NOTE}$wf_note"; return; fi
+    echo "PASS|fit-gap, blueprint render, design system, wireframes present and a Stage-3 decision is ASSUMED by auto-mode in $REGISTER (Interview mode: auto) — a human confirms it before release$wf_note"
   else
-    echo "FAIL|artifacts exist but ${REGISTER:-PROJECT.md} has no Stage-3 CONFIRMED decision — ✋ gate: artifacts without an interview don't pass"
+    echo "FAIL|artifacts exist but ${REGISTER:-PROJECT.md} has no Stage-3 CONFIRMED decision — ✋ gate: artifacts without an interview don't pass$(auto_assumed_hint 3)"
   fi
 }
 
@@ -1288,17 +1696,248 @@ check_stage_4() {
     echo "PENDING|architecture/build-plan.md not written yet"
     return
   fi
+  # Content first, sign-off second (as Stage 3 does): a content FAIL carries no ✋, so a
+  # `Waived stage 4:` line cannot turn it WAIVED — only `Waived artifact <id>` excuses one. Read
+  # after the decision, an unsigned plan with a deleted brief returned the ✋ FAIL and the stage
+  # waiver hid the brief (review of #618).
+  local closing content
+  content="$(stage4_content "$build_plan")"
+  case "$content" in FAIL\|*)
+    closing="$(stage4_closing_rows "$build_plan")"   # one line, every gap: the closing rows too
+    case "$closing" in FAIL\|*) echo "$content; also ${closing#FAIL|}" ;; *) echo "$content" ;; esac
+    return ;;
+  esac
   if reg_unavailable; then reg_unavailable_note; return; fi
+  local signed="a Stage-4 CONFIRMED decision is in $REGISTER"
   if ! has_confirmed_decision 4; then
-    echo "FAIL|build-plan.md exists but ${REGISTER:-PROJECT.md} has no Stage-4 CONFIRMED decision — ✋ gate: a plan nobody approved doesn't pass"
-    return
+    if interview_mode_is_auto && has_auto_assumed_decision 4; then
+      signed="a Stage-4 decision is ASSUMED by auto-mode in $REGISTER (Interview mode: auto) — a human confirms it before release"
+    else
+      echo "FAIL|build-plan.md exists but ${REGISTER:-PROJECT.md} has no Stage-4 CONFIRMED decision — ✋ gate: a plan nobody approved doesn't pass$(auto_assumed_hint 4)"
+      return
+    fi
   fi
-  local closing
   closing="$(stage4_closing_rows "$build_plan")"
   case "$closing" in
     FAIL\|*) echo "$closing" ;;
-    *) echo "PASS|build-plan.md present, ${closing#OK|}, and a Stage-4 CONFIRMED decision is in $REGISTER" ;;
+    *) echo "PASS|build-plan.md present, ${closing#OK|}${content:+, $content}, and $signed" ;;
   esac
+}
+
+# stage4_content <build-plan.md> → "FAIL|<every finding, ;-joined>" or a short note (may be empty).
+#
+# WHY (regression experiment, 2026-11-05). Stage 4 found the plan, the decision and the closing
+# rows, and read nothing else, so four broken copies of a real project still passed it: a row
+# depending on row 99 that does not exist, a coverage ledger missing 24 of a BRD's leaves, the
+# first module's brief deleted, and a wireframe the plan points at deleted. Each finding below
+# names the file and what is missing, and each is excused by one `Waived artifact <id>: <reason>`
+# register line (artifact_waived) — the id is the artifact-manifest.tsv row it is about.
+stage4_content() {
+  local plan="$1" arch why="" notes="" r w
+  arch="$(dirname "$plan")"
+  _s4_add() { # _s4_add <artifact-id> <finding>
+    if w="$(artifact_waived "$1")"; then notes="${notes:+$notes; }$1 finding waived — $w"
+    else why="${why:+$why; }$2"; fi
+  }
+  r="$(stage4_dangling_deps "$plan")"
+  [ -n "$r" ] && _s4_add build-plan "$(basename "$plan") row(s) depend on rows the plan does not have: $r"
+  r="$(stage4_briefs_missing "$plan")"
+  [ -n "$r" ] && _s4_add module-brief "$r"
+  r="$(wireframe_refs_missing "$(resolve_artifact "design/wireframes")" "$(stage4_ref_docs "$arch")")"
+  [ -n "$r" ] && _s4_add wireframes "wireframe(s) referenced but not on disk — $r"
+  r="$(stage4_coverage "$arch")"
+  case "$r" in
+    FAIL\|*) _s4_add coverage-ledger "${r#FAIL|}" ;;
+    ?*) notes="${notes:+$notes; }$r" ;;
+  esac
+  unset -f _s4_add
+  if [ -n "$why" ]; then
+    echo "FAIL|$why — fix the plan/ledger/brief, or excuse one: gate-check.sh <project> --waive artifact/<id> --reason \"...\" (ids: build-plan, module-brief, wireframes, coverage-ledger)${notes:+ ($notes)}"
+  else
+    printf '%s' "$notes"
+  fi
+}
+
+# stage4_ref_docs <architecture-dir> — the Stage-4 documents that cite wireframes: the build plan
+# and the module briefs (the Stage-3 documents are check_stage_3's).
+stage4_ref_docs() {
+  local a="$1" f
+  for f in "$a/build-plan.md" "$a"/modules/*/module-brief.md "$a"/modules/*-brief.md; do
+    [ -f "$f" ] && printf '%s\n' "$f"
+  done
+}
+
+# stage4_dangling_deps <build-plan.md> → "row 5 → 99, row 7 → 12a" or nothing.
+# Every table with a `Depends on` column (brd-to-build-plan.md: "prior row number(s)"): each
+# number or N-M range in that cell must be a row the plan has — the build loop walks rows by
+# their dependencies, and a dependency on a row that does not exist is either a typo or a row
+# that was deleted with its dependants left behind. Text that is not a row number (—, "none",
+# "Phase 2", "F001") is not read; a range checks its two ends.
+stage4_dangling_deps() {
+  tr -d '\r' < "$1" | awk '
+    function trim(s) { gsub(/[`*]/, "", s); gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
+    # Row ids: brd-to-build-plan.md numbers rows ("step number, never reused", sometimes written
+    # 01), and real plans also use 3a and 1.1. Normalised so 01 == 1 and 1.01 == 1.1.
+    function isid(x) { return x ~ /^[0-9]+(\.[0-9]+)*[a-z]?$/ }
+    function norm(x,    n, p, i, o) { sub(/\.$/, "", x); n = split(x, p, "."); o = ""
+      for (i = 1; i <= n; i++) { sub(/^0+/, "", p[i]); if (p[i] == "" || p[i] ~ /^[a-z]/) p[i] = "0" p[i]; o = o (i > 1 ? "." : "") p[i] }
+      return o }
+    # A header is the row right above a |---| separator; its columns hold until the next header,
+    # because real plans put a blank line and a claims block between rows of one table.
+    /^[ \t]*\|[ \t:|-]+$/ { n = split(prev, c, "|"); dcol = 0
+      for (i = 2; i < n; i++) if (tolower(trim(c[i])) ~ /^depends/) dcol = i
+      next }
+    /^[ \t]*\|/ {
+      prev = $0
+      n = split($0, c, "|")
+      id = tolower(trim(c[2])); sub(/\.$/, "", id)
+      if (!isid(id)) next
+      have[norm(id)] = 1
+      if (dcol) { k++; rid[k] = id; dep[k] = tolower(trim(c[dcol])) }
+      next
+    }
+    END {
+      for (j = 1; j <= k; j++) {
+        s = dep[j]
+        gsub(/–|—/, "-", s)                                       # en/em dash in a range
+        gsub(/[ \t]*-[ \t]*/, "-", s)
+        gsub(/(phase|stage|step|slice|wave|sprint)[ \t]*[0-9][0-9a-z.]*/, " ", s)
+        # Words, not substrings: US-12, F001, R3 are requirement ids and never row refs; only a
+        # word that IS a row id (or a range of two) is read.
+        nw = split(s, w, /[ \t,;\/()+&]+/)
+        for (q = 1; q <= nw; q++) {
+          x = w[q]; sub(/\.$/, "", x)
+          if (isid(x)) { if (!(norm(x) in have)) bad = bad (bad == "" ? "" : ", ") "row " rid[j] " → " x; continue }
+          if (split(x, e, "-") == 2 && isid(e[1]) && isid(e[2])) {
+            if (!(norm(e[1]) in have)) bad = bad (bad == "" ? "" : ", ") "row " rid[j] " → " e[1]
+            if (!(norm(e[2]) in have)) bad = bad (bad == "" ? "" : ", ") "row " rid[j] " → " e[2]
+          }
+        }
+      }
+      print bad
+    }'
+}
+
+# stage4_briefs_missing <build-plan.md> → a finding, or nothing.
+#
+# conversion-runbook.md Stage 4 "Agent produces": the plan PLUS the first module's brief; later
+# briefs are just-in-time, so a missing brief for a module the build has not reached is normal and
+# is not reported. "First" is read from the plan, never guessed: the modules its FIRST `BRIEF` row
+# names (brd-to-build-plan.md: every phase opens with a BRIEF row, check-then-create). A plan with
+# no BRIEF row owes at least one brief. A brief is any recognised form: architecture/modules/<M>/
+# module-brief.md, architecture/modules/<M>-brief.md, or a `## Module brief — <M>` section in the
+# plan (the forms stage4_closing_rows and build-ready already read). Modules are the declared ones
+# (architecture/modules/<M>/ and the plan's brief sections); with none declared nothing is owed.
+stage4_briefs_missing() {
+  local plan="$1" arch m declared first owed="" missing="" sections
+  arch="$(dirname "$plan")"
+  sections="$(tr -d '\r' < "$plan" | sed -nE 's/^#+[[:space:]]+Module brief[[:space:]]+(—|–|-|:)[[:space:]]*([A-Za-z0-9_]+).*/\2/p')"
+  declared="$( { for m in "$arch/modules"/*/; do [ -d "$m" ] && basename "$m"; done
+                 printf '%s\n' "$sections"; } 2>/dev/null | sed '/^$/d' | sort -u)"
+  [ -n "$declared" ] || return 0
+  _brief_of() {
+    [ -s "$arch/modules/$1/module-brief.md" ] || [ -s "$arch/modules/$1-brief.md" ] \
+      || grep -qx -- "$1" <<<"$sections"
+  }
+  first="$(tr -d '\r' < "$plan" | grep -E '^\|[[:space:]]*[0-9]+[A-Za-z.]*[[:space:]]*\|' \
+           | grep -m1 -E -- '\|[[:space:]]*`?BRIEF`?[[:space:]]*\|')"
+  if [ -n "$first" ]; then
+    for m in $declared; do grep -qw -- "$m" <<<"$first" && owed="$owed $m"; done
+  fi
+  if [ -n "$owed" ]; then
+    for m in $owed; do _brief_of "$m" || missing="$missing $m"; done
+    unset -f _brief_of
+    [ -n "$missing" ] && echo "no module brief for:$missing — the plan's first BRIEF row names it, so Stage 4 owes it (conversion-runbook.md Stage 4: the plan plus the first module's brief); looked for $(basename "$arch")/modules/<M>/module-brief.md, $(basename "$arch")/modules/<M>-brief.md and a '## Module brief — <M>' section in $(basename "$plan")"
+    return 0
+  fi
+  for m in $declared; do _brief_of "$m" && { unset -f _brief_of; return 0; }; done
+  unset -f _brief_of
+  echo "no module brief for any of the $(printf '%s\n' "$declared" | wc -l | tr -d ' ') declared module(s) — Stage 4 owes the first module's brief (conversion-runbook.md Stage 4); looked for $(basename "$arch")/modules/<M>/module-brief.md, $(basename "$arch")/modules/<M>-brief.md and a '## Module brief — <M>' section in $(basename "$plan")"
+}
+
+# stage4_coverage <architecture-dir> → "FAIL|<finding>", a short note, or nothing.
+#
+# The coverage ledger is the Stage-4 artifact that proves every BRD leaf has a row
+# (coverage-ledger.md). Measured by project-bin/coverage-preflight.sh — the toolkit's one front
+# end to bin/coverage-check.sh, which knows all four ledger shapes and the per-module scoping —
+# and ONLY where a ledger exists: no ledger is coverage NOT MEASURED, an accepted state for a plan
+# written before the convention (conversion-runbook.md Stage 4), and preflight's derive-a-ledger
+# level would write into docs/coverage/, which a gate must not do. Read only for architecture/ at
+# the project root, the layout preflight resolves; the nested analysis/<name>/architecture layout
+# is not measured here (said in the note, never a FAIL).
+#
+# Cached by its inputs (#686 speed audit): the measurement is ~25 s of every Stage 5+ round on a
+# field project and its inputs rarely change between rounds. The key is a content checksum of
+# architecture/, every BRD and the toolkit code that measures (bin/lib/gate-cache.sh,
+# "Stage-4 coverage cache", says exactly what and why a stale verdict cannot replay).
+stage4_coverage() {
+  local arch="$1" r
+  if gc_s4cov_enabled && gc_s4cov_key "$arch"; then
+    if gc_s4cov_get; then
+      [ -n "${MXTK_GATE_CACHE_TRACE:-}" ] && echo "s4cov-cache: hit" >&2
+      return 0
+    fi
+    r="$(stage4_coverage_measure "$arch")"
+    gc_s4cov_put "$arch" "$r"
+    [ -n "${MXTK_GATE_CACHE_TRACE:-}" ] && echo "s4cov-cache: miss" >&2
+    [ -n "$r" ] && printf '%s\n' "$r"
+    return 0
+  fi
+  stage4_coverage_measure "$arch"
+}
+stage4_coverage_measure() {
+  local arch="$1" pf="$TOOLKIT_DIR/project-bin/coverage-preflight.sh" m mods="" out rc r bad="" nm="" n=0
+  [ -f "$pf" ] || return 0
+  [ -n "$(discover_brds "$PROJECT_DIR")" ] || return 0
+  if [ "$arch" != "$PROJECT_DIR/architecture" ]; then
+    { [ -f "$arch/coverage-ledger.md" ] || ls "$arch"/modules/*coverage-ledger* >/dev/null 2>&1 \
+      || ls "$arch"/modules/*/coverage-ledger* >/dev/null 2>&1; } \
+      && echo "coverage ledger not measured here ($arch is not <project>/architecture; run project-bin/coverage-preflight.sh)"
+    return 0
+  fi
+  for m in "$arch"/modules/*/; do
+    [ -d "$m" ] || continue
+    m="$(basename "$m")"
+    if ls "$arch/modules/$m/coverage-ledger"/*.md >/dev/null 2>&1 || [ -f "$arch/modules/$m/coverage-ledger.md" ] \
+       || [ -f "$arch/modules/$m-coverage-ledger.md" ]; then mods="$mods $m"; fi
+  done
+  for m in "$arch"/modules/*-coverage-ledger.md; do
+    [ -f "$m" ] || continue
+    m="$(basename "$m" -coverage-ledger.md)"
+    case " $mods " in *" $m "*) ;; *) mods="$mods $m" ;; esac
+  done
+  _s4_cov() { # _s4_cov <label> [--module M]
+    local label="$1"; shift
+    # PROJECT_ROOT absolute: preflight cds into it, and a relative one (`gate-check.sh proj`)
+    # resolved to nothing there, so coverage was silently "not measured" (review of #618).
+    out="$(cd "$PROJECT_DIR" && PROJECT_ROOT="$(pwd -P)" MXTK_ROOT="$TOOLKIT_DIR" bash "$pf" --summary "$@" 2>&1)"; rc=$?
+    n=$((n + 1))
+    case "$rc" in
+      0) ;;
+      1) bad="${bad:+$bad; }$label: $(printf '%s\n' "$out" | awk '
+             /^coverage-check:/ { b = $NF; sub(/.*\//, "", b); sub(/\.brd\.json$/, "", b); next }
+             /^  (UNCLAIMED|PHANTOM|DOUBLE-CLAIMED|COUNT-MISMATCH):/ { k = $1; sub(/:.*/, "", k); v = $0; sub(/^[^:]*:[ \t]*/, "", v)
+               if (v + 0 > 0) { out = out (out == "" ? "" : ", ") b " " k " " v + 0 } next }
+             /PHANTOM CLAIM:/ { p++ }
+             END { if (p) out = out (out == "" ? "" : ", ") p " phantom build-plan claim(s)"; print out }')" ;;
+      # FAULT is "cannot evaluate" (e.g. the BRDs sit where preflight does not look — it reads
+      # analysis/*/; a root knowledge-base/ is discover-brds.sh's legacy layout): said, not FAILed.
+      2) r="$(printf '%s\n' "$out" | grep -m1 -E 'FAULT' | sed 's/^ *//; s/^FAULT: //')"
+         [ -n "$r" ] || r="coverage-preflight.sh exit 2: $(printf '%s\n' "$out" | grep -v '^[[:space:]]*$' | tail -1)"
+         nm="${nm:+$nm; }$label: $r" ;;
+      *) ;;   # 3/4: not measured / not applicable — not this gate's finding
+    esac
+  }
+  for m in $mods; do _s4_cov "architecture/modules/$m ledger" --module "$m"; done
+  [ -f "$arch/coverage-ledger.md" ] && _s4_cov "architecture/coverage-ledger.md"
+  unset -f _s4_cov
+  if [ -n "$bad" ]; then
+    echo "FAIL|coverage ledger has findings ($bad) — project-bin/coverage-preflight.sh --summary lists every leaf; claim it in the plan and the ledger, or ledger it NON-BUILDABLE with a reason (coverage-ledger.md)${nm:+ (not measured: $nm)}"
+  elif [ -n "$nm" ]; then
+    echo "coverage ledger not measured — $nm (cannot evaluate, which is not a pass)"
+  elif [ "$n" -gt 0 ]; then
+    echo "coverage ledger clean ($n measured)"
+  fi
 }
 
 # stage4_closing_rows <build-plan.md> → "OK|<what was counted>" or "FAIL|<what is missing>".
@@ -1370,6 +2009,10 @@ stage4_closing_rows() {
 # citation in design/ui-reviews/ui-review-*.html whose screenshot is newer than the build and
 # at least 10KB, and a `Waived obligation look/<Module>` (or look/<Module.Page>) register line.
 # No owed.tsv — a project built before this, or one whose exec.sh predates it — stays MANUAL.
+# The Marketplace install check (bin/lib/marketplace-check.sh) is NOT folded in: it prints its
+# own "Marketplace installs:" line and never changes this verdict, so a project whose Stage 5
+# exit is already recorded cannot flip to "approved over a failing gate". It blocks earlier, in
+# build-ready and in exec.sh before a domain-model script, where the install belongs.
 check_stage_5() {
   local owed="$PROJECT_DIR/.claude/loop/look/owed.tsv" rows proofs="" n=0 n_seen=0 n_proof=0 n_waived=0
   local unseen="" n_unseen=0 st page epoch mod rep line shot f sz mt
@@ -1487,8 +2130,7 @@ check_stage_7() {
   # table mentioning the cutover is not a candidate. Status matching is word-anchored like
   # has_confirmed_decision (TD-07), so "CONFIRMED 2026-08-10" passes here as it does for
   # every other stage; "NOT CONFIRMED" and a Notes cell mentioning the word still do not.
-  verdict=$(awk -F'|' '
-    !/^\|/ { intab=0; next }
+  verdict=$(awk -F'|' "$DECISIONS_TABLE_AWK"'
     {
       h=tolower($2); gsub(/^[ \t]+|[ \t]+$/,"",h)
       if (h=="stage") { intab=1; hdr=1; next }
@@ -1501,7 +2143,7 @@ check_stage_7() {
       anyr++; if (c) anyf=1
       if (intab) { tabr++; if (c) tabf=1 }
     }
-    END { if (hdr) print (tabf?"PASS":"FAIL") " " tabr+0; else print (anyf?"PASS":"FAIL") " " anyr+0 }' "$f")
+    END { if (hdr) print (tabf?"PASS":"FAIL") " " tabr+0; else print (anyf?"PASS":"FAIL") " " anyr+0 }' "$f" "$f")
   rows="${verdict#* }"
   if [ "${verdict%% *}" = "PASS" ]; then
     echo "PASS|a Stage-7/cutover decision row in $f has Status CONFIRMED ($rows candidate row(s))"
@@ -1646,6 +2288,22 @@ check_build_ready() {
     echo "  ✗ no design system (ds.css or design-system.html) — design-artifacts.md"
     fails=$((fails+1))
   fi
+
+  # 6. Confirmed Marketplace Buys installed (bin/lib/marketplace-check.sh, evaluated above the
+  #    stage loop). Only a FAIL counts: a Buy confirmed, the model there, SHOW MODULES read, the
+  #    package absent. PENDING (no model yet, no mxcli, an unresolved row) is a note — build-ready
+  #    usually runs before the model exists, and an instrument that could not measure never fails.
+  #    The remedy (install, or --waive marketplace/<Name>) is never blocked by this (guard rule 7).
+  case "${MXTK_MKT_STATUS:-}" in
+    FAIL)
+      echo "  ✗ Marketplace: $MXTK_MKT_NOTE"
+      fails=$((fails+1)) ;;
+    PENDING)
+      echo "  ⚠ Marketplace: PENDING — $MXTK_MKT_NOTE (not counted as a FAIL)" ;;
+    "") ;;
+    *)
+      echo "  ✓ Marketplace: $MXTK_MKT_STATUS — $MXTK_MKT_NOTE" ;;
+  esac
 
   echo ""
   if [ "$fails" -eq 0 ]; then
@@ -1951,6 +2609,8 @@ protocol_is_relevant() {
 # instead of re-evaluating. Everything from here to the "Regenerate index.html" block is the
 # evaluation; see bin/lib/gate-cache.sh for exactly when a hit is allowed.
 . "$TOOLKIT_DIR/bin/lib/gate-cache.sh"
+# The one BRD locator (its header says why there is only one); stage4_coverage asks it.
+. "$TOOLKIT_DIR/bin/lib/discover-brds.sh"
 GC_CACHE_HIT=0
 [ "$CLOSEOUT" = "1" ] && gc_cache_try
 [ -n "${MXTK_GATE_CACHE_TRACE:-}" ] && [ "$CLOSEOUT" = "1" ] && echo "gate-cache: $([ "$GC_CACHE_HIT" = 1 ] && echo hit || echo miss)" >&4
@@ -2248,6 +2908,24 @@ if [ -n "$ADOPT_STAGE" ] || [ -n "$WAIVE_STAGE" ]; then
     #     --waive sweep       --reason "QA runs in the client's own suite"  (every module)
     # The obligation form is recognised by the target naming a row in obligations.tsv.
     case "$WAIVE_STAGE" in
+      marketplace|marketplace/?*)
+        MKT_NAME="${WAIVE_STAGE#marketplace}"; MKT_NAME="${MKT_NAME#/}"
+        register_set_line "Waived marketplace${MKT_NAME:+ $MKT_NAME}" "$WAIVER_REASON" \
+          || { echo "Could not write to $REGISTER" >&2; exit 1; }
+        build_log_append "MARKETPLACE-WAIVED ${MKT_NAME:-all} reason: $WAIVER_REASON"
+        echo "Recorded in $REGISTER:  Waived marketplace${MKT_NAME:+ $MKT_NAME}: $WAIVER_REASON"
+        echo "That confirmed Buy now reports WAIVED in the Marketplace install check instead of"
+        echo "FAIL/PENDING. It does NOT report installed — the register says who decided that."
+        exit 0 ;;
+      artifact/?*)
+        # `Waived artifact <id>: <reason>` — read by bin/lib/artifact-check.sh and by the Stage 2-4
+        # content checks (artifact_waived). Written here so the FAIL lines can name a command.
+        ART_ID="${WAIVE_STAGE#artifact/}"
+        register_set_line "Waived artifact $ART_ID" "$WAIVER_REASON" \
+          || { echo "Could not write to $REGISTER" >&2; exit 1; }
+        build_log_append "ARTIFACT-WAIVED $ART_ID reason: $WAIVER_REASON"
+        echo "Recorded in $REGISTER:  Waived artifact $ART_ID: $WAIVER_REASON"
+        exit 0 ;;
       source/?*)
         SRC_REL="${WAIVE_STAGE#source/}"
         register_set_line "Waived source $SRC_REL" "$WAIVER_REASON" \
@@ -2687,11 +3365,39 @@ if [ -r "$TOOLKIT_DIR/bin/lib/obligation-check.sh" ]; then
   # shellcheck source=lib/obligation-check.sh
   . "$TOOLKIT_DIR/bin/lib/obligation-check.sh"
   mxtk_obligations_report "$PROJECT_DIR" "$REGISTER"
-  mxtk_obligations_reverse_check
+  # The reverse check is a toolkit-authoring message ("add a row to obligations.tsv") that a
+  # consumer project cannot act on (#623). It runs in render-routing.sh --check (CI), and here
+  # only when gate-check targets the toolkit itself (the skill-routing row's rule) or
+  # MXTK_AUTHORING=1.
+  if [ "${MXTK_AUTHORING:-}" = 1 ] || \
+     [ "$(cd "$PROJECT_DIR" 2>/dev/null && pwd -P)" = "$(cd "$TOOLKIT_DIR" 2>/dev/null && pwd -P)" ]; then
+    mxtk_obligations_reverse_check
+  fi
 else
   # Same discipline the table itself enforces: the checker failing is not the project passing.
   printf 'Obligations: FAULT — bin/lib/obligation-check.sh missing from %s; no pass was checked\n' "$TOOLKIT_DIR"
 fi
+
+# ---------------------------------------------------------------------------
+# Marketplace installs — is every confirmed fit-gap "Buy" in the model?
+#
+# architecture-blueprint.md Step 4 decides Buy; brd-to-build-plan.md Step 0 installs it. Both
+# were prose, and confirmed Buys too often never got installed. bin/lib/marketplace-check.sh
+# compares the two. Informational on its own line here, never a stage verdict (Stage 5 is not
+# changed by it). Its FAIL (Buy confirmed, model present, SHOW MODULES read, package absent)
+# blocks `gate-check <p> build-ready` (check_build_ready) and project-bin/exec.sh's domain-model
+# scripts — before the build, where brd-to-build-plan.md Step 0 installs it.
+# Owed from Stage 5, so a stage query below 5 does not evaluate it (#583: it may run mxcli).
+MXTK_MKT_STATUS=""; MXTK_MKT_NOTE=""
+case "${MXTK_ROWS_UPTO:-}" in P|p|0|1|2|3|4) ;; *)
+  if [ -r "$TOOLKIT_DIR/bin/lib/marketplace-check.sh" ]; then
+    # shellcheck source=lib/marketplace-check.sh
+    . "$TOOLKIT_DIR/bin/lib/marketplace-check.sh"
+    mxtk_mkt_report "$PROJECT_DIR" "${REGISTER:-$PROJECT_DIR/PROJECT.md}" "$(resolve_artifact_nonempty "architecture/fit-gap.md")"
+  else
+    printf 'Marketplace installs: NOT CHECKED — bin/lib/marketplace-check.sh missing from %s\n' "$TOOLKIT_DIR"
+  fi ;;
+esac
 
 # ---------------------------------------------------------------------------
 # Artifacts — did the stages that promise a file actually leave one?
@@ -2715,6 +3421,26 @@ if [ -r "$TOOLKIT_DIR/bin/lib/artifact-check.sh" ]; then
 else
   # Same discipline again: the checker failing is not the project passing.
   printf 'Artifacts: FAULT — bin/lib/artifact-check.sh missing from %s; no artifact was checked\n' "$TOOLKIT_DIR"
+fi
+
+# ---------------------------------------------------------------------------
+# Interaction model — the Stage-3 facts over design/interaction-model.md (#291).
+#
+# The artifact check above only notices the file is absent. Once it exists, three facts are
+# read from it: every BRD role has a home row, every BRD approval/user-task use case has an
+# inbox row (or a stated reason), every wireframe carries its `Page parameter:` line. Each
+# finding prints here; check_stage_3() turns any un-waived one into a Stage-3 FAIL. Judgement
+# (is that the right home?) stays in skills/interaction-model.md. Waivers and adoption: see the
+# header of bin/lib/interaction-model-check.sh.
+MXTK_IM_STATUS=""; MXTK_IM_NOTE=""
+if [ -r "$TOOLKIT_DIR/bin/lib/interaction-model-check.sh" ] && [ -r "$TOOLKIT_DIR/bin/lib/artifact-check.sh" ]; then
+  # shellcheck source=lib/interaction-model-check.sh
+  . "$TOOLKIT_DIR/bin/lib/interaction-model-check.sh"
+  mxtk_interaction_model_check "$PROJECT_DIR" "$REGISTER" "$ANALYSIS_BASE"
+else
+  MXTK_IM_STATUS="MANUAL"
+  MXTK_IM_NOTE="bin/lib/interaction-model-check.sh missing from $TOOLKIT_DIR — cannot evaluate, which is not a pass"
+  printf 'Interaction model (stage 3 facts): MANUAL — %s\n' "$MXTK_IM_NOTE"
 fi
 
 # ---------------------------------------------------------------------------
@@ -2922,11 +3648,7 @@ APPROVED_OVER_FAIL=""
 P_RESULT="$(check_stage_P)"
 P_STATUS="${P_RESULT%%|*}"
 P_NOTE="${P_RESULT#*|}"
-if P_WAIVER="$(stage_waiver P)" \
-   && waiver_applies "${P_WAIVER%%|*}" "$P_STATUS" "$P_NOTE"; then
-  P_NOTE="${P_WAIVER#*|} · underlying check: $P_STATUS"
-  P_STATUS="WAIVED"
-fi
+apply_waiver P "$P_STATUS" "$P_NOTE"; P_STATUS="$AW_STATUS"; P_NOTE="$AW_NOTE"
 case "$P_STATUS" in
   PASS)    N_PASS=$((N_PASS+1)) ;;
   PENDING) N_PENDING=$((N_PENDING+1)); NEXT_UP="P"; NEXT_UP_STATUS=PENDING ;;
@@ -2965,6 +3687,15 @@ printf "Stage P (Kickoff): %s%s — %s\n" "$P_STATUS" "$(stage_surface_suffix P)
 # The second half of the same problem — a stage that will NEVER start, because the project
 # joined the toolkit later or its entry mode does not run that stage — is WAIVED, and is
 # declared in the register rather than inferred. See the block above stage_waiver().
+# Interview mode as bin/interview-mode.sh resolves it (#624): only `auto` lets an auto-mode
+# ASSUMED row pass Stage 3/4. AUTO_HAND is every ✋ decision still stamped auto-mode, any mode.
+INTERVIEW_MODE="$(bash "$TOOLKIT_DIR/bin/interview-mode.sh" "$PROJECT_DIR" 2>/dev/null || echo steering)"
+AUTO_HAND=""; AUTO_HAND_N=0
+if ! reg_unavailable; then
+  AUTO_HAND="$(auto_hand_pending)"
+  [ -n "$AUTO_HAND" ] && AUTO_HAND_N=$(printf '%s\n' "$AUTO_HAND" | wc -l | tr -d ' ')
+fi
+AUTO_HAND_IDS="$(printf '%s' "$AUTO_HAND" | tr '\n' ',' | sed 's/,/, /g')"
 for stage in "${STAGE_NAMES[@]}"; do
   case "$stage" in
     0) result="$(check_stage_0)" ;;
@@ -2980,10 +3711,13 @@ for stage in "${STAGE_NAMES[@]}"; do
   status="${result%%|*}"
   note="${result#*|}"
 
-  if waiver="$(stage_waiver "$stage")" \
-     && waiver_applies "${waiver%%|*}" "$status" "$note"; then
-    note="${waiver#*|} · underlying check: $status"
-    status="WAIVED"
+  apply_waiver "$stage" "$status" "$note"; status="$AW_STATUS"; note="$AW_NOTE"
+  # RELEASE NEEDS A HUMAN (#624). Stage 6 is release readiness; auto mode may pass Stage 3/4 on
+  # its own stamp, but nothing ships on it. After the waiver on purpose: a stage waiver does not
+  # excuse an unconfirmed decision.
+  if [ "$stage" = "6" ] && [ "$AUTO_HAND_N" -gt 0 ] && { [ "$status" = "PASS" ] || [ "$status" = "WAIVED" ]; }; then
+    note="$AUTO_HAND_N hand-gate decision(s) assumed by auto-mode and not yet confirmed: $AUTO_HAND_IDS — nothing ships until a person confirms or overturns each (any status, consentBy a person; interview-protocol.md §\"What \`auto\` obliges you to do\") · underlying check: $status — $note"
+    status="FAIL"
   fi
   # APPROVED OVER A FAILING GATE (#207). The register's CONFIRMED row is what status.sh,
   # exec.sh and every agent read afterwards; the gate under it is read by nobody. Field case,
@@ -3015,6 +3749,10 @@ done
 # Said once, after the list, because it calibrates every line above it. A reader who
 # does not know that a missing Surface left the exit code alone will read the first one
 # they see as a failure the gate somehow let through.
+if [ "$AUTO_HAND_N" -gt 0 ]; then
+  echo "$AUTO_HAND_N ✋ decision(s) assumed by auto-mode — confirm before release: $AUTO_HAND_IDS"
+  echo "  (Interview mode: $INTERVIEW_MODE. Confirm or overturn each — any status, consentBy a person; Stage 6 FAILs until then.)"
+fi
 echo "Surface = the artifact a human READS to judge the stage (runbook §2). A missing one is"
 echo "not a gate failure and does not affect the exit code — it is a stage nobody can review."
 
@@ -3387,6 +4125,7 @@ if [ "$CLOSEOUT" = "1" ]; then
     # shellcheck source=lib/closeout.sh
     . "$TOOLKIT_DIR/bin/lib/closeout.sh"
     MXTK_CLOSEOUT_VERDICT="$_co_verdict" mxtk_closeout_report "$PROJECT_DIR" "$REQUESTED_STAGE" "$REGISTER"
+    _bl="$(bugs_unfiled_line)"; [ -n "$_bl" ] && printf '\n%s\n' "${_bl#note: }"
   else
     echo "closeout: FAULT — bin/lib/closeout.sh missing from $TOOLKIT_DIR; nothing was emitted (this is the checker failing, not the project)" >&2
   fi
@@ -3437,7 +4176,7 @@ if [ -n "$REQUESTED_STAGE" ]; then
   # that declaration and this block must too (merge review, 2026-09-08: it fired on adopted
   # projects because it ran before the verdict table was consulted).
   if { [ "$REQUESTED_STAGE" = "1" ] || [ "$REQUESTED_STAGE" = "2" ]; } && [ "$LEDGER_STATUS" = "FAIL" ] \
-     && ! stage_waiver "$REQUESTED_STAGE" >/dev/null; then
+     && ! { _lw="$(stage_waiver "$REQUESTED_STAGE")" && [ "${_lw%%|*}" != "noreason" ]; }; then
     echo "" >&2
     echo "Gate BLOCKED by the source ledger: $LEDGER_NOTE" >&2
     echo "" >&2

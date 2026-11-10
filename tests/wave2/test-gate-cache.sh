@@ -90,5 +90,32 @@ P="$(mkproj t5)"
 "$GATE" --no-html "$P" 3 >"$WORK/o5" 2>&1
 grep -q 'for stages after 3 not evaluated' "$WORK/o5" && ok "N … not evaluated line present" || bad "line missing: $(grep -c . "$WORK/o5") lines"
 
+echo "== T6: the inputs Stage 4 reads since 2026-11-05 (a module brief, the coverage ledger) end the cache =="
+P="$(mkproj t6)"
+printf '| 4 | Build plan approved | CONFIRMED | |\n' >> "$P/PROJECT.md"
+mkdir -p "$P/architecture/modules/Core"; printf '# brief\n' > "$P/architecture/modules/Core/module-brief.md"
+printf '%s\n' '| # | Kind | Step | Produces | Depends on | Skills | State |' '|---|---|---|---|---|---|---|' \
+  '| 1 | BRIEF | Core brief | | | none | built |' '| 2 | HARNESS | `bin/verify-module.sh Core` | | 1 | none | |' \
+  '| 3 | RUN | `gate-check.sh <project> 5` | | 2 | none | |' > "$P/architecture/build-plan.md"
+"$GATE" --no-html "$P" 4 >/dev/null 2>&1
+"$GATE" --closeout "$P" 4 >"$WORK/o6a" 2>"$WORK/err"; grep -q 'gate-cache: hit' "$WORK/err" || bad "T6 setup did not hit: $(cat "$WORK/err")"
+sleep 1; rm "$P/architecture/modules/Core/module-brief.md"
+"$GATE" --closeout "$P" 4 >"$WORK/o6b" 2>"$WORK/err"
+grep -q 'gate-cache: miss' "$WORK/err" && ok "deleting the first module's brief -> miss" || bad "brief deletion hit: $(cat "$WORK/err")"
+cmp -s "$WORK/o6a" "$WORK/o6b" && bad "closeout replayed the PASS after the brief was deleted" || ok "verdict changed with the brief"
+
+echo "== T7: CLAUDE_INTERVIEW_MODE is part of the key — Stage 3/4 read it since #624 =="
+P="$(mkproj t7)"
+printf '| 4 | Build plan approved | ASSUMED | consentBy: auto-mode, consentAt: 2026-11-05T10:00Z |\n' >> "$P/PROJECT.md"
+mkdir -p "$P/architecture/modules/Core"; printf '# brief\n' > "$P/architecture/modules/Core/module-brief.md"
+printf '%s\n' '| # | Kind | Step | Produces | Depends on | Skills | State |' '|---|---|---|---|---|---|---|' \
+  '| 1 | BRIEF | Core brief | | | none | built |' '| 2 | HARNESS | `bin/verify-module.sh Core` | | 1 | none | |' \
+  '| 3 | RUN | `gate-check.sh <project> 5` | | 2 | none | |' > "$P/architecture/build-plan.md"
+CLAUDE_INTERVIEW_MODE=auto "$GATE" --no-html "$P" 4 >/dev/null 2>&1
+CLAUDE_INTERVIEW_MODE=auto "$GATE" --closeout "$P" 4 >/dev/null 2>"$WORK/err"; grep -q 'gate-cache: hit' "$WORK/err" || bad "T7 setup did not hit: $(cat "$WORK/err")"
+CLAUDE_INTERVIEW_MODE=steering "$GATE" --closeout "$P" 4 >"$WORK/o7" 2>"$WORK/err"
+grep -q 'gate-cache: miss' "$WORK/err" && ok "a different interview mode -> miss" || bad "mode change hit: $(cat "$WORK/err")"
+grep -q 'FAIL' "$WORK/o7" && ok "and the steering closeout reports the Stage-4 FAIL" || bad "steering closeout: $(head -3 "$WORK/o7")"
+
 echo; echo "passed=$PASS failed=$FAIL"
 [ "$FAIL" -eq 0 ]

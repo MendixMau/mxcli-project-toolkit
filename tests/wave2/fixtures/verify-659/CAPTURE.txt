@@ -1,0 +1,15 @@
+Captured, not hand-written (#659). Written by tests/wave2/test-verify-module-446.sh case V12 with
+CAPTURE=<dir>, i.e. by the real project-bin/verify-module.sh over that fixture's stub project:
+
+  credentials.summary.tsv   real config.js + the template project.config.js (placeholder password),
+                            TEST_PASS unset: the hoisted "e2e credentials" FAULT row, its (reason)
+                            cell, and journeys/monkey SKIPPED as its dependents.
+  runner-setup.summary.tsv  the REAL journey-runner.js (TEST_PASS set, a journey whose requiresEnv
+  20-journeys.log.txt       var is unset) aborting in its own preflight, exit 2: a FAULT row whose
+                            5th column is the log path; the reason is only in the log's SETUP line.
+
+Read by tests/wave2/test-report-normalize-two-tree.sh case 4. Regenerate:
+  CAPTURE=<dir> bash tests/wave2/test-verify-module-446.sh project-bin/verify-module.sh
+
+20-journeys.log.txt is the run's 20-journeys.log, renamed only because *.log is gitignored; the
+fixture copies it back to .claude/loop/verify/MyFirstModule/20-journeys.log.

@@ -5,21 +5,36 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs   = require('fs');
 
+const { loadConfig, splitConfigArg } = require('./lib/config');
+
 const ROOT   = __dirname;
-const CONFIG = JSON.parse(fs.readFileSync(path.join(ROOT, 'config.json'), 'utf8'));
+const USAGE  = 'Usage: node run.js <1|2|3|all> [java|angular] [--config <project-config.json>]\n' +
+               '       (or set MXTK_PIPELINE_CONFIG; the tracked pipeline/config.json is a template)';
+// Config is project-owned and lives in the project, not in this shared clone — see lib/config.js
+// for the lookup order (--config, MXTK_PIPELINE_CONFIG, then the tracked template).
+let CONFIG, CONFIG_PATH;
+try {
+  ({ config: CONFIG, configPath: CONFIG_PATH } = loadConfig({ argv: process.argv.slice(2) }));
+} catch (e) {
+  console.error(`run.js: ${e.message}\n${USAGE}`);
+  process.exit(1);
+}
+// Children (merger.js) resolve the same file through the env var, never the template.
+process.env.MXTK_PIPELINE_CONFIG = CONFIG_PATH;
 // Per-project analysis folder (see migration-pipeline.md's "Project Workspace Convention") —
-// falls back to a local knowledge-base/ (gitignored) only if config.json has no knowledgeBaseDir set.
+// falls back to a local knowledge-base/ (gitignored) only if the config has no knowledgeBaseDir set.
 const KB_DIR = CONFIG.knowledgeBaseDir || path.join(ROOT, 'knowledge-base');
 fs.mkdirSync(KB_DIR, { recursive: true });
 
-const args   = process.argv.slice(2);
+const args   = splitConfigArg(process.argv.slice(2)).rest;
 const phase  = args[0] || '1';          // '1' | '2' | '3' | 'all'
 const only   = args[1] || '';           // 'java' | 'angular' | ''
 
 if (!['1', '2', '3', 'all'].includes(phase)) {
-  console.error('Usage: node run.js <1|2|3|all> [java|angular]');
+  console.error(USAGE);
   process.exit(1);
 }
+console.log(`Pipeline config: ${CONFIG_PATH}`);
 
 function run(cmd, cmdArgs, label) {
   return new Promise((resolve) => {

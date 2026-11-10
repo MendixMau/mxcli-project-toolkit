@@ -45,6 +45,8 @@
 #   bin/doctor.sh --cleanup                 # list leftover mxbuild helper processes (deno from modeler/tools/deno,
 #                                           # older than 10 min, no live mxbuild parent) and stop exactly those after
 #                                           # you type y. With no terminal it prints the command and stops nothing.
+#                                           # Also offers to remove <project>/.mxtk/build/ (the copy the toolkit's
+#                                           # full builds run in, #686; rebuilt on the next full build).
 #                                           # Every normal run also has a "Machine health" section (same leftovers
 #                                           # plus free memory): mxbuild is killed with exit 137 when memory runs out.
 #   bin/doctor.sh --gate-selftest [<dir>]   # force the gate self-test section to run even
@@ -162,7 +164,13 @@ probe_capture() {
   _pc_var="$1"; shift
   _pc_file=$(mktemp "${TMPDIR:-/tmp}/doctor-probe.XXXXXX")
   _pc_exit=0
-  "$@" > "$_pc_file" 2>&1 < /dev/null || _pc_exit=$?
+  # Through mxtk_reaped (project-bin/_common.sh, loaded before the toolchain probes) when it is
+  # there: each mxbuild probe left one ~290 MB deno helper running for good (#708).
+  if declare -F mxtk_reaped >/dev/null 2>&1; then
+    mxtk_reaped "$@" > "$_pc_file" 2>&1 < /dev/null || _pc_exit=$?
+  else
+    "$@" > "$_pc_file" 2>&1 < /dev/null || _pc_exit=$?
+  fi
   eval "$_pc_var=\$(cat \"\$_pc_file\")"
   rm -f "$_pc_file"
   return "$_pc_exit"
@@ -498,7 +506,7 @@ mxcli_latest_advice() {
 #   0. MH_STALE (machine_health): the project runs older local copies of the speed scripts -> upgrade them
 #      first; every other measurement is of the old path. Then MH_SYNC (project in a sync folder) -> move it.
 #   a. PROJECT.md says `Gate mode: full` -> remove that line: `mx check` per exec is the default, with the
-#      full build before every push (offered even when nothing is slow: it helps every machine).
+#      full build at module close (offered even when nothing is slow: it helps every machine).
 #   b. process starts are slow AND this is Git Bash AND `wsl.exe --status` succeeds -> run the toolkit in WSL.
 #   c. slow AND a docker/podman CLI is present and runs (`--version`, no daemon call) -> a dev container.
 #   d. slow, none of the above -> let Claude work in the cloud (Claude Code on the web), pull with git pull.
@@ -524,7 +532,7 @@ recommended_fix() {
     _rf_pm="$(sed -n 's/^[*_ ]*Gate mode:[*_ ]*\([A-Za-z]*\).*/\1/p' "$PROJECT_DIR/PROJECT.md" 2>/dev/null | head -1 | tr 'A-Z' 'a-z')"
     if [ "$_rf_pm" = full ]; then
       echo "  Remove \"Gate mode: full\" from PROJECT.md (one line). Each model write is then checked with the quick"
-      echo "  mx check instead of a full build, and the full build runs before you push and at module close."
+      echo "  mx check instead of a full build, and the full build runs at module close (and before the next push after it)."
       return 0
     fi
   fi
@@ -671,6 +679,7 @@ mh_fmt_mb() {
 # callers (#591 review). session-check still shows the line, because it greps for WARN.
 advise() { printf '  WARN  %s\n' "$*"; }
 MH_BAD=0
+MH_N=0; MH_KB=0; MH_CAN=0
 machine_health() {
   head_ "Machine health"
   _mh_free="$(mh_free_mb)"
@@ -682,6 +691,7 @@ machine_health() {
     _mh_sum="$(printf '%s\n' "$_mh_left" | awk '{ n++; kb += $3; if ($2 > old) old = $2 } END { print n, kb, old }')"
     set -- $_mh_sum; _mh_n=$1; _mh_kb=$2; _mh_old=$3
   fi
+  MH_N="$_mh_n"; MH_KB="$_mh_kb"; MH_CAN="$_mh_can"   # repeated in the Verdict (#708)
   _mh_bad=0
   if [ -z "$_mh_free" ]; then
     note "free memory: not measured on this platform"
@@ -735,6 +745,20 @@ machine_health() {
 
 # --cleanup: list the leftovers machine_health counts, stop them ONLY after a typed y at a terminal.
 if [ "$CLEANUP" = 1 ]; then
+  # The full-build copy (#686: mxtk_build_tree in project-bin/_common.sh) is a cache: one copy of
+  # the model directory plus its deployment/ output. Removing it costs one cold build next time.
+  _bt="${PROJECT_DIR:-.}/.mxtk/build"
+  if [ -d "$_bt" ]; then
+    head_ "Cleanup: the full-build copy ($_bt)"
+    note "$(du -sh "$_bt" 2>/dev/null | awk '{print $1}') on disk; the next full build recreates it (one cold build)."
+    if [ -t 0 ] && [ -t 1 ]; then
+      printf '  Remove it? Type y to confirm, anything else keeps it: '
+      _bt_ans=""; read -r _bt_ans || true
+      if [ "$_bt_ans" = y ] || [ "$_bt_ans" = Y ]; then rm -rf "$_bt" && ok "removed $_bt"; else note "Kept."; fi
+    else
+      note "No terminal to ask on, so it was kept. To remove it yourself:  rm -rf $_bt"
+    fi
+  fi
   head_ "Cleanup: leftover mxbuild helpers (deno)"
   if [ "$MH_OS" = gitbash ]; then command -v wmic >/dev/null 2>&1 || { bad "cannot list processes: wmic is missing. Use Task Manager (deno.exe under modeler\\tools\\deno)."; exit 1; }
   else command -v ps >/dev/null 2>&1 || { bad "cannot list processes: no ps on this machine."; exit 1; }; fi
@@ -2028,6 +2052,29 @@ if [ -n "$PROJECT_DIR" ]; then
     else
       note "property sets: NOT RUN — no .mpr or no runnable project mxcli (see above)"
     fi
+
+    # Marketplace login (intake Q14). Only when architecture/fit-gap.md has a confirmed Buy
+    # (bin/lib/marketplace-check.sh mxtk_mkt_buys: awk only, no mxcli, no network). Detecting
+    # "logged in" would need `mxcli auth status`; the toolkit holds no captured output of that
+    # command to parse, so this does not guess — it says it did not check, and names the guide.
+    # Whether each Buy is INSTALLED is gate-check's Marketplace line / build-ready (SHOW MODULES).
+    if [ "$QUICK" != 1 ] && [ -r "$TOOLKIT_ROOT/bin/lib/marketplace-check.sh" ]; then
+      _fg=""
+      for _f in "$PROJECT_DIR/architecture/fit-gap.md" "$PROJECT_DIR"/analysis/*/architecture/fit-gap.md; do
+        [ -s "$_f" ] && { _fg="$_f"; break; }
+      done
+      if [ -n "$_fg" ]; then
+        . "$TOOLKIT_ROOT/bin/lib/marketplace-check.sh"
+        _buys="$(mxtk_mkt_buys "$_fg" | awk -F'\t' '$1=="confirmed"{printf "%s%s", s, $2; s=", "}')"
+        if [ -n "$_buys" ]; then
+          head_ "Marketplace: $PROJECT_DIR"
+          note "Marketplace login: not checked (the toolkit has no captured 'mxcli auth status' output to read a login from, so it does not guess)"
+          note "confirmed Buy in ${_fg#$PROJECT_DIR/}: $_buys — 'mxcli marketplace install' needs a Mendix PAT"
+          note "set one up: skills/learned-constants-and-secrets.md § \"Creating a PAT for Marketplace installs\""
+          note "installed or not: bin/gate-check.sh $PROJECT_DIR build-ready (reads SHOW MODULES)"
+        fi
+      fi
+    fi
   fi
 fi
 
@@ -2138,7 +2185,7 @@ gate_selftest() {
   # this self-test would then report as "gate cannot read mxbuild's error file", a false FAIL
   # on a healthy gate (reported 2026-09-22 by Yvann).
   model_dir="$(dirname "$MPR")"
-  copy_excl=".git deployment node_modules .mpr-snapshots"
+  copy_excl=".git deployment node_modules .mpr-snapshots .mxtk"
   copy_ok=1
   for entry in "$model_dir"/* "$model_dir"/.[!.]*; do
     [ -e "$entry" ] || continue
@@ -2291,6 +2338,12 @@ if [ -n "$PROJECT_DIR" ] && [ -f "$_lb" ] && [ -n "$_lb_now" ]; then
 fi
 
 head_ "Verdict"
+# Leftover mxbuild helpers in the summary too (#708): they are what turns a later build into exit 137.
+if [ "$MH_CAN" = 1 ]; then
+  mh_fmt_mb "$((MH_KB / 1024))"
+  if [ "$MH_N" -gt 0 ]; then note "orphaned deno (mxbuild helper) processes over $((MH_MIN_AGE / 60)) min old: $MH_N, holding $MH_FMT; stop them with bin/doctor.sh --cleanup"
+  else note "orphaned deno (mxbuild helper) processes over $((MH_MIN_AGE / 60)) min old: 0"; fi
+fi
 
 # Leave a dated receipt in the project so gate-check can tell "doctor ran and passed" from
 # "nobody ever ran doctor here". Informational only — nothing gates on it, because a machine

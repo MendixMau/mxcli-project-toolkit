@@ -246,7 +246,7 @@ def load_bugs(proj, tk):
         try: d = json.loads(line)
         except ValueError: continue
         if isinstance(d, dict) and d.get("id"): out["rows"].append(d)
-    if not any(r.get("status", "open") == "open" for r in out["rows"]): return out
+    if not any(r.get("status", "open") in ("open", "bundled") for r in out["rows"]): return out
     dirs = [tk, os.environ.get("MXTK_TOOLKIT_DIR", "")]   # file-bugs.py ships in the toolkit only, never in a project's bin/
     for f in (os.path.join(proj, ".claude", "toolkit.env"), os.path.join(os.path.expanduser("~"), ".mxcli-toolkit.env")):
         m = re.search(r"^\s*(?:export\s+)?(?:MXTK_TOOLKIT_DIR|TOOLKIT_DIR|MXCLI_TOOLKIT)\s*=\s*[\"']?([^\"'\n]+)", read(f), re.M)
@@ -278,7 +278,7 @@ def render_bugs(w, bugs):
     if not rows:
         w("<div class=card>No bugs logged in this project. When a session hits or works around a bug in mxcli or the toolkit, log it first, then file it from here.</div></div>"); return
     n = collections.Counter(r.get("status", "open") for r in rows)
-    w("<div class=card><div class=hd><b>%d bug(s): %d open, %d filed, %d fixed</b></div>" % (len(rows), n["open"], n["filed"], n["fixed"]))
+    w("<div class=card><div class=hd><b>%d bug(s): %d open, %d bundled, %d filed, %d fixed</b></div>" % (len(rows), n["open"], n["bundled"], n["filed"], n["fixed"]))
     if bugs["note"]: w("<p class='note stale'>No file buttons: %s</p>" % esc(bugs["note"]))
     w("</div><div class='card' style='margin-top:10px'><div class=tw><table class=crs><tr><th>Bug</th><th>For</th><th>Title</th><th>Status</th><th>Action</th></tr>")
     for r in rows:
@@ -296,7 +296,7 @@ def render_bugs(w, bugs):
             act += "<div class=sub><code>%s</code></div>" % esc(base)
         else: act = "<span class=sub>no button (see note above)</span>"
         w("<tr><td><b>%s</b><div class=sub>%s</div></td><td>%s</td><td>%s</td><td><span class='crst cr-%s'>%s</span></td><td>%s</td></tr>" % (
-            esc(r.get("id", "")), esc(r.get("date", "")), esc(label), esc(r.get("title", "")), {"open": "waiting", "filed": "built", "fixed": "proven"}.get(st, "closed"), esc(st), act))
+            esc(r.get("id", "")), esc(r.get("date", "")), esc(label), esc(r.get("title", "")), {"open": "waiting", "bundled": "waiting", "filed": "built", "fixed": "proven"}.get(st, "closed"), esc(st), act))
     w("</table></div></div></div>")
 
 def decision_time(txt):
@@ -824,8 +824,11 @@ def run_kind(result, gate=""):
     if "applied" in r and not re.search(r"rolled|fail|error", r): return "ok"
     return "fail"
 
-def ledger_runs(proj):
-    """Rows of .claude/loop/metrics-ledger.tsv, the log exec.sh writes itself (ts in UTC), oldest first."""
+LEDGER_NOT_EXEC = ("module-close", "score-only")   # metrics-ledger.sh `record` rows: a score, not a run
+
+def ledger_runs(proj, scores=False):
+    """Rows of .claude/loop/metrics-ledger.tsv, the log exec.sh writes itself (ts in UTC), oldest first. Exec rows only;
+    scores=True keeps the module-close / score-only rows too (where the score lives since 2026-11-05)."""
     ml = read(os.path.join(proj, ".claude", "loop", "metrics-ledger.tsv")).splitlines()
     if len(ml) < 2: return []
     h = ml[0].split("\t"); out = []
@@ -833,6 +836,7 @@ def ledger_runs(proj):
         c = line.split("\t"); g = lambda k: c[h.index(k)].strip() if k in h and h.index(k) < len(c) else ""
         t = epoch(g("ts"))
         if not t or not g("script"): continue
+        if not scores and g("result") in LEDGER_NOT_EXEC: continue
         try: el = float(g("elapsed_s"))
         except ValueError: el = None
         try: sc = float(g("score"))
@@ -919,7 +923,7 @@ def exec_facts(proj, bp):
     el = [r["elapsed"] for r in runs if r["elapsed"] is not None]
     f["exec_s"] = sum(el) if el else None
     f["bad_s"] = sum(r["elapsed"] or 0 for r in runs if r["kind"] == "fail" or r["restored"]) if el else None
-    sc = [r for r in runs if r["score"] is not None]; f["score"] = sc[-1] if sc else None
+    sc = [r for r in ledger_runs(proj, scores=True) if r["score"] is not None]; f["score"] = sc[-1] if sc else None
     per = {}; order = []; sp = script_phases(runs, bp["phases"]) if bp else {}
     for r in runs:
         p = sp.get(r["script"])
@@ -1382,7 +1386,9 @@ def load_ledgers(proj):
     if len(ml) > 1:
         h = ml[0].split("\t")
         if "elapsed_s" in h:
-            k = h.index("elapsed_s"); v = [float(r.split("\t")[k]) for r in ml[1:] if len(r.split("\t")) > k and re.match(r"^[\d.]+$", r.split("\t")[k])]
+            k = h.index("elapsed_s"); kr = h.index("result") if "result" in h else None
+            v = [float(r.split("\t")[k]) for r in ml[1:] if len(r.split("\t")) > k and re.match(r"^[\d.]+$", r.split("\t")[k])
+                 and not (kr is not None and len(r.split("\t")) > kr and r.split("\t")[kr] in LEDGER_NOT_EXEC)]
             if v: out["exec_s"] = sum(v); out["exec_n"] = len(v); out["sources"].append(".claude/loop/metrics-ledger.tsv")
     return out if out["sources"] else None
 
@@ -2167,6 +2173,7 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
     # build progress (Stage 5): the plan's own phases, stacked built / partial / not built
     w("<section class=tab id=tab-build>")
     w("<h2 id=build-detail>Build progress: Stage 5 plan, scripts and proof</h2>")
+    w("<p class=sub>Screens are polished and checked at module close; mid-module pages may look rough, that's expected.</p>")  # #686
     if bp:
         kinds = bp["kinds"]; tr = ""
         runs_by = {str(k_[0]): d["runs"] for k_, d in (facts["phases"] if facts else []) if k_[0] != ""}

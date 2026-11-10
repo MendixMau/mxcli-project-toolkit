@@ -194,6 +194,32 @@ exits 2 rather than failing every screen: that BRD predates the convention, and 
 
 Record the result under this check's section in `validation-report.md` like any other finding.
 
+### The mechanical subset — `bin/brd-report.sh`, for BRDs with no pipeline
+
+A requirements-driven, documents or greenfield BRD has no pipeline and so no `node run.js`
+validator: checks 1–8 above are a judgement pass. The part of them a script can decide runs in
+`bin/brd-report.sh` (the `validation` block of `--json`, the "validator:" line in its prose and
+page) over every BRD that is not code-extracted, each count with its denominator:
+
+| Check | Error when |
+|---|---|
+| use cases complete | a use case lacks `id`, `title`, `actors`, steps (`mainFlow`) or acceptance criteria (`acceptanceCriteria`, or `postconditions`); a TODO/TBD entry counts as empty |
+| entity references | an association end (`target`/`to`/`from`), an attribute's `enumeration` or a `dataRequirements[].entity` names an entity no BRD declares. A name qualified with a module none of the BRDs name (`Administration.Account`) is external and not judged |
+| one owner | one entity declared in two BRDs; one business-rule id used twice |
+| rule ids | a `businessRules[]` entry with no `id` |
+| open questions | an `openQuestions[]` entry with no `id` or no `question` (its status is `bin/open-questions.sh`'s) |
+
+Warnings, which never fail: a use-case id reused across BRDs, a missing `title`/`useCases`
+(absent sections fail Stage 2 only through the provenance rule, `missingRequired`), and a name
+mxbuild has refused as reserved (CE7247; the list is what the bug ledger has seen, not Mendix's).
+
+**Stage 2 reads this verdict, not only your Stop condition.** A `validation-report.md` that starts
+"Clean" over BRDs the validator finds errors in FAILs, with the first errors and the counts
+(`4 error(s) — F001 [use-case-complete] use case UC002 lacks acceptance criteria … 1 of 2 use cases
+complete`). Fix the BRD, not the report. A deliberate exception is a register line:
+`gate-check.sh <project> --waive artifact/brd-validation --reason "..."`. Everything else in this
+skill — conflicts, orphans, flows against the doc-KB — is still yours to judge.
+
 ---
 
 ## Procedure
@@ -217,6 +243,21 @@ run validator  →  validation-report.md
 
 `validation-report.md` follows the same shape as the existing `reports/gaps-report.md` — one
 section per check type, each finding with: module, concept, sources checked, severity.
+
+**Where the report goes, and the heading Stage 2 reads.** Write it to
+`<KB>/reports/validation-report.md`, where `<KB>` is the knowledge-base directory the BRDs sit in
+(`analysis/<source>/knowledge-base/`, `brd-generation.md` → "Store in"); Stage 2 reads it there
+and nowhere else. The verdict is a real `## Stop condition` heading whose first non-empty line
+starts with `Clean`:
+
+```markdown
+## Stop condition
+
+Clean — 0 findings outside the known-gap baseline (3 × no-db-table-found, accepted).
+```
+
+Bold text (`**Stop condition:** clean`) is not a heading: Stage 2 FAILs with "'## Stop condition'
+section not found or empty".
 
 **Stop condition:** clean means zero findings outside the project's documented "known gap
 noise" baseline (e.g. `no-db-table-found` when there's genuinely no DB source,

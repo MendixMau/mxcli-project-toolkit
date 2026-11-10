@@ -5,6 +5,12 @@
 # Rows are the table lines after the `|---` separator, so a leading WARNING / "Connected to:" line
 # and the trailing "(N modules)" line are skipped whether or not they are present.
 # Golden input: tests/wave2/fixtures/rehost-list-modules/ (verbatim mxcli v0.25.0, v0.26.0, v0.29.0).
+#
+# Second mode, same parse: `awk -F'|' -v want=marketplace -f own-modules.awk` prints the modules
+# whose Source reads "Marketplace v<x>" instead. bin/lib/marketplace-check.sh (the gate's
+# install check for confirmed fit-gap Buy rows) reads that, so the two never parse the table
+# two different ways. Golden input for it: tests/wave2/fixtures/show-modules/ and the
+# field-service capture above (tests/wave2/test-marketplace-install.sh).
 /^\|-/ { body = 1; next }
 body && NF > 3 {
   name = $2; src = $3
@@ -13,5 +19,6 @@ body && NF > 3 {
   # "Marketplace vX": the module's export level, not its origin. Drop it before deciding.
   n = split(src, part, ","); src = ""
   for (i = 1; i <= n; i++) if (part[i] !~ /^Protected/) src = src part[i]
+  if (want == "marketplace") { if (src ~ /^Marketplacev/ && name != "") print name; next }
   if (src == "" && name != "System" && name != "") print name
 }

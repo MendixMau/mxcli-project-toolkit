@@ -84,7 +84,8 @@ version overwrites the contract every environment sees — bump and redeploy
 (https://support.mendix.com/hc/en-us/articles/28518124661532).
 *Anti (observed once on mxcli v0.28, on a copy of mxcli's public `testdata/testapp-views` model; not field-run):* `impact`/`refs` do not see OData exposure — an attribute a published
 service exposes reports "no references found", and removing it passes `check` and `exec` while the
-service still advertises it. Grep the published service before removing or renaming a member.
+service still advertises it. Grep the published service before removing or renaming a member, or run
+`bin/contract-check.sh check`, which catches both (BREAKING, VIOLATION, DANGLING, BROKEN consumer).
 Rolling a version out across several apps: `multi-app-release.md`.
 
 **P11 Secrets.** Basic-auth password only in each app's machine-local constant store (one secret,

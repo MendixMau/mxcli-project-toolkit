@@ -113,6 +113,13 @@ answer below 500 counts as up.
 The summary names both lists. Restart the app and rerun only those journeys. `APP_PROBE=0` turns
 the probe off.
 
+**A hung journey is a named FAIL, never a wait.** Each journey is raced against `JOURNEY_TIMEOUT_S`
+seconds (default 120; `JOURNEY_TIMEOUT_MS` also read; `0` turns it off and the run header says so). On
+expiry the row `<id>: TIMEOUT` is FAIL with "runtime not serving / journey TIMEOUT" (and whether `baseUrl`
+still answers), the journeys after it are INVALID `<id>: precondition` "NOT RUN", the findings are written,
+and the runner exits 124. `--rerun-failed` picks all of them up. Why: one hung journey held a run ~10 min
+(speed-night run 3); a healthy batch of 3-4 journeys took 244 s at most.
+
 Logout runs on every exit path: normal end, a crash, and SIGINT/SIGTERM. A run whose logout is
 not confirmed says so. Declared state does not make a rerun idempotent. A journey that consumes
 its own fixture still needs a reset/seed journey that `leaves` that state again.

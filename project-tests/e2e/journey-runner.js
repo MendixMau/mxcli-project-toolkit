@@ -99,7 +99,16 @@ const walks = [];
 // report while dropping fields it does not know. A strength that lives only in a new
 // field would therefore be invisible in the artefact a human actually reads — which is
 // the same "green cell that means less than it looks like" this rung exists to retire.
+// Once a journey's timeout fires its walk is abandoned but still running; whatever it records
+// afterwards ("page closed" when the browser is torn down) is noise that would turn one hang into
+// FAIL 2. recordsFrozen drops those late rows; the runner's own rows go through runnerRecord.
+let recordsFrozen = false;
+function freezeRecords() { recordsFrozen = true; }
 function record(rung, name, verdict, detail, req, evidenceStrength) {
+  if (recordsFrozen) { if (process.env.DEBUG_JOURNEY) console.log(`  (debug) dropped late record after timeout: [${rung}] ${name}`); return; }
+  return runnerRecord(rung, name, verdict, detail, req, evidenceStrength);
+}
+function runnerRecord(rung, name, verdict, detail, req, evidenceStrength) {
   let text = String(detail ?? '');
   if (evidenceStrength === 'weak') text = text ? `${text}  [WEAK EVIDENCE]` : '[WEAK EVIDENCE]';
   const row = { rung, name, verdict, detail: text, requirement: req || '' };
@@ -1744,6 +1753,7 @@ module.exports = {
   // For fixtures that walk a journey in a real browser against a stand-in page (#564).
   runJourney, results,
   journeyTimeoutMs, raceTimeout, timeoutRows,
+  record, runnerRecord, freezeRecords,
 };
 
 // ── Fix-loop reruns (#492) ───────────────────────────────────────────────────
@@ -2025,11 +2035,12 @@ function journeyIdProblems(loaded, files) {
   // Records the named FAIL, with whether the app still answers.
   const onTimeout = async (j) => {
     timedOut = { id: j.id };
+    freezeRecords();   // the abandoned walk's late rows are dropped from here on
     const t = timeoutRows(j, JT.ms);
     let probe = '';
     try { const a = await Promise.race([probeApp(cfg.baseUrl), PAUSE(6000).then(() => null)]);
           probe = a ? (a.up ? ` (${cfg.baseUrl} still answers: a step hung)` : ` (${cfg.baseUrl} NOT answering: ${a.detail})`) : ''; } catch (_) { /* detail only */ }
-    record('ui', t.name, 'FAIL', t.detail + probe, (j.requirement || []).join(', '));
+    runnerRecord('ui', t.name, 'FAIL', t.detail + probe, (j.requirement || []).join(', '));
     console.log(`  TIMEOUT  ${j.id} -- no result in ${JT.ms / 1000}s; runtime not serving / journey TIMEOUT, abandoned`);
   };
   if (li.ok && !li.usedFallback) {
@@ -2131,7 +2142,7 @@ function journeyIdProblems(loaded, files) {
     // The journeys after the stuck one were not walked: INVALID rows (the `: precondition` shape
     // --rerun-failed already recognises), never silence.
     for (const x of journeys.filter(x => !reached.has(x.id)))
-      record('setup', `${x.id}: precondition`, 'INVALID',
+      runnerRecord('setup', `${x.id}: precondition`, 'INVALID',
         `NOT RUN -- the runner stopped at ${timedOut.id} (journey TIMEOUT). Rerun this journey after the app is serving.`, (x.requirement || []).join(', '));
     // The page is hung: a logout or close that waits on it must not hold the exit.
     await Promise.race([RELEASE(), PAUSE(8000)]).catch(() => {});

@@ -55,6 +55,10 @@ out('A:rerun', [...f.ids].sort());
   const r3 = await R.raceTimeout(new Promise(r => setTimeout(() => r('late'), 120)), 0); out('B:off', r3);
   await new Promise(r => setTimeout(r, 500));
   out('B:late-rejection-swallowed', unhandled === 0);
+  { const n0 = R.results.length; R.freezeRecords();
+    R.record('ui', 'late: page closed', 'FAIL', 'page closed');
+    out('B:late-record-dropped', R.results.length === n0 && !R.results.some(r => r.verdict === 'FAIL'));
+    R.runnerRecord('setup', 'runner row', 'INVALID', 'x'); out('B:runner-row-kept', R.results.length === n0 + 1); }
   let H; try { H = require('./helpers.js'); if (!H.deviceProfiles()) throw new Error('no playwright'); } catch (e) { out('SKIPB', e.message); return; }
   let browser, page;
   const srv = http.createServer((q, s) => { s.setHeader('content-type', 'text/html'); s.end('<div class="mx-name-page">stopped serving</div>'); });
@@ -88,6 +92,8 @@ else
   chk B:won '{"timedOut":false,"value":42}' "a fast promise wins with its value"
   chk B:off '{"timedOut":false,"value":"late"}' "cap 0 waits for the promise"
   chk B:late-rejection-swallowed true "an abandoned promise's later rejection is not unhandled"
+  chk B:late-record-dropped true "a late record() from an abandoned journey adds no second FAIL"
+  chk B:runner-row-kept true "the runner's own rows still land after the freeze"
   if [ -n "$(get SKIPB)" ]; then echo "  skip — no Playwright browser here ($(get SKIPB))"
   else
     chk C:hung '{"timedOut":true,"withinCap":true}' "a real Playwright wait that never resolves is cut at the cap"

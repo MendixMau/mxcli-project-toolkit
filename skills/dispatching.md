@@ -69,11 +69,7 @@ MxTest after-startup in place (exit 5, nothing started), the implementer reports
 set, second personas and the 390 + 1280 LOOK go in the module-close brief. Journey-demanding
 row briefs took 36–41 min; a batch brief without one applied two rows in ~10 min (#686).
 
-**Which brief a BUILD row gets (single source).** An ordinary row gets the **row card**,
-`templates/row-card.md` (paste it, or point the helper at it with the row number and slug); it
-costs about a quarter fewer tokens than the full `mdl-agent` brief and requires the report
-`docs/rows/<nn>-<slug>.md`. These rows keep the full `mdl-agent` stub brief: the first row of a
-module, workflow or integration rows, any row after a failed exec, and module close. Before the
+**Stub check.** Before the
 first dispatch of an agent run `bin/check-stubs-filled.sh <project-root> [agent]`: exit 3 names the
 unfilled `{{...}}` slots, and the stub refuses its first row until they are filled (a dispatch that
 skipped this burned 125k tokens on the refusal). It only reads, so filling the stub is never blocked.

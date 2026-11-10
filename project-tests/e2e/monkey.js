@@ -33,7 +33,7 @@ const fs = require('fs');
 const path = require('path');
 const H = require(__dirname + '/helpers.js');
 const O = require(__dirname + '/otel.js');
-const { cfg, NAV } = require(__dirname + '/config.js');
+const { cfg, NAV, navIsTemplate } = require(__dirname + '/config.js');
 
 // ── args ────────────────────────────────────────────────────────────────────
 const argv = process.argv.slice(2);
@@ -290,12 +290,31 @@ async function round(page, target, bucket) {
   return traceRan;
 }
 
+// Exit codes (#679): 1 = a crash-class finding; 2 = instrument fault, NOT measured (the NAV is
+// the template's sample, or 0 of N targets were reached); 3 = unknown --target; 0 otherwise.
+// "0 of 8 reached" and "8 of 8 reached, no crash" used to both exit 0.
+function exitCode({ crashes, targets, unreached }) {
+  if (crashes > 0) return 1;
+  if (targets > 0 && unreached >= targets) return 2;
+  return 0;
+}
+
 // leftApp is exported for tests/wave2/test-monkey-left-app.sh; requiring this file runs nothing.
-module.exports = { leftApp, SIGN_OUT, SIGN_OUT_DEFAULT, signOutPattern, isSignOutLabel, typeSafely, oracle, land };
+module.exports = { leftApp, SIGN_OUT, SIGN_OUT_DEFAULT, signOutPattern, isSignOutLabel, typeSafely, oracle, land, exitCode };
 
 // ── main ────────────────────────────────────────────────────────────────────
 if (require.main === module) (async () => {
   console.log(`MONKEY_SEED=${SEED}   rounds=${ROUNDS}   (re-run exactly: --seed ${SEED})`);
+
+  // Before the browser (#679): a NAV still equal to the template's sample would land on menu
+  // captions this app does not have — a run that measures nothing, and costs a login.
+  if (navIsTemplate()) {
+    console.log('  SETUP  NAV is the unedited sample from project.config.template.js — none of its menu ' +
+      'captions are this app\'s. Fill NAV in tests/e2e/project.config.js from ' +
+      '`mxcli -p <mpr> -c "describe navigation"` (ALLOW_TEMPLATE_NAV=1 if this app\'s menu really is the sample). ' +
+      'Monkey NOT run: not measured.');
+    process.exit(2);
+  }
 
   const { browser, page } = await H.launchBrowser();
   const bucket = { jsErrors: [], http5xx: [] };
@@ -365,5 +384,8 @@ if (require.main === module) (async () => {
   }, null, 2));
   console.log(`  findings → ${path.relative(cfg.root, out)}`);
 
-  process.exit(crashes.length ? 1 : 0);
+  const code = exitCode({ crashes: crashes.length, targets: targets.length, unreached: unreached.length });
+  if (code === 2) console.log(`  SETUP  NAV: 0 of ${targets.length} target(s) reached — the menu captions in project.config.js ` +
+    'do not match this app. Nothing was fuzzed: not measured (exit 2).');
+  process.exit(code);
 })().catch(e => { console.error('ERR', e.stack?.split('\n').slice(0, 8).join('\n')); process.exit(1); });

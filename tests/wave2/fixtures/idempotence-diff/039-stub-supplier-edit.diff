@@ -1,0 +1,12 @@
+WARNING: This is a vibe-coded PoC, alpha quality, use with caution.
+(no module)
+-----------
+  ⚠ page Purchasing.Supplier_Edit: DataView `dvSupplier` contains input fields but is not inside a layout grid — label and input widths only render correctly inside a layoutgrid [MPR010]
+      at 
+      → Wrap dataview `dvSupplier` in `layoutgrid { row { column (desktopwidth: autofill) { … } } }`
+
+1 issues: 0 errors, 1 warnings, 0 info
+
+Refused: exec would stop at this error, having written nothing: page already exists: Purchasing.Supplier_Edit
+
+Summary: 0 new, 0 modified, 0 removed — exec would write nothing

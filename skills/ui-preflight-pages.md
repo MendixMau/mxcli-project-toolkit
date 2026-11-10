@@ -253,7 +253,8 @@ bad score.
 cannot see where an element sits, only that the name occurs (2026-09-19: two screens scored
 100% fidelity with 58% and 40% of their wireframe elements in place). So a high fidelity score
 closes nothing — the `look` obligation is discharged by a person or an agent opening the
-rendered page, at 1280px and at 390px, and writing down what it saw. Use the fidelity score
+rendered page and writing down what it saw: one viewport (1280px; 390px too on a module's first
+page) after a page script, 1280px and 390px at module review. Use the fidelity score
 for the rework curve between LOOK passes, never in place of one.
 
 The measurements behind this step — first-build fidelity, fidelity vs. element checklist, the

@@ -8,8 +8,11 @@ class Linker {
     }
 
     const map = {};
+    // Seed with gaps the extractor already knows about (e.g. java-extractor.js's
+    // endpoint-delegate-unresolved) — merger._emit replaces item._gaps with this map, so a gap
+    // not seeded here would be discarded before it reached the gaps report.
     for (const item of allItems) {
-      map[item.linkId] = { linkedTo: [], gaps: [] };
+      map[item.linkId] = { linkedTo: [], gaps: [...(item._gaps || [])] };
     }
 
     const entities    = byType['entity']       || [];
@@ -88,6 +91,17 @@ class Linker {
             id: target.linkId, confidence: 'high', matchedBy: 'same-module-call-name', via: call.name,
           });
         }
+      }
+    }
+
+    // Rule J3b: Logic → Logic by resolved delegation (java-extractor.js sets delegatesTo[] on a
+    // controller endpoint item: the service methods it calls through injected fields, resolved
+    // by type, so the link survives controller and service living in different packages).
+    const logicByLinkId = new Map(logics.map(l => [l.linkId, l]));
+    for (const logic of logics) {
+      for (const targetId of (logic.delegatesTo || [])) {
+        if (!logicByLinkId.has(targetId) || !map[logic.linkId]) continue;
+        map[logic.linkId].linkedTo.push({ id: targetId, confidence: 'high', matchedBy: 'controller-delegate', via: logicByLinkId.get(targetId).name });
       }
     }
 

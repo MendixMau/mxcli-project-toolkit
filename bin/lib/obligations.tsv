@@ -66,15 +66,20 @@ skeleton	mdl	project	path	docs/skeleton-proof.md	yes	no	5	skills/walking-skeleto
 # used, at Stage 4, with the plan already written. No gate in the pipeline compares a targeting
 # mechanism against the sentence it came from; §12 row 5 is that check.
 #
-# A project with no workflow discharges this in one line — "0 workflows, nothing to count" is a
-# legal mark and a real statement, and §12's own rows 2/3/4/9 are written the same way ("0 of 0").
+# A project with no workflow discharges this in one line — "0 of 0 workflows — nothing to count" is
+# a legal mark and a real statement, and §12's own rows 2/3/4/9 are written the same way ("0 of 0").
+# Write the "0 of 0": _ob_has_denominator (obligation-check.sh) needs N of M or N/M, so "0 workflows,
+# nothing to count" alone reports NO-DENOM (#684).
 # That is deliberately NOT an optin row: an artifact a project must think of in order to owe is
 # an artifact nobody owes, which is the disease this whole table was built for.
 workflow-count	architect	project	path	architecture/workflow-count.md	yes	yes	3	skills/workflow-structure-rules.md
 
-# design-reaches-app is the SECOND obligation below stage 5, and it is here because the design
-# stages owe a mark for something no other pass can see: whether the design system arrived in
-# the built app at all.
+# design-reaches-app owes a mark for something no other pass can see: whether the design system
+# arrived in the built app at all. It was owed from stage 3 until #627 (2026-11-05): its only
+# producer (ui-preflight-pages.md, check-design-reaches-app.sh against the BUILT stylesheet) runs
+# at the first build, Stage 5, so every Stage 3/4 summary carried a PENDING nothing could
+# discharge except a ritual "no build yet" note or a dishonest waiver. Owed from 5 now; the
+# routing row stays at 3,5 so the design stages still see the check coming.
 #
 # Measured 2026-09-09, on the same requirements-driven app replacement. 55 design tokens,
 # sampled from the customer's own screenshots, were ported into the project's theme module
@@ -99,7 +104,7 @@ workflow-count	architect	project	path	architecture/workflow-count.md	yes	yes	3	s
 #
 # It is owed by mdl rather than review deliberately: the agent that performed the port is the
 # one that must show it landed. A producer for every consumer, in the same hands.
-design-reaches-app	mdl	project	path	docs/design-reaches-app.md	yes	yes	3	project-bin/check-design-reaches-app.sh
+design-reaches-app	mdl	project	path	docs/design-reaches-app.md	yes	yes	5	project-bin/check-design-reaches-app.sh
 
 # fidelity — the third row here, and the second time the same gap was found in the field (#109).
 # On a requirements-driven app replacement, project-bin/page-fidelity.js existed and was cited by
@@ -161,3 +166,26 @@ dispatch	mdl	module	path	.claude/loop/dispatch/<Module>/scripts.tsv	no	yes	5	ski
 # any later change. Denominator required ("N of N pages, M of M roles"). Governed by
 # module-review.md § "The final LOOK".
 final-look	review	project	names	design/ui-reviews/final-look-*.html	yes	yes	6	skills/module-review.md
+
+# prototype-look is the Stage 3 LOOK: the assembled design/prototype.html, the page the user
+# actually clicks, opened in a real browser at device widths before the Stage 3 sign-off
+# question is asked. Every other LOOK row here is from-stage 5 and looks at built Mendix pages;
+# nothing looked at the prototype.
+#
+# Measured 2026-11-05 (#632), a 15-screen requirements-driven PWA: the prototype went to the
+# product owner twice, v1 and v2, with inputs and block buttons overflowing their cards by
+# 17-18 px at phone width. The user found it. Every per-screen wireframe rendered correctly
+# (assemble-prototype.js dropped the <body class> the design system scoped border-box to), and
+# every instrument was green: check-prototype-links.js checks links, not rendering, and the
+# Stage 3 gate accepted screenshots of each wireframe at its authored width.
+#
+# Producer: design-artifacts.md Step 3d, run by review-agent (not the agent that drew the design)
+# after the last assemble-prototype.js run and before the ✋ sign-off question; the Stage 3 close-
+# out in the same skill ("Running Stage 3 in parallel" step 4) names this PASS as a precondition.
+# Denominator: "N of M screen-widths" (screens x the four widths, 390/360/320/1280) on the first
+# line, one PROOF-OF-LOOK citation per screen-width (the LOOK pixel rule), and a PROTOTYPE-SHA
+# stamp: the sha256 assemble-prototype.js prints. A re-assembled prototype has a new hash, so the
+# LOOK is owed again — a v1 LOOK cannot discharge v2. With no design/prototype.html in either
+# layout the row reads N/A (a project with no UI owes no prototype LOOK); one that has screens but
+# never assembled them is caught by the Stage 3 wireframe gate, not here.
+prototype-look	review	project	names	design/ui-reviews/prototype-look-*.html	yes	yes	3	skills/design-artifacts.md

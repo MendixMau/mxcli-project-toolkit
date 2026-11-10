@@ -135,8 +135,10 @@ if [ -z "$BUILT" ]; then
   for c in "$MODEL_DIR/deployment/web/theme.compiled.css" "$MODEL_DIR/deployment/web/theme.css"; do
     [ -f "$c" ] && { BUILT_ABS="$c"; break; }
   done
-  c="$MODEL_DIR/.docker/build/app/web/theme.compiled.css"
-  if [ -f "$c" ] && { [ -z "$BUILT_ABS" ] || [ "$c" -nt "$BUILT_ABS" ]; }; then BUILT_ABS="$c"; fi
+  # The toolkit's full builds write a copy's deployment/ (.mxtk/build/model/, #686): same rule.
+  for c in "$MODEL_DIR/.docker/build/app/web/theme.compiled.css" "$ROOT/.mxtk/build/model/deployment/web/theme.compiled.css"; do
+    if [ -f "$c" ] && { [ -z "$BUILT_ABS" ] || [ "$c" -nt "$BUILT_ABS" ]; }; then BUILT_ABS="$c"; fi
+  done
   [ -n "$BUILT_ABS" ] && BUILT="$(rel "$BUILT_ABS")"
 fi
 

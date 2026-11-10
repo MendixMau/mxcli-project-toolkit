@@ -915,7 +915,7 @@ and 11), all on a model with mx check 0 errors and green journeys. The project o
 flagged it repeatedly in review. Each time, the next generation round brought it back. The
 cleanup changed every such callee to return nothing. After it, the same audit counted 0
 both-empty splits, and happy 30/30, unhappy 27/27 and a 21/21 card gate still passed
-(`contrib/inbox/2026-11-04-wf-empty-outcomes-and-subworkflow-field-report.md`). Splits whose
+(field report, 2026-11, PR #612). Splits whose
 other branch does real work were kept on purpose. A count of `true -> { }` alone is therefore
 not the metric: the same files still hold 13 one-sided splits, and all 13 are correct.
 The authoring-time rule is preflight STOP row 34.

@@ -24,6 +24,19 @@
 #   L Authorization/cookie headers, allowed repo URLs cut to the prefix, no deny list refuses,
 #     invalid deny regex keeps its valid alternatives, header and --help say who posts, deny rule shipped
 #   M first.last users, attribute followed by digits or letters
+#   N --to; O no gh on PATH
+#   R no-GitHub path: the one-line reason gh cannot be used (not installed / signed out / no access /
+#     ready), --auto falling back to --bundle (or --links with an account), --bundle = the --json
+#     redaction with held-back rows left out, the mail-to line (env, toolkit.env, company brain, none),
+#     bundled marking and no re-bundle, --import: parse, re-redact, dedupe, labels, refusals
+#   Q #645 the toolkit clone's .leakguard-deny (where init-project.sh registers every project) is
+#     read too; #646 code identifiers (obj.method(, Java packages, CLAUDE.md) survive while hosts and
+#     deny names do not, and the versions line carries the toolkit version
+#   P --auto: off without the PROJECT.md opt-in (also commented/annotated), opted in posts every clean
+#     row with no tty and writes issue_url back, scan-failing row never posted, label only when the
+#     repo has it or the user may create it, exact-title duplicate recorded not reposted, no gh or not
+#     signed in -> links and exit 0, no deny list refused; --add --log redaction and drop; the
+#     permissions deny --file/--all but not --auto
 set -uo pipefail
 TOOLKIT="$(cd "$(dirname "$0")/../.." && pwd)"
 SUBJ="${1:-$TOOLKIT/bin/file-bugs.sh}"
@@ -54,11 +67,17 @@ cat > "$BIN/gh" <<'GH'
 #!/usr/bin/env bash
 echo "$*" >> "$GHLOG"
 case "$1 $2" in
-  "issue list") echo '[{"number":77,"title":"Similar widget crash","state":"OPEN","url":"https://github.com/mendixlabs/mxcli/issues/77"}]' ;;
+  "issue list") echo '[{"number":77,"title":"Similar widget crash","state":"OPEN","url":"https://github.com/'"${4:-mendixlabs/mxcli}"'/issues/77"}]' ;;
   "issue create")
     r=mendixlabs/mxcli
-    for a in "$@"; do case "$a" in --body-file=*) cp "${a#--body-file=}" "$GHLOG.body" ;; --repo=*) r="${a#--repo=}" ;; esac; done
+    for a in "$@"; do case "$a" in --body-file=*) cp "${a#--body-file=}" "$GHLOG.body"; cat "${a#--body-file=}" >> "$GHLOG.all" ;; --repo=*) r="${a#--repo=}" ;;
+      --label=*) [ -n "${GH_LABEL_FAIL:-}" ] && { echo "could not add label" >&2; exit 1; } ;; esac; done
     echo "https://github.com/$r/issues/4242" ;;
+  "auth status") exit "${GH_AUTH_RC:-0}" ;;
+  "label list") echo "${GH_LABELS:-[]}" ;;
+  "label create") exit "${GH_LABEL_CREATE_RC:-0}" ;;
+  "repo view") echo "${GH_PERM:-READ}" ;;
+  "api repos/"*) [ -n "${GH_REPO_ERR:-}" ] && echo "$GH_REPO_ERR" >&2; [ -n "${GH_REPO_RC:-}" ] && exit "$GH_REPO_RC"; echo true ;;
   "--version "*) echo "gh version stub" ;;
 esac
 exit 0
@@ -97,6 +116,8 @@ PY
 export GHLOG; EMPTYJ="{}"
 export PATH="$BIN:$PATH" LEAKGUARD_DENY="$W/deny"
 export GIT_CONFIG_GLOBAL="$W/gitconfig" GIT_CONFIG_NOSYSTEM=1
+# the toolkit clone's own denylist (#645) is never the developer's real one in this fixture
+export MXTK_LEAKGUARD_DENYFILE="$W/tk-deny-none"
 chk "stub gh is the gh on PATH" '[ "$(command -v gh)" = "$BIN/gh" ]'
 U="${USER:-someone}"; H="$(hostname -s 2>/dev/null || echo myhost)"
 HOMEP="/Users/$U/work/Zorbix/mdlsource/01.mdl"
@@ -119,6 +140,7 @@ bodyof() {
   [ -n "${P2MDL:-}" ] && printf '%s\n' "$P2MDL" > "$P2/mdlsource/02-extra.mdl"
   [ -n "${P2CONF:-}" ] && printf '%s\n' "$P2CONF" > "$P2/config/extra.yaml"
   [ -n "${P2DENY:-}" ] && printf '%s\n' "$P2DENY" > "$P2/.leakguard-deny"
+  [ -n "${P2PM:-}" ] && printf '%s\n' "$P2PM" > "$P2/PROJECT.md"
   FB_TEXT="$1" FB_TITLE="${2:-t}" FB_VERS="${3:-$EMPTYJ}" "$PY" -I - "$P2/docs/bugs.jsonl" <<'PY'
 import json, os, sys
 open(sys.argv[1], "w").write(json.dumps({"id": "PBUG-01", "target": "mxcli", "title": os.environ["FB_TITLE"],
@@ -362,6 +384,302 @@ chk "without gh, --file exits 0" '[ "$RC" = 0 ]'
 chk "without gh nothing is posted and the stub was never reached" '[ "$(grep -c "" "$GHLOG")" = "$NC" ] && echo "$OUT" | grep -q "Not posting"'
 chk "without gh the log is unchanged" 'cmp -s "$P/docs/bugs.jsonl" "$W/before"'
 chk "without gh it names the way out (gh auth login, or --links)" 'echo "$OUT" | grep -q "Nothing breaks" && echo "$OUT" | grep -q "file-bugs.sh --links PBUG-03"'
+
+echo "P. --auto (opt-in) and --add --log"
+PA="$W/pa"; rm -rf "$PA"; mkdir -p "$PA/docs" "$PA/mdlsource"; cp "$P/Zorbix.mpr" "$P/mdlsource/01-model.mdl" "$PA/" 2>/dev/null
+mv "$PA/01-model.mdl" "$PA/mdlsource/"; cp -R "$P/config" "$PA/"; printf 'Snarfle\\b\n' > "$PA/.leakguard-deny"
+cat > "$PA/docs/bugs.jsonl" <<'ROWS'
+{"id":"PBUG-01","date":"2026-11-05","target":"toolkit","title":"Stage 0 gate passes when the sign-off is a placeholder","repro":"run gate-check.sh on Quuxmod","expected":"FAIL","actual":"PASS","versions":{},"workaround":"","status":"open","issue_url":""}
+{"id":"PBUG-02","date":"2026-11-05","target":"mxcli","title":"Opaque thing A8f3K2m9Qz7Lp4Xw1Vb6Nc5Rd0Ty8Ue3Ig","repro":"r","expected":"e","actual":"a","versions":{},"workaround":"","status":"open","issue_url":""}
+ROWS
+cp "$PA/docs/bugs.jsonl" "$W/pa.before"
+arun() { "$PY" "$W/ptyrun.py" notty "$SUBJ" --project "$PA" --auto "$@"; }
+git -C "$PA" init -q
+# reg LINE [nocommit]: write PROJECT.md and commit it (the opt-in must be in HEAD), unless nocommit
+reg() { printf '# PROJECT.md\n\n%s\n' "$1" > "$PA/PROJECT.md"; [ -n "${2:-}" ] && return 0
+  git -C "$PA" add PROJECT.md && git -C "$PA" -c user.name=t -c user.email=tester commit -qm "register" >/dev/null 2>&1 || true; }
+: > "$GHLOG"; reg 'Exec approval: auto'
+OUT="$(arun 2>&1)"; RC=$?
+chk "no opt-in, no tty: --auto posts nothing, says why, exits 0" '[ $RC = 0 ] && ! grep -q "issue create" "$GHLOG" && echo "$OUT" | grep -q "no line .Bug filing: auto." && cmp -s "$PA/docs/bugs.jsonl" "$W/pa.before"'
+for line in '<!-- Bug filing: auto — uncomment to opt in -->' 'Bug filing: auto (maybe)' 'Bug filing: autopost' '> Bug filing: auto?'; do
+  cp "$W/pa.before" "$PA/docs/bugs.jsonl"; : > "$GHLOG"; reg "$line"; arun >/dev/null 2>&1
+  chk "not an opt-in: '$line'" '! grep -q "issue create" "$GHLOG"'
+done
+cp "$W/pa.before" "$PA/docs/bugs.jsonl"; : > "$GHLOG"; reg '**Bug filing:** auto'
+OUT="$(arun 2>&1)"; RC=$?
+chk "opted in (bold), no tty: posts the clean row once, to its target repo" '[ $RC = 0 ] && [ "$(grep -c "issue create" "$GHLOG")" = 1 ] && grep -q "issue create --repo=MendixMau/mxcli-project-toolkit --title=Stage 0 gate passes" "$GHLOG"'
+chk "opted in: duplicate search ran before the create" 'grep -n "" "$GHLOG" | grep "issue list" | head -1 | cut -d: -f1 | { read n; [ "$n" -lt "$(grep -n "issue create" "$GHLOG" | cut -d: -f1)" ]; }'
+chk "opted in: posted body is redacted, carries the footer and the related #77" 'grep -q "Module1" "$GHLOG.body" && ! grep -q "Quuxmod" "$GHLOG.body" && grep -q "file-bugs.sh --auto" "$GHLOG.body" && grep -q "Possibly related: #77" "$GHLOG.body"'
+chk "opted in: status=filed and issue_url written back" 'grep "\"PBUG-01\"" "$PA/docs/bugs.jsonl" | grep -q "\"status\": \"filed\".*MendixMau/mxcli-project-toolkit/issues/4242"'
+chk "opted in: the scan-failing row is reported, never posted, stays open" 'echo "$OUT" | grep -q "WARNING: redaction left suspicious content" && ! grep -qi "opaque\|A8f3" "$GHLOG" && grep "\"PBUG-02\"" "$PA/docs/bugs.jsonl" | grep -q "\"status\":\"open\""'
+chk "opted in: summary line counts filed and refused" 'echo "$OUT" | grep -q "file-bugs --auto: 1 filed, 1 refused"'
+chk "opted in: the run names the commit that opted in" 'echo "$OUT" | grep -q "opted in by commit $(git -C "$PA" log -1 --format=%h) "'
+: > "$GHLOG"; OUT="$(arun --to mxcli 2>&1)"; RC=$?
+chk "--auto --to is refused: a filed row is never re-posted to the other repo" '[ $RC -ne 0 ] && echo "$OUT" | grep -q "cannot be combined" && ! grep -q "issue create" "$GHLOG"'
+: > "$GHLOG"; arun >/dev/null 2>&1
+chk "--auto never re-posts a filed row" '! grep "issue create" "$GHLOG" | grep -q "Stage 0 gate"'
+cp "$W/pa.before" "$PA/docs/bugs.jsonl"; : > "$GHLOG"; reg "$(printf 'Example:\n```\nBug filing: auto\n```')"; arun >/dev/null 2>&1
+chk "a Bug filing: auto line inside a code fence does not opt in" '! grep -q "issue create" "$GHLOG"'
+: > "$GHLOG"; reg 'Exec approval: auto'; reg 'Bug filing: auto' nocommit; OUT="$(arun 2>&1)"
+chk "an uncommitted opt-in line does not opt in, and says so" '! grep -q "issue create" "$GHLOG" && echo "$OUT" | grep -q "not committed yet"'
+mv "$PA/.git" "$W/pa.git"; : > "$GHLOG"; OUT="$(arun 2>&1)"
+chk "no git repo: not opted in, dry run" '! grep -q "issue create" "$GHLOG" && echo "$OUT" | grep -q "not in a git commit"'
+mv "$W/pa.git" "$PA/.git"; reg '**Bug filing:** auto'; cp "$W/pa.before" "$PA/docs/bugs.jsonl"
+chk "no label exists and the user may not create one: no --label, no label create" '! grep -q "label=\|label create" "$GHLOG"'
+cp "$W/pa.before" "$PA/docs/bugs.jsonl"; : > "$GHLOG"
+GH_LABELS='[{"name":"auto-filed"}]' arun >/dev/null 2>&1
+chk "the repo has auto-filed: the issue carries it" 'grep "issue create" "$GHLOG" | grep -q -- "--label=auto-filed"'
+cp "$W/pa.before" "$PA/docs/bugs.jsonl"; : > "$GHLOG"
+GH_PERM=WRITE arun >/dev/null 2>&1
+chk "missing label, WRITE permission: label created, then used" 'grep -q "^label create auto-filed --repo MendixMau/mxcli-project-toolkit" "$GHLOG" && grep "issue create" "$GHLOG" | grep -q -- "--label=auto-filed"'
+cp "$W/pa.before" "$PA/docs/bugs.jsonl"; : > "$GHLOG"
+GH_LABELS='[{"name":"auto-filed"}]' GH_LABEL_FAIL=1 arun >/dev/null 2>&1
+chk "a label the user may not apply: retried without it, still filed" '[ "$(grep -c "issue create" "$GHLOG")" = 2 ] && grep "\"PBUG-01\"" "$PA/docs/bugs.jsonl" | grep -q "\"status\": \"filed\""'
+printf '%s\n' '{"id":"PBUG-03","target":"mxcli","title":"Similar widget crash","repro":"r","expected":"e","actual":"a","versions":{},"status":"open"}' >> "$PA/docs/bugs.jsonl"; : > "$GHLOG"
+arun >/dev/null 2>&1
+chk "exact-title duplicate: not reposted, its URL recorded" '! grep "issue create" "$GHLOG" | grep -q "Similar widget" && grep "\"PBUG-03\"" "$PA/docs/bugs.jsonl" | grep -q "\"issue_url\": \"https://github.com/mendixlabs/mxcli/issues/77\", \"duplicate\": true"'
+cp "$W/pa.before" "$PA/docs/bugs.jsonl"; : > "$GHLOG"
+OUT="$(GH_AUTH_RC=1 arun --github-account 2>&1)"; RC=$?
+chk "gh not signed in, has a GitHub account: nothing posted, links printed, exit 0" '[ $RC = 0 ] && ! grep -q "issue create" "$GHLOG" && echo "$OUT" | grep -q "not signed in" && echo "$OUT" | grep -q "MendixMau/mxcli-project-toolkit/issues/new?title="'
+OUT="$(PATH="$NOGH" MXTK_GITHUB_ACCOUNT=1 "$PY" "$W/ptyrun.py" notty "$SUBJ" --project "$PA" --auto 2>&1)"; RC=$?
+chk "no gh at all, has a GitHub account: links printed, exit 0, log unchanged" '[ $RC = 0 ] && echo "$OUT" | grep -q "GitHub CLI not installed" && echo "$OUT" | grep -q "issues/new?title=" && cmp -s "$PA/docs/bugs.jsonl" "$W/pa.before"'
+chk "--auto output never carries the scan-failing row text" '! echo "$OUT" | grep -qi "A8f3"'
+mv "$PA/.leakguard-deny" "$W/pa.deny"; : > "$GHLOG"
+OUT="$(LEAKGUARD_DENY= arun 2>&1)"; RC=$?
+chk "opted in but no deny list: refused before any gh call" '[ $RC -ne 0 ] && echo "$OUT" | grep -q "no deny list" && ! grep -q "issue create" "$GHLOG"'
+mv "$W/pa.deny" "$PA/.leakguard-deny"
+LOGF="$W/run.log"; { for i in $(seq 1 50); do echo "line $i ok"; done
+  echo "ERROR in Quuxmod.ACT_Save at /Users/$U/work/Zorbix/app.mpr"; echo "auth ghp_abcdefghijklmnopqrstuvwx1234 to build-srv-01"; } > "$LOGF"
+OUT="$("$SUBJ" --project "$PA" --add --target mxcli --title "Log row" --repro r --expected e --actual a --log "$LOGF" --log-lines 4 2>&1)"
+LROW="$(tail -1 "$PA/docs/bugs.jsonl")"
+chk "--log keeps only the last N lines" 'echo "$LROW" | grep -q "line 49 ok" && ! echo "$LROW" | grep -q "line 48 ok"'
+chk "--log is redacted before it is stored" '! echo "$LROW" | grep -q "Quuxmod\|Zorbix\|/Users/\|ghp_\|build-srv" && echo "$LROW" | grep -q "Module1" && echo "$OUT" | grep -q "attached the last 4"'
+printf 'value A8f3K2m9Qz7Lp4Xw1Vb6Nc5Rd0Ty8Ue3Ig\n' > "$W/bad.log"
+OUT="$("$SUBJ" --project "$PA" --add --target mxcli --title "Bad log row" --repro r --expected e --actual a --log "$W/bad.log" 2>&1)"
+chk "a log that fails the scan is dropped from the row, never stored raw" 'echo "$OUT" | grep -q "NOT attached" && ! tail -1 "$PA/docs/bugs.jsonl" | grep -q "A8f3\|\"log\""'
+: > "$GHLOG"; : > "$GHLOG.all"; arun >/dev/null 2>&1
+chk "the redacted log goes into the auto-filed body, last lines only" 'grep -q "### Log (last lines, redacted)" "$GHLOG.all" && grep -q "line 49 ok" "$GHLOG.all" && ! grep -q "line 48 ok" "$GHLOG.all"'
+chk "the posted log carries no raw name or token" '! grep -q "Quuxmod\|ghp_\|/Users/\|A8f3" "$GHLOG.all"'
+chk "--log without --add is refused" '! "$SUBJ" --project "$PA" --log "$LOGF" >/dev/null 2>&1'
+chk "permissions: --file/--all/--import (also --dry-run) denied, --auto matched by no deny rule" '"$PY" -I - "$TOOLKIT/bin/install-claude-permissions.sh" <<'"'"'PYX'"'"'
+import fnmatch, re, sys
+pats = re.findall(r"\"Bash\((\*file-bugs[^)]*)\)\"", open(sys.argv[1]).read())
+m = lambda c: any(fnmatch.fnmatchcase(c, p) for p in pats)
+sys.exit(not (pats and m("bin/file-bugs.sh --all") and m("bin/file-bugs.sh --file PBUG-01") and not m("bin/file-bugs.sh --auto")
+              and m("bin/file-bugs.sh --import b.md") and m("bin/file-bugs.sh --import b.md --dry-run")
+              and m("bin/lib/file-bugs.py --import b.md") and not m("bin/file-bugs.sh --bundle")))
+PYX'
+chk "init-project ships the opt-in commented out" 'grep -q "<!-- Bug filing: auto" "$TOOLKIT/bin/init-project.sh"'
+GC="$W/gc"; rm -rf "$GC"; mkdir -p "$GC/docs"; printf '# PROJECT.md\n\n## Current stage\n' > "$GC/PROJECT.md"
+printf '%s\n' '{"id":"PBUG-01","status":"open"}' '{"id":"PBUG-02","status":"filed"}' '{"id":"PBUG-03"}' > "$GC/docs/bugs.jsonl"
+OUT="$("$TOOLKIT/bin/gate-check.sh" --closeout "$GC" 0 2>&1)"; RC=$?
+chk "closeout names the unfiled bugs in one line (open + no-status rows), exit 0" '[ $RC = 0 ] && [ "$(echo "$OUT" | grep -c "2 toolkit/mxcli bug(s) logged but not filed — run bin/file-bugs.sh --auto (or --links)")" = 1 ]'
+OUT="$("$TOOLKIT/bin/gate-check.sh" --no-html "$GC" 2>&1)"
+chk "a full gate-check run prints the same note" 'echo "$OUT" | grep -q "^note: 2 toolkit/mxcli bug(s) logged but not filed"'
+chk "a stage query stays quiet about it" '! "$TOOLKIT/bin/gate-check.sh" "$GC" 0 2>&1 | grep -q "logged but not filed"'
+printf '%s\n' '{"id":"PBUG-01","status":"filed"}' > "$GC/docs/bugs.jsonl"
+chk "nothing open: no line" '! "$TOOLKIT/bin/gate-check.sh" --closeout "$GC" 0 2>&1 | grep -q "logged but not filed"'
+
+FENCE3='```'
+echo "Q. toolkit denylist (#645), code identifiers and toolkit version (#646)"
+printf '# scaffold-time registrations\n\\bFrobnozzle\\b\n' > "$W/tk-deny"
+G="$(MXTK_LEAKGUARD_DENYFILE="$W/tk-deny" P2DENY='Snarfle\b' bodyof 'Frobnozzle broke and Snarfle too' 'Frobnozzle crash')"
+chk "#645 a name registered in the toolkit denylist is redacted" '! echo "$G" | grep -qi frobnozzle && ! grep -qi frobnozzle "$W/p2.err" && echo "$G" | grep -q "<redacted> broke"'
+TK2="$W/tk2"; mkdir -p "$TK2/bin/lib"; cp "$TOOLKIT/bin/file-bugs.sh" "$TK2/bin/"; cp "$TOOLKIT/bin/lib/file-bugs.py" "$TOOLKIT/bin/lib/portable.sh" "$TK2/bin/lib/"
+printf '\\bFrobnozzle\\b\n' > "$TK2/.leakguard-deny"
+G="$(SUBJ="$TK2/bin/file-bugs.sh" MXTK_LEAKGUARD_DENYFILE= P2DENY='Snarfle\b' bodyof 'Frobnozzle broke')"
+chk "#645 default path: <toolkit>/.leakguard-deny next to bin/ is read" '[ "$G" != NOJSON ] && ! echo "$G" | grep -qi frobnozzle'
+G="$(MXTK_LEAKGUARD_DENYFILE="$W/tk-deny" P2DENY= LEAKGUARD_DENY= bodyof 'x')"
+chk "#645 the toolkit list alone is not the project's deny list: --json still refused" '[ "$G" = NOJSON ] && grep -q "no deny list" "$W/p2.err"'
+printf '(Unclosed\n' > "$W/tk-deny-bad"
+G="$(MXTK_LEAKGUARD_DENYFILE="$W/tk-deny-bad" bodyof 'x')"
+chk "#645 an invalid line in the toolkit list refuses, naming that file" '[ "$G" = NOJSON ] && grep -q "tk-deny-bad" "$W/p2.err"'
+chk "#645 init-project tells the user file-bugs reads the toolkit list" 'grep -q "file-bugs.sh reads it too" "$TOOLKIT/bin/init-project.sh"'
+CODE='path.join(fs.readFileSync(path.resolve(ROOT, x))) and os.path.join(a) in org.zonkpkg.common.service.lib and java.util.concurrent, per CLAUDE.md'
+G="$(bodyof "$CODE")"
+chk "#646 obj.method( calls survive" 'echo "$G" | grep -qF "path.join(fs.readFileSync(path.resolve(ROOT, x)))" && echo "$G" | grep -qF "os.path.join(a)"'
+chk "#646 a Java package keeps its shape, its organisation label is redacted" 'echo "$G" | grep -qF "org.<org>.common.service.lib" && ! echo "$G" | grep -qi zonkpkg'
+chk "#646 a JDK package survives whole" 'echo "$G" | grep -qF "java.util.concurrent"'
+printf '[user]\n\tname = Claude\n' > "$W/gitconfig-claude"
+G="$(GIT_CONFIG_GLOBAL="$W/gitconfig-claude" bodyof 'Claude said so in CLAUDE.md and PROJECT.md')"
+chk "#646 CLAUDE.md survives a git user called Claude; the name in prose does not" 'echo "$G" | grep -qF "in CLAUDE.md and PROJECT.md" && echo "$G" | grep -qF "<user> said so"'
+G="$(bodyof 'calls zonkco.com(x) and intranet.zonkco.org(y) and build-srv-01.corp.zonkco(z) and glorpley.init(w)')"
+chk "#646 safety: a hostname before ( is still a host, a deny name before ( is still denied" '! echo "$G" | grep -qi "zonkco\|glorpley\|build-srv"'
+G="$(bodyof 'calls acme.sap(a) acme.prd(b) intranet.acme(c) acme.orders.service(d) erp.acme.dmz(e) a.b.acmeerp(f) end')"
+chk "#646 review: unlisted first labels before ( stay hosts (acme.sap, acme.prd, intranet.acme, acme.orders.service, erp.acme.dmz, a.b.acmeerp)" '! echo "$G" | grep -qi "acme" && [ "$(echo "$G" | grep -o "<host>(" | wc -l | tr -d " ")" = 6 ]'
+G="$(bodyof "$(printf 'prose obj.method(x) here\n%s\nobj.method(y)\n%s\nand org.springframework.web.bind(z)' "$FENCE3" "$FENCE3")")"
+chk "#646 review: obj.method( with an unlisted first label is a host in prose and in a fence" 'echo "$G" | grep -qF "<host>(x)" && echo "$G" | grep -qF "<host>(y)" && ! echo "$G" | grep -qF "obj.method"'
+chk "#646 review: a public package org (springframework) is kept" 'echo "$G" | grep -qF "org.springframework.web.bind"'
+G="$(bodyof "$(printf '%s\nacme.sap(q) zonkco.com(r)\n%s' "$FENCE3" "$FENCE3")")"
+chk "#646 review: inside a fence acme.sap( and a common TLD before ( are still hosts" 'echo "$G" | grep -qF "<host>(q)" && echo "$G" | grep -qF "<host>(r)" && ! echo "$G" | grep -qi "acme"'
+G="$(bodyof 'calls path.acme.dmz(a) and window.acme.sap(b) but os.path.join(c) fs.promises.readFile(d) System.out.println(e)')"
+chk "#646 re-review: an unknown middle label behind a listed root is redacted" '! echo "$G" | grep -qi acme && echo "$G" | grep -qF "path.<name>.dmz(a)" && echo "$G" | grep -qF "window.<name>.sap(b)"'
+chk "#646 re-review: known submodules keep the call whole" 'echo "$G" | grep -qF "os.path.join(c) fs.promises.readFile(d) System.out.println(e)"'
+G="$(bodyof 'calls java.acme(x) and javax.acme(w) and java.acme.orders(y) and java.util.Objects.equals(z)')"
+chk "#646 third review: java./javax. are not call roots, a client label after them is redacted" '! echo "$G" | grep -qi acme && echo "$G" | grep -qF "<host>(x)" && echo "$G" | grep -qF "<host>(w)" && echo "$G" | grep -qF "java.<org>.orders(y)"'
+chk "#646 third review: java.util.Objects.equals( is redacted as on master (4 labels, never widened)" 'echo "$G" | grep -qF "<host>(z)"'
+G="$(bodyof 'see java.acme.orders and javax.acme.billing.core and kotlin.acme.x but java.util.concurrent')"
+chk "#646 re-review: java/javax/kotlin with an unknown 2nd label redact it, JDK packages stay" '! echo "$G" | grep -qi acme && echo "$G" | grep -qF "java.<org>.orders" && echo "$G" | grep -qF "javax.<org>.billing.core" && echo "$G" | grep -qF "java.util.concurrent"'
+G="$(MXTK_LEAKGUARD_DENYFILE="$W/tk-deny-bad" bodyof 'x')"
+chk "#645 review: the invalid-toolkit-line refusal says init-project.sh appends to that file" 'grep -q "init-project.sh appends" "$W/p2.err"'
+G="$(bodyof x t '{"mxcli":"v0.27.0"}')"
+chk "#646 no toolkit version in the row: the toolkit clone's git describe is used" 'echo "$G" | grep -qE "^\*\*Versions:\*\* mxcli v0.27.0, toolkit ([0-9a-f]{7,12}|v?[0-9][0-9.]*(-[0-9]+-g[0-9a-f]{7,12})?)( \(at filing\))?$"'
+G="$(P2PM='Toolkit commit: 4416da2efa4f9f3fef8016872bbebd7d126437a7' bodyof x t '{"mxcli":"v0.27.0"}')"
+chk "#646 PROJECT.md Toolkit commit is used before git describe, shortened (no opaque-hex refusal)" 'echo "$G" | grep -q "^\*\*Versions:\*\* mxcli v0.27.0, toolkit 4416da2efa4f$"'
+G="$(bodyof x t '{"toolkit":"v2026.10.19-89-g4416da2e"}')"
+chk "#646 a git-describe toolkit version is kept whole" 'echo "$G" | grep -q "^\*\*Versions:\*\* toolkit v2026.10.19-89-g4416da2e$"'
+G="$(bodyof x t '{"toolkit":"4416da2"}')"
+chk "#646 a bare short sha toolkit version is kept" 'echo "$G" | grep -q "^\*\*Versions:\*\* toolkit 4416da2$"'
+
+echo "R. no-GitHub path: plain reason, --bundle to mail, --import for the maintainer"
+PR="$W/pr"; rm -rf "$PR"; mkdir -p "$PR/docs" "$PR/mdlsource"; cp "$P/mdlsource/01-model.mdl" "$PR/mdlsource/"; cp "$P/Zorbix.mpr" "$PR/"
+cp -R "$P/config" "$PR/"; printf 'Snarfle\\b\n' > "$PR/.leakguard-deny"; git -C "$PR" init -q
+cat > "$PR/docs/bugs.jsonl" <<ROWS
+{"id":"PBUG-01","date":"2026-11-09","target":"toolkit","title":"Gate passes on Quuxmod placeholder","repro":["run gate-check.sh on $H","Mail $U@example.com"],"expected":"FAIL","actual":"PASS in Quuxmod.ACT_Save","versions":{"mxcli":"v0.27.0"},"workaround":"none","status":"open","issue_url":""}
+{"id":"PBUG-02","date":"2026-11-09","target":"mxcli","title":"Opaque thing A8f3K2m9Qz7Lp4Xw1Vb6Nc5Rd0Ty8Ue3Ig","repro":"r","expected":"e","actual":"a","versions":{},"workaround":"","status":"open","issue_url":""}
+{"id":"PBUG-03","date":"2026-11-09","target":"mxcli","title":"Similar widget crash","repro":"open Widgetron","expected":"e","actual":"a","versions":{},"workaround":"","status":"open","issue_url":""}
+{"id":"PBUG-04","date":"2026-11-09","target":"toolkit","title":"Already filed","repro":"r","expected":"e","actual":"a","versions":{},"workaround":"","status":"filed","issue_url":"https://github.com/MendixMau/mxcli-project-toolkit/issues/9"}
+ROWS
+cp "$PR/docs/bugs.jsonl" "$W/pr.before"
+export HOME="$W/zqhm"; mkdir -p "$HOME"   # no developer ~/.mxcli-toolkit.env leaks in; same HOME for every run below
+rr() { "$PY" "$W/ptyrun.py" notty "$SUBJ" --project "$PR" "$@"; }
+OUT="$(PATH="$NOGH" rr 2>&1)"
+chk "dry run, no gh: one plain line says GitHub CLI not installed, plus the upgrade hint" 'echo "$OUT" | grep -q "^Filing path: GitHub CLI not installed, so use --links (with a GitHub account) or --bundle" && echo "$OUT" | grep -qF "Fastest: a free GitHub account (2 min, github.com/signup) makes this one click per bug with --links; no install needed."'
+OUT="$(GH_AUTH_RC=1 rr 2>&1)"
+chk "dry run, signed out: says run gh auth login --web" 'echo "$OUT" | grep -qF "Filing path: not signed in: run \`gh auth login --web\`"'
+OUT="$(GH_REPO_RC=1 GH_REPO_ERR="gh: Not Found (HTTP 404)" rr 2>&1)"
+chk "dry run, signed in, HTTP 404: no access, names the repo" 'echo "$OUT" | grep -q "Filing path: signed in, but this GitHub account has no access to "'
+OUT="$(GH_REPO_RC=1 GH_REPO_ERR="gh: Resource not accessible by integration (HTTP 403)" rr 2>&1)"
+chk "dry run, signed in, HTTP 403: no access" 'echo "$OUT" | grep -q "Filing path: signed in, but this GitHub account has no access to "'
+OUT="$(GH_REPO_RC=1 GH_REPO_ERR="Get \"https://api.github.com/repos/x\": proxyconnect tcp: dial tcp: connection refused" rr 2>&1)"
+chk "dry run, network error: cannot reach GitHub with the first stderr line, never no access" 'echo "$OUT" | grep -q "^Filing path: cannot reach GitHub (network/proxy): Get .*connection refused, so use --links" && ! echo "$OUT" | grep -q "no access"'
+OUT="$(rr 2>&1)"
+chk "dry run, gh ready: says it posts directly, no upgrade hint, log unchanged" 'echo "$OUT" | grep -q "^Filing path: gh is installed and signed in" && ! echo "$OUT" | grep -q "Fastest:" && cmp -s "$PR/docs/bugs.jsonl" "$W/pr.before"'
+rr --json > "$W/pr.json" 2>/dev/null
+D="$(date +%F)"; BF="$PR/toolkit-bugs-$D.md"
+OUT="$(MXTK_BUG_EMAIL= rr --bundle 2>&1)"; RC=$?
+chk "--bundle writes ONE file in the project root, exit 0" '[ $RC = 0 ] && [ -f "$BF" ] && [ "$(ls "$PR"/toolkit-bugs-*.md | wc -l | tr -d " ")" = 1 ]'
+chk "--bundle: title and body of every clean row equal the --json redaction" '"$PY" -I - "$W/pr.json" "$BF" <<'"'"'PYX'"'"'
+import json, re, sys
+js = {x["id"]: x for x in json.load(open(sys.argv[1])) if not x["refused"]}
+txt = open(sys.argv[2]).read()
+got = {m.group(1): (m.group(2), m.group(3)) for m in re.finditer(r"(?ms)^<!-- mxtk-bug id=(\S+) target=\S+ -->\n## [^\n]*\n\nTitle: ([^\n]*)\n\n(.*?)\n<!-- mxtk-bug-end -->$", txt)}
+sys.exit(not (set(got) == set(js) == {"PBUG-01", "PBUG-03"} and all(got[k] == (js[k]["title"], js[k]["body"]) for k in js)))
+PYX'
+chk "--bundle: no raw name, host, user or email in the file" '! grep -q "Quuxmod\|Widgetron\|$U@\|build-srv" "$BF" && grep -q "Module1" "$BF"'
+chk "--bundle: the held-back row is excluded, says so, stays open" '! grep -qi "opaque\|A8f3\|PBUG-02" "$BF" && echo "$OUT" | grep -q "PBUG-02  held back" && grep "\"PBUG-02\"" "$PR/docs/bugs.jsonl" | grep -q "\"status\":\"open\""'
+chk "--bundle: a filed row is not bundled" '[ -f "$BF" ] && ! grep -q "PBUG-04" "$BF"'
+chk "--bundle: header carries format, toolkit version, count 2, the row ids, a blank reporter" 'grep -q "^format: mxtk-bug-bundle/1$" "$BF" && grep -qE "^toolkit: [0-9a-zA-Z.-]+$" "$BF" && grep -q "^count: 2$" "$BF" && grep -q "^ids: PBUG-01 PBUG-03$" "$BF" && grep -q "^reporter:$" "$BF"'
+chk "--bundle without an address: send it to whoever gave you the toolkit" 'grep -q "^\*\*Send this file to whoever gave you the toolkit.\*\*" "$BF"'
+chk "--bundle: rows marked bundled with the date, the held-back row untouched" 'grep "\"PBUG-01\"" "$PR/docs/bugs.jsonl" | grep -q "\"status\": \"bundled\".*\"bundled\": \"$D\"" && grep "\"PBUG-03\"" "$PR/docs/bugs.jsonl" | grep -q "\"status\": \"bundled\""'
+chk "--bundle: the file is gitignored" 'git -C "$PR" check-ignore -q "$BF"'
+OUT="$(rr --bundle 2>&1)"
+chk "a second --bundle does not re-bundle: no new file" 'echo "$OUT" | grep -q "no clean open bugs to bundle" && [ "$(ls "$PR"/toolkit-bugs-*.md | wc -l | tr -d " ")" = 1 ]'
+L="$(rr --links 2>/dev/null)"; J="$(rr --json 2>/dev/null)"; DR="$(rr 2>/dev/null)"
+chk "a bundled row is still reachable: --links and --json carry it, the plain dry run does not" 'echo "$L" | grep -q "^PBUG-01  Gate passes" && echo "$J" | grep -q "\"id\": \"PBUG-01\"" && ! echo "$DR" | grep -q "^PBUG-01 ->"'
+cp "$PR/docs/bugs.jsonl" "$W/pr.bundled"; : > "$GHLOG"
+ANS=y "$PY" "$W/ptyrun.py" tty "$SUBJ" --project "$PR" --file PBUG-03 >/dev/null 2>&1
+chk "--file files a bundled row (y/N), status becomes filed" 'grep -q "issue create --repo=mendixlabs/mxcli --title=Similar widget crash" "$GHLOG" && grep "\"PBUG-03\"" "$PR/docs/bugs.jsonl" | grep -q "\"status\": \"filed\""'
+cp "$W/pr.bundled" "$PR/docs/bugs.jsonl"
+GC2="$W/gc2"; rm -rf "$GC2"; mkdir -p "$GC2/docs"; printf '# PROJECT.md\n\n## Current stage\n' > "$GC2/PROJECT.md"
+printf '%s\n' '{"id":"PBUG-01","status":"open"}' '{"id":"PBUG-02","status":"bundled"}' '{"id":"PBUG-03","status":"bundled"}' > "$GC2/docs/bugs.jsonl"
+OUT="$("$TOOLKIT/bin/gate-check.sh" --closeout "$GC2" 0 2>&1)"
+chk "gate-check closeout counts bundled rows as bundled, not yet filed, beside the open ones" 'echo "$OUT" | grep -q "1 toolkit/mxcli bug(s) logged but not filed" && echo "$OUT" | grep -q "2 toolkit/mxcli bug(s) bundled, not yet filed"'
+mkdir -p "$W/inbox"; OUT="$("$TOOLKIT/bin/harvest-learnings.sh" "$GC2" --to "$W/inbox" 2>&1)"
+chk "harvest-learnings counts bundled rows as bundled, not yet filed" 'echo "$OUT" | grep -q "2 bug(s) bundled, not yet filed"'
+OUT="$(MXTK_BUG_EMAIL=bugs@example.com rr --bundle --all 2>&1)"
+chk "--bundle --all re-bundles into a new file, never overwriting the first" '[ -f "$PR/toolkit-bugs-$D-2.md" ] && grep -q "^ids: PBUG-01 PBUG-03$" "$PR/toolkit-bugs-$D-2.md"'
+chk "MXTK_BUG_EMAIL names the address on the top line" 'grep -q "^\*\*Mail this file to bugs@example.com.\*\*" "$PR/toolkit-bugs-$D-2.md"'
+cp "$W/pr.before" "$PR/docs/bugs.jsonl"; mkdir -p "$PR/.claude"; printf 'MENDIX_APP=/x\nBug email: tk@example.com\n' > "$PR/.claude/toolkit.env"
+rr --bundle "$W/b-env.md" >/dev/null 2>&1
+chk "a Bug email: line in toolkit.env is used when the env is unset" 'grep -q "^\*\*Mail this file to tk@example.com.\*\*" "$W/b-env.md"'
+rm -f "$PR/.claude/toolkit.env"; cp "$W/pr.before" "$PR/docs/bugs.jsonl"; mkdir -p "$W/brain"; printf '# Brain\n\nBug email: brain@example.com\n' > "$W/brain/README.md"
+printf 'A company brain is wired at `%s` -- read it\n' "$W/brain" > "$PR/CLAUDE.local.md"
+rr --bundle "$W/b-brain.md" >/dev/null 2>&1
+chk "the company brain README's Bug email: line is used last" 'grep -q "^\*\*Mail this file to brain@example.com.\*\*" "$W/b-brain.md"'
+rm -f "$PR/CLAUDE.local.md"
+cp "$W/pr.before" "$PR/docs/bugs.jsonl"; mv "$PR/.leakguard-deny" "$W/pr.deny"
+OUT="$(LEAKGUARD_DENY= rr --bundle "$W/b-nodeny.md" 2>&1)"; RC=$?
+chk "--bundle without a deny list is refused, no file" '[ $RC -ne 0 ] && echo "$OUT" | grep -q "no deny list" && [ ! -f "$W/b-nodeny.md" ]'
+mv "$W/pr.deny" "$PR/.leakguard-deny"
+printf '# PROJECT.md\n\nBug filing: auto\n' > "$PR/PROJECT.md"
+git -C "$PR" add PROJECT.md && git -C "$PR" -c user.name=t -c user.email=tester commit -qm reg >/dev/null 2>&1
+rm -f "$PR"/toolkit-bugs-*.md; cp "$W/pr.before" "$PR/docs/bugs.jsonl"; : > "$GHLOG"
+OUT="$(PATH="$NOGH" rr --auto 2>&1)"; RC=$?
+chk "--auto, no gh, no account: says why, writes the bundle, exit 0, nothing posted" '[ $RC = 0 ] && echo "$OUT" | grep -q "NOTE: --auto cannot post: GitHub CLI not installed" && echo "$OUT" | grep -q "Fastest: a free GitHub account" && [ -f "$BF" ] && ! grep -q "issue create" "$GHLOG"'
+chk "--auto: the LAST line names the bundle path and who to mail it to" '[ "$(echo "$OUT" | tail -1)" = "Bundle written: $BF — mail it to whoever gave you the toolkit" ]'
+rm -f "$PR"/toolkit-bugs-*.md; cp "$W/pr.before" "$PR/docs/bugs.jsonl"
+OUT="$(GH_AUTH_RC=1 rr --auto 2>&1)"
+chk "--auto, signed out, no account: says run gh auth login --web, bundles" 'echo "$OUT" | grep -qF "cannot post: not signed in: run \`gh auth login --web\`" && [ -f "$BF" ] && ! grep -q "issue create" "$GHLOG"'
+rm -f "$PR"/toolkit-bugs-*.md; cp "$W/pr.before" "$PR/docs/bugs.jsonl"
+OUT="$(GH_REPO_RC=1 GH_REPO_ERR="gh: Not Found (HTTP 404)" rr --auto --github-account 2>&1)"
+chk "--auto, signed in without access, has an account: says so, prints links, no bundle" 'echo "$OUT" | grep -q "cannot post: signed in, but this GitHub account has no access" && echo "$OUT" | grep -q "issues/new?title=" && [ ! -f "$BF" ] && ! grep -q "issue create" "$GHLOG"'
+rm -f "$PR"/toolkit-bugs-*.md; cp "$W/pr.before" "$PR/docs/bugs.jsonl"; : > "$GHLOG"
+OUT="$(GH_REPO_RC=1 GH_REPO_ERR="dial tcp: lookup api.github.com: no such host" rr --auto 2>&1)"
+chk "--auto, network error, no account: says cannot reach GitHub, falls through to the bundle" 'echo "$OUT" | grep -q "cannot post: cannot reach GitHub (network/proxy): dial tcp" && [ -f "$BF" ] && ! grep -q "issue create" "$GHLOG" && echo "$OUT" | tail -1 | grep -q "^Bundle written: "'
+rm -f "$PR"/toolkit-bugs-*.md; cp "$W/pr.before" "$PR/docs/bugs.jsonl"; : > "$GHLOG"
+OUT="$(rr --auto 2>&1)"
+chk "--auto, gh ready: checks repo access, then posts as before (no bundle, no fallback note)" 'grep -q "^api repos/MendixMau/mxcli-project-toolkit --jq .has_issues" "$GHLOG" && grep -q "issue create" "$GHLOG" && ! echo "$OUT" | grep -q "cannot post\|Fastest:" && [ ! -f "$BF" ]'
+# --- import, on the maintainer's side
+cp "$W/pr.before" "$PR/docs/bugs.jsonl"; rr --bundle "$W/mail.md" >/dev/null 2>&1
+sed -i.bak 's/^reporter:$/reporter: Jane Tester/' "$W/mail.md"
+: > "$GHLOG"; OUT="$(rr --import "$W/mail.md" --dry-run 2>&1)"; RC=$?
+chk "--import --dry-run: parses both bugs, files nothing, exit 0" '[ $RC = 0 ] && echo "$OUT" | grep -q "^PBUG-01 -> MendixMau/mxcli-project-toolkit   \[dry run" && ! grep -q "issue create\|label" "$GHLOG" && echo "$OUT" | grep -q "would file 1, skipped duplicates 1"'
+"$PY" -I - "$W/mail.md" <<'PYX'
+import sys
+p = sys.argv[1]; t = open(p).read()
+open(p, "w").write(t.replace("### Expected\nFAIL", "### Expected\nFAIL, ask leaked@example.com on build-srv-01.corp.zonkco", 1))
+PYX
+: > "$GHLOG"; : > "$GHLOG.all"; OUT="$(GH_LABELS='[{"name":"auto-filed"},{"name":"via-email"}]' rr --import "$W/mail.md" 2>&1)"; RC=$?
+chk "--import re-redacts: an address and host added to the bundle never reach gh" '[ $RC = 0 ] && echo "$OUT" | grep -q "re-redaction changed" && ! grep -q "leaked@\|build-srv\|zonkco" "$GHLOG" "$GHLOG.all" && grep -q "<email>\|<host>" "$GHLOG.all"'
+chk "--import dedupes: the exact-title bug is skipped and its link listed" '! grep "issue create" "$GHLOG" | grep -q "Similar widget" && echo "$OUT" | grep -q "skipped duplicates 1 (https://github.com/MendixMau/mxcli-project-toolkit/issues/77)"'
+chk "--import files the rest with auto-filed and via-email (labels that exist), never creates one" 'echo "$OUT" | grep -q "filed 1," && grep "issue create" "$GHLOG" | grep -q -- "--label=auto-filed --label=via-email" && ! grep -q "label create" "$GHLOG"'
+chk "--import: the duplicate search ran before the create" '[ "$(grep -n "issue list" "$GHLOG" | head -1 | cut -d: -f1)" -lt "$(grep -n "issue create" "$GHLOG" | cut -d: -f1)" ]'
+chk "--import footer names the reporter, via email bundle" 'grep -q "^Reported by: Jane Tester via email bundle$" "$GHLOG.all"'
+: > "$GHLOG"; : > "$GHLOG.all"; sed -i.bak 's/^reporter: Jane Tester$/reporter:/' "$W/mail.md"; rr --import "$W/mail.md" >/dev/null 2>&1
+chk "--import: no reporter -> toolkit user; no such labels -> no --label" 'grep -q "^Reported by: toolkit user via email bundle$" "$GHLOG.all" && ! grep -q -- "--label" "$GHLOG"'
+: > "$GHLOG"; OUT="$(rr --import "$PR/docs/bugs.jsonl" 2>&1)"; RC=$?
+chk "--import refuses a file without the bundle header" '[ $RC -ne 0 ] && echo "$OUT" | grep -q "is not a bug bundle" && [ ! -s "$GHLOG" ]'
+sed 's/^count: 2$/count: 3/' "$W/mail.md" > "$W/bad.md"; OUT="$(rr --import "$W/bad.md" 2>&1)"; RC=$?
+chk "--import refuses a bundle whose header does not match its bugs" '[ $RC -ne 0 ] && echo "$OUT" | grep -q "damaged or edited" && [ ! -s "$GHLOG" ]'
+"$PY" -I - "$W/mail.md" "$W/unsafe.md" <<'PYX'
+import sys
+open(sys.argv[2], "w").write(open(sys.argv[1]).read().replace("### Actual", "token A8f3K2m9Qz7Lp4Xw1Vb6Nc5Rd0Ty8Ue3Ig\n\n### Actual", 1))
+PYX
+"$PY" -I - "$W/mail.md" "$W/ping.md" <<'PYX'
+import sys
+t = open(sys.argv[1]).read().replace("### Actual", "ping @someone and @some-org/team, see #1 and acme/widgets#2, GH-5 and https://github.com/MendixMau/mxcli-project-toolkit/pull/6\n\n### Actual", 1)
+open(sys.argv[2], "w").write(t.replace("Title: Gate passes", "Title: @maint #3 Gate passes", 1))
+PYX
+: > "$GHLOG"; : > "$GHLOG.all"; OUT="$(rr --import "$W/ping.md" 2>&1)"
+chk "--import neutralises @user, @org/team, #N, owner/repo#N, GH-N and issue/PR URLs in title and body (zero-width joiner)" '"$PY" -I - "$GHLOG" "$GHLOG.all" <<'"'"'PYX'"'"'
+import re, sys
+log, body = open(sys.argv[1], encoding="utf-8").read(), open(sys.argv[2], encoding="utf-8").read()
+z = "\u200d"
+ok = all(x in body for x in ("@" + z + "someone", "@" + z + "some-org/team", "#" + z + "1", "widgets#" + z + "2", "GH-" + z + "5", "mxcli-project-toolkit/pull/" + z + "6"))
+ok = ok and not re.search(r"@[A-Za-z0-9]|(?<![\w])#\d(?![^\n]*Possibly related)", body.split("\n---\n")[0])
+ok = ok and "--title=@" + z + "maint #" + z + "3 Gate passes" in log
+sys.exit(not ok)
+PYX'
+chk "--import keeps its own footer links live (Possibly related: #77)" 'grep -q "^Possibly related: #77.$" "$GHLOG.all"'
+sed 's/^<!-- mxtk-bug id=PBUG-03 target=mxcli -->$/<!-- mxtk-bug id=PBUG-03 target=mxcli -->/; s/^Title: Similar widget crash$/Title: Different widget crash/' "$W/mail.md" > "$W/mx.md"
+: > "$GHLOG"; : > "$GHLOG.all"; OUT="$(rr --import "$W/mx.md" 2>&1)"
+chk "--import ignores target=mxcli: filed to the toolkit repo with a note, never upstream" '! grep -q "issue create --repo=mendixlabs" "$GHLOG" && grep -q "issue create --repo=MendixMau/mxcli-project-toolkit --title=Different widget crash" "$GHLOG" && grep -q "^The reporter marked this as an mxcli bug; filed here for triage, not upstream.$" "$GHLOG.all"'
+: > "$GHLOG"; OUT="$(rr --import "$W/mail.md" --max 1 2>&1)"; RC=$?
+chk "--import enforces the cap (--max 1 on a 2-bug bundle): refused, no gh call" '[ $RC -ne 0 ] && echo "$OUT" | grep -q "more than the cap of 1 per import" && [ ! -s "$GHLOG" ]'
+"$PY" -I - "$W/mail.md" "$W/big.md" <<'PYX'
+import re, sys
+t = open(sys.argv[1]).read()
+sec = re.search(r"(?ms)^<!-- mxtk-bug id=PBUG-01 .*?^<!-- mxtk-bug-end -->\n", t).group(0)
+ids = ["PBUG-%02d" % i for i in range(1, 22)]
+body = "".join(sec.replace("PBUG-01", i) for i in ids)
+head = re.sub(r"(?m)^count: .*$", "count: 21", re.sub(r"(?m)^ids: .*$", "ids: " + " ".join(ids), t[:t.index("<!-- mxtk-bug id=")]))
+open(sys.argv[2], "w").write(head + body)
+PYX
+: > "$GHLOG"; OUT="$(rr --import "$W/big.md" --dry-run 2>&1)"; RC=$?
+chk "--import default cap is 20 bugs" '[ $RC -ne 0 ] && echo "$OUT" | grep -q "holds 21 bugs, more than the cap of 20" && [ ! -s "$GHLOG" ]'
+: > "$GHLOG"; OUT="$(rr --import "$W/unsafe.md" 2>&1)"
+chk "--import refuses a bug that still fails the scan after re-redaction" 'echo "$OUT" | grep -q "^REFUSED: after re-redaction" && ! grep -qi "A8f3" "$GHLOG" && echo "$OUT" | grep -q "refused 1"'
 
 echo "Z. no real issue was ever created"
 chk "every gh call went through the stub (log exists, no network tool used)" '[ -s "$GHLOG" ]'

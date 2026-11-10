@@ -6,7 +6,8 @@
 // This is a PROPOSAL mechanism, not an architecture decision: the heuristic runs by default
 // (solo run never stalls), the mapping is written to brd/grouping-proposal.md, and CAC-2
 // (checkpoint-brd.md) asks the user to confirm or correct it. Corrections go into
-// config.json → "brdGrouping": { "<rawModule>": "<capability>", ... } and Phase 3 re-runs.
+// the project's pipeline config (run.js --config) → "brdGrouping": { "<rawModule>": "<capability>", ... }
+// and Phase 3 re-runs.
 // Mendix module boundaries remain a Stage 3 decision (modularize-domain.md) — this only
 // fixes the granularity of the requirements documents.
 
@@ -20,6 +21,9 @@ const TECH_LAYERS = new Set([
   'jpa', 'persistence', 'repository', 'repositories',
   'dto', 'dtos', 'model', 'models',
   'service', 'services', 'controller', 'controllers', 'rest', 'web',
+  // Value-object and state-machine sub-packages (issue #639, OpenWMS: org.openwms.core.values,
+  // org.openwms.tms.impl.state produced `values` and `state` BRDs).
+  'values', 'vo', 'state',
 ]);
 
 // Namespace roots that can never be a capability (reverse walk rarely reaches them,
@@ -119,7 +123,7 @@ function renderProposal(report) {
     '',
     'The BRD mapper rolled technical-layer packages up into business capabilities using each',
     "item's own source-path evidence. **This is a proposal**: confirm or correct it at the BRD",
-    'checkpoint. Corrections go in `config.json` → `"brdGrouping": { "<rawModule>": "<capability>" }`',
+    'checkpoint. Corrections go in your pipeline config (`node run.js 3 --config <file>`) → `"brdGrouping": { "<rawModule>": "<capability>" }`',
     '(overrides win over path evidence), then re-run Phase 3. Mendix module boundaries are still',
     'decided at Stage 3 (`modularize-domain.md`).',
     '',

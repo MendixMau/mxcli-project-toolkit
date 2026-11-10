@@ -299,7 +299,8 @@ The build-vs-buy-vs-workaround decision, one row per source capability. **This i
 |---|---|---|---|
 | e.g. CRUD grid | Data Grid 2 (native) | **Native** | — |
 | e.g. role-based access | Built-in Administration module | **Config** | — |
-| e.g. charts/dashboard | Charts (marketplace, Mendix-supported) | **Buy** — decide if needed | maybe |
+| e.g. charts/dashboard | `Charts` widget (marketplace, Mendix-supported) | **Buy** — decide if needed | maybe |
+| e.g. field encryption | `Encryption` module (marketplace) | **Buy** | — |
 | e.g. signed-quantity convention | Explicit enum + sign-deriving microflow | **Build (changed behavior)** | resolved decision |
 | e.g. feature never built in source | new page over existing logic | **Build (new)** | design from BRD |
 
@@ -314,6 +315,8 @@ Cost the **inclusive gateway (OR)** explicitly rather than letting it pass as on
 Verdict vocabulary: **Native** (ships with Mendix/Atlas) · **Config** (native, needs setup) · **Buy** (marketplace) · **Build** (we script it) · **Workaround** (mxcli limitation → Studio Pro or manual) · **Gap** (unresolved — goes to Step 5's register rows in `PROJECT.md`).
 
 **Marketplace rule of thumb:** for a small CRUD app, import almost nothing — the Administration module and Atlas/Data Grid ship by default. Only "Buy" when a capability is real, reusable, and cheaper than building. Over-importing adds upgrade surface; note every "Buy" as a dependency in Step 5.
+
+**A confirmed Buy names its package in backticks** in the Mendix approach cell — the module name as `SHOW MODULES` will list it, or the widget's `.mpk` basename — and its Verdict cell reads exactly **Buy** — anything else that mentions Buy ("Buy (unverified)", "Buy + Build", "decide if needed") stays open, and a non-Buy verdict is Build, Config, Native or Gap. `gate-check.sh` build-ready and `exec.sh` (before a domain-model script) read exactly that: each confirmed Buy must show Source `Marketplace v…` in `SHOW MODULES`, or exist as `widgets/<Name>.mpk`, or carry `--waive marketplace/<Name> --reason "..."`.
 
 **Deciding "Buy" here is not the same as installing it.** The actual `mxcli marketplace search/install` step happens later, as `brd-to-build-plan.md` Step 0 — before any domain-model script, so the module's real entities/microflows exist for MDL scripts to reference and validate against. This step only produces the decision; don't stop partway and leave a confirmed "Buy" un-imported going into the build.
 
@@ -348,7 +351,7 @@ Stage 3 ✋ gate.
 
 ## Step 6: The Three Decisions the Source Can't Answer ✋
 
-These are genuine decisions, not derivable from the BRD or the source — run the full interview protocol (`conversion-runbook.md` §1) for each, and record every answer in `PROJECT.md`. This is a `✋` gate: `CONFIRMED` only, no `ASSUMED` past it.
+These are genuine decisions, not derivable from the BRD or the source — run the full interview protocol (`conversion-runbook.md` §1) for each, and record every answer in `PROJECT.md`. This is a `✋` gate: `CONFIRMED` only, no `ASSUMED` past it (under `Interview mode: auto`: `interview-protocol.md` §"What `auto` obliges you to do").
 
 ### 6a. Target Security / Role Model
 
@@ -404,6 +407,7 @@ The Stage-3 `✋` gate is reviewed by a person, and raw Mermaid in markdown is a
 - Is the scope right for one Mendix app, or should any module become a separate app connected via OData/REST?
 - Flag if any module boundary crossed the threshold: different release cadence, different team, significantly different NFRs, or a natural API surface.
 - Record the decision in `PROJECT.md` as `CONFIRMED` — this cannot be an `ASSUMED` past this gate.
+- Multi-app `CONFIRMED` → open the system register, session ownership and cross-app identity decision per `multi-app-system.md` before the second app's first script.
 
 #### B. Module structure
 For each module in the layer diagram:

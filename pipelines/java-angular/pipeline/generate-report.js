@@ -4,7 +4,8 @@ const path = require('path');
 
 // Per-project analysis folder (see migration-pipeline.md's "Project Workspace Convention") —
 // falls back to a local knowledge-base/ (gitignored) only if config.json has no knowledgeBaseDir set.
-const CONFIG = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8'));
+// Same lookup as run.js: --config <path>, MXTK_PIPELINE_CONFIG, then the tracked template.
+const { config: CONFIG } = require('./lib/config').loadConfig({ argv: process.argv.slice(2) });
 const KB  = CONFIG.knowledgeBaseDir || path.join(__dirname, 'knowledge-base');
 const OUT = path.join(KB, 'extraction-report.html');
 

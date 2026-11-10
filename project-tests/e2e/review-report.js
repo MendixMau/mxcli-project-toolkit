@@ -593,7 +593,14 @@ function relOut(abs) {
 let mprMtime = null;
 try { mprMtime = fs.statSync(path.join(ROOT, MPR_NAME)).mtime.toISOString(); } catch (e) {}
 let mendix = null;
-try { mendix = JSON.parse(readIf(path.join(ROOT, 'deployment/model/metadata.json')) || '{}')
+// Newest of the app's deployment/ and the toolkit build copy's (.mxtk/build/model/, #686).
+const _mdCands = [path.join(ROOT, 'deployment/model/metadata.json'),
+  path.join(ROOT, '.mxtk/build/model/deployment/model/metadata.json'),
+  path.join(path.dirname(ROOT), '.mxtk/build/model/deployment/model/metadata.json')];
+const _mdPath = _mdCands.reduce((best, p) => {
+  let t = -1; try { t = fs.statSync(p).mtimeMs; } catch (e) {}
+  return t > best.t ? { p, t } : best; }, { p: _mdCands[0], t: -1 }).p;
+try { mendix = JSON.parse(readIf(_mdPath) || '{}')
   .RuntimeVersion || null; } catch (e) {}
 const gitCommit = sh('git rev-parse --short HEAD');
 const branch = sh('git rev-parse --abbrev-ref HEAD');

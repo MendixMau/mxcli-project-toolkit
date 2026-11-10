@@ -94,7 +94,7 @@ commands that run at every step: `docs/pipeline-walks.html`.
 | **Process map + BRD report** (`bin/brd-report.sh`) | Stages 2 and 3 | Swimlanes per process, questions pinned to each step |
 | **Progress report** (`architecture/progress-report.html`) | Stage 5 onward | Stages P to 6, phases built and proven, time and cost |
 | **Project dashboard** (`index.html`) | Every gate run | Gate status per stage and module |
-| **Bug log** (`docs/bugs.jsonl`, `bin/file-bugs.sh`) | Any time | Bugs, redacted before filing |
+| **Bug log** (`docs/bugs.jsonl`, `bin/file-bugs.sh`) | Any time | Bugs, redacted before filing: by gh, a link, or a file to mail (CONTRIBUTING.md → "Reporting a toolkit bug") |
 
 ## Ways to use it
 
@@ -652,6 +652,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Judging module tangles, bidirectional pairs, cohesion and hubs from analysis/app-facts/dependencies.json; stock graph_module_* views split names on the first dot and are not trusted | `skills/module-dependency-review.md` |
 | Diagramming target architecture — module defs, wiring, fit-gap, marketplace, security, NFRs, integrations | `skills/architecture-blueprint.md` |
 | Deciding module boundaries before "create module" | `skills/modularize-domain.md` |
+| A SYSTEM of two or more Mendix apps — a second app joins, a decision (IdP, SSO, contract, shared module, persona list) binds more than one app, or several agent sessions build apps of one system: the system register (apps + owners, contracts + status, shared assets, mirrored cross-app decisions), one writer per .mpr, handoffs, SSO and service accounts across apps | `skills/multi-app-system.md` |
 
 **Design — how it looks, before any MDL**
 
@@ -660,7 +661,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Building any page or snippet — before the first widget. Wireframe, tokens, gallery reuse, cross-check; no wireframe means STOP | `skills/ui-preflight-pages.md` |
 | Building or using the in-app design gallery | `skills/learned-stylegallery.md` |
 | Before porting ds.css into SCSS, and at the Stage-3 gate — greps the stylesheet for rules that cannot match the HTML Mendix emits (rem against the real root, table/th/td selectors, positional row selectors). mx check, mxcli check and mxcli lint are all blind to CSS | `project-bin/check-design-portability.sh` |
-| After every wireframe edit: assembles design/wireframes/*.html into design/prototype.html, one hash-routed page a stakeholder can click through instead of twenty separate files. Generated, never edited (design-artifacts.md Step 3) | `project-bin/assemble-prototype.js` |
+| After every wireframe edit: assembles design/wireframes/*.html into design/prototype.html, one hash-routed page a stakeholder can click through instead of twenty separate files. Generated, never edited (design-artifacts.md Step 3). Before the Stage 3 sign-off question, review-agent LOOKs at its output at 390/360/320/1280 px (design-artifacts.md Step 3d, obligation prototype-look) | `project-bin/assemble-prototype.js` |
 | Before wireframes pass to the build loop, and with --brd before a BRD is signed off: dead #/route links, orphan screens, controls with no data-bind and no data-cut, BRD routes no screen has, screens no use case walks (design-artifacts.md Step 3c, brd-validation.md check 8) | `project-bin/check-prototype-links.js` |
 | Designing the brand and ONE ANNOTATED WIREFRAME PER SCREEN before building pages — the design system alone is half the deliverable | `skills/design-artifacts.md` |
 | At Stage 2 close (draft, before the questions are raised) and again after the wireframes (Stage 3 re-render), when a reviewer cannot tell where the open questions and ASSUMED decisions fit: one swimlane map per process, each step on its wireframe, every question pinned to a step (project-bin/process-map.js validate, anchor, build) | `skills/process-map.md` |
@@ -726,6 +727,8 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Wiring a service seam between two Mendix apps — one app's OData or REST consumed by another, replacing a stub by an external entity, joining data that lives in the other app, or choosing keys and auth for an app-to-app service | `skills/mendix-service-seam.md` |
 | Building a REST integration (consumed or published) for the first time on a project — the checks that avoid a rebuild after the first live call | `skills/rest-integration-first-time-right.md` |
 | App-to-app REST or microservices: two or more Mendix apps you build that read each other over REST — before the contract, before the first consumer, and before calling an API tested: pull vs push, key+version rule, auth in the operation microflow (BUG-152), honest last-success/stale/"as of", one owner per fact, and the six-rung cross-app test ladder with its per-change/slice/release cadence | `skills/rest-between-mendix-apps.md` |
+| Releasing or deploying a change that CROSSES apps — a published contract going to v2 (which order publisher and consumers deploy in), a shared module (MPK) update, or seed data used by more than one app: before the first app is changed and before the release order is written; version + content hash per app, expand/switch/contract order from contract links, Catalog one-definition-per-version, run-once data migrations, pre-release checklist | `skills/multi-app-release.md` |
+| Changing anything a published contract exposes — an entity, attribute, microflow or service behind a published OData, REST or business event service — in an app that another app consumes: before exec and before merge, run bin/contract-check.sh check (and --impact <app>:<Module.Element>) over the system registry; mxcli impact/refs do not see OData exposure | `bin/contract-check.sh` |
 | Adding a constant, installing a marketplace module, deploying to a new environment, or needing a Mendix PAT — where an encryption key, API credential, endpoint or access token gets its value, why a free node has only one channel, and why a token missing from the files you grepped is not missing | `skills/learned-constants-and-secrets.md` |
 
 **Verify — does it work**
@@ -888,14 +891,14 @@ Then filter by Role(s). A helper dispatched with a role stub (ba, architect, mdl
 | Before trusting a green check/exec/DESCRIBE result as proof, or when a runtime symptom appears over a fully green model — the register of constructs that pass early rungs and fail later ones | `skills/learned-detection-gaps.md` | 5,6 | gate, review (mdl: on demand) |
 | Creating any entity, or calling a module security-ready — entity and grants land in one script, and ready means SHOW SECURITY MATRIX proves it | `skills/security-is-not-a-later-script.md` | 5 | gate, review (mdl: on demand) |
 | A CE error (mx check or mxbuild: CE0066, CE0117…), a cited BUG-n, or behavior that looks like a known mxcli quirk rather than a modeling mistake — `bin/bug-lookup.sh CE0117` / `BUG-102` / "keyword" / the whole pasted error message (ranked top 3) prints the matching ledger entries, so the session reads one entry, not the whole ledger | `bin/bug-lookup.sh` | 5,6 | mdl, gate |
-| You hit, or worked around, a bug in mxcli or the toolkit — `bin/file-bugs.sh` (the `--add` line is in learned-detection-gaps.md) keeps docs/bugs.jsonl, redacts, shows duplicates, is filed only by a human with `!` (`--file PBUG-NN`, y/N, denied to agents), or prints new-issue links (`--links`, `--json`) | `bin/file-bugs.sh` | 5,6 | mdl, gate |
+| You hit, or worked around, a bug in mxcli or the toolkit, or log a FINDINGS.md entry about either — `bin/file-bugs.sh` (the `--add` line is in learned-detection-gaps.md) keeps docs/bugs.jsonl, redacts, shows duplicates, files with `--auto` when PROJECT.md says `Bug filing: auto`, else only a human files (`!`, `--file PBUG-NN`, y/N, denied to agents), or prints new-issue links (`--links`, `--json`) | `bin/file-bugs.sh` | 5,6 | mdl, gate |
 | The first command of every session, and any time someone asks "where are we" or "what next" — one screen: stage, done/overdue, the ONE next action, from the instruments, never from memory | `bin/status.sh` | P,0,1,2,3,4,5,6,7 | every role |
 | Any session that will push a model to Mendix Team Server, and BEFORE telling the user a Team Server push is blocked — which remote is authoritative, settle-then-push order, and the four checks that have to fail first | `skills/teamserver-alignment.md` | 5,6,7 | gate (mdl, review: on demand) |
 <!-- ROUTING:END -->
 
 **Why this has to be explicit instead of implicit:** a project's own skill files are usually written before a given toolkit learning exists, or before a new one is added later — they never grow a cross-reference to it on their own. When you `git pull` this toolkit and it brings in a new baseline-worthy skill (most often a new `learned-*.md`), update every consuming project's routing to match — don't assume the next session will find it by chance.
 
-**After cloning, set your local source paths** in `pipelines/<x>/pipeline/config.json` — the committed file ships with `<placeholder>` values; point them at your own source workspace. **Never commit real local paths.**
+**After cloning, set your local source paths** in `pipelines/<x>/pipeline/config.json` — the committed file ships with `<placeholder>` values; point them at your own source workspace. **Never commit real local paths.** The java-angular pipeline reads a project-owned copy instead (`node run.js <phase> --config <project>/analysis/<source-name>/pipeline-config.json`, or `MXTK_PIPELINE_CONFIG`), so its tracked file stays a template.
 
 **Project output never lives here** (`analysis/`, `sources/`, `knowledge-base/`, `*.mpr` are gitignored) — each project runs in its own project folder (with `analysis/` inside it) that references this repo.
 

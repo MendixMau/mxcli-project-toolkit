@@ -1,0 +1,105 @@
+[
+  {
+    "ODataVersion": "OData4",
+    "Path": "odata/carodataapi/v1/",
+    "QualifiedName": "MyFirstModule.CarOdataApi",
+    "Version": "1.0.0"
+  }
+]
+[
+  {
+    "Path": "rest/cars/v1",
+    "QualifiedName": "MyFirstModule.CarsApi",
+    "Version": "1.0.0"
+  }
+]
+[
+  {
+    "Deprecated": "0",
+    "HttpMethod": "Get",
+    "Microflow": "MyFirstModule.REST_GetCars",
+    "Path": "",
+    "ResourceName": "cars",
+    "ServiceQualifiedName": "MyFirstModule.CarsApi"
+  }
+]
+[]
+[]
+[]
+[]
+[
+  {
+    "EventNamePrefix": "",
+    "QualifiedName": "MyFirstModule.CarEventsApi",
+    "ServiceName": "CarEventsApi"
+  }
+]
+[
+  {
+    "CanPublish": "0",
+    "CanSubscribe": "1",
+    "Entity": "MyFirstModule.PBE_CarSold",
+    "MessageName": "CarSold",
+    "ServiceQualifiedName": "MyFirstModule.CarEventsApi"
+  }
+]
+[
+  {
+    "Generalization": "",
+    "QualifiedName": "MyFirstModule.Car"
+  },
+  {
+    "Generalization": "",
+    "QualifiedName": "MyFirstModule.VCar"
+  },
+  {
+    "Generalization": "",
+    "QualifiedName": "MyFirstModule.PBE_CarSold"
+  }
+]
+[
+  {
+    "DataType": "AutoNumber",
+    "EntityQualifiedName": "MyFirstModule.Car",
+    "EnumerationQualifiedName": "",
+    "Name": "ModelId"
+  },
+  {
+    "DataType": "String",
+    "EntityQualifiedName": "MyFirstModule.Car",
+    "EnumerationQualifiedName": "",
+    "Name": "Brand"
+  },
+  {
+    "DataType": "String",
+    "EntityQualifiedName": "MyFirstModule.Car",
+    "EnumerationQualifiedName": "",
+    "Name": "Model"
+  },
+  {
+    "DataType": "String",
+    "EntityQualifiedName": "MyFirstModule.Car",
+    "EnumerationQualifiedName": "",
+    "Name": "ModelType"
+  },
+  {
+    "DataType": "Long",
+    "EntityQualifiedName": "MyFirstModule.VCar",
+    "EnumerationQualifiedName": "",
+    "Name": "ModelID"
+  },
+  {
+    "DataType": "String",
+    "EntityQualifiedName": "MyFirstModule.VCar",
+    "EnumerationQualifiedName": "",
+    "Name": "Brand"
+  },
+  {
+    "DataType": "Long",
+    "EntityQualifiedName": "MyFirstModule.PBE_CarSold",
+    "EnumerationQualifiedName": "",
+    "Name": "CarId"
+  }
+]
+[]
+[]

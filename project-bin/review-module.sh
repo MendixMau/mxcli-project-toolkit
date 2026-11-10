@@ -75,6 +75,7 @@ MPR="$(find_mpr)" || exit 2
 #   1. <project>/bin  — the project's own, possibly tuned, copy wins
 #   2. $BIN           — alongside this script (the installed-copy case)
 #   3. $MXTK_ROOT/bin and $MXTK_ROOT/project-bin — the shared toolkit
+#   4. find_toolkit_root's bin/ and project-bin/ (_common.sh; the Toolkit root row, #672)
 # Echoes the first hit; echoes <project>/bin/NAME when there is none, so the
 # caller's own "not found" message names the place a reader would look first.
 # Step 3 needs $MXTK_ROOT, and nothing exports it — so the toolkit half of the
@@ -98,7 +99,9 @@ fi
 
 _tool() {
   local n="$1" d
-  for d in "$ROOT/bin" "$BIN" "${MXTK_ROOT:-}/bin" "${MXTK_ROOT:-}/project-bin"; do
+  local tk; tk="$(find_toolkit_root 2>/dev/null || true)"
+  for d in "$ROOT/bin" "$BIN" "${MXTK_ROOT:-}/bin" "${MXTK_ROOT:-}/project-bin" \
+           "${tk:+$tk/bin}" "${tk:+$tk/project-bin}"; do
     [ -n "$d" ] && [ -x "$d/$n" ] && { printf '%s\n' "$d/$n"; return 0; }
   done
   printf '%s\n' "$ROOT/bin/$n"
@@ -315,14 +318,20 @@ conf_slice() {
 # The ledger is a claim. This measures it. A module with no ledger has made no claims to
 # measure, which is a FAULT and emphatically not a pass — "no ledger" is exactly the hole
 # that let projects ship with no coverage-ledger.md at all and read as silence.
-LEDGER="$ROOT/architecture/modules/$MODULE/coverage-ledger.md"
-# A module may keep ONLY the per-BRD directory (<Module>/coverage-ledger/<BRD>.md) with no index
-# file beside it; that is a ledger, and conformance-check.sh / coverage-preflight.sh both read it.
-LEDGER_PB_DIR="${LEDGER%.md}"
-has_ledger() { [ -f "$LEDGER" ] || ls "$LEDGER_PB_DIR"/*.md >/dev/null 2>&1; }
+# Resolved by the one shared lookup (mxtk_resolve_ledger, _common.sh): the per-BRD directory,
+# <Module>/coverage-ledger.md, the flat <Module>-coverage-ledger.md, then the single-BRD
+# architecture/coverage-ledger.md — the same four forms conformance-check.sh and
+# coverage-preflight.sh read. Knowing only the first two FAULTed both rungs on a valid
+# single-BRD ledger the dedicated checks measured clean (#673).
+LEDGER="$(mxtk_resolve_ledger "$ROOT" "$MODULE" || true)"
+# LEDGER_IDX / LEDGER_PB_DIR: the file and the per-BRD directory read for BRD names below. A
+# directory ledger keeps its index file beside it (<Module>/coverage-ledger.md), read as before.
+if [ -d "$LEDGER" ]; then LEDGER_PB_DIR="$LEDGER"; LEDGER_IDX="$LEDGER.md"
+else LEDGER_PB_DIR="${LEDGER%.md}"; LEDGER_IDX="$LEDGER"; fi
+has_ledger() { [ -n "$LEDGER" ]; }
 if ! has_ledger; then
   fault_instrument "conformance (ledger claims vs live model)" conformance \
-    "no architecture/modules/$MODULE/coverage-ledger.md or coverage-ledger/*.md" \
+    "no coverage ledger for $MODULE (modules/$MODULE/coverage-ledger[.md|/], modules/$MODULE-coverage-ledger.md, architecture/coverage-ledger.md)" \
     "This module has made no recorded claims, so none could be measured." \
     "Its conformance is UNMEASURED, not clean: there is no row here saying" \
     "'the model matches the decision' because there is no decision on file."
@@ -434,7 +443,7 @@ if has_ledger; then
   while IFS= read -r cand; do
     [ -n "$cand" ] && [ -f "$ROOT/$cand" ] && BRD_ALL="$BRD_ALL$cand"$'\n'
   done <<EOF
-$(cat "$LEDGER" "$LEDGER_PB_DIR"/*.md 2>/dev/null | grep -oE '[A-Za-z0-9_/.-]*\.brd\.json' | sort -u)
+$(cat "$LEDGER_IDX" "$LEDGER_PB_DIR"/*.md 2>/dev/null | grep -oE '[A-Za-z0-9_/.-]*\.brd\.json' | sort -u)
 EOF
   BRD_N=$(printf '%s' "$BRD_ALL" | grep -c . || true)
   BRD_REL="$(printf '%s' "$BRD_ALL" | head -1)"
@@ -446,7 +455,7 @@ if [ -z "$COV" ]; then
     "Requirement traceability for $MODULE is UNMEASURED, not clean."
 elif ! has_ledger; then
   fault_instrument "coverage (BRD leaves: UNCLAIMED/PHANTOM/DOUBLE)" coverage \
-    "no coverage-ledger.md or coverage-ledger/*.md for $MODULE" \
+    "no coverage ledger for $MODULE (none of the four forms in _common.sh mxtk_resolve_ledger)" \
     "Requirement traceability for $MODULE is UNMEASURED, not clean."
 elif [ -z "$BRD" ]; then
   fault_instrument "coverage (BRD leaves: UNCLAIMED/PHANTOM/DOUBLE)" coverage \
@@ -461,7 +470,7 @@ else
   # coverage-check-all.sh so this reuses the same `run()` verdict machinery (PASS/FINDING/FAULT
   # from a real exit code) every other rung here already goes through, rather than a bespoke
   # ad-hoc pass/fail path.
-  LEDGER_DIR="$(dirname "$LEDGER")/coverage-ledger"
+  LEDGER_DIR="$LEDGER"
   if [ -d "$LEDGER_DIR" ]; then
     ALL="$(_tool coverage-check-all.sh)"
     # Pass the BRDs THIS ledger set names, not a glob over the BRD directory: on a

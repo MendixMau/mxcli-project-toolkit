@@ -56,7 +56,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/skills-over-scripts.md` | Script or skill? Before writing any .js or bash/.sh for a check, checker, linter, gate or report, or adding a rule or regex to an existing one |
 | `skills/image-transcription.md` | Images to read listed by images-to-md or the documents index |
 | `skills/mendix-best-practices-index.md` | Asked "is there a Mendix best practice for this", or mapping a lint rule that rose in the ratchet back to the practice and the skill that prevents it |
-| `project-bin/assemble-prototype.js` | After every wireframe edit: assembles design/wireframes/*.html into design/prototype.html, one hash-routed page a stakeholder can click through instead of twenty separate files. Generated, never edited (design-artifacts.md Step 3) |
+| `project-bin/assemble-prototype.js` | After every wireframe edit: assembles design/wireframes/*.html into design/prototype.html, one hash-routed page a stakeholder can click through instead of twenty separate files. Generated, never edited (design-artifacts.md Step 3). Before the Stage 3 sign-off question, review-agent LOOKs at its output at 390/360/320/1280 px (design-artifacts.md Step 3d, obligation prototype-look) |
 | `project-bin/check-prototype-links.js` | Before wireframes pass to the build loop, and with --brd before a BRD is signed off: dead #/route links, orphan screens, controls with no data-bind and no data-cut, BRD routes no screen has, screens no use case walks (design-artifacts.md Step 3c, brd-validation.md check 8) |
 | `skills/cloud-dev-environment.md` | Setting up or resuming an mxcli project in a cloud/ephemeral container |
 | `skills/existing-app-assurance.md` | Auditing or regression/e2e-testing an EXISTING app |
@@ -94,6 +94,8 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/wiring-sweep.md` | Every module before it is called done; buttons, links or actions that do nothing when clicked |
 | `skills/workflow-structure-rules.md` | Designing or reviewing a Workflow's SHAPE before or after the MDL |
 | `skills/rest-between-mendix-apps.md` | App-to-app REST or microservices: two or more Mendix apps you build that read each other over REST |
+| `skills/multi-app-release.md` | Releasing or deploying a change that CROSSES apps |
+| `bin/contract-check.sh` | Changing anything a published contract exposes |
 | `skills/bug-submission-checklist.md` | Preparing an mxcli/Studio Pro bug for submission |
 | `skills/upstream-feedback.md` | About to open an issue, PR or discussion against mxcli or the toolkit |
 | `skills/empty-widget-triage.md` | A page/grid/list/combobox renders or shows empty ('0 to 0 of 0', blank cells, zero rows, zero options) during UI review or an e2e run |

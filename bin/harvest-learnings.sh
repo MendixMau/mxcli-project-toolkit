@@ -15,6 +15,10 @@
 #                                  toolkit defects, or toolkit feedback (TD-table pattern)
 #   3. bin/*.sh, bin/*.js        — installed toolkit scripts that differ from the toolkit's
 #                                  shipped copy (a local patch that never traveled)
+#   5. docs/bugs.jsonl           — bugs logged with bin/file-bugs.sh --add and not filed yet: counted
+#                                  and pointed at file-bugs.sh, never drafted here (that lane redacts;
+#                                  this one would copy raw client text into the public inbox). #647:
+#                                  13 such rows were reported as "Nothing to harvest".
 #
 # WHAT IT WRITES. contrib/inbox/<date>-<project>-{bugs,promotions,patches}.md in the TOOLKIT
 # clone this script runs from. It never commits — REVIEW EVERY GENERATED FILE FOR CLIENT DATA
@@ -254,8 +258,31 @@ else
   echo "  metrics: no .claude/loop/metrics-ledger.tsv (project predates the metrics ledger, or exec.sh never ran)"
 fi
 
+# ---- 5. Bugs logged in docs/bugs.jsonl and not filed ---------------------------------------
+# Counted the way gate-check.sh's bugs_unfiled_line does: a row is open when its status is "open"
+# or it has none (file-bugs.py's own default).
+BUGS_OPEN=0; BUGS_BUNDLED=0
+if [ -f "$PROJECT_DIR/docs/bugs.jsonl" ]; then
+  BUGS_OPEN="$(grep -E '^[[:space:]]*\{' "$PROJECT_DIR/docs/bugs.jsonl" 2>/dev/null \
+    | awk '/"status"[[:space:]]*:[[:space:]]*"open"/ || !/"status"[[:space:]]*:/ { c++ } END { print c + 0 }')"
+  BUGS_BUNDLED="$(grep -E '^[[:space:]]*\{' "$PROJECT_DIR/docs/bugs.jsonl" 2>/dev/null | grep -cE '"status"[[:space:]]*:[[:space:]]*"bundled"')"
+  if [ "${BUGS_BUNDLED:-0}" -gt 0 ] 2>/dev/null; then
+    echo "  bugs.jsonl: $BUGS_BUNDLED bug(s) bundled, not yet filed (file-bugs.sh --bundle: mail the toolkit-bugs-*.md file, or --file PBUG-NN)."
+  fi
+fi
+if [ "${BUGS_OPEN:-0}" -gt 0 ] 2>/dev/null; then
+  echo "  bugs.jsonl: $BUGS_OPEN logged bug(s) not filed yet — not drafted here (raw rows are not redacted)."
+  echo "    Review and file them: bin/file-bugs.sh --project \"$PROJECT_DIR\" (dry run), then --links or --auto."
+else
+  BUGS_OPEN=0
+  [ "${BUGS_BUNDLED:-0}" -gt 0 ] 2>/dev/null || echo "  bugs.jsonl: no unfiled bugs (or no docs/bugs.jsonl)"
+fi
+
 echo ""
-if [ "$WROTE" -gt 0 ]; then
+if [ "$WROTE" -eq 0 ] && [ "$BUGS_OPEN" -gt 0 ]; then
+  echo "No inbox files drafted, but $BUGS_OPEN logged bug(s) wait in docs/bugs.jsonl — file them with"
+  echo "bin/file-bugs.sh (above); that is their lane, not contrib/inbox."
+elif [ "$WROTE" -gt 0 ]; then
   echo "$WROTE inbox file(s) drafted in $INBOX."
   echo "REVIEW EACH FOR CLIENT DATA (names, codenames, real paths — genericize), then:"
   echo "  cd $TOOLKIT_ROOT && git add contrib/inbox && git commit -- contrib/inbox && open a PR"

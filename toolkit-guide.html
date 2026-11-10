@@ -78,7 +78,7 @@
 <body>
 <div class="wrap">
 
-  <h1>mxcli Project Toolkit — how this works</h1>
+  <h1>mxcli Project Toolkit — how this works <span class="badge soft">Toolkit 2</span></h1>
   <p class="lede">You point this toolkit at legacy source code <em>or</em> a stack of requirements, and it interviews you through to a running Mendix app. Every stage produces an artifact you can show a customer, and every decision you make is recorded — nothing is silently decided for you.</p>
 
   <h2>1 · Five ways in — pick what you're starting from</h2>
@@ -112,6 +112,8 @@
 
   <h2>2 · The journey</h2>
   <p class="lede"><span class="badge gate">✋ HARD GATE</span> means the pipeline stops until you explicitly confirm a decision. <span class="badge soft">SOFT GATE</span> means unknowns get a recommended default, recorded as <code>ASSUMED</code>, and the run keeps moving.</p>
+
+  <p style="font-size:13.5px; color:var(--ink-soft);">How fast and how strict a build is, is yours to pick: <code>high-speed</code>, <code>balanced</code> (the default) or <code>high-quality</code>, set as <code>Pipeline mode:</code> in <code>PROJECT.md</code>. Each build row gets a light check; the heavier proof and a bounded polish run at module close.</p>
 
   <ul class="timeline">
     <li><span class="stage-no">P</span>
@@ -326,6 +328,10 @@ never a sibling next to it.</span></pre>
     <div class="card panic">
       <h3>“Studio Pro won't start / hangs on launch”</h3>
       <p>Almost always a stale background process from the last session. Tell the agent: <span class="kbd">SP won't start — kill any stale Studio Pro processes.</span> That's the entire problem 95% of the time; a leftover <code>.mpr.lock</code> file is the other 5%.</p>
+    </div>
+    <div class="card panic">
+      <h3>“I think the toolkit itself is wrong”</h3>
+      <p>Ask the agent to log it with <code>bin/file-bugs.sh --add</code>. Names and paths are redacted first. With <code>Bug filing: auto</code> in <code>PROJECT.md</code> it files the report with your own <code>gh</code> login; otherwise you get a pre-filled link, or a file to mail.</p>
     </div>
   </div>
   <p style="font-size:13.5px; color:var(--ink-soft); margin-top:10px;">Nothing here requires reinstalling anything or starting over. Git commits at every phase gate are the real safety history.</p>

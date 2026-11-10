@@ -297,7 +297,10 @@ xexec() { ( cd "$X" && MXTK_ROOT="$TK" SP_RESTART=0 MXTK_NO_INSTALL=1 SKIP_DOCTO
 xcommit() { ( cd "$X" && git add -A && git -c user.email=t@t -c user.name=t commit -qm step ) >/dev/null 2>&1; }
 out=$(xexec mdlsource/01-page.mdl)
 case "$out" in *"✓ Script applied"*"first page row of Demo: also a LOOK at 390"*) ok "W3 balanced, the module's first page row: also a LOOK at 390" ;; *) bad "W3 first page row" "$(printf '%s' "$out" | tail -15)" ;; esac
-case "$out" in *'full build done: if the app runs with --watch, run `mxcli run restart` before the next LOOK'*) ok "W4 exec.sh: the --watch restart line after a full gate" ;; *) bad "W4 exec watch line" "$(printf '%s' "$out" | tail -8)" ;; esac
+# #686: the gate now builds a copy (.mxtk/build/), so the served folder is untouched and exec says
+# that instead of asking for a restart (tests/wave2/test-build-tree.sh has the in-place fallback).
+case "$out" in *"full build ran in .mxtk/build/ — the running app's deployment/ was not touched"*) ok "W4 exec.sh: after a full gate, says the build left the app's deployment/ alone" ;; *) bad "W4 exec watch line" "$(printf '%s' "$out" | tail -8)" ;; esac
+case "$out" in *'full build done: if the app runs with --watch'*) bad "W4 exec.sh still asks for a restart after a build in the copy" ;; *) ok "W4 exec.sh: no restart line after a build in the copy" ;; esac
 xcommit; out=$(xexec mdlsource/02-page.mdl)
 case "$out" in *"✓ Script applied"*) case "$out" in *"first page row of"*) bad "W3 second page row of Demo still says first" ;; *) ok "W3 the module's second page row: no extra 390 LOOK" ;; esac ;; *) bad "W3 second exec did not apply" "$(printf '%s' "$out" | tail -10)" ;; esac
 xcommit; rm -rf "$X/.claude/loop/look"; printf 'Pipeline mode: high-speed\n' > "$X/PROJECT.md"; xcommit

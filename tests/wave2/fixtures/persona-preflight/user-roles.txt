@@ -1,0 +1,10 @@
+WARNING: This is a vibe-coded PoC, alpha quality, use with caution.
+| Name          | Module Roles | Manage All | Check Security |
+|---------------|--------------|------------|----------------|
+| Administrator | 3            | Yes        | Yes            |
+| User          | 4            | No         | Yes            |
+| Requester     | 3            | No         | Yes            |
+| Approver      | 4            | No         | Yes            |
+| Admin         | 3            | No         | Yes            |
+
+(5 user roles)

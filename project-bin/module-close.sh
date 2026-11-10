@@ -64,10 +64,23 @@ chk=$(grep -v WARNING "$_chk_out" | tail -3); rm -f "$_chk_out"
 # missing or stale) gets no unrequested build here (#587 review).
 if [ -f .claude/loop/gate-kind.state ] && grep -q '^kind: check' .claude/.model-verified 2>/dev/null \
    && ! bash bin/model-stamp.sh check -q --full >/dev/null 2>&1; then
+  wnote="${MXTK_WATCH_NOTE:-full build done: if the app runs with --watch, run \`mxcli run restart\` before the next LOOK}"
   chk="$chk
-full build (bin/verify-model.sh): $(bash bin/verify-model.sh 2>&1 | grep -E '^(✓|✗)' | tail -2)
-${MXTK_WATCH_NOTE:-full build done: if the app runs with --watch, run \`mxcli run restart\` before the next LOOK}"
-  echo "module-close $mod: ${MXTK_WATCH_NOTE:-full build done: if the app runs with --watch, run \`mxcli run restart\` before the next LOOK}"
+full build (bin/verify-model.sh): $(bash bin/verify-model.sh 2>&1 | grep -E '^(✓|✗)' | tail -2)"
+  # verify-model.sh builds a copy (.mxtk/build/), so the app's deployment/ is untouched. Built in
+  # place (its fallback) with a run --local app recorded: check its web client and restart it only
+  # when the build removed it AND the toolkit started it (app-restart.sh --if-client-gone, #686);
+  # no app recorded → the note.
+  _mpd=$(dirname "$MPR")
+  if [ "$(cat .claude/loop/last-full-build 2>/dev/null)" = copy ]; then
+    wnote="full build ran in .mxtk/build/ — the running app's deployment/ was not touched"
+  elif { [ -f "$_mpd/.mxcli/run-local.json" ] || [ -f "$(find_model_dir 2>/dev/null || echo "$_mpd")/.mxcli/run-local.json" ]; } \
+     && [ -f bin/app-restart.sh ]; then
+    wnote="$(bash bin/app-restart.sh --if-client-gone 2>&1 | tr '\n' ' ' | sed 's/  */ /g; s/ $//')"
+  fi
+  chk="$chk
+$wnote"
+  echo "module-close $mod: $wnote"
 fi
 # Before verify-module, so its conformance rung measures the ledger as it now stands. Its exit is
 # not this script's verdict: verify-module's conformance rung reports the same rows right after.
@@ -109,6 +122,7 @@ pt=${pt:-85}; pr=${pr:-3}; pmode=$(mxtk_pipeline_mode "$PROJECT_ROOT" 2>/dev/nul
   echo "LOOK every page at 390 and 1280. Polish loop per page (Pipeline mode: $pmode), up to $pr rounds of fix → page-fidelity → LOOK;"
   echo "stop at fidelity ≥ $pt% AND a written LOOK with no blocking issue (a score alone never passes; UNMEASURED: the LOOK decides)."
   echo "Gap left after $pr rounds: log it in design/ui-reviews/ and report it at the gate; it does not block the module."
+  echo "First LOOK: every page. Polish round 2+: re-shoot only \`./bin/look-ledger.sh reshoot $mod\` (K of N, N=$(printf '%s\n' "$pages" | sed '/^$/d' | wc -l | tr -d ' ') here); the report keeps 'N of N pages reviewed' and adds an addendum for the K."
   echo
   echo "| Page | Role | Seen (screenshot path) | Defect | Fixed in row/script |"
   echo "|---|---|---|---|---|"

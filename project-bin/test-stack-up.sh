@@ -827,6 +827,13 @@ if [ $APP_FOUND -ne 0 ]; then
     fi
     if prove_app; then
       APP_FOUND=0; record_served
+      # This app was started by the toolkit: app-restart.sh --if-client-gone may restart it after a
+      # full build replaced its web client (#686). Its recorded pid is the proof of ownership.
+      if pick_local_hs && _op="$(hs_field pid)" && [ -n "$_op" ]; then
+        { mkdir -p "$ROOT/.claude/loop/app-restart" && { [ -f "$ROOT/.claude/loop/app-restart/.gitignore" ] \
+            || printf '*\n' > "$ROOT/.claude/loop/app-restart/.gitignore"; } \
+            && printf '%s\n' "$_op" > "$ROOT/.claude/loop/app-restart/owner.pid"; } 2>/dev/null || true
+      fi
       ok "App serving on :$APP_PORT in $(( $(date +%s) - T0 ))s (ownership $APP_OWNERSHIP, $APP_SOURCE) — --watch keeps it current"
     else
       bad "mxcli run --local returned, but no Mendix of this project answers over HTTP — see $LOCAL_LOG"; exit 1

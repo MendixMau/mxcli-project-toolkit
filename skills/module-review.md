@@ -48,6 +48,14 @@ fidelity is `UNMEASURED` the LOOK alone decides. After R rounds, log the gap in
 `design/ui-reviews/` and move on: reported at the gate, not blocking. T / R come from PROJECT.md
 `Pipeline mode:` (balanced, the default: 85% / 3; `iterative-build-loop.md` § Pipeline mode);
 `module-close.sh` prints them, plus a `Polish: n of R` row per page to count rounds in.
+**Re-shoot only what a polish round changed.** The first LOOK covers every page. Round 2 onward runs
+`bin/look-ledger.sh reshoot <Module>`: it lists the pages built after their last seen LOOK (plus every
+page when a layout, snippet or `.scss`/`.css` file changed after it) and prints `K of N page(s) to re-shoot`;
+the other N-K are SEEN at their last build and are not re-shot. `NOT MEASURED` means no owed row exists:
+run the full LOOK. The report keeps its headline `N of N pages reviewed` and gains an addendum (its own
+`VALID AT:` and K `PROOF-OF-LOOK:` lines, stage 5): the obligation still closes against N. Failure it
+prevents: 7 polish rounds each re-shooting all pages (7.5 min of close shots in speed-night run 3) while
+each round touched 1-2 pages.
 
 ---
 

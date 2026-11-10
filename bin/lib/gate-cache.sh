@@ -216,3 +216,162 @@ gc_cache_end() {
   rm -f "$out" "$GC_CACHE_REF.new" "$GC_CACHE_FILE" "$GC_CACHE_REF" "$GC_CACHE_REF2" 2>/dev/null
   return 0
 }
+
+# ---------------------------------------------------------------------------------------------
+# Stage-4 coverage cache (#686 speed audit). stage4_coverage runs coverage-preflight.sh once per
+# module ledger on EVERY gate-check round — ~25 s of a Stage 5+ query on a field project — to
+# re-derive a verdict whose inputs rarely change between rounds. The whole-evaluation cache
+# above cannot help: during a build something in the project changes every round.
+#
+# So this one is keyed on exactly what the measurement reads, by CONTENT, never by mtime:
+#   - every file under <project>/architecture/ (ledgers in all four shapes, build plans, briefs:
+#     a superset of what preflight reads, so no ledger shape can be missed);
+#   - every BRD where coverage-preflight.sh or discover-brds.sh looks
+#     (analysis/*/brd, analysis/*/knowledge-base/brd, analysis/knowledge-base/brd, knowledge-base/brd);
+#   - the toolkit code that produces the verdict (preflight, coverage-check, _common, _claims,
+#     gate-check, this file, discover-brds), so a toolkit pull is a miss;
+#   - the absolute project dir and the environment the measurement reads (COVERAGE_ENGINE,
+#     LEDGER_FILE, BRD_FILE, COVERAGE_CHECK_CAP, PATH); the two env files mxtk_load_env reads
+#     (.claude/toolkit.env, ~/.mxcli-toolkit.env); and the CONTENT of whatever BRD_FILE,
+#     LEDGER_FILE or COVERAGE_ENGINE points at, from either source, wherever it lives;
+#   - symlinks are followed (find -L), so a linked architecture/ or ledger is hashed by content.
+# `cksum` prints each file's path, size and CRC, so an edit, an overwrite that keeps the old mtime
+# (cp -p, touch -d), an added file and a deleted one all change the key. The signature is taken
+# before AND after the measurement and the result is stored only when both match, so an edit
+# made while preflight ran is never stored under the old key. Any failure to compute it is a
+# miss, never a hit. File: <project>/.mxtk/gate-cache-s4cov (the name keeps it out of the
+# whole-evaluation cache's freshness scan); written only where gc_cache_begin would write.
+# Opt-out: MXTK_S4COV_CACHE=0, or MXTK_GATE_CACHE_TTL_MIN=0 (turns every gate cache off).
+# ---------------------------------------------------------------------------------------------
+
+# gc_s4cov_enabled — may this run read/write the stage-4 coverage cache? Sets GC_S4_FILE.
+gc_s4cov_enabled() {
+  GC_S4_FILE=""
+  [ "${MXTK_S4COV_CACHE:-1}" = "0" ] && return 1
+  [ "${MXTK_GATE_CACHE_TTL_MIN:-30}" = "0" ] && return 1
+  [ -d "${PROJECT_DIR:-/nonexistent}" ] || return 1
+  if [ ! -d "$PROJECT_DIR/.mxtk" ]; then
+    grep -qsE '^/?\.mxtk/?[[:space:]]*$' "$PROJECT_DIR/.gitignore" 2>/dev/null || return 1
+  fi
+  GC_S4_FILE="$PROJECT_DIR/.mxtk/gate-cache-s4cov"
+}
+
+# gc_s4cov_values — every candidate value of BRD_FILE / LEDGER_FILE / COVERAGE_ENGINE, one per
+# line: the shell's, and each such line of both env files mxtk_load_env reads. A shadowed value is
+# listed too (over-inclusive is a miss at worst, never a stale hit).
+gc_s4cov_values() {
+  local v k f line
+  printf '%s\n' "${BRD_FILE:-}" "${LEDGER_FILE:-}" "${COVERAGE_ENGINE:-}"
+  for f in "$PROJECT_DIR/.claude/toolkit.env" "${HOME:-/nonexistent}/.mxcli-toolkit.env"; do
+    [ -f "$f" ] || continue
+    while IFS= read -r line || [ -n "$line" ]; do
+      line="${line%$'\r'}"
+      case "$line" in *=*) ;; *) continue ;; esac
+      k="${line%%=*}"; k="${k#"${k%%[![:space:]]*}"}"; k="${k#export}"; k="${k//[[:space:]]/}"
+      case "$k" in BRD_FILE|LEDGER_FILE|COVERAGE_ENGINE) ;; *) continue ;; esac
+      v="${line#*=}"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"
+      case "$v" in \"*\") v="${v#\"}"; v="${v%\"}" ;; \'*\') v="${v#\'}"; v="${v%\'}" ;; esac
+      printf '%s\n' "$v"
+    done < "$f"
+  done
+}
+
+# gc_s4cov_resolve <value> — prints every existing file or directory it may name, or returns 1.
+# A Windows path (C:\x, C:/x — pasted as-is into toolkit.env, which _common.sh allows) is
+# normalised first: `cygpath -u` where Git Bash has it, else X:\ / X:/ -> /x/ (mxtk_posix_path's
+# rule). A relative value is tried as given and against the project dir.
+gc_s4cov_resolve() {
+  local v="$1" u c
+  case "$v" in
+    [A-Za-z]:*|*\\*)
+      u=""
+      command -v cygpath >/dev/null 2>&1 && u="$(cygpath -u -- "$v" 2>/dev/null)"
+      if [ -z "$u" ]; then
+        u="$v"
+        case "$u" in [A-Za-z]:*) u="/$(printf '%s' "${u%%:*}" | tr '[:upper:]' '[:lower:]')${u#*:}" ;; esac
+        u="${u//\\//}"
+      fi
+      v="$u" ;;
+  esac
+  # EVERY existing candidate is printed, not the first: the measurement runs inside the project
+  # (preflight reads the value from there), while this runs from gate-check's cwd, so a decoy
+  # copy beside the cwd must not stand in for the project's file (re-review of #715).
+  local hit=1
+  for c in "$v" "$PROJECT_DIR/$v"; do
+    { [ -f "$c" ] || [ -d "$c" ]; } && { printf '%s\n' "$c"; hit=0; }
+  done
+  return $hit
+}
+
+# gc_s4cov_pointed — NUL-separated files that BRD_FILE / LEDGER_FILE / COVERAGE_ENGINE point at,
+# wherever they live; a directory (a per-BRD ledger dir) contributes every file under it.
+# Returns 1 when any value names nothing that exists: then the key is not computed and nothing is
+# cached (review of #715 — hashing only the PATH of an unresolvable file let a Windows-style
+# value replay a stale PASS after the file it really meant was edited).
+gc_s4cov_pointed() {
+  local v r out=""
+  while IFS= read -r v; do
+    [ -n "$v" ] || continue
+    r="$(gc_s4cov_resolve "$v")" || return 1
+    out="$out$r"$'\n'
+  done < <(gc_s4cov_values)
+  printf '%s' "$out" | while IFS= read -r r; do
+    [ -n "$r" ] || continue
+    if [ -d "$r" ]; then find -L "$r" -type f -print0 2>/dev/null; else printf '%s\0' "$r"; fi
+  done
+}
+
+# gc_s4cov_key <architecture-dir> — sets GC_S4_KEY (one line); returns 1 if it cannot be computed.
+# find -L: a symlinked architecture/ or ledger is hashed by its target's content (review of #715:
+# without it both replayed a stale PASS). The two env files are hashed (they can set the keys the
+# measurement reads), and so are the files those keys point at — a path in the key is not enough.
+gc_s4cov_key() {
+  local arch="$1" abs s f
+  GC_S4_KEY=""
+  abs="$(cd "$PROJECT_DIR" 2>/dev/null && pwd -P)" || return 1
+  gc_s4cov_pointed >/dev/null || return 1
+  s="$( {
+          [ -d "$arch" ] && find -L "$arch" -type f -print0 2>/dev/null
+          for f in "$PROJECT_DIR"/analysis/*/brd/*.brd.json "$PROJECT_DIR"/analysis/*/knowledge-base/brd/*.brd.json \
+                   "$PROJECT_DIR"/analysis/knowledge-base/brd/*.brd.json "$PROJECT_DIR"/knowledge-base/brd/*.brd.json \
+                   "$PROJECT_DIR"/.claude/toolkit.env "${HOME:-/nonexistent}"/.mxcli-toolkit.env \
+                   "$TOOLKIT_DIR"/project-bin/coverage-preflight.sh "$TOOLKIT_DIR"/project-bin/_common.sh \
+                   "$TOOLKIT_DIR"/project-bin/_claims.sh "$TOOLKIT_DIR"/bin/coverage-check.sh \
+                   "$TOOLKIT_DIR"/bin/gate-check.sh "$TOOLKIT_DIR"/bin/lib/gate-cache.sh \
+                   "$TOOLKIT_DIR"/bin/lib/discover-brds.sh; do
+            [ -f "$f" ] && printf '%s\0' "$f"
+          done
+          gc_s4cov_pointed
+        } | LC_ALL=C sort -zu | xargs -0 cksum 2>/dev/null | cksum 2>/dev/null )" || return 1
+  [ -n "$s" ] || return 1
+  GC_S4_KEY="s4cov-v2|dir=$abs|arch=$arch|sig=${s// /-}|engine=${COVERAGE_ENGINE:-}|ledger=${LEDGER_FILE:-}|brd=${BRD_FILE:-}|cap=${COVERAGE_CHECK_CAP:-}|path=${PATH:-}"
+  GC_S4_KEY="${GC_S4_KEY//$'\n'/ }"
+}
+
+# gc_s4cov_get — on a hit prints the cached result (may be empty) and returns 0; else returns 1.
+# Needs GC_S4_FILE and GC_S4_KEY.
+gc_s4cov_get() {
+  local all
+  [ -n "${GC_S4_FILE:-}" ] && [ -n "${GC_S4_KEY:-}" ] && [ -f "$GC_S4_FILE" ] || return 1
+  IFS= read -r -d '' all < "$GC_S4_FILE" || true
+  [ "${all%%$'\n'*}" = "$GC_S4_KEY" ] || return 1
+  case "$all" in *$'\n'"# s4cov-end"*) ;; *) return 1 ;; esac
+  all="${all#*$'\n'}"; all="${all%# s4cov-end*}"; all="${all%$'\n'}"
+  printf '%s' "$all"
+  [ -n "$all" ] && printf '\n'
+  return 0
+}
+
+# gc_s4cov_put <architecture-dir> <result> — stores <result> under GC_S4_KEY, but only when the
+# inputs still have that key (nothing changed while the measurement ran). Never fails the run.
+gc_s4cov_put() {
+  local arch="$1" res="$2" before="${GC_S4_KEY:-}" tmp
+  [ -n "${GC_S4_FILE:-}" ] && [ -n "$before" ] || return 0
+  gc_s4cov_key "$arch" || return 0
+  [ "$GC_S4_KEY" = "$before" ] || { rm -f "$GC_S4_FILE" 2>/dev/null; return 0; }
+  mkdir -p "$PROJECT_DIR/.mxtk" 2>/dev/null || return 0
+  tmp="$GC_S4_FILE.new.$$"
+  { printf '%s\n' "$GC_S4_KEY"; [ -n "$res" ] && printf '%s\n' "$res"; printf '# s4cov-end\n'; } > "$tmp" 2>/dev/null \
+    && mv -f "$tmp" "$GC_S4_FILE" 2>/dev/null || rm -f "$tmp" 2>/dev/null
+  return 0
+}

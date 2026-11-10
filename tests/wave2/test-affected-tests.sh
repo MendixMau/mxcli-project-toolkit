@@ -499,6 +499,46 @@ has M3 "widgets	NOT MEASURED (callers NOT MEASURED" && [ "$(grep -c '^journey	' 
   && ok "M3 callers cannot be measured: unsure, every journey" || bad "M3 unsure" "$(grep -e ^widgets -e ^journey "$WORK/out.M3")"
 run M4 --no-model "$WORK/pg.mdl" >/dev/null
 [ "$(grep -c '^journey	' "$WORK/out.M4")" = 4 ] && has M4 "widgets	NOT MEASURED (--no-model)" && ok "M4 --no-model: unsure, every journey" || bad "M4" "$(grep -e ^widgets -e ^journey "$WORK/out.M4")"
+echo "== N: an alter navigation selects the journeys that walk the changed menu item, not every journey (speed-night D/B) =="
+# Golden input: the real navigation scripts of the run-3 PurchaseApp (fixtures/affected-tests/nav-*.mdl, verbatim
+# lines of 050-request-list / 076-dashboard / 090-navigation). `exec.sh --subjects` reads all three as
+# "unmapped", so no mxcli call is made: the selection is the captions in the script against the journeys.
+rm -f "$P/journeys/"*.journey.json "$P/tests/e2e/"*.journey.json
+echo '{"id":"N-1","steps":[{"actions":[{"do":"nav","group":"Purchasing","item":"My requests","settleMs":2500}]}]}' > "$P/journeys/n-requests.journey.json"
+echo '{"id":"N-2","steps":[{"actions":[{"do":"nav","group":"Approval","item":"Dashboard","settleMs":2500}]}]}' > "$P/journeys/n-dashboard.journey.json"
+echo '{"id":"N-3","steps":[{"actions":[{"do":"nav","group":"Approval","item":"Approval inbox"}]}]}' > "$P/journeys/n-inbox.journey.json"
+echo '{"id":"N-4","persona":"approver","steps":[{"ui":{"ready":".mx-name-dgInbox"}}]}' > "$P/tests/e2e/n-other.journey.json"
+NAVFX="$TOOLKIT/tests/wave2/fixtures/affected-tests"
+run N1 "$NAVFX/nav-insert-group-item.mdl" >/dev/null
+[ "$(grep -c '^journey	' "$WORK/out.N1")" = 1 ] && has N1 "journey	journeys/n-requests.journey.json	walks changed menu item 'My requests'" \
+  && has N1 "navigation	narrowed	1 changed menu item(s): 'My requests'" && ok "N1 insert { menu 'Purchasing' { menu item 'My requests' } }: 1 of 4 journeys, the item named" || bad "N1" "$(grep -e ^journey -e ^navigation -e ^widgets "$WORK/out.N1")"
+run N2 "$NAVFX/nav-insert-into-item.mdl" >/dev/null
+[ "$(grep -c '^journey	' "$WORK/out.N2")" = 1 ] && has N2 "journey	journeys/n-dashboard.journey.json	walks changed menu item 'Dashboard'" && ok "N2 insert into 'Approval' { menu item 'Dashboard' }: only the journey that navigates to Dashboard" || bad "N2" "$(grep -e ^journey -e ^navigation "$WORK/out.N2")"
+run N3 "$NAVFX/nav-home-page.mdl" >/dev/null
+[ "$(grep -c '^journey	' "$WORK/out.N3")" = 4 ] && has N3 "a home page change moves a role's landing" && lacks N3 "navigation	narrowed" && ok "N3 drop + set home page (090-navigation): every journey, reason named, no narrowed row" || bad "N3" "$(grep -e ^journey -e ^navigation -e ^widgets "$WORK/out.N3")"
+run N4 "$WORK/nav.mdl" >/dev/null
+[ "$(grep -c '^journey	' "$WORK/out.N4")" = 4 ] && ok "N4 create or replace navigation still selects every journey" || bad "N4" "$(grep -e ^journey "$WORK/out.N4")"
+printf 'alter navigation Responsive {\n  insert { menu item %s ( OnClick: show page Shop.Unknown_Page ) }\n};\n' "'Zzz nothing walks this'" > "$WORK/nav-none.mdl"
+run N5 "$WORK/nav-none.mdl" >/dev/null
+! grep -q '^journey	[jt].*json' "$WORK/out.N5" && has N5 "journey	none" && has N5 "navigation	narrowed	1 changed menu item(s)" && ok "N5 an item no journey walks: journey none, printed (the module-close run still owes the full set), never silence" || bad "N5" "$(grep -e ^journey -e ^navigation "$WORK/out.N5")"
+printf 'alter navigation Responsive {\n  insert { menu item %s ( OnClick: show page Shop.Unknown_Page ) }\n};\n' "'Whatever'" > "$WORK/nav-pg.mdl"
+echo '{"id":"N-6","steps":[{"ui":{"url":"/p/Shop.Unknown_Page"}}]}' > "$P/journeys/n-page.journey.json"
+run N6 "$WORK/nav-pg.mdl" >/dev/null
+has N6 "journey	journeys/n-page.journey.json	names Shop.Unknown_Page" && ok "N6 a journey that names the item's target page is selected too" || bad "N6" "$(grep -e ^journey "$WORK/out.N6")"
+# N7: the run rows group by persona (one runner invocation = one login = one persona)
+rm -f "$P/journeys/"*.journey.json "$P/tests/e2e/"*.journey.json
+echo '{"id":"P-1","persona":"requester","steps":[]}' > "$P/journeys/p-req.journey.json"
+echo '{"id":"P-2","persona":"approver","steps":[]}' > "$P/journeys/p-app.journey.json"
+echo '{"id":"P-3","persona":"approver","steps":[]}' > "$P/journeys/p-app2.journey.json"
+echo '{"id":"P-4","steps":[]}' > "$P/journeys/p-none.journey.json"
+run N7 --moment deploy >/dev/null
+[ "$(grep -c '^run	TEST_USER=' "$WORK/out.N7")" = 2 ] && has N7 "run	TEST_USER=approver node tests/e2e/journey-runner.js journeys/p-app.journey.json journeys/p-app2.journey.json journeys/p-none.journey.json" \
+  && has N7 "run	TEST_USER=requester node tests/e2e/journey-runner.js journeys/p-req.journey.json" && ok "N7 two personas: one run row each, same-persona files share one runner (one login), persona-less rides with the first" || bad "N7" "$(grep ^run "$WORK/out.N7")"
+rm -f "$P/journeys/p-app.journey.json" "$P/journeys/p-app2.journey.json" "$P/journeys/p-none.journey.json"
+run N8 --moment deploy >/dev/null
+[ "$(grep -c '^run	node' "$WORK/out.N8")" = 1 ] && ! has N8 "TEST_USER=" && ok "N8 one persona: the single run row is unchanged (no TEST_USER prefix)" || bad "N8" "$(grep ^run "$WORK/out.N8")"
+rm -f "$P/journeys/"*.journey.json "$P/tests/e2e/"*.journey.json
+
 echo "== wiring =="
 grep -q 'affected-tests.sh' "$TOOLKIT/bin/lib/install-manifest.sh" && ok "named in install-manifest.sh" || bad "not in install-manifest.sh"
 grep -q 'affected tests: ./bin/affected-tests.sh' "$TOOLKIT/project-bin/exec.sh" && ok "exec.sh points at it" || bad "exec.sh hint missing"

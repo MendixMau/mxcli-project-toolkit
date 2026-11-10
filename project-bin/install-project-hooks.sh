@@ -101,9 +101,10 @@ if [ "${1:-}" = "--check" ]; then
   else echo "  ✗ pre-commit model-verification hook missing — run ./bin/install-project-hooks.sh"; rc=1; fi
   # Missing pre-push = rc 1, so sync-project.sh (which installs only when --check fails) adds it
   # to existing projects: `Gate mode: check` is the default, and this hook is its full build.
-  # v2 (#686): full build once per module. A v1 hook fails --check so sync-project.sh refreshes it.
-  if [ -f "$HOOKS/pre-push" ] && grep -q "^# mxtk-pre-push full-build hook v2" "$HOOKS/pre-push"; then echo "  ✓ pre-push full-build hook installed"
-  else echo "  ✗ pre-push full-build hook missing or older than v2 — run ./bin/install-project-hooks.sh"; rc=1; fi
+  # v2 (#686): full build once per module. v3 (#686/#721): the restart line only after an in-place
+  # build. An older hook fails --check so sync-project.sh refreshes it.
+  if [ -f "$HOOKS/pre-push" ] && grep -q "^# mxtk-pre-push full-build hook v3" "$HOOKS/pre-push"; then echo "  ✓ pre-push full-build hook installed"
+  else echo "  ✗ pre-push full-build hook missing or older than v3 — run ./bin/install-project-hooks.sh"; rc=1; fi
   for h in post-commit post-rewrite; do
     if [ -f "$HOOKS/$h" ] && grep -q "^$NOTE_MARK" "$HOOKS/$h"; then echo "  ✓ $h revision-note hook installed"
     else echo "  ✗ $h revision-note hook missing — run ./bin/install-project-hooks.sh"; rc=1; fi
@@ -189,7 +190,7 @@ echo "    (refuses to commit .mpr/mprcontents changes that have no mxbuild-gate 
 # mxtk_pipeline_mode) or MXTK_PREPUSH_BUILD=always: every push, as before #686. If _common.sh cannot
 # be read, the hook builds: unsure means the safe side (PR #700 review).
 PP="$HOOKS/pre-push"
-PP_MARK="# mxtk-pre-push full-build hook v2"
+PP_MARK="# mxtk-pre-push full-build hook v3"
 # Any version of our own hook is replaced in place; only a foreign hook is kept and chained.
 if [ -f "$PP" ] && ! grep -q "^# mxtk-pre-push full-build hook v" "$PP"; then
   mv "$PP" "$PP.pre-mxtk"
@@ -245,7 +246,8 @@ fi
 echo "→ pre-push: the model was verified by mx check only; running the full build first (bin/verify-model.sh)..." >&2
 ( cd "\$b/.." && bash bin/verify-model.sh ) >&2; vrc=\$?
 [ "\$vrc" = 0 ] && { mkdir -p "\$(dirname "\$last")" && touch "\$last" && rm -f "\$cnt"; } 2>/dev/null
-[ "\$vrc" = 0 ] && echo "→ pre-push: full build done: if the app runs with --watch, run \\\`mxcli run restart\\\` before the next LOOK" >&2
+# verify-model.sh builds a copy (.mxtk/build/) and says so; the restart line only after an in-place build (#686).
+[ "\$vrc" = 0 ] && ! grep -qs '^copy' "\$b/../.claude/loop/last-full-build" && echo "→ pre-push: full build done: if the app runs with --watch, run \\\`mxcli run restart\\\` before the next LOOK" >&2
 if [ "\$vrc" = 1 ]; then
   echo "✗ push refused: the full build found errors (above). Fix them, commit, push again." >&2
   echo "  Deliberate override, once:   MODEL_UNVERIFIED_OK=1 git push ..." >&2

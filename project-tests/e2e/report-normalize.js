@@ -181,6 +181,17 @@ function abs(p) {
 // project, so the report's reproduce commands and evidence paths carry no machine path.
 if (path.isAbsolute(INPUTS.journeysDir) && inside(PROJECT_DIR, INPUTS.journeysDir))
   INPUTS.journeysDir = path.relative(PROJECT_DIR, INPUTS.journeysDir).split(path.sep).join('/');
+// The toolkit's full builds write .mxtk/build/model/deployment/ (project-bin/build-tree.py, #686),
+// not the app's deployment/; `mxcli run` still writes deployment/. Of the two, the newer file is
+// the latest build of the model — the same rule check-design-reaches-app.sh uses for .docker/.
+function newestDeployed(rel) {
+  if (!rel.startsWith('deployment/')) return rel;
+  const alt = '.mxtk/build/model/' + rel;
+  const m = p => { try { return fs.statSync(abs(p)).mtimeMs; } catch (e) { return -1; } };
+  return m(alt) > m(rel) ? alt : rel;
+}
+INPUTS.metadata = newestDeployed(INPUTS.metadata);
+INPUTS.appConfig = newestDeployed(INPUTS.appConfig);
 // Outputs are never probed: they belong at the repo root, where verify-module looks for them.
 const absOut = p => (path.isAbsolute(p) ? p : path.join(PROJECT_DIR, p));
 

@@ -18,6 +18,7 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 `docs/RELEASE-PROCESS.md` §8.
 
 ## Unreleased
+- new(bin): `project-bin/project-facts.sh [--out FILE]` prints running-app ports (pid-checked, a stale run record reads "not running"), role names and ports from PROJECT.md (never its text; passwords/tokens redacted), secret key names, reset/restart scripts and e2e libs once per dispatch (#701 item 4); exit 0 without BUILD-LOG, failed `--out` exits 1; fixture `tests/wave2/test-project-facts.sh` on a captured e2e-balanced tree; field run on a scratch copy of e2e-balanced (40 lines, 0 secret values) — #701, review of #707
 
 ## v2026.11.10
 - new(bin): `bin/check-stubs-filled.sh <project-root> [agent]` names unfilled `{{...}}` stub slots before dispatch (exit 3, read-only; counts as "N occurrence(s) of M slot(s)") — an unfilled mdl-agent stub refused its first row after 125k tokens; fixture `tests/wave2/test-check-stubs-filled.sh` — speed-night experiment C, 2026-11-09

@@ -58,6 +58,19 @@ MXTK_PLATFORM=macos bash "$DOCTOR" --install "$WORK/mac" < /dev/null > "$WORK/in
 chk "--install: treats the foreign mxcli as missing" "$WORK/inst.out" "built for another OS; it will be kept as mxcli.elf"
 [ -f "$WORK/mac/mxcli" ] && ok "--install without consent leaves the file in place" || bad "--install moved the file without consent"
 
+# --install --yes with a fetch that fails (fake curl): the original is restored, and an existing
+# set-aside file (mxcli.elf) is kept, never overwritten.
+mkdir -p "$WORK/failbin"; printf '#!/bin/sh\nexit 22\n' > "$WORK/failbin/curl"; chmod +x "$WORK/failbin/curl"   # portability-ok: fixture fake
+mkproj "$WORK/rst" "$GOLD/elf-x86_64-exec-header.bin"; cmp -s "$WORK/rst/mxcli" "$WORK/rst/mxcli" && cp "$WORK/rst/mxcli" "$WORK/rst.orig"
+MXTK_PLATFORM=macos PATH="$WORK/failbin:$PATH" bash "$DOCTOR" --install --yes "$WORK/rst" < /dev/null > "$WORK/rst.out" 2>&1
+cmp -s "$WORK/rst/mxcli" "$WORK/rst.orig" && ok "--install: failed fetch restores the original mxcli" || { bad "--install: original not restored after failed fetch"; sed -n 1,15p "$WORK/rst.out" | sed 's/^/        /'; }
+[ -e "$WORK/rst/mxcli.elf" ] && bad "--install: set-aside file left behind after restore" || ok "--install: no stray mxcli.elf after restore"
+
+mkproj "$WORK/keep" "$GOLD/elf-x86_64-exec-header.bin"; echo precious > "$WORK/keep/mxcli.elf"
+MXTK_PLATFORM=macos PATH="$WORK/failbin:$PATH" bash "$DOCTOR" --install --yes "$WORK/keep" < /dev/null > "$WORK/keep.out" 2>&1
+[ "$(cat "$WORK/keep/mxcli.elf" 2>/dev/null)" = precious ] && ok "--install: existing mxcli.elf kept, not overwritten" || bad "--install: existing mxcli.elf was overwritten"
+cmp -s "$WORK/keep/mxcli" "$WORK/rst.orig" && ok "--install: original mxcli restored when mxcli.elf was taken" || bad "--install: original lost when mxcli.elf was taken"
+
 # --- #711: the process-start timing runs the PATH `true` binary, 50 times in --bench
 P="$WORK/proj"; mkdir -p "$P/mprcontents" "$P/.claude" "$WORK/bin" "$WORK/mxdir"
 : > "$P/App.mpr"; : > "$P/mprcontents/x"; printf '#!/bin/sh\nexit 0\n' > "$P/mxcli"; chmod +x "$P/mxcli"

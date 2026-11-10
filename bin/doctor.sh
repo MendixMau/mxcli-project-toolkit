@@ -1554,7 +1554,13 @@ if [ "$INSTALL" -eq 1 ]; then
       else
         MXCLI_READY=1
         if [ "$NEED_MXCLI" -eq 1 ]; then
-          if [ -n "$WRONG_MXCLI" ] && [ -f "$WRONG_MXCLI" ]; then mv "$WRONG_MXCLI" "$WRONG_MXCLI.$_wf"; fi
+          ASIDE_MXCLI=""
+          if [ -n "$WRONG_MXCLI" ] && [ -f "$WRONG_MXCLI" ]; then
+            # never overwrite an earlier set-aside file: take the first free name (mxcli.elf, mxcli.elf.1, ...)
+            ASIDE_MXCLI="$WRONG_MXCLI.$_wf"; _n=0
+            while [ -e "$ASIDE_MXCLI" ]; do _n=$((_n + 1)); ASIDE_MXCLI="$WRONG_MXCLI.$_wf.$_n"; done
+            mv "$WRONG_MXCLI" "$ASIDE_MXCLI"
+          fi
           note "fetching $MXCLI_ASSET from the mxcli releases..."
           if ! $MXCLI_FETCH "$PROJECT_DIR/$MXCLI_DEST" "$MXCLI_URL" && [ -n "$MXCLI_FALLBACK_ASSET" ]; then
             warn "$MXCLI_ASSET is not published for this mxcli version; trying $MXCLI_FALLBACK_ASSET (runs emulated)."
@@ -1567,7 +1573,7 @@ if [ "$INSTALL" -eq 1 ]; then
             PMXCLI="$PROJECT_DIR/$MXCLI_DEST"
           else
             rm -f "$PROJECT_DIR/$MXCLI_DEST" 2>/dev/null
-            [ -n "$WRONG_MXCLI" ] && [ -f "$WRONG_MXCLI.$_wf" ] && mv "$WRONG_MXCLI.$_wf" "$WRONG_MXCLI"
+            [ -n "$ASIDE_MXCLI" ] && [ -f "$ASIDE_MXCLI" ] && mv "$ASIDE_MXCLI" "$WRONG_MXCLI"
             MXCLI_READY=0
             bad "--install: fetching mxcli failed (network/proxy, or the binary would not run here)."
             note "Download it yourself into the project root, then re-run:  $MXCLI_URL"

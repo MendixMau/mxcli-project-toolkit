@@ -1,0 +1,5 @@
+WARNING: This is a vibe-coded PoC, alpha quality, use with caution.
+
+Refused: exec would stop at this error, having written nothing: association 'Purchasing.PurchaseRequest_AltSupplier' already exists — use 'create or modify association ...' to update it in place, or 'drop association Purchasing.PurchaseRequest_AltSupplier' first
+
+Summary: 0 new, 0 modified, 0 removed — exec would write nothing

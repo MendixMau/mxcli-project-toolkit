@@ -339,6 +339,16 @@ Your move is one of three — **commit, wait, or stop and report** — never an 
 | `LINT ROSE` after a clean mxbuild (exit 4, or 1 under `Lint gate: hard`; write kept) | Expected often in a growing app, and not a broken script: do not re-apply it. Fix the new lint findings, or stop and report; only the person accepts a rise, with `bin/lint-gate.sh --update-baseline --reason "<why>"` |
 | Any other refusal | Read the remedy exec.sh prints and do that; the table above is not the full list of guards |
 
+**Idempotence check — one `mxcli diff`, never a second exec.** After a script applied (exit 0 or 4), when
+the row claims it is re-runnable (`create or modify`, grants, microflows), run
+`./bin/idempotence-check.sh <script>` (1-3 s). It runs `mxcli diff -p <mpr> <script>` and grades the
+OUTPUT: `PASS` (exit 0) only when the diff says `0 new, 0 modified, 0 removed`; `FAIL` (exit 1) on any
+`Refused:` line or any change; `UNPARSEABLE` (exit 2) when there is no Summary line. `mxcli diff` exits 0
+even when it prints `Refused`, so the exit code alone is never the verdict. A second gated exec costs
+35-120 s and cannot see the failure that matters: a #667 `alter navigation insert` that duplicates a
+menu item (5 -> 6 items) passes mxbuild with 0 errors. Stubs, plain `create page` and `alter page insert`
+are refused on a re-run by design: do not run the check on those and do not call a FAIL there a defect.
+
 **Never set `FORCE_EXEC=1` on your own initiative** — only when the person tells you to, naming
 the risk. The failure it causes: an agent hits the uncommitted-model guard mid-loop, sets
 `FORCE_EXEC=1` to keep going, the next script's gate fails, and the auto-restore silently drops

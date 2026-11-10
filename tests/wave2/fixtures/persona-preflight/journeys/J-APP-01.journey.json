@@ -1,0 +1,88 @@
+{
+  "id": "J-APP-01",
+  "title": "Approver approves a submitted request",
+  "persona": "approver",
+  "requirement": [
+    "F002#/useCases/0/mainFlow/1",
+    "F002#/useCases/1/mainFlow/3"
+  ],
+  "seeds": [
+    {
+      "name": "reqTitle",
+      "sql": "SELECT Title AS t FROM Purchasing.PurchaseRequest WHERE Status = 'Submitted' AND TotalAmount <= 5000 LIMIT 1"
+    }
+  ],
+  "steps": [
+    {
+      "name": "open the inbox",
+      "actions": [
+        {
+          "do": "nav",
+          "group": "Approval",
+          "item": "Approval inbox",
+          "settleMs": 2500
+        }
+      ],
+      "ui": {
+        "ready": ".mx-name-dgInbox",
+        "textPresent": [
+          "{{reqTitle}}"
+        ]
+      }
+    },
+    {
+      "name": "open the request",
+      "actions": [
+        {
+          "do": "click",
+          "widget": "btnReview",
+          "label": "Review",
+          "settleMs": 2000
+        }
+      ],
+      "ui": {
+        "ready": ".mx-name-dvDecide",
+        "checks": [
+          "btnApprove",
+          "btnReject"
+        ]
+      }
+    },
+    {
+      "name": "approve",
+      "requirement": [
+        "F002#/useCases/1/mainFlow/3"
+      ],
+      "actions": [
+        {
+          "do": "click",
+          "widget": "btnApprove",
+          "label": "Approve",
+          "settleMs": 3000
+        }
+      ],
+      "ui": {
+        "ready": ".mx-name-dgInbox",
+        "textAbsent": [
+          "{{reqTitle}}"
+        ]
+      },
+      "spans": {
+        "ordered": [
+          "Approval.ACT_Approval_Approve"
+        ],
+        "mustNotFire": [
+          "ACT_Approval_Reject"
+        ]
+      },
+      "data": {
+        "creates": "Approval.ApprovalRecord",
+        "delta": 1
+      }
+    }
+  ],
+  "outcome": {
+    "sql": "SELECT COUNT(*) AS n FROM Purchasing.PurchaseRequest WHERE Title = '{{reqTitle}}' AND Status = 'Approved'",
+    "atLeast": 1
+  }
+}

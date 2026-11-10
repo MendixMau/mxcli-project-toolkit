@@ -1,0 +1,20 @@
+WARNING: This is a vibe-coded PoC, alpha quality, use with caution.
+(no module)
+-----------
+  ⚠ page Approval.Approval_Decide: DataView `dvRecord` contains input fields but is not inside a layout grid — label and input widths only render correctly inside a layoutgrid [MPR010]
+      at 
+      → Wrap dataview `dvRecord` in `layoutgrid { row { column (desktopwidth: autofill) { … } } }`
+
+Approval
+--------
+  ⚠ page Approval.Approval_Decide: widget `dgDecideLines` (datagrid) column `` property `content` is hidden when its own `showContentAs` is not "customContent" — the value will be ignored [MDL-WIDGET10]
+      at Approval.Approval_Decide
+
+  ⚠ page Approval.Approval_Decide: widget `dgDecideLines` (datagrid) column `` property `content` is hidden when its own `showContentAs` is not "customContent" — the value will be ignored [MDL-WIDGET10]
+      at Approval.Approval_Decide
+
+3 issues: 0 errors, 3 warnings, 0 info
+
+Refused: exec would stop at this error, having written nothing: microflow not found: Approval.DS_Approval_NewRecord
+
+Summary: 0 new, 0 modified, 0 removed — exec would write nothing

@@ -1,0 +1,29 @@
+# rollback-effects.tsv: what survives a rolled-back transaction. Data for rollback-scan.sh, one row per effect.
+# Columns (tab separated): class  effect  kind  pattern  except  proof  note
+#   class    A = survives and is visible to later tests or other systems; B = survives, usually ignorable
+#   kind     ignore     a Java action known to be harmless; never listed as U (class and effect columns are -)
+#            action     the activity type in the catalog ACTIVITIES table (exact match)
+#            call       a call edge whose target name matches the glob in pattern (any target type)
+#            calltype   a call edge whose target TYPE is pattern (WORKFLOW)
+#            autonumber a flow creates an entity that has an attribute of data type AutoNumber
+#            filedoc    a flow creates an entity that extends System.FileDocument
+#   except   comma separated globs removed from a call match (- for none)
+#   proof    measured: ran on a rolled-back test and watched it survive (probe flow); unmeasured: listed on trust
+#   note     appended to the output line
+# Add a row when a Java action or Marketplace flow in your project sends, writes or commits outside the main transaction.
+# Unlisted Java actions are invisible to the scan: it prints them once under class U.
+A	REST	action	RestCallAction	-	measured: probe PRB_Rest	outbound call is not undone
+A	WEBSERVICE	action	WebServiceCallAction	-	unmeasured: same class as RestCallAction	outbound call is not undone
+A	EXTERNAL-DB	action	ExecuteDatabaseQueryAction	-	unmeasured: external database has its own transaction	
+A	FILE-WRITE	call	CommunityCommons.Base64DecodeToFile	-	measured: probe PRB_File	bytes stay on disk with no database row
+A	FILE-WRITE	call	CommunityCommons.StringToFile	-	unmeasured: same class as Base64DecodeToFile	
+A	FILE-WRITE	call	CommunityCommons.storeURLToFileDocument	-	unmeasured: same class as Base64DecodeToFile	
+A	SEP-COMMIT	call	CommunityCommons.commitInSeparateDatabaseTransaction	-	measured: probe PRB_SeparateCommit	rows are committed and stay in the test database
+A	QUEUE	call	CommunityCommons.RunMicroflowAsyncInQueue	-	measured: probe PRB_Queue	target is given as a string and is not followed; it commits on its own
+A	BACKGROUND	call	CommunityCommons.executeMicroflowInBackground	-	unmeasured: same class as RunMicroflowAsyncInQueue	target is given as a string and is not followed
+A	EMAIL	call	*Mail*.Send*	*ValidateEmail*	unmeasured: mail leaves the system when sent	a mail is sent on every run
+A	WORKFLOW	calltype	WORKFLOW	-	unmeasured: engine state is not probed	workflow instances are created in the engine
+A	FILE-DOC	filedoc	System.FileDocument	-	unmeasured: stored contents are not probed	a stored file may stay on disk after rollback
+B	AUTONUMBER	autonumber	AutoNumber	-	measured: probe PRB_Autonumber	the counter is consumed, the row is gone
+B	LOG	action	LogMessageAction	-	measured: probe PRB_Log	a log line is written
+-	-	ignore	CommunityCommons.getGUID	-	known harmless (random id)	pure helper, never printed as U

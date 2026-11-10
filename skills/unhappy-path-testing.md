@@ -40,7 +40,8 @@ Write `docs/handoffs/unhappy-path-matrix.md` before any spec. One row per case:
 
 ## The categories to cover, per module
 
-For each entity or screen, write at least one case per applicable row:
+For each entity or screen, write at least one case per applicable row. (The same classes at microflow
+level, with a cap per flow and a persisted-state check: `unit-test.md` §2b and §2c; H1 is the shared cite.)
 
 1. **Required fields**: blank, and a single space (does `not null` stop whitespace?).
 2. **Length and format**: one past the column width, a bad format against a stated pattern.

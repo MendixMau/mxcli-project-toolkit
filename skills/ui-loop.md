@@ -231,8 +231,9 @@ restart the app and re-run once:
 **Restart only your own app: `./bin/app-restart.sh`.** It stops only the process that
 `mxcli run --local` recorded for this project (`.mxcli/run-local.json` beside the `.mpr`), with
 that process's own children, never anything found by name or pattern. It starts the app again
-with the same command line, and returns once the port answers a Mendix page and the JS bundle
-that `index.html` loads answers 2xx (exit 0). It refuses, and stops nothing (exit 3), when there
+with the same command line, and returns once the port serves `index.html` and the JS bundle
+it loads answers 2xx (exit 0); on failure it names the part that is down. `--probe` checks
+without restarting. It refuses, and stops nothing (exit 3), when there
 is no record, when the record belongs to another project (a copied project carries the
 original's), or when it cannot recover the start command. On Windows, pass `--cmd '<how you
 started it>'` once; it is remembered after that. `--dry-run` says what it would do. A Docker-hosted

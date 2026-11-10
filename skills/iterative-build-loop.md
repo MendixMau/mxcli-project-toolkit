@@ -672,9 +672,9 @@ The PR #700 mode experiment (run 2, a 5-page app): balanced 3.25 min/row net of 
 high-quality 4.65 and high-speed 2.05, 0 missed defects. Only journeys found the functional defects
 (a save error, a blocking modal), hence one journey run per page row in balanced; the 390 LOOK at a
 module's first page row caught a phone-layout defect at row 8 instead of at close; and in every arm
-one polish round went to undoing a regression, hence 3 rounds for high-speed. `exec.sh`, the
-pre-push hook and `module-close.sh` print one line after a full build: a running `--watch` client
-needs `mxcli run restart`. What re-runs after a change, by whom, and when the full suite runs (per
+one polish round went to undoing a regression, hence 3 rounds for high-speed. The toolkit's full
+builds (exec gate, pre-push, `module-close.sh`) run in `.mxtk/build/`, never the app's `deployment/`
+(#686); only an in-place fallback leaves a `--watch` client needing `mxcli run restart`. What re-runs after a change, by whom, and when the full suite runs (per
 PROJECT.md `## Test strategy`; never batch close) is `testing-shape.md` §3; `exec.sh` prints
 the run's lane (`ui-only` / `logic`). Repeating a pass the artifacts already prove is the over-testing
 toolkit issue #274 measured: UI-only changes re-proven 5–10×.

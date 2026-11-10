@@ -16,6 +16,7 @@
 #       Java actions, on --patch
 #   K7  model-stamp kind: a check stamp passes `check` but not `check --full`; no kind line = full
 #   K8  pre-push hook: full build only when the stamp says mx check; refuses on errors
+#       (K8c-e run with MXTK_PREPUSH_BUILD=always; the once-per-module default is test-module-close-cadence.sh)
 set -uo pipefail
 EXEC="${1:?usage: test-exec-gate-kind.sh /path/to/exec.sh}"
 TK="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -144,13 +145,13 @@ rm -f "$S/.claude/full-ran"; pp env; rc=$?
 [ "$rc" = 0 ] && [ ! -e "$S/.claude/full-ran" ] && ok "K8b: no gate-kind state → no-op" || bad "K8b" "rc=$rc"
 mkdir -p "$S/.claude/loop"; echo "checks 1" > "$S/.claude/loop/gate-kind.state"
 st env MXTK_STAMP_KIND=check MXTK_STAMP_ERRORS=0 bash bin/model-stamp.sh write pass "exec.sh x (mx check)"
-rm -f "$S/.claude/full-ran"; pp env; rc=$?
+rm -f "$S/.claude/full-ran"; pp env MXTK_PREPUSH_BUILD=always; rc=$?
 [ "$rc" = 0 ] && [ -e "$S/.claude/full-ran" ] && ok "K8c: check-only stamp → full build runs, push goes on" || bad "K8c" "rc=$rc"
-rm -f "$S/.claude/full-ran"; pp env FAKE_VM_RC=1; rc=$?
+rm -f "$S/.claude/full-ran"; pp env MXTK_PREPUSH_BUILD=always FAKE_VM_RC=1; rc=$?
 [ "$rc" = 1 ] && ok "K8d: full build fails → push refused" || bad "K8d" "rc=$rc"
-rm -f "$S/.claude/full-ran"; pp env FAKE_VM_RC=2; rc=$?
+rm -f "$S/.claude/full-ran"; pp env MXTK_PREPUSH_BUILD=always FAKE_VM_RC=2; rc=$?
 [ "$rc" = 0 ] && ok "K8d2: full build cannot run (exit 2) → warn, push goes on" || bad "K8d2" "rc=$rc"
-pp env FAKE_VM_RC=1 MODEL_UNVERIFIED_OK=1; [ $? = 0 ] && ok "K8e: MODEL_UNVERIFIED_OK=1 pushes anyway" || bad "K8e"
+pp env MXTK_PREPUSH_BUILD=always FAKE_VM_RC=1 MODEL_UNVERIFIED_OK=1; [ $? = 0 ] && ok "K8e: MODEL_UNVERIFIED_OK=1 pushes anyway" || bad "K8e"
 st env MXTK_STAMP_ERRORS=0 bash bin/model-stamp.sh write pass "verify-model.sh"
 rm -f "$S/.claude/full-ran"; pp env FAKE_VM_RC=1; rc=$?
 [ "$rc" = 0 ] && [ ! -e "$S/.claude/full-ran" ] && ok "K8f: full stamp → no build" || bad "K8f" "rc=$rc"

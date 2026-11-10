@@ -4,15 +4,22 @@
 #   ./bin/app-restart.sh                  restart, return when the port answers and a page bundle serves
 #   ./bin/app-restart.sh --dry-run        say what would be stopped and how it would be started; touch nothing
 #   ./bin/app-restart.sh --cmd '<start>'  start command to use instead of the one read from the process
-#   ./bin/app-restart.sh --timeout <s>    readiness bound (default 240, MXTK_RESTART_TIMEOUT)
+#   ./bin/app-restart.sh --timeout <s>    readiness bound (default 240, MXTK_RESTART_TIMEOUT); a boot
+#                                         still writing its log past it gets more, up to MXTK_RESTART_MAX (600)
+#   ./bin/app-restart.sh --probe          is the recorded app serving? one pass, names the part that is down
+#   ./bin/app-restart.sh --if-client-gone after a full build: restart only when the web client is gone AND
+#                                         the toolkit started this app; otherwise say so (exit 6)
 #
-# Exit: 0 up and serving · 1 restarted but not proven up (timeout, no bundle) · 2 usage ·
+# Exit: 0 up and serving (--probe: up; --if-client-gone: nothing to do, or restarted) ·
+#       1 restarted but not proven up (timeout, no bundle) — --probe: not serving · 2 usage ·
 #       3 refused — nothing was stopped (no record, record belongs elsewhere, start command unknown,
 #         the model's after-startup left on an mxcli test injection — #244) ·
 #       4 instrument blocked — the app or admin port is held by a process this script did not record
 #         (named, with its pid; never stopped). A run summary records it as blocked, not as FAIL.
 #       5 stopped, not started — stopping a `run --test-endpoint` app left its after-startup on
 #         MxTest.RegisterEndpoint, and a start would recurse (#244; the repair is printed).
+#       6 --if-client-gone: the web client is gone but this app was not started by the toolkit —
+#         nothing stopped; the one-line restart hint is printed.
 #
 # WHY (#289 item 1, field run 2026-10-12). A 20-task UX-fix run over three apps, one lane per app:
 # implementers were told never to start or stop apps, because a broad kill in one lane had once
@@ -42,10 +49,20 @@
 # — or one after the app died — needs no --cmd. It must be an `mxcli run --local` command; this
 # script starts nothing else. Values after password/secret/token/key flags, and of any Name=value whose Name holds one, are masked on screen.
 #
-# READY means: a new record with a live pid, a Mendix answer on its port (the login/index page
-# carries Mendix markers — any 4xx-answering process is NOT enough, see test-stack-up.sh), and the
-# JS bundle that index.html references (dist/index.js or mxui.js) answering 2xx — an app serving
-# a blank page because the bundle is missing is not up (contrib note 5e, 2026-08-29).
+# READY means: a new record with a live pid, its port serving index.html, and the JS bundle that
+# index.html references (dist/index.js or mxui.js; /dist/index.js for a themed page that names
+# neither) answering 2xx with JavaScript — an app serving a blank page because the bundle is missing
+# is not up (contrib note 5e, 2026-08-29). The probe is mxtk_app_probe in _common.sh; its header has
+# why it no longer looks for Mendix words in the page (#686: 9 false "not proven up" in one run).
+# The wait backs off (1, 2, 4, 8 s) and is bounded: --timeout, extended only while the app port is
+# still silent AND a start log is still growing (a cold boot with a web-client build can pass 240 s),
+# never past MXTK_RESTART_MAX. A failure names the part that is down: no record, the runtime (its
+# admin API silent), the app port, or the client bundle.
+#
+# OWNERSHIP (#686). A successful start here, or test-stack-up.sh's local lane, writes the new pid to
+# .claude/loop/app-restart/owner.pid. --if-client-gone restarts only an app whose recorded pid is that
+# one — the toolkit started it — via `mxcli run restart` when mxcli's .mxcli/run-state.json (a
+# --detach run) is there, else the restart below. Any other app gets the hint, never a stop.
 #
 # PORTS HELD BY SOMEONE ELSE (#262, field run 2026-10-10): Studio Pro had started its own runtime on
 # the same app/admin ports seconds before a restart. `mxcli run --local` then failed with
@@ -67,18 +84,23 @@ set -uo pipefail
 
 . "$(dirname "$0")/_common.sh"
 
-DRY=0; CMD_OVERRIDE="${MXTK_APP_START_CMD:-}"; TIMEOUT="${MXTK_RESTART_TIMEOUT:-240}"
+DRY=0; CMD_OVERRIDE="${MXTK_APP_START_CMD:-}"; TIMEOUT="${MXTK_RESTART_TIMEOUT:-240}"; MODE=restart
+MAXWAIT="${MXTK_RESTART_MAX:-600}"; QUIET="${MXTK_RESTART_QUIET:-20}"
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) DRY=1 ;;
+    --probe)   MODE=probe ;;
+    --if-client-gone) MODE=client ;;
     --cmd)     shift; CMD_OVERRIDE="${1:-}" ;;
     --timeout) shift; TIMEOUT="${1:-}" ;;
-    -h|--help) sed -n '2,8p' "$0"; exit 0 ;;
-    *) echo "usage: $0 [--dry-run] [--cmd '<start command>'] [--timeout <seconds>]" >&2; exit 2 ;;
+    -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
+    *) echo "usage: $0 [--dry-run] [--probe] [--if-client-gone] [--cmd '<start command>'] [--timeout <seconds>]" >&2; exit 2 ;;
   esac
   shift
 done
 case "$TIMEOUT" in ''|*[!0-9]*) echo "app-restart: --timeout takes whole seconds" >&2; exit 2 ;; esac
+case "$MAXWAIT$QUIET" in *[!0-9]*) MAXWAIT=600; QUIET=20 ;; esac
+[ "$MAXWAIT" -lt "$TIMEOUT" ] && MAXWAIT="$TIMEOUT"
 
 refuse() { echo "✗ app-restart: $1" >&2; shift; for l in "$@"; do echo "  $l" >&2; done; echo "  Nothing was stopped." >&2; exit 3; }
 
@@ -106,32 +128,7 @@ pid_alive() {
              case "$(sed 's/.*) //' "/proc/$1/stat" 2>/dev/null | cut -d' ' -f1)" in Z) return 1 ;; esac ;;
   esac
 }
-# Mendix identification and the bundle check. Same markers as test-stack-up.sh's mendix_at(), but NOT
-# its mxui_js_at() fallback, so an app with a themed index.html reads not-Mendix here; port that if it bites.
-mendix_at() {
-  local p="$1" path code body
-  for path in /login.html /index.html; do
-    code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 4 "http://localhost:$p$path" 2>/dev/null)"
-    case "$code" in 2??|3??) ;; *) continue ;; esac
-    body="$(curl -s --max-time 4 "http://localhost:$p$path" 2>/dev/null | head -c 20000)"
-    case "$body" in *mxui*|*mx-name*|*"Mendix"*|*mxclientsystem*) return 0 ;; esac
-  done
-  return 1
-}
 port_answers() { local c; c="$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 "http://localhost:$1/" 2>/dev/null)"; [ -n "$c" ] && [ "$c" != "000" ]; }
-BUNDLE=""
-bundle_ok() {  # $1 port — the script bundle index.html loads must answer 2xx
-  local src code
-  src="$(curl -s --max-time 4 "http://localhost:$1/index.html" 2>/dev/null | head -c 50000 \
-        | grep -oE 'src="[^"]*(dist/[^"]*\.js|mxui\.js)[^"]*"' | head -1 | sed 's/^src="//; s/"$//')"
-  [ -n "$src" ] || { BUNDLE="(index.html references no dist/*.js or mxui.js)"; return 1; }
-  case "$src" in http*) ;; /*) ;; *) src="/$src" ;; esac
-  case "$src" in http*) ;; *) src="http://localhost:$1$src" ;; esac
-  BUNDLE="$src"
-  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 6 "$src" 2>/dev/null)"
-  case "$code" in 2??) return 0 ;; esac
-  BUNDLE="$src → HTTP ${code:-none}"; return 1
-}
 mask_has_secret() {  # pure bash glob: does $1 hold a secret word? (no fork)
   case "$1" in
     *[Pp][Aa][Ss][Ss]*|*[Pp][Ww][Dd]*|*[Ss][Ee][Cc][Rr][Ee][Tt]*|*[Tt][Oo][Kk][Ee][Nn]*|*[Kk][Ee][Yy]*|*[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll]*) return 0 ;;
@@ -186,8 +183,8 @@ mask() {  # print argv joined, with the value after any password/secret/token/ke
 # Port and process helpers (mxtk_port_holder, mxtk_holder_text, mxtk_pid_in_tree) live in
 # _common.sh, shared with test-stack-up.sh. A project whose bin/_common.sh predates them stops here
 # with the remedy, instead of dying mid-restart on "command not found".
-command -v mxtk_port_holder >/dev/null 2>&1 || {
-  echo "app-restart: bin/_common.sh is older than this script (no mxtk_port_holder)." >&2
+command -v mxtk_port_holder >/dev/null 2>&1 && command -v mxtk_app_probe >/dev/null 2>&1 || {
+  echo "app-restart: bin/_common.sh is older than this script (no mxtk_port_holder / mxtk_app_probe)." >&2
   echo "  → <toolkit>/bin/sync-project.sh $PROJECT_ROOT --only-bin _common.sh --upgrade-bin _common.sh   (installs just that file; backs up a hand-edited copy first)" >&2; exit 2; }
 # blocked <port> "<pid>|<name>" <when> — exit 4, the holder named, nothing of it touched.
 blocked() {
@@ -208,6 +205,66 @@ command -v mxtest_left >/dev/null 2>&1 && command -v mxtk_pid_is_mxcli_run >/dev
   echo "  → <toolkit>/bin/sync-project.sh $PROJECT_ROOT --only-bin _common.sh --upgrade-bin _common.sh   (installs just that file; backs up a hand-edited copy first)" >&2; exit 2; }
 # in_our_tree <pid> — the recorded pid itself, or a descendant of it (the runtime mxcli started).
 in_our_tree() { [ "$ALIVE" = 1 ] && mxtk_pid_in_tree "$1" "$PID"; }
+
+# ── Readiness wait (READY in the header) ────────────────────────────────────
+# _logsz — total bytes of the logs a booting app writes: our start log, and mxcli's own run.log /
+# runtime.log beside the model. Growth between two probes is the only "still booting" signal used.
+_logsz() {
+  local f n t=0
+  for f in "$LOG" "$MPR_DIR/.mxcli/run.log" "$MPR_DIR/.mxcli/runtime.log" "$MODEL_DIR/.mxcli/run.log" "$MODEL_DIR/.mxcli/runtime.log"; do
+    [ -f "$f" ] || continue
+    n="$(wc -c < "$f" 2>/dev/null | tr -d ' ')"; t=$((t + ${n:-0}))
+  done
+  echo "$t"
+}
+mark_owned() {  # $1 = pid the toolkit just started — read by --if-client-gone
+  mkdir -p "$REC_DIR" 2>/dev/null && { [ -f "$REC_DIR/.gitignore" ] || printf '*\n' > "$REC_DIR/.gitignore"; } \
+    && printf '%s\n' "$1" > "$REC_DIR/owner.pid" 2>/dev/null || true
+}
+wait_ready() {  # exits: 0 up, 1 not proven up
+  local t0 now el cap sz lsz lchg w=1 h np told=0
+  t0=$(date +%s); lchg=0; cap="$TIMEOUT"; lsz="$(_logsz)"   # only growth from here counts as progress
+  while :; do
+    NEWPORT=""; NEWADMIN=""; NEWPID=""
+    for _d in "$MPR_DIR" "$MODEL_DIR"; do
+      h="$_d/.mxcli/run-local.json"
+      [ -f "$h" ] || continue
+      np="$(hs_num pid "$h")"
+      if pid_alive "$np"; then NEWPID="$np"; NEWPORT="$(hs_num appPort "$h")"; NEWADMIN="$(hs_num adminPort "$h")"; break; fi
+    done
+    if [ -n "$NEWPORT" ] && mxtk_app_probe "$NEWPORT" "$NEWADMIN"; then
+      [ "$NEWPORT" != "$PORT" ] && echo "  ! the app came back on :$NEWPORT (was :$PORT)"
+      mark_owned "$NEWPID"
+      echo "✓ app-restart: serving on :$NEWPORT after $(( $(date +%s) - t0 ))s — bundle $MXTK_PROBE_BUNDLE answers"
+      exit 0
+    fi
+    [ -n "$NEWPORT" ] || MXTK_PROBE_DOWN="no new run --local record with a live pid yet (mxcli writes it once the app is up)"
+    now=$(date +%s); el=$((now - t0))
+    sz="$(_logsz)"; [ "$sz" != "$lsz" ] && { lsz="$sz"; lchg=$now; }
+    if [ "$el" -ge "$cap" ]; then
+      # Still booting: nothing serves on the app port yet, and a log moved within QUIET seconds.
+      # A served page with a missing bundle is not "booting" — that is the full-build case, and waiting
+      # does not fix it.
+      case "$MXTK_PROBE_DOWN" in
+        "no new run --local record"*|"app port :"*)
+          if [ "$cap" -lt "$MAXWAIT" ] && [ $((now - lchg)) -lt "$QUIET" ]; then
+            cap=$((cap + QUIET)); [ "$cap" -gt "$MAXWAIT" ] && cap="$MAXWAIT"
+            [ "$told" = 1 ] || echo "  … still booting at ${el}s (its log is still growing) — waiting up to ${MAXWAIT}s"
+            told=1
+          else break; fi ;;
+        *) break ;;
+      esac
+    fi
+    [ $((el + w)) -gt "$cap" ] && w=$((cap - el)); [ "$w" -lt 1 ] && w=1
+    sleep "$w"; w=$((w * 2)); [ "$w" -gt 8 ] && w=8
+  done
+  echo "✗ app-restart: not proven up after ${el}s — down: $MXTK_PROBE_DOWN" >&2
+  case "$MXTK_PROBE_DOWN" in
+    "client bundle"*) echo "  Page bundle not served: $MXTK_PROBE_BUNDLE — a blank page, not an app (see $LOG)" >&2 ;;
+    *) echo "  See $LOG" >&2 ;;
+  esac
+  exit 1
+}
 
 # ── 1. The record ───────────────────────────────────────────────────────────
 [ -n "$HS" ] || refuse "no run --local record for this project (.mxcli/run-local.json beside $(basename "$MPR"))." \
@@ -240,10 +297,44 @@ if pid_alive "$PID"; then
   if mxtk_pid_is_mxcli_run "$PID"; then ALIVE=1
   else echo "  ! recorded pid $PID is alive but is not an mxcli run (the pid was reused after the app died) — treating the app as not running; that process is not touched"; fi
 fi
-ADMIN_PORT="$(hs_num adminPort "$HS")"; [ -n "$ADMIN_PORT" ] || ADMIN_PORT=$((PORT + 10))
+REC_ADMIN="$(hs_num adminPort "$HS")"   # the probe uses only a recorded admin port, never a guess
+ADMIN_PORT="$REC_ADMIN"; [ -n "$ADMIN_PORT" ] || ADMIN_PORT=$((PORT + 10))
+REC_DIR="$PROJECT_ROOT/.claude/loop/app-restart"; REC="$REC_DIR/start.cmd"
+LOG="${LOGDIR:-${TMPDIR:-/tmp}}/$(basename "$MPR" .mpr)-run-local.log"
+
+# ── 1b. --probe / --if-client-gone: look before touching anything ───────────
+if [ "$MODE" = probe ]; then
+  [ "$ALIVE" = 1 ] || { echo "✗ app-restart --probe: the recorded app (pid $PID) is not running — start it: ./bin/app-restart.sh"; exit 1; }
+  if mxtk_app_probe "$PORT" "$REC_ADMIN"; then
+    echo "✓ app-restart --probe: serving on :$PORT (pid $PID) — bundle $MXTK_PROBE_BUNDLE answers"; exit 0
+  fi
+  echo "✗ app-restart --probe: :$PORT is not serving — down: $MXTK_PROBE_DOWN"; exit 1
+fi
+if [ "$MODE" = client ]; then
+  [ "$ALIVE" = 1 ] || { echo "→ app-restart: no running app recorded for this project — nothing to restart after the build"; exit 0; }
+  if mxtk_app_probe "$PORT" "$REC_ADMIN"; then
+    echo "✓ app-restart: the web client is still served on :$PORT after the build — no restart"; exit 0
+  fi
+  _own=""; [ -f "$REC_DIR/owner.pid" ] && read -r _own < "$REC_DIR/owner.pid"
+  if [ "$_own" != "$PID" ]; then
+    echo "→ app-restart: after the full build :$PORT is not serving — $MXTK_PROBE_DOWN"
+    echo "  This app (pid $PID) was not started by the toolkit, so it is not restarted here."
+    echo "  → run \`mxcli run restart -p $(basename "$MPR")\` (or ./bin/app-restart.sh) before the next LOOK"
+    exit 6
+  fi
+  echo "→ app-restart: after the full build :$PORT is not serving ($MXTK_PROBE_DOWN)."
+  echo "  The toolkit started this app (pid $PID), so it restarts it now."
+  _rs=""; for _d in "$MPR_DIR" "$MODEL_DIR"; do [ -f "$_d/.mxcli/run-state.json" ] && { _rs=1; break; }; done
+  _mx="$(find_project_mxcli 2>/dev/null || command -v mxcli 2>/dev/null || true)"
+  if [ -n "$_rs" ] && [ -n "$_mx" ]; then
+    echo "  mxcli run restart -p $(basename "$MPR")   (a --detach run: mxcli restarts it with its own arguments)"
+    "$_mx" run restart -p "$MPR" >>"$LOG" 2>&1 </dev/null || echo "  ! mxcli run restart exited $? — see $LOG; checking the app anyway"
+    wait_ready
+  fi
+  # No run-state.json (not a --detach run) or no mxcli here: the recorded-pid restart below.
+fi
 
 # ── 2. How it was started ───────────────────────────────────────────────────
-REC_DIR="$PROJECT_ROOT/.claude/loop/app-restart"; REC="$REC_DIR/start.cmd"
 ARGV=(); START_CWD=""; HOW=""
 if [ -n "$CMD_OVERRIDE" ]; then
   ARGV=(bash -c "$CMD_OVERRIDE"); START_CWD="$PROJECT_ROOT"; HOW="--cmd"
@@ -348,7 +439,6 @@ if mxtest_left "$MODEL_DIR" "$MPR_TARGET"; then
 fi
 
 # ── 4. Start it the same way, detached, and remember how ────────────────────
-LOG="${LOGDIR:-${TMPDIR:-/tmp}}/$(basename "$MPR" .mpr)-run-local.log"
 rm -f "$HS" 2>/dev/null || true   # a SIGKILLed mxcli leaves its record behind; the new one must be new
 if command -v setsid >/dev/null 2>&1; then
   ( cd "$START_CWD" && exec setsid nohup "${ARGV[@]}" >>"$LOG" 2>&1 </dev/null ) &
@@ -362,24 +452,5 @@ if [ "$HOW" != "remembered from the last restart ($REC)" ]; then
   { printf '%s\n' "$START_CWD"; printf '%s\n' "${ARGV[@]}"; } > "$REC" 2>/dev/null || true
 fi
 
-# ── 5. Ready = new record, live pid, Mendix on its port, bundle 2xx ─────────
-_t0=$(date +%s); NEWPORT=""
-while [ $(( $(date +%s) - _t0 )) -lt "$TIMEOUT" ]; do
-  for _d in "$MPR_DIR" "$MODEL_DIR"; do
-    _h="$_d/.mxcli/run-local.json"
-    [ -f "$_h" ] || continue
-    _np="$(hs_num pid "$_h")"
-    if pid_alive "$_np"; then NEWPORT="$(hs_num appPort "$_h")"; break; fi
-  done
-  if [ -n "$NEWPORT" ] && mendix_at "$NEWPORT" && bundle_ok "$NEWPORT"; then
-    [ "$NEWPORT" != "$PORT" ] && echo "  ! the app came back on :$NEWPORT (was :$PORT)"
-    echo "✓ app-restart: serving on :$NEWPORT after $(( $(date +%s) - _t0 ))s — bundle $BUNDLE answers"
-    exit 0
-  fi
-  sleep 2
-done
-echo "✗ app-restart: not proven up after ${TIMEOUT}s." >&2
-if [ -z "$NEWPORT" ]; then echo "  No new run --local record with a live pid — see $LOG" >&2
-elif ! mendix_at "$NEWPORT"; then echo "  :$NEWPORT does not serve a Mendix page yet — see $LOG" >&2
-else echo "  Page bundle not served: $BUNDLE — a blank page, not an app (run the build step; see $LOG)" >&2; fi
-exit 1
+# ── 5. Ready = new record, live pid, its port serving, bundle 2xx (wait_ready above) ─
+wait_ready

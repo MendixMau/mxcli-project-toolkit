@@ -1,0 +1,7 @@
+demo-users.txt / user-roles.txt: verbatim stdout+stderr of `./mxcli -p PurchaseApp.mpr -c "show demo users"` and
+`"show user roles"`, mxcli v0.28.0 (2026-10-23), run 2026-11-10 on a scratch copy of the speed-night run-3
+PurchaseApp (e2e-balanced). journeys/*.journey.json: the run-3 journeys verbatim (personas requester, approver).
+The missing-persona case is the speed-night experiment B failure: the harness signed in as "requester_test_user",
+which is not a demo user (11 runs x ~104 s lost); the test edits a COPY of J-REQ-01 to that persona.
+Not captured: multi-role cells and a model with demo users disabled (no such model at hand); the parser splits
+role cells on , or ; and reports UNMEASURED when there is no demo-user table.

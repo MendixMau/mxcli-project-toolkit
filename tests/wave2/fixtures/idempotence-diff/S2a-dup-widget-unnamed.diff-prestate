@@ -1,0 +1,5 @@
+WARNING: This is a vibe-coded PoC, alpha quality, use with caution.
+
+Refused: exec would stop at this error, having written nothing: failed to insert: failed to build widgets: failed to build widget : dynamictext needs a name: Mendix stores one for it (`dynamictext dynamictextName …`). Only a layout grid's rows and columns, a data grid's columns and control bar, and a gallery's template and filter are written without one
+
+Summary: 0 new, 0 modified, 0 removed — exec would write nothing

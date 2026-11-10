@@ -100,6 +100,45 @@ st="$(cd "$P" && bash bin/look-ledger.sh status | awk -F'\t' '{printf "%s=%s ", 
   && ok "L5: status — two pages seen, the one with only a stale screenshot still owed" \
   || bad "L5: status got '$st'"
 
+# ── R: reshoot -- a polish round re-shoots only the pages it changed (speed-night D/B) ─────────
+# State from L1-L5 (p-app): Billing.Invoice_View OWED (its only screenshot predates the build), Orders.Order_Edit and
+# Orders.Order_Overview SEEN. The ledgers are the real ones owe/seen wrote above; nothing is hand-written but the
+# future-dated style file and the future-dated shared row, which stand in for "changed after the LOOK".
+P="$WORK/p-app"
+r="$(cd "$P" && bash bin/look-ledger.sh reshoot)"
+printf '%s\n' "$r" | grep -q '^RESHOOT	Billing.Invoice_View	built .*, after its last LOOK' && [ "$(printf '%s\n' "$r" | grep -c '^RESHOOT')" = 1 ] \
+  && printf '%s\n' "$r" | grep -q '^reshoot all modules: 1 of 3 page(s) to re-shoot at 390 and 1280; 2 SEEN' \
+  && ok "R1: after the round only the owed page is re-shot -- 1 of 3, the denominator printed" || bad "R1: got '$r'"
+r="$(cd "$P" && bash bin/look-ledger.sh reshoot Orders)"
+printf '%s\n' "$r" | grep -q '^reshoot Orders: 0 of 2 page(s) to re-shoot' && ! printf '%s\n' "$r" | grep -q '^RESHOOT' \
+  && ok "R2: a module whose pages are all SEEN says 0 of 2 (a measured zero, with N)" || bad "R2: got '$r'"
+printf 'x' > "$WORK/empty-ledger-marker"
+r="$(cd "$WORK/p-root" && bash bin/look-ledger.sh reshoot Nope)"
+printf '%s\n' "$r" | grep -q '^reshoot Nope: NOT MEASURED' && ok "R3: a module with no owed row is NOT MEASURED -- run the full LOOK, never '0 to re-shoot'" || bad "R3: got '$r'"
+mkdir -p "$P/themesource/orders/web"; printf '.a{}' > "$P/themesource/orders/web/main.scss"; touch -t 203001010000 "$P/themesource/orders/web/main.scss"
+r="$(cd "$P" && bash bin/look-ledger.sh reshoot)"
+[ "$(printf '%s\n' "$r" | grep -c '^RESHOOT')" = 3 ] && printf '%s\n' "$r" | grep -q 'style file changed after its last LOOK: themesource/orders/web/main.scss' \
+  && printf '%s\n' "$r" | grep -q '3 of 3 page(s) to re-shoot' && ok "R4: a style file newer than the LOOK re-shoots every page (a shared change moves pages no script named)" || bad "R4: got '$r'"
+rm -rf "$P/themesource"
+# R4b: two-tree -- the .mpr sits under app/, so theme/themesource do too (check-design-reaches-app.sh:80,117)
+ls "$P"/app/*.mpr >/dev/null 2>&1 || bad "R4b: p-app is not a two-tree fixture"
+mkdir -p "$P/app/themesource/orders/web"; printf '.a{}' > "$P/app/themesource/orders/web/main.scss"; touch -t 203001010000 "$P/app/themesource/orders/web/main.scss"
+r="$(cd "$P" && bash bin/look-ledger.sh reshoot)"
+printf '%s\n' "$r" | grep -q 'style file changed after its last LOOK: app/themesource/orders/web/main.scss' && printf '%s\n' "$r" | grep -q '3 of 3 page(s) to re-shoot' \
+  && ok "R4b: two-tree -- a style file under app/themesource re-shoots every page" || bad "R4b: got '$r'"
+rm -rf "$P/app/themesource"
+printf 'create or modify layout Orders.App_Default (Type: Responsive) { }\n-- create snippet Orders.Commented { }\ncreate snippet Orders.Order_Header { }\n' > "$P/mdlsource/20-shared.mdl"
+rm -f "$P/.claude/loop/look/shared.tsv"; (cd "$P" && bash bin/look-ledger.sh owe "$P/mdlsource/20-shared.mdl" >/dev/null)
+[ "$(cut -f3 "$P/.claude/loop/look/shared.tsv" | tr '\n' ' ')" = "layout snippet " ] && [ "$(cut -f4 "$P/.claude/loop/look/shared.tsv" | tr '\n' ' ')" = "Orders.App_Default Orders.Order_Header " ] \
+  && ok "R5: owe records the layout and the snippet (comment skipped) apart from the owed pages" || bad "R5: shared.tsv '$(cat "$P/.claude/loop/look/shared.tsv" 2>/dev/null)'"
+[ "$(wc -l < "$P/.claude/loop/look/owed.tsv" | tr -d ' ')" = 3 ] && ok "R5: shared changes add no owed row (status denominator unchanged)" || bad "R5: owed.tsv changed"
+printf '9999999999\t2286-01-01T00:00:00Z\tlayout\tOrders.App_Default\tmdlsource/20-shared.mdl\n' > "$P/.claude/loop/look/shared.tsv"
+r="$(cd "$P" && bash bin/look-ledger.sh reshoot)"
+printf '%s\n' "$r" | grep -q 'RESHOOT	Orders.Order_Edit	shared layout Orders.App_Default changed after its last LOOK' && printf '%s\n' "$r" | grep -q '3 of 3 page(s)' \
+  && ok "R6: a layout changed after the LOOK re-shoots the SEEN pages too" || bad "R6: got '$r'"
+r="$(cd "$P" && rm -f .claude/loop/look/shared.tsv && bash bin/look-ledger.sh reshoot --all Orders)"
+printf '%s\n' "$r" | grep -q 'RESHOOT	Orders.Order_Edit	--all' && ok "R7: --all forces the full set, labelled" || bad "R7: got '$r'"
+
 # ── S: journey screenshots as LOOK evidence (speed experiment E2) ──────────────────────────
 # Golden input is a real journey run: fixtures/look-shots/journey-findings.json and its PNGs were
 # written by journey-runner.js against a finished Purchasing/Approval lab app (mxcli v0.28.0), and
@@ -193,6 +232,53 @@ if [ -x "$GATE" ] || [ -f "$GATE" ]; then
 else
   bad "gate-check.sh not found at $GATE — cannot run G1-G3"
 fi
+
+# ── D1-D5: DROP PAGE leaves the denominator; a re-create owes again (#681) ─────────────────
+# The #681 repro: create Order_Edit and Order_Old, drop Order_Old, look only at Order_Edit.
+# DROP PAGE shapes: the issue's `drop page M.P;` (lower case, verbatim), plus upper case with
+# IF EXISTS and a quoted name.
+P="$WORK/p-drop"; mkproject "$P" root
+cat > "$P/mdlsource/20-orders.mdl" <<'MDL'
+create page Orders.Order_Edit (Title: 'Edit') { }
+create page Orders.Order_Old (Title: 'Old') { }
+MDL
+cat > "$P/mdlsource/21-drop.mdl" <<'MDL'
+-- drop page Orders.Order_Edit;
+drop page Orders.Order_Old;
+MDL
+cat > "$P/mdlsource/22-inscript.mdl" <<'MDL'
+CREATE PAGE Orders.Scratch { }
+DROP PAGE IF EXISTS "Orders"."Scratch";
+DROP PAGE Orders.Gone;
+CREATE PAGE Orders.Gone { }
+MDL
+got="$(bash "$P/bin/look-ledger.sh" pages "$P/mdlsource/22-inscript.mdl" | tr '\n' ' ')"
+[ "$got" = "Orders.Gone " ] \
+  && ok "D1: parser — created-then-dropped is not owed, dropped-then-created is" \
+  || bad "D1: parser got '$got' (want 'Orders.Gone ')"
+( cd "$P" && bash bin/look-ledger.sh owe "$P/mdlsource/20-orders.mdl" >/dev/null \
+          && bash bin/look-ledger.sh owe "$P/mdlsource/21-drop.mdl" >/dev/null )
+printf 'png' > "$P/shots/order-edit.png"; touch "$P/shots/order-edit.png"
+hook "$P/shots/order-edit.png" | ( cd "$P" && bash bin/look-ledger.sh seen )
+st="$(cd "$P" && bash bin/look-ledger.sh status | cut -f1,2 | tr '\t\n' ': ')"
+[ "$st" = "SEEN:Orders.Order_Edit " ] \
+  && ok "D2: after drop page Orders.Order_Old, status lists only Order_Edit (SEEN)" \
+  || bad "D2: status after the drop was '$st' (the #681 symptom: Order_Old stays OWED)"
+grep -q 'Order_Edit' "$P/.claude/loop/look/owed.tsv" \
+  && ok "D3: a commented-out drop removes nothing" || bad "D3: '-- drop page' removed Order_Edit's row"
+if [ -f "$GATE" ]; then
+  cp "$WORK/p-none/PROJECT.md" "$P/" 2>/dev/null || printf '# PROJECT\n' > "$P/PROJECT.md"
+  sed -i.bak '/Waived obligation/d' "$P/PROJECT.md"
+  line="$(bash "$GATE" "$P" 5 2>&1 | grep -E '^Stage 5 ')"
+  printf '%s' "$line" | grep -q '1 of 1 built page(s) accounted for' && ! printf '%s' "$line" | grep -q FAIL \
+    && ok "D4: Stage 5 no longer FAILs on the dropped page (1 of 1 accounted for)" \
+    || bad "D4: Stage 5 still counts the dropped page: $line"
+fi
+printf 'create page Orders.Order_Old { }\n' > "$P/mdlsource/23-recreate.mdl"
+( cd "$P" && bash bin/look-ledger.sh owe "$P/mdlsource/23-recreate.mdl" >/dev/null )
+st="$(cd "$P" && bash bin/look-ledger.sh status | awk -F'\t' '$2=="Orders.Order_Old"{print $1}')"
+[ "$st" = OWED ] && ok "D5: re-creating the dropped page owes it again" \
+                 || bad "D5: re-created Order_Old reads '${st:-absent}', want OWED"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"

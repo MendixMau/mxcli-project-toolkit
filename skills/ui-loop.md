@@ -1,7 +1,7 @@
 # Skill: ui-loop — look at the page you just built, before you build the next one
 
 **Applies to:** any project building pages or snippets.
-**Runs:** after every page-building script, and any time someone says the UI looks wrong.
+**Runs:** after every page-building script (`Pipeline mode: balanced`: one viewport, 1280, plus 390 on a module's first page row; 390 + 1280 at module close, `module-review.md`), and any time someone says the UI looks wrong.
 **Cost:** minutes. That is the point — it is cheap enough to run ten times per module.
 
 ---
@@ -31,12 +31,8 @@ HTML report with the screenshots embedded. That pass still runs, unchanged, at m
 `Gate: UI` fires **per module**. On a single-module app that is once, at the very end, after every
 page already exists.
 
-Measured (2026-08-24, field validation run): a two-column detail page shipped stacked full-width
-because its layout class was never defined in the real theme. It was introduced in build script
-09 and survived scripts 10, 11, 12 and all of Stage 6 prep — mxbuild clean, every journey green,
-21 of 21 interactive elements wired — until a human looked at module close. Nothing before that
-moment asks what a page looks like. Four scripts of blast radius, from a defect that a
-thirty-second look at script 09 would have caught.
+A stacked layout survived four scripts, every journey green, until module close looked
+(2026-08-24; `process/baseline-incident-history.md` § UI5).
 
 The gate was not missing. Its cadence was too coarse to catch anything early.
 
@@ -48,7 +44,7 @@ After a script that creates or changes a page:
 
 1. **Run it and open the page** — through real navigation, as a real user role, not a direct URL.
 2. **Screenshot it, then open the PNG** (the Read tool). Take the viewport (`fullPage: false`,
-   e.g. 1440×900), not the whole page: a tall full-page shot reaches you shrunk to ~1024 px high
+   1280×800), not the whole page: a tall full-page shot reaches you shrunk to ~1024 px high
    with unreadable text. Below the fold, scroll and take a second viewport shot.
    Name the file after the page —
    `order-overview.png` or `Order_Overview_1280.png` for `Orders.Order_Overview`. `bin/exec.sh`
@@ -128,9 +124,7 @@ verdict is written. Journey harnesses have the same failure mode as the instrume
 "Related" below: they are code, they are read as ground truth, and nobody scores them
 (`tool-output-is-not-ground-truth.md`).
 
-The high-code build in the same comparison never hit either defect, because its harness created
-a fresh context per screen per width. That is a harness difference, not a platform
-difference — do not let a screenshot artefact become a finding about Mendix.
+A screenshot artefact is never a finding about Mendix (`process/baseline-incident-history.md` § UI8).
 
 ---
 
@@ -237,8 +231,9 @@ restart the app and re-run once:
 **Restart only your own app: `./bin/app-restart.sh`.** It stops only the process that
 `mxcli run --local` recorded for this project (`.mxcli/run-local.json` beside the `.mpr`), with
 that process's own children, never anything found by name or pattern. It starts the app again
-with the same command line, and returns once the port answers a Mendix page and the JS bundle
-that `index.html` loads answers 2xx (exit 0). It refuses, and stops nothing (exit 3), when there
+with the same command line, and returns once the port serves `index.html` and the JS bundle
+it loads answers 2xx (exit 0); on failure it names the part that is down. `--probe` checks
+without restarting. It refuses, and stops nothing (exit 3), when there
 is no record, when the record belongs to another project (a copied project carries the
 original's), or when it cannot recover the start command. On Windows, pass `--cmd '<how you
 started it>'` once; it is remembered after that. `--dry-run` says what it would do. A Docker-hosted

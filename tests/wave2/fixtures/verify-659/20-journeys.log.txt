@@ -1,0 +1,9 @@
+
+=== PREFLIGHT ===
+  SETUP  env: missing MXTK_FIXTURE_UNSET_VAR (needed by J-01) — export it and re-run; 1 journey(s) not walked
+  WARN   named control: J-01: no "claim" — name the business claim this journey exists to prove
+  WARN   named control: J-01: no named control — no *.control.json beside it (or in controls/) with control.of = "J-01"; write one and run named-controls.js
+
+=== SUMMARY ===
+  ABORTED at preflight — 0 of 1 journeys walked. Fix the SETUP line(s) above.
+  findings → tests/e2e/artifacts/journey-findings.json

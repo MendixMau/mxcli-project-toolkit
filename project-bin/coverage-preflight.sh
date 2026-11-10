@@ -128,6 +128,7 @@ find_engine() {
   local c
   for c in "${COVERAGE_ENGINE:-}" \
            "${MXTK_ROOT:-}/bin/coverage-check.sh" \
+           "$(t="$(find_toolkit_root 2>/dev/null)"; printf '%s' "${t:+$t/bin/coverage-check.sh}")" \
            "$(dirname "$SELF")/../bin/coverage-check.sh" \
            "$PROJECT_ROOT/bin/coverage-check.sh"; do
     [ -n "$c" ] || continue
@@ -163,11 +164,8 @@ find_ledger() {
   for c in "$ARG_LEDGER" "${LEDGER_FILE:-}"; do
     [ -n "$c" ] && { [ -f "$c" ] || ledger_dir_ok "$c"; } && { printf '%s\n' "$c"; return 0; }
   done
-  ledger_dir_ok "$LEDGER_DIR" && { printf '%s\n' "$LEDGER_DIR"; return 0; }
-  for c in "$LEDGER_CANON" "$LEDGER_FLAT" "$LEDGER_PROJECT"; do
-    [ -n "$c" ] && [ -f "$c" ] && { printf '%s\n' "$c"; return 0; }
-  done
-  return 1
+  # The four discovered shapes, in order, from the one shared lookup (_common.sh — #673).
+  mxtk_resolve_ledger "" "$MODULE"
 }
 
 # Every BRD in the project, one per line. Both layouts the pipelines actually write.

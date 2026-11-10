@@ -18,6 +18,8 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 `docs/RELEASE-PROCESS.md` §8.
 
 ## Unreleased
+
+## v2026.11.10
 - new(bin): `bin/check-stubs-filled.sh <project-root> [agent]` names unfilled `{{...}}` stub slots before dispatch (exit 3, read-only; counts as "N occurrence(s) of M slot(s)") — an unfilled mdl-agent stub refused its first row after 125k tokens; fixture `tests/wave2/test-check-stubs-filled.sh` — speed-night experiment C, 2026-11-09
 - fix(look-ledger): the style-change probe of `reshoot` also looks in `app/theme` and `app/themesource` (two-tree checkouts), resolved via `find_model_dir`; fixture R4b — review of speed-night B/D, 2026-11-10
 - new(look-ledger, module-close): **`bin/look-ledger.sh reshoot <Module>`: a polish round re-shoots only the pages it changed, and still closes against N**: lists the pages built after their last seen LOOK plus every page whose own last screenshot is older than a layout/snippet script (new `shared.tsv`, written by `owe`) or a theme/themesource `.scss`/`.css` edit, and prints `K of N page(s) to re-shoot`; no owed row = `NOT MEASURED` (full LOOK), never `0 to re-shoot`; the look report keeps `N of N pages reviewed` and adds an addendum with K PROOF-OF-LOOK lines (`module-review.md`, `module-close.sh` §6 say so); `status` output unchanged; field: run-3 PurchaseApp final state, Purchasing 3 of 5 pages predate the last `_ds-knobs.scss` edit, Approval 0 of 3 — speed-night experiments B/D, 2026-11-09

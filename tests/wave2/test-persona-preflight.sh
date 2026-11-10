@@ -48,8 +48,11 @@ out="$(run "$WORK/e")"; rc=$?
 
 # F. no persona anywhere: TEST_USER is who signs in
 mkdir -p "$WORK/f"; sed '/"persona":/d' "$FX/journeys/J-REQ-01.journey.json" > "$WORK/f/J.journey.json"
-out="$(TEST_USER=nobody run "$WORK/f")"; rc=$?
-[ $rc -eq 1 ] && echo "$out" | grep -q 'PERSONA MISSING: "nobody"' && ok "F TEST_USER checked when no journey names a persona" || bad "F" "$out"
+out="$(TEST_USER=MxAdmin run "$WORK/f")"; rc=$?
+[ $rc -eq 0 ] && echo "$out" | grep -q 'NOTE: 1 journey(s) name no persona and sign in as TEST_USER "MxAdmin"' && ! echo "$out" | grep -q 'PERSONA MISSING' && ok "F an MxAdmin-only project (no persona, TEST_USER not a demo user) is an advisory note, exit 0" || bad "F" "$out (rc $rc)"
+head -n "$(grep -n -m1 '^|[-| ]*|$' "$FX/demo-users.txt" | cut -d: -f1)" "$FX/demo-users.txt" > "$WORK/du-empty.txt"
+out="$(TEST_USER=MxAdmin bash "$SUT" --demo-users "$WORK/du-empty.txt" "$WORK/f" 2>&1)"; rc=$?
+[ $rc -eq 0 ] && echo "$out" | grep -q 'NOTE:' && ok "F2 a demo-user table with a header and zero rows is no FAULT for an undeclared persona" || bad "F2b" "$out (rc $rc)"
 out="$(env -u TEST_USER bash "$SUT" --demo-users "$FX/demo-users.txt" "$WORK/f" 2>&1)"; rc=$?
 [ $rc -eq 0 ] && echo "$out" | grep -q '0 persona(s)' && ok "F no persona and no TEST_USER: denominator says 0 personas" || bad "F2" "$out"
 

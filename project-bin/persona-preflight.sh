@@ -10,8 +10,8 @@
 # expected" for a half-built module. This check costs ~1 s (`mxcli show demo users`) and fails the
 # batch before the first browser opens, ONE NAMED LINE PER MISSING PERSONA.
 #
-# What is checked, per distinct persona (the journey's top-level `persona`; when no journey names
-# one, $TEST_USER, which is who the runner will sign in as):
+# What is checked, per distinct persona the journeys DECLARE (the top-level `persona`). A journey with
+# no persona signs in as $TEST_USER, which may be the app admin: an advisory NOTE, never a problem:
 #   MISSING  the persona is not a demo user name (exact, case-sensitive: the login form is)
 #   ROLE     the demo user does not carry the role the journey expects. The expected role is the
 #            journey's optional `personaRole`; without it, the user role named like the persona
@@ -75,13 +75,13 @@ if (!head || !/user name/i.test(head[0] || "")) { console.error("persona preflig
 const users = new Map(du.map(r => [r[0], (r[1] || "").split(/[,;]/).map(s => s.trim()).filter(Boolean)]));
 let roles = [];
 try { if (process.env.PF_UR) { const ur = rows(fs.readFileSync(process.env.PF_UR, "utf8")); ur.shift(); roles = ur.map(r => r[0]); } } catch (_) {}
-const byPersona = new Map(); let nj = 0;
+const byPersona = new Map(); let nj = 0, nopersona = 0;
 for (const f of process.argv.slice(1)) {
   let j; try { j = JSON.parse(fs.readFileSync(f, "utf8")); } catch (e) { console.error(`persona preflight: UNMEASURED -- ${f}: ${e.message}`); process.exit(2); }
   for (const x of (Array.isArray(j) ? j : [j])) {
     nj++;
-    const p = x.persona || process.env.TEST_USER || "";
-    if (!p) continue;
+    const p = x.persona || "";
+    if (!p) { nopersona++; continue; }
     if (!byPersona.has(p)) byPersona.set(p, []);
     byPersona.get(p).push({ id: x.id || f, role: x.personaRole || null });
   }
@@ -109,5 +109,9 @@ for (const [p, js] of byPersona) {
 }
 console.log(`persona preflight: ${byPersona.size} persona(s) from ${nj} journey(s): ${exist} exist, ${asserted} role(s) asserted, ${problems} problem(s)` +
   (unasserted.length ? ` -- role NOT asserted for: ${unasserted.join(", ")} (declare personaRole on the journey)` : ""));
+// A journey that names no persona signs in as $TEST_USER, which may legitimately be the app admin (MxAdmin) and
+// not a demo user: advisory only, never a FAULT.
+const tu = process.env.TEST_USER || "";
+if (nopersona && tu && !users.has(tu)) console.log(`persona preflight NOTE: ${nopersona} journey(s) name no persona and sign in as TEST_USER "${tu}", which is not a demo user in the model (fine for the app admin; not checked)`);
 process.exit(problems ? 1 : 0);
 ' "${NF[@]}"

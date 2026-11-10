@@ -238,7 +238,7 @@ Detail: [CONTRIBUTING.md](CONTRIBUTING.md).
 ## Releases
 
 **Bundled releases** from 1.0 on: master stays stable, then one tagged release (`vYYYY.MM.DD`)
-with notes. Latest: [**Toolkit 2**](docs/releases/2026-11-11-toolkit-2.md) (`v2026.11.11`); milestone: [1.0](docs/releases/v1.0.md).
+with notes. Latest: [**Toolkit 2**](docs/releases/2026-11-11-toolkit-2.md) (`v2026.11.10` and `v2026.11.11`); milestone: [1.0](docs/releases/v1.0.md).
 
 ```bash
 git -C ~/Mendix/mxcli-project-toolkit pull && ~/Mendix/mxcli-project-toolkit/bin/sync-project.sh <project-root>

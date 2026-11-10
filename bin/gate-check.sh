@@ -2133,7 +2133,14 @@ stage4_closing_rows() {
     n="$(printf '%s\n' "$closed" | sed '/^$/d' | wc -l | tr -d ' ')"
     [ "$n" -gt 0 ] || missing=" (no module has one)"
   fi
-  ncoh="$(printf '%s\n' "$rows" | grep -ciE 'process-coherence-pass|coherence pass')"
+  # A coherence row is a HARNESS/RUN step naming the pass (brd-to-build-plan.md: Kind HARNESS +
+  # process-coherence-pass.md). A BRIEF row that merely says "the coherence pass comes later" is
+  # prose, not a step (#683). Plans with no Kind cells keep the old any-row match.
+  if grep -qE -- '\|[[:space:]]*`?(BRIEF|BUILD|PROVE|RUN|HARNESS)`?[[:space:]]*\|' <<<"$rows"; then
+    ncoh="$(printf '%s\n' "$rows" | grep -E '\|[[:space:]]*`?(HARNESS|RUN)`?[[:space:]]*\|' | grep -ciE 'process-coherence-pass|coherence pass')"
+  else
+    ncoh="$(printf '%s\n' "$rows" | grep -ciE 'process-coherence-pass|coherence pass')"
+  fi
   need=0; [ "$n" -ge 2 ] && need=$(( (n + 2) / 3 ))
   last="$(printf '%s\n' "$rows" | tail -1)"
 
@@ -2252,11 +2259,53 @@ check_stage_6() {
     echo "PENDING|no test surface yet — need test-report.html (project root or reports/), or docs/verification/report.html + docs/report.json (verify-module.sh's render rung)"
     return
   fi
+  # Read the result, not the file's existence (#719, option 1). docs/report.json is the only
+  # machine-readable verdict source: any `fail`/`fault` check, or an aborted run, is FAIL.
+  # Freshness is a warning (run.startedAt older than the .mpr's mtime), not a block.
+  local rj="$PROJECT_DIR/docs/report.json" note="" stale=""
+  local py=""
+  . "$TOOLKIT_DIR/bin/lib/portable.sh"
+  py="$(resolve_py)" || py=""
+  if [ -s "$rj" ] && [ -n "$py" ]; then
+    local res
+    res="$("$py" - "$(native_path "$rj")" "$(native_path "$(find_mpr_for_stage6)")" <<'PY' 2>/dev/null
+import json,sys,os,datetime,collections
+j=json.load(open(sys.argv[1])); mpr=sys.argv[2]
+c=collections.Counter(x.get('verdict') for x in j.get('checks',[]))
+n=len(j.get('checks',[]))
+bad=c.get('fail',0)+c.get('fault',0)
+ab=j.get('aborted')
+stale=""
+try:
+    t=j['run']['startedAt'].replace('Z','+00:00')
+    st=datetime.datetime.fromisoformat(t).timestamp()
+    if mpr and os.path.exists(mpr) and os.path.getmtime(mpr)>st: stale="1"
+except Exception: pass
+print("%d|%d|%d|%d|%s|%s"%(c.get('pass',0),c.get('fail',0),c.get('fault',0),n,ab or "",stale))
+PY
+)"
+    if [ -n "$res" ]; then
+      local np nf nt na ab
+      IFS='|' read -r np nf nt na ab stale <<<"$res"
+      # fields: pass|fail|fault|total|aborted|stale
+      if [ -n "$ab" ] || [ "$nf" -gt 0 ] || [ "$nt" -gt 0 ]; then
+        echo "FAIL|docs/report.json is not green: $np pass, $nf fail, $nt fault (did not run) of $na checks${ab:+; run aborted ($ab)} — fix and re-run the e2e/verify-module run; a check that did not run is not a pass"
+        return
+      fi
+      note="; report.json: $np of $na checks pass"
+      [ -n "$stale" ] && note="$note; WARNING report predates the last .mpr save (run.startedAt older) — re-run before release"
+    fi
+  fi
   if [ -z "$review_ok" ]; then
     echo "PENDING|test surface present but no module-review report (ui-review-*.html under a ui-reviews/ dir) — Stage 6 requires the full-app module-review.md pass, zero open P1"
     return
   fi
-  echo "PASS|test surface (test-report.html, or docs/verification/report.html + docs/report.json) + module-review report both present"
+  echo "PASS|test surface (test-report.html, or docs/verification/report.html + docs/report.json) + module-review report both present$note"
+}
+
+find_mpr_for_stage6() {
+  local f
+  for f in "$PROJECT_DIR"/*.mpr "$PROJECT_DIR"/app/*.mpr; do [ -f "$f" ] && { echo "$f"; return; }; done
 }
 
 check_stage_7() {

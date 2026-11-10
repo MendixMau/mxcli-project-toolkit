@@ -1,0 +1,3 @@
+report.json: verbatim rows from a real verify-module/e2e run (a two-module purchasing app, schema 1,
+2026-11-10). Only the check list is cut to 6 rows (1 fail, 3 pass, 2 fault) and the bulky sections
+dropped; no value inside a kept row was edited.

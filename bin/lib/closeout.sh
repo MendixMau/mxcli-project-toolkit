@@ -202,7 +202,7 @@ _co_plain_gate_needs() {
   case "$1" in
     P) echo "every kickoff question answered, or marked as something we could not verify and how we would" ;;
     0) echo "a signed triage sheet — you agreed what we take from the source and how" ;;
-    1) echo "the extraction checked for quality, and you confirmed what came out is what you meant" ;;
+    1) echo "the extraction report written, every source file accounted for, and the extraction's quality score at or above its threshold where one was scored (the scope conversation is yours to have; no script checks it)" ;;
     2) echo "every requirement document validated clean, and every question the pipeline raised put to you in chat" ;;
     3) echo "the architecture and the design produced, and you said yes to the module split, the buy/build/stub calls, the roles, and the look" ;;
     4) echo "a build plan you approved, with every requirement claimed by a build step and every earlier decision mapped to one" ;;

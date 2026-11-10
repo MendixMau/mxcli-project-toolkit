@@ -840,6 +840,154 @@ _mxtk_slurp() {
   printf -v "$1" '%s' "$_s"
 }
 
+# mxtk_build_tree <mpr> — where the toolkit's full build runs. Sets MXTK_BUILD_MPR to the .mpr
+# inside <project>/.mxtk/build/model/, a synced copy of the model directory (bin/build-tree.py: one
+# Python start, incremental), and MXTK_BUILD_PLACE=copy; or, when that cannot be done, to <mpr>
+# itself with MXTK_BUILD_PLACE=in-place and MXTK_BUILD_NOTE saying why.
+# WHY (#686): mxbuild writes <app dir>/deployment/ whatever --target or --output says (measured on
+# mxbuild 11.13.0: the deploy AND the package target both rewrote deployment/web/dist), and a
+# running `mxcli run --local --watch` serves deployment/web — every toolkit full build left it with
+# no web client (/dist/index.js 404) until a restart. deployment/ is now only for what mxcli run
+# builds. The errors file, the error count and its CE codes come from the same model bytes; the
+# stamp and fingerprints are taken from the real model by their own callers. Cost: one Python
+# start per build plus a copy of the model directory and one deployment/ under .mxtk/build/ on disk
+# (bin/doctor.sh --cleanup removes it). MXTK_GATE_IN_PLACE=1 builds in place, as before.
+mxtk_build_tree() {
+  local _r="${PROJECT_ROOT:-$(dirname "$1")}" _o _py
+  MXTK_BUILD_MPR="$1"; MXTK_BUILD_PLACE=in-place; MXTK_BUILD_NOTE=""; MXTK_BUILD_SRC=""; MXTK_BUILD_DST=""
+  MXTK_BUILD_SRC_N=""; MXTK_BUILD_DST_N=""
+  [ "${MXTK_GATE_IN_PLACE:-0}" = 1 ] && { MXTK_BUILD_NOTE="MXTK_GATE_IN_PLACE=1"; return 0; }
+  [ -f "$_r/bin/build-tree.py" ] || { MXTK_BUILD_NOTE="bin/build-tree.py not installed (sync-project.sh)"; return 0; }
+  _py="${PY:-${MXTK_PY_MEMO:-$(resolve_py 2>/dev/null || true)}}"
+  [ -n "$_py" ] || { MXTK_BUILD_NOTE="no Python 3"; return 0; }
+  mxtk_build_lock_take "$_r" || { MXTK_BUILD_NOTE="$MXTK_BUILD_LOCK_NOTE"; return 0; }
+  if _o="$("$_py" -I "$(native_path "$_r/bin/build-tree.py")" "$(native_path "$1")" "$(native_path "$_r/.mxtk/build/model")" 2>&1)"; then
+    MXTK_BUILD_MPR="${_o##*$'\n'}"; MXTK_BUILD_MPR="${MXTK_BUILD_MPR%$'\r'}"
+    MXTK_BUILD_SRC="${_o%$'\n'*}"; MXTK_BUILD_SRC="${MXTK_BUILD_SRC##*$'\n'}"; MXTK_BUILD_SRC="${MXTK_BUILD_SRC%$'\r'}"
+    # Python prints native paths: C:\... on Windows, which is also how mxbuild.exe names files in
+    # its output there. Keep that form for the rewrite (mxtk_build_tree_unmap), use the POSIX one here.
+    MXTK_BUILD_SRC_N="$MXTK_BUILD_SRC"; MXTK_BUILD_DST_N="${MXTK_BUILD_MPR%[\\/]*}"
+    case "$MXTK_BUILD_MPR" in [A-Za-z]:*) MXTK_BUILD_MPR="$(mxtk_posix_path "$MXTK_BUILD_MPR")" ;; esac
+    case "$MXTK_BUILD_SRC" in [A-Za-z]:*) MXTK_BUILD_SRC="$(mxtk_posix_path "$MXTK_BUILD_SRC")" ;; esac
+    if [ -f "$MXTK_BUILD_MPR" ]; then
+      MXTK_BUILD_PLACE=copy; MXTK_BUILD_DST="${MXTK_BUILD_MPR%/*}"
+      return 0
+    fi
+    MXTK_BUILD_SRC=""; MXTK_BUILD_SRC_N=""; MXTK_BUILD_DST_N=""
+    MXTK_BUILD_MPR="$1"
+  fi
+  MXTK_BUILD_NOTE="the copy failed: ${_o##*$'\n'}"
+}
+# Stale-lock takeover, shared by exec.sh's .exec.lock and the full-build copy's .build.lock.
+# Taking over is serialised through a second O_EXCL file, <lock>.takeover; under it the lock is
+# re-read and removed ONLY if it still holds exactly the stale line judged by the caller, so the
+# compare-then-rm cannot hit a fresh lock (independent review of #304: 12 contenders gave up to 3
+# holders with a plain check-then-rm; the #721 review reproduced 4 on the first .build.lock).
+# A takeover file left by a holder killed inside those microseconds is stale once its pid is dead
+# or it is older than 10 s (an empty one once it is over a minute old, review of #324); it is
+# moved aside and put back with `ln` (never clobbers) if what was moved is not the one judged stale.
+mxtk_lock_takeover() {  # $1 = lock file, $2 = the stale lock line; 0 iff it was removed (or already gone)
+  local _lk="$1" _stale="$2" _tk _mine _t _tpid _tsince _tstale _now
+  _tk="$_lk.takeover"; _mine="$$ ${EPOCHSECONDS:-$(date +%s)}"
+  if ! ( set -o noclobber; printf '%s\n' "$_mine" > "$_tk" ) 2>/dev/null; then
+    _t="$(head -1 "$_tk" 2>/dev/null || true)"; _tpid="${_t%% *}"; _tsince="${_t#* }"
+    case "$_tsince" in ''|*[!0-9]*) _tsince=0 ;; esac
+    _tstale=0
+    if [ -n "$_t" ]; then
+      { ! kill -0 "$_tpid" 2>/dev/null || [ $(( ${EPOCHSECONDS:-$(date +%s)} - _tsince )) -gt 10 ]; } && _tstale=1
+    elif [ -n "$(find "$_tk" -mmin +1 2>/dev/null)" ]; then
+      _tstale=1   # empty for over a minute: its creator died between the create and the write
+    fi
+    if [ "$_tstale" = 1 ]; then
+      if mv "$_tk" "$_tk.stale.$$" 2>/dev/null; then
+        # Remove what was moved ONLY if it is what was judged stale; anything else is someone's
+        # live takeover file: put it back (ln never clobbers), and if that fails leave it be.
+        # Same body as test-scratch.sh's take_over() — keep the two in step (PR #322).
+        if [ "$(head -1 "$_tk.stale.$$" 2>/dev/null || true)" = "$_t" ]; then rm -f "$_tk.stale.$$"
+        else ln "$_tk.stale.$$" "$_tk" 2>/dev/null && rm -f "$_tk.stale.$$"; fi
+      fi
+    fi
+    return 1
+  fi
+  _now="$(head -1 "$_lk" 2>/dev/null || true)"
+  [ "$_now" = "$_stale" ] && rm -f "$_lk"
+  [ "$(head -1 "$_tk" 2>/dev/null || true)" = "$_mine" ] && rm -f "$_tk"   # only our own takeover file
+  return 0
+}
+# mxtk_lock_live <pid> <who> — 0 iff the pid is alive, not a zombie, and (where ps can show it) its
+# command line names <who>, the script that wrote the lock; otherwise the pid was reused.
+mxtk_lock_live() {
+  local a
+  case "${1:-}" in ''|*[!0-9]*) return 1 ;; esac
+  kill -0 "$1" 2>/dev/null || return 1
+  case "$(sed 's/.*) //' "/proc/$1/stat" 2>/dev/null | cut -d' ' -f1)" in Z) return 1 ;; esac
+  [ -n "${2:-}" ] || return 0
+  a="$(ps -o args= -p "$1" 2>/dev/null || true)"
+  case "$a" in ""|*"$2"*) return 0 ;; esac
+  return 1
+}
+
+# One full build at a time in the copy (#686 review). The exec gate and a pre-push or module-close
+# verify-model.sh can build at the same moment, and two syncs + two mxbuilds in one folder would
+# corrupt each other's output. Lock: <root>/.mpr-snapshots/.build.lock, "<pid> <epoch> <who>",
+# taken with noclobber (O_EXCL, no process start) — the same shape as exec.sh's .exec.lock. A
+# held lock is waited on (2 s polls, MXTK_BUILD_LOCK_WAIT, default 900 s: a build takes minutes);
+# a lock whose pid is gone is stale and taken over; still held after the wait → this build runs
+# in place, said out loud (correct verdict; only the watch client may need a restart). Taken in
+# mxtk_build_tree, released after the build: by mxtk_gate_mxbuild (unless MXTK_BUILD_LOCK_KEEP=1 —
+# exec.sh, which removes it with its own lock on exit), and by verify-model.sh.
+MXTK_BUILD_LOCK=""; MXTK_BUILD_LOCK_NOTE=""
+mxtk_build_lock_take() {  # $1 = project root. 0 = ours (taken now or already), 1 = not taken
+  local f="$1/.mpr-snapshots/.build.lock" held hp waited=0 max="${MXTK_BUILD_LOCK_WAIT:-900}" told=0
+  MXTK_BUILD_LOCK_NOTE=""
+  [ -d "$1/.mpr-snapshots" ] || mkdir -p "$1/.mpr-snapshots" 2>/dev/null
+  while :; do
+    if ( set -o noclobber; printf '%s %s %s\n' "$$" "${EPOCHSECONDS:-$(date +%s)}" "${0##*/}" > "$f" ) 2>/dev/null; then
+      MXTK_BUILD_LOCK="$f"; return 0
+    fi
+    held=""; read -r held < "$f" 2>/dev/null || true; hp="${held%% *}"
+    [ "$hp" = "$$" ] && { MXTK_BUILD_LOCK="$f"; return 0; }
+    if [ -z "$held" ]; then sleep 1; waited=$((waited + 1)); [ "$waited" -lt "$max" ] && continue; fi   # being written
+    if [ -n "$held" ] && ! mxtk_lock_live "$hp" "${held#* * }"; then
+      # Stale (dead, zombie, or pid reused): the shared O_EXCL takeover, then try again.
+      mxtk_lock_takeover "$f" "$held" || { sleep 1; waited=$((waited + 1)); }
+      continue
+    fi
+    if [ "$waited" -ge "$max" ]; then
+      MXTK_BUILD_LOCK_NOTE="another full build (pid ${hp:-?}) held .mxtk/build/ for ${waited}s"; return 1
+    fi
+    [ "$told" = 1 ] || { echo "  … another full build (pid ${hp:-?}: ${held#* * }) is using .mxtk/build/ — waiting for it" >&2; told=1; }
+    sleep 2; waited=$((waited + 2))
+  done
+}
+mxtk_build_lock_release() {  # removes the lock only while it is ours
+  local own=""
+  [ -n "$MXTK_BUILD_LOCK" ] && [ -f "$MXTK_BUILD_LOCK" ] || return 0
+  read -r own < "$MXTK_BUILD_LOCK" 2>/dev/null || true
+  [ "${own%% *}" = "$$" ] && rm -f "$MXTK_BUILD_LOCK"
+  MXTK_BUILD_LOCK=""; return 0
+}
+
+# mxtk_build_tree_paths — a Java compile error printed from the copy names the copy's file; point it
+# back at the real one, so nobody edits .mxtk/build/. Pure bash, no process.
+mxtk_build_tree_paths() { mxtk_build_tree_unmap MXTK_MXBUILD_OUT; }
+# mxtk_build_tree_unmap <variable name> — rewrite the copy's paths in that variable to the real
+# model folder's: the POSIX form, the native C:\... form mxbuild.exe prints on Git Bash, and that
+# form with forward slashes. The pattern is quoted, so a [ * ? in the project path is literal
+# (#721 review). Bash builtins only; printf -v is bash 3.1+.
+mxtk_build_tree_unmap() {
+  [ "${MXTK_BUILD_PLACE:-}" = copy ] && [ -n "$MXTK_BUILD_DST" ] || return 0
+  local _v _f _t
+  eval "_v=\${$1-}"
+  _v="${_v//"$MXTK_BUILD_DST"/$MXTK_BUILD_SRC}"
+  if [ -n "$MXTK_BUILD_DST_N" ] && [ "$MXTK_BUILD_DST_N" != "$MXTK_BUILD_DST" ]; then
+    _v="${_v//"$MXTK_BUILD_DST_N"/$MXTK_BUILD_SRC_N}"
+    _f="${MXTK_BUILD_DST_N//\\//}"; _t="${MXTK_BUILD_SRC_N//\\//}"
+    _v="${_v//"$_f"/$_t}"
+  fi
+  printf -v "$1" '%s' "$_v"
+}
+
 # mxtk_gate_mxbuild <mpr> <timeout-seconds> <errors-file> - the exec gate's way to run
 # mxbuild: mxtk_mxbuild_error_count with this project's watcher paused around it, and ONE
 # retry when mxbuild exits 1 or 3 and left no sign of a model problem (no CE code in its
@@ -864,7 +1012,9 @@ mxtk_gate_mxbuild() {
     return "$_rc"
   fi
   mxtk_pause_watchers "${PROJECT_ROOT:-$(dirname "$_mpr")}"
+  mxtk_build_tree "$_mpr"; _mpr="$MXTK_BUILD_MPR"   # a copy: deployment/ is the running app's (#686)
   mxtk_mxbuild_error_count "$_mpr" "$_timeout" "$_ef" >/dev/null || _rc=$?
+  mxtk_build_tree_paths
   case "${MXTK_MXBUILD_EXIT:-}" in
     1|3)
       # A deploy-stage message that already survived one retry in this run (the baseline's)
@@ -879,6 +1029,7 @@ mxtk_gate_mxbuild() {
         : > "$_ef"
         _rc=0
         mxtk_mxbuild_error_count "$_mpr" "$_timeout" "$_ef" >/dev/null || _rc=$?
+        mxtk_build_tree_paths
         # Same deploy-stage failure twice: remember its text, so a later build in this run
         # (the gate after the baseline) does not retry it again (#494 review).
         case "${MXTK_MXBUILD_EXIT:-}" in
@@ -887,8 +1038,144 @@ mxtk_gate_mxbuild() {
         esac
       fi ;;
   esac
+  [ "${MXTK_BUILD_LOCK_KEEP:-0}" = 1 ] || mxtk_build_lock_release   # exec.sh releases it with its own lock
   mxtk_resume_watchers
   return "$_rc"
+}
+
+# ---------------------------------------------------------------------------
+# Reaping the deno helper a toolkit-started mxbuild leaves behind (#708).
+#
+# WHY. mxbuild (and `mx`, and mxcli's `docker check`/`docker build`, which run mxbuild) starts
+# modeler/tools/deno/<platform>/deno (WebExtensionsRunner), ~290 MB, that outlives it with
+# parent PID 1 and never exits. Field, 2026-11-06 (pipeline-mode experiment for #700, 16 GB
+# container): 47 of them held 13 GB, and every later build was OOM-killed. doctor --cleanup lists
+# them, but nothing called it, so each exec, module close, doctor probe and fixture added one.
+#
+# HOW (process group, never a name match on the whole machine). mxtk_reap_launch_begin turns on
+# bash job control (`set -m`) for the ONE `cmd &` that follows, so that cmd leads a new process
+# group whose id is its own pid; mxtk_reap_launch_end turns it back off. Everything the cmd starts
+# inherits that group, deno included, and keeps it after mxbuild exits and deno is re-parented to
+# PID 1. mxtk_reap_group <pid>, called once the cmd has exited, stops only processes that are BOTH
+# in that group AND named deno / deno.exe. A deno the toolkit did not start (Studio Pro's, another
+# session's, a user's `deno run`) is in another group and is never touched; no `pkill`, no pattern
+# over the process table. A group id is not reused while any member lives, so the group still names
+# this invocation's children when it is read. `set -m` in a non-interactive bash neither moves the
+# shell into another group nor takes the terminal (checked under a pty and in a pipeline).
+# Field run (2026-11-09, Linux x86-64, real mxbuild 11.13.0 on a copy of a 197 MB test app, while
+# another experiment's mxbuild ran on the same machine): through mxtk_gate_mxbuild, mxbuild pid
+# 22279 / pgid 22279 started deno pid 25497 / ppid 22279 / pgid 22279, still alive 19 s in; the call
+# reaped 1 and no deno of that group was left. Through mxtk_reaped: mxbuild 23436 / pgid 23436, deno
+# 27070 / pgid 23436, gone afterwards, while two orphaned denos of the other experiment (pgid 11043
+# and 21660, ppid 1) were left running, untouched.
+# Cost: when the group is already empty (the common case: nothing stray) the check is the `kill -0`
+# builtin, no process start; one `ps` only when something of the group is still alive.
+# Platforms: Linux and macOS (bash 3.2 has `set -m`; no `setsid` needed). Git Bash: skipped —
+# mxbuild.exe and deno.exe are native Windows processes outside MSYS process groups, so group
+# membership cannot be read reliably there; doctor --cleanup (wmic) stays the path on Windows.
+# MXTK_NO_REAP=1 turns all of this off (the old behaviour).
+MXTK_REAPED_N=0
+_MXTK_REAP_ON=0
+_MXTK_REAP_HADM=0
+mxtk_reap_launch_begin() {
+  _MXTK_REAP_ON=0; _MXTK_REAP_HADM=0
+  [ "${MXTK_NO_REAP:-0}" = 1 ] && return 0
+  case "${OSTYPE:-}" in msys*|cygwin*|win*) return 0 ;; esac
+  case $- in *m*) _MXTK_REAP_HADM=1 ;; esac
+  set -m 2>/dev/null || true
+  case $- in *m*) _MXTK_REAP_ON=1 ;; esac
+  return 0
+}
+mxtk_reap_launch_end() {
+  [ "$_MXTK_REAP_HADM" = 1 ] || set +m 2>/dev/null || true
+  return 0
+}
+# mxtk_reap_group <pid> — stop the deno processes still in <pid>'s process group. Sets MXTK_REAPED_N.
+mxtk_reap_group() {
+  local _g="$1" _p _pg _c _kill=""
+  MXTK_REAPED_N=0
+  [ "$_MXTK_REAP_ON" = 1 ] && [ -n "$_g" ] || return 0
+  kill -0 -- "-$_g" 2>/dev/null || return 0
+  while read -r _p _pg _c; do
+    [ "$_pg" = "$_g" ] && [ "$_p" != "$_g" ] || continue
+    case "${_c##*/}" in deno|deno.exe) _kill="$_kill $_p"; MXTK_REAPED_N=$((MXTK_REAPED_N + 1)) ;; esac
+  done <<EOT
+$(ps -A -o pid=,pgid=,comm= 2>/dev/null)
+EOT
+  # shellcheck disable=SC2086
+  [ -z "$_kill" ] || kill $_kill 2>/dev/null || true
+  return 0
+}
+# mxtk_reaped <cmd...> — run cmd in the foreground (the caller's redirections apply; give it
+# `< /dev/null`), then reap its deno. Returns cmd's exit code.
+# Signals. In its own group, cmd no longer receives the terminal's Ctrl-C. So the wait runs in a
+# ( ... ) subshell that stays in the caller's (foreground) group: on INT/TERM that subshell stops
+# cmd's group and ends (130/143), while the caller gets the same Ctrl-C and runs its own trap or
+# default action, exactly as before. The INT/TERM trap is set only inside that subshell: the
+# caller's traps are never read, reset or re-raised (bash 3.2 has no BASHPID, and `trap -p` in a
+# subshell shows the parent's traps, so save/restore/re-raise could not be done right there).
+# A TERM sent to the caller's pid alone reaches the caller only, as it did before this helper.
+# NOT reaped (#708 review): a command that starts mxbuild in a NEW process group of its own.
+# mxcli does (field run, 2026-11-09, this machine: an `mxcli run --local` pid 21500 / pgid 21500
+# had its mxbuild at pid 21600 / pgid 21600, and that mxbuild's deno at pgid 21600). So for
+# `mxcli docker check/build/reload` the deno sits in mxbuild's group, not mxcli's, and this stops
+# nothing; bin/doctor.sh --cleanup is the fallback there. Direct mxbuild / mx calls are reaped.
+mxtk_reaped() {
+  local _rc=0
+  mxtk_reap_launch_begin
+  if [ "$_MXTK_REAP_ON" != 1 ]; then mxtk_reap_launch_end; "$@" || _rc=$?; return "$_rc"; fi
+  mxtk_reap_launch_end
+  (
+    _r=0
+    mxtk_reap_launch_begin
+    "$@" &
+    _p=$!
+    mxtk_reap_launch_end
+    trap 'kill -TERM -- "-$_p" 2>/dev/null; exit 130' INT
+    trap 'kill -TERM -- "-$_p" 2>/dev/null; exit 143' TERM
+    wait "$_p" || _r=$?
+    mxtk_reap_group "$_p"
+    exit "$_r"
+  ) || _rc=$?
+  return "$_rc"
+}
+
+# mxtk_deno_orphans — the mxbuild helpers (a deno under modeler/tools/deno) whose parent is not a
+# live mxbuild / mx / dotnet / Studio Pro: sets MXTK_ORPHAN_N and MXTK_ORPHAN_KB (resident memory).
+# Same parent rule as bin/doctor.sh's mh_leftovers, without its 10-minute age floor: at an OOM, every
+# orphan counts. Linux/macOS only (0 0 on Git Bash, where doctor --cleanup reads wmic instead).
+mxtk_deno_orphans() {
+  MXTK_ORPHAN_N=0; MXTK_ORPHAN_KB=0
+  case "${OSTYPE:-}" in msys*|cygwin*|win*) return 0 ;; esac
+  set -- $(ps -A -o pid=,ppid=,rss=,args= 2>/dev/null | awk '
+    { pid = $1; pp[pid] = $2; rss[pid] = $3; a = $0; sub(/^ *[0-9]+ +[0-9]+ +[0-9]+ +/, "", a); args[pid] = a; ord[++n] = pid }
+    END { c = 0; kb = 0
+      for (i = 1; i <= n; i++) { p = ord[i]
+        if (args[p] !~ /modeler\/tools\/deno\/[^ ]*deno(\.exe)?( |$)/) continue
+        q = pp[p]
+        if (q in args) { g = args[q]; sub(/ .*/, "", g); sub(/.*\//, "", g)
+          if (g ~ /^(mxbuild|mx|mxutil|dotnet|MxBuild)(\.exe)?$/ || args[q] ~ /[Ss]tudio/) continue }
+        c++; kb += rss[p] }
+      print c, kb }')
+  MXTK_ORPHAN_N="${1:-0}"; MXTK_ORPHAN_KB="${2:-0}"
+}
+
+# mxtk_mxbuild_oom_note <exit> [output] — when an mxbuild run was killed for lack of memory (exit
+# 137, or an out-of-memory message in its output), print the plain cause and set MXTK_MXBUILD_OOM
+# to it; returns 1 (and leaves it empty) otherwise. The count is what --cleanup can free.
+MXTK_MXBUILD_OOM=""
+mxtk_mxbuild_oom_note() {
+  local _gb
+  MXTK_MXBUILD_OOM=""
+  [ "${1:-0}" != 0 ] || return 1
+  if [ "$1" != 137 ]; then
+    case "${2:-}" in *OutOfMemory*|*"out of memory"*|*"Out of memory"*|*"Cannot allocate memory"*|*"OOM-kill"*|*"oom-kill"*) ;; *) return 1 ;; esac
+  fi
+  mxtk_deno_orphans
+  _gb="$(( MXTK_ORPHAN_KB / 1048576 )).$(( MXTK_ORPHAN_KB * 10 / 1048576 % 10 ))"
+  MXTK_MXBUILD_OOM="build killed for lack of memory: $MXTK_ORPHAN_N orphaned deno processes hold $_gb GB — run bin/doctor.sh --cleanup"
+  echo "  ✗ $MXTK_MXBUILD_OOM" >&2
+  return 0
 }
 
 # ---------------------------------------------------------------------------
@@ -968,10 +1255,12 @@ mxtk_mxbuild_error_count() {
   fi
   _out=$(mktemp /tmp/mxbuild-out.XXXXXX) || { [ "$_own_ef" -eq 1 ] && rm -f "$_ef"; echo "?"; return 2; }
 
+  mxtk_reap_launch_begin
   "$_mb" --java-home="$_jh" --java-exe-path="$_je" \
          --write-errors="$_ef" --target=deploy "$_mpr" \
          > "$_out" 2>&1 < /dev/null &
   _pid=$!
+  mxtk_reap_launch_end   # its deno is reaped by group below (#708)
   # _timeout 0 = unbounded: exec.sh's real gate passes 0 unless MXTK_GATE_TIMEOUT is set,
   # because a large model's deploy build legitimately runs past any fixed default, and a
   # timed-out gate reads as "non-zero exit, no errors file" = FAIL = auto-restore of work
@@ -981,7 +1270,7 @@ mxtk_mxbuild_error_count() {
   if [ "$_timeout" -gt 0 ]; then
     while kill -0 "$_pid" 2>/dev/null; do
       if [ "$_waited" -ge "$_timeout" ]; then
-        kill "$_pid" 2>/dev/null; wait "$_pid" 2>/dev/null
+        kill "$_pid" 2>/dev/null; wait "$_pid" 2>/dev/null; mxtk_reap_group "$_pid"
         _mxtk_slurp MXTK_MXBUILD_OUT "$_out"; rm -f "$_out"
         MXTK_MXBUILD_EXIT=124
         [ "$_own_ef" -eq 1 ] && rm -f "$_ef"
@@ -991,8 +1280,10 @@ mxtk_mxbuild_error_count() {
     done
   fi
   wait "$_pid" || _exit=$?
+  mxtk_reap_group "$_pid"
   _mxtk_slurp MXTK_MXBUILD_OUT "$_out"; rm -f "$_out"
   MXTK_MXBUILD_EXIT="$_exit"
+  mxtk_mxbuild_oom_note "$_exit" "$MXTK_MXBUILD_OUT" || true
 
   if [ ! -s "$_ef" ] && [ "$_exit" -eq 0 ]; then
     [ "$_own_ef" -eq 1 ] && rm -f "$_ef"
@@ -1006,6 +1297,7 @@ mxtk_mxbuild_error_count() {
   fi
   _count=$("$_py" -c "import json;d=json.load(open('$(native_path "$_ef")'));print(len([x for x in d.get('problems',[]) if x.get('severity')=='Error']))" 2>/dev/null)
   MXTK_MXBUILD_WHY=$(mxtk_mxbuild_why "$_ef" "$_py")
+  [ -z "$MXTK_MXBUILD_WHY" ] && MXTK_MXBUILD_WHY="$MXTK_MXBUILD_OOM"   # BUILD-LOG names the cause (#708)
   [ "$_own_ef" -eq 1 ] && rm -f "$_ef"
   if [ -z "$_count" ]; then echo "?"; return 1; fi
   # Non-zero exit and ZERO Error problems: mxbuild stopped BEFORE checking the model — a
@@ -1053,10 +1345,27 @@ print('; '.join(one(e) for e in d.get('errors',[]) or [])[:300])" 2>/dev/null ||
 # it from the model on every full build. exec.sh (gate kind) and verify-model.sh record it.
 mxtk_java_fp() {
   ( cd "$1" 2>/dev/null || exit 0
+    # File ARGUMENTS, not --stdin-paths: git resolves stdin paths from the repository top, so in a
+    # model folder below it (app/ on a two-tree checkout, apps/<X>/) the cwd-relative names failed
+    # to open and every fingerprint hashed the same (PR #700 review). Arguments are cwd-relative.
+    # Same names and hashes as before on a single-tree checkout, and no extra process (#687 budget).
     _l="$(git ls-files -co --exclude-standard -- javasource javascriptsource theme userlib widgets 2>/dev/null \
           | grep -v '^javasource/[^/]*/proxies/' || true)"
-    { printf '%s\n' "$_l"; [ -z "$_l" ] || printf '%s\n' "$_l" | git hash-object --stdin-paths 2>/dev/null; } \
+    { printf '%s\n' "$_l"
+      if [ -n "$_l" ]; then ( set -f; IFS='
+'; git hash-object -- $_l ) 2>/dev/null; fi; } \
       | cksum | { read -r _ck _; printf '%s\n' "$_ck"; } )
+}
+
+# mxtk_model_java_fp [project root] — mxtk_java_fp of the MODEL's folder, where javasource/,
+# javascriptsource/, theme/, userlib/ and widgets/ sit beside the .mpr (app/ on a two-tree checkout).
+# The one fingerprint exec.sh (gate kind), verify-model.sh and the pre-push hook record and compare:
+# fingerprinting the project root on a two-tree checkout saw no Java at all, and a hook that used the
+# model dir against a root-recorded value read every push as a Java change (PR #700 review).
+mxtk_model_java_fp() {
+  local r="${1:-$PROJECT_ROOT}" d
+  d="$(PROJECT_ROOT="$r" find_model_dir 2>/dev/null)" || d=""
+  mxtk_java_fp "${d:-$r}"
 }
 
 # mxtk_find_mx — the `mx` tool beside the resolved mxbuild (same version by construction).
@@ -1099,12 +1408,14 @@ mxtk_mx_check_error_count() {
   _out=$(mktemp /tmp/mxcheck-out.XXXXXX) || { echo "?"; return 2; }
   _js=$(mktemp /tmp/mxcheck-json.XXXXXX) || { rm -f "$_out"; echo "?"; return 2; }
   rm -f "$_js"   # mx writes the file itself; an empty pre-existing one would read as "no output"
+  mxtk_reap_launch_begin
   "$_mx" check "$_mpr" -j "$(native_path "$_js")" > "$_out" 2>&1 < /dev/null &
   _pid=$!
+  mxtk_reap_launch_end
   if [ "$_timeout" -gt 0 ]; then   # unbounded: `wait`, no per-second sleep process
     while kill -0 "$_pid" 2>/dev/null; do
       if [ "$_waited" -ge "$_timeout" ]; then
-        kill "$_pid" 2>/dev/null; wait "$_pid" 2>/dev/null
+        kill "$_pid" 2>/dev/null; wait "$_pid" 2>/dev/null; mxtk_reap_group "$_pid"
         _mxtk_slurp MXTK_MXBUILD_OUT "$_out"; rm -f "$_out" "$_js"
         MXTK_MXBUILD_EXIT=124; [ "$_own_ef" -eq 1 ] && rm -f "$_ef"
         echo "?"; return 3
@@ -1113,14 +1424,16 @@ mxtk_mx_check_error_count() {
     done
   fi
   wait "$_pid" || _exit=$?
+  mxtk_reap_group "$_pid"
   _mxtk_slurp MXTK_MXBUILD_OUT "$_out"; rm -f "$_out"
   MXTK_MXBUILD_EXIT="$_exit"
+  mxtk_mxbuild_oom_note "$_exit" "$MXTK_MXBUILD_OUT" || true
   if [ -s "$_js" ]; then _count=$(mxtk_mx_check_to_mxbuild "$_js" "$_ef"); fi
   rm -f "$_js"
   [ "$_own_ef" -eq 1 ] && rm -f "$_ef"
   case "${_count:-}" in
     ''|*[!0-9]*)
-      MXTK_MXBUILD_WHY="mx check wrote no readable JSON (exit $_exit): $(printf '%s' "$MXTK_MXBUILD_OUT" | tail -3 | tr '\n' ' ' | cut -c1-240)"
+      MXTK_MXBUILD_WHY="${MXTK_MXBUILD_OOM:+$MXTK_MXBUILD_OOM; }mx check wrote no readable JSON (exit $_exit): $(printf '%s' "$MXTK_MXBUILD_OUT" | tail -3 | tr '\n' ' ' | cut -c1-240)"
       echo "?"; return 1 ;;
   esac
   # exit 1 with errors is the normal "model has errors" answer; any other non-zero exit
@@ -1137,6 +1450,42 @@ project_name() {
   local mpr
   mpr=$(find_mpr) || return 1
   basename "$mpr" .mpr
+}
+
+# --- Pipeline mode (#686) ------------------------------------------------------------------
+# PROJECT.md `Pipeline mode: high-speed | balanced | high-quality`. No line, or a value not
+# recognised, = balanced. Env MXTK_PIPELINE_MODE wins. Read by exec.sh (per-row lane), the pre-push
+# hook (install-project-hooks.sh) and module-close.sh; the table is iterative-build-loop.md
+# § "Pipeline mode". $1 = project root (default $PROJECT_ROOT).
+mxtk_pipeline_mode() {
+  # Bash builtins only (no sed/tr): exec.sh calls this on every run, and tests/wave2/
+  # test-exec-process-budget.sh counts the processes one exec starts (#687).
+  local v="${MXTK_PIPELINE_MODE:-}" f="${1:-$PROJECT_ROOT}/PROJECT.md" l re='^[*_ >-]*[Pp]ipeline mode:[*_ `]*([A-Za-z-]*)'
+  if [ -z "$v" ] && [ -r "$f" ]; then
+    while IFS= read -r l || [ -n "$l" ]; do
+      if [[ $l =~ $re ]]; then v="${BASH_REMATCH[1]}"; break; fi
+    done < "$f"
+  fi
+  case "$v" in
+    [Hh][Ii][Gg][Hh]-[Ss][Pp][Ee][Ee][Dd]) echo high-speed ;;
+    [Hh][Ii][Gg][Hh]-[Qq][Uu][Aa][Ll][Ii][Tt][Yy]) echo high-quality ;;
+    *) echo balanced ;;
+  esac
+}
+# Printed wherever the toolkit runs a full build (exec.sh's full gate, module-close.sh, the pre-push
+# hook): a full build replaces the bundle a running `mxcli run --local --watch` serves, and the client
+# 404s on /dist/index.js until a restart (PR #700 run-2 experiment). Advice only.
+MXTK_WATCH_NOTE="full build done: if the app runs with --watch, run \`mxcli run restart\` before the next LOOK"
+# Module-close polish loop, "<fidelity %> <max rounds>": 75 3 | 85 3 | 90 5 by mode (high-speed
+# 3 rounds, not 2: in every arm of the PR #700 run-2 experiment one round went to undoing a regression); a PROJECT.md
+# line `UI polish: <N>% / <R> rounds` overrides either number.
+mxtk_ui_polish() {
+  local r="${1:-$PROJECT_ROOT}" pt pr pol x
+  case "$(mxtk_pipeline_mode "$r")" in high-speed) pt=75; pr=3 ;; high-quality) pt=90; pr=5 ;; *) pt=85; pr=3 ;; esac
+  pol="$(grep -m1 -iE '^[*_ -]*UI polish:' "$r/PROJECT.md" 2>/dev/null)"
+  x="$(printf '%s' "$pol" | sed -n 's/[^0-9]*\([0-9][0-9]*\)[ ]*%.*/\1/p')"; [ -n "$x" ] && pt=$x
+  x="$(printf '%s' "$pol" | sed -n 's/.*[^0-9]\([0-9][0-9]*\)[ ]*round.*/\1/p')"; [ -n "$x" ] && pr=$x
+  echo "$pt $pr"
 }
 
 # --- Python 3 ------------------------------------------------------------------------------
@@ -1272,6 +1621,39 @@ find_toolkit_root() {
   return 1
 }
 
+# ---------------------------------------------------------------------------
+# mxtk_resolve_ledger <root> <module> — the ONE coverage-ledger lookup for a module. Echoes
+# the first that exists and returns 0, or returns 1:
+#   1. <root>/architecture/modules/<M>/coverage-ledger/    per-BRD directory (holds >=1 *.md;
+#                                                           wins over the index file beside it)
+#   2. <root>/architecture/modules/<M>/coverage-ledger.md  canonical per-module file
+#   3. <root>/architecture/modules/<M>-coverage-ledger.md  flat module layout
+#   4. <root>/architecture/coverage-ledger.md              single-BRD project file
+# An empty <module> tries only 4. An empty <root> echoes paths relative to the current dir.
+# Explicit overrides (LEDGER_FILE, a positional ledger) stay with each caller: their failure
+# semantics differ (conformance-check refuses to fall back, verify-module passes a hint).
+# Used by conformance-check.sh, coverage-preflight.sh, review-module.sh and verify-module.sh.
+# Why one helper (#673): those four each carried their own copy of this chain, and the copies
+# drifted — review-module knew 2 of the 4 forms, verify-module 3 — so a project with a valid
+# single-BRD ledger passed conformance and coverage run alone and FAULTed both rungs of the
+# module review. Duplicated discovery logic drifts and the fix does not travel (the same lesson
+# as bin/lib/discover-brds.sh's header, and CLAUDE.md "Writing in this toolkit — generic first").
+# ---------------------------------------------------------------------------
+mxtk_resolve_ledger() {
+  local p="${1:+$1/}" m="${2:-}" c
+  if [ -n "$m" ]; then
+    c="${p}architecture/modules/$m/coverage-ledger"
+    [ -d "$c" ] && ls "$c"/*.md >/dev/null 2>&1 && { printf '%s\n' "$c"; return 0; }
+    for c in "${p}architecture/modules/$m/coverage-ledger.md" \
+             "${p}architecture/modules/$m-coverage-ledger.md"; do
+      [ -f "$c" ] && { printf '%s\n' "$c"; return 0; }
+    done
+  fi
+  c="${p}architecture/coverage-ledger.md"
+  [ -f "$c" ] && { printf '%s\n' "$c"; return 0; }
+  return 1
+}
+
 # mxtk_sha256 — SHA-256 of stdin, whichever tool this machine has (sha256sum on
 # Linux/Git Bash, shasum on macOS, openssl as the last resort).
 mxtk_sha256() {
@@ -1327,6 +1709,52 @@ mxtk_holder_text() {
     [ -n "$pp" ] && [ "$pp" != 1 ] && [ -n "$pn" ] && printf ' (parent: %s pid %s)' "$pn" "$pp"
   fi
   printf '\n'
+}
+
+# mxtk_app_probe <app port> [admin port] — is a run --local app serving its client? One pass, no wait.
+# 0 = up: <app port> serves /index.html (2xx/3xx) AND the client bundle that page loads (dist/*.js or
+# mxui.js; /dist/index.js when the page names neither — a themed index.html) answers 2xx with a body
+# that is not HTML (an SPA catch-all answers every path with its index page).
+# 1 = not up. MXTK_PROBE_DOWN names the part that is down, in words a reader can act on; the admin
+# API (127.0.0.1:<admin port>, where mxcli always binds it) only sharpens that message — it is never
+# required, so a wrong admin port can not turn a serving app into "down".
+# Sets MXTK_PROBE_BUNDLE (the bundle URL tried, with its HTTP code when it failed).
+# WHY (#686: 9 false "not proven up after 240s" in one field run while the app served, each
+# re-proved by hand at 2-4 min). app-restart.sh required Mendix words in login.html / index.html.
+# Mendix 11's login.html carries none (checked on a Mendix 11 deployment/web), and a themed
+# index.html need not either, so a serving app could read "does not serve a Mendix page" for the
+# whole wait. The record's pid and port already say whose app it is (ports are ownership-checked
+# before the start); the bundle answering as JavaScript says the client is there. 127.0.0.1, not
+# localhost: mxcli binds the app (and always the admin API) to 127.0.0.1 by default.
+mxtk_app_probe() {
+  local p="$1" a="${2:-}" h="http://127.0.0.1" code src first adm=""
+  MXTK_PROBE_DOWN=""; MXTK_PROBE_BUNDLE=""
+  if [ -n "$a" ]; then
+    code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 -X POST -H 'Content-Type: application/json' \
+      -d '{"action":"runtime_status","params":{}}' "$h:$a/" 2>/dev/null)"
+    case "$code" in ''|000) adm="the runtime's admin API :$a does not answer either — the runtime is not up" ;;
+                    *) adm="the runtime's admin API :$a answers — the runtime is up, its app is not (yet)" ;; esac
+  fi
+  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 4 "$h:$p/index.html" 2>/dev/null)"
+  case "$code" in
+    2??|3??) ;;
+    *) MXTK_PROBE_DOWN="app port :$p does not serve index.html (HTTP ${code:-none})${adm:+; $adm}"; return 1 ;;
+  esac
+  src="$(curl -s --max-time 4 "$h:$p/index.html" 2>/dev/null | head -c 50000 \
+        | grep -oE 'src="[^"]*(dist/[^"]*\.js|mxui\.js)[^"]*"' | head -1 | sed 's/^src="//; s/"$//')"
+  [ -n "$src" ] || src="/dist/index.js"
+  case "$src" in http*) ;; /*) src="$h:$p$src" ;; *) src="$h:$p/$src" ;; esac
+  MXTK_PROBE_BUNDLE="$src"
+  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 6 "$src" 2>/dev/null)"
+  case "$code" in
+    2??) first="$(curl -s --max-time 6 "$src" 2>/dev/null | head -c 512 | tr -d ' \t\r\n' | cut -c1)"
+         [ "$first" != "<" ] && return 0
+         MXTK_PROBE_BUNDLE="$src → HTML, not JavaScript"
+         MXTK_PROBE_DOWN="client bundle $src answers with an HTML page, not JavaScript — no Mendix client is served"; return 1 ;;
+  esac
+  MXTK_PROBE_BUNDLE="$src → HTTP ${code:-none}"
+  MXTK_PROBE_DOWN="client bundle $src → HTTP ${code:-none}: the runtime serves pages but no web client (after a full build into deployment/, a run --local --watch app serves none until it is restarted)"
+  return 1
 }
 
 # mxtk_pid_in_tree <pid> <root pid> — 0 when <pid> is <root pid> or a descendant of it (walked up

@@ -161,14 +161,21 @@ fi
 # --closeout, never on a stage query, never a verdict, never an exit code (CLAUDE.md guard rule 7:
 # a reminder must not block). A finding about the toolkit or mxcli that stays in the project's
 # log reaches nobody — 8 real toolkit findings sat in one project's FINDINGS.md that way. A row
-# counts as open when its status is "open" or it has none (file-bugs.py's own default).
+# counts as open when its status is "open" or it has none (file-bugs.py's own default); a "bundled"
+# row (file-bugs.sh --bundle: mailed to the maintainer) is counted on its own line, not yet filed either.
 bugs_unfiled_line() {
-  local f="$PROJECT_DIR/docs/bugs.jsonl" n
+  local f="$PROJECT_DIR/docs/bugs.jsonl" n b
   [ -f "$f" ] || return 0
   n="$(grep -E '^[[:space:]]*\{' "$f" 2>/dev/null \
        | awk '/"status"[[:space:]]*:[[:space:]]*"open"/ || !/"status"[[:space:]]*:/ { c++ } END { print c + 0 }')"
-  [ "${n:-0}" -gt 0 ] 2>/dev/null || return 0
-  echo "note: $n toolkit/mxcli bug(s) logged but not filed — run bin/file-bugs.sh --auto (or --links)"
+  b="$(grep -E '^[[:space:]]*\{' "$f" 2>/dev/null | grep -cE '"status"[[:space:]]*:[[:space:]]*"bundled"')"
+  if [ "${n:-0}" -gt 0 ] 2>/dev/null; then
+    echo "note: $n toolkit/mxcli bug(s) logged but not filed — run bin/file-bugs.sh --auto (or --links)"
+  fi
+  if [ "${b:-0}" -gt 0 ] 2>/dev/null; then
+    echo "note: $b toolkit/mxcli bug(s) bundled, not yet filed — mail the toolkit-bugs-*.md file, or file one with bin/file-bugs.sh --file PBUG-NN (or --links)"
+  fi
+  return 0
 }
 
 # Machine preflight receipt — informational only, on full runs only (stage queries run inside
@@ -1215,6 +1222,26 @@ reg_unavailable_note() {
   echo "MANUAL|cannot evaluate: $REG_COUNT differing decision registers exist and none is named — see the ⚠ notice above; set GATE_REGISTER or add the CLAUDE.local.md ## Wiring row"
 }
 
+# DECISIONS_TABLE_AWK — the shared prefix every Decisions-table reader below starts with (#676).
+# Pass the register TWICE ("$f" "$f"): the first pass records which lines are separator rows
+# (|---|---|), so the second can tell a header row from a data row by looking one line ahead.
+#   - a blank line is skipped, never an end of table: a Decisions table split by a blank line
+#     ("| 1 | scope | OPEN |", blank, "| 3 | architecture | CONFIRMED |") used to hide every row
+#     after the blank, and Stage 3 FAILed over a CONFIRMED row in plain sight;
+#   - any other non-pipe line (a heading, prose) still ends the table;
+#   - so does a new header row (followed by a separator) whose first cell is not "Stage", so an
+#     Open-questions table after a blank line ("| # | Question | Raised at | Status |") is
+#     never read as Decisions. A new "| Stage |" header falls through and re-opens the table.
+# The separator test allows a trailing \r: a CRLF register's separator must still mark the
+# Open-questions header, or its rows read as Decisions after a blank line (a false PASS).
+# Line numbers in the reader bodies must use FNR, not NR (NR counts both passes).
+DECISIONS_TABLE_AWK='
+    FNR == NR { if ($0 ~ /^\|[ \t:|-]*-[ \t\r:|-]*$/) sep[FNR] = 1; next }
+    /^[ \t\r]*$/ { next }
+    !/^\|/ { intab = 0; next }
+    sep[FNR + 1] { h0 = tolower($2); gsub(/^[ \t]+|[ \t]+$/, "", h0); if (h0 != "stage") { intab = 0; next } }
+'
+
 has_confirmed_decision() {
   local stage="$1"
   local f="$REGISTER"
@@ -1223,8 +1250,7 @@ has_confirmed_decision() {
   # "Stage") count. Scanning every pipe row let the Open-questions table
   # ("| 7 | ... | Raised at | CONFIRMED |") stand in for a stage decision. A register with
   # no such header anywhere falls back to scanning every table, as before.
-  awk -F'|' -v want="$stage" '
-    !/^\|/ { intab = 0; next }
+  awk -F'|' -v want="$stage" "$DECISIONS_TABLE_AWK"'
     {
       h = tolower($2); gsub(/^[ \t]+|[ \t]+$/, "", h)
       if (h == "stage") { intab = 1; hdr = 1; next }
@@ -1252,7 +1278,7 @@ has_confirmed_decision() {
       }
     }
     END { exit !(hdr ? tabf : anyf) }
-  ' "$f"
+  ' "$f" "$f"
 }
 
 # AUTO MODE AND THE ✋ GATES (#624, maintainer decision 2026-11-05). Under `Interview mode: auto`
@@ -1270,8 +1296,7 @@ interview_mode_is_auto() { [ "${INTERVIEW_MODE:-}" = "auto" ]; }
 has_auto_assumed_decision() {
   local stage="$1" f="$REGISTER"
   [ -n "$f" ] && [ -f "$f" ] || return 1
-  awk -F'|' -v want="$stage" '
-    !/^\|/ { intab = 0; next }
+  awk -F'|' -v want="$stage" "$DECISIONS_TABLE_AWK"'
     {
       h = tolower($2); gsub(/^[ \t]+|[ \t]+$/, "", h)
       if (h == "stage") { intab = 1; hdr = 1; next }
@@ -1285,7 +1310,7 @@ has_auto_assumed_decision() {
       if (a) { anyf = 1; if (intab) tabf = 1 }
     }
     END { exit !(hdr ? tabf : anyf) }
-  ' "$f"
+  ' "$f" "$f"
 }
 
 # auto_assumed_hint <N> — on the FAIL line of a non-auto run: say why the auto-mode row no longer counts.
@@ -1301,8 +1326,7 @@ auto_assumed_hint() {
 auto_hand_pending() {
   local f="$REGISTER" t
   if [ -n "$f" ] && [ -f "$f" ]; then
-    awk -F'|' -v name="$(basename "$f")" '
-      !/^\|/ { intab = 0; next }
+    awk -F'|' -v name="$(basename "$f")" "$DECISIONS_TABLE_AWK"'
       {
         h = tolower($2); gsub(/^[ \t]+|[ \t]+$/, "", h)
         if (h == "stage") { intab = 1; hdr = 1; next }
@@ -1311,10 +1335,10 @@ auto_hand_pending() {
         if (s !~ /^[0347]$/) next
         row = tolower($0); gsub(/[`*]/, "", row)
         if (row !~ /consentby[ \t]*:[ \t]*auto-mode/) next
-        n++; id[n] = name ":" NR " (Stage " s ")"; tab[n] = intab
+        n++; id[n] = name ":" FNR " (Stage " s ")"; tab[n] = intab
       }
       END { for (i = 1; i <= n; i++) if (!hdr || tab[i]) print id[i] }
-    ' "$f"
+    ' "$f" "$f"
   fi
   t="$(resolve_stage_file "triage.md")"
   if [ -n "$t" ] && [ "$t" != "AMBIGUOUS" ] && [ -f "$t" ] && awk '
@@ -1367,7 +1391,7 @@ stage_exit_recorded() {
   local stage="$1"
   local f="$REGISTER"
   [ -n "$f" ] && [ -f "$f" ] || return 1
-  awk -F'|' -v want="$stage" '
+  awk -F'|' -v want="$stage" "$DECISIONS_TABLE_AWK"'
     function rank(s) { s = toupper(s); if (s == "P") return 0; if (s ~ /^[0-7]$/) return s + 1; return -1 }
     BEGIN {
       wr = rank(want); w = tolower(want); r6 = rank("6")
@@ -1376,7 +1400,6 @@ stage_exit_recorded() {
       SEP = "([ \t:-]|—|–)*"
       ARTS = "^(the )?(build plan|plan|blueprint|architecture|design( system)?|wireframes?|scope|triage|brds?|requirements)"
     }
-    !/^\|/ { intab = 0; next }
     {
       h = tolower($2); gsub(/^[ \t]+|[ \t]+$/, "", h)
       if (h == "stage") { intab = 1; hdr = 1; next }
@@ -1405,7 +1428,7 @@ stage_exit_recorded() {
       }
     }
     END { exit !(hdr ? (texit || (town && tlater)) : (aexit || (aown && alater))) }
-  ' "$f"
+  ' "$f" "$f"
 }
 
 # Counts the Screen Inventory table in design/target-ui.md (design-artifacts.md Step 2): a
@@ -1842,7 +1865,27 @@ stage4_briefs_missing() {
 # level would write into docs/coverage/, which a gate must not do. Read only for architecture/ at
 # the project root, the layout preflight resolves; the nested analysis/<name>/architecture layout
 # is not measured here (said in the note, never a FAIL).
+#
+# Cached by its inputs (#686 speed audit): the measurement is ~25 s of every Stage 5+ round on a
+# field project and its inputs rarely change between rounds. The key is a content checksum of
+# architecture/, every BRD and the toolkit code that measures (bin/lib/gate-cache.sh,
+# "Stage-4 coverage cache", says exactly what and why a stale verdict cannot replay).
 stage4_coverage() {
+  local arch="$1" r
+  if gc_s4cov_enabled && gc_s4cov_key "$arch"; then
+    if gc_s4cov_get; then
+      [ -n "${MXTK_GATE_CACHE_TRACE:-}" ] && echo "s4cov-cache: hit" >&2
+      return 0
+    fi
+    r="$(stage4_coverage_measure "$arch")"
+    gc_s4cov_put "$arch" "$r"
+    [ -n "${MXTK_GATE_CACHE_TRACE:-}" ] && echo "s4cov-cache: miss" >&2
+    [ -n "$r" ] && printf '%s\n' "$r"
+    return 0
+  fi
+  stage4_coverage_measure "$arch"
+}
+stage4_coverage_measure() {
   local arch="$1" pf="$TOOLKIT_DIR/project-bin/coverage-preflight.sh" m mods="" out rc r bad="" nm="" n=0
   [ -f "$pf" ] || return 0
   [ -n "$(discover_brds "$PROJECT_DIR")" ] || return 0
@@ -2087,8 +2130,7 @@ check_stage_7() {
   # table mentioning the cutover is not a candidate. Status matching is word-anchored like
   # has_confirmed_decision (TD-07), so "CONFIRMED 2026-08-10" passes here as it does for
   # every other stage; "NOT CONFIRMED" and a Notes cell mentioning the word still do not.
-  verdict=$(awk -F'|' '
-    !/^\|/ { intab=0; next }
+  verdict=$(awk -F'|' "$DECISIONS_TABLE_AWK"'
     {
       h=tolower($2); gsub(/^[ \t]+|[ \t]+$/,"",h)
       if (h=="stage") { intab=1; hdr=1; next }
@@ -2101,7 +2143,7 @@ check_stage_7() {
       anyr++; if (c) anyf=1
       if (intab) { tabr++; if (c) tabf=1 }
     }
-    END { if (hdr) print (tabf?"PASS":"FAIL") " " tabr+0; else print (anyf?"PASS":"FAIL") " " anyr+0 }' "$f")
+    END { if (hdr) print (tabf?"PASS":"FAIL") " " tabr+0; else print (anyf?"PASS":"FAIL") " " anyr+0 }' "$f" "$f")
   rows="${verdict#* }"
   if [ "${verdict%% *}" = "PASS" ]; then
     echo "PASS|a Stage-7/cutover decision row in $f has Status CONFIRMED ($rows candidate row(s))"

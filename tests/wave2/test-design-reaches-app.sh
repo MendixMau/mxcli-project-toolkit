@@ -119,6 +119,19 @@ out="$(run "$d")"
 has   "says so out loud"                           "$out" "no BUILT stylesheet found"
 has   "refuses to be read as a pass"               "$out" "NOT a pass"
 
+# ── 5b. the toolkit's full build output (.mxtk/build/model/deployment/, #686) ──────────────
+# Toolkit builds no longer write the app's deployment/; the copy's compiled theme is read, and
+# the newer of the two wins (the same rule as the .docker/ tree).
+d="$(project mxtkonly "" true)"; mkdir -p "$d/.mxtk/build/model/deployment/web"
+cp "$FIX/built-fixed.css" "$d/.mxtk/build/model/deployment/web/theme.compiled.css"
+check "only the toolkit build copy has a compiled theme: measured, exits 0" "$(code "$d")" "0"
+d="$(project mxtknewer built-broken.css true)"; mkdir -p "$d/.mxtk/build/model/deployment/web"
+touch -t 202601010000 "$d/deployment/web/theme.compiled.css"
+cp "$FIX/built-fixed.css" "$d/.mxtk/build/model/deployment/web/theme.compiled.css"
+check "the copy's theme is newer than deployment/'s: the copy wins (exit 0)" "$(code "$d")" "0"
+touch -t 202601010000 "$d/.mxtk/build/model/deployment/web/theme.compiled.css"; touch "$d/deployment/web/theme.compiled.css"
+check "deployment/'s theme is newer: it wins (the broken one, exit 1)" "$(code "$d")" "1"
+
 # ── 6. no design system is not a pass either ────────────────────────────────────────────────
 d="$(project nods built-fixed.css true)"
 rm -f "$d/design/ds.css"

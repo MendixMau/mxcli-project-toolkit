@@ -117,7 +117,8 @@ Rules that keep the fast mode honest:
 - **Same code path.** The knob changes a number, never a branch. A `if testMode` that skips the wait
   proves nothing.
 - **Guard the knob.** Assert in the test setup that the constant has the test value (`mxcli constant list`
-  shows the winning layer), and that production export carries the production value.
+  shows the winning layer; it masks machine-local values, so never add `--show-values` on a project that
+  holds a secret), and that production export carries the production value.
 - **Prove the window can see a failure.** Run each absence case once against a deliberately broken
   build or stub (a retry loop on purpose); it must go red inside the shortened window.
 - **Scheduled events on or off.** Check the runtime log line "Synchronizing scheduled events" and
@@ -127,10 +128,8 @@ Rules that keep the fast mode honest:
   scheduled event. If your mxcli or runtime offers one, call the event's microflow directly in the
   case and still keep the real schedule in the real-timings run.
 
-Honest gain: on the field case the retry and window waits fall by roughly 10 to 15 times, so one case
-goes from about 6 min to under 1 min and a suite of eight from 20 to 40 min to 5 to 8 min. Boot, login
-and seeding do not shrink, and the real-timings run adds back its full wait once. Untested on a live
-runtime for this PR.
+A window longer than the journey runner's `JOURNEY_TIMEOUT_S` (default 120 s) is killed by it, so a run that
+waits out a real 120 s absence window must raise it, e.g. `JOURNEY_TIMEOUT_S=300` for that run.
 
 ## Running and reporting
 

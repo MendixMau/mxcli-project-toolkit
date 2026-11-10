@@ -179,7 +179,8 @@ never count: the builder grades its own work, and CI proves only the tests the b
    verdicts that flip), across both layouts and macOS / Git Bash? *Correctness*: real bugs, tests
    that do not test what they claim, hand-written golden input where a capture was required.
    *Context cost*: words added to always-loaded skill files — re-measured by the reviewer, not taken
-   from the PR body.
+   from the PR body. *Time cost*: for a PR touching a hot-path file, re-measured likewise against
+   the Per-row budget (`docs/RELEASE-PROCESS.md` §4a).
 3. **Verdict.** `MERGE`, `MERGE-AFTER-FIX` (exact fixes listed; the fixes are pushed and
    re-reviewed before merge) or `HOLD` (goes back to the maintainer with the reason). Only `MERGE`
    merges.

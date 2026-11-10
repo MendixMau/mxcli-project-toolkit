@@ -246,7 +246,7 @@ def load_bugs(proj, tk):
         try: d = json.loads(line)
         except ValueError: continue
         if isinstance(d, dict) and d.get("id"): out["rows"].append(d)
-    if not any(r.get("status", "open") == "open" for r in out["rows"]): return out
+    if not any(r.get("status", "open") in ("open", "bundled") for r in out["rows"]): return out
     dirs = [tk, os.environ.get("MXTK_TOOLKIT_DIR", "")]   # file-bugs.py ships in the toolkit only, never in a project's bin/
     for f in (os.path.join(proj, ".claude", "toolkit.env"), os.path.join(os.path.expanduser("~"), ".mxcli-toolkit.env")):
         m = re.search(r"^\s*(?:export\s+)?(?:MXTK_TOOLKIT_DIR|TOOLKIT_DIR|MXCLI_TOOLKIT)\s*=\s*[\"']?([^\"'\n]+)", read(f), re.M)
@@ -278,7 +278,7 @@ def render_bugs(w, bugs):
     if not rows:
         w("<div class=card>No bugs logged in this project. When a session hits or works around a bug in mxcli or the toolkit, log it first, then file it from here.</div></div>"); return
     n = collections.Counter(r.get("status", "open") for r in rows)
-    w("<div class=card><div class=hd><b>%d bug(s): %d open, %d filed, %d fixed</b></div>" % (len(rows), n["open"], n["filed"], n["fixed"]))
+    w("<div class=card><div class=hd><b>%d bug(s): %d open, %d bundled, %d filed, %d fixed</b></div>" % (len(rows), n["open"], n["bundled"], n["filed"], n["fixed"]))
     if bugs["note"]: w("<p class='note stale'>No file buttons: %s</p>" % esc(bugs["note"]))
     w("</div><div class='card' style='margin-top:10px'><div class=tw><table class=crs><tr><th>Bug</th><th>For</th><th>Title</th><th>Status</th><th>Action</th></tr>")
     for r in rows:
@@ -296,7 +296,7 @@ def render_bugs(w, bugs):
             act += "<div class=sub><code>%s</code></div>" % esc(base)
         else: act = "<span class=sub>no button (see note above)</span>"
         w("<tr><td><b>%s</b><div class=sub>%s</div></td><td>%s</td><td>%s</td><td><span class='crst cr-%s'>%s</span></td><td>%s</td></tr>" % (
-            esc(r.get("id", "")), esc(r.get("date", "")), esc(label), esc(r.get("title", "")), {"open": "waiting", "filed": "built", "fixed": "proven"}.get(st, "closed"), esc(st), act))
+            esc(r.get("id", "")), esc(r.get("date", "")), esc(label), esc(r.get("title", "")), {"open": "waiting", "bundled": "waiting", "filed": "built", "fixed": "proven"}.get(st, "closed"), esc(st), act))
     w("</table></div></div></div>")
 
 def decision_time(txt):
@@ -2173,6 +2173,7 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
     # build progress (Stage 5): the plan's own phases, stacked built / partial / not built
     w("<section class=tab id=tab-build>")
     w("<h2 id=build-detail>Build progress: Stage 5 plan, scripts and proof</h2>")
+    w("<p class=sub>Screens are polished and checked at module close; mid-module pages may look rough, that's expected.</p>")  # #686
     if bp:
         kinds = bp["kinds"]; tr = ""
         runs_by = {str(k_[0]): d["runs"] for k_, d in (facts["phases"] if facts else []) if k_[0] != ""}

@@ -12,6 +12,7 @@
 #   data      NOT MEASURED  <kind> <Module.Name>  (entity/association/enumeration/access/module/role/userrole/constant subject)
 #   unit      <file.test.mdl>  <why>   |   unit  off  (<why unit is off>)
 #   journey   <file.journey.json>  <why>
+#   navigation narrowed  <N changed menu item(s): ...>   (an alter navigation read item by item)
 #   journeys  unmapped  N of M journey file(s) cannot be selected by name
 #   run       <the command to run that selection>
 # Exit: 0 printed (an empty selection is printed as "none", never as silence) · 2 usage.
@@ -29,6 +30,8 @@
 #   | Every change | affected | affected | CONFIRMED |
 #   | Module done | module | module | CONFIRMED |
 #   | Build complete | full | full | CONFIRMED |
+# (#686) A missing 'Every change' row still LISTS the touched set here, but exec.sh only points a row
+# at this script when that row names a unit scope; otherwise the set is owed at module close.
 # Scopes: none | affected | module | full. No section, or no row for the moment: these defaults,
 # and the strategy row says "default". --moment picks the row (change is the default):
 #   change = every change (build and feedback) · module = module done · deploy = build complete and
@@ -93,8 +96,11 @@
 #      menu caption far more often than by Module.Name, so the affected scope also reads the
 #      widget names of every changed page/snippet and of every caller that is a page (DESCRIBE
 #      PAGE, one cheap mxcli call) and selects each journey whose JSON holds one of them
-#      ("widgets measured" row). A navigation or layout change selects EVERY journey (each walks
-#      the menu). When the widgets or the callers cannot be measured ("widgets NOT MEASURED"),
+#      ("widgets measured" row). A layout change selects EVERY journey; so does a navigation change
+#      that cannot be read (create/drop/move navigation, a home page change, no menu item caption).
+#      A plain `alter navigation` selects only the journeys that walk the changed menu items
+#      (`"<caption>"` in the journey, a `nav` action) or name their target page, and prints a
+#      `navigation  narrowed` row naming the items; the full set of journeys runs at module close. When the widgets or the callers cannot be measured ("widgets NOT MEASURED"),
 #      the selection is EVERY journey: unsure means include. (speed experiment E2: 067 changed
 #      a page J-REQ-01 walks and 090 changed navigation; both selected 0 journeys.)
 #   5. module: every test file naming the module, journeys/<M>.journey.json; the modules are the
@@ -338,9 +344,29 @@ select_unit() {  # $1 = scope; prints "<file>\t<why>"
 : > "$WORK/widgets"; : > "$WORK/widget-pages"
 WIDGETS="not needed"; ALLWHY=""
 if [ "$J" = affected ] && [ -n "$SCRIPTS" ]; then
-  if printf '%s\n' "$SCRIPTS" | while IFS= read -r _s; do cat "$_s"; done |
-       grep -qiE '^[[:space:]]*(create|alter|drop|move)[[:space:]]([^;]*[[:space:]])?navigation([[:space:]]|$)'; then
-    ALLWHY="navigation change: every journey walks the menu"; WIDGETS="not needed ($ALLWHY)"
+  # Navigation (speed-night D/B, 2026-11-09): a change to ONE menu item used to select every journey (each
+  # walks the menu). Now a plain `alter navigation` whose changed items can be READ from the script selects
+  # the journeys that walk those items by caption ("item": "<caption>" -- a `nav` action) or name their
+  # target page; `navigation` rows say which. Anything not readable is unsure, so every journey, as before:
+  # create [or replace] navigation, a `home page` change (it moves every role's landing), or no
+  # `menu item '<caption>'` / `drop '<caption>'` to read.
+  : > "$WORK/navcaps"; : > "$WORK/navpages"; NAVNOTE=""
+  _navtxt="$(printf '%s\n' "$SCRIPTS" | while IFS= read -r _s; do cat "$_s"; done | sed 's/--.*$//')"
+  if printf '%s\n' "$_navtxt" | grep -qiE '^[[:space:]]*(create|alter|drop|move)[[:space:]]([^;]*[[:space:]])?navigation([[:space:]]|$)'; then
+    printf '%s\n' "$_navtxt" | { grep -oiE "(menu[[:space:]]+item|drop)[[:space:]]+'[^']+'" || true; } | sed -E "s/^[^']*'//; s/'\$//" | sort -u > "$WORK/navcaps"
+    printf '%s\n' "$_navtxt" | { grep -oE 'show[[:space:]]+page[[:space:]]+[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*' || true; } | awk '{ print $NF }' | sort -u > "$WORK/navpages"
+    if printf '%s\n' "$_navtxt" | grep -qiE '^[[:space:]]*(create|drop|move)[[:space:]]([^;]*[[:space:]])?navigation([[:space:]]|$)'; then
+      ALLWHY="navigation change: every journey walks the menu (create/drop/move of a whole navigation)"
+    elif printf '%s\n' "$_navtxt" | grep -qiE 'home[[:space:]]+page'; then
+      ALLWHY="navigation change: every journey walks the menu (a home page change moves a role's landing)"
+    elif [ ! -s "$WORK/navcaps" ]; then
+      ALLWHY="navigation change: every journey walks the menu (no menu item caption to read in the script)"
+    else
+      NAVNOTE="$(wc -l < "$WORK/navcaps" | tr -d ' ') changed menu item(s): $(sed "s/.*/'&'/" "$WORK/navcaps" | paste -sd, - | sed 's/,/, /g')"
+    fi
+    [ -n "$ALLWHY" ] && WIDGETS="not needed ($ALLWHY)"
+  fi
+  if [ -n "$ALLWHY" ]; then :
   elif awk -F'\t' '$1 == "layout" { f = 1 } END { exit !f }' "$WORK/subjects"; then
     ALLWHY="layout change: every page, so every journey, uses it"; WIDGETS="not needed ($ALLWHY)"
   elif [ -s "$WORK/flowish" ]; then
@@ -386,11 +412,18 @@ select_journeys() {  # $1 = scope; prints "<file>\t<why>"
           [ -n "$m" ] && [ -f "$JDIR/$m.journey.json" ] && echo "$JDIR/$m.journey.json	module $m"
         done
       if [ "$1" = affected ]; then
-        { awk -F'\t' '$2 ~ /\./ { print $2 }' "$WORK/subjects"; cut -f1 "$WORK/callers"; } | sort -u > "$WORK/jnames"
+        { awk -F'\t' '$2 ~ /\./ { print $2 }' "$WORK/subjects"; cut -f1 "$WORK/callers"; cat "$WORK/navpages"; } | sort -u > "$WORK/jnames"
         [ -s "$WORK/jnames" ] && while IFS= read -r f; do
           _hit="$(grep -o -w -F -f "$WORK/jnames" "$f" 2>/dev/null | head -1)"
           [ -n "$_hit" ] && echo "$f	names $_hit"
         done < "$WORK/journeys"
+        if [ -s "$WORK/navcaps" ] && [ -z "$ALLWHY" ]; then
+          while IFS= read -r f; do
+            while IFS= read -r _c; do
+              [ -n "$_c" ] && grep -qF "\"$_c\"" "$f" 2>/dev/null && { echo "$f	walks changed menu item '$_c'"; break; }
+            done < "$WORK/navcaps"
+          done < "$WORK/journeys"
+        fi
         if [ -n "$ALLWHY" ]; then awk -v w="$ALLWHY" '{ print $0 "\t" w }' "$WORK/journeys"
         elif [ -s "$WORK/widgets" ]; then
           while IFS= read -r f; do
@@ -504,6 +537,7 @@ if [ -n "$UNIT_OFF_WHY" ]; then out "unit	off	$UNIT_OFF_WHY"
 elif [ -s "$WORK/unit.sel" ]; then sed 's/^/unit	/' "$WORK/unit.sel"
 else out "unit	none	scope $U: $( [ "$U" = none ] && echo 'strategy says none' || echo "0 of $(wc -l < "$WORK/tests" | tr -d ' ') .test.mdl file(s) match${FLIPPED:+ (unit on only for:$FLIPPED${LISTMODS:+; per listed flow in:$LISTMODS})}")"; fi
 [ "$J" = affected ] && [ -n "$SCRIPTS" ] && out "widgets	$WIDGETS"
+[ "$J" = affected ] && [ -n "${NAVNOTE:-}" ] && [ -z "$ALLWHY" ] && out "navigation	narrowed	$NAVNOTE (journeys that walk them by caption or name their page; not every journey)"
 if [ -s "$WORK/journey.sel" ]; then sed 's/^/journey	/' "$WORK/journey.sel"
 else out "journey	none	scope $J: $( [ "$J" = none ] && echo 'strategy says none' || echo "0 of $(wc -l < "$WORK/journeys" | tr -d ' ') journey file(s) in $JDIR/ and tests/e2e/ match")"; fi
 
@@ -525,6 +559,28 @@ fi
 # ── Run rows ─────────────────────────────────────────────────────────────────
 _uf="$(cut -f1 "$WORK/unit.sel" | tr '\n' ' ' | sed 's/ $//')"
 _jf="$(cut -f1 "$WORK/journey.sel" | tr '\n' ' ' | sed 's/ $//')"
-[ -n "$_uf" ] && out "run	./bin/test-scratch.sh -- $_uf --local"
-[ -n "$_jf" ] && out "run	node tests/e2e/journey-runner.js $_jf"
+# Full-run moments (build complete, before a deploy) must not trust the warm copy; per-change ones may.
+_cold=""; [ "$MOMENT" = deploy ] && _cold="--cold "
+[ -n "$_uf" ] && out "run	./bin/test-scratch.sh ${_cold}-- $_uf --local"
+# ONE runner invocation signs in once and walks every file it is given (the shared logged-in context), but a
+# journey declaring another persona than the signed-in user reads INVALID (journey-runner.js personaMismatch).
+# So the selection is grouped by persona: one run row per persona when the files name more than one; journeys
+# with no persona ride with the first group. Single-persona selections print the same one row as before.
+if [ -n "$_jf" ]; then
+  : > "$WORK/jp"
+  for _f in $_jf; do
+    _p="$(grep -o '"persona"[[:space:]]*:[[:space:]]*"[^"]*"' "$_f" 2>/dev/null | head -1 | sed 's/.*:[[:space:]]*"//; s/"$//')"
+    printf '%s\t%s\n' "$_p" "$_f" >> "$WORK/jp"
+  done
+  _np="$(awk -F'\t' '$1 != "" { print $1 }' "$WORK/jp" | sort -u | wc -l | tr -d ' ')"
+  if [ "$_np" -le 1 ]; then out "run	node tests/e2e/journey-runner.js $_jf"
+  else
+    _first=1
+    awk -F'\t' '$1 != "" { print $1 }' "$WORK/jp" | sort -u | while IFS= read -r _p; do
+      _fs="$(awk -F'\t' -v p="$_p" '$1 == p { printf "%s ", $2 }' "$WORK/jp")"
+      if [ "$_first" = 1 ]; then _fs="$_fs$(awk -F'\t' '$1 == "" { printf "%s ", $2 }' "$WORK/jp")"; _first=0; fi
+      out "run	TEST_USER=$_p node tests/e2e/journey-runner.js ${_fs% }"
+    done
+  fi
+fi
 exit 0

@@ -1,0 +1,23 @@
+WARNING: This is a vibe-coded PoC, alpha quality, use with caution.
+(no module)
+-----------
+  ⚠ line 6: `drop widget a, b` (drop widget) is deprecated; write `drop a, b` — same meaning. Refused from `mdl 2`. (mxcli help MDL-DEPR103) [MDL-DEPR103]
+      at 
+      → Rewrite the `drop widget a` as `drop a`. The target names the element; the kind is its own.
+
+  ⚠ line 10: `drop widget a, b` (drop widget) is deprecated; write `drop a, b` — same meaning. Refused from `mdl 2`. (mxcli help MDL-DEPR103) [MDL-DEPR103]
+      at 
+      → Rewrite the `drop widget a` as `drop a`. The target names the element; the kind is its own.
+
+2 issues: 0 errors, 2 warnings, 0 info
+Reference error: alter page Purchasing.Supplier_Edit: widget "txtTitle" not found. A data view footer stores no name — address it by its data view: dvSupplier.footer
+Reference error: alter page Purchasing.RequestLine_Edit: widget "txtTitle" not found. A data view footer stores no name — address it by its data view: dvLine.footer
+Refused: exec would refuse to run this script, and write nothing.
+
+Refusing to execute: 2 unresolved reference(s) above. Nothing was written.
+  A name that resolves to nothing is written into the model as it stands and
+  is not reported until mxbuild rejects it (CE1613) — and a misspelled MODULE
+  is created rather than refused.
+  Fix them, or re-run with --no-check to apply the script anyway.
+
+Summary: 0 new, 0 modified, 0 removed — exec would write nothing

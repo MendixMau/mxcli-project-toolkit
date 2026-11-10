@@ -262,7 +262,8 @@ TRIAGE="$PROJECT_DIR/triage.md"
 # one; the runbook's documents-only path marks the extraction rows N/A instead).
 #
 # It cannot self-sign: the "Confirmed by:" line ships bracketed placeholders and check_stage_0
-# refuses those explicitly. A fresh scaffold FAILS Stage 0, deliberately.
+# refuses those once the sheet is filled in. A fresh, untouched scaffold reports Stage 0
+# PENDING (not started, #635); it never passes.
 if [ -f "$TRIAGE" ]; then
   echo "Skip: triage.md already exists — not overwritten."
 else

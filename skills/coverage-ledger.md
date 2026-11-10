@@ -195,11 +195,12 @@ A ledger entry with no reason is an unclaimed leaf with extra steps and fails th
 
 ```bash
 BRD=analysis/<source>/knowledge-base/brd/F001-order-management.brd.json
-jq -r '[paths(scalars)] | .[] | "/" + (map(tostring) | join("/"))' "$BRD" | sort -u > /tmp/leaves.txt
+jq -r 'paths as $p | select(getpath($p) | type | IN("object","array") | not)
+       | "/" + ($p | map(tostring) | join("/"))' "$BRD" | sort -u > /tmp/leaves.txt
 wc -l /tmp/leaves.txt  # e.g., "535 /tmp/leaves.txt"
 ```
 
-`jq paths(scalars)` gives one pointer per scalar, including array elements. So each of the 7 `gridColumns`, each of the 3 `filterBar` entries, each `mainFlow` step is independently countable. This granularity is deliberate: the Order_List failure lost **elements of arrays**, and a coarser unit would not have caught it.
+The same enumeration `bin/coverage-check.sh` runs (§4.1). Not `paths(scalars)`: that drops every leaf whose value is `false` or `null` (one BRD: 111 vs 124 leaves). One pointer per leaf, including array elements. So each of the 7 `gridColumns`, each of the 3 `filterBar` entries, each `mainFlow` step is independently countable. This granularity is deliberate: the Order_List failure lost **elements of arrays**, and a coarser unit would not have caught it.
 
 ### Step 2: Extract Claims from Build Plan
 
@@ -220,6 +221,7 @@ different, more actionable finding than no `claims:` block existing at all (issu
 
 **Expansion rules:**
 - A bare pointer claims exactly that leaf: `/pages/0/buildComposition/rowClick`
+- A buildable wildcard sits below one element: `/microflows/3/* (12)`, never `/microflows/* (715)` over 48 microflows — that ties no single microflow to a row, and `coverage-check.sh` reports it SECTION-WIDE (#641). A whole section that is not built is a NON-BUILDABLE row with a reason.
 - `/a/b/* (N)` claims every leaf under that path AND **asserts the count is N**. If the BRD later gains an 8th grid column, the count mismatch fails the check. A wildcard without a count is rejected — an uncounted wildcard is a silent absorber of new requirements.
 - Claiming a container (e.g., `/pages/0/buildComposition`) is rejected. Only leaves and counted wildcards.
 

@@ -429,6 +429,35 @@ mxtk_sp_list() {
 # one thing a project's ./mxcli can be that no chmod will ever fix.
 mxtk_is_elf() { [ -f "$1" ] && [ "$(head -c 4 "$1" 2>/dev/null | tr -d '\177')" = "ELF" ]; }
 
+# mxtk_binfmt <file> — what kind of executable the first bytes say it is: elf | macho | pe |
+# other. Magic numbers only (no `file`, which Git Bash may lack); od exists everywhere.
+# macho = feedface/feedfacf (+ byte-swapped) and cafebabe (fat/universal). A Java .class also
+# starts cafebabe but is never a project ./mxcli, so the overlap is harmless here.
+mxtk_binfmt() {
+  local h
+  [ -f "$1" ] || { echo other; return 0; }
+  h="$(head -c 4 "$1" 2>/dev/null | od -An -tx1 | tr -d ' \n')"
+  case "$h" in
+    7f454c46)                                         echo elf   ;;
+    feedface|feedfacf|cefaedfe|cffaedfe|cafebabe)     echo macho ;;
+    4d5a*)                                            echo pe    ;;
+    *)                                                echo other ;;
+  esac
+}
+
+# mxtk_mxcli_wrong_format <file> [platform] — prints the foreign format (elf|macho) and returns 0
+# when <file> is an executable built for another OS than the host; returns 1 otherwise (right
+# format, a script, unreadable). macOS runs only Mach-O and Linux only ELF; Windows is handled by
+# mxtk_is_elf above. Field report #728: `mxcli new` on macOS left a Linux ./mxcli in the app.
+mxtk_mxcli_wrong_format() {
+  local f; f="$(mxtk_binfmt "$1")"
+  case "${2:-${MXTK_PLATFORM:-$(mxtk_platform)}}:$f" in
+    macos:elf)   echo elf;   return 0 ;;
+    linux:macho) echo macho; return 0 ;;
+  esac
+  return 1
+}
+
 # find_project_mxcli — the project's own mxcli binary, or fail.
 #
 # A project folder is shared between lanes (a Dev Container and Git Bash on the same disk),

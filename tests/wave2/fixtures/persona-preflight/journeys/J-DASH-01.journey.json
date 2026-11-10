@@ -1,0 +1,33 @@
+{
+  "id": "J-DASH-01",
+  "title": "Approver reads the dashboard",
+  "persona": "approver",
+  "requirement": [
+    "F002#/useCases/4/mainFlow/1"
+  ],
+  "seeds": [],
+  "steps": [
+    {
+      "name": "open dashboard",
+      "actions": [
+        {
+          "do": "nav",
+          "group": "Approval",
+          "item": "Dashboard",
+          "settleMs": 2500
+        }
+      ],
+      "ui": {
+        "ready": ".mx-name-dvSummary",
+        "checks": [
+          "txtSubmittedCount",
+          "txtOpenValue",
+          "lvLastDecisions"
+        ],
+        "textPresent": [
+          "Last 5 decisions"
+        ]
+      }
+    }
+  ]
+}

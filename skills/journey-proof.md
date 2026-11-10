@@ -120,6 +120,13 @@ still answers), the journeys after it are INVALID `<id>: precondition` "NOT RUN"
 and the runner exits 124. `--rerun-failed` picks all of them up. Why: one hung journey held a run ~10 min
 (speed-night run 3); a healthy batch of 3-4 journeys took 244 s at most.
 
+**Persona preflight before a batch.** `bin/persona-preflight.sh <journeys...>` reads `mxcli show demo users`
+and prints ONE LINE PER MISSING PERSONA (`PERSONA MISSING: "requester_test_user" (J-REQ-01) ...`) before
+any browser opens; exit 1 = do not start the batch. A journey may declare `personaRole`; without it the
+user role named like the persona (`requester` -> `Requester`) is the expected role. Why: 11 per-row runs
+each waited ~104 s for a login that could never succeed (19 min, nothing flagged it).
+`verify-module.sh` runs it before the journey step.
+
 Logout runs on every exit path: normal end, a crash, and SIGINT/SIGTERM. A run whose logout is
 not confirmed says so. Declared state does not make a rerun idempotent. A journey that consumes
 its own fixture still needs a reset/seed journey that `leaves` that state again.

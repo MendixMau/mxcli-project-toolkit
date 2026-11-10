@@ -1,0 +1,22 @@
+# Row card — one ordinary BUILD row (paste or point the helper here)
+
+You build ONE row of the build plan. You are a dispatched helper: skip the session-start ritual.
+Read the `## Wiring` block of `CLAUDE.local.md` for every path and the toolkit root; read nothing else up front. Open a file below only when its step names it. Row kind: DOMAIN, MICROFLOW or PAGE. Row number `<nn>` and `<slug>` come from the plan row.
+
+Every step ends in a line in your report **`docs/rows/<nn>-<slug>.md`**. No report file = the row is unauditable = not done.
+
+1. **Brief.** Read the module brief (Wiring: briefs path). Missing brief, or a PAGE row with no wireframe: STOP and report. An unchecked open question touching this row: STOP and ask.
+2. **Rules.** Run `<toolkit>/bin/mdl-rules.sh <kinds>` (page, microflow, access, entity) and read ALL of it. After drafting run `mdl-rules.sh --for <draft>`; load any kind it adds. Report the closing line verbatim: `STOP rows for kinds <K>: n/n checked`. n < N is an unfinished preflight. MICROFLOW rows with a loop, retrieve/commit in a loop or >20 activities: also run `skills/microflow-preflight.md`; else write `microflow-preflight: no trigger`.
+3. **Draft** `mdlsource/<phase>/<NNN>-<name>.mdl` (name and phase from the plan row). Use `create or modify`; a `folder` on every page/microflow/snippet (the brief's folder plan); the `grant` for each created element at the end of the same script (entity access for DOMAIN; grant only what the brief lists). Forward references: stub script first, applied first. Enumerations and constants have no create-time `folder`: add `move enumeration|constant` in the same script. Write mode: CLI by default; read Step 0 of `skills/learned-mdl-preflight.md` (its STOP table sends some operations to Studio Pro by hand: flag those). Do not add work the plan assigns to another row.
+4. **PAGE only:** `project-bin/check-page-shell.sh <draft>` (must pass), `node project-bin/page-fidelity.js <wireframe> <Page> <draft>` (target >= 80%; `--stub` for stubs), `skills/ui-preflight-pages.md` once.
+   **Class promotion.** List the CSS classes the page uses (`grep` the draft). For each, check the shipped theme stylesheet the Wiring block names (the module's `themesource/<module>/web/` scss, never the design-system file). A class defined only in the design system does not ship: add it to the theme stylesheet in this row, or list it in the report as `GAP: <class> not promoted`. Report `CLASSES: n of n shipped, g gaps`.
+   *Failure it prevents:* a page used `actionbar`, defined only in the design-system css; the row passed fidelity at 84% and the app showed an unstyled button bar.
+5. **Apply** with `./bin/exec.sh <draft>` only (never raw `mxcli exec`, never `SKIP_CHECK`). Exit 0 or 4 = applied, do NOT re-apply. 1 = rolled back: read the BUILD-LOG row, fix, retry (CE code: `bin/bug-lookup.sh <CE>`). Report the exit code and the BUILD-LOG gate cell (`pass` is the only good one).
+6. **Verify the write.** PAGE: `mxcli -p <mpr> -c "describe page M.P" | node project-bin/page-fidelity.js <wireframe> <Page> -`. Every row: `show access on page|microflow M.X` for each element created; report `ACCESS: N of N have the role grants the brief lists`.
+7. **Visual (PAGE rows only):** one LOOK at 1280 of the changed page and one run of the journeys that reach it. No running app: write `LOOK: NOT RUN (no runtime)` and `JOURNEY: NOT RUN (no runtime)`. Silence is a miss.
+8. **Log + commit.** Append `<YYYY-MM-DD><TAB><script path><TAB><check result>` to `.claude/loop/dispatch/<Module>/scripts.tsv` (mkdir -p). Commit model files, script and report: `git commit -m "row <N>: <script file name> rc=<exit>" -- <paths>` (explicit paths, never `git add -A`).
+9. **Report** (`docs/rows/<nn>-<slug>.md`): what was built, script path, preflight line, exit code + gate cell, fidelity %, CLASSES line, ACCESS line, LOOK/JOURNEY line, every choice the brief did not dictate, open questions.
+
+Not yours: journeys beyond step 7, the 390 + 1280 LOOK of all pages, polish rounds, coherence pass (module close). Mechanical script (stub, enum value, constant): skip 4 and 7, keep the rest.
+A step whose instrument will not run: write `NOT RUN: <reason>` for it. Never skip silently.
+Stuck: `skills/learned-mdl-preflight.md`, `skills/mdl-cookbook-microflows.md`, `skills/iterative-build-loop.md` (exec.sh refusals), `bin/bug-lookup.sh`.

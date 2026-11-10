@@ -7,7 +7,10 @@ updating it became a separate chore). One line per change:
 Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templates, CI).
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
-**Release cycle (from 2026-09-19).** New lines land under `## Unreleased`, at the top. Every few
+**Release cycle (from 2026-09-19).** New lines land under `## Unreleased
+
+- new(dispatch): `templates/row-card.md` — a ~660-word per-row brief for ordinary BUILD rows (24% fewer tokens, 17% less time than the full mdl-agent brief, no mandatory step skipped), with a required row report `docs/rows/<nn>-<slug>.md` and a class-promotion rule (design-system-only CSS classes must reach the shipped theme scss or be reported as gaps); `dispatching.md` routes ordinary rows to it and keeps the full brief for first-of-module, workflow/integration, post-failed-exec and module-close rows — speed-night experiment C, 2026-11-09
+- new(bin): `bin/check-stubs-filled.sh <project-root> [agent]` names unfilled `{{...}}` stub slots before dispatch (exit 3, read-only) — an unfilled mdl-agent stub refused its first row after 125k tokens; fixture `tests/wave2/test-check-stubs-filled.sh` — speed-night experiment C, 2026-11-09`, at the top. Every few
 days the maintainer cuts a release with `bin/cut-release.sh`: the `## Unreleased` heading becomes
 `## vYYYY.MM.DD`, master is tagged `vYYYY.MM.DD`, and a fresh empty `## Unreleased` opens. So the
 top section is always "what changed since the last release", a project reports the release it is

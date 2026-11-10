@@ -1064,10 +1064,10 @@ for f in files:
         bad.append("%s has no `dimensions` object (%s) — nothing the overall score is an average of" % (rel, shown))
     elif zeros:
         bad.append("%s scores 0 found / 0 expected on %s, not in confirmedZeros (%s) — the Suspicious-Zero Gate needs two methods agreeing" % (rel, ", ".join(zeros), shown))
-    elif d.get("selfGraded") and passed is True:
-        open_.append("%s is a self-graded pass (%s) — awaiting a second mechanism" % (rel, shown))
     elif passed is False or (sc is not None and sc < thr):
         bad.append("%s scores %s, passed=%s" % (rel, shown, passed))
+    elif d.get("selfGraded") and passed is True:
+        open_.append("%s is a self-graded pass (%s) — awaiting a second mechanism" % (rel, shown))
     elif passed is True and sc is not None:
         ok.append("%s %s" % (rel, shown))
     else:
@@ -1124,7 +1124,7 @@ check_stage_2() {
       # (2026-10-28): facts-lock.sh reached 1 of 6 projects as advice; 20 parallel BRDs on
       # PROJECT-C carried 10 casing conflicts into Stage 3 as "open questions".
       local nbrd fl_out fl_dev fl_note="" req
-      req="$(stage2_brd_required "$brd_dir"; printf '\x1f%s' "$STAGE2_BRD_JSON")"
+      req="$(stage2_brd_required "$brd_dir"; printf '\x1f%s' "${STAGE2_BRD_JSON:-}")"
       STAGE2_BRD_JSON="${req#*$'\x1f'}"; req="${req%%$'\x1f'*}"
       case "$req" in FAIL\|*) echo "$req"; return ;; esac
       local bf; bf="$(stage2_brd_faults "$brd_dir")"

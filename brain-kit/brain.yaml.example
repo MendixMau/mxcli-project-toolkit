@@ -1,0 +1,41 @@
+# brain-kit pipeline config. Copy to brain.yaml next to your exports; paths are relative to this file.
+# Run order: ingest -> classify -> shortlist (review the tables!) -> build-topic.sh <topic> per topic.
+
+paths:
+  brain: brain        # the brain repo the pipeline writes notes into (start it from brain-kit/template)
+  work: work          # raw material, classifications, shortlists, model output, costs.jsonl; never commit this to the brain
+
+audience: Mendix developers and coding agents
+
+# One folder per topic under brain/internal/. The description steers classification and compaction: say what is IN scope.
+topics:
+  upgrade: moving apps, modules and widgets between product versions; breaking changes and migration steps
+  security: roles and access rules, SSO/OIDC/SAML, headers, secrets, security reviews
+  performance: slow pages and queries, timeouts, memory, load testing
+
+applies_to: [general, company-standard]   # general = true for any app; company-standard = a rule of our organisation
+
+# What earns a note. The default (below) keeps only what a strong model would not already know from public docs.
+# novelty_rule: Keep only what a strong LLM would not already know from public documentation: internal procedures, measured results, pitfalls, local rules, version-bound gotchas.
+
+# Names that must never appear in a note: customers, people, hosts. The lint gate fails on any of them; compaction redacts them.
+deny_names: []
+# Terms that mark out-of-scope content (e.g. a tool another knowledge base already covers).
+deny_terms: []
+
+sources:
+  - name: wiki
+    path: exports/wiki                 # a folder of exported .md / .txt / .html files
+    include: ["**/*.md", "**/*.html"]
+    exclude: []                        # regexes on the relative path
+    url_base: https://wiki.example.com # url = url_base + frontmatter url (or + relative path)
+    min_words: 80                      # skip stubs and link-only pages
+
+# Models by role. On a company gateway, use the ids the gateway serves.
+models:
+  cheap: claude-haiku-4-5      # classify, keywords, find questions and search agent
+  judge: claude-sonnet-5-5     # faithfulness audit
+  writer: claude-opus-5-5      # compaction and repair
+
+thresholds: {faith: 0.90, find: 0.80}
+budget_usd: 10                 # hard stop per step (override with BRAINKIT_BUDGET)

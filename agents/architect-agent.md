@@ -76,6 +76,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/learned-multilingual-app.md` | Adding a second language, a language picker or a translation script |
 | `skills/mendix-agents.md` | Building a Mendix AI agent |
 | `skills/company-brain.md` | Setting up or wiring a COMPANY BRAIN |
+| `skills/build-company-brain.md` | Building, testing or improving a company KNOWLEDGE brain |
 | `skills/close-the-loop.md` | Cutover and retrospective |
 | `skills/measured-claims.md` | Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence, or counting tokens from transcripts |
 | `skills/agent-permission-friction.md` | Any refused, denied or blocked command |

@@ -78,6 +78,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/learned-skill-ux-audit.md` | UX audit and screenshot-loop discipline |
 | `skills/learned-skill-scope-delta.md` | Tracking scope delta between the BRD and the built state |
 | `skills/company-brain.md` | Setting up or wiring a COMPANY BRAIN |
+| `skills/build-company-brain.md` | Building, testing or improving a company KNOWLEDGE brain |
 | `skills/close-the-loop.md` | Cutover and retrospective |
 | `skills/report-schema.md` | Writing or reading docs/report.json |
 | `skills/harness-architecture.md` | Installing, extending, debugging or porting the verification harness |

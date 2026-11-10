@@ -5,6 +5,7 @@ set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"; kit="$here/.."; py="${PYTHON:-python3}"; fx="$here/fixture-brain"; fail=0
 check() { if eval "$2"; then echo "ok   $1"; else echo "FAIL $1"; fail=1; fi; }
 
+"$py" -c 'import yaml' 2>/dev/null || { echo "FAIL $py has no PyYAML (pip install pyyaml, or PYTHON=...)"; exit 1; }
 check "scripts compile" "'$py' -m py_compile '$kit'/bin/*.py"
 out="$("$py" "$kit/bin/gate.py" --brain "$fx" --checks lint 2>&1)"; rc=$?
 check "lint exits 1 on a broken note" "[ $rc -eq 1 ]"

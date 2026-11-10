@@ -104,6 +104,17 @@ jobs:
       - name: Lint-rule unit suite, batch 4 (tests/lint-rules/test-batch4-rules.sh)
         run: bash tests/lint-rules/test-batch4-rules.sh
 
+      # Brain-kit offline suite. Added with brain-kit/: its scripts compile, gate.py's lint
+      # catches a broken note and passes a good one, index.py writes QUALITY.md. No model calls.
+      # Needs PyYAML, which the runner's system Python does not promise, so a pinned setup.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Brain-kit offline suite (brain-kit/tests/run.sh)
+        run: |
+          python -m pip install --quiet pyyaml
+          PYTHON=python bash brain-kit/tests/run.sh
+
   # ADVISORY, never a gate (added with tests/advisory/authoring-audit.py): prints near-duplicate
   # rules across skills/agents/CLAUDE.md and routing top-3 hits for the labelled phrasings
   # (CLAUDE.md rule 8). Its own job, so it reports even when a gate above is red, and it cannot

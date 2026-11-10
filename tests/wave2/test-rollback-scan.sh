@@ -75,6 +75,16 @@ printf -- '-- call microflow Nope.InLineComment\n/* call microflow Nope.InBlock\
 OR="$(scan tests/roots.test.mdl)"
 has "$OR" 'Nope\.' && bad "C5 commented call became a root" "$OR" || ok "C5 -- and /* */ comments are not roots"
 has "$OR" '^A  FILE-WRITE +CommunityCommons\.Base64DecodeToFile' && has "$OR" '^A  REST ' && ok "C6 call java action and call microflow are both roots" || bad "C6 java action root" "$OR"
+# C7 @setup / @teardown in the /** */ header are roots (they were stripped with the comment before the fix)
+printf -- '/**\n * @test S1 seeded\n * @setup MtaProbe.PRB_Rest\n * @teardown MtaProbe.PRB_File\n */\ndeclare $X Integer = 0;\n/\n' > "$P/tests/setup.test.mdl"
+OS="$(scan --json tests/setup.test.mdl)"
+has "$OS" '"MtaProbe.PRB_Rest"' && has "$OS" '"MtaProbe.PRB_File"' && ok "C7 @setup and @teardown roots are found" || bad "C7 @setup/@teardown roots missing" "$OS"
+OS="$(scan tests/setup.test.mdl)"
+has "$OS" '^A  REST +MtaProbe\.PRB_Rest ' && has "$OS" '^A  FILE-WRITE +MtaProbe\.PRB_File ' && ok "C8 setup REST call and teardown file write are listed" || bad "C8 setup/teardown effects" "$OS"
+# C9 a '--' inside a quoted string is not a comment: the call after it on the same line stays a root
+printf -- "declare \$S String = 'a--b'; call microflow MtaProbe.PRB_Queue();\n" > "$P/tests/dash.test.mdl"
+OD="$(scan tests/dash.test.mdl)"
+has "$OD" '^A  QUEUE ' && ok "C9 -- inside a string does not cut the call after it" || bad "C9 string with --" "$OD"
 
 # D. never fails, says why
 rm -f "$WORK/none.db"

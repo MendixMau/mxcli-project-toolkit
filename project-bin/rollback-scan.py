@@ -7,8 +7,16 @@ test reaches, classifies what it finds with rollback-effects.tsv. Prints; never 
 import fnmatch, json, os, re, sqlite3, sys, time
 from collections import deque
 
-CALL_RE = re.compile(r'\b(?:call\s+(?:microflow|nanoflow|java\s+action)|@setup|@teardown)\s+([A-Za-z_]\w*\.[A-Za-z_]\w*)', re.I)
-COMMENT_RE = re.compile(r'/\*.*?\*/|--[^\n]*', re.S)
+CALL_RE = re.compile(r'\bcall\s+(?:microflow|nanoflow|java\s+action)\s+([A-Za-z_]\w*\.[A-Za-z_]\w*)', re.I)
+# @setup / @teardown live in the /** ... */ header, so they are read BEFORE comments are stripped.
+DOC_RE = re.compile(r'/\*\*.*?\*/', re.S)
+ANNOT_RE = re.compile(r'@(?:setup|teardown)\s+([A-Za-z_]\w*\.[A-Za-z_]\w*)', re.I)
+# A quoted string is matched first and kept, so a '--' inside one is not taken for a comment.
+COMMENT_RE = re.compile(r"'(?:[^']|'')*'|/\*.*?\*/|--[^\n]*", re.S)
+
+
+def strip_comments(text):
+    return COMMENT_RE.sub(lambda m: m.group(0) if m.group(0)[0] == "'" else ' ', text)
 QUAL_RE = re.compile(r'^[A-Za-z_]\w*\.[A-Za-z_]\w*$')
 FLOW_TYPES = ('MICROFLOW', 'NANOFLOW', 'WORKFLOW')
 U_CAP = 10
@@ -32,9 +40,12 @@ def roots_from(args):
         if os.path.isfile(a):
             files.append(a)
             with open(a, encoding='utf-8', errors='replace') as fh:
-                for m in CALL_RE.finditer(COMMENT_RE.sub(' ', fh.read())):
-                    if m.group(1) not in roots:
-                        roots.append(m.group(1))
+                text = fh.read()
+                found = [m.group(1) for d in DOC_RE.finditer(text) for m in ANNOT_RE.finditer(d.group(0))]
+                found += [m.group(1) for m in CALL_RE.finditer(strip_comments(text))]
+                for r in found:
+                    if r not in roots:
+                        roots.append(r)
         elif QUAL_RE.match(a):
             if a not in roots:
                 roots.append(a)

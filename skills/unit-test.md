@@ -86,10 +86,12 @@ authoring effort and review attention.
 comment on the test: a BRD rule, a doc comment on the flow, or house rule H1 in
 `unhappy-path-testing.md` ("required means non-blank"). Do not run the flow and paste what it
 returned: that encodes the bug as the spec. No requirement and no house rule: **still write the test**, with
-the value the flow gives, mark it `UNSPECIFIED` in the report, and do not count it as a pass.
+the value the flow gives, mark it `UNSPECIFIED` in the report, and do not count it as a pass. It is a report line, not a regression guard: it pins current behaviour, and fixing the flow turns it red on purpose.
 Only the cap may drop a case. "The documents do not say" is not a reason to skip a blank or
 whitespace-only input: that is exactly the case the author never thought of, and an UNSPECIFIED
 line is how the owner finds out the rule is missing.
+
+Blank and invalid input to a flow that raises is tested with `@throws '<message>'`, plus `@verify ... = 0` to show nothing was committed.
 
 ## 2c. Flows that commit: read the row back, from outside the test
 
@@ -139,16 +141,6 @@ Rules, each from the runner's behaviour:
 - Fixture rows the test creates (users, vendors) stay too: unique keys for those as well, per file,
   or a later file fails with "already in use".
 
-Gotchas found by a blind run of this section on seeded bugs (4 of 4 caught):
-
-- `count()` is not allowed inside a `set` expression (CE0117): count into a variable first.
-- A variable is `declare`d before its first `set`.
-- An AutoNumber attribute cannot be set on create (CE0852). Its boundaries (9/10, 99/100) are
-  reachable only by filler commits and still depend on the counter, so list them as skipped
-  rather than guess.
-- When the flow retrieves its own copy of an object, the test's variable is stale after the call:
-  re-retrieve before asserting on it, or read it back with `@verify`.
-
 ## 3. Check before you run: free, no model write
 
 ```
@@ -158,6 +150,18 @@ mxcli test tests/unit/Orders.test.mdl -p App.mpr --list
 On mxcli 0.21 and later add `--require-assertions`: a test that asserts nothing fails (BUG-LOCAL-30).
 Pass only when **both** hold: the listed count equals the number of `/` separators in the file,
 and **every** test shows its `@expect`. A plausible count with a missing test is BUG-LOCAL-29.
+
+### 3a. Authoring gotchas
+
+Gotchas found by a blind run of this section on seeded bugs (4 of 4 caught):
+
+- `count()` is not allowed inside a `set` expression (CE0117): count into a variable first.
+- A variable is `declare`d before its first `set`.
+- An AutoNumber attribute cannot be set on create (CE0852). Its boundaries (9/10, 99/100) are
+  reachable only by filler commits and still depend on the counter, so list them as skipped
+  rather than guess.
+- When the flow retrieves its own copy of an object, the test's variable is stale after the call:
+  re-retrieve before asserting on it, or read it back with `@verify`.
 
 ## 3b. Rollback covers one transaction: what survives it
 

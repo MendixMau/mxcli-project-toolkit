@@ -307,7 +307,7 @@ if [ "$CACHE" = 1 ]; then
     if command -v rsync >/dev/null 2>&1; then
       # Size + mtime is not proof a model file is unchanged (a same-size rewrite in the same second):
       # the model itself, mprcontents/ and the .mpr, is compared by checksum; the rest by size + time.
-      rsync -a --delete --exclude=/.git --exclude=/.mpr-snapshots --exclude=/deployment --exclude=/.mxcli \
+      rsync -a --delete --exclude=/.git --exclude=/.mpr-snapshots --exclude=/deployment --exclude=/.mxcli --exclude=/.mxtk \
             --exclude=/node_modules --exclude=/mprcontents --exclude="/$MPR_NAME" "$MODEL_DIR/" "$SCRATCH/" || return 1
       if [ -d "$MODEL_DIR/mprcontents" ]; then rsync -ac --delete "$MODEL_DIR/mprcontents/" "$SCRATCH/mprcontents/" || return 1
       else rm -rf "$SCRATCH/mprcontents"; fi
@@ -315,7 +315,7 @@ if [ "$CACHE" = 1 ]; then
     else   # no rsync (Git Bash): clear the model tree, keep .mxcli + deployment, copy again
       find "$SCRATCH" -mindepth 1 -maxdepth 1 ! -name .mxcli ! -name deployment -exec rm -rf {} + &&
       tar -C "$MODEL_DIR" --exclude=./.git --exclude=./.mpr-snapshots --exclude=./deployment \
-          --exclude=./.mxcli --exclude=./node_modules -cf - . | tar -C "$SCRATCH" -xf -
+          --exclude=./.mxcli --exclude=./.mxtk --exclude=./node_modules -cf - . | tar -C "$SCRATCH" -xf -
     fi
   }
   if ! copy_model; then echo "✗ test-scratch: copy failed." >&2; exit 3; fi
@@ -328,9 +328,9 @@ if [ "$CACHE" = 1 ]; then
   fi
 else
   SCRATCH="$(mktemp -d "${MXTK_SCRATCH_DIR:-${TMPDIR:-/tmp}}/$(basename "$MPR_NAME" .mpr)-test.XXXXXX")" || exit 3
-  echo "→ test-scratch: copying $(basename "$MODEL_DIR")/ → $SCRATCH (no .git, .mpr-snapshots, deployment, .mxcli)"
+  echo "→ test-scratch: copying $(basename "$MODEL_DIR")/ → $SCRATCH (no .git, .mpr-snapshots, deployment, .mxcli, .mxtk)"
   if ! tar -C "$MODEL_DIR" --exclude=./.git --exclude=./.mpr-snapshots --exclude=./deployment \
-         --exclude=./.mxcli --exclude=./node_modules -cf - . | tar -C "$SCRATCH" -xf -; then
+         --exclude=./.mxcli --exclude=./.mxtk --exclude=./node_modules -cf - . | tar -C "$SCRATCH" -xf -; then
     echo "✗ test-scratch: copy failed." >&2; exit 3
   fi
 fi

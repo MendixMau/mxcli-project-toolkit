@@ -8,7 +8,7 @@
 # plus a lock on the fixed test ports — lived only in a private helper.
 #
 # Covers: the fake mxcli runs in the scratch dir with -p on the scratch .mpr, never the live one;
-# the copy leaves out .mxcli (the live app's run --local record), .git and deployment; the port
+# the copy leaves out .mxcli (the live app's run --local record), .git, deployment and .mxtk; the port
 # lock is held during the run and released after; a second run while the first holds the ports
 # is refused; a dead holder's port lock is taken over; a live exec.sh on the project refuses the
 # copy; --attach and -p are refused; mxcli's exit code is passed through; the copy is deleted;
@@ -43,6 +43,7 @@ echo "== subject: $SUBJECT"
 P="$WORK/proj"; mkdir -p "$P/bin" "$P/mprcontents" "$P/.mxcli" "$P/deployment/run" "$P/tests" "$WORK/tmp"
 printf 'model\n' > "$P/Fixture.mpr"; printf 'unit\n' > "$P/mprcontents/a.mxunit"
 printf '{"pid": 1}\n' > "$P/.mxcli/run-local.json"; printf 'x\n' > "$P/deployment/run/big"
+mkdir -p "$P/.mxtk/build/model"; printf 'x\n' > "$P/.mxtk/build/model/big"   # the toolkit's full-build copy (#686)
 printf 'test\n' > "$P/tests/a.test.mdl"
 cp "$TOOLKIT/project-bin/_common.sh" "$P/bin/"; cp "$SUBJECT" "$P/bin/test-scratch.sh"
 cat > "$P/mxcli" <<'STUB'
@@ -72,6 +73,7 @@ case "$R" in *"cwd=$WORK/tmp/Fixture-test."*) ok "mxcli ran in the scratch copy"
 case "$R" in *"-p $WORK/tmp/Fixture-test."*"/Fixture.mpr"*) ok "-p points at the scratch .mpr" ;; *) bad "args: $(printf '%s' "$R" | sed -n 2p)" ;; esac
 printf '%s' "$R" | grep -qx '.mxcli' && bad "the live run --local record was copied" || ok ".mxcli (live app record) not copied"
 printf '%s' "$R" | grep -qx 'deployment' && bad "deployment/ was copied" || ok "deployment/ not copied"
+printf '%s' "$R" | grep -qx '.mxtk' && bad ".mxtk/ (the full-build copy) was copied" || ok ".mxtk/ (the full-build copy) not copied"
 [ "$(printf '%s' "$R" | tail -1)" = 1 ] && ok "port lock held during the run" || bad "no port lock during the run"
 [ "$(cat "$P/Fixture.mpr")" = model ] && ok "live .mpr untouched" || bad "live .mpr was written"
 grep -q 'mxtk-test-ports' <<<"$(ls "$WORK/tmp")" && bad "port lock left behind" || ok "port lock released"

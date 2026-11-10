@@ -81,7 +81,14 @@ warn()   { printf '%s:%s: WARN %s\n     %s\n' "$1" "$2" "$3" "$4"; WARNINGS=$((W
 # hardcoding 10px, because a project may legitimately restate the root in its own stylesheet —
 # and if it has, rem is safe here and this check must not fire.
 ROOT_DECL=""
-for compiled in deployment/web/theme.compiled.css deployment/web/theme.css; do
+# The toolkit's full builds write .mxtk/build/model/deployment/ (#686), `mxcli run` deployment/:
+# the newer compiled theme is the latest build, so it is read first.
+_cands="deployment/web/theme.compiled.css deployment/web/theme.css"
+_mx=".mxtk/build/model/deployment/web/theme.compiled.css"
+if [ -f "$_mx" ] && { [ ! -f deployment/web/theme.compiled.css ] || [ "$_mx" -nt deployment/web/theme.compiled.css ]; }; then
+  _cands="$_mx $_cands"
+fi
+for compiled in $_cands; do
   [ -f "$compiled" ] || continue
   ROOT_DECL="$(grep -oE 'html\{font-size:[^;}]+' "$compiled" | head -1 | sed 's/.*font-size://')"
   [ -n "$ROOT_DECL" ] && break

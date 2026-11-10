@@ -841,9 +841,17 @@ exec_lock_live() {  # $1 = pid from the lock; 0 iff that process is alive and pl
 exec_lock_try() { ( set -o noclobber; printf '%s %s %s\n' "$$" "${EPOCHSECONDS:-$(date +%s)}" "$LOG_NAME" > "$LOCK" ) 2>/dev/null; }
 exec_lock_release() {  # the trap: remove the lock only while it is still ours
   _own="$(cat "$LOCK" 2>/dev/null || true)"
+  # The full-build copy's lock (mxtk_build_lock_take, _common.sh), held from the first gate build
+  # to here so the gate's builds take it once: removed in the same rm, only while it is ours.
+  _bl=""; [ -n "${MXTK_BUILD_LOCK:-}" ] && { read -r _bl < "$MXTK_BUILD_LOCK" 2>/dev/null || true; }
+  if [ "${_bl%% *}" = "$$" ]; then
+    if [ "${_own%% *}" = "$$" ]; then rm -f "$LOCK" "$MXTK_BUILD_LOCK"; else rm -f "$MXTK_BUILD_LOCK"; fi
+    return 0
+  fi
   [ "${_own%% *}" = "$$" ] && rm -f "$LOCK"
   return 0
 }
+MXTK_BUILD_LOCK_KEEP=1   # the gate keeps the copy's lock; exec_lock_release drops it
 # Taking over a stale lock is serialised through a second O_EXCL file, $LOCK.takeover. Under
 # it the lock is re-read and removed ONLY if it still holds exactly the stale line judged above;
 # nothing else ever removes a lock that is not its own, so the compare-then-rm cannot hit a
@@ -857,33 +865,8 @@ exec_lock_release() {  # the trap: remove the lock only while it is still ours
 # stale and a third contender got in: review of #324). It is moved aside, and put back with `ln`
 # (never clobbers; left on disk if that fails) if what was moved is not the one judged stale.
 # The holder removes the takeover file only while it still holds the line it wrote.
-exec_lock_takeover() {  # $1 = the stale lock line; 0 iff it was removed (or already gone)
-  _tk="$LOCK.takeover"; _mine="$$ ${EPOCHSECONDS:-$(date +%s)}"
-  if ! ( set -o noclobber; printf '%s\n' "$_mine" > "$_tk" ) 2>/dev/null; then
-    _t="$(head -1 "$_tk" 2>/dev/null || true)"; _tpid="${_t%% *}"; _tsince="${_t#* }"
-    case "$_tsince" in ''|*[!0-9]*) _tsince=0 ;; esac
-    _tstale=0
-    if [ -n "$_t" ]; then
-      { ! kill -0 "$_tpid" 2>/dev/null || [ $(( ${EPOCHSECONDS:-$(date +%s)} - _tsince )) -gt 10 ]; } && _tstale=1
-    elif [ -n "$(find "$_tk" -mmin +1 2>/dev/null)" ]; then
-      _tstale=1   # empty for over a minute: its creator died between the create and the write
-    fi
-    if [ "$_tstale" = 1 ]; then
-      if mv "$_tk" "$_tk.stale.$$" 2>/dev/null; then
-        # Remove what was moved ONLY if it is what was judged stale; anything else is someone's
-        # live takeover file: put it back (ln never clobbers), and if that fails leave it be.
-        # Same body as test-scratch.sh's take_over() — keep the two in step (PR #322).
-        if [ "$(head -1 "$_tk.stale.$$" 2>/dev/null || true)" = "$_t" ]; then rm -f "$_tk.stale.$$"
-        else ln "$_tk.stale.$$" "$_tk" 2>/dev/null && rm -f "$_tk.stale.$$"; fi
-      fi
-    fi
-    return 1
-  fi
-  _now="$(head -1 "$LOCK" 2>/dev/null || true)"
-  [ "$_now" = "$1" ] && rm -f "$LOCK"
-  [ "$(head -1 "$_tk" 2>/dev/null || true)" = "$_mine" ] && rm -f "$_tk"   # only our own takeover file
-  return 0
-}
+# The protocol lives in _common.sh (mxtk_lock_takeover), shared with the full-build copy's lock.
+exec_lock_takeover() { mxtk_lock_takeover "$LOCK" "$1"; }   # $1 = the stale lock line (_common.sh)
 LOCK_TAKEN=0
 for _try in 1 2 3 4 5 6; do
   if exec_lock_try; then LOCK_TAKEN=1; break; fi
@@ -2655,6 +2638,49 @@ watch_theme_changes() {  # prints up to 3 theme files newer than the run --local
       -newer "$_hs" -print 2>/dev/null
   done | head -3 | sed "s|^$MODEL_DIR/||"
 }
+# An exec that changed nothing in the model needs no restart for itself (#686): the second run of
+# "exec every change twice", or a re-applied idempotent GRANT, printed "restart needed" every time,
+# and each one cost a 40 s+ restart. The evidence is model-scope.py's count above (units vs HEAD,
+# the model having been committed when this exec started): 0 real changes. Without that count
+# (v1 single-file model, MXTK_NO_SCOPE, an uncommitted start) nothing changes here.
+# Never "same" for a --patch script (opaque), nor when this exec wrote Java/JavaScript actions,
+# theme, userlib or widgets beside the model (#721 review: those need a restart with 0 units
+# changed). Evidence for the second: a file there newer than this exec's pre-write snapshot
+# (javasource/*/proxies/ excluded: a build regenerates them). One `find`, only on this path.
+_model_same() {
+  [ "$PATCH_MODE" = 1 ] && return 1
+  case "${SCOPE_NOTE:-}" in "scope: "[0-9]*" unit file(s) changed, 0 real"*) ;; *) return 1 ;; esac
+  [ -n "${SNAP_NOW:-}" ] && [ -d "$SNAP_NOW" ] || return 1
+  # An array, quoted at the call: a MODEL_DIR holding a space must not split into two find roots
+  # (find would fail silently and call the model "same" — #721 review). bash 3.2-safe.
+  _side=()
+  for _sd in javasource javascriptsource theme themesource userlib widgets; do
+    [ -d "$MODEL_DIR/$_sd" ] && _side[${#_side[@]}]="$MODEL_DIR/$_sd"
+  done
+  [ "${#_side[@]}" = 0 ] && return 0
+  [ -z "$(find "${_side[@]}" -path '*/javasource/*/proxies' -prune -o -type f -newer "$SNAP_NOW" -print 2>/dev/null | head -1)" ]
+}
+_hs_present() { [ -f "$(cd "${MPR%/*}" && pwd)/.mxcli/run-local.json" ] || [ -f "$MODEL_DIR/.mxcli/run-local.json" ]; }
+# After a full build into deployment/, a running `run --local --watch` serves no web client
+# (/dist/index.js 404, PR #700 run-2) until it is restarted. The gate builds a copy
+# (mxtk_build_tree, _common.sh), so this is the rare case: MXTK_GATE_IN_PLACE=1, no Python, or
+# a copy that failed. Then, when an app is recorded, check it:
+# still served → nothing; gone → app-restart.sh restarts it if the toolkit started it, or prints
+# the hint (exit 6). No record → the one-line note, as before. CLIENT_RESTARTED=1 when it restarted.
+CLIENT_RESTARTED=0
+after_full_build() {
+  if [ "${MXTK_BUILD_PLACE:-}" = copy ]; then
+    echo "  full build ran in .mxtk/build/ — the running app's deployment/ was not touched"; return 0
+  fi
+  [ -n "${MXTK_BUILD_NOTE:-}" ] && echo "  full build ran in place (${MXTK_BUILD_NOTE}): deployment/ was rewritten"
+  if _hs_present && [ -f "$_XD/app-restart.sh" ]; then
+    _ar_out="$(bash "$_XD/app-restart.sh" --if-client-gone 2>&1)"; _ar_rc=$?
+    printf '%s\n' "$_ar_out" | sed 's/^/  /'
+    [ "$_ar_rc" = 0 ] && case "$_ar_out" in *"restarts it now"*) CLIENT_RESTARTED=1 ;; esac
+  else
+    echo "  $MXTK_WATCH_NOTE"
+  fi
+}
 print_watch_compat() {
   if [ "$PATCH_MODE" = 1 ]; then
     _wc="restart	--patch script (opaque to the classifier — assume it needs one)"
@@ -2663,13 +2689,23 @@ print_watch_compat() {
   fi
   _why="${_wc#*	}"
   _theme="$(watch_theme_changes 2>/dev/null | tr '\n' ' ' || true)"
+  if _model_same && [ "${_wc%%	*}" != watch ]; then
+    _wc="same	"
+  fi
   if [ -n "$_theme" ]; then
     [ "${_wc%%	*}" = restart ] && _why="$_why; " || _why=""
     _wc="restart"; _why="${_why}theme SCSS/JS changed since the app booted: ${_theme% }"
   fi
   echo ""
   case "${_wc%%	*}" in
+    same)
+      echo "→ Watch: no restart for this exec — it changed nothing in the model (${SCOPE_NOTE#scope: })."
+      echo "  A restart an earlier exec asked for still stands." ;;
     restart)
+      if [ "$CLIENT_RESTARTED" = 1 ]; then
+        echo "→ Watch: restart needed: $_why — done: the app was restarted after the full build (above)"
+        return 0
+      fi
       echo "→ Watch: restart needed: $_why"
       echo "  run --local --watch keeps serving the OLD model for these. Restart this app only:"
       echo "  ./bin/app-restart.sh   (stale-runtime symptoms + what watch covers: toolkit skills/ui-loop.md)" ;;
@@ -2682,6 +2718,7 @@ print_watch_compat() {
       else echo "→ Watch: watch can apply this"; fi ;;
   esac
 }
+[ "${GATE_KIND:-}" = full ] && [ "$GATE_STATE" = pass ] && { echo ""; after_full_build || true; }
 print_watch_compat || true
 
 if [ "$GATE_STATE" != "pass" ]; then
@@ -2737,9 +2774,6 @@ echo "  elapsed: ${_EL}s (check + snapshot + exec + mxbuild gate)"
 if [ -n "$STEP_TIMES" ]; then echo "  steps: $STEP_TIMES"; fi
 [ -n "$CHANGE_CLASS" ] && echo "  change class: $CHANGE_CLASS — test lane: $(change_lane)"
 [ -n "$FIRST_PAGE_MODS" ] && echo "  first page row of $FIRST_PAGE_MODS: also a LOOK at 390 (phone layout) of the page(s) it wrote, on top of this mode's per-row check"
-# A full build replaces the bundle a running `mxcli run --local --watch` serves (/dist/index.js 404
-# until a restart; PR #700 run-2 experiment). One line, no behaviour change.
-[ "${GATE_KIND:-}" = full ] && [ "$GATE_STATE" = pass ] && echo "  $MXTK_WATCH_NOTE"
 # A budget, not a gate: a normal run is 30-90 s on a healthy machine. Past 4 minutes the
 # usual cause is the machine (Defender scanning every fork, OneDrive, a slow disk), and
 # doctor --quick names which — the reader should not have to guess "is it me or the toolkit".

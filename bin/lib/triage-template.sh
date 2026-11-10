@@ -23,10 +23,11 @@
 # "Confirmed by:" INSIDE the "## Sign-off" section whose value contains no "[" — that second
 # condition exists precisely because the unedited template line once passed a human-sign-off
 # gate (see the comment at gate-check.sh:380). The template therefore ships the placeholder
-# form "Confirmed by: [user] on [date]", and a freshly scaffolded triage.md FAILS Stage 0 by
-# construction. Same discipline as intake.md's "_Not yet asked._" (bin/lib/intake-template.sh):
+# form "Confirmed by: [user] on [date]". A freshly scaffolded, untouched triage.md reads PENDING
+# at Stage 0 (#635: nothing was decided yet, mxtk_triage_is_pristine); once the sheet is filled in
+# but the placeholder sign-off remains, it FAILS (#620). Same discipline as intake.md's "_Not yet asked._" (bin/lib/intake-template.sh):
 # a scaffold must never be able to certify the decision it exists to collect.
-# tests/wave2/test-triage-report.sh pins that failure.
+# tests/wave2/test-triage-report.sh pins both verdicts.
 #
 # CHANGING THE HEADINGS. "## Sign-off" and "Confirmed by:" are parsed by gate-check.sh; the
 # section names mirror skills/source-triage.md's Output Template so the skill and the scaffold

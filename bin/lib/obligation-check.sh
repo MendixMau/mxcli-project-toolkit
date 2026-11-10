@@ -249,6 +249,26 @@ _ob_find() {
   return 0
 }
 
+# _ob_journeys_ran <summary.tsv> → 0 if verify-module.sh recorded that the journeys actually ran.
+#
+# The journeys obligation's artifact is .claude/loop/verify/<Module>/summary.tsv, and
+# verify-module.sh writes that file's header on EVERY run — runtime down, journeys skipped by
+# flag, runner faulted. So "the file exists" proved only that verify-module.sh was started, and a
+# module whose journeys never ran read as discharged (#709). Evidence is the journeys row itself:
+#   PASS / FINDING            the runner ran (whether it went green is the gate's question, not this one)
+#   SKIPPED "(N/A: …"         the module has 0 pages in the page scope — nothing to journey
+# Anything else — no journeys row, FAULT, SKIPPED by flag / dependency — is no run. The positive
+# control row ("journeys (positive control …)") proves the runner can fail, not that the module's
+# journeys passed, so it never counts.
+_ob_journeys_ran() {
+  awk -F'\t' '
+    $1 ~ /^journeys( |$)/ && $1 !~ /positive control/ {
+      if ($2 == "PASS" || $2 == "FINDING") { ok = 1 }
+      else if ($2 == "SKIPPED" && $5 ~ /^\(N\/A/) { ok = 1 }
+    }
+    END { exit ok ? 0 : 1 }' "$1" 2>/dev/null
+}
+
 # A denominator is a first line that counts something out of something: "12 of 12 pages reviewed".
 # Deliberately loose — the wording belongs to the skill, only the shape is mechanical.
 _ob_has_denominator() {
@@ -549,7 +569,7 @@ mxtk_obligations_report() {
     case "$ob" in look|final-look|prototype-look) is_look=1 ;; esac
     [ "$ob" = "final-look" ] && needs_stamp=1
     [ "$ob" = "prototype-look" ] && needs_proto=1
-    local total=0 done_n=0 waived_n=0 pending="" faulted="" stale="" noproof="" unstamped="" noproto="" u hit reason stale_at proof_why candidates c newest
+    local total=0 done_n=0 waived_n=0 pending="" faulted="" stale="" noproof="" unstamped="" noproto="" norun="" u hit reason stale_at proof_why candidates c newest
     while IFS= read -r u; do
       [ -n "$u" ] || continue
       total=$((total+1))
@@ -578,6 +598,7 @@ mxtk_obligations_report() {
         [ -n "$c" ] || continue
         [ -n "$newest" ] || newest="$c"
         if [ "$denom" = "yes" ] && ! _ob_has_denominator "$c"; then continue; fi
+        if [ "$ob" = "journeys" ] && ! _ob_journeys_ran "$c"; then continue; fi
         if [ "$needs_stamp" = 1 ] && [ -z "$(_ob_valid_at_stamps "$c")" ]; then continue; fi
         if [ "$needs_proto" = 1 ] && [ -z "$(_ob_proto_stamp "$c")" ]; then continue; fi
         if [ "$needs_proto" = 1 ] && _ob_proto_stale "$root" "$c" >/dev/null; then continue; fi
@@ -606,6 +627,10 @@ mxtk_obligations_report() {
       elif [ "$is_look" = 1 ] && proof_why="$(_ob_look_proof_broken "$root" "$newest")"; then
         # A LOOK whose screenshots cannot be verified is a CSS review — treated as no report.
         noproof="$noproof $u($proof_why)"
+      elif [ "$ob" = "journeys" ] && ! _ob_journeys_ran "$newest"; then
+        # verify-module.sh ran but the journeys did not (#709): owed, with the reason on its own line.
+        pending="$pending $u"
+        norun="$norun $u"
       elif stale_at="$(_ob_stale "$root" "$newest")"; then
         # A stamped mark the model has been built past is not a mark — the pass is owed again.
         pending="$pending $u"
@@ -643,6 +668,8 @@ mxtk_obligations_report() {
       printf 'Obligation %-10s   STALE:%s — the model was built past the report; re-run the pass (module-review.md stage 5, VALID AT)\n' \
         "$ob" "$stale"
     fi
+    [ -n "$norun" ] && printf 'Obligation %-10s   NOT RUN:%s — summary.tsv has no journeys PASS/FINDING row (runtime down, skipped, or the runner faulted); run bin/verify-module.sh with the app up\n' \
+      "$ob" "$norun"
     [ -n "$noproof" ] && printf 'Obligation %-10s   NO PROOF-OF-LOOK:%s — the pixel rule, made mechanical (module-review.md stage 5, PROOF-OF-LOOK)\n' \
       "$ob" "$noproof"
   done < "$OBLIGATIONS_TSV"

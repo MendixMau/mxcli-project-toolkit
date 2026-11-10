@@ -11,6 +11,7 @@ bash "$TK/bin/init-agents.sh" "$T" >/dev/null 2>&1
 out="$(bash "$CK" "$T" 2>&1)"; rc=$?
 [ $rc -eq 3 ] && ok "T1 fresh stub exits 3" || bad "T1 rc=$rc"
 echo "$out" | grep -q "UNFILLED mdl-agent" && echo "$out" | grep -q "APP_PURPOSE" && ok "T2 names the slots" || bad "T2 $out"
+echo "$out" | grep -Eq "UNFILLED mdl-agent: [0-9]+ occurrence\(s\) of [0-9]+ slot\(s\) — " && ok "T2b wording counts occurrences vs unique slots" || bad "T2b $out"
 # fill every real slot, keep the DOUBLE_BRACE prose
 f="$T/.claude/agents/mdl-agent.md"
 sed -E '/DOUBLE_BRACE/!s/\{\{[^}]*\}\}/filled/g' "$f" > "$f.n" && mv "$f.n" "$f"

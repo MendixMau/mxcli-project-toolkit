@@ -28,7 +28,8 @@ for a in "$@"; do
   ph="$(mxtk_placeholders "$f")"
   if [ -n "$ph" ]; then
     printf '%s\n' "$ph" | while IFS="$(printf '\t')" read -r _f _n _names; do
-      echo "UNFILLED $a: $_n slot(s) — $_names"
+      _u="$(printf '%s\n' "$_names" | wc -w | tr -d ' ')"
+      echo "UNFILLED $a: $_n occurrence(s) of $_u slot(s) — $_names"
     done
     echo "  It will refuse its first row. Fill the stub per skills/agent-roles.md Step 1 before dispatching."
     rc=3

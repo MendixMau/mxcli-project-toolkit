@@ -99,7 +99,16 @@ const walks = [];
 // report while dropping fields it does not know. A strength that lives only in a new
 // field would therefore be invisible in the artefact a human actually reads — which is
 // the same "green cell that means less than it looks like" this rung exists to retire.
+// Once a journey's timeout fires its walk is abandoned but still running; whatever it records
+// afterwards ("page closed" when the browser is torn down) is noise that would turn one hang into
+// FAIL 2. recordsFrozen drops those late rows; the runner's own rows go through runnerRecord.
+let recordsFrozen = false;
+function freezeRecords() { recordsFrozen = true; }
 function record(rung, name, verdict, detail, req, evidenceStrength) {
+  if (recordsFrozen) { if (process.env.DEBUG_JOURNEY) console.log(`  (debug) dropped late record after timeout: [${rung}] ${name}`); return; }
+  return runnerRecord(rung, name, verdict, detail, req, evidenceStrength);
+}
+function runnerRecord(rung, name, verdict, detail, req, evidenceStrength) {
   let text = String(detail ?? '');
   if (evidenceStrength === 'weak') text = text ? `${text}  [WEAK EVIDENCE]` : '[WEAK EVIDENCE]';
   const row = { rung, name, verdict, detail: text, requirement: req || '' };
@@ -1693,6 +1702,40 @@ function flagAppDown(rows, detail) {
 // ── Exports for the rung-4 scope unit test ──────────────────────────────────
 // The SQL builders are pure and exported so their behaviour can be proven against
 // fixture rows without a running app. See tests/e2e/journey-rung4-scope.test.js.
+// ── Per-journey timeout ──────────────────────────────────────────────────────
+// A journey that never finishes (the runtime stopped serving mid-walk, a step waits on a widget
+// that will never render) used to hold the whole run: speed-night run 3 sat ~10 min on one, and
+// experiment A's longest healthy batch of 3-4 journeys was 244 s. Each journey is now raced against
+// JOURNEY_TIMEOUT_S seconds (default 120; JOURNEY_TIMEOUT_MS also read; 0 disables, printed in the
+// run header). The loser is reported as a NAMED FAIL, "runtime not serving / journey TIMEOUT", the
+// remaining journeys as INVALID "not run", and the runner exits 124 -- never a silent hang, never
+// green-by-absence.
+const JOURNEY_TIMEOUT_DEFAULT_S = 120;
+function journeyTimeoutMs(env = process.env) {
+  const raw = env.JOURNEY_TIMEOUT_MS != null && env.JOURNEY_TIMEOUT_MS !== '' ? { v: env.JOURNEY_TIMEOUT_MS, unit: 1 }
+            : env.JOURNEY_TIMEOUT_S != null && env.JOURNEY_TIMEOUT_S !== '' ? { v: env.JOURNEY_TIMEOUT_S, unit: 1000 } : null;
+  if (!raw) return { ms: JOURNEY_TIMEOUT_DEFAULT_S * 1000, source: 'default' };
+  const n = Number(raw.v);
+  if (!Number.isFinite(n) || n < 0) return { ms: JOURNEY_TIMEOUT_DEFAULT_S * 1000, source: 'default', warn: `ignored JOURNEY_TIMEOUT value "${raw.v}" (want a number >= 0)` };
+  return { ms: Math.round(n * raw.unit), source: 'env' };
+}
+// Resolves { timedOut:false, value } or { timedOut:true }. The losing promise is left running (a
+// hung page cannot be cancelled) with its rejection swallowed so a later failure is not unhandled.
+async function raceTimeout(promise, ms) {
+  if (!ms) return { timedOut: false, value: await promise };
+  let tm;
+  const guard = new Promise(r => { tm = setTimeout(() => r({ timedOut: true }), ms); });
+  const winner = await Promise.race([promise.then(value => ({ timedOut: false, value })), guard]);
+  clearTimeout(tm);
+  if (winner.timedOut) promise.catch(() => {});
+  return winner;
+}
+const timeoutRows = (j, ms) => ({
+  name: `${j.id}: TIMEOUT`,
+  detail: `runtime not serving / journey TIMEOUT: no result in ${ms / 1000}s -- the journey was abandoned and the run stopped. ` +
+          'The app stopped answering or a step hung; restart the app and rerun this journey (raise JOURNEY_TIMEOUT_S only if it is genuinely slower).',
+});
+
 // runExitCode/judgeMutant are exported for tests/wave2/test-journey-control-exit.sh, personaMismatch
 // for tests/wave2/test-journey-persona.sh, the preflight/ordering set for
 // tests/wave2/test-journey-preflight.sh, namedControlGaps/findControls/outcomeCheckName for
@@ -1709,6 +1752,8 @@ module.exports = {
   act, describeAct, pseudoTexts, pseudoVerdict, scopedWidget,
   // For fixtures that walk a journey in a real browser against a stand-in page (#564).
   runJourney, results,
+  journeyTimeoutMs, raceTimeout, timeoutRows,
+  record, runnerRecord, freezeRecords,
 };
 
 // ── Fix-loop reruns (#492) ───────────────────────────────────────────────────
@@ -1718,7 +1763,7 @@ module.exports = {
 // the row shapes the runner writes for one (app up, precondition, persona, seeds resolved, a
 // control row, an end state), so a data or setup step named "Submit: …" is never read as an id.
 // With `loadedIds`, ids the journeys given do not have are dropped (a renamed or removed journey).
-const NEVER_WALKED = /^(\S+?)(?:: (?:app up|precondition|persona|seeds resolved|back online at the end)$| · | end state)/;
+const NEVER_WALKED = /^(\S+?)(?:: (?:app up|precondition|persona|seeds resolved|TIMEOUT|back online at the end)$| · | end state)/;
 function failedJourneyIds(findings, loadedIds) {
   if (!findings || findings.aborted) return { error: `the findings file is an aborted run (${findings && findings.aborted}) — nothing to rerun from; run the journeys in full` };
   const ids = new Set();
@@ -1981,8 +2026,27 @@ function journeyIdProblems(loaded, files) {
 
   const appDown = [], appDiedIn = [];
   const APP_PROBE = process.env.APP_PROBE !== '0';
+  const JT = journeyTimeoutMs();
+  if (JT.warn) console.log(`  WARN   ${JT.warn}; using ${JOURNEY_TIMEOUT_DEFAULT_S}s`);
+  console.log(`  journey timeout: ${JT.ms ? JT.ms / 1000 + 's per journey' + (JT.source === 'env' ? ' (env)' : '') : 'OFF (JOURNEY_TIMEOUT_S=0): a hung journey will hold this run'}`);
+  let timedOut = null;            // { id } of the journey that hit the cap
+  const reached = new Set();      // journeys the loop got to; the rest are named when it stops
+  const walkBounded = async (journey) => raceTimeout(runJourney(page, journey), JT.ms);
+  // Records the named FAIL, with whether the app still answers.
+  const onTimeout = async (j) => {
+    timedOut = { id: j.id };
+    freezeRecords();   // the abandoned walk's late rows are dropped from here on
+    const t = timeoutRows(j, JT.ms);
+    let probe = '';
+    try { const a = await Promise.race([probeApp(cfg.baseUrl), PAUSE(6000).then(() => null)]);
+          probe = a ? (a.up ? ` (${cfg.baseUrl} still answers: a step hung)` : ` (${cfg.baseUrl} NOT answering: ${a.detail})`) : ''; } catch (_) { /* detail only */ }
+    runnerRecord('ui', t.name, 'FAIL', t.detail + probe, (j.requirement || []).join(', '));
+    console.log(`  TIMEOUT  ${j.id} -- no result in ${JT.ms / 1000}s; runtime not serving / journey TIMEOUT, abandoned`);
+  };
   if (li.ok && !li.usedFallback) {
     for (const j of journeys) {
+      if (timedOut) break;
+      reached.add(j.id);
       // Already named once on the preflight SETUP line; no per-journey INVALID on top.
       if (pf.skip.has(j.id)) { state.settle(j, [], false); continue; }
       if (APP_PROBE) {
@@ -2048,7 +2112,9 @@ function journeyIdProblems(loaded, files) {
           }
           const before = results.length;
           await resetToStart(page);
-          await endJourneyEnv(page, m.journey, await runJourney(page, m.journey));
+          const w = await walkBounded(m.journey);
+          if (w.timedOut) { await onTimeout(j); break; }
+          await endJourneyEnv(page, m.journey, w.value);
           const v = judgeMutant(results.slice(before), m.expectFail);
           mutantLedger.push({ journey: j.id, rung: m.rung, supported: true, proven: v.proven });
           record('control', `${j.id} · ${m.rung}: ${m.what}`, v.verdict, v.detail);
@@ -2056,7 +2122,9 @@ function journeyIdProblems(loaded, files) {
       } else {
         const before = results.length;
         await resetToStart(page);
-        await endJourneyEnv(page, j, await runJourney(page, j));
+        const w = await walkBounded(j);
+        if (w.timedOut) { await onTimeout(j); state.settle(j, results.slice(before), false); continue; }
+        await endJourneyEnv(page, j, w.value);
         if (APP_PROBE) {
           const after = await probeApp(cfg.baseUrl);
           if (!after.up && flagAppDown(results.slice(before), after.detail)) appDiedIn.push(j.id);
@@ -2070,8 +2138,19 @@ function journeyIdProblems(loaded, files) {
   // browser does not end a Mendix session; on an unlicensed runtime the leaked
   // sessions accumulate across runs until every later login is refused, and the
   // UI reports that as a wrong password. Measured 2026-08-18.
-  await RELEASE();
-  await browser.close();
+  if (timedOut) {
+    // The journeys after the stuck one were not walked: INVALID rows (the `: precondition` shape
+    // --rerun-failed already recognises), never silence.
+    for (const x of journeys.filter(x => !reached.has(x.id)))
+      runnerRecord('setup', `${x.id}: precondition`, 'INVALID',
+        `NOT RUN -- the runner stopped at ${timedOut.id} (journey TIMEOUT). Rerun this journey after the app is serving.`, (x.requirement || []).join(', '));
+    // The page is hung: a logout or close that waits on it must not hold the exit.
+    await Promise.race([RELEASE(), PAUSE(8000)]).catch(() => {});
+    await Promise.race([browser.close(), PAUSE(8000)]).catch(() => {});
+  } else {
+    await RELEASE();
+    await browser.close();
+  }
 
   const n = v => results.filter(r => r.verdict === v).length;
   console.log('\n=== SUMMARY ===');
@@ -2150,6 +2229,10 @@ function journeyIdProblems(loaded, files) {
 
   // A control run's exit ignores non-control rows, so a journey the preflight held back
   // (its mutants never ran) must still keep the control verdict from reading clean.
+  if (timedOut) {
+    console.log(`  TIMEOUT: runtime not serving / journey TIMEOUT at ${timedOut.id} -- exit 124. Fix the app, then rerun with --rerun-failed.`);
+    process.exit(124);
+  }
   process.exit(POSITIVE_CONTROL && pf.rows.length ? 1 : runExitCode(POSITIVE_CONTROL, results, mutants));
 })().catch(async e => {
   console.error('ERR', e.stack?.split('\n').slice(0, 8).join('\n'));

@@ -181,6 +181,17 @@ function abs(p) {
 // project, so the report's reproduce commands and evidence paths carry no machine path.
 if (path.isAbsolute(INPUTS.journeysDir) && inside(PROJECT_DIR, INPUTS.journeysDir))
   INPUTS.journeysDir = path.relative(PROJECT_DIR, INPUTS.journeysDir).split(path.sep).join('/');
+// The toolkit's full builds write .mxtk/build/model/deployment/ (project-bin/build-tree.py, #686),
+// not the app's deployment/; `mxcli run` still writes deployment/. Of the two, the newer file is
+// the latest build of the model — the same rule check-design-reaches-app.sh uses for .docker/.
+function newestDeployed(rel) {
+  if (!rel.startsWith('deployment/')) return rel;
+  const alt = '.mxtk/build/model/' + rel;
+  const m = p => { try { return fs.statSync(abs(p)).mtimeMs; } catch (e) { return -1; } };
+  return m(alt) > m(rel) ? alt : rel;
+}
+INPUTS.metadata = newestDeployed(INPUTS.metadata);
+INPUTS.appConfig = newestDeployed(INPUTS.appConfig);
 // Outputs are never probed: they belong at the repo root, where verify-module looks for them.
 const absOut = p => (path.isAbsolute(p) ? p : path.join(PROJECT_DIR, p));
 
@@ -1310,7 +1321,20 @@ function collectWalkthrough(input, instName, tags, ctx) {
 // REALITY: the live file has FOUR columns (no elapsed). Parsed positionally with the
 // tail treated as optional rather than assumed present — a normalizer that indexes
 // [4] blindly emits `log: undefined` and the renderer shows no log link at all.
-function collectLoop(summaries) {
+// verify-module writes elapsed as `12s` (and `-` for a row it never timed); a bare
+// number was the only shape accepted, so `12s` was taken as the log path (#659).
+// A row's reason (#659): a `(…)` cell is verify-module's own reason (fault() and the
+// SKIPPED rows write one); else, for a FAULT row, the last SETUP / INSTRUMENT FAULT /
+// TIMED OUT line of its log. `readLog` is injectable for the selftest.
+const ELAPSED_CELL = /^(\d+(\.\d+)?)s?$/;
+const REASON_LINE = /^\s*(INSTRUMENT FAULT|SETUP|TIMED OUT)\b/;
+function lastReasonLine(text) {
+  const hits = String(text || '').split(/\r?\n/).filter(l => REASON_LINE.test(l)).map(l => l.trim());
+  const l = hits.length ? hits[hits.length - 1] : null;
+  return l && l.length > 400 ? l.slice(0, 397) + '...' : l;
+}
+function readLoopLog(p) { try { return fs.readFileSync(abs(p), 'utf8'); } catch { return null; } }
+function collectLoop(summaries, { readLog = readLoopLog } = {}) {
   const instruments = [];
   const checks = [];
   for (const s of summaries) {
@@ -1335,15 +1359,19 @@ function collectLoop(summaries) {
       const rcRaw = (f[2] || '').trim();
       // A 5th column may be elapsed or may be the log; distinguish by shape rather
       // than by position, because the two live files disagree about the count.
-      const rest = f.slice(3).map(x => x.trim()).filter(Boolean);
-      const elapsed = rest.find(x => /^\d+(\.\d+)?$/.test(x));
-      const log = rest.find(x => !/^\d+(\.\d+)?$/.test(x)) || null;
+      const rest = f.slice(3).map(x => x.trim()).filter(x => x && x !== '-');
+      const elapsed = rest.find(x => ELAPSED_CELL.test(x));
+      const paren = rest.find(x => /^\(.*\)$/s.test(x));
+      const log = rest.find(x => !ELAPSED_CELL.test(x) && x !== paren) || null;
+      let reason = paren ? paren.slice(1, -1).trim() || null : null;
+      if (!reason && verdict === 'fault' && log) reason = lastReasonLine(readLog(log));
       const name = `verify-loop/${s.module}/${(f[0] || 'unnamed').trim()}`;
       instruments.push({
         name, verdict,
         rc: rcRaw === '' ? null : Number(rcRaw),
-        elapsedSec: elapsed === undefined ? null : Number(elapsed),
+        elapsedSec: elapsed === undefined ? null : Number(elapsed.match(ELAPSED_CELL)[1]),
         log, source: s.file.path,
+        ...(reason ? { reason } : {}),
         sourceVerdict: rawVerdict || null,
         canExpressFault: true, evidenceStrength: 'strong',
       });
@@ -1357,7 +1385,7 @@ function collectLoop(summaries) {
           module: s.module, journey: null, stepIndex: null, stepName: null,
           requirement: null, title: (f[0] || 'unnamed').trim(), verdict,
           provenance: 'measured',
-          detail: `verify loop reported ${rawVerdict} (rc ${rcRaw || 'n/a'})`,
+          detail: `verify loop reported ${rawVerdict} (rc ${rcRaw || 'n/a'})${reason ? `: ${reason}` : ''}`,
           measuredAt: s.mtime,
           nonVacuity: { controlRan: false, note: 'no positive control for the verify loop' },
           evidence: log ? [{ type: 'log', path: relTo(process.env.__OUT || 'docs/report.json', log) }] : [],
@@ -2236,7 +2264,7 @@ function normalize(inputs) {
     checks.push(...w.checks); instruments.push(w.instrument);
   }
 
-  const loop = collectLoop(inputs.summaries || []);
+  const loop = collectLoop(inputs.summaries || [], inputs.readLog ? { readLog: inputs.readLog } : {});
   checks.push(...loop.checks); instruments.push(...loop.instruments);
 
   const conf = collectConformance(inputs.conformance, ctx);

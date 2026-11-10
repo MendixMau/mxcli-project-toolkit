@@ -1,0 +1,10 @@
+-- 090-navigation.mdl — row 26: role-based navigation per design/interaction-model.md. Each role lands on its
+-- home (Requester -> Request_List, Approver -> Approval_Inbox, Admin -> Supplier_List); the scaffold's 'Home'
+-- item (MyFirstModule.Home_Web, no app role can open it) is dropped. Menu items were added with their pages
+-- (rows 8, 10, 21, 25); page access already hides items a role cannot open.
+alter navigation Responsive {
+  drop 'Home'
+  set home page Purchasing.Request_List for Requester
+  set home page Approval.Approval_Inbox for Approver
+  set home page Purchasing.Supplier_List for Admin
+};

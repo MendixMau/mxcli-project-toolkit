@@ -1,0 +1,10 @@
+WARNING: This is a vibe-coded PoC, alpha quality, use with caution.
+(no module)
+-----------
+  ⚠ page Approval.Approval_Decide: DataView `dvDecide` contains input fields but is not inside a layout grid — label and input widths only render correctly inside a layoutgrid [MPR010]
+      at 
+      → Wrap dataview `dvDecide` in `layoutgrid { row { column (desktopwidth: autofill) { … } } }`
+
+1 issues: 0 errors, 1 warnings, 0 info
+
+Summary: 0 new, 0 modified, 0 removed — exec would write nothing

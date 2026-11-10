@@ -9,7 +9,7 @@
 #   - testing-shape.md, the check-moments table and the Offer table carry the same three rows
 #     and the same defaults (every change affected, module done module, build complete full)
 #   - existing-app-change.md keeps "every gate is also a regression gate" and adds the scoping
-#   - exec.sh's logic lane text points at the strategy, not at module close
+#   - exec.sh's logic lane text: high-quality points at the strategy; balanced/high-speed at module close (#686)
 # This test keeps those files, the Offer and affected-tests.sh from drifting apart. The
 # maintainer waived the A/B on 2026-10-16; E3 runs after merge as a check.
 #
@@ -31,17 +31,17 @@ echo "== the old full-suite-at-module-close wording is gone =="
   && ok "iterative-build-loop.md points at the strategy" || bad "iterative-build-loop.md"
 ! has skills/conversion-runbook.md "the release gate owes" && has skills/conversion-runbook.md "deploy-ready owes" \
   && ok "conversion-runbook.md says deploy-ready" || bad "conversion-runbook.md"
-! has project-bin/exec.sh "Full mxcli test at module close, not here" && has project-bin/exec.sh "everything runs once at build complete and before each later deploy, per PROJECT.md ## Test strategy" \
+! has project-bin/exec.sh "Full mxcli test at module close, not here" && has project-bin/exec.sh "Unit tests (modules with unit on, PROJECT.md Unit tests default) and journeys \$_CLOSE" && has project-bin/exec.sh "per PROJECT.md ## Test strategy" \
   && ok "exec.sh logic lane text" || bad "exec.sh logic lane text"
 
 echo "== one table, three places =="
 for f in skills/checkpoints/checkpoint-build.md; do
-  has $f "| Every change (build and feedback) | affected, modules on only | affected |" && has $f "| Module done | module, modules on only | module |" && has $f "| Build complete, and before every later deploy | full | full |" \
+  has $f "| Every change (build and feedback) | none (exec gate only) | none |" && has $f "| Module done | module, modules on only | module |" && has $f "| Build complete, and before every later deploy | full | full |" \
     && ok "CAC-5 Offer table with the three defaults" || bad "Offer table"
 done
 has skills/checkpoints/checkpoint-build.md "PROJECT.md\` → \`## Test strategy\`" && has skills/checkpoints/checkpoint-build.md "CONFIRMED" \
   && ok "Offer records the choice with a Status column" || bad "Offer record line"
-has skills/testing-shape.md "defaults \`affected\`, \`module\`, \`full\`" \
+has skills/testing-shape.md "defaults \`none\` per change, \`module\`, \`full\`" \
   && ok "testing-shape.md states the same defaults" || bad "testing-shape.md defaults sentence"
 
 echo "== existing-app-change.md =="

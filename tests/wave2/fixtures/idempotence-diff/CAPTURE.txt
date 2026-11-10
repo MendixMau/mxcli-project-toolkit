@@ -1,0 +1,8 @@
+Verbatim `mxcli diff -p PurchaseApp.mpr <script>` output, mxcli v0.28.0 (2026-10-23), captured 2026-11-09
+by speed-night experiment D (scratch copy of a 197 MB run-3 PurchaseApp; scripts applied in the order
+the balanced run used, each diff taken on the post-exec state).  *.diff = diff after a successful exec;
+*.diff-prestate = diff run BEFORE a first exec that fails (the dry-run use; always Refused).
+expected.tsv = file -> verdict, taken from the independent second-exec-and-hash arm (X) of that
+experiment, which agreed with the diff on all 40 scripts.  21 IDEMPOTENT, 21 REFUSED, 2 CHANGES
+(070-approval-inbox, S1-nav-insert-667: navigation menu duplicated, 5 -> 6 items, exit 0).
+fieldrun-050-page-modified.diff: captured 2026-11-10 by the sc-b builder, mxcli v0.28.0, scratch copy of e2e-balanced (final state), 050-request-list.mdl: a page that DIFFERS (Delete column added by a later script) prints as a unified diff.

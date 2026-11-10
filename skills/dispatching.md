@@ -58,13 +58,22 @@ every implementer brief: "When `exec.sh` prints `restart needed`, or `unknown �
 behaviour looks stale` and it does, run `./bin/app-restart.sh` yourself and carry on; never
 stop or start an app another way (no `pkill`, no second `run --local`) or touch another lane's
 app." The helper stops only the pid that `run --local` recorded for that project and refuses
-otherwise (`ui-loop.md` § "What watch picks up"). The old lead-only rule came from a broad kill
-in one lane that took down another lane's app; the helper cannot do that, and the rule cost 24 implementer
-restart-resumes (41.6M tokens, 8.5% of subagent tokens) in the 2026-10-12 run (#289). If the
+otherwise (`ui-loop.md` § "What watch picks up"). Why the old lead-only rule went: `process/baseline-incident-history.md` § DP1. If the
 helper refuses (exit 3), the app does not come back (exit 1), a process it did not record
 holds the app or admin port (exit 4, nothing started; the recorded app may already be stopped), or the stop left a live
 MxTest after-startup in place (exit 5, nothing started), the implementer reports
 `BLOCKED NEEDS_RESTART` with its output, as before.
+
+**STOP: a per-row brief carries only the per-row checks of the project's `Pipeline mode:`**
+(balanced: the exec gate; on a page row one 1280 LOOK and one run of the journeys that reach it;
+`.test.mdl` only when the module's Unit is yes and the `Every change` row opts in). The full journey
+set, second personas and the 390 + 1280 LOOK go in the module-close brief. Journey-demanding
+row briefs took 36–41 min; a batch brief without one applied two rows in ~10 min (#686).
+
+**Stub check.** Before the
+first dispatch of an agent run `bin/check-stubs-filled.sh <project-root> [agent]`: exit 3 names the
+unfilled `{{...}}` slots, and the stub refuses its first row until they are filled (a dispatch that
+skipped this burned 125k tokens on the refusal). It only reads, so filling the stub is never blocked.
 
 **Prefix you do not control.** Every subagent turn also carries the harness's skill listing,
 tool and MCP notes and the instruction chain — 47–48k tokens in that run before the brief was

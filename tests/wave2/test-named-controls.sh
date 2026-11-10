@@ -66,7 +66,7 @@ line() { printf '%s\n' "$OUT" | sed -n "s/^$1 //p"; }
 [ -n "$(line PROVEN)" ] || { echo "FAIL — harness could not require $SUT"; echo "$OUT" | tail -5; exit 1; }
 case "$(line PROVEN)"   in 'PROVEN |'*) ok "exit 1 + named check FAIL + nothing else red → PROVEN" ;; *) bad "proven control not PROVEN" "$(line PROVEN)" ;; esac
 case "$(line EXIT0)"    in 'NOT PROVEN |'*'exited 0'*) ok "runner exit 0 (app satisfied the claim) → NOT PROVEN" ;; *) bad "exit 0 accepted" "$(line EXIT0)" ;; esac
-case "$(line EXIT2)"    in 'NOT PROVEN |'*'exited 2'*) ok "runner exit 2 (preflight abort) → NOT PROVEN" ;; *) bad "exit 2 accepted" "$(line EXIT2)" ;; esac
+case "$(line EXIT2)"    in 'FAULT |'*'exited 2'*) ok "#660 runner exit 2 (instrument fault) → FAULT, not NOT PROVEN" ;; *) bad "#660 exit 2 not scored FAULT" "$(line EXIT2)" ;; esac
 case "$(line NOMATCH)"  in 'NOT PROVEN |'*'no check name contains'*) ok "mustFail matching no check → NOT PROVEN" ;; *) bad "zero named checks accepted" "$(line NOMATCH)" ;; esac
 LASTNAME="$(node -e 'const w=require(process.argv[1]); console.log(w.results[w.results.length-1].name)' "$FIX/walk-run.json")"
 case "$(line NOMATCH)"  in *"; FAIL checks: $LASTNAME") ok "#538 NOT PROVEN for no match lists the checks that did FAIL" ;; *) bad "#538 no-match verdict does not name the FAIL checks" "$(line NOMATCH)" ;; esac
@@ -81,6 +81,16 @@ cat > "$WORK/stub/runner.js" <<'EOF'
 const fs = require('fs');
 const out = (process.argv.find(a => a.startsWith('--out=')) || '').slice(6);
 fs.appendFileSync(process.env.STUB_ARGV, process.argv.slice(2).join(' ') + '\n');
+if (process.env.STUB_MODE === 'setup') {          // journey-runner's credentials preflight abort
+  console.log('\n=== PREFLIGHT ===\n  SETUP  credentials: TEST_PASS is unset - Suite ABORTED before any login');
+  console.log('\n=== SUMMARY ===\n  ABORTED at preflight - 0 of 1 journeys walked. Fix the SETUP line(s) above.');
+  fs.writeFileSync(out, JSON.stringify({ results: [] }));
+  process.exit(2);
+}
+if (process.env.STUB_MODE === 'nopw') {           // helpers.js requirePlaywright(), on stderr
+  console.error('\n  INSTRUMENT FAULT - playwright is not installed: Cannot find module \'playwright\'\n  Nothing was measured.');
+  process.exit(2);
+}
 if (process.env.STUB_MODE !== 'nofile') {
   const w = JSON.parse(fs.readFileSync(process.env.WALK, 'utf8'));
   w.results[w.results.length - 1].verdict = 'FAIL';
@@ -109,6 +119,11 @@ process.env.STUB_MODE = 'nofile';
 show('STALE', N.runControl(dir + '/C-ok.control.json', { user: 'demo_user', artifactsDir: art, runner }));
 delete process.env.STUB_MODE;
 show('NAME', N.runControl(dir + '/../C-bad.journey.json', { user: 'demo_user', artifactsDir: art, runner }));
+process.env.STUB_MODE = 'setup';
+show('SETUP2', N.runControl(dir + '/C-ok.control.json', { user: 'demo_user', artifactsDir: art, runner }));
+process.env.STUB_MODE = 'nopw';
+show('NOPW2', N.runControl(dir + '/C-ok.control.json', { user: 'demo_user', artifactsDir: art, runner }));
+delete process.env.STUB_MODE;
 EOF
 mkdir -p "$WORK/art"; : > "$WORK/argv"
 OUT="$(cd "$WORK/tests/e2e" && printf '%s' "$JS2" | APP_PORT=1 WALK="$FIX/walk-run.json" STUB_ARGV="$WORK/argv" \
@@ -121,6 +136,25 @@ case "$(line WHO)" in 'FAULT |'*'not run'*) ok "persona ≠ run user → FAULT, 
 case "$(line STALE)" in 'NOT PROVEN |'*'wrote no findings'*) ok "a stale findings file from an earlier run is not read" ;; *) bad "stale findings file read" "$(line STALE)" ;; esac
 case "$(line NAME)" in 'FAULT |'*'not named *.control.json'*) ok "a control not named *.control.json → FAULT, not run" ;; *) bad "misnamed control was run" "$(line NAME)" ;; esac
 [ "$(grep -c 'C-bad' "$WORK/argv")" -eq 0 ] || bad "runner was spawned for a misnamed control"
+# #660: exit 2 with findings written (preflight abort) and with none (playwright missing) is a
+# FAULT carrying the runner's own cause line, from stdout (SETUP) or stderr (INSTRUMENT FAULT).
+case "$(line SETUP2)" in 'FAULT |'*'SETUP  credentials: TEST_PASS is unset'*) ok "#660 preflight abort (exit 2, findings written) → FAULT with the SETUP line" ;; *) bad "#660 preflight abort not FAULT with its SETUP line" "$(line SETUP2)" ;; esac
+case "$(line SETUP2)" in *'Fix the SETUP line'*) bad "#660 summary text taken as the cause" "$(line SETUP2)" ;; *) ok "#660 the summary's 'Fix the SETUP line(s)' is not taken as the cause" ;; esac
+case "$(line NOPW2)"  in 'FAULT |'*'INSTRUMENT FAULT - playwright is not installed'*) ok "#660 playwright missing (exit 2, stderr) → FAULT with the INSTRUMENT FAULT line" ;; *) bad "#660 playwright fault not FAULT with its cause" "$(line NOPW2)" ;; esac
+printf '%s\n' "$OUT" | grep -q 'INSTRUMENT FAULT - playwright is not installed' && ok "#660 the runner's piped output is still replayed to the caller" \
+  || bad "#660 runner output swallowed by the pipe"
+
+echo "== CLI exit code: FAULT (2) is distinct from NOT PROVEN (1) =="
+cp "$WORK/stub/runner.js" "$WORK/tests/e2e/journey-runner.js.stub"
+CLI() { (cd "$WORK/tests/e2e" && cp journey-runner.js journey-runner.js.real 2>/dev/null; cp journey-runner.js.stub journey-runner.js
+         env APP_PORT=1 TEST_USER=demo_user WALK="$FIX/walk-run.json" STUB_ARGV="$WORK/argv" "$@" node named-controls.js "$WORK/journeys/controls/C-ok.control.json" >"$WORK/cli.out" 2>&1; rc=$?
+         cp journey-runner.js.real journey-runner.js; echo $rc); }
+RC="$(CLI STUB_MODE=setup)"
+[ "$RC" = 2 ] && ok "#660 a FAULT row exits 2 (not measured), not 1" || bad "#660 FAULT row exit code" "rc=$RC $(tail -3 "$WORK/cli.out")"
+RC="$(CLI STUB_MODE=nofile)"
+[ "$RC" = 1 ] && ok "#660 NOT PROVEN alone still exits 1" || bad "#660 NOT PROVEN exit code changed" "rc=$RC $(tail -3 "$WORK/cli.out")"
+RC="$(CLI STUB_MODE=)"
+[ "$RC" = 0 ] && ok "all PROVEN still exits 0" || bad "PROVEN exit code changed" "rc=$RC $(tail -3 "$WORK/cli.out")"
 
 echo "== journey-runner.js: named-control gaps (warn-only) =="
 IFS= read -r -d '' JS3 <<'EOF' || true
@@ -198,6 +232,13 @@ E2EOUT="$(cd "$WORK/tests/e2e" && env -u TEST_PASS -u APP_PASS -u ALLOW_CONFIG_C
 [ ! -f "$WORK/tests/e2e/artifacts/journey-findings.json" ] && ok "default slot untouched under --out=" || bad "default slot written under --out="
 [ "$(printf '%s\n' "$E2EOUT" | grep -c 'WARN   named control: J-02')" -eq 2 ] && ok "two WARN lines for J-02 (no claim, no control)" \
   || bad "WARN lines missing" "$(printf '%s\n' "$E2EOUT" | grep -i 'named control')"
+# #660 field repro: named-controls.js over the REAL runner with TEST_PASS unset.
+NCOUT="$(cd "$WORK/tests/e2e" && env -u TEST_PASS -u APP_PASS -u ALLOW_CONFIG_CREDENTIALS APP_PORT=1 TEST_USER=demo_user \
+         node named-controls.js "$WORK/journeys/controls/C-ok.control.json" 2>&1)"; RC=$?
+[ "$RC" -eq 2 ] && ok "#660 real runner preflight abort → named-controls exits 2" || bad "#660 real abort exit code" "rc=$RC"
+printf '%s\n' "$NCOUT" | grep -q '^  FAULT .*C-ok (of J-01) .*SETUP  credentials: TEST_PASS is unset' \
+  && ok "#660 the NAMED CONTROLS verdict line carries the real runner's SETUP cause" \
+  || bad "#660 verdict line has no cause" "$(printf '%s\n' "$NCOUT" | sed -n '/NAMED CONTROLS/,$p')"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"

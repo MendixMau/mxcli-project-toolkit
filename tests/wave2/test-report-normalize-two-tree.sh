@@ -10,7 +10,9 @@
 # coverage-ledger.md under architecture/modules/*/") over artefacts that were on disk, and wrote
 # the report into a stray app/docs/report.json — so the render step found nothing to render.
 # Case 1 is that shape in miniature; case 2 is the single-tree regression guard; case 3 reads
-# per-BRD conformance reports (report-<date>-<BRD>.tsv, PR #307).
+# per-BRD conformance reports (report-<date>-<BRD>.tsv, PR #307). Case 4 (#659) reads verify-module
+# summary rows, in both layouts: a FAULT row's reason from its `(…)` cell or, failing that, from
+# the last SETUP line of its log; `0s` is elapsed, not the log path.
 #
 # The artefacts here are SYNTHETIC and minimal. That is deliberate and allowed: the field-proof
 # rule's "golden input is captured" governs parsers of tool output, and nothing below exercises a
@@ -112,6 +114,38 @@ if [ -s "$P/docs/report.json" ]; then
 else
   bad "per-BRD: no docs/report.json" "$(tr '\n' ' ' < "$WORK/out3" | cut -c1-300)"
 fi
+
+# --- 4. verify-module FAULT rows carry their reason (#659) --------------------------------------
+# Golden: fixtures/verify-659/ — the real verify-module.sh's summary.tsv for the hoisted credentials
+# FAULT, and for the real journey-runner aborting in its preflight (reason only in 20-journeys.log),
+# see its CAPTURE.txt. Before: 2 FAULT rows printed "no reason recorded", and every `0s` elapsed
+# cell was read as the log path.
+G659="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fixtures/verify-659"
+for layout in one two; do
+  L="$WORK/v659-$layout"
+  if [ "$layout" = two ]; then lay_out "$L/app" "$L"; else lay_out "$L" "$L"; fi
+  mkdir -p "$L/.claude/loop/verify/MyFirstModule" "$L/.claude/loop/verify/Cred"
+  cp "$G659/runner-setup.summary.tsv" "$L/.claude/loop/verify/MyFirstModule/summary.tsv"
+  cp "$G659/20-journeys.log.txt" "$L/.claude/loop/verify/MyFirstModule/20-journeys.log"
+  cp "$G659/credentials.summary.tsv" "$L/.claude/loop/verify/Cred/summary.tsv"
+  ( cd "$L/tests/e2e" && node report-normalize.js --out docs/report.json ) >"$WORK/out4" 2>&1
+  if [ ! -s "$L/docs/report.json" ]; then bad "$layout-tree: no docs/report.json" "$(tr '\n' ' ' < "$WORK/out4" | cut -c1-300)"; continue; fi
+  got="$(node -e 'const r=require(process.argv[1]); const f=n=>r.instruments.find(i=>i.name===n)||{};
+    const c=f("verify-loop/Cred/e2e credentials"), j=f("verify-loop/MyFirstModule/journeys (UI + ordered spans + data effects)"),
+          s=f("verify-loop/MyFirstModule/stack (test-stack-up --check)"), k=f("verify-loop/Cred/journeys");
+    console.log(JSON.stringify({c:[c.verdict,c.reason], j:[j.verdict,j.reason,j.log,j.elapsedSec], s:[s.log,s.elapsedSec], k:[k.verdict,k.log,k.reason]}))' "$L/docs/report.json")"
+  case "$got" in *'"c":["fault","credentials: TEST_PASS unset, template placeholder password"]'*)
+    ok "$layout-tree: a fault() row's (reason) cell is the instrument reason" ;; *) bad "$layout-tree: credentials FAULT reason" "$got" ;; esac
+  case "$got" in *'"j":["fault","SETUP  env: missing MXTK_FIXTURE_UNSET_VAR (needed by J-01)'*'",".claude/loop/verify/MyFirstModule/20-journeys.log",0]'*)
+    ok "$layout-tree: a FAULT row with only a log path gets the log's last SETUP line as its reason; log and elapsed intact" ;;
+    *) bad "$layout-tree: journeys FAULT reason from log" "$got" ;; esac
+  case "$got" in *'"s":[".claude/loop/verify/MyFirstModule/00-stack.log",0]'*) ok "$layout-tree: \`0s\` is elapsed (0), not the log path" ;;
+    *) bad "$layout-tree: elapsed with a trailing s read as the log" "$got" ;; esac
+  case "$got" in *'"k":["skipped",null,"not run: credentials, see the e2e credentials row"]'*) ok "$layout-tree: a SKIPPED row's (reason) cell is its reason, not its log" ;;
+    *) bad "$layout-tree: SKIPPED row reason/log" "$got" ;; esac
+  if grep -q 'no reason recorded' "$WORK/out4"; then bad "$layout-tree: a FAULT still prints 'no reason recorded'" "$(grep 'no reason recorded' "$WORK/out4")"
+  else ok "$layout-tree: no FAULT prints 'no reason recorded'"; fi
+done
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"

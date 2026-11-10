@@ -10,8 +10,12 @@
 #      this is where the score is taken; exec.sh scores per exec only under `Score: every exec`.
 #   3. mxcli docker check (= mx check), plus a full mxbuild (bin/verify-model.sh) under `Gate mode: check`
 #      when the model has not had one since its last change
-#   4. bin/verify-module.sh <Module> --quick (conformance, graph sweep, coverage; diagnostic only)
+#   4. bin/conformance-check.sh --module <M> --mark-built: the ledger rows this module built go
+#      planned -> built, once per module instead of by hand per row (#671); then
+#      bin/verify-module.sh <Module> --quick (conformance, graph sweep, coverage; diagnostic only)
 #   5. bin/look-ledger.sh status: pages of this module still owed a LOOK
+#   6. the lead's checklist: journeys + unit tests owed, the 390 + 1280 LOOK, and the bounded polish
+#      loop (by `Pipeline mode:`, 85% / 3 rounds when balanced; `UI polish:` overrides; module-review.md)
 # Then the lead does what no script can: open each owed page as each role that can reach it,
 # run the module's unhappy paths, and fix every ⚠ that is real. Record those in the same report.
 #
@@ -46,7 +50,13 @@ case "$score" in *"unknown mode"*) score=$(bash bin/metrics-ledger.sh score 2>&1
 # mxcli v0.29.0 changed what this checks (ako/mxcli#568, #646): `docker check` now checks the
 # project as stored, so a stale widget definition (CE0463) that passed here on v0.28 is reported
 # now. That is a real finding about the model, not a toolkit regression: `mxcli fix widgets`.
-chk=$("$MX" docker check -p "$MPR" ${MXB:+--mxbuild-path "$MXB"} 2>&1 | grep -v WARNING | tail -3)
+# Output goes to a file, never $(...): mxbuild's deno helper can hold stdout open (#708).
+# NOT reaped: mxcli starts mxbuild in a process group of its own, so mxtk_reaped (_common.sh) sees
+# none of that deno; bin/doctor.sh --cleanup is the fallback. Kept on mxtk_reaped so the reap
+# applies the day mxcli keeps its children in its group.
+_chk_out=$(mktemp "${TMPDIR:-/tmp}/module-close-check.XXXXXX")
+mxtk_reaped "$MX" docker check -p "$MPR" ${MXB:+--mxbuild-path "$MXB"} > "$_chk_out" 2>&1 < /dev/null || true
+chk=$(grep -v WARNING "$_chk_out" | tail -3); rm -f "$_chk_out"
 # `Gate mode: check` (exec.sh): the module's execs were `mx check`ed, which compiles no Java. The
 # module boundary is one of the natural places for the full build, so run it here when the stamp
 # says the model has not had one (bin/verify-model.sh: mxbuild deploy build, stamps when clean).
@@ -54,11 +64,35 @@ chk=$("$MX" docker check -p "$MPR" ${MXB:+--mxbuild-path "$MXB"} 2>&1 | grep -v 
 # missing or stale) gets no unrequested build here (#587 review).
 if [ -f .claude/loop/gate-kind.state ] && grep -q '^kind: check' .claude/.model-verified 2>/dev/null \
    && ! bash bin/model-stamp.sh check -q --full >/dev/null 2>&1; then
+  wnote="${MXTK_WATCH_NOTE:-full build done: if the app runs with --watch, run \`mxcli run restart\` before the next LOOK}"
   chk="$chk
 full build (bin/verify-model.sh): $(bash bin/verify-model.sh 2>&1 | grep -E '^(✓|✗)' | tail -2)"
+  # verify-model.sh builds a copy (.mxtk/build/), so the app's deployment/ is untouched. Built in
+  # place (its fallback) with a run --local app recorded: check its web client and restart it only
+  # when the build removed it AND the toolkit started it (app-restart.sh --if-client-gone, #686);
+  # no app recorded → the note.
+  _mpd=$(dirname "$MPR")
+  if [ "$(cat .claude/loop/last-full-build 2>/dev/null)" = copy ]; then
+    wnote="full build ran in .mxtk/build/ — the running app's deployment/ was not touched"
+  elif { [ -f "$_mpd/.mxcli/run-local.json" ] || [ -f "$(find_model_dir 2>/dev/null || echo "$_mpd")/.mxcli/run-local.json" ]; } \
+     && [ -f bin/app-restart.sh ]; then
+    wnote="$(bash bin/app-restart.sh --if-client-gone 2>&1 | tr '\n' ' ' | sed 's/  */ /g; s/ $//')"
+  fi
+  chk="$chk
+$wnote"
+  echo "module-close $mod: $wnote"
 fi
+# Before verify-module, so its conformance rung measures the ledger as it now stands. Its exit is
+# not this script's verdict: verify-module's conformance rung reports the same rows right after.
+marked=$(bash bin/conformance-check.sh --module "$mod" --mark-built --quiet 2>/dev/null | grep -- '--mark-built:' || true)
 vm=$(bash bin/verify-module.sh "$mod" --quick 2>&1); vm_rc=$?; vm=$(printf '%s\n' "$vm" | tail -15)
 look=$(bash bin/look-ledger.sh status 2>/dev/null | grep -E "\b$mod\." || true)
+# Polish loop per page (module-review.md stage 4, #686): numbers from PROJECT.md `Pipeline mode:`
+# (75%/3, 85%/3 default, 90%/5), `UI polish: <N>% / <R> rounds` overrides either (_common.sh).
+read -r pt pr <<EOF2
+$(mxtk_ui_polish "$PROJECT_ROOT")
+EOF2
+pt=${pt:-85}; pr=${pr:-3}; pmode=$(mxtk_pipeline_mode "$PROJECT_ROOT" 2>/dev/null || echo balanced)
 
 {
   echo "# Module close: $mod ($(now), $(( $(date +%s) - t0 )) s of instruments)"
@@ -71,11 +105,33 @@ look=$(bash bin/look-ledger.sh status 2>/dev/null | grep -E "\b$mod\." || true)
   echo; echo "Whole model: $(printf '%s\n' "$lint" | grep -c '⚠') ⚠, $(printf '%s\n' "$lint" | grep -c 'ℹ') ℹ."
   echo; echo "## 2. Score"; echo; echo "$score"
   echo; echo "## 3. mx check"; echo; echo '```'; echo "$chk"; echo '```'
-  echo; echo "## 4. verify-module --quick (exit $vm_rc)"; echo; echo '```'; echo "$vm"; echo '```'
+  echo; echo "## 4. verify-module --quick (exit $vm_rc)"; echo
+  [ -n "$marked" ] && { echo "Ledger: ${marked#conformance }"; echo; }
+  echo '```'; echo "$vm"; echo '```'
   echo; echo "## 5. LOOK owed in $mod"; echo; [ -n "$look" ] && printf '%s\n' "$look" | sed 's/^/- /' || echo "none recorded"
+  # Countable round cap (PR #700 mode experiment): one row per page, `Polish: n of cap`, which the
+  # lead updates per round. A template only; no gate reads it yet.
+  echo; echo "## 5b. Polish rounds (one row per page; raise n each round, stop at $pr)"; echo
+  echo "| Page | Polish | Fidelity | LOOK verdict | Gap logged |"
+  echo "|---|---|---|---|---|"
+  pages=$(printf '%s\n' "$look" | grep -oE "\b$mod\.[A-Za-z0-9_]+" | sort -u)
+  if [ -n "$pages" ]; then printf '%s\n' "$pages" | while IFS= read -r pg; do echo "| $pg | Polish: 0 of $pr | | | |"; done
+  else echo "| $mod.<Page> | Polish: 0 of $pr | | | |"; fi
   echo; echo "## 6. Lead: roles × pages, unhappy paths, fixes"; echo
+  echo "Journeys and unit tests owed: \`./bin/affected-tests.sh --moment module --module $mod\`, then its run rows."
+  echo "LOOK every page at 390 and 1280. Polish loop per page (Pipeline mode: $pmode), up to $pr rounds of fix → page-fidelity → LOOK;"
+  echo "stop at fidelity ≥ $pt% AND a written LOOK with no blocking issue (a score alone never passes; UNMEASURED: the LOOK decides)."
+  echo "Gap left after $pr rounds: log it in design/ui-reviews/ and report it at the gate; it does not block the module."
+  echo "First LOOK: every page. Polish round 2+: re-shoot only \`./bin/look-ledger.sh reshoot $mod\` (K of N, N=$(printf '%s\n' "$pages" | sed '/^$/d' | wc -l | tr -d ' ') here); the report keeps 'N of N pages reviewed' and adds an addendum for the K."
+  echo
   echo "| Page | Role | Seen (screenshot path) | Defect | Fixed in row/script |"
   echo "|---|---|---|---|---|"
 } > "$rep"
+# The module's full build is done when the stamp says full: record it for the pre-push hook
+# (install-project-hooks.sh, .claude/loop/prepush-build.last), AFTER the report is written, so the
+# next push does not build again for a report "newer than the last build" (PR #700 review).
+if bash bin/model-stamp.sh check -q --full >/dev/null 2>&1; then
+  { mkdir -p .claude/loop && touch .claude/loop/prepush-build.last && rm -f .claude/loop/prepush-deferred; } 2>/dev/null
+fi
 echo "module-close $mod: $nmine lint ⚠, verify-module exit $vm_rc, report $rep"
 [ "$nmine" -eq 0 ] || exit 1

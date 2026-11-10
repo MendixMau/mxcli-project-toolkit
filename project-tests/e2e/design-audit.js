@@ -75,9 +75,16 @@ const ARTIFACTS = path.join(__dirname, 'artifacts');
 const SCOPE_FILE = nearRoot('.claude', 'loop', 'page-scope.json');
 const DS_CSS = PROJ.dsCss || nearRoot('design', 'ds.css');
 const WIREFRAME_DIR = nearRoot('design', 'wireframes');
+// The toolkit's full builds write .mxtk/build/model/deployment/ (project-bin/build-tree.py, #686);
+// `mxcli run` writes deployment/. The newer of the two is the latest build of the theme.
+const newestDeployed = (...parts) => {
+  const a = nearRoot('deployment', ...parts), b = nearRoot('.mxtk', 'build', 'model', 'deployment', ...parts);
+  const m = p => { try { return fs.statSync(p).mtimeMs; } catch (e) { return -1; } };
+  return m(b) > m(a) ? b : a;
+};
 const THEME_CSS = [
-  nearRoot('deployment', 'web', 'theme.compiled.css'),
-  nearRoot('deployment', 'web', 'dist', 'widgets.css'),
+  newestDeployed('web', 'theme.compiled.css'),
+  newestDeployed('web', 'dist', 'widgets.css'),
 ];
 const SCHEMA_VERSION = '1.1';
 

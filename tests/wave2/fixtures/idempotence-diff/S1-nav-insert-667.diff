@@ -1,0 +1,11 @@
+WARNING: This is a vibe-coded PoC, alpha quality, use with caution.
+(no module)
+-----------
+  ⚠ navigation Responsive: menu item "Overview" specifies no icon — a collapsed navigation sidebar shows only the icon, so this item appears as a few characters of its caption [MDL077]
+      at 
+      → add `icon Atlas_Core.Atlas.<name>` (list them with `describe icon collection Atlas_Core.Atlas`)
+
+1 issues: 0 errors, 1 warnings, 0 info
+Modified: Navigation NavigationDocument: could not be described: current: navigation profile not found: NavigationDocument; after exec: navigation profile not found: NavigationDocument; changed: Profiles[Responsive].Menu.Items (5 -> 6 items)
+
+Summary: 0 new, 1 modified, 0 removed — exec would write 1 unit(s)

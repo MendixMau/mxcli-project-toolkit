@@ -1,0 +1,3 @@
+alter navigation Responsive {
+  insert into 'Approval' { menu item 'Dashboard' ( OnClick: show page Approval.Dashboard ) }
+};

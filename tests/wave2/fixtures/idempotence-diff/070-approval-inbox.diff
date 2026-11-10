@@ -1,0 +1,20 @@
+WARNING: This is a vibe-coded PoC, alpha quality, use with caution.
+(no module)
+-----------
+  ⚠ navigation Responsive: menu item "Approval" specifies no icon — a collapsed navigation sidebar shows only the icon, so this item appears as a few characters of its caption [MDL077]
+      at 
+      → add `icon Atlas_Core.Atlas.<name>` (list them with `describe icon collection Atlas_Core.Atlas`)
+
+  ⚠ navigation Responsive: menu item "Approval inbox" specifies no icon — a collapsed navigation sidebar shows only the icon, so this item appears as a few characters of its caption [MDL077]
+      at 
+      → add `icon Atlas_Core.Atlas.<name>` (list them with `describe icon collection Atlas_Core.Atlas`)
+
+Approval
+--------
+  ⚠ page Approval.Approval_Inbox: widget `dgInbox` (datagrid) column `` property `content` is hidden when its own `showContentAs` is not "customContent" — the value will be ignored [MDL-WIDGET10]
+      at Approval.Approval_Inbox
+
+3 issues: 0 errors, 3 warnings, 0 info
+Modified: Navigation NavigationDocument: could not be described: current: navigation profile not found: NavigationDocument; after exec: navigation profile not found: NavigationDocument; changed: Profiles[Responsive].Menu.Items (5 -> 6 items)
+
+Summary: 0 new, 1 modified, 0 removed — exec would write 1 unit(s)

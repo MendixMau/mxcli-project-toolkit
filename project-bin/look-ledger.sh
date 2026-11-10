@@ -313,8 +313,10 @@ LOOKSHOTS_PAGES
 # path), or nothing. Per page, because a polish round that restyles after page A's shot but before page B's must
 # not re-shoot B.
 _style_newer_than() {
-  local d f
-  for d in "$PROJECT_ROOT/theme" "$PROJECT_ROOT/themesource"; do
+  local d f md=""
+  # theme/ and themesource/ sit beside the .mpr: the project root on a single tree, app/ on a two-tree checkout
+  md="$(find_model_dir 2>/dev/null)" || md=""
+  for d in "$PROJECT_ROOT/theme" "$PROJECT_ROOT/themesource" ${md:+"$md/theme" "$md/themesource"}; do
     [ -d "$d" ] || continue
     f="$(find "$d" -type f \( -name '*.scss' -o -name '*.css' \) -not -path '*/node_modules/*' -newer "$1" 2>/dev/null | head -1)"
     [ -n "$f" ] && { printf '%s\n' "${f#"$PROJECT_ROOT"/}"; return 0; }

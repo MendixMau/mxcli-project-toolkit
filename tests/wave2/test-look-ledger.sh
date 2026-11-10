@@ -120,6 +120,13 @@ r="$(cd "$P" && bash bin/look-ledger.sh reshoot)"
 [ "$(printf '%s\n' "$r" | grep -c '^RESHOOT')" = 3 ] && printf '%s\n' "$r" | grep -q 'style file changed after its last LOOK: themesource/orders/web/main.scss' \
   && printf '%s\n' "$r" | grep -q '3 of 3 page(s) to re-shoot' && ok "R4: a style file newer than the LOOK re-shoots every page (a shared change moves pages no script named)" || bad "R4: got '$r'"
 rm -rf "$P/themesource"
+# R4b: two-tree -- the .mpr sits under app/, so theme/themesource do too (check-design-reaches-app.sh:80,117)
+ls "$P"/app/*.mpr >/dev/null 2>&1 || bad "R4b: p-app is not a two-tree fixture"
+mkdir -p "$P/app/themesource/orders/web"; printf '.a{}' > "$P/app/themesource/orders/web/main.scss"; touch -t 203001010000 "$P/app/themesource/orders/web/main.scss"
+r="$(cd "$P" && bash bin/look-ledger.sh reshoot)"
+printf '%s\n' "$r" | grep -q 'style file changed after its last LOOK: app/themesource/orders/web/main.scss' && printf '%s\n' "$r" | grep -q '3 of 3 page(s) to re-shoot' \
+  && ok "R4b: two-tree -- a style file under app/themesource re-shoots every page" || bad "R4b: got '$r'"
+rm -rf "$P/app/themesource"
 printf 'create or modify layout Orders.App_Default (Type: Responsive) { }\n-- create snippet Orders.Commented { }\ncreate snippet Orders.Order_Header { }\n' > "$P/mdlsource/20-shared.mdl"
 rm -f "$P/.claude/loop/look/shared.tsv"; (cd "$P" && bash bin/look-ledger.sh owe "$P/mdlsource/20-shared.mdl" >/dev/null)
 [ "$(cut -f3 "$P/.claude/loop/look/shared.tsv" | tr '\n' ' ')" = "layout snippet " ] && [ "$(cut -f4 "$P/.claude/loop/look/shared.tsv" | tr '\n' ' ')" = "Orders.App_Default Orders.Order_Header " ] \

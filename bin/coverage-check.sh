@@ -8,15 +8,14 @@
 # DOUBLE-CLAIMED.
 #
 # The ledger format and the pointer-cell grammar this script parses are defined
-# by the build-plan method, which has NOT landed in the toolkit yet (it is a
-# per-project doc today, promotion tracked as §3 of TOOLKIT-UPGRADE-PLAN.md).
-# Everything needed to run the script is documented in this header on purpose —
-# do not reintroduce a path reference to a file the toolkit does not ship.
+# by skills/coverage-ledger.md and skills/brd-to-build-plan.md Step 5b (the
+# build-plan `claims:` convention). The grammar is also restated in this header,
+# so the script runs without either file.
 #
 # Usage: bin/coverage-check.sh [--summary] <brd.json> <ledger.md>
 #
-# Exit 0 only when UNCLAIMED, PHANTOM, DOUBLE-CLAIMED and COUNT-MISMATCH are
-# all empty; 1 for findings; 2 for a FAULT (bad arguments, or a WRONG-SHAPE
+# Exit 0 only when UNCLAIMED, PHANTOM, DOUBLE-CLAIMED, COUNT-MISMATCH and
+# SECTION-WIDE are all empty; 1 for findings; 2 for a FAULT (bad arguments, or a WRONG-SHAPE
 # ledger — tables present, none of them in the pointer shape below).
 #
 # Bash + jq only. Written for macOS/BSD userland (no GNU-only flags).
@@ -205,6 +204,7 @@ done < "$TMPDIR/rows.tsv"
 : > "$TMPDIR/count_mismatch.txt"
 : > "$TMPDIR/phantom_wildcard.txt"
 : > "$TMPDIR/malformed_wildcard.txt"
+: > "$TMPDIR/section_wide.txt"
 
 # A ledger pointer CELL may take three shapes. The first is what the contract
 # specified; the other two are what a real generating agent actually wrote, and
@@ -238,8 +238,17 @@ brd_is_other() {
   return 1
 }
 
+# SECTION-WIDE (#641). A BUILDABLE wildcard on a top-level section (array, or object keyed by
+# name) that holds more than one element (`/microflows/* (715)` over 48 microflows) claims every element at once, so no
+# single microflow, entity or use case is tied to a build row — the per-leaf granularity this
+# checker exists for is gone, and coverage reads clean. A buildable wildcard goes below an
+# element (`/microflows/3/* (12)`); a whole section that is not built is a NON-BUILDABLE row
+# with a reason (`/openQuestions/*`), which stays allowed. Only the element sections are judged:
+# a project's `/security/* (7)` or `/actors/* (3)` built by one configuration row is real
+# practice (PurchaseApp field projects, 2026-11-05) and names no element that could get lost.
+ELEMENT_SECTIONS="domainEntities microflows nanoflows pages useCases workflows integrations"
 expand_claims() {
-  local rawfile="$1" outfile="$2"
+  local rawfile="$1" outfile="$2" buildable="${3:-0}"
   : > "$outfile"
   while IFS= read -r cell; do
     [[ -z "$cell" ]] && continue
@@ -297,6 +306,13 @@ expand_claims() {
         else
           printf '%s\n' "$matches" >> "$outfile"
           produced=$(( produced + actual ))
+          if [[ "$buildable" == 1 && " $ELEMENT_SECTIONS " == *" ${prefix#/} "* ]]; then
+            local elems
+            elems=$(printf '%s\n' "$matches" | awk -F/ 'NF >= 3 { print $3 }' | sort -u | grep -c . || true)
+            if [[ "$elems" -gt 1 ]]; then
+              echo "$orig ($elems elements in one claim)" >> "$TMPDIR/section_wide.txt"
+            fi
+          fi
         fi
       elif [[ "$tok" == *"*"* ]]; then
         echo "$orig" >> "$TMPDIR/malformed_wildcard.txt"
@@ -317,7 +333,7 @@ expand_claims() {
   done < "$rawfile"
 }
 
-expand_claims "$TMPDIR/claims_buildable_raw.txt" "$TMPDIR/claims_buildable.txt"
+expand_claims "$TMPDIR/claims_buildable_raw.txt" "$TMPDIR/claims_buildable.txt" 1
 expand_claims "$TMPDIR/claims_ledgered_raw.txt" "$TMPDIR/claims_ledgered.txt"
 
 cat "$TMPDIR/claims_buildable.txt" "$TMPDIR/claims_ledgered.txt" > "$TMPDIR/claims_all.txt"
@@ -348,6 +364,7 @@ UNCLAIMED_COUNT=$(grep -c . "$TMPDIR/unclaimed.txt" || true)
 PHANTOM_COUNT=$(grep -c . "$TMPDIR/phantom_all.txt" || true)
 DOUBLE_COUNT=$(grep -c . "$TMPDIR/double_claimed.txt" || true)
 MISMATCH_COUNT=$(grep -c . "$TMPDIR/count_mismatch.txt" || true)
+SECTION_COUNT=$(sort -u "$TMPDIR/section_wide.txt" | grep -c . || true)
 REJECTED_LEDGER_COUNT=$(grep -c . "$TMPDIR/rejected_bad_ledger_entry.txt" || true)
 OTHER_BRD_COUNT=$(grep -c . "$TMPDIR/other_brd.txt" || true)
 
@@ -375,6 +392,7 @@ echo "  UNCLAIMED:     $UNCLAIMED_COUNT"
 echo "  PHANTOM:       $PHANTOM_COUNT"
 echo "  DOUBLE-CLAIMED:$DOUBLE_COUNT"
 echo "  COUNT-MISMATCH:$MISMATCH_COUNT"
+echo "  SECTION-WIDE:  $SECTION_COUNT"
 if [[ "$REJECTED_LEDGER_COUNT" -gt 0 ]]; then
   echo "  REJECTED (ledger entry missing category/reason): $REJECTED_LEDGER_COUNT"
 fi
@@ -399,13 +417,18 @@ if [[ "$SUMMARY" -eq 0 ]]; then
     echo "  -- COUNT-MISMATCH wildcards --"
     print_capped "$TMPDIR/count_mismatch.txt" "$MISMATCH_COUNT"
   fi
+  if [[ "$SECTION_COUNT" -gt 0 ]]; then
+    echo "  -- SECTION-WIDE buildable wildcards (claim one element per row: /section/N/* (count)) --"
+    sort -u "$TMPDIR/section_wide.txt" > "$TMPDIR/section_wide_u.txt"
+    print_capped "$TMPDIR/section_wide_u.txt" "$SECTION_COUNT"
+  fi
   if [[ "$REJECTED_LEDGER_COUNT" -gt 0 ]]; then
     echo "  -- REJECTED ledger entries (missing category/reason) --"
     print_capped "$TMPDIR/rejected_bad_ledger_entry.txt" "$REJECTED_LEDGER_COUNT"
   fi
 fi
 
-if [[ "$UNCLAIMED_COUNT" -gt 0 || "$PHANTOM_COUNT" -gt 0 || "$DOUBLE_COUNT" -gt 0 || "$MISMATCH_COUNT" -gt 0 ]]; then
+if [[ "$UNCLAIMED_COUNT" -gt 0 || "$PHANTOM_COUNT" -gt 0 || "$DOUBLE_COUNT" -gt 0 || "$MISMATCH_COUNT" -gt 0 || "$SECTION_COUNT" -gt 0 ]]; then
   exit 1
 fi
 

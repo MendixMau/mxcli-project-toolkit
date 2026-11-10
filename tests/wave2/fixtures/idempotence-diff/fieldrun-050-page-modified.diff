@@ -1,0 +1,67 @@
+WARNING: This is a vibe-coded PoC, alpha quality, use with caution.
+(no module)
+-----------
+  ⚠ navigation Responsive: menu item "Purchasing" specifies no icon — a collapsed navigation sidebar shows only the icon, so this item appears as a few characters of its caption [MDL077]
+      at 
+      → add `icon Atlas_Core.Atlas.<name>` (list them with `describe icon collection Atlas_Core.Atlas`)
+
+  ⚠ navigation Responsive: menu item "My requests" specifies no icon — a collapsed navigation sidebar shows only the icon, so this item appears as a few characters of its caption [MDL077]
+      at 
+      → add `icon Atlas_Core.Atlas.<name>` (list them with `describe icon collection Atlas_Core.Atlas`)
+
+  ⚠ page Purchasing.Request_List: DataView `dvFilter` contains input fields but is not inside a layout grid — label and input widths only render correctly inside a layoutgrid [MPR010]
+      at 
+      → Wrap dataview `dvFilter` in `layoutgrid { row { column (desktopwidth: autofill) { … } } }`
+
+Purchasing
+----------
+  ⚠ page Purchasing.Request_List: widget `dgRequests` (datagrid) column `` property `content` is hidden when its own `showContentAs` is not "customContent" — the value will be ignored [MDL-WIDGET10]
+      at Purchasing.Request_List
+
+4 issues: 0 errors, 4 warnings, 0 info
+Modified: Navigation NavigationDocument: could not be described: current: navigation profile not found: NavigationDocument; after exec: navigation profile not found: NavigationDocument; changed: Profiles[Responsive].Menu.Items (4 -> 5 items)
+--- Page.Purchasing.Request_List (current)
++++ Page.Purchasing.Request_List (script)
+@@ -5,16 +5,12 @@
+ ) {
+   container pageBody (Class: 'page-column') {
+     dynamictext hTitle (Content: 'My requests', RenderMode: H1)
+-    dataview dvFilter (
+-      DataSource: microflow Purchasing.DS_RequestFilter_New,
+-      FormOrientation: Vertical,
+-      ReadOnlyStyle: Control
+-    ) {
++    dataview dvFilter (DataSource: microflow Purchasing.DS_RequestFilter_New, ReadOnlyStyle: Control) {
+       -- Context: $currentObject (Purchasing.RequestFilter)
+       container actionBar (Class: 'actionbar') {
+         actionbutton btnNewRequest (
+           Caption: 'New request',
+-          Action: call microflow Purchasing.ACT_Request_New,
++          Action: create object Purchasing.PurchaseRequest then show page Purchasing.Request_Edit,
+           ButtonStyle: Primary
+         )
+         combobox cbStateFilter (
+@@ -27,7 +23,6 @@
+         datagrid dgRequests (
+           DataSource: microflow Purchasing.DS_Request_MyRequests(Filter = $currentObject),
+           onClick: show page Purchasing.Request_Edit(PurchaseRequest = $currentObject),
+-          columnsHidable: false,
+           showEmptyPlaceholder: 'custom'
+         ) {
+           -- Context: $currentObject (Purchasing.PurchaseRequest), $dgRequests (selection)
+@@ -51,12 +46,6 @@
+             Caption: 'State',
+             DynamicCellClass: if $currentObject/Status = Purchasing.RequestStatus.Draft then 'cell-badge cell-badge-draft' else if $currentObject/Status = Purchasing.RequestStatus.Submitted then 'cell-badge cell-badge-submitted' else if $currentObject/Status = Purchasing.RequestStatus.Approved then 'cell-badge cell-badge-approved' else 'cell-badge cell-badge-rejected'
+           )
+-          column (Caption: '', ShowContentAs: customContent) {
+-            actionbutton btnDeleteRequest (
+-              Caption: 'Delete',
+-              Action: call microflow Purchasing.ACT_Request_Delete(PurchaseRequest = $currentObject) with (Confirmation: 'Delete this request and its lines?', ProceedCaption: 'Delete', CancelCaption: 'Keep')
+-            )
+-          }
+         }
+       }
+     }
+
+
+Summary: 0 new, 2 modified, 0 removed — exec would write 2 unit(s)

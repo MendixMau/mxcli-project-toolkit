@@ -1,0 +1,3 @@
+alter navigation Responsive {
+  insert { menu 'Purchasing' { menu item 'My requests' ( OnClick: show page Purchasing.Request_List ) } }
+};

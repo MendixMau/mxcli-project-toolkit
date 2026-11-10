@@ -61,11 +61,13 @@ stage0_out() { "$GATE" --no-html "$1" 0 2>&1; }
 # one). The fixture kept the old assertion and failed on master for two weeks unnoticed; found
 # when the source-ledger work ran it. What IS pinned now: the sufficiency line reads FAIL and
 # the advisory names it — a missing rubric is never reported as assessed.
-echo "== T1: no rubric at all -> sufficiency line FAILS, Stage 0 advises (does not block) =="
+# #635: no rubric at all is NOT STARTED, so the line reads PENDING ("not started is not failed");
+# a rubric left unrated (T2) is still FAIL.
+echo "== T1: no rubric at all -> sufficiency line PENDING, Stage 0 advises (does not block) =="
 P="$(mkproj t1-no-rubric)"
 OUT="$(stage0_out "$P")"; RC=$?
 if [ "$RC" -eq 0 ]; then ok "exits zero (advisory, 2026-08-20 decision)"; else bad "exits zero (advisory)" "got rc=$RC"; fi
-case "$OUT" in *"Source sufficiency (assessed?): FAIL"*) ok "sufficiency line reads FAIL" ;; *) bad "sufficiency line reads FAIL" "$OUT" ;; esac
+case "$OUT" in *"Source sufficiency (assessed?): PENDING"*) ok "sufficiency line reads PENDING (not started, #635)" ;; *) bad "sufficiency line reads PENDING" "$OUT" ;; esac
 case "$OUT" in
   *"source sufficiency"*|*"Source sufficiency"*) ok "mentions source sufficiency" ;;
   *) bad "mentions source sufficiency" "$OUT" ;;

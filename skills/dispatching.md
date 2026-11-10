@@ -39,6 +39,7 @@ shows up in the bill:
    attempts and any reason it never wrote down. *How the brief covers it:* the review file
    carries the evidence, the diff carries the work, and the implementer's returned report must
    list every choice the brief did not dictate — require that line in every implementer brief.
+   **Every brief that drives the app or its tests also says:** "read `.mxcli/project-facts.md` first" (made by `bin/project-facts.sh --out .mxcli/project-facts.md` just before dispatch: ports, reset and restart scripts, e2e helper libs, secret key names, screenshot folders). It stops each helper re-discovering them.
    Resume only when a finding needs the implementer's unwritten reasoning, and say why in the
    dispatch. A fresh fixer has not been measured head-to-head against a resume yet; the first
    run that does both records the numbers in `process/`.
@@ -68,6 +69,11 @@ MxTest after-startup in place (exit 5, nothing started), the implementer reports
 `.test.mdl` only when the module's Unit is yes and the `Every change` row opts in). The full journey
 set, second personas and the 390 + 1280 LOOK go in the module-close brief. Journey-demanding
 row briefs took 36–41 min; a batch brief without one applied two rows in ~10 min (#686).
+
+**Stub check.** Before the
+first dispatch of an agent run `bin/check-stubs-filled.sh <project-root> [agent]`: exit 3 names the
+unfilled `{{...}}` slots, and the stub refuses its first row until they are filled (a dispatch that
+skipped this burned 125k tokens on the refusal). It only reads, so filling the stub is never blocked.
 
 **Prefix you do not control.** Every subagent turn also carries the harness's skill listing,
 tool and MCP notes and the instruction chain — 47–48k tokens in that run before the brief was

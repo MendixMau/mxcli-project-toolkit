@@ -65,7 +65,7 @@ None of these needs a STOP, but each passes `mxcli check` and fails later — at
 - **Cross-module association paths need the module prefix on every step:** `$Item/ModA.Item_Other/ModB.OtherEntity/Attr`, not `$Item/Item_Other/Attr`. v0.24.0: `check` and `exec` pass the short form, `mx check` gives `[CE0117] Change object …`. The prefixed form builds at 0 errors. (Association-step rules: `learned-microflow-patterns.md`.)
 - **Grants are co-located with the element, never deferred to one `security.mdl`:** `grant execute` ends the microflow script, `grant view` the page script, entity access the domain script — the entity and its access rule are one unit, same script, same commit. mxbuild raises no error for a missing grant; the only symptom is a blank screen or CE2729 once a non-admin role opens the page. A `roles.mdl` that only *creates* roles is fine. Pre-flight per entity: access rule in the same script? every module role that needs it granted? every module role composed into a user role? non-persistent DTOs — read/write only (CONV006)?
 - **`mxcli check` does not catch corruption.** Every STOP row above is grammatically valid MDL that `check` passes; only mxbuild or SP open reveals the damage. Run the real mxbuild gate after every exec (`iterative-build-loop.md`).
-- **mxcli v0.25 — keep the skills' spellings, never add `mdl 1;`.** The spellings in these skills (`count($L)`, `on error { … }`, `show page M.P($Obj = $Obj)`, `create or replace`) parse on v0.24.0 *and* v0.25.0; v0.25 only warns (`MDL-DEPR*`, "refused from `mdl 2`"). The new spellings (`count $L`, `on error begin … end error`, `P(Obj = $Obj)`) fail `check` on v0.24 — don't "modernise" a script the team may still run there. The hazard is the dialect header: v0.24 rejects it (`line 1:4 extraneous input '1'`), and under it v0.25 changes meanings — `show entity M.E` becomes an error (use `describe entity` / `list entities`; `-c` and the REPL already read this way), and `retrieve … limit 1` returns a *list* (use `first`) while `check` still passes. So strip the `mdl 1;` line from `describe` output before pasting it into a script, and never mix dialects in one file. Moving a whole file to mdl 1 on purpose: `mxcli fmt --upgrade -w -p <app>.mpr <script>`, then `check -p --references`, then exec twice (the second writes nothing).
+- **mxcli v0.25 — keep the skills' spellings, never add `mdl 1;`.** The spellings in these skills (`count($L)`, `on error { … }`, `show page M.P($Obj = $Obj)`, `create or replace`) parse on v0.24.0 *and* v0.25.0; v0.25 only warns (`MDL-DEPR*`, "refused from `mdl 2`"). The new spellings (`count $L`, `on error begin … end error`, `P(Obj = $Obj)`) fail `check` on v0.24 — don't "modernise" a script the team may still run there. The hazard is the dialect header: v0.24 rejects it (`line 1:4 extraneous input '1'`), and under it v0.25 changes meanings — `show entity M.E` becomes an error (use `describe entity` / `list entities`; `-c` and the REPL already read this way), and `retrieve … limit 1` returns a *list* (use `first`) while `check` still passes. So strip the `mdl 1;` line from `describe` output before pasting it into a script, and never mix dialects in one file. Moving a whole file to mdl 1 on purpose: `mxcli fmt --upgrade -w -p <app>.mpr <script>`, then `check -p --references`, then exec once and run `bin/idempotence-check.sh <script>` (one `mxcli diff`; must say PASS, never a second exec).
 - **`exec` is not `check`.** v0.24.0: `exec` refuses on reference errors and a few hard checks (MDL043, MDL044, MDL070, MDL-WIDGET14/19/24) but still writes scripts that plain `mxcli check` flags — e.g. an enum concatenation (E004). Run `mxcli check <script> -p <app>.mpr --references` yourself and read every error and warning before `exec`; a clean `exec` is not a clean `check`.
 
 > Source: `skills/learned-mdl-preflight.md` § Final self-check
@@ -456,6 +456,29 @@ submit of an empty form tells them apart.
 **GRANT syntax:** qualify the module role — `Module.Admin`, never bare `Admin`. `mxcli check` refuses the bare name (MDL-GRANT02).
 
 ---
+
+## A Queued Call With a Retry Policy Blocks Rewriting the Microflow
+
+`DESCRIBE MICROFLOW` prints a task-queue call as `call microflow … in queue …` and shows **no
+retry policy**. MDL cannot express one, so `exec` refuses to rewrite a microflow whose queued call
+has it:
+
+```
+Error: microflow <Module>.<Microflow> has 1 queued call(s) with a retry policy
+(<Module>.<TaskQueue>), and MDL cannot express one — rewriting the microflow would reset it.
+```
+
+- **Before planning a rewrite, grep the description for `in queue`.** Treat every hit as possibly
+  un-rewritable until Studio Pro shows its retry setting.
+- **Do not copy it into a new microflow.** The copy is written without the retry, silently.
+- **What works:** leave it untouched and post-process its result in the caller. A queued task
+  runs only after the queuing transaction commits, so the caller's changes are in place when the
+  task picks them up.
+
+The refusal fails the script at that statement, after the statements above it were applied. The
+model is then dirty and unstamped: run `./bin/verify-model.sh`, commit, then retry. Field run on
+mxcli v0.24.0 / Mendix 11.12 (an unattended CI harness on a Mendix-internal app, 2026-10-14); the
+refusal text is unchanged in v0.30.0.
 
 ## The current time is a token, not a function
 

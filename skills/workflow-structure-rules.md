@@ -76,6 +76,35 @@ The alternative, one copied tail per step, multiplied a 7-call parent to 21 call
 decisions in that project's count. Count the child design and the copied-tail design (§12)
 before you choose.
 
+**Moving steps into a child workflow is a migration, not a refactor.** A field spike
+(2026-11-02, Mendix 11.15, mxcli v0.28) took a 54-activity parent and extracted its
+credit-check-and-contract loop into a child workflow: parent 54 → 36 activities, child 21, every task name,
+caption, outcome and timer unchanged, mxbuild 0 errors. Then, on the first start with the new
+definition:
+
+- **Every instance paused inside the moved steps went `Incompatible`.** 5 of 7 waiting instances
+  (all 5 inside the loop; the 2 waiting before it stayed `InProgress`). Nothing in the app's own
+  UI showed they were stuck: the case page still showed the step as current. Decide *drain or
+  migrate* before you deploy. Never let a demo or production environment find out.
+- **Code that assumes one workflow per case breaks quietly.** A hand-off API that found "the open
+  task of this case's workflow" stopped finding it once the task lived in the child: a simulated
+  hand-off test went 9/9 → 2/9. Fixed by looking tasks up by case across parent and child
+  (back to 9/9). Tests that count instances ("got 2, expected 1") fail too, though parent +
+  child is correct. Search every app and report for that assumption first.
+- **The workflow admin page has to know about children.** Before the fix it raised an error
+  dialog. After it, every case inside the loop was listed twice (parent and child, unlabelled),
+  and the headline counters double-counted. Show one row per case, with the child nested.
+- **A per-step error pattern does not move into a child.** `call workflow` has no outcomes, so
+  a "Close case" inside the child cannot end the parent: you need a decision after every call,
+  which keeps the repetition. A per-step "Retry step" jump cannot cross the workflow boundary.
+  Extract a *business* loop with one entry and one exit; leave the per-step technical-error
+  tasks in the parent.
+
+Journey numbers from that spike (pass/fail/invalid): J-06 68/0/4 baseline → 27/2/3 of 32
+after the extraction → 67/1/4 after the task-lookup fix → 60/8/4 after the admin fix. The 8
+failures after the admin fix sit on one tab, are **unexplained**, and were not rerun. Treat
+the spike as proof of the risks, not of a finished migration.
+
 ## 2. Boundary events — type decides the terminator
 
 A boundary event hangs on one parent activity. Only these can carry one: *wait for

@@ -1,0 +1,5 @@
+WARNING: This is a vibe-coded PoC, alpha quality, use with caution.
+
+Refused: exec would stop at this error, having written nothing: failed to insert: failed to build column specs: failed to build column colLineDelete: failed to build column child widget: duplicate widget name 'btnLineDelete': widget names must be unique within a page (existing ID: 7a7ecea7-b1f2-4ee2-9023-43b97ba4e881)
+
+Summary: 0 new, 0 modified, 0 removed — exec would write nothing

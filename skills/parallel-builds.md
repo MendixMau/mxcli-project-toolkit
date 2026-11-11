@@ -7,15 +7,15 @@
 
 ## 1. When, and when not
 
-Use it when branches must run side by side for days. Not for a small app: serial finishes sooner. Parallel authors gained no speed (25 min against 16 serial with a private copy each; 40 without, `dispatching.md`), only 5 integration defects against 7.
+Use it when branches must run side by side for days; not for a small app. Parallel authors gained no speed (figures above), only 5 integration defects against 7.
 
 ## 2. Set up
 
 1. One worktree and one branch per builder from one base commit.
 2. Copy the untracked `mxcli` binary into each fresh worktree; `exec.sh` works unchanged.
-3. Port ledger in `PROJECT.md`: per worktree an app port, admin port, `--serve-port` (mxbuild) and `--db-type hsqldb`. Never defaults 8080, 8090, 6543.
+3. Port ledger in `PROJECT.md`: per worktree an app port, admin port, `--serve-port` (mxbuild) and `--db-type hsqldb`. Never defaults 8080, 8090, 6543. *Fails when:* builder B's `run --local` on the default ports stops builder A's app, or both write one database. A running app costs about 0.5 GB and boots in 28 s; a built worktree is about 400 MB.
 4. One script number block per branch (A 20-29, B 30-39, merge scripts 90 up).
-5. Name one owner for shared parts (navigation, security, theme) and one for cross-page flows and the shell.
+5. Name one owner for shared parts (navigation, security, theme) and one for cross-page flows and the shell (failure: a list does not refresh after another page's popup submit).
 
 Done when: N worktrees, N ledger rows, 0 shared ports, N distinct number blocks, 1 owner each for shared parts and cross-page flows.
 
@@ -35,30 +35,31 @@ Pick the path (one app per run):
 2. **Scripts are the merge source** (worked once, two modules). Preconditions: every change went through a script, every script is rerun-safe, number blocks do not overlap; else stop. Steps as run:
    1. Commit any uncommitted work on the target; `git tag pre-merge-<date>` on it, immediately before the attempt.
    2. Attempt on a fresh branch cut from the tag; the target stays untouched.
-   3. Take branch A's model wholesale: `git merge --ff-only <branch-a>`.
+   3. Take branch A's model wholesale: `git merge --ff-only <branch-a>`. If `--ff-only` refuses (branch A is not ahead of the target), nothing changed: delete the merge branch and either cut the worktrees again from the target's current head or take the other branch's model as A.
    4. From branch B only its scripts: `git checkout <branch-b> -- mdlsource/<its files>`; never its `.mpr` or `mprcontents/`. Commit.
-   5. Replay in number order through `exec.sh`, `--commit-first` between scripts. A failing or not rerun-safe script: stop, delete the merge branch, fix the script on its own branch.
-   6. Section 5. Pass: fast-forward the target to the merge branch.
+   5. Replay in number order through `exec.sh`, `--commit-first` between scripts (without it the second script stops on "uncommitted model changes"). A failing or not rerun-safe script: stop, check out the target, then `git branch -D <merge-branch>`; fix the script on its own branch.
+   6. Section 5. Pass: `git checkout <target>; git merge --ff-only <merge-branch>`.
 
-   On ORPHAN lines never run `mxcli diag --check-units --fix`: it deletes the unregistered files, which are the lost module. Go back to the tag.
+   On ORPHAN lines never run `mxcli diag --check-units --fix` (section 6). Check out the target and delete the merge branch.
 3. **Studio Pro** "Merge Changes Here", a person at the screen. `mx merge` leaves CE0137 on any unit changed on both sides; clearing it needs Studio Pro.
 
 Merge scripts for units both sides touched (menu, role assignments) take numbers in the 90 block.
 
 ## 5. Check after every merge, in this order
 
-1. `mxcli fix hashes -p <app>.mpr` exits 0 with 0 orphan and 0 missing. The failure capture is `tests/wave2/fixtures/worktree-merge/`: exit 1, 7 orphans named. On ORPHAN lines never run `mxcli diag --check-units --fix`: it deletes the unregistered files, which are the lost module. Go back to the tag.
+1. `mxcli fix hashes -p <app>.mpr` exits 0 with 0 orphan and 0 missing. The failure capture is `tests/wave2/fixtures/worktree-merge/`: exit 1, 7 orphans named. On ORPHAN lines: section 6, then check out the target and delete the merge branch.
 2. `mxcli show modules -p <app>.mpr` lists N of N modules.
 3. Menu items N of N, each branch's role assignments present.
 4. Then the `exec.sh` build gate.
+5. Write any journey after the app is up, not before (a journey written blind failed on assumptions about captions and rows).
 *Fails when:* step 4 runs first and its green is read as proof.
 
-On a failure, delete the merge branch (the target never moved) and take another path.
+On a failure, check out the target, then `git branch -D <merge-branch>` (the target never moved) and take another path.
 
 ## 6. Never
 
-`mxcli diag --check-units --fix` on a suspect merge: it deletes unindexed files, which is the lost module. The `fix hashes` output itself suggests it.
+`mxcli diag --check-units --fix` on a suspect merge: it deletes unindexed files, which is the lost module.
 
-Team Server push after a merge: `teamserver-alignment.md`; do not restate it here.
+Team Server push after a merge: `teamserver-alignment.md`.
 
 **Done when:** N of N branches merged; `fix hashes` exit 0; N of N modules listed; menu and role assignments checked by eye; build gate 0 errors; rollback tag still present, target not moved before the check passed; ledger rows released.

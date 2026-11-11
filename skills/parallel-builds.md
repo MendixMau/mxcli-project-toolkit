@@ -47,7 +47,7 @@ Merge scripts for units both sides touched (menu, role assignments) take numbers
 
 ## 5. Check after every merge, in this order
 
-1. `mxcli fix hashes -p <app>.mpr` exits 0 with 0 orphan and 0 missing. The failure capture is `tests/wave2/fixtures/worktree-merge/`: exit 1, 7 orphans named. On ORPHAN lines: section 6, then check out the target and delete the merge branch.
+1. `mxcli fix hashes -p <app>.mpr` exits 0 with 0 orphan and 0 missing. The failure capture is `tests/wave2/fixtures/worktree-merge/`: exit 1, 7 orphans named. On ORPHAN lines do NOT run the `mxcli diag --check-units --fix` that the output suggests: it deletes the unregistered files, which are the lost module (section 6). Check out the target and delete the merge branch.
 2. `mxcli show modules -p <app>.mpr` lists N of N modules.
 3. Menu items N of N, each branch's role assignments present.
 4. Then the `exec.sh` build gate.

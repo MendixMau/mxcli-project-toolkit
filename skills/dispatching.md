@@ -53,6 +53,26 @@ shows up in the bill:
    end the turn — never relay them as prose. A question returned in prose instead (an older stub)
    gets the same treatment: build the options from it.
 
+**Parallel by default for work that never touches the model; one writer for the model.**
+Dispatch these as one batch, not one after another: wireframes (one agent per screen, after the
+design system exists), BRD drafts (`bin/facts-lock.sh`, `brd-generation.md`), journey drafts,
+follow-up docs, page review and defect diagnosis against the running app (read-only), and MDL
+scripts drafted as text. Exactly one agent applies scripts to the `.mpr` (`exec.sh`) and owns the
+running app; parallel authors hand over scripts, never a model.
+- Shared parts (access grants, navigation, theme/SCSS, seed data) get one named owner before the
+  batch starts; authors list what they need in a notes file and never write "someone else adds it".
+- Parallel page *authoring* is not the default: an author who cannot run and look at their own page
+  hands over an unverified page. For a small app (about 5 pages) build pages serially.
+- Read-only agents on the running app log out after each login (trial licence session cap).
+
+*Measured (LoanDesk, Mendix 11.13, 2026-11-11, #732):* six no-model workers (4 page drafts, journey,
+BRDs) finished in 2.5 min with no file clashes; four read-only diagnosis agents each found a root
+cause in about 2 min. The same 4 pages from parallel blind authors plus one executor took 40 min
+against 16 serial for the same design, first journey run 10/31: two microflows with no access grant
+(each author left it to another), one reserved widget name chosen twice, three pages broken on screen
+that passed `mxcli check`. Earlier: Stage 3 in parallel 13 to 6 min for about 20% more tokens; 20
+parallel BRDs gave 10 identifier conflicts (why `facts-lock.sh` exists).
+
 **App restarts: the implementer restarts its own app, through one script only.** Write this into
 every implementer brief: "When `exec.sh` prints `restart needed`, or `unknown — restart if
 behaviour looks stale` and it does, run `./bin/app-restart.sh` yourself and carry on; never

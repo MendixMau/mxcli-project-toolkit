@@ -53,6 +53,28 @@ shows up in the bill:
    end the turn — never relay them as prose. A question returned in prose instead (an older stub)
    gets the same treatment: build the options from it.
 
+**Parallel by default for work that never touches the model; one writer per `.mpr`.**
+Dispatch these as one batch, not one after another: wireframes (one agent per screen, after the
+design system exists), BRD drafts (`bin/facts-lock.sh`, `brd-generation.md`), journey drafts,
+follow-up docs, page review and defect diagnosis against the running app (read-only), and MDL
+scripts for the ready set drafted as text (wireframe-built pages excepted, below). Exactly one agent per `.mpr` applies scripts to it (`exec.sh`) and owns
+its running app (a multi-app project has one writer per app); parallel authors hand over scripts,
+never a model.
+- Shared parts (access grants, navigation, theme/SCSS, seed data) get one named owner before the
+  batch starts; authors list what they need in a notes file and never write "someone else adds it".
+- Pages built to a wireframe or design are drafted and applied one at a time: the author must run
+  and look at its own page before handing over, and parallel authors cannot. Simple CRUD pages in
+  the low-risk ready set, and non-page rows (entities, microflows, security), follow "draft the
+  ready set in parallel, apply one at a time" in `iterative-build-loop.md`.
+- Read-only agents on the running app log out after each login — `ui-loop.md`.
+
+*Measured (#732):* 4 wireframe-built pages from parallel authors who could not run their page, plus one executor,
+took 40 min against 16 serial; first journey run 10/31 (two microflows with no access grant, one
+reserved widget name chosen twice, three pages broken on screen that passed `mxcli check`).
+
+Done when: the batch names its N drafts; each of the 4 shared parts (access grants, navigation,
+theme/SCSS, seed data) has 1 named owner; there is 1 writer per `.mpr`.
+
 **App restarts: the implementer restarts its own app, through one script only.** Write this into
 every implementer brief: "When `exec.sh` prints `restart needed`, or `unknown — restart if
 behaviour looks stale` and it does, run `./bin/app-restart.sh` yourself and carry on; never

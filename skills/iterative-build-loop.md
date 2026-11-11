@@ -403,7 +403,7 @@ passed a Java compile error. So a check-only gate needs a full deploy whenever `
 
 **Draft the ready set in parallel, apply serially.** The unit is the build-plan row, and a script may
 carry several rows: low-risk rows of one module that are ready together (enumerations, entities and
-associations, CRUD pages over them, simple sub-microflows) go in **one script**, so the per-apply loop
+associations, CRUD pages over them, simple sub-microflows; pages built to a wireframe are the exception, one at a time, `dispatching.md`) go in **one script**, so the per-apply loop
 (check, apply, mxbuild gate, commit) is paid once for the group. Rows that touch security (roles, access
 rules), workflows, AI agents, REST, Java actions or a STOP rule 21 target stay **one row per script**:
 those are where a failed apply must roll back the least. `bin/row-groups.sh` prints the groups

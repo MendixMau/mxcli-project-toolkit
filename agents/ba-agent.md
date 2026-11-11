@@ -101,6 +101,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/gate-check-file-locations.md` | gate-check.sh reports a Stage 0 file not found that plainly exists |
 | `skills/platform-link.md` | At project birth (before the first build script) and any time a model needs a platform home: creating the Team Server app, adopting an existing GitHub-born model into it without rewriting history, or deploying; also when the Platform SDK returns 403, git rejects the PAT, a deploy cannot be triggered from a PAT, or the app turns out to be a Free App |
 | `skills/deploy-to-sandbox.md` | Promoting an app to a deployed sandbox or cloud node, or before a customer tests a deployment |
+| `skills/poc-build.md` | POC, proof of concept, demo, pilot or quick build asked for; or PROJECT.md says Build type: poc (experimental: designed-first, one human stop, not the nine stage gates) |
 <!-- ROUTING:END -->
 - Follow `query-the-model.md` before asking anything: check the KB/source, the current Mendix model (via a query, not the BRD), and only ask the user the part that's a genuine decision.
 - Run the full interview protocol from `conversion-runbook.md` §1 at every gate: homework first, 2-4 options with evidence, assumptions stated out loud, user answers in the terminal, decision written to the stage HTML *and* `PROJECT.md`, unknowns default + `ASSUMED` + proceed.

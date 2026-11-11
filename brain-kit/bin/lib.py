@@ -12,6 +12,10 @@ KINDS = {"practice", "procedure", "pitfall", "decision", "reference"}
 PRICE = {"haiku": (1, 5), "sonnet": (3, 15), "opus": (5, 25)}  # USD per million tokens, in / out; matched on the model id
 
 
+def claude_exe():
+    return os.environ.get("BRAIN_KIT_CLAUDE") or shutil.which("claude")
+
+
 # ---------- config ----------
 
 class Config:
@@ -99,7 +103,7 @@ class LLM:
         if self.backend == "api":
             import anthropic
             self.client = anthropic.Anthropic(max_retries=6, timeout=1800)
-        elif not shutil.which("claude"):
+        elif not claude_exe():
             raise SystemExit("backend claude-code needs the `claude` CLI on PATH (or set backend: api)")
 
     def model(self, role):
@@ -122,7 +126,7 @@ class LLM:
     def claude(self, model, system, user, tools="", cwd=None, max_turns=None, timeout=1800, schema=None):
         """One headless Claude Code run. Returns (result text, the parsed JSON envelope). Tracks the cost it reports.
         schema: a JSON Schema; the envelope's structured_output then holds the validated answer."""
-        exe = os.environ.get("BRAIN_KIT_CLAUDE") or shutil.which("claude")
+        exe = claude_exe()
         if not exe: raise RuntimeError("claude binary not found: install Claude Code, or set BRAIN_KIT_CLAUDE to its full path")
         cmd = [exe, "-p", "--model", model, "--output-format", "json", "--system-prompt", system, "--tools", tools,
                "--no-session-persistence", "--setting-sources", "", "--strict-mcp-config"]

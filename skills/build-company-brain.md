@@ -1,7 +1,7 @@
 # Build a Company Knowledge Brain — lessons learned, sourced, gated, findable
 
 **Applies to:** any mxcli project; any company that wants its teams' lessons in front of every coding agent.
-**Purpose:** Turn what an organisation already wrote down (wiki, chat, field journals, repos) into a git
+**Purpose:** Turn what an organisation already wrote down (wiki, chat, field notes, repos) into a git
 repo of short markdown notes, one lesson each with its source, that agents search with grep before risky
 work. Method, template and scripts: `brain-kit/`.
 **Source:** an internal Mendix knowledge brain (2026-10) and a demo run of the

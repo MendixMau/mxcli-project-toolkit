@@ -10,7 +10,7 @@ of the public Mendix docs (security, performance, REST) gave 69 notes, all three
 | | Knowledge brain (this page) | Company tier (`skills/company-brain.md` in this toolkit) |
 |---|---|---|
 | Holds | lessons learned: pitfalls, procedures, version facts, house rules, with sources | house conventions for builds: design system, approved components, own skills, lint rules |
-| Built from | what your organisation already wrote down (wiki, repos, chat, field journals) | hand-made per company, filled as projects run |
+| Built from | what your organisation already wrote down (wiki, repos, chat, field notes) | hand-made per company, filled as projects run |
 | Read when | a risky task, an error, a step that is hard to undo | building any app for that company |
 
 They combine well: the company tier's routing table can point at the knowledge brain. This page is about the knowledge brain.
@@ -67,11 +67,9 @@ infrastructure you need (probably none).
 Export first, then normalise. `ingest.py` takes folders of `.md`, `.txt` or `.html` and writes one file per document with a uniform
 header (id, title, url, author, date). **Get the url right**: the gate later resolves every note's cited url back to this file.
 
-What we harvested: a few thousand wiki pages, a set of code repos, a chat troubleshooting digest, field journals, the public release
-notes and Marketplace data, and one redacted upgrade procedure from the field.
+Harvest your own sources (wiki, repos, chat exports, field notes) plus public release notes and Marketplace data where they help.
 
-The best single shape we found was the troubleshooting digest's **symptom / root cause / fix / status** entry: it became the pitfall
-note shape.
+The best single shape for troubleshooting material is a **symptom / root cause / fix / status** entry: use it as the pitfall note shape.
 
 ## 4. Classify: a cheap model reads everything once
 
@@ -150,10 +148,9 @@ targets, compare in code); an LLM judge counting wrong claims was unreliable, so
 
 ---
 
-## Lessons from other brains
+## Lessons for company-tier brains
 
-Besides a knowledge brain we have seen company-tier brains (house conventions, landscape, contracts, design system). None had an eval,
-so these lessons come from reading the repos and their history, not from scores. Each is a general rule with the failure it prevents.
+Company-tier brains (house conventions, landscape, contracts, design system) fail in predictable ways. These rules are not scored by an eval. Each is a general rule with the failure it prevents.
 
 | Lesson | What worked | What went wrong without it |
 |---|---|---|
@@ -162,7 +159,7 @@ so these lessons come from reading the repos and their history, not from scores.
 | Replace template rows | a landscape table marked built / mock / gap; a binding "shared contract" section | an untouched template routing file never pointed at the real content |
 | Route to content, not stubs | rows that open the note itself | rows pointing at a stub that points on to another repo; the agent stopped at the stub |
 | Route from the first commit | ROUTING.md added with the first file | a brain without it could not be wired into any instruction file for weeks |
-| Keep intermediates out | `work/` ignored from day one | build intermediates with unredacted text were committed and had to be removed |
+| Keep intermediates out | `work/` ignored from day one | intermediates can carry unredacted source text |
 
 **The pattern:** the content was usually fine. What failed was the **route** from an agent to the content: rows missing, rows pointing at
 stubs, template rows left in place, apps not wired.

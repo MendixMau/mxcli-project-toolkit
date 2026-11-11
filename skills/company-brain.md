@@ -93,7 +93,25 @@ Once imported, the component is a module in the model, so a decision about using
 the project's `docs/brain/` as `@<Module>.<Element>` with no new mechanism; the manifest stays
 the catalog entry.
 
+## What breaks a company brain
+
+A company brain typically fails on the **route**, not the content
+(`brain-kit/METHOD.md` → "Lessons for company-tier brains").
+
+1. **No row, no read.** Every folder an agent should use needs a trigger row in `ROUTING.md`.
+   Failure: notes with no routing row are never read.
+2. **Delete the template rows when you scaffold.** A dangling "example row" costs every session a
+   wasted hop.
+3. **Route to content, never to a stub that points at another repo.** The agent stops at the stub.
+4. **Keep project work out.** Failure: project output — app builds, mocks, graph runs — in the brain is reached by no row; it lives in its own repo.
+5. **Ground it in something built.** Failure: placeholder answers get thrown away;
+   real answers and a working mock make the brain useful.
+6. **Wire every app, then check the marker count** (completion criterion above).
+
 ## Not this skill
+
+- Building a **knowledge** brain (lessons learned with sources, harvested from a wiki or chat
+  and gated for faithfulness and findability) — `build-company-brain.md`.
 
 - Which decisions go to `PROJECT.md` vs `docs/brain/` — `close-the-loop.md`.
 - Cross-project questions ("which projects use component X", "which are stuck at Stage 3") —

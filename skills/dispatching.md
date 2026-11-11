@@ -56,18 +56,19 @@ shows up in the bill:
 **Parallel by default for work that never touches the model; one writer per `.mpr`.**
 Dispatch these as one batch, not one after another: wireframes (one agent per screen, after the
 design system exists), BRD drafts (`bin/facts-lock.sh`, `brd-generation.md`), journey drafts,
-follow-up docs, page review and defect diagnosis against the running app (read-only), and non-page
-MDL scripts drafted as text. Exactly one agent per `.mpr` applies scripts to it (`exec.sh`) and owns
+follow-up docs, page review and defect diagnosis against the running app (read-only), and MDL
+scripts for the ready set drafted as text (wireframe-built pages excepted, below). Exactly one agent per `.mpr` applies scripts to it (`exec.sh`) and owns
 its running app (a multi-app project has one writer per app); parallel authors hand over scripts,
 never a model.
 - Shared parts (access grants, navigation, theme/SCSS, seed data) get one named owner before the
   batch starts; authors list what they need in a notes file and never write "someone else adds it".
-- Page rows are drafted and applied one at a time: the author must run and look at its own page
-  before handing over, and parallel authors cannot. Non-page rows (entities, microflows, security)
-  follow "draft the ready set in parallel, apply one at a time" in `iterative-build-loop.md`.
+- Pages built to a wireframe or design are drafted and applied one at a time: the author must run
+  and look at its own page before handing over, and parallel authors cannot. Simple CRUD pages in
+  the low-risk ready set, and non-page rows (entities, microflows, security), follow "draft the
+  ready set in parallel, apply one at a time" in `iterative-build-loop.md`.
 - Read-only agents on the running app log out after each login — `ui-loop.md`.
 
-*Measured (#732):* 4 pages from parallel authors who could not run their page, plus one executor,
+*Measured (#732):* 4 wireframe-built pages from parallel authors who could not run their page, plus one executor,
 took 40 min against 16 serial; first journey run 10/31 (two microflows with no access grant, one
 reserved widget name chosen twice, three pages broken on screen that passed `mxcli check`).
 

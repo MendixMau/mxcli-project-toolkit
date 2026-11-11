@@ -53,25 +53,26 @@ shows up in the bill:
    end the turn — never relay them as prose. A question returned in prose instead (an older stub)
    gets the same treatment: build the options from it.
 
-**Parallel by default for work that never touches the model; one writer for the model.**
+**Parallel by default for work that never touches the model; one writer per `.mpr`.**
 Dispatch these as one batch, not one after another: wireframes (one agent per screen, after the
 design system exists), BRD drafts (`bin/facts-lock.sh`, `brd-generation.md`), journey drafts,
-follow-up docs, page review and defect diagnosis against the running app (read-only), and MDL
-scripts drafted as text. Exactly one agent applies scripts to the `.mpr` (`exec.sh`) and owns the
-running app; parallel authors hand over scripts, never a model.
+follow-up docs, page review and defect diagnosis against the running app (read-only), and non-page
+MDL scripts drafted as text. Exactly one agent per `.mpr` applies scripts to it (`exec.sh`) and owns
+its running app (a multi-app project has one writer per app); parallel authors hand over scripts,
+never a model.
 - Shared parts (access grants, navigation, theme/SCSS, seed data) get one named owner before the
   batch starts; authors list what they need in a notes file and never write "someone else adds it".
-- Parallel page *authoring* is not the default: an author who cannot run and look at their own page
-  hands over an unverified page. For a small app (about 5 pages) build pages serially.
-- Read-only agents on the running app log out after each login (trial licence session cap).
+- Page rows are drafted and applied one at a time: the author must run and look at its own page
+  before handing over, and parallel authors cannot. Non-page rows (entities, microflows, security)
+  follow "draft the ready set in parallel, apply one at a time" in `iterative-build-loop.md`.
+- Read-only agents on the running app log out after each login — `ui-loop.md`.
 
-*Measured (LoanDesk, Mendix 11.13, 2026-11-11, #732):* six no-model workers (4 page drafts, journey,
-BRDs) finished in 2.5 min with no file clashes; four read-only diagnosis agents each found a root
-cause in about 2 min. The same 4 pages from parallel blind authors plus one executor took 40 min
-against 16 serial for the same design, first journey run 10/31: two microflows with no access grant
-(each author left it to another), one reserved widget name chosen twice, three pages broken on screen
-that passed `mxcli check`. Earlier: Stage 3 in parallel 13 to 6 min for about 20% more tokens; 20
-parallel BRDs gave 10 identifier conflicts (why `facts-lock.sh` exists).
+*Measured (#732):* 4 pages from parallel authors who could not run their page, plus one executor,
+took 40 min against 16 serial; first journey run 10/31 (two microflows with no access grant, one
+reserved widget name chosen twice, three pages broken on screen that passed `mxcli check`).
+
+Done when: the batch names its N drafts; each of the 4 shared parts (access grants, navigation,
+theme/SCSS, seed data) has 1 named owner; there is 1 writer per `.mpr`.
 
 **App restarts: the implementer restarts its own app, through one script only.** Write this into
 every implementer brief: "When `exec.sh` prints `restart needed`, or `unknown — restart if

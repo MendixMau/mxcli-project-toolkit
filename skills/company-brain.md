@@ -95,7 +95,7 @@ the catalog entry.
 
 ## What breaks a company brain
 
-The content was usually fine; the **route** from the agent to it was not
+A company brain typically fails on the **route**, not the content
 (`brain-kit/METHOD.md` → "Lessons for company-tier brains").
 
 1. **No row, no read.** Every folder an agent should use needs a trigger row in `ROUTING.md`.
@@ -103,10 +103,9 @@ The content was usually fine; the **route** from the agent to it was not
 2. **Delete the template rows when you scaffold.** A dangling "example row" costs every session a
    wasted hop.
 3. **Route to content, never to a stub that points at another repo.** The agent stops at the stub.
-4. **Keep project work out.** Failure: a brain that grows into app builds, mocks and
-   graph runs that no row reaches; those live in their own repos.
-5. **Ground it in something built.** Failure: a first pass on invented placeholders gets thrown away;
-   a brain filled from a working app and real decisions is useful quickly.
+4. **Keep project work out.** Failure: project output — app builds, mocks, graph runs — in the brain is reached by no row; it lives in its own repo.
+5. **Ground it in something built.** Failure: placeholder answers get thrown away;
+   real answers and a working mock make the brain useful.
 6. **Wire every app, then check the marker count** (completion criterion above).
 
 ## Not this skill

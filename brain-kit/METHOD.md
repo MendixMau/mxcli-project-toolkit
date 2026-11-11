@@ -42,7 +42,7 @@ Write the scope down before harvesting anything; every later prompt quotes it.
 
 - **Out: public documentation.** Cite it, do not copy it. An agent already knows most of it, and a copy goes stale.
 - **Out: one app's facts.** Decisions that are only true for one model belong in that app's own docs (for Mendix: `mxcli brain`).
-- **Out: tools another source already covers.** We left mxcli out: the toolkit serves it in every session.
+- **Out: tools another source already covers.** Leave mxcli out: the toolkit serves it in every session.
 - **In: what nobody outside your teams knows.** Internal procedures, measured results, pitfalls with their fix, house rules,
   version-bound gotchas.
 - **Topics.** 10 to 15 topic folders (security, upgrade, performance, integration, ...). One sentence per topic saying what is in it.
@@ -129,9 +129,8 @@ Three hand-written files decide whether agents use the brain well:
 - **AGENTS.md**: *when* to consult (risky task types, an error code, a step that is hard to undo; **never for routine work**) and *how*
   (topic INDEX first, then grep one or two keywords, never a sentence; cite the note and its source; check `versions`).
 - **ROUTING.md**: one trigger row per topic ("Upgrading Studio Pro or modules -> internal/upgrade/INDEX.md").
-- **One pointer line in every instruction file of the project** (`CLAUDE.md`, `AGENTS.md`, `.cursorrules`, ...). In a test with a real
-  theme module, a pointer in one file reached the brain in 2 of 3 sessions; the same pointer in every instruction file, 3 of 3.
-  The session that missed simply never opened the one file that had it.
+- **One pointer line in every instruction file of the project** (`CLAUDE.md`, `AGENTS.md`, `.cursorrules`, ...). A pointer in one file
+  reached the brain in 2 of 3 sessions; the same pointer in every instruction file, 3 of 3.
 
 ## 10. Prove it again, on a real task
 
@@ -150,21 +149,21 @@ targets, compare in code); an LLM judge counting wrong claims was unreliable, so
 
 ## Lessons for company-tier brains
 
-Company-tier brains (house conventions, landscape, contracts, design system) fail in predictable ways. These rules are not scored by an eval. Each is a general rule with the failure it prevents.
+Company-tier brains (house conventions, landscape, contracts, design system) fail in predictable ways. These rules are not scored by an eval. Each pairs a rule with the hazard it prevents.
 
 | Lesson | What worked | What went wrong without it |
 |---|---|---|
-| Route every content folder | trigger-first routing, one row per folder an agent should read | a brain where most notes had no routing row was never read |
-| Keep project work out | a design system and house conventions as the master copy | a brain that drifted into a project dump (builds, mocks, parsers) that no routing row reached |
-| Replace template rows | a landscape table marked built / mock / gap; a binding "shared contract" section | an untouched template routing file never pointed at the real content |
-| Route to content, not stubs | rows that open the note itself | rows pointing at a stub that points on to another repo; the agent stopped at the stub |
-| Route from the first commit | ROUTING.md added with the first file | a brain without it could not be wired into any instruction file for weeks |
+| Route every content folder | trigger-first routing, one row per folder an agent should read | a folder with no routing row is never read |
+| Keep project work out | a design system and house conventions as the master copy | project output (builds, mocks, parsers) in the brain is reached by no routing row and buries the notes |
+| Replace template rows | a landscape table marked built / mock / gap; a binding "shared contract" section | an unedited template routing file points at nothing real |
+| Route to content, not stubs | rows that open the note itself | a row that points at a stub pointing to another repo: the agent stops at the stub |
+| Route from the first commit | ROUTING.md added with the first file | a brain with no routing file cannot be wired into any instruction file |
 | Keep intermediates out | `work/` ignored from day one | intermediates can carry unredacted source text |
 
-**The pattern:** the content was usually fine. What failed was the **route** from an agent to the content: rows missing, rows pointing at
+**The pattern:** a company brain typically fails on the **route** from an agent to the content, not the content: rows missing, rows pointing at
 stubs, template rows left in place, apps not wired.
 
-### Rules we took from them
+### Rules
 
 1. **Decide which kind you are building before the first file, and never mix.** A knowledge brain holds lessons; a company tier holds house
    conventions, landscape, contracts and design system. Project work (an app, a graph build, a mock) lives in its own repo.
@@ -173,8 +172,8 @@ stubs, template rows left in place, apps not wired.
 3. **Delete the template rows when you scaffold.** A dangling "example row" costs every session a wasted hop.
 4. **Point routing at content, never at a stub or at another repo.**
 5. **Put ROUTING.md in the first commit**, and never commit build intermediates (`work/` stays ignored).
-6. **Ground a company tier in something built.** A first pass on invented placeholders gets thrown away; real answers and a working mock
-   make a brain useful quickly.
+6. **Ground a company tier in something built.** Placeholder answers get thrown away; real answers and a working mock
+   make the brain useful.
 7. **Company-tier content that earns its keep is what only that company knows**: binding contracts, which systems are real and which are mocks,
    design tokens. Lessons that hold for everyone belong in the knowledge brain or in the shared toolkit.
 
@@ -194,9 +193,8 @@ stubs, template rows left in place, apps not wired.
   rerun. Done when each file has exactly one block and its path resolves.
 - **Skills.** A skill reads the brain through the same route: it names the trigger ("before an upgrade, open ROUTING.md") and never copies
   brain content into itself. The toolkit itself never cites the brain, so a skill stays valid for teams without one.
-- **When not to open it.** Opening ROUTING.md for a label rename cost 3 turns and $0.09 in a pilot. That is why AGENTS.md says "skip for routine
-  work". A prototype that copies the trigger rows straight into the project's instruction file saves the hop for about 260 extra words that
-  are always loaded; we have not yet measured whether it pays off.
+- **When not to open it.** Opening ROUTING.md for a label rename cost 3 turns and $0.09 (measured), so AGENTS.md says "skip for routine
+  work".
 
 ### How to test it
 
@@ -209,11 +207,11 @@ stubs, template rows left in place, apps not wired.
 For the real-task test: pick tasks with answers you can check in code, hold out the brain notes the task depends on, and run each arm at least
 twice. Our upgrade test (2 runs per arm) went from 40 to 48% without the brain to 68 to 76% with it. **Treat two runs as a hint, not proof**:
 one variant scored 76% and 55% on its two runs. Read what moved too: the whole gain came from the 16 module-version targets, the other 15
-items stayed flat, and the extra detail made the agent drop "back up first" in 3 of 4 runs.
+items stayed flat, and extra detail can crowd out a safety step: the agent dropped "back up first" in 3 of 4 runs.
 
 ### How to improve it
 
-- **Change the shape, then test again.** After the upgrade test we split one big table into one file per module and added a lookup script:
+- **Change the shape, then test again.** One file per module plus a lookup script beats one big table:
   module targets went to 15.5 of 16 and cost per run fell from $3.14 to $2.07.
 - **A lookup returns candidates, not a guess**, when a name is ambiguous.
 - **Gaps drive the harvest.** Every topic INDEX lists what no source covers; that list is the next export to ask for.

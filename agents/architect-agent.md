@@ -95,7 +95,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/deploy-to-sandbox.md` | Promoting an app to a deployed sandbox or cloud node, or before a customer tests a deployment |
 | `skills/learned-constants-and-secrets.md` | Adding a constant, installing a marketplace module, deploying to a new environment, or needing a Mendix PAT |
 | `project-bin/constants-audit.sh` | Before any first deploy to a new environment, and after installing or updating any marketplace module |
-| `skills/poc-build.md` | POC, proof of concept, demo, pilot or quick build asked for; or PROJECT.md says Build type: poc (experimental: designed-first, one human stop, not the nine stage gates) |
+| `skills/poc-build.md` | POC, proof of concept, demo, pilot or quick build asked for, a demo this week, something clickable to show; or PROJECT.md says Build type: poc (experimental: designed-first, one human stop, not the nine stage gates) |
 <!-- ROUTING:END -->
 
 ## Ground rules

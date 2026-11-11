@@ -26,6 +26,8 @@ project points at it.
 |:---:|:---:|:---:|
 | drafts that refused a planted bad binding, with vs without the toolkit | fewer tool calls with a context pack | journey files a typical change re-runs |
 
+Since then: [Toolkit 2](docs/releases/2026-11-11-toolkit-2.md) adds pipeline modes, a faster build loop and bug filing.
+
 ## How it works
 
 ```mermaid
@@ -94,7 +96,7 @@ commands that run at every step: `docs/pipeline-walks.html`.
 | **Process map + BRD report** (`bin/brd-report.sh`) | Stages 2 and 3 | Swimlanes per process, questions pinned to each step |
 | **Progress report** (`architecture/progress-report.html`) | Stage 5 onward | Stages P to 6, phases built and proven, time and cost |
 | **Project dashboard** (`index.html`) | Every gate run | Gate status per stage and module |
-| **Bug log** (`docs/bugs.jsonl`, `bin/file-bugs.sh`) | Any time | Bugs, redacted before filing: by gh, a link, or a file to mail (CONTRIBUTING.md → "Reporting a toolkit bug") |
+| **Bug log** (`docs/bugs.jsonl`, `bin/file-bugs.sh`) | Any time | Bugs, redacted before filing: by gh, a link, or a file to mail; `Bug filing: auto` in `PROJECT.md` files them for you (CONTRIBUTING.md → "Reporting a toolkit bug") |
 
 ## Ways to use it
 
@@ -143,8 +145,8 @@ Then open your agent in the project folder and say where you start:
    project agents (`bin/status.sh` prints a `CWD` warning when this happens).
 5. **Upgrade** with `git -C ~/Mendix/mxcli-project-toolkit pull`, then
    `bin/sync-project.sh <project-root>` for each project. Skills update with the pull; sync
-   refreshes what was copied into the project and prints the `Toolkit release:` you are on once
-   release tags are published (from 1.0 on), or `none tagged yet` before that.
+   refreshes what was copied into the project and prints the `Toolkit release:` you are on, for
+   example `v2026.11.11`.
 
 Everything a project produces lives inside its own folder; this clone stays clean
 ([Consuming this toolkit](#consuming-this-toolkit)).
@@ -154,7 +156,8 @@ Everything a project produces lives inside its own folder; this clone stays clea
 ## Make it yours
 
 Every opinion has a switch that survives `git pull` and sync. All project settings in one table:
-[1.0 notes, section 2](docs/releases/v1.0.md#2-settings-you-control).
+[1.0 notes, section 2](docs/releases/v1.0.md#2-settings-you-control); the settings added since are in the
+[Toolkit 2 notes](docs/releases/2026-11-11-toolkit-2.md#settings-you-can-change).
 
 <details>
 <summary>How to adjust each opinion</summary>
@@ -224,6 +227,7 @@ foundation for every team.
 |---|---|
 | ⚪ Lowest | Drop a file in `contrib/inbox/` (copy `TEMPLATE.md`) and open a PR. No quality bar |
 | 🟢 One command | `bin/harvest-learnings.sh <project-root>` at wrap-up drafts inbox files for you |
+| 🟢 Free | `bin/file-bugs.sh --auto`, `--links` or `--bundle` files a toolkit bug, redacted before it leaves your machine |
 | 🟡 Issue | The exact command, its output, and the `Toolkit release:` line sync prints |
 | 🔵 Direct PR | Into `skills/`, `bin/` or `bug-logs/`, held to the field-proof bar |
 
@@ -234,7 +238,7 @@ Detail: [CONTRIBUTING.md](CONTRIBUTING.md).
 ## Releases
 
 **Bundled releases** from 1.0 on: master stays stable, then one tagged release (`vYYYY.MM.DD`)
-with notes. Latest: [**1.0**](docs/releases/v1.0.md).
+with notes. Latest: [**Toolkit 2**](docs/releases/2026-11-11-toolkit-2.md) (`v2026.11.10` and `v2026.11.11`); milestone: [1.0](docs/releases/v1.0.md).
 
 ```bash
 git -C ~/Mendix/mxcli-project-toolkit pull && ~/Mendix/mxcli-project-toolkit/bin/sync-project.sh <project-root>
@@ -263,6 +267,9 @@ here rather than discovered halfway through a stage.
 | MDL authoring and `mxcli` | yes | yes | yes |
 | Context-cost hooks | yes | yes | yes |
 | **Studio Pro automation** — `save-sp.sh`, `restart-sp.sh`, the SP handling in `exec.sh` | yes | no | **no** |
+
+Toolkit 2's speed measurements are from Linux; its pipeline modes, journey timeout, bug filing and
+new test helpers have not yet been run on Windows (Git Bash).
 
 **Windows: use Git Bash, not WSL.** WSL is a separate Linux machine — it cannot see Studio Pro,
 cannot find the process holding your `.mpr`, and reaches a locally running app only over a host
@@ -682,6 +689,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Stage 5 start, before the first module of any entry mode — one entity, flow, page, nav, demo user, journey and screenshot proven in the running app, so build/run/look/test are known to work before a module depends on them | `skills/walking-skeleton.md` |
 | At project birth (before the first build script) and any time a model needs a platform home: creating the Team Server app, adopting an existing GitHub-born model into it without rewriting history, or deploying; also when the Platform SDK returns 403, git rejects the PAT, a deploy cannot be triggered from a PAT, or the app turns out to be a Free App | `skills/platform-link.md` |
 | Promoting an app to a deployed sandbox or cloud node, or before a customer tests a deployment — "it works locally" is not evidence about a deployment; also when a test suite fails only against the remote URL | `skills/deploy-to-sandbox.md` |
+| Dispatching any helper that drives the app, tests or UI: print the ports, reset/restart scripts, e2e helper libs, secret key names and screenshot folders once, and put "read it first" in the brief instead of letting each helper rediscover them (#701) | `project-bin/project-facts.sh` |
 
 **Build · MDL — the language and tool reference**
 
@@ -747,7 +755,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Writing or running e2e cases beyond the happy journeys (blank/whitespace required fields, over-length, duplicates, cancel, double submit, wrong state, wrong role, backend down, stale write, empty search) — every case cites a requirement first, UNSPECIFIED is re-scored against house rules, GAP counts carry the denominator; runs after journey-proof and before monkey-test | `skills/unhappy-path-testing.md` |
 | Running the fuzz/crash net on a module whose journeys are already green — and reading the result, which is NOT evidence the module works | `skills/monkey-test.md` |
 | Load, performance or stress testing a page ("will it hold 1000 users", concurrent users, k6, JMeter) — record the real /xas/ calls with Playwright and replay them instead of correlating tokens by hand, and report what the number does NOT prove (requests vs users, empty data, whose limit was hit) | `skills/load-test.md` |
-| Writing or running a microflow unit test (.test.mdl, mxcli test, @expect) once the project or the user has decided a flow gets one — what is worth a test, equality-only asserts, --list before any run, a scratch copy so the live app survives, and a positive control that must fail | `skills/unit-test.md` |
+| Writing or running a microflow unit test (.test.mdl, mxcli test, @expect) once the project or the user has decided a flow gets one — what is worth a test, equality-only asserts, --list before any run, a scratch copy so the live app survives, and a positive control that must fail; also which inputs to try (blank, whitespace, boundary, every enum value; cap 8), reading a committed row back with @verify, and what survives @cleanup rollback (rollback-scan.sh) | `skills/unit-test.md` |
 | UX audit and screenshot-loop discipline | `skills/learned-skill-ux-audit.md` |
 | Tracking scope delta between the BRD and the built state | `skills/learned-skill-scope-delta.md` |
 | Writing or reading docs/report.json — the append-only contract every instrument writes to and every renderer reads; open BEFORE building a new instrument or a second renderer | `skills/report-schema.md` |

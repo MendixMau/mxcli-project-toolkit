@@ -1,13 +1,13 @@
 # brain-kit: build a company brain
 
 A company brain is a git repo of short markdown notes, one lesson each with its source, that coding agents search with grep.
-This kit is the method and the scripts we used to build our internal Mendix brain (about 600 notes), made portable.
+This kit is the method and the scripts we used to build our internal Mendix knowledge brain, made portable.
 It is the **knowledge** brain (lessons learned); house conventions for app builds are the company tier, `skills/company-brain.md`.
 The skill that routes here is `skills/build-company-brain.md`.
 
 | You want | Go to |
 |---|---|
-| **Understand the method** (11 steps, lessons from five brains, how to use, test and improve one) | [`METHOD.md`](METHOD.md) |
+| **Understand the method** (11 steps, lessons from other brains, how to use, test and improve one) | [`METHOD.md`](METHOD.md) |
 | **Start a brain by hand** (empty repo with AGENTS.md, ROUTING.md, note templates) | [`template/`](template/) + `bin/gate.py` |
 | **Build a brain from your exports** (harvest, classify, shortlist, compact, keywords, gate, repair) | `bin/` + [`brain.yaml.example`](brain.yaml.example) |
 

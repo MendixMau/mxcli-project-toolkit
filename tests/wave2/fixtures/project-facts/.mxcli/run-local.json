@@ -1,0 +1,22 @@
+{
+  "project": "/work/Fixture/Fixture.mpr",
+  "pid": 4242,
+  "appPort": 8180,
+  "adminPort": 8190,
+  "adminPass": "REDACTED",
+  "bootConfig": {
+    "BasePath": "/work/Fixture/deployment",
+    "DTAPMode": "D",
+    "DatabaseHost": "",
+    "DatabaseName": "default",
+    "DatabasePassword": "REDACTED",
+    "DatabaseType": "HSQLDB",
+    "DatabaseUserName": "sa",
+    "MicroflowConstants": {
+      "MyFirstModule.LogNode": "REDACTED",
+      "MyFirstModule.ServiceUrl": "REDACTED"
+    },
+    "RuntimePath": "/opt/mendix/runtime"
+  },
+  "started": "2026-10-07T12:27:57Z"
+}

@@ -279,6 +279,12 @@ sed -i.bak 's/gate-check.sh <project> 5/gate-check.sh <project> 3/' "$P/architec
 V="$(verdict "$P" 4)"
 case "$V" in *FAIL*'last numbered row'*) ok "a final gate row for the wrong stage is not the closing row" ;;
              *) bad "a final 'gate-check.sh 3' row passed: $V" ;; esac
+# #683: a BRIEF row that merely says "the coherence pass comes later" is prose, not the step.
+P="$(mkproj t16c)"; printf '| 4 | Build plan approved | CONFIRMED | |\n' >> "$P/PROJECT.md"
+mkdir -p "$P/architecture/modules/Orders" "$P/architecture/modules/Customers"
+printf "# Plan\n\n$HDR| 1 | BRIEF | Orders brief; the coherence pass comes later | | | none | |\n| 2 | HARNESS | bin/verify-module.sh Orders | | | none | |\n| 3 | HARNESS | bin/verify-module.sh Customers | | | none | |\n| 4 | RUN | gate-check.sh . 5 | | | none | |\n" > "$P/architecture/build-plan.md"
+V="$(verdict "$P" 4)"
+case "$V" in *FAIL*'0 of 1 coherence'*) ok "a BRIEF row mentioning the coherence pass is not a coherence row" ;; *) bad "BRIEF prose counted as coherence row: $V" ;; esac
 P="$(mkproj t16b)"; printf '| 4 | Build plan approved | CONFIRMED | |\n' >> "$P/PROJECT.md"; mkdir -p "$P/architecture"
 printf "# Plan\n\n$HDR| 1 | BUILD | 10.mdl | | | none | |\n| 2 | RUN | gate-check.sh . 5 | | | none | |\n" > "$P/architecture/build-plan.md"
 V="$(verdict "$P" 4)"

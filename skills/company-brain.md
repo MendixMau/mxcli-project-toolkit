@@ -93,20 +93,20 @@ Once imported, the component is a module in the model, so a decision about using
 the project's `docs/brain/` as `@<Module>.<Element>` with no new mechanism; the manifest stays
 the catalog entry.
 
-## What breaks a company brain — seen across five brains
+## What breaks a company brain — seen across several brains
 
 The content was usually fine; the **route** from the agent to it was not
-(`brain-kit/METHOD.md` → "Lessons from our other brains").
+(`brain-kit/METHOD.md` → "Lessons from other brains").
 
 1. **No row, no read.** Every folder an agent should use needs a trigger row in `ROUTING.md`.
-   Seen: a filled `plan/` with no row; 8 of 11 knowledge notes with no row.
+   Failure: a brain where most notes had no routing row was never read.
 2. **Delete the template rows when you scaffold.** A dangling "example row" costs every session a
    wasted hop.
 3. **Route to content, never to a stub that points at another repo.** The agent stops at the stub.
-4. **Keep project work out.** One brain grew until 89% of its files were app builds, mocks and
+4. **Keep project work out.** Failure: a brain that grew into app builds, mocks and
    graph runs that no row reached; those live in their own repos.
-5. **Ground it in something built.** A first pass on invented placeholders was thrown away; a
-   brain filled from a working app and real decisions was useful in two days.
+5. **Ground it in something built.** Failure: a first pass on invented placeholders gets thrown away;
+   a brain filled from a working app and real decisions is useful quickly.
 6. **Wire every app, then check the marker count** (completion criterion above).
 
 ## Not this skill

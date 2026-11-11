@@ -122,7 +122,9 @@ class LLM:
     def claude(self, model, system, user, tools="", cwd=None, max_turns=None, timeout=1800, schema=None):
         """One headless Claude Code run. Returns (result text, the parsed JSON envelope). Tracks the cost it reports.
         schema: a JSON Schema; the envelope's structured_output then holds the validated answer."""
-        cmd = ["claude", "-p", "--model", model, "--output-format", "json", "--system-prompt", system, "--tools", tools,
+        exe = os.environ.get("BRAIN_KIT_CLAUDE") or shutil.which("claude")
+        if not exe: raise RuntimeError("claude binary not found: install Claude Code, or set BRAIN_KIT_CLAUDE to its full path")
+        cmd = [exe, "-p", "--model", model, "--output-format", "json", "--system-prompt", system, "--tools", tools,
                "--no-session-persistence", "--setting-sources", "", "--strict-mcp-config"]
         if schema: cmd += ["--json-schema", json.dumps(schema)]
         if tools: cmd += ["--allowedTools", tools]

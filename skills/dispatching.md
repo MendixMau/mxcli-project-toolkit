@@ -39,6 +39,7 @@ shows up in the bill:
    attempts and any reason it never wrote down. *How the brief covers it:* the review file
    carries the evidence, the diff carries the work, and the implementer's returned report must
    list every choice the brief did not dictate — require that line in every implementer brief.
+   **Every brief that drives the app or its tests also says:** "read `.mxcli/project-facts.md` first" (made by `bin/project-facts.sh --out .mxcli/project-facts.md` just before dispatch: ports, reset and restart scripts, e2e helper libs, secret key names, screenshot folders). It stops each helper re-discovering them.
    Resume only when a finding needs the implementer's unwritten reasoning, and say why in the
    dispatch. A fresh fixer has not been measured head-to-head against a resume yet; the first
    run that does both records the numbers in `process/`.

@@ -1,0 +1,5 @@
+Captured, not hand-written: PROJECT.md, tests/e2e/config.js and bin/app-restart.sh are verbatim copies
+from a real generated project (the e2e-balanced Purchasing/Approval build, 2026-11-09).
+.mxcli/run-local.json is the committed capture in ../run-local/run-local.json.
+The test appends a 'Roles and ports' section (with a planted password) to a TEMP copy of PROJECT.md:
+the real PROJECT.md has no such section, and the secret line must be planted to be asserted absent.

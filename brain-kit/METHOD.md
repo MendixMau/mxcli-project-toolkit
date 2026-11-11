@@ -1,7 +1,7 @@
 # How to build a company brain
 
 A company brain is a git repo of short markdown notes that coding agents (and people) search with grep. Each note holds one lesson
-your teams learned, with its source. This page is the method we used to build an internal Mendix brain of about 600 notes, with the numbers
+your teams learned, with its source. This page is the method we used to build an internal Mendix knowledge brain, with the numbers
 we measured along the way. The scripts in `bin/` run every step and `template/` is the empty brain to start from. A test run of the scripts on 39 pages
 of the public Mendix docs (security, performance, REST) gave 69 notes, all three topics through the gate, for $5.26 end to end.
 
@@ -150,19 +150,19 @@ targets, compare in code); an LLM judge counting wrong claims was unreliable, so
 
 ---
 
-## Lessons from our other brains
+## Lessons from other brains
 
-Besides the internal knowledge brain we built company-tier brains: two for fictional demo companies (Tramius, a manufacturer, and
-Kestrel, a bank) and two for customers. None of them has an eval yet, so these lessons come from reading the repos and their history,
-not from scores.
+Besides a knowledge brain we have seen company-tier brains (house conventions, landscape, contracts, design system). None had an eval,
+so these lessons come from reading the repos and their history, not from scores. Each is a general rule with the failure it prevents.
 
-| Brain | What worked | What went wrong |
+| Lesson | What worked | What went wrong without it |
 |---|---|---|
-| **Tramius** (manufacturer, 75 commits) | a design system as the master copy for 5 apps; a weekly checklist; a landscape table with a mode per system | it drifted into a project dump: 89% of its 524 files are project work (graph builds, an app design, mocks, a file parser) that no routing row reaches; a template row was never replaced; 1 of 5 apps is wired |
-| **Kestrel** (bank, 3 commits) | a landscape table marked built / mock / gap; a "shared contract, binding for new apps" section; the first version was redone once a real solution existed | three routing rows point at a skills stub that points on to another repo, so an agent stops at the stub |
-| **Customer A** (17 commits, filled in 2 days) | trigger-first routing with 12 rows; 4 skills in a fixed shape (Applies to, Steps, Done when, What each rule prevents); a mock built and tested | 8 of 11 knowledge notes have no routing row; deliverables live next to brain content |
-| **Customer B** (1 commit) | real company and engagement history written down | the routing file is the untouched template and never points at that content |
-| **Internal brain** (about 600 notes, 14 topics) | every topic INDEX keeps a Gaps list; one lookup script replaces paging through version tables | the first commit had no ROUTING.md, so it could not be wired for weeks; build intermediates with unredacted text were committed and had to be removed |
+| Route every content folder | trigger-first routing, one row per folder an agent should read | a brain where most notes had no routing row was never read |
+| Keep project work out | a design system and house conventions as the master copy | a brain that drifted into a project dump (builds, mocks, parsers) that no routing row reached |
+| Replace template rows | a landscape table marked built / mock / gap; a binding "shared contract" section | an untouched template routing file never pointed at the real content |
+| Route to content, not stubs | rows that open the note itself | rows pointing at a stub that points on to another repo; the agent stopped at the stub |
+| Route from the first commit | ROUTING.md added with the first file | a brain without it could not be wired into any instruction file for weeks |
+| Keep intermediates out | `work/` ignored from day one | build intermediates with unredacted text were committed and had to be removed |
 
 **The pattern:** the content was usually fine. What failed was the **route** from an agent to the content: rows missing, rows pointing at
 stubs, template rows left in place, apps not wired.
@@ -176,8 +176,8 @@ stubs, template rows left in place, apps not wired.
 3. **Delete the template rows when you scaffold.** A dangling "example row" costs every session a wasted hop.
 4. **Point routing at content, never at a stub or at another repo.**
 5. **Put ROUTING.md in the first commit**, and never commit build intermediates (`work/` stays ignored).
-6. **Ground a company tier in something built.** The bank brain's first pass on invented placeholders was thrown away; the customer brain
-   filled in two days because real answers and a working mock existed.
+6. **Ground a company tier in something built.** A first pass on invented placeholders gets thrown away; real answers and a working mock
+   make a brain useful quickly.
 7. **Company-tier content that earns its keep is what only that company knows**: binding contracts, which systems are real and which are mocks,
    design tokens. Lessons that hold for everyone belong in the knowledge brain or in the shared toolkit.
 

@@ -28,6 +28,7 @@
 | What the legacy system *means* (intent, business rules, why) | KB docs → then the SME interview (Path C) | The code alone. Intent isn't in code, and inventing it is the single worst failure mode. |
 | What the Mendix model *currently contains* | **Query it**: `SHOW ENTITIES`, `DESCRIBE ENTITY`, `SHOW ASSOCIATIONS`, `SEARCH`, catalog OQL | The BRD or the build plan — those say what was *planned*, not what exists. Drift is guaranteed. |
 | Blast radius of a change | `SHOW CALLERS / CALLEES / IMPACT OF` | Reading files and hoping |
+| Where a **constant** is used | `refresh catalog full source`, then `mxcli search -p App.mpr "<ConstantName>" --format names` | `SHOW REFERENCES TO <constant>`: it answers "no references found" for a constant used as `@Module.Constant` in a microflow expression (v0.30.0 and nightly 2026-11-05) |
 | A decision (boundaries, buy-vs-build, roles, volumes) | **The user** — via a proposal with evidence | Yourself, silently |
 
 ## The evidence hierarchy — when two sources disagree, or when one is silent
@@ -49,8 +50,8 @@ where the higher is silent.
 Written down because of the 2026-09-02 post-mortem
 (`process/post-mortem-inverted-evidence-2026-09-02.md`): a project's data request recorded the
 production database as "unrecoverable"; a `.bak` sat in the source folder the whole time and
-restored in an afternoon. Queried, it overturned five architecture decisions — a 15-step
-sequential chain was a 7-leg parallel split, a table said to "enforce nothing" held 175 live
+restored in an afternoon. Queried, it overturned five architecture decisions — a sequential
+chain of 15 steps was a 7-leg parallel split, a table said to "enforce nothing" held 175 live
 rules, two "non-existent" stations carried status on ~690 of 926 runs. Every correction came
 from tier 1; every wrong answer had been derived from tiers 4 and 5 and cited tier 5 as support.
 

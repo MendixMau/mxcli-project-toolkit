@@ -4,7 +4,7 @@
 **Purpose:** Turn what an organisation already wrote down (wiki, chat, field journals, repos) into a git
 repo of short markdown notes, one lesson each with its source, that agents search with grep before risky
 work. Method, template and scripts: `brain-kit/`.
-**Source:** an internal Mendix knowledge brain (about 600 notes, 14 topics, 2026-10) and a demo run of the
+**Source:** an internal Mendix knowledge brain (2026-10) and a demo run of the
 same scripts on 39 public Mendix docs pages (69 notes, every topic through the gate, $5.26), 2026-11.
 
 ## When this fires

@@ -1,0 +1,11 @@
+tests/wave2/fixtures/worktree-merge/ - provenance (captured 2026-11-11, Linux x86-64)
+
+Captured, never hand-written. mxcli v0.28.0, Mendix 11.13.0, fictional app LoanDesk.
+Setup: two git worktrees each added one module (ShiftBoard, Defects) via numbered scripts;
+`git merge` of the second branch conflicted on LoanDesk.mpr; the conflict was resolved by
+taking the second branch's .mpr and units (--theirs), then committed.
+  fix-hashes-orphans-v0.28.0.txt   stdout+stderr of `mxcli fix hashes -p LoanDesk.mpr`, last line
+                                   is the exit code: 396 units indexed, 403 files, 7 ORPHAN, exit 1.
+Same merge: `mx check` and the exec.sh mxbuild gate both reported 0 errors; `show modules`
+listed Defects and not ShiftBoard. Paths in the capture are repo-relative; nothing scrubbed.
+Used by skills/parallel-builds.md section 5. No test asserts on it yet.

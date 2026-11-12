@@ -11,6 +11,11 @@
 #   D  gate finds a new error -> verdict=restored applied=no exit=1
 #   E  uncommitted model      -> verdict=refused applied=no verified=skipped exit=1
 #   F  usage error (exit 2)   -> no RESULT line (no verdict was reached)
+#   G  mxcli exec exit 3, gate passes -> verdict=partial applied=partial exit=1
+#   H  gate error + broken restore    -> verdict=failed applied=unknown exit=1
+#   I  exec exit 3 + gate error + broken restore -> verdict=failed applied=unknown (same as H); I2 restore ok -> restored
+#   J-L --patch: clean applied; script fails half-way -> restored (K) / failed when the restore is broken (K2); unverified gate -> restored (L)
+#   M  lint_new words: skipped (SKIP_LINT, lint not installed), blind (lint-gate fault); B: unknown (rise not itemised)
 #   Every case: exactly one RESULT line, and it is not the last line.
 #
 # Synthetic only: throwaway git repo, stub mxcli, stub mxbuild, stub java. Nothing real runs.
@@ -49,7 +54,7 @@ D="$(cd "$(dirname "$0")" && pwd)"
 case "${1:-}" in
   check) exit 0 ;;
   run) sleep 120; exit 0 ;;
-  exec) echo "written by the script" >> "$D/Fixture.mpr"; echo "x" >> "$D/mprcontents/a.mxunit"; echo "fake mxcli exec"; exit 0 ;;
+  exec) echo "written by the script" >> "$D/Fixture.mpr"; echo "x" >> "$D/mprcontents/a.mxunit"; echo "fake mxcli exec"; exit "${MXCLI_EXEC_RC:-0}" ;;
 esac
 exit 0
 MXCLI
@@ -91,7 +96,7 @@ run() {
     && { find .claude -mindepth 1 -maxdepth 1 ! -name worktrees -exec rm -rf {} + 2>/dev/null; true; } ) >/dev/null 2>&1
   rm -f "$WORK/n"; mkdir -p "$WORK/tmp"
   ( cd "$P" && TMPDIR="$WORK/tmp" SP_RESTART=0 MXTK_NO_INSTALL=1 MXB_N="$WORK/n" MXB_MODES="$2" \
-      MXBUILD_PATH="$WORK/mxbuild" JAVA_HOME="$WORK/jdk" ./bin/exec.sh mdlsource/test.mdl ) >"$WORK/out.$1" 2>&1
+      MXBUILD_PATH="$WORK/mxbuild" JAVA_HOME="$WORK/jdk" ./bin/exec.sh ${EXEC_ARGS:-mdlsource/test.mdl} ) >"$WORK/out.$1" 2>&1
   echo $?
 }
 lastrow() { tail -1 "$LOG" 2>/dev/null; }
@@ -99,6 +104,7 @@ kept() { grep -q 'written by the script' "$P/Fixture.mpr"; }
 
 cat > "$P/bin/lint-gate.sh" <<'LG'
 #!/usr/bin/env bash
+if [ "${LINT_MODE:-}" = fault ]; then echo "lint-gate fault"; exit 2; fi
 if [ "${LINT_MODE:-}" = rose ]; then printf 'FAIL\n  SEC003     security   9 -> 10   (+1)\n'; exit 1; fi
 echo PASS; exit 0
 LG
@@ -121,12 +127,12 @@ res A "MXTK-RESULT exec verdict=applied applied=yes verified=yes lint_new=0 exit
 echo "== B: lint rise: exit 4 =="
 RC=$(LINT_MODE=rose run B ok,ok)
 [ "$RC" -eq 4 ] && kept && ok "exit 4, kept" || bad "B rc=$RC" "$(tail -6 "$WORK/out.B")"
-res B "MXTK-RESULT exec verdict=applied-lint applied=yes verified=yes lint_new=na exit=4"
+res B "MXTK-RESULT exec verdict=applied-lint applied=yes verified=yes lint_new=unknown exit=4"
 tail -1 "$WORK/out.B" | grep -q '^gate passed, lint only' && ok "B: last line unchanged" || bad "B: last line" "$(tail -1 "$WORK/out.B")"
 printf '# Project\n\n- **Lint gate:** `hard`\n' > "$P/PROJECT.md"
 RC=$(LINT_MODE=rose run B2 ok,ok)
 [ "$RC" -eq 1 ] && kept && ok "hard gate: exit 1, kept" || bad "B2 rc=$RC" "$(tail -6 "$WORK/out.B2")"
-res B2 "MXTK-RESULT exec verdict=applied-lint applied=yes verified=yes lint_new=na exit=1"
+res B2 "MXTK-RESULT exec verdict=applied-lint applied=yes verified=yes lint_new=unknown exit=1"
 rm -f "$P/PROJECT.md"
 
 echo "== C: bundle-only failure twice: UNVERIFIED, exit 5 =="
@@ -150,6 +156,75 @@ echo "== F: usage error: exit 2, no RESULT line =="
 ( cd "$P" && git checkout -q -- Fixture.mpr mprcontents && rm -rf .mpr-snapshots docs ) >/dev/null 2>&1
 ( cd "$P" && TMPDIR="$WORK/tmp" MXTK_NO_INSTALL=1 MXBUILD_PATH="$WORK/mxbuild" JAVA_HOME="$WORK/jdk" ./bin/exec.sh ) >"$WORK/out.F" 2>&1; RC=$?
 [ "$RC" -eq 2 ] && ! grep -q '^MXTK-RESULT' "$WORK/out.F" && ok "exit 2, no RESULT line" || bad "F rc=$RC" "$(tail -3 "$WORK/out.F")"
+
+# Patch script: appends to the model like the stub exec; PATCH_RC makes it fail half-way.
+cat > "$P/patch.sh" <<'PATCH'
+#!/usr/bin/env bash
+D="$(dirname "$1")"
+echo "written by the script" >> "$1"; echo "x" >> "$D/mprcontents/a.mxunit"
+exit "${PATCH_RC:-0}"
+PATCH
+chmod +x "$P/patch.sh"
+GOODRESTORE="$P/bin/restore-mpr.sh.good"; cp "$P/bin/restore-mpr.sh" "$GOODRESTORE"
+break_restore() { printf '#!/usr/bin/env bash\necho "restore broke" >&2\nexit 1\n' > "$P/bin/restore-mpr.sh"; }
+fix_restore()   { cp "$GOODRESTORE" "$P/bin/restore-mpr.sh"; }
+
+echo "== G: mxcli exec exits non-zero, gate passes: partial =="
+RC=$(MXCLI_EXEC_RC=3 run G ok,ok)
+[ "$RC" -eq 1 ] && kept && ok "exit 1, partial write kept" || bad "G rc=$RC" "$(tail -6 "$WORK/out.G")"
+res G "MXTK-RESULT exec verdict=partial applied=partial verified=yes lint_new=na exit=1"
+
+echo "== H: the gate finds a new error and the restore itself fails: failed =="
+break_restore
+RC=$(run H ok,err)
+[ "$RC" -eq 1 ] && kept && ok "exit 1, model NOT rolled back" || bad "H rc=$RC" "$(tail -6 "$WORK/out.H")"
+res H "MXTK-RESULT exec verdict=failed applied=unknown verified=no lint_new=na exit=1"
+
+echo "== I: mxcli exec exits non-zero AND the gate fails AND the restore fails: failed on both paths =="
+RC=$(MXCLI_EXEC_RC=3 run I ok,err)
+[ "$RC" -eq 1 ] && kept && ok "exit 1, model NOT rolled back" || bad "I rc=$RC" "$(tail -6 "$WORK/out.I")"
+res I "MXTK-RESULT exec verdict=failed applied=unknown verified=no lint_new=na exit=1"
+fix_restore
+
+echo "== I2: the same, restore works: restored =="
+RC=$(MXCLI_EXEC_RC=3 run I2 ok,err)
+[ "$RC" -eq 1 ] && ! kept && ok "exit 1, rolled back" || bad "I2 rc=$RC" "$(tail -6 "$WORK/out.I2")"
+res I2 "MXTK-RESULT exec verdict=restored applied=no verified=no lint_new=na exit=1"
+
+echo "== J: --patch, clean: applied =="
+RC=$(EXEC_ARGS="--patch patch.sh" run J ok,ok)
+[ "$RC" -eq 0 ] && kept && ok "exit 0, kept" || bad "J rc=$RC" "$(tail -6 "$WORK/out.J")"
+res J "MXTK-RESULT exec verdict=applied applied=yes verified=yes lint_new=0 exit=0"
+
+echo "== K: --patch script fails half-way: restored, gate not run =="
+RC=$(PATCH_RC=7 EXEC_ARGS="--patch patch.sh" run K ok,ok)
+[ "$RC" -eq 1 ] && ! kept && ok "exit 1, rolled back" || bad "K rc=$RC" "$(tail -6 "$WORK/out.K")"
+res K "MXTK-RESULT exec verdict=restored applied=no verified=skipped lint_new=na exit=1"
+
+echo "== K2: --patch script fails half-way and the restore fails: failed =="
+break_restore
+RC=$(PATCH_RC=7 EXEC_ARGS="--patch patch.sh" run K2 ok,ok)
+[ "$RC" -eq 1 ] && kept && ok "exit 1, NOT rolled back" || bad "K2 rc=$RC" "$(tail -6 "$WORK/out.K2")"
+res K2 "MXTK-RESULT exec verdict=failed applied=unknown verified=skipped lint_new=na exit=1"
+fix_restore
+
+echo "== L: --patch, gate cannot verify (bundle error twice): rolled back =="
+RC=$(EXEC_ARGS="--patch patch.sh" run L ok,bundle2,bundle2)
+[ "$RC" -eq 1 ] && ! kept && ok "exit 1, rolled back" || bad "L rc=$RC" "$(tail -6 "$WORK/out.L")"
+res L "MXTK-RESULT exec verdict=restored applied=no verified=no lint_new=na exit=1"
+
+echo "== M: lint_new words =="
+RC=$(SKIP_LINT=1 run M ok,ok)
+[ "$RC" -eq 0 ] && kept && ok "exit 0" || bad "M rc=$RC" "$(tail -6 "$WORK/out.M")"
+res M "MXTK-RESULT exec verdict=applied applied=yes verified=yes lint_new=skipped exit=0"
+mv "$P/bin/lint-gate.sh" "$P/bin/lint-gate.sh.off"
+RC=$(run M2 ok,ok)
+[ "$RC" -eq 0 ] && kept && ok "exit 0" || bad "M2 rc=$RC" "$(tail -6 "$WORK/out.M2")"
+res M2 "MXTK-RESULT exec verdict=applied applied=yes verified=yes lint_new=skipped exit=0"
+mv "$P/bin/lint-gate.sh.off" "$P/bin/lint-gate.sh"
+RC=$(LINT_MODE=fault run M3 ok,ok)
+[ "$RC" -eq 0 ] && kept && ok "exit 0" || bad "M3 rc=$RC" "$(tail -6 "$WORK/out.M3")"
+res M3 "MXTK-RESULT exec verdict=applied applied=yes verified=yes lint_new=blind exit=0"
 
 echo ""
 echo "PASS: $PASS  FAIL: $FAIL"

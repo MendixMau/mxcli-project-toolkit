@@ -37,7 +37,7 @@
 #      non-zero with no model problem), or ALLOW_UNVERIFIED=1 skipped it. The write is kept with
 #      no verification stamp; run ./bin/verify-model.sh before the next exec or commit.
 # MXTK-RESULT (one greppable line, so an orchestrator need not learn each script's exit codes):
-#   MXTK-RESULT exec verdict=<word> applied=<yes|no|partial|unknown> verified=<yes|no|skipped> lint_new=<N|na> exit=<code>
+#   MXTK-RESULT exec verdict=<word> applied=<yes|no|partial|unknown> verified=<yes|no|skipped> lint_new=<N|unknown|blind|skipped|na> exit=<code>
 # Printed once on every path that reached a verdict, BEFORE that path's closing human lines, so it
 # is never the last line of output (the last line stays the one documented above). Built by
 # result_line() only. verdict words:
@@ -49,8 +49,16 @@
 #   failed               exit 1   NOT kept as intended but the rollback did not run (applied=unknown): restore by hand
 #   refused              exit 1   a guard stopped it before anything was written (applied=no, verified=skipped)
 # verified: yes = the gate passed; no = it ran or could not run and did not pass; skipped = never reached.
-# lint_new: findings new this script when lint measured them (0 = clean); na = lint did not run,
-# was blind, or could not itemise a rise. Not printed: exit 2 (usage; no verdict) and a missing .mpr.
+# lint_new: <N> = findings new this script when lint measured them (0 = clean). Otherwise one word:
+#   unknown  lint rose vs baseline but the rise could not be itemised (no Python / the diff failed)
+#   blind    lint could not run or measure (a blind rule, reverted rules, lint-gate fault, no baseline)
+#   skipped  lint was skipped (SKIP_LINT) or bin/lint-gate.sh is not installed
+#   na       lint never ran on this path (a refusal, a restored write, a --patch)
+# NO LINE: exit 2 (usage error), a missing .mpr, and any abort under `set -e` before a verdict
+# (for example a failing snapshot step) print no MXTK-RESULT line. Read "no MXTK-RESULT line" as
+# "no verdict reached", never as success. The line goes to STDOUT; some refusal text goes to
+# STDERR, so capture both streams (2>&1) when reading a run.
+# Restore failed (partial or gate path): verdict=failed applied=unknown on BOTH paths.
 # Until 2026-10-20, 4 was 1 and 5 was 0: in one field build 57 of 58 clean builds exited 1 on a
 # lint rise, agents learned to ignore 1, and 10 UNVERIFIED runs exiting 0 read as success.
 # A PARTIAL run, or a --patch script that failed, used to pass the script's own exit code
@@ -1257,10 +1265,11 @@ run_lint_gate() {
   }
   if [ -n "${SKIP_LINT:-}" ]; then
     LINT_DETAIL="lint SKIPPED (SKIP_LINT=$SKIP_LINT)"
+    LINT_NEW=skipped
     echo "  ⚠ lint ratchet skipped: SKIP_LINT=$SKIP_LINT"; return
   fi
   if [ ! -x "$PROJECT_ROOT/bin/lint-gate.sh" ]; then
-    LINT_RC=2; LINT_DETAIL="lint not installed (bin/lint-gate.sh missing — sync-project.sh installs it)"
+    LINT_RC=2; LINT_NEW=skipped; LINT_DETAIL="lint not installed (bin/lint-gate.sh missing — sync-project.sh installs it)"
     echo "  ⚠ $LINT_DETAIL"; return
   fi
   echo "→ Running lint ratchet (bin/lint-gate.sh, read-only)..."
@@ -1298,7 +1307,8 @@ run_lint_gate() {
   # visible only on a failing run, because the capture above is shown only then. Always echo it.
   [ -z "$_L_SEC014" ] || printf '%s' "$_L_SEC014"
   case "$LINT_RC" in
-    0) LINT_NEW=0 ;;   # a rise sets the real count in its own branch below; blind / not run stay na
+    0) LINT_NEW=0 ;;   # a rise sets the real count in its own branch below
+    2|3) LINT_NEW=blind ;;   # could not run / not measured; a blind rise (LINT_RC 1 -> 3) is set below
   esac
   case "$LINT_RC" in
     0) LINT_DETAIL="lint unchanged vs baseline"; echo "  ✓ lint: no rule rose vs baseline" ;;
@@ -1309,7 +1319,7 @@ run_lint_gate() {
        if [ "$_L_BLIND_STOCK" = 1 ]; then
          # `mxcli init` re-seeded the toolkit rules (#264): lint-gate did not lint. Logging this
          # as a rise blamed the next script for CONV010 26 -> 169 on flows it never touched.
-         LINT_RC=3
+         LINT_RC=3; LINT_NEW=blind
          LINT_DETAIL="lint BLIND: rules reverted to stock (${_reverted:-see output}) — run sync-project.sh; delta not attributable"
          echo "  ✗ lint: toolkit rules reverted to stock (${_reverted:-see output}) — not linted, not a rise"
          sed -n '/^!! LINT RULES REVERTED TO STOCK/,/^BLIND/p' "$_lo" | head -16 | sed 's/^/    /'
@@ -1317,7 +1327,7 @@ run_lint_gate() {
          # A rule the project edited moved since the baseline (#524): mxcli's session-start
          # refresh re-seeded stock over it, or someone changed it. Not linted, not a rise.
          _projrev="$_L_PROJREV"
-         LINT_RC=3
+         LINT_RC=3; LINT_NEW=blind
          LINT_DETAIL="lint BLIND: project-edited rule(s) changed since the baseline (${_projrev:-see output}) — git checkout, or re-baseline; delta not attributable"
          echo "  ✗ lint: project-edited lint rule(s) changed since the baseline (${_projrev:-see output}) — not linted, not a rise"
          sed -n '/^!! PROJECT-EDITED LINT RULE/,/^BLIND/p' "$_lo" | head -16 | sed 's/^/    /'
@@ -1325,7 +1335,7 @@ run_lint_gate() {
          # lint-gate exits 1 for PASS-BLIND too. Logging that as "ROSE: see output" made a rule
          # that inspected nothing look like a rise with no rule named — 20 such rows in two
          # field apps whose toolkit CONV020 (now MXTK-UX003) shipped unconfigured (#229). It is an instrument fault.
-         LINT_RC=3
+         LINT_RC=3; LINT_NEW=blind
          LINT_DETAIL="lint BLIND: ${_blind:-a rule} inspected nothing (instrument fault, not a rise)"
          echo "  ✗ lint: nothing rose, but ${_blind:-a rule} could not read the model — a clean count means nothing"
          sed -n '/^!! A RULE COULD NOT READ/,/^$/p' "$_lo" | head -12 | sed 's/^/    /'
@@ -1371,6 +1381,7 @@ PY
          _thisnew=$([ -n "$_thispyexe" ] && "$_thispyexe" -c "$_thispy" "$PROJECT_ROOT/.claude/loop")
          _first="${_thisnew%%$'\n'*}"; _thisn="${_first%% *}"; _rest="${_first#* }"; _thisc="${_rest%% *}"
          if [ -z "$_thisnew" ]; then
+           LINT_NEW=unknown
            _noadv=1   # undiffed rise: keep prev-exec as is, or the next exec reads these as old debt
            # No Python, or the diff failed: never read that as "0 new". Report the rise vs baseline.
            LINT_DETAIL="lint rose: ${_rules:-see output} (per-script diff unavailable)"
@@ -2578,6 +2589,7 @@ if [ "$EXEC_STATUS" -ne 0 ]; then
   fi
   _pv=no; [ "$GATE_STATE" != pass ] || _pv=yes
   if [ "$RESTORED" -eq 1 ]; then result_line restored no "$_pv" "$(fail_rc "$EXEC_STATUS")"
+  elif [ "$RESTORE_TRIED" -eq 1 ]; then result_line failed unknown "$_pv" "$(fail_rc "$EXEC_STATUS")"   # same as the gate-fail path
   else result_line partial partial "$_pv" "$(fail_rc "$EXEC_STATUS")"; fi
   restore_close
   exit "$(fail_rc "$EXEC_STATUS")"

@@ -18,6 +18,7 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 `docs/RELEASE-PROCESS.md` §8.
 
 ## Unreleased
+- docs(wrap-up): **the Wrap-up section of `conversion-runbook.md` and the closing action of `checkpoint-cutover.md` now name the gate-check "N toolkit/mxcli bug(s) logged but not filed" line and `bin/file-bugs.sh`**; the line was already printed but nothing at wrap-up said what to do with it; `--file` stays human-only; runbook +25 words — outside review of v2026.11.12
 
 ## v2026.11.12
 - new(parallel-builds): **`skills/parallel-builds.md`, an optional reference outside the pipeline (experimental tier, no stage map, no agent stub; used only when the user asks): several builders on one app in git worktrees, and how to merge their branches without losing a module (#741)**: a plain `git merge` of the model left one branch's units unregistered and both build gates reported 0 errors; the skill sets up worktrees (ports, database, number blocks, owners), forbids the plain merge, names the merge paths per CLI version, and checks `mxcli fix hashes`, `show modules` and the shared units before the build gate; forbids `diag --check-units --fix` after a suspect merge; a field run, 2026-11, lost a 63-unit module. Verbatim `fix hashes` capture under `tests/wave2/fixtures/worktree-merge/`. Guard script, exec.sh merge mode and lint delta are not built — field reports #741 and #744; LoanDesk worktree merge test

@@ -684,7 +684,7 @@ Migration-specific — greenfield builds have no legacy system to cut over from 
 
 ### Wrap-up
 
-Promote proven patterns into `skills/learned-*.md`. **Every point where the pipeline's silence forced an improvised decision is a runbook defect** — fix it in this file or the relevant stage skill, not by working around it locally on the next project. Log new mxcli bugs in `bug-logs/mxcli-bugs.md`. Archive the project workspace.
+Promote proven patterns into `skills/learned-*.md`. **Every point where the pipeline's silence forced an improvised decision is a runbook defect** — fix it in this file or the relevant stage skill, not by working around it locally on the next project. Log new mxcli bugs in `bug-logs/mxcli-bugs.md`; a gate-check line "N bug(s) logged but not filed" means run the command it names (`bin/file-bugs.sh`). Archive the project workspace.
 
 ---
 

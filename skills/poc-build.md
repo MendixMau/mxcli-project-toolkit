@@ -11,7 +11,7 @@
 
 **Not a speed setting.** `Pipeline mode: high-speed` is the existing way to make a NORMAL build faster; a POC build is a different shape of build.
 
-**Question moments:** after the build-type answer, ONE message: the prototype question, and, if it is answered Nothing, the three design questions in the same message; then exactly one stop, the approval. The build type was asked at kickoff.
+**Question moments:** after the build-type answer, ONE message with the prototype question AND the three design questions (step 1; the three apply only if the prototype answer is Nothing); then exactly one stop, the approval (step 4), which ends the turn. The build type was asked at kickoff.
 
 ## Order (nothing else)
 
@@ -20,7 +20,7 @@ Design artifacts (design system, wireframes, clickable prototype) → one **APPR
 1. **Design questions** (per `skills/interview-protocol.md` §3; ONE message, then stop): "Do you have a prototype or a design?" plus, for the Nothing case, the three questions below, so the answer can be a single reply.
    - **Prototype or design supplied:** reproduce it (`mxcli theme create <name> --from <css>`, `theme apply`; bundled `migrate-design-prototype`). Steps 2 and 3 still run in reduced form: the prototype IS the wireframe set; run the buildability pass on it; the stop (step 4) is on the prototype plus the list of deviations Mendix forces.
    - **Brand guide only:** tokens from the brand → design system → hi-fi wireframes (step 2) → buildability (step 3) → stop (step 4).
-   - **Nothing:** the three short questions (asked in the same message): then continue as the brand-guide path: who uses it and on what device; look and feel: **calm enterprise** (muted, one accent), **bold modern** (strong colour, large type) or **dense data** (compact, small type); the one screen to impress. These replace the branding interview (`skills/design-artifacts.md` Step 0b); then build its Steps 0a and 1.
+   - **Nothing:** the three short questions already asked in that same message (one reply answers them), then continue as the brand-guide path: who uses it and on what device; look and feel: **calm enterprise** (muted, one accent), **bold modern** (strong colour, large type) or **dense data** (compact, small type); the one screen to impress. These replace the branding interview (`skills/design-artifacts.md` Step 0b); then build its Steps 0a and 1.
 2. **Hi-fi wireframes**, one per page, clickable (`bin/assemble-prototype.js`), every state (empty, refusal, success), a 390 variant. Name wireframes after pages or write `design/wireframes/PAGE-MAP.tsv`. Never name a shell class `wf-*` (the assembler hides it).
 3. **Buildability check**, `skills/learned-mdl-cannot-express.md` + `bin/mdl-rules.sh page`: each interactive element BUILDABLE or REDESIGNED/DEVIATION. 0 unchecked.
 4. **The approval stop**: show prototype and deviation list; record the answer in `PROJECT.md`. End your turn here and wait for the answer.
@@ -36,9 +36,9 @@ Design artifacts (design system, wireframes, clickable prototype) → one **APPR
 
 **Precedence.** Only in a project whose `PROJECT.md` says `Build type: poc`, and for the items under Skipped ONLY, this skill wins over the project's `CLAUDE.local.md` "Before any page MDL" rule, the stage gates and the per-page checks, whatever `Pipeline mode:` says. The gate output (Who asks) is expected for `Build type: poc`: tell the user once, and never waive to turn it green. The approval stop on the prototype replaces the numbered change-list approval of the project's `CLAUDE.md`.
 
-**Page pre-flight.** `CLAUDE.local.md` says to read `skills/ui-preflight-pages.md` in full before page MDL: do, for its page-shell and class rules (Steps 1, 2, 4, 5), but skip "Step 0 — enumerate what already reaches this capability" and "Step 3 — Find the closest StyleGallery example" (no gallery exists in a POC build), and still run `bin/check-page-shell.sh` (Step 5). This skill wins on those two steps because their inputs do not exist here. Warning: `check-page-shell.sh` reads a phone bottom bar `<nav class="tabs">` as a top bar; name that class otherwise.
+**Page pre-flight.** `CLAUDE.local.md` says to read `skills/ui-preflight-pages.md` in full before page MDL: do, for its page-shell and class rules (Steps 1, 2, 4, 5), but skip "Step 0 — enumerate what already reaches this capability" and "Step 3 — Find the closest StyleGallery example" (no gallery exists in a POC build), and still run `bin/check-page-shell.sh` (Step 5). Warning: `check-page-shell.sh` reads a phone bottom bar `<nav class="tabs">` as a top bar; name that class otherwise.
 
-STILL BINDING in a POC build: access rules and grants in the same script that creates the entity or microflow (`skills/security-is-not-a-later-script.md`), every model write through `bin/exec.sh` (`--commit-first`), exec approval mode, the Production security level, ask-then-stop for every question, explicit-path commits (never `git add -A`, scoped or not), and saying in chat before a destructive or security-level change.
+STILL BINDING in a POC build: access rules and grants in the same script that creates the entity or microflow (`skills/security-is-not-a-later-script.md`), every model write through `bin/exec.sh` (`--commit-first`), exec approval mode, the Production security level, ask-then-stop for every question, explicit-path commits (never `git add -A` or `git add .`; commit with `git commit -- <paths>`), and saying in chat before a destructive or security-level change.
 
 ## Must-have checklist (all 12 rows ticked or listed as NOT DONE with a reason)
 

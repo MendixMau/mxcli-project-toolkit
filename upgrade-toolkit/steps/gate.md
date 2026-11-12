@@ -202,7 +202,7 @@ endpoints listed by name (E2E-15); both together: `PASS (on stand-in APIs: Opcen
    --smoke $G/smoke-after.json --journeys $W/e2e-gen` lists every widgets/*.mpk that a page uses and that no smoke step and
    no journey renders (a snippet or layout of a rendered page renders with it). Exit 0 = every used package is rendered or
    waived (`--waive FILE`, "package or widget id # reason"), exit 3 = at least one UNRENDERED: the driver reports INVALID, never
-   PASS. Why: Material Cockpit's 3D viewer widget (2024 build, its own React 18) crashed on the 11.12.6 client with React
+   PASS. Why: Asset Console's 3D viewer widget (2024 build, its own React 18) crashed on the 11.12.6 client with React
    error #525 and "Could not render widget"; the gate exited 0 because the frozen data had no configuration for the panel,
    so no walked page held the widget. Close it by a journey or hand-written walk that opens one page with the widget
    (`--rendered FILE` names the pages a hand-written walk covers) or by a waiver with the reason. Gate key: `WIDGETS_APP=app/`.

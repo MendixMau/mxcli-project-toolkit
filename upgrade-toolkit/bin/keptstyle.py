@@ -4,7 +4,7 @@
 Why: a module that stays at its version (kept, stranded, held) keeps its own themesource styling. When the update plan
 moves a platform widget (Data Grid 2, Gallery, Combo box and so on) to a new major, the widget's markup and class names
 change, and a kept module's rule for the old class names either stops matching or restyles the new markup wrongly. The
-model check, build and smoke walk see none of it; only a screenshot does. Material Cockpit kept a module whose theme
+model check, build and smoke walk see none of it; only a screenshot does. Asset Console kept a module whose theme
 styled the data grid, and the grid looked wrong only on the client.
 
   keptstyle.py <app dir> --kept A,B   (or --kept-file .stepupdate/kept.txt)   [--json out.json]

@@ -1,6 +1,6 @@
 // layoutwalk.js: open a fixed list of pages per role, save a screenshot and its layout (geometry.js) per page and width.
 // Why: the screens rung reads only the smoke shots and the journey shots are too noisy to compare, so a page that shows
-// the right data in a broken layout (ShopFloor 10.24.13 -> 11.12.6: the Task List gallery at half width) passed
+// the right data in a broken layout (LineApp 10.24.13 -> 11.12.6: the Task List gallery at half width) passed
 // the gate. Run this on the old and the new app with the same plan, then layoutdiff.py OLD NEW (gate.sh: rung layout).
 //
 // Usage:

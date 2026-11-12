@@ -6,7 +6,7 @@ with the ways out, tries the cheapest safe mechanical one itself, gates again, a
 
 Why: the same blockers come back across apps, and so do the ways out. Notification service 9.24 to 10.24: Data Widgets
 3.11.7 lost the drop-down filter captions and doubled the paging text; the team reverted Data Widgets by hand. 10.24 to
-11.12: a private DropdownContainer widget calls findDOMNode and has no newer version. Material Cockpit 10.12 to 11.12:
+11.12: a private DropdownContainer widget calls findDOMNode and has no newer version. Asset Console 10.12 to 11.12:
 3D Viewer 4.0.0 crashes with React error #525; the fix is a licensed download. Kept modules (local edits, an
 Administration update that drops Account rows) were listed and nothing said what to do next.
 

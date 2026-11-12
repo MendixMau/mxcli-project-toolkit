@@ -4020,7 +4020,7 @@ if python3 -c 'import bson' 2>/dev/null; then
   # create-spec.json's newButton1 is a Mendix 9 grid New button: no Action key, entity and page on the widget itself.
   # Only an add-on microflow opens its page, so the path is unknown, never reported as absent.
   ctl action-inventory-newbutton-pass 0 \
-    '^OpcenterEXFN_DISW_DesignSystem\.Snippet_Configuration\.newButton1 \[GridNewButton\] create -> create OpcenterEXFN_DISW_DesignSystem\.ClientConfiguration_NewEdit .*the click path is unknown, not absent' \
+    '^OpcenterEXFN_VendorDesignSystem\.Snippet_Configuration\.newButton1 \[GridNewButton\] create -> create OpcenterEXFN_VendorDesignSystem\.ClientConfiguration_NewEdit .*the click path is unknown, not absent' \
     'ClientConfiguration_NewEdit\.actionButton1 .*UNKNOWN part of the flow is not in the model: EXFN_Authentication\.ACT_ClientConfiguration_NewEdit \(kind is a lower bound\)' \
     '"summary_line": "actions 9 found' -- sh -c "python3 $B/action_inventory.py $T/m/t2cards/App.mpr --out $AI/a.json && cat $AI/a.json"
   # B4T2-14: a no-click-path plan row is UNREACHABLE (PASS*, its own count) only with checked evidence. On this real
@@ -4030,18 +4030,18 @@ if python3 -c 'import bson' 2>/dev/null; then
   python3 $B/action_inventory.py $T/m/t2cards/App.mpr --out $UR/a.json > /dev/null
   python3 -c "import json; d=json.load(open('$UR/a.json')); [x.update(todo=['no-click-path (a non-click caller reaches it: entry_reach)']) for x in d['actions']]; json.dump(d, open('$UR/a-caller.json', 'w'))
 d=json.load(open('$UR/a.json')); d['model']='$UR/gone.mpr'; json.dump(d, open('$UR/a-nomodel.json', 'w'))"
-  echo '{"skipped": [{"id": "act-OpcenterEXFN_DISW_DesignSystem.Snippet_Configuration.newButton1", "action": "OpcenterEXFN_DISW_DesignSystem.Snippet_Configuration.newButton1", "why": "action todo: no-click-path"}, {"id": "act-OpcenterEXFN_DISW_DesignSystem.ClientConfiguration_NewEdit.actionButton1", "action": "OpcenterEXFN_DISW_DesignSystem.ClientConfiguration_NewEdit.actionButton1", "why": "action todo: no-click-path"}]}' > $UR/gen/plan.json
+  echo '{"skipped": [{"id": "act-OpcenterEXFN_VendorDesignSystem.Snippet_Configuration.newButton1", "action": "OpcenterEXFN_VendorDesignSystem.Snippet_Configuration.newButton1", "why": "action todo: no-click-path"}, {"id": "act-OpcenterEXFN_VendorDesignSystem.ClientConfiguration_NewEdit.actionButton1", "action": "OpcenterEXFN_VendorDesignSystem.ClientConfiguration_NewEdit.actionButton1", "why": "action todo: no-click-path"}]}' > $UR/gen/plan.json
   echo '{"journeys": {}, "roles": {}}' > $UR/w/after/summary.json
-  printf 'EXFN_Authentication.Nav_ClientConfiguration_Overview -> OpcenterEXFN_DISW_DesignSystem.ClientConfiguration_Overview\n' > $UR/addon-opens/flows.txt
+  printf 'EXFN_Authentication.Nav_ClientConfiguration_Overview -> OpcenterEXFN_VendorDesignSystem.ClientConfiguration_Overview\n' > $UR/addon-opens/flows.txt
   printf 'EXFN_Authentication.Login -> EXFN_Authentication.Home\n' > $UR/addon-silent/flows.txt
-  ure() { printf 'act-OpcenterEXFN_DISW_DesignSystem.* UNREACHABLE %s # control\n' "$2" > $UR/$1.txt; }
+  ure() { printf 'act-OpcenterEXFN_VendorDesignSystem.* UNREACHABLE %s # control\n' "$2" > $UR/$1.txt; }
   ure ev-ok "$UR/a.json EXFN_Authentication=addon-silent"; ure ev-opens "$UR/a.json EXFN_Authentication=addon-opens"
   ure ev-noaddon "$UR/a.json"; ure ev-caller "$UR/a-caller.json EXFN_Authentication=addon-silent"; ure ev-nomodel "$UR/a-nomodel.json EXFN_Authentication=addon-silent"
   RJU="python3 $B/run_journeys.py $UR/gen --label after --work $UR/w --rejudge"
-  ctl journeys-unreachable-pass 0 '^  UNREACHABLE act-OpcenterEXFN_DISW_DesignSystem\.Snippet_Configuration\.newButton1 +UNREACHABLE: actions\.json: no entry point reaches .*named in EXFN_Authentication \(1 files\)' \
+  ctl journeys-unreachable-pass 0 '^  UNREACHABLE act-OpcenterEXFN_VendorDesignSystem\.Snippet_Configuration\.newButton1 +UNREACHABLE: actions\.json: no entry point reaches .*named in EXFN_Authentication \(1 files\)' \
     '^journeys: 0 PASS, 0 FAIL, 0 INVALID, 2 PASS\* \(unreachable in the OLD UI, evidence checked\)$' '^actions 9 found .*coverage 0/9 \(0%\) · 2 todo unreachable in the OLD UI \(evidenced, PASS\*\)$' \
     -- $RJU --actions $UR/a.json --baseline-evidence $UR/ev-ok.txt
-  ctl journeys-unreachable-addon-opens-catch 3 'ClientConfiguration_NewEdit\.actionButton1 .*UNREACHABLE refused, .*EXFN_Authentication names OpcenterEXFN_DISW_DesignSystem\.ClientConfiguration_Overview \(flows\.txt\), which leads to OpcenterEXFN_DISW_DesignSystem\.ClientConfiguration_NewEdit' \
+  ctl journeys-unreachable-addon-opens-catch 3 'ClientConfiguration_NewEdit\.actionButton1 .*UNREACHABLE refused, .*EXFN_Authentication names OpcenterEXFN_VendorDesignSystem\.ClientConfiguration_Overview \(flows\.txt\), which leads to OpcenterEXFN_VendorDesignSystem\.ClientConfiguration_NewEdit' \
     '^journeys: 0 PASS, 0 FAIL, 2 INVALID$' -- $RJU --actions $UR/a.json --baseline-evidence $UR/ev-opens.txt
   ctl journeys-unreachable-no-addon-catch 3 'UNREACHABLE refused, .*give EXFN_Authentication=<its project.mpr' '!PASS\* \(unreachable' -- $RJU --actions $UR/a.json --baseline-evidence $UR/ev-noaddon.txt
   ctl journeys-unreachable-no-actions-catch 3 'UNREACHABLE refused, .*--actions .*none given' '!PASS\* \(unreachable' -- $RJU --baseline-evidence $UR/ev-ok.txt
@@ -4268,7 +4268,7 @@ if python3 -c 'import bson' 2>/dev/null; then
   ctl gen-actions-walk-pass 0 '"persona": "Administrator"' '"do": "nav"' '"item": "Home"' '"ready": "\.mx-name-container1"' '"do": "click"' '"widget": "container1"' '"_guard": "StarterKit\.Contents: no landing widget' \
     -- cat $T/gen-act/journeys/Administrator/act-StarterKit.Home_Gallery.container1.journey.json
   ctl gen-actions-role-pass 0 'act-StarterKit\.Home_Gallery\.container5\.journey\.json' -- ls $T/gen-act/journeys/User
-  ctl gen-actions-todo-skipped-catch 0 "skipped act-OpcenterEXFN_DISW_DesignSystem\.Snippet_Configuration\.newButton1 \['no-click-path'\] action todo: no-click-path" '^skipped 4$' \
+  ctl gen-actions-todo-skipped-catch 0 "skipped act-OpcenterEXFN_VendorDesignSystem\.Snippet_Configuration\.newButton1 \['no-click-path'\] action todo: no-click-path" '^skipped 4$' \
     -- python3 -c "import json; s=json.load(open('$T/gen-act/plan.json'))['skipped']; [print('skipped', e['id'], e['reasons'], e['why']) for e in s]; print('skipped', len(s))"
   # catch: a todo added to one action turns its journey into a skipped entry; the count still follows the model
   python3 -c "import json; d=json.load(open('$AI/a.json')); [a.update(todo=['combobox: mutant']) for a in d['actions'] if a['id'].endswith('.container1')]; json.dump(d, open('$AI/a-todo.json', 'w'))"
@@ -4280,13 +4280,13 @@ if python3 -c 'import bson' 2>/dev/null; then
   # the T2R3 create-spec (copied from the run branch) walks newButton1 + the form's actionButton1: it wins per action
   ctl gen-actions-override-pass 0 '^actions 9 found · 5 generated · 2 by --create override · 2 not generated by reason no-click-path 2$' \
     -- $GAJ --out-dir $T/gen-act-ov --create $FX/actions/t2r3-create-spec.json
-  ctl gen-actions-override-closes-pass 0 "closes \['act-OpcenterEXFN_DISW_DesignSystem\.Snippet_Configuration\.newButton1', 'act-OpcenterEXFN_DISW_DesignSystem\.ClientConfiguration_NewEdit\.actionButton1'\]" 'covered .*newButton1 create-save' \
+  ctl gen-actions-override-closes-pass 0 "closes \['act-OpcenterEXFN_VendorDesignSystem\.Snippet_Configuration\.newButton1', 'act-OpcenterEXFN_VendorDesignSystem\.ClientConfiguration_NewEdit\.actionButton1'\]" 'covered .*newButton1 create-save' \
     -- python3 -c "import json; print('closes', json.load(open('$T/gen-act-ov/journeys/Administrator/create-save.journey.json'))['closes']); [print('covered', c['id'], c['closed_by']) for c in json.load(open('$T/gen-act-ov/plan.json'))['covered']]"
   # E2E-11 link: run_journeys counts coverage by each journey's "action" / "covers" (raw action ids). Before the r7
   # integration the generator wrote only "_action" / "closes" (act- ids), so every action stayed ungenerated (G=0).
   JSL="import sys,json; sys.path.insert(0,'$B'); import run_journeys as r; l=r.journey_set(sys.argv[1])['links']; [print(k, v) for k, v in sorted(l.items())]; print('linked', sum(1 for v in l.values() if v))"
   ctl gen-actions-coverage-link-pass 0 "^act-StarterKit\.Home_Gallery\.container1 \['StarterKit\.Home_Gallery\.container1'\]" \
-    "^create-save \['OpcenterEXFN_DISW_DesignSystem\.ClientConfiguration_NewEdit\.actionButton1', 'OpcenterEXFN_DISW_DesignSystem\.Snippet_Configuration\.newButton1'\]" '^linked 6$' \
+    "^create-save \['OpcenterEXFN_VendorDesignSystem\.ClientConfiguration_NewEdit\.actionButton1', 'OpcenterEXFN_VendorDesignSystem\.Snippet_Configuration\.newButton1'\]" '^linked 6$' \
     -- python3 -c "$JSL" $T/gen-act-ov
   # catch: a generated journey without the link is counted as linking nothing
   rm -rf $T/gen-act-nolink && cp -r $T/gen-act-ov $T/gen-act-nolink && python3 -c "import json,sys; p=sys.argv[1]; d=json.load(open(p)); d.pop('action'); json.dump(d, open(p,'w'))" $T/gen-act-nolink/journeys/Administrator/act-StarterKit.Home_Gallery.container1.journey.json
@@ -6770,7 +6770,7 @@ ctl cockpit-confirm-group-gone-when-all-covered-pass 0 '^confirm items: \[\]$' -
 ctl steps-legacy-trail-complete-pass 0 '^trail: complete, 12 steps; 7 assumed' -- $SC legacy-trail
 
 # --- LAY: layout rung (bin/layoutdiff.py, layoutwalk.js, geometry.js, gate rung layout, theme_clash dojo-table) -----------
-# fixtures/layout/{old,prefix,wrapper}: .geo.json files (trimmed) from the ShopFloor 10.24.13 -> 11.12.6 React run. prefix =
+# fixtures/layout/{old,prefix,wrapper}: .geo.json files (trimmed) from the LineApp 10.24.13 -> 11.12.6 React run. prefix =
 # the new app before the fix: Task List gallery at half width (dataView2/table1 1149 -> 581 px at 1280), images grown
 # (staticImage2 40 -> 358 px). wrapper = old with one wrapper name (reactWrap) on every key and the table halved: the
 # client named a wrapper the old one did not, the blind-pairing trap (no key paired, the page PASSed).

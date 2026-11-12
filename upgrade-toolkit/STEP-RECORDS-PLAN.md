@@ -1,7 +1,7 @@
 # Step records: every action proposed, approved, done and tested, written while it happens
 
-Status: plan, nothing built. Branch `feat/cockpit-trail`. Fixture: the ShopFloor run2 trail
-(`~/upgrade-lab/shopfloor/run2/work/cockpit-trail.json`, made by hand with `build_trail.py` and `human.py`).
+Status: plan, nothing built. Branch `feat/cockpit-trail`. Fixture: the LineApp run2 trail
+(`~/upgrade-lab/lineapp/run2/work/cockpit-trail.json`, made by hand with `build_trail.py` and `human.py`).
 
 ## 1. Goal
 

@@ -1,5 +1,5 @@
 // geometry.js: the layout of a rendered Mendix page as data, so the old and new app can be compared by widget instead of by pixel.
-// Why: ShopFloor 10.24.13 -> 11.12.6 React. The Task List gallery rendered at half the page width (a Dojo table rule
+// Why: LineApp 10.24.13 -> 11.12.6 React. The Task List gallery rendered at half the page width (a Dojo table rule
 // left in the theme) and converted Image widgets grew to the width of their container (auto became 100%). Every journey
 // PASSed (same data, same clicks) and the screenshot compare was too noisy to be read. Widget widths do not depend on data.
 //

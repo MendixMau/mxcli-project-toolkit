@@ -16,7 +16,7 @@ A second kind, "dojo-table" (LAY-2, target on the React client; --client dojo sw
 makes a layout container a CSS table ("display: table", "table-cell", "table-layout" on .mx-scrollcontainer-*,
 .mx-templategrid-*, .mx-dataview-*, .mx-listview-*, .mx-tabcontainer-*, .mx-layoutcontainer-*), found in the app's own
 styling OR in a vendor module's themesource (core_delta and a company design system carry copies of the old mxui theme).
-Harmless on Dojo; on the React client the regions are flex items and a fixed table splits them evenly (ShopFloor:
+Harmless on Dojo; on the React client the regions are flex items and a fixed table splits them evenly (LineApp:
 the Task List gallery at half the page width, every journey and smoke shot still PASSed). Output line:
 "CLASH dojo-table .mx-scrollcontainer-horizontal: display: table; table-layout: fixed in <file>:<line> (vendor module X)".
 A third kind, "react-wrapper" (LAY-9): a padding 0 rule scoped under .mx-scrollcontainer-* that targets .mx-layoutgrid*

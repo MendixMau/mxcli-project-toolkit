@@ -11,7 +11,7 @@ counts are widget objects. Apps are named by Marketplace content id.
 | app (content id) | app version | min Mendix | snippet widgets | snippetjs | Template Grid | note |
 |---|---|---|---|---|---|---|
 | Snowflake Showcase App (225845) | 4.2.0 | 10.24.13 | **28 in 28 pages, verified** | 0 | 6 in 2 documents | all 28 have content type JavaScript, one identical 181-character script (scroll a page container to the top inside `mx.addOnLoad`), 0 jQuery; Atlas Core 3.20.0, Data Widgets 3.10.0. Best candidate: one hop 10.24 to 11.12.5 |
-| Team Leave Tracker (229185) | 1.1.1 | 9.24.23 | 3 in 2 documents, verified | 1 | 6 in 2 documents | also ships the Dropdown Container and a second JavaScript Snippet package; needs the 9 to 10 hop first |
+| Time Off Tracker (229185) | 1.1.1 | 9.24.23 | 3 in 2 documents, verified | 1 | 6 in 2 documents | also ships the Dropdown Container and a second JavaScript Snippet package; needs the 9 to 10 hop first |
 | CM Demo app, send and receive SMS (104208) | 2.0.0 | 8.17.0 | 44 byte matches, not verified | 0 | not looked at | Mendix 8: out of range for the shared tools |
 | Storage Management (226140) | 1.0.0 | 9.24.4 | 8 byte matches, not verified | 2 byte matches | not looked at | |
 | Maintenance and Field Service Management (204718) | 1.1.1 | 9.24.2 | 4 byte matches, not verified | 2 byte matches | not looked at | the toolkit's batch-1 worker T8 ran this app |
@@ -19,8 +19,8 @@ counts are widget objects. Apps are named by Marketplace content id.
 | OPC UA Client example (117392), OrgChart Example (121071), Product Pricing And Promotion Manager (208640), DocDigitizer PowerCapture Connector (222363), Datagrid2 Sticky header (230152) | | 9.6.10 to 10.6.2 | 4 byte matches each, not verified | 0 | | |
 
 DropdownDivConverter is in the package list (not verified as used on a page) of Workplace Manager (118349, 9.24.11), AtlasUI Styleguide
-Boilerplate (113342) and HisenseStarter (257332, 10.18.11). The Dropdown Container (`mendix.DropdownContainer`) is in Checklist to go
-(220329), Team Leave Tracker (229185), AI Bot Starter App (227926), Agent Registry (202088) and A2A Agent Connector (202543).
+Boilerplate (113342) and DemoStarterApp (257332, 10.18.11). The Dropdown Container (`mendix.DropdownContainer`) is in Checklist to go
+(220329), Time Off Tracker (229185), AI Bot Starter App (227926), Agent Registry (202088) and A2A Agent Connector (202543).
 jQuery: none of the 28 snippets of the best candidate uses it; no other candidate was read at content level, so a real jQuery-heavy
 snippet is not in this list. The jQuery fixtures are synthetic (`controls/fixtures/jquery/README`).
 
@@ -38,9 +38,9 @@ MendixSSO module (RA-16, not this entry).
 
 ## Widget swaps for the "reconfigure" proof (looked at, not proven)
 
-Template Grid: in the apps read (Snowflake Showcase, Team Leave Tracker, Test Buddy) it occurs only inside the Atlas page templates
+Template Grid: in the apps read (Snowflake Showcase, Time Off Tracker, Test Buddy) it occurs only inside the Atlas page templates
 (`Atlas_Web_Content.SelectWithTemplateGrid_Select` and its tablet twin), never on an app page, so no swap target there. Old Charts (Mendix
-charts 1.x to 3.x, widget ids `com.mendix.widget.custom.*`): Team Leave Tracker (9.24.23) holds 11 on `UIResources.Charts`. Dropdown
-Container: Team Leave Tracker, `UIResources.Widgets_Overview` (5). DropdownDivConverter is in the package list of Workplace
-Manager (118349) and HisenseStarter (257332), use on a page not verified. None of these was converted or swapped: the screen comparison needs a
+charts 1.x to 3.x, widget ids `com.mendix.widget.custom.*`): Time Off Tracker (9.24.23) holds 11 on `UIResources.Charts`. Dropdown
+Container: Time Off Tracker, `UIResources.Widgets_Overview` (5). DropdownDivConverter is in the package list of Workplace
+Manager (118349) and DemoStarterApp (257332), use on a page not verified. None of these was converted or swapped: the screen comparison needs a
 built and running old and new app, and the container had 2 GB free.

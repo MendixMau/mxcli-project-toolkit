@@ -126,7 +126,7 @@ reason says the instrument did not measure (timed out, instrument not measuring)
 **What the gate did not see.** `grade-notes.tsv` next to the summary (`rung, bucket, owner, text`, tab separated) records a
 finding made by hand, for example a crash in a vendor widget after a clean gate. A note can lower a rung (PASS to waiting,
 not testable or open) or move an INVALID between waiting and not testable. It can never raise a rung and never turn a FAIL
-into anything else. The Material Cockpit run is the example: the gate read PASS (100%), the 3D Viewer crash on 11.12.6 needs
+into anything else. The Asset Console run is the example: the gate read PASS (100%), the 3D Viewer crash on 11.12.6 needs
 a licensed 7.1.2, so the run reads 89% with that item open (`runs/notes/MC.tsv`).
 
 **Open and pending work.** Below the grade line `grade.py` lists each rung that is not done with an owner: `person`,

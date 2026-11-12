@@ -69,7 +69,7 @@ need the feature rebuilt from platform widgets, or kept alive on the old platfor
 - recommendation: a version that R36 clears; else stay on 10.24 until one exists.
 - effort: S
 - recipe: 1) run R36 against the candidate mpk FIRST (`--accept FILE` for a patched one). 2) `mx update-widgets`, mx check, build. 3) Probe the page that holds the viewer in a browser (the crash is at render). 4) If none clears: hide the panel with a visibility condition and record the feature loss.
-- evidence: MC (Material Cockpit 11.12.6): V3D-1 to V3D-5; patch proven on mock data.
+- evidence: MC (Asset Console 11.12.6): V3D-1 to V3D-5; patch proven on mock data.
 - status: tried once
 - cards: react-bundled-viewer3d
 

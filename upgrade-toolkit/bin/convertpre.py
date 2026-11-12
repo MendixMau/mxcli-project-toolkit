@@ -6,7 +6,7 @@ Run it right before the convert (steps/upgrade.md, convert), with the app folder
   convertpre.py <app dir>
 
 REFUSE (exit 1): the git tree is not clean. Uncommitted build output (regenerated proxies, JS action stubs, classpath
-files) mixes into the convert commit and convertnoise cannot separate it afterwards (MC-3: Material Cockpit, fixed by
+files) mixes into the convert commit and convertnoise cannot separate it afterwards (MC-3: Asset Console, fixed by
 hand with a build: commit, the convert alone, then convertnoise PASS). Every dirty path is listed, grouped by folder; commit
 build output as `build: <what>` (and keep the model out of that commit), then rerun.
 WARN (exit 0): a commit between the last unedited module state (the newest `step: <Module> <version>` commit, else the

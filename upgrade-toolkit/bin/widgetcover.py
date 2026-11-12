@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """widgetcover.py: which widget packages does the gate never render? (MC-19)
 
-Why: the Material Cockpit 3D viewer widget (3DViewer.mpk 4.0.0, built for an older React) crashed on the 11.12.6 client with
+Why: the Asset Console 3D viewer widget (3DViewer.mpk 4.0.0, built for an older React) crashed on the 11.12.6 client with
 "Could not render widget". Build, check, smoke and journeys all passed (gate exit 0) because no page they open holds the
 widget: the frozen data had no configuration for the panel. A widget that no smoke step and no journey renders is not
 checked by the gate, whatever its version.

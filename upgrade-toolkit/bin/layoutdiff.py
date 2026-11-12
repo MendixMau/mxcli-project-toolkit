@@ -2,7 +2,7 @@
 """layoutdiff.py: compare the layout of the old and the new app per page, widget by widget (the .geo.json files that
 geometry.js writes next to each screenshot), so a page that shows the same data in a broken layout cannot PASS.
 
-Why: ShopFloor 10.24.13 -> 11.12.6 React. Every journey PASSed and the gate said 0 regressions, while the Task List
+Why: LineApp 10.24.13 -> 11.12.6 React. Every journey PASSed and the gate said 0 regressions, while the Task List
 gallery rendered at half the page width and converted Image widgets grew to the width of their container. shotdiff.py
 had the old and new journey shots, but 139 of 278 pairs were REVIEW (dates, data, dialogs) and the rung only read the
 smoke shots. Widget widths do not depend on the data, so they can be compared strictly.

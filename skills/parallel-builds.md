@@ -1,6 +1,8 @@
 # Parallel builds in git worktrees
 
-**Applies to:** any mxcli project where two or more builders (more than one agent building on the same repo) change the SAME app on separate branches at the same time. On-demand.
+**Optional, advanced reference, used only when the user asks for it. The default stays one writer per `.mpr` (`dispatching.md`); the pipeline does not call this skill.**
+
+**Applies to:** any mxcli project where two or more builders (more than one agent building on the same repo) change the SAME app on separate branches at the same time. Opt-in.
 **Purpose:** run N builders in N worktrees and bring their branches together without losing model units. Default stays one writer per `.mpr` (`dispatching.md`); here every worktree has its own `.mpr`, so still one writer each.
 
 **Status: EXPERIMENTAL. Two evidence tiers, marked on each rule.**

@@ -2369,6 +2369,12 @@ ctl journeys-coverage-closed-row-defect-pass 0 'FAIL +plan-row .*\[BASELINE DEFE
 ctl journeys-coverage-closed-row-no-evidence-catch 1 'FAIL +plan-row ' '!plan-row .*BASELINE DEFECT' 'coverage INVALID: 1 baseline defects without evidence' -- $RJC --work $CV/d3c "${CVD[@]}"
 ctl journeys-coverage-defect-old-app-line-catch 3 'OLD-APP .*old-app.log:9: the file has 3 lines' 'coverage INVALID: 1 baseline defects' -- $RJC --work $CV/d3n "${CVD[@]}" --baseline-evidence $CV/ev-old9.txt
 ctl journeys-coverage-defect-old-app-file-catch 3 'OLD-APP .*gone.log: no such file' -- $RJC --work $CV/d3n "${CVD[@]}" --baseline-evidence $CV/ev-oldgone.txt
+# Field run: a rerun reorders the old-app output, so a cited line can drift onto another journey's row. One line naming
+# this journey elsewhere in the file is accepted (with the new line); none, or a cited line naming another journey, is not
+printf '  FAIL    j4-Administrator x\n  FAIL    j3-Administrator y\n' > $CV/jout.txt; printf '  FAIL    j4-Administrator x\n' > $CV/jout4.txt
+echo 'j3-Administrator OLD-APP jout.txt:1 # control: the line moved' > $CV/ev-drift.txt; echo 'j3-Administrator OLD-APP jout4.txt:1 # control' > $CV/ev-drift4.txt
+ctl journeys-coverage-defect-old-app-drift-pass 0 'OLD-APP: jout.txt:2 \(cited :1, which moved\)' '!coverage INVALID' -- $RJC --work $CV/d3n "${CVD[@]}" --baseline-evidence $CV/ev-drift.txt
+ctl journeys-coverage-defect-old-app-drift-catch 3 'OLD-APP .*jout4.txt:1: line 1 names another journey and j3-Administrator is not in the file' -- $RJC --work $CV/d3n "${CVD[@]}" --baseline-evidence $CV/ev-drift4.txt
 cvs $CV/r1/before $CV/gen ''; cvs $CV/r2/before $CV/gen 'j3=FAIL'
 echo 'j3-Administrator FLAKY r1 r2 # control: one of two reruns passed' > $CV/ev-flaky.txt; echo 'j3-Administrator FLAKY r2 r2 # control' > $CV/ev-flaky2.txt
 ctl journeys-coverage-defect-flaky-pass 0 '\[BASELINE DEFECT FLAKY \(FLAKY: reruns PASS / FAIL\)\]' '!coverage INVALID' -- $RJC --work $CV/d3n "${CVD[@]}" --baseline-evidence $CV/ev-flaky.txt
@@ -3581,6 +3587,12 @@ ctl gate-journey-coverage-passstar-pass 0 '\| 9 \| journeys \| PASS\* \| 0 \| jo
 JOUTI=$'journeys: 5 PASS, 0 FAIL, 0 INVALID\nactions 6 found · 4 generated (2 todo: combobox 1, no journey 1) · 4 pass on baseline (0 defect) · 4 pass on new · 0 regression · coverage 4/6 (66%)\n  coverage INVALID: journey set changed since the baseline (sha256 aaaaaaaaaaaa then, bbbbbbbbbbbb now): run before-picked again on this set\nverdict: INVALID only (exit 3): no REGRESSION, no open REVIEW; 0 journeys INVALID, 0 SCREEN INVALID, 0 failing on the baseline, 0 EFFECT INVALID, 1 coverage rules broken'
 ctl gate-journey-coverage-rc3-catch 2 '\| 9 \| journeys \| INVALID \| 3 \| INVALID only \(exit 3\).*1 coverage rules broken; coverage INVALID: journey set changed since the baseline .*; actions 6 found · ' \
   '!\| journeys \| (FAIL|PASS)' -- gcase jcovi GATE_STUB_RC_run_journeys=3 GATE_STUB_OUT_run_journeys="$JOUTI"
+# Field run: the summary line counts FAIL, but when every per-journey FAIL line is a tagged BASELINE DEFECT the rung needs
+# a decision, not a fix; one untagged FAIL line keeps it a regression
+JOUTB=$'journeys: 4 PASS, 1 FAIL, 0 INVALID\n  FAIL    j3-User  x [BASELINE DEFECT (before FAIL): no evidence]'
+JOUTU=$'journeys: 3 PASS, 2 FAIL, 0 INVALID\n  FAIL    j3-User  x [BASELINE DEFECT (before FAIL): no evidence]\n  FAIL    j4-User  y'
+ctl gate-journey-baseline-only-decision-pass 1 'journeys: needs a decision' '!journeys: REGRESSION to fix' -- gcase jbd GATE_STUB_RC_run_journeys=1 GATE_STUB_OUT_run_journeys="$JOUTB"
+ctl gate-journey-untagged-fail-regression-catch 1 'journeys: REGRESSION to fix' -- gcase jbu GATE_STUB_RC_run_journeys=1 GATE_STUB_OUT_run_journeys="$JOUTU"
 # the config file: relative paths resolve against the config's own folder, so a worker's cwd cannot break them
 printf 'WORK=w\nLABEL=cf\nBEFORE_JSON=before.json\nAFTER_JSON=after.json\n' > "$GI/gate.conf"
 ctl gate-config-relative-pass 0 "\[data\] .*diff\.py $GI/before\.json $GI/after\.json" -- sh -c "cd / && UPG_GATE_BIN=$GB UPG_PYTHON=python3 bash $B/gate.sh --config $GI/gate.conf --dry-run"

@@ -716,7 +716,8 @@ def read_actions(path):
     return {x["id"]: x for x in acts}
 
 
-EVIDENCE = ("FIXTURE", "OLD-APP", "FLAKY")   # why a walked journey fails on the baseline (E2E-11)
+EVIDENCE = ("FIXTURE", "OLD-APP", "FLAKY")
+JOURNEY_ID = re.compile(r"(^|\s)[a-z][a-z0-9]*-[A-Z][\w.-]*(\s|$)")  # j3-Administrator, act-Module.Page.widget   # act-Module.Page.button, j3-Administrator   # why a walked journey fails on the baseline (E2E-11)
 CLASSES = EVIDENCE + ("UNREACHABLE", "NO-SIGNOUT", "NO-CREATE")   # B4T2-14: why a no-click-path action is never walked (check_unreachable); BT-4: an app with no sign-out UI (check_no_signout); BT-12: no free-standing create (check_no_create)
 
 
@@ -781,6 +782,15 @@ def check_evidence(j, cls, refs):
             lines = Path(f).read_text(errors="replace").splitlines()
             if not 1 <= int(n) <= len(lines):
                 return False, f"OLD-APP {refs[0]}: the file has {len(lines)} lines"
+            # a ref into a journeys output drifts when that output is regenerated: the cited line then names another
+            # journey and must not count as evidence for this one. Find the line that names this journey instead.
+            names = lambda x, k: re.search(r"(^|\s)" + re.escape(k) + r"(\s|$)", x)
+            if not names(lines[int(n) - 1], j) and JOURNEY_ID.search(lines[int(n) - 1]):
+                at = [k for k, x in enumerate(lines, 1) if names(x, j)]
+                if len(at) != 1:
+                    return False, (f"OLD-APP {refs[0]}: line {n} names another journey and {j} is "
+                                   + ("not in the file" if not at else f"on {len(at)} lines") + ": cite it by its own line")
+                return True, f"OLD-APP: {os.path.basename(f)}:{at[0]} (cited :{n}, which moved) {lines[at[0] - 1].strip()[:80]}"
             return True, f"OLD-APP: {os.path.basename(f)}:{n} {lines[int(n) - 1].strip()[:80]}"
         return True, f"OLD-APP: {os.path.basename(f)}"
     if len(refs) < 2:

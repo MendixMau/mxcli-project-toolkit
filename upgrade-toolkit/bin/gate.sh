@@ -349,14 +349,26 @@ verdict_of() { # RUNG RC OUTFILE -> prints verdict word
 has_pos() { # WORD FILE: WORD occurs with a count above zero ("3 WORD", "WORD 3", or a line that starts with WORD and names an item)
   { if [ "$1" = REVIEW ]; then cat "$2"; else grep -v 'BASELINE DEFECT' "$2"; fi; } 2>/dev/null | grep -Eq "(^|[^A-Za-z0-9_])(($1[ :=]+[1-9][0-9]*)|([1-9][0-9]* $1))([^A-Za-z0-9_]|\$)|^[[:space:]]*$1[[:space:]]+[^0-9[:space:]|:=]"
 }
+# fail_all_baseline FILE: the journeys summary counts N FAIL and every per-item FAIL line is tagged BASELINE DEFECT (it
+# failed on the old app too, evidence or not): those FAILs are no regression of the upgrade but a decision for the owner
+# (field run: two journeys failing the same way on old and new, without an evidence line, read as "1 regression").
+fail_all_baseline() {
+  awk '/^journeys: / { if (match($0, /[0-9]+ FAIL/)) n = substr($0, RSTART, RLENGTH) + 0 }
+       /^[[:space:]]+FAIL[[:space:]]/ { if (/BASELINE DEFECT/) b++; else u++ }
+       END { exit !(n > 0 && u == 0 && n <= b) }' "$1" 2>/dev/null
+}
 human_of() {
-  local r=$1 s=$2 f="$G/$1.out" w
+  local r=$1 s=$2 f="$G/$1.out" w fb=1
   case $s in
     PASS|'PASS*') echo closed;;
     EXCEPT) echo standin;;
     FAIL)
-      for w in REGRESSION FAIL START_FAILED NEW_ERROR GUID_CHANGED; do has_pos $w "$f" && { echo regression; return; }; done
-      if has_pos REVIEW "$f"; then echo decision; else echo regression; fi;;
+      fail_all_baseline "$f" && fb=0
+      for w in REGRESSION FAIL START_FAILED NEW_ERROR GUID_CHANGED; do
+        [ $w = FAIL ] && [ $fb = 0 ] && continue
+        has_pos $w "$f" && { echo regression; return; }
+      done
+      if has_pos REVIEW "$f" || [ $fb = 0 ]; then echo decision; else echo regression; fi;;
     INVALID)
       if { [ $r = release ] && grep -Eq 'open: [1-9]' "$f" 2>/dev/null; } || { [ $r = widgets ] && grep -q 'UNRENDERED' "$f" 2>/dev/null; }; then echo decision; else echo unmeasured; fi;;
     'NOT RUN') if optional $r; then echo none; else echo unmeasured; fi;;

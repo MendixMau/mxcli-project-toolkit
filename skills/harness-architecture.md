@@ -140,6 +140,23 @@ major-version mismatch rather than rendering something plausible. Both are self-
 (`--selftest`) and deterministic — byte-identical across runs, so a diff in the report means a diff
 in the project, never a diff in the weather. **VERIFIED.**
 
+### 2b. For a program that runs these scripts (an orchestrator, not a person)
+
+Failure: an orchestrator read `exec.sh` exit 4 as a failure and re-applied a write that was kept. Branch on the code; the script headers are the source, this table can go stale: `project-bin/exec.sh` ("Exit codes"), `bin/gate-check.sh` (verdict vocabulary), `project-bin/app-restart.sh` ("Exit:"), `project-bin/test-stack-up.sh` ("Exit codes").
+
+| Script | Exit codes |
+|---|---|
+| `exec.sh` | 0 applied, gate passed · 1 not applied or rolled back (also PARTIAL) · 2 usage · 4 applied, gate passed, lint only: **kept, do not re-apply** · 5 applied UNVERIFIED |
+| `gate-check.sh <dir> <stage>` | 0 PASS/WAIVED · 1 FAIL · 2 MANUAL · 3 PENDING. Usage errors also return 1 (no args, missing dir) or 2 (unknown option/stage), so they read as FAIL or MANUAL |
+| `app-restart.sh` | 0 up · 1 not proven up · 2 usage · 3 refused, nothing stopped · 4 port held by a stranger · 5 stopped, not started · 6 `--if-client-gone`, not the toolkit's app |
+| `test-stack-up.sh` | 0 up · 1 not up · 2 usage · 4 port held by a stranger |
+
+**Exit 4 means different things:** kept lint-only write in `exec.sh`, blocked instrument in the other two. Never share one handler.
+
+Open questions: `bin/open-questions.sh <dir> --json` prints one JSON object (`counts`, `blocking`, `questions[]`). Exit 0 nothing blocks, 1 blocking, 2 usage, 3 nothing examined (not clean). No other machine format exists.
+
+Hand gates: a gate question is asked in chat and the agent stops. An orchestrator must show it to a person and wait. It never answers it, and never records `ASSUMED` itself.
+
 ---
 
 ## 3. Running each part alone

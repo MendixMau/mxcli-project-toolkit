@@ -18,6 +18,7 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 `docs/RELEASE-PROCESS.md` §8.
 
 ## Unreleased
+- learn(harness-architecture): **a contract for orchestrators: per-script exit codes (exec 4 = kept lint-only write, a different thing from app-restart/test-stack-up 4), `open-questions.sh --json`, and the hand-gate rule (an orchestrator surfaces a gate question to a person, never answers it)**; the table names the script headers as its source; on-demand tier, no baseline words — outside review of v2026.11.12
 
 ## v2026.11.12
 - new(parallel-builds): **`skills/parallel-builds.md`, an optional reference outside the pipeline (experimental tier, no stage map, no agent stub; used only when the user asks): several builders on one app in git worktrees, and how to merge their branches without losing a module (#741)**: a plain `git merge` of the model left one branch's units unregistered and both build gates reported 0 errors; the skill sets up worktrees (ports, database, number blocks, owners), forbids the plain merge, names the merge paths per CLI version, and checks `mxcli fix hashes`, `show modules` and the shared units before the build gate; forbids `diag --check-units --fix` after a suspect merge; a field run, 2026-11, lost a 63-unit module. Verbatim `fix hashes` capture under `tests/wave2/fixtures/worktree-merge/`. Guard script, exec.sh merge mode and lint delta are not built — field reports #741 and #744; LoanDesk worktree merge test

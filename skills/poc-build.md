@@ -1,17 +1,17 @@
 # POC Build — a demo-ready app fast, designed first, continuable afterwards
 
-**Applies to:** a new mxcli project (or one whose user explicitly asks for a POC build) for a POC, proof of concept, demo, pilot or quick build, or `PROJECT.md` says `Build type: poc`.
+**Applies to:** a project whose kickoff answer (intake Q16) is the POC build, or whose user explicitly asks for one past kickoff; `PROJECT.md` says `Build type: poc`.
 **Purpose:** A clickable, good-looking, working app in front of people fast, continuable by a normal build.
 
 **Status: EXPERIMENTAL.** Proven once, by a build from this text alone (fictional visitor-pass app, 5 pages, 2 roles, ~36 min, one model): an independent grader called it "nearly demo-ready". Function 26 of 29 testable pass (3 fail), every refusal a friendly in-page message. Visual design about 4.1 of 5 (one grader, not blind). Follow-up docs 17 of 24. Journey 22/22 on three runs after the last fix. Found open: first-load active nav, phone navigation for one role, leftover test rows. NOT proven: "3 cold runs" (only the final run followed a restart; 2 of 22 steps could not fail); the 12-row checklist (the graded list had 9 rows); the markdown hand-over (graded as BRD JSON); a real person answering (answers and approval came from a prepared file).
 
-**Who asks.** Ask "Normal build or POC build?" ONLY when the user asks for a POC build in so many words, or at project birth (the register line is still exactly the scaffold's `**Stage P — Kickoff**, in progress.` and `SHOW ENTITIES` lists none). Otherwise a missing `Build type:` line means `full`. On a yes, write `Build type: poc` (normal: `full`), `CONFIRMED`, to `PROJECT.md` (create it if absent) and skip `intake.md`. A project past birth whose user only says "we need a demo this week" does NOT switch: the lead says in one line that a POC build is chosen at the start and offers to continue the normal build (optionally `Pipeline mode: high-speed`). Switching such a project needs the user to say so explicitly, confirmed once, and is recorded in `PROJECT.md` as a decision. *Failure: a Stage 5 project whose user mentioned a demo dropped its gates.* A POC build does **not** run the nine stage gates; `bin/gate-check.sh` reports `PENDING` for them. No answer: end the turn and wait (`skills/interview-protocol.md` §3); `ASSUMED` only when the user said "you decide".
+**Who asks.** The kickoff interview asks the build type first, at project birth (intake Q16; rendering per `skills/interview-protocol.md` §3). On a POC answer `Build type: poc` is recorded `CONFIRMED` in `PROJECT.md`, and this skill is the flow; the other intake questions are not asked. A missing `Build type:` line means `full`; `Interview mode: auto` never picks `poc`. A project past kickoff whose user only says "we need a demo this week" does NOT switch: the lead says in one line that the build type is chosen at the start and offers to continue the normal build (optionally `Pipeline mode: high-speed`). Switching such a project needs the user to say so explicitly, confirmed once, and is recorded in `PROJECT.md` as a decision. *Failure: a Stage 5 project whose user mentioned a demo dropped its gates.* A POC build does **not** run the nine stage gates; `bin/gate-check.sh` reports `PENDING` for them. No answer: end the turn and wait (`skills/interview-protocol.md` §3); `ASSUMED` only when the user said "you decide" (= `full`).
 
 **Size:** more than 3 entities, 5 pages or 2 roles is unmeasured. Say so once, then continue: a warning, not a refusal (*failure: an agent that refuses, or proceeds without a word*).
 
 **Not a speed setting.** `Pipeline mode: high-speed` is the existing way to make a NORMAL build faster; a POC build is a different shape of build.
 
-**Question moments:** build type and design question (one message where possible; three short questions together on the Nothing path); then the approval stop.
+**Question moments:** the design question (three short questions together on the Nothing path), then the approval stop; the build type was asked at kickoff.
 
 ## Order (nothing else)
 

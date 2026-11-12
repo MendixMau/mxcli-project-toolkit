@@ -441,7 +441,7 @@ is the expensive one. Acking never obliges anyone to produce anything; it record
 
 | | |
 |---|---|
-| **User defines** | Which source folder. Licence/security constraints on storing the client source. Is an SME available, and who? |
+| **User defines** | Which kind of build, asked first (full or POC, intake Q16). Which source folder. Licence/security constraints on storing the client source. Is an SME available, and who? |
 | **Agent produces** | Workspace scaffold (`bin/init-project.sh`), `CLAUDE.local.md` (paths, tools, routing), `PROJECT.md` (empty register), **all six agent stubs** (`bin/init-agents.sh <session-root>` — stubs are inert until completed, so all six exist from day one), `intake.md` (8 questions, no guesses). Complete ba/architect placeholders + domain context now (per `agent-roles.md`); complete mdl/gate/test/**review** at Stage 5 kickoff — review-agent owns `module-review.md` stage 4, the LOOK, and a project that leaves it a stub reviews no pages. |
 | **Surface** | `index.html` — the project dashboard, created here, grows every stage. |
 | **Gate** | Every intake question has an answer or an explicit "Unverified — how to verify". No blanks. |

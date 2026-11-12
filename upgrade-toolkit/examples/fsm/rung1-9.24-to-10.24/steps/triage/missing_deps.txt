@@ -1,0 +1,4 @@
+# missing_deps <app>/app.mpr
+
+modules 58, widget types used 41, widget ids installed 75, excluded documents skipped 37
+BROKEN widget package com.mendix.widget.web.PopupMenu.mpk (data descriptor missing after PopupMenu.editorConfig.js: Go zip readers (mxcli) report 'zip: checksum error')

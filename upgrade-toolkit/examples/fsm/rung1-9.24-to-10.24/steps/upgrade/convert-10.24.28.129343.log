@@ -1,0 +1,13 @@
+This is mx convert, version 10.24.28.129343.
+
+Found the input mpr file '<app>/app.mpr'.
+Getting the metadata of the mpr file.
+Checking the version of the mpr file.
+The mpr file version is '9.24.2.6130'.
+Converting the mpr file.
+Checking project for errors.
+The project contains 5 errors, 241 warnings and 9 deprecations.
+Saving the converted mpr file.
+
+mx convert finished.
+[heavy-lock] convert rc=0 65s

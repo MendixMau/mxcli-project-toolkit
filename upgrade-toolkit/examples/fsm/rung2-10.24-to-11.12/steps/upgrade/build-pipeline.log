@@ -1,0 +1,94 @@
++ heavy sync 11.12.7 mx sync-java-dependencies <app>/app.mpr > <run>/logs/sync-java.log
++ python3 <toolkit>/bin/repair/jardedupe.py <app>
+jardedupe: dry run (add --apply to delete)
+KEEP     userlib/tika-core-1.28.4.jar  IMPORTED by javasource although module(s) FileTypeChecker not in the app: review by hand  markers: FileTypeChecker
+summary: 0 jars to remove (0 duplicate versions, 0 stale, 0 old module version; 0 RequiredLib markers, 0 of them alone: old or orphan), 1 listed as kept
+vendorlib-proof: vendorlib not needed for any removal
++ python3 <toolkit>/bin/repair/jardedupe.py <app> --apply
+KEEP     userlib/tika-core-1.28.4.jar  IMPORTED by javasource although module(s) FileTypeChecker not in the app: review by hand  markers: FileTypeChecker
+summary: 0 jars to remove (0 duplicate versions, 0 stale, 0 old module version; 0 RequiredLib markers, 0 of them alone: old or orphan), 1 listed as kept
+vendorlib-proof: vendorlib not needed for any removal
+removed 0 jars and 0 markers; rerun mx check and the quick start
++ python3 <toolkit>/bin/repair/missing_deps.py <app> --target 11.12.7 > <run>/missing_deps.txt
++ heavy sync 11.12.7 mx sync-java-dependencies <app>/app.mpr > <run>/logs/sync-java.log
++ python3 <toolkit>/bin/repair/jardedupe.py <app>
+jardedupe: dry run (add --apply to delete)
+KEEP     userlib/tika-core-1.28.4.jar  IMPORTED by javasource although module(s) FileTypeChecker not in the app: review by hand  markers: FileTypeChecker
+summary: 0 jars to remove (0 duplicate versions, 0 stale, 0 old module version; 0 RequiredLib markers, 0 of them alone: old or orphan), 1 listed as kept
+vendorlib-proof: vendorlib not needed for any removal
++ python3 <toolkit>/bin/repair/jardedupe.py <app> --apply
+KEEP     userlib/tika-core-1.28.4.jar  IMPORTED by javasource although module(s) FileTypeChecker not in the app: review by hand  markers: FileTypeChecker
+summary: 0 jars to remove (0 duplicate versions, 0 stale, 0 old module version; 0 RequiredLib markers, 0 of them alone: old or orphan), 1 listed as kept
+vendorlib-proof: vendorlib not needed for any removal
+removed 0 jars and 0 markers; rerun mx check and the quick start
++ python3 <toolkit>/bin/repair/missing_deps.py <app> --target 11.12.7 > <run>/missing_deps.txt
++ heavy sync 11.12.7 mx sync-java-dependencies <app>/app.mpr > <run>/logs/sync-java.log
++ python3 <toolkit>/bin/repair/jardedupe.py <app>
+jardedupe: dry run (add --apply to delete)
+KEEP     userlib/tika-core-1.28.4.jar  IMPORTED by javasource although module(s) FileTypeChecker not in the app: review by hand  markers: FileTypeChecker
+summary: 0 jars to remove (0 duplicate versions, 0 stale, 0 old module version; 0 RequiredLib markers, 0 of them alone: old or orphan), 1 listed as kept
+vendorlib-proof: vendorlib not needed for any removal
++ python3 <toolkit>/bin/repair/jardedupe.py <app> --apply
+KEEP     userlib/tika-core-1.28.4.jar  IMPORTED by javasource although module(s) FileTypeChecker not in the app: review by hand  markers: FileTypeChecker
+summary: 0 jars to remove (0 duplicate versions, 0 stale, 0 old module version; 0 RequiredLib markers, 0 of them alone: old or orphan), 1 listed as kept
+vendorlib-proof: vendorlib not needed for any removal
+removed 0 jars and 0 markers; rerun mx check and the quick start
++ python3 <toolkit>/bin/repair/missing_deps.py <app> --target 11.12.7 > <run>/missing_deps.txt
++ heavy build 11.12.7 mxbuild --target=package -o <run>/new-11.12.7.mda <app>/app.mpr > <run>/build-11.12.7.log
++ heavy sync 11.12.7 mx sync-java-dependencies <app>/app.mpr > <run>/logs/sync-java.log
++ python3 <toolkit>/bin/repair/jardedupe.py <app>
+jardedupe: dry run (add --apply to delete)
+KEEP     userlib/tika-core-1.28.4.jar  IMPORTED by javasource although module(s) FileTypeChecker not in the app: review by hand  markers: FileTypeChecker
+summary: 0 jars to remove (0 duplicate versions, 0 stale, 0 old module version; 0 RequiredLib markers, 0 of them alone: old or orphan), 1 listed as kept
+vendorlib-proof: vendorlib not needed for any removal
++ python3 <toolkit>/bin/repair/jardedupe.py <app> --apply
+KEEP     userlib/tika-core-1.28.4.jar  IMPORTED by javasource although module(s) FileTypeChecker not in the app: review by hand  markers: FileTypeChecker
+summary: 0 jars to remove (0 duplicate versions, 0 stale, 0 old module version; 0 RequiredLib markers, 0 of them alone: old or orphan), 1 listed as kept
+vendorlib-proof: vendorlib not needed for any removal
+removed 0 jars and 0 markers; rerun mx check and the quick start
++ python3 <toolkit>/bin/repair/missing_deps.py <app> --target 11.12.7 > <run>/missing_deps.txt
++ heavy build 11.12.7 mxbuild --target=package -o <run>/new-11.12.7.mda <app>/app.mpr > <run>/build-11.12.7.log
++ docker exec mig-pg createdb -U mendix -T upg_fsm_steps_r2_frozen upg_fsm_steps_r2_quick
++ env WORKDIR=<run> UPG_TOOLS=<run-root>/tools UPG_SESSION_TIMEOUT=30000 PORT_OFF=500 python3 <toolkit>/bin/runapp.py quick new <run>/new-11.12.7.mda 11.12.7 upg_fsm_steps_r2_quick
+runapp: HARNESS FILE: new: run/new\model\metadata.json (copy of the app's own file under the Windows path an add-on builds at runtime, T2R3-5; same for old and new; --harness-file off leaves it out)
+runapp: fsm-new image eclipse-temurin:21-jdk, runtime 11.12.7, db upg_fsm_steps_r2_quick, ports 8580/8590
+update_configuration: 0
+DDL commands: 5 (logs/ddl-new-0.sql; empty when the runtime only gives a count)
+DDL commands: 134 (logs/ddl-new-1.sql; empty when the runtime only gives a count)
+start: result 0  (5s)
+runapp: stopping container fsm-new
+runapp: stopped fsm-new; log <run>/logs/runtime-new.log
+runapp: pruned run/new: 191 MB freed; kept harness-*.txt, runapp-db.txt, data/files (UPG_KEEP_RUN=1 keeps all)
+QUICK START PASS: the new app starts
++ python3 <toolkit>/bin/snapshot.py --ledger <run>/db-ledger.txt --mark-used upg_fsm_steps_r2_quick --use quickstart
+ledger: upg_fsm_steps_r2_quick quickstart
++ heavy sync 11.12.7 mx sync-java-dependencies <app>/app.mpr > <run>/logs/sync-java.log
++ bash <toolkit>/bin/cloud/vendorlib_mvn.sh <app> <run>/logs/sync-java.log --apply
+NO DEPENDENCY found in <run>/logs/sync-java.log (want group:artifact:version)
++ python3 <toolkit>/bin/repair/jardedupe.py <app>
+jardedupe: dry run (add --apply to delete)
+KEEP     userlib/tika-core-1.28.4.jar  IMPORTED by javasource although module(s) FileTypeChecker not in the app: review by hand  markers: FileTypeChecker
+summary: 0 jars to remove (0 duplicate versions, 0 stale, 0 old module version; 0 RequiredLib markers, 0 of them alone: old or orphan), 1 listed as kept
+vendorlib-proof: vendorlib not needed for any removal
++ python3 <toolkit>/bin/repair/jardedupe.py <app> --apply
+KEEP     userlib/tika-core-1.28.4.jar  IMPORTED by javasource although module(s) FileTypeChecker not in the app: review by hand  markers: FileTypeChecker
+summary: 0 jars to remove (0 duplicate versions, 0 stale, 0 old module version; 0 RequiredLib markers, 0 of them alone: old or orphan), 1 listed as kept
+vendorlib-proof: vendorlib not needed for any removal
+removed 0 jars and 0 markers; rerun mx check and the quick start
++ python3 <toolkit>/bin/repair/missing_deps.py <app> --target 11.12.7 > <run>/missing_deps.txt
++ heavy build 11.12.7 mxbuild --target=package -o <run>/new-11.12.7.mda <app>/app.mpr > <run>/build-11.12.7.log
++ docker exec mig-pg createdb -U mendix -T upg_fsm_steps_r2_frozen upg_fsm_steps_r2_quick_r2
++ env WORKDIR=<run> UPG_TOOLS=<run-root>/tools UPG_SESSION_TIMEOUT=30000 PORT_OFF=500 python3 <toolkit>/bin/runapp.py quick new <run>/new-11.12.7.mda 11.12.7 upg_fsm_steps_r2_quick_r2
+runapp: HARNESS FILE: new: run/new\model\metadata.json (copy of the app's own file under the Windows path an add-on builds at runtime, T2R3-5; same for old and new; --harness-file off leaves it out)
+runapp: fsm-new image eclipse-temurin:21-jdk, runtime 11.12.7, db upg_fsm_steps_r2_quick_r2, ports 8580/8590
+update_configuration: 0
+DDL commands: 5 (logs/ddl-new-0.sql; empty when the runtime only gives a count)
+DDL commands: 134 (logs/ddl-new-1.sql; empty when the runtime only gives a count)
+start: result 0  (6s)
+runapp: stopping container fsm-new
+runapp: kept the earlier log as runtime-new-1.log
+runapp: stopped fsm-new; log <run>/logs/runtime-new.log
+runapp: pruned run/new: 191 MB freed; kept harness-*.txt, runapp-db.txt, data/files (UPG_KEEP_RUN=1 keeps all)
+QUICK START PASS: the new app starts
++ python3 <toolkit>/bin/snapshot.py --ledger <run>/db-ledger.txt --mark-used upg_fsm_steps_r2_quick_r2 --use quickstart
+ledger: upg_fsm_steps_r2_quick_r2 quickstart

@@ -1,0 +1,12 @@
+Checking your app for issues...
+Checking the version of the mpr file.
+The mpr file version is '10.24.28.129343'.
+Loading the mpr file.
+The mpr file version is '10.24.28.129343'.
+Checking app for errors...
+[error] [CE0161] "Error(s) in XPath constraint." at Data grid 'grid2'
+[error] [CE4271] "Version '3.0.0' of the module 'NanoflowCommons' is not compatible with this Mendix version. Visit the Marketplace to check for updates of 'Nanoflow Commons'." at 
+[error] [CE4271] "Version '4.0.1' of the module 'NativeMobileResources' is not compatible with this Mendix version. Visit the Marketplace to check for updates of 'Native Mobile Resources'." at 
+[error] [CE6911] "theme/web/index.html is missing the cachebust template tag(s). This likely means it has been hardcoded and the app might not function correctly when deploying new changes." at 
+The app contains: 4 errors.
+[heavy-lock] check rc=1 29s

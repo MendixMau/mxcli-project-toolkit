@@ -1,0 +1,9 @@
+Checking your app for issues...
+Checking the version of the mpr file.
+The mpr file version is '11.12.7'.
+Loading the mpr file.
+The mpr file version is '11.12.7'.
+Checking app for errors...
+[error] [CE1613] "The selected nanoflow 'FeedbackModule.ACT_Open_Feedback_Modal' no longer exists." at Feedback 'feedback1'
+The app contains: 1 errors.
+[heavy-lock] check rc=1 15s

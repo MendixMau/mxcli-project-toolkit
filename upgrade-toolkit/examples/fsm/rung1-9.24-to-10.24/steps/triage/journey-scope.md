@@ -1,0 +1,272 @@
+# Journey scope
+
+journeys in scope: 471 reachable, 259 out of scope (unreachable 218, marketplace 14, no-role 27)
+testability work: 0 reachable actions have no click path yet (record a click path, or test at deploy)
+
+## out of scope: marketplace-module (14)
+
+- DeepLink.Attribute_Select.actionButton1: DeepLink is a Marketplace module the app does not customise (no local edits)
+- DeepLink.DeepLink_New.actionButton1: DeepLink is a Marketplace module the app does not customise (no local edits)
+- DeepLink.DeepLink_NewEdit.saveButton1: DeepLink is a Marketplace module the app does not customise (no local edits)
+- DeepLink.DeeplinkConfigurationOverview.actionButton1: DeepLink is a Marketplace module the app does not customise (no local edits)
+- DeepLink.DeeplinkConfigurationOverview.actionButton2: DeepLink is a Marketplace module the app does not customise (no local edits)
+- DeepLink.DeeplinkConfigurationOverview.actionButton4: DeepLink is a Marketplace module the app does not customise (no local edits)
+- DeepLink.DeeplinkExampleOverview.actionButton3: DeepLink is a Marketplace module the app does not customise (no local edits)
+- DeepLink.DeeplinkExampleOverview.listView1: DeepLink is a Marketplace module the app does not customise (no local edits)
+- DeepLink.Entity_Select.actionButton1: DeepLink is a Marketplace module the app does not customise (no local edits)
+- DeepLink.Microflow_Select.actionButton3: DeepLink is a Marketplace module the app does not customise (no local edits)
+- DeepLink.Microflow_Select.listView1: DeepLink is a Marketplace module the app does not customise (no local edits)
+- Logging.Message_Overview_Content.actionButton1: Logging is a Marketplace module the app does not customise (no local edits)
+- Logging.Message_Overview_Content.actionButton2: Logging is a Marketplace module the app does not customise (no local edits)
+- Logging.Message_Overview_Content.editButton1: Logging is a Marketplace module the app does not customise (no local edits)
+
+## out of scope: unreachable (218)
+
+- Administration.Account_Edit.microflowTrigger1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- Administration.Account_Edit.saveButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- Administration.Account_New.microflowButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- Administration.Account_Overview.deleteButton2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- Administration.Account_Overview.editButton2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- Administration.Account_Overview.microflowButton2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- Administration.Account_Overview.microflowButton3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- Administration.ActiveSessions.deleteButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- Administration.ChangeMyPasswordForm.microflowButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- Administration.ChangePasswordForm.microflowButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- Administration.MyAccount.microflowTrigger1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- Administration.MyAccount.saveButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- Dashboard.SNIPPET_TicketsOfToday.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- Dashboard.SNIPPET_Top5Assets.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- DeepLink.Deeplink_BasicDetails.actionButton2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- DeepLink.Deeplink_BasicDetails.microflowButton: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- DeepLink.Deeplink_BasicDetails.microflowButton3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- DeepLink.Deeplink_Details.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- DeepLink.Deeplink_Details.actionButton3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- FSM_Specific.Snippet_TimerHelper.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- FSM_Specific.Snippet_TimerHelper.container3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- FSM_Specific.Snippet_TimerHelper.pop_upMenu1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- FSM_Specific.Snippet_TimerHelper.pop_upMenu1#2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- FSM_Specific.Snippet_TimerHelper.pop_upMenu1#3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- FSM_Specific.Snippet_TimerHelper.pop_upMenu1#4: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- FSM_Specific.Snippet_TimerHelper_Inverted.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- FSM_Specific.Snippet_TimerHelper_Inverted.container3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- FSM_Specific.Snippet_TimerHelper_Inverted.pop_upMenu1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- FSM_Specific.Snippet_TimerHelper_Inverted.pop_upMenu1#2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- FSM_Specific.Snippet_TimerHelper_Inverted.pop_upMenu1#3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- FSM_Specific.Snippet_TimerHelper_Inverted.pop_upMenu1#4: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Home_Native_Mechanic.appEvents1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Home_Native_Mechanic_NoMechanic.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.LoadHelper_AllDone.appEvents1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.LoadHelper_FullPage.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.LoadHelper_FullPage.appEvents1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.LoadHelper_PopUp.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.LoadHelper_PopUp.appEvents1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Load_Error_FullPage.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Login.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeAppointmentNP_Overview.appEvents1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeAppointmentNP_Overview.appEvents1#2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeAppointmentNP_Overview.appEvents1#3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeAppointmentNP_Overview.appEvents1#4: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeAppointmentNP_Overview.appEvents1#5: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeAppointmentNP_Overview.appEvents1#6: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeAppointmentNP_Overview.appEvents2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeAppointmentNP_Overview.appEvents2#2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeAppointmentNP_Overview.appEvents2#3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeAppointmentNP_Overview.appEvents2#4: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeAppointmentNP_Overview.appEvents2#5: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeAppointmentNP_Overview.appEvents2#6: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeAppointmentNP_Overview.container13: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeAppointmentNP_Overview.container14: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeAppointmentNP_Overview.container15: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeAppointmentNP_Overview.container16: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeAppointmentNP_Overview.pop_upMenu1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeAppointmentNP_Overview.pop_upMenu1#2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeAppointmentNP_Overview.pop_upMenu1#3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeAppointmentNP_Overview.staticImage1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeAppointmentNP_Overview.staticImage3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeAppointmentNP_Overview.staticImage4: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeAppointment_AssetConfirmation.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeAppointment_AssetConfirmation.actionButton2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeAppointment_InvoiceSummary.actionButton4: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeAppointment_ManditoryForms.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeAppointment_NotResolved.actionButton2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeAppointment_NotResolved.actionButton8: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeAppointment_NotResolved.container6: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeAppointment_NotResolved_InvoiceSummary.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeTicketNP_NewEdit.actionButton2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeTicketNP_NewEdit.actionButton4: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeTicketNP_NewEdit.actionButton5: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeTicketNP_NewEdit.actionButton6: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeTicketNP_NewEdit.container8: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeTicketNP_NewEdit.dynamicImage1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeTicket_NativeAsset_Details.actionButton4: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeWorkOrderAssignment_EditRejection.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeWorkOrderAssignment_EditRejection.actionButton8: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeWorkOrderAssignment_EditRejection.container6: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeWorkOrderAssignment_Overview.actionButton2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeWorkOrderAssignment_Overview.actionButton3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeWorkOrderAssignment_Overview.actionButton4: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeWorkOrderAssignment_Overview.actionButton5: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeWorkOrderAssignment_Overview.container1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeWorkOrderAssignment_Overview.container22: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeWorkOrderAssignment_Urgent.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.NativeWorkOrderAssignment_Urgent.actionButton4: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_Form_ListDisplay.container3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeAppointment.actionButton2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeAppointment.appEvents2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeAppointment.appEvents2#2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeAppointment.appEvents2#3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeAppointment.appEvents2#4: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeAppointment.appEvents2#5: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeAppointment.appEvents2#6: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeAppointment.container24: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeAppointment.container25: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeAppointment.container999: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeAppointment_AssetDetails.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeAppointment_AssetDetails.actionButton2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeAppointment_CurrentList.actionButton2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeAppointment_CurrentList.actionButton3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeAppointment_CurrentList.actionButton4: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeAppointment_CurrentList.actionButton5: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeAppointment_CurrentList.container22: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeAppointment_ProceedButtons.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeAppointment_ProceedButtons.actionButton2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeAppointment_ProceedButtons.actionButton3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeAppointment_ProceedButtons.actionButton4: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeAppointment_ProceedButtons.actionButton5: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeAppointment_TicketDetails.container30: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeDocumentList.staticImage1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeInvoiceSummaryHelper_HoursWorked.actionButton4: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeNoteList.actionButton3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeNoteList.actionButton4: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeNoteList.container3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativePartsList.actionButton2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativePartsList.container2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativePartsList.container5: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeWorkOrder_ProceedButtons.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeWorkOrder_ProceedButtons.actionButton2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_NativeWorkOrder_ProceedButtons.actionButton4: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_TimeHelper_WorkBreak.actionButton4: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_TimeHelper_WorkBreak.actionButton5: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobile.Snippet_TimeHelper_WorkBreak.actionButton6: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileAsset.AssetHelper_OnlineAssetSelect_ConfirmAsset.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileAsset.AssetHelper_OnlineAssetSelect_ConfirmAsset.actionButton3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileAsset.AssetHelper_OnlineAssetSelect_ConfirmAsset.container1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileAsset.AssetHelper_OnlineAssetSelect_NewTicket.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileAsset.AssetHelper_OnlineAssetSelect_NewTicket.actionButton3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileAsset.AssetHelper_OnlineAssetSelect_NewTicket.container1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileAsset.AssetHelper_SelectNativeAsset_ConfirmAsset.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileAsset.AssetHelper_SelectNativeAsset_ConfirmAsset.actionButton3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileAsset.AssetHelper_SelectNativeAsset_ConfirmAsset.actionButton4: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileAsset.AssetHelper_SelectNativeAsset_ConfirmAsset.container1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileAsset.AssetHelper_SelectNativeAsset_NewTicket.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileAsset.AssetHelper_SelectNativeAsset_NewTicket.actionButton2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileAsset.AssetHelper_SelectNativeAsset_NewTicket.actionButton3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileAsset.AssetHelper_SelectNativeAsset_NewTicket.container1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileAsset.AssetNP_Details_ConfirmAsset.actionButton4: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileAsset.AssetNP_Details_NewTicket.actionButton4: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileAsset.Snippet_NativeAsset_Details.container33: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileForm.NativeInstanceForm_NewEdit.actionButton3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileForm.Snippet_NativeInstanceForm.actionButton2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileForm.Snippet_NativeInstanceForm.actionButton5: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileForm.Snippet_NativeInstanceForm.actionButton6: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileForm.Snippet_NativeInstanceForm.actionButton7: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileForm.Snippet_NativeInstanceForm.actionButton8: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileForm.Snippet_NativeInstanceForm.actionButton9: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileForm.Snippet_NativeInstanceForm.container5: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileForm.Snippet_NativeInstanceForm.container9: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileForm.Snippet_NativeInstanceForm.dynamicImage1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobilePart.NativePartNP_Details.actionButton3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobilePart.NativePartNP_NewEdit.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobilePart.NativePartNP_SelectOnlineInventory.actionButton3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobilePart.NativePartNP_SelectOnlineInventory.actionButton5: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobilePart.NativePartNP_SelectOnlineInventory.container4: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobilePart.NativePart_SelectInventory.actionButton3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobilePart.NativePart_SelectInventory.actionButton5: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobilePart.NativePart_SelectInventory.container4: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobilePart.NativeSuggestedPart_Details.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobilePart.NativeUsedPartOnline_SelectNativePart.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobilePart.NativeUsedPartOnline_SelectNativePart.actionButton2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobilePart.NativeUsedPartOnline_SelectNativePart.actionButton3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobilePart.NativeUsedPartOnline_SelectNativePart.actionButton8: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobilePart.NativeUsedPartOnline_SelectNativePart.actionButton9: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobilePart.NativeUsedPartOnline_SelectNativePart.container12: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobilePart.NativeUsedPartOnline_SelectNativePart.container4: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobilePart.NativeUsedPart_ChooseAmount.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobilePart.NativeUsedPart_ChooseAmountOnline.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobilePart.NativeUsedPart_Details.actionButton3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobilePart.NativeUsedPart_Details.actionButton4: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobilePart.NativeUsedPart_Edit.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileRelated.NativeAsset_RelatedWork.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileRelated.NativeAsset_RelatedWork.actionButton2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileRelated.NativeAsset_RelatedWork.actionButton3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileRelated.NativeAsset_RelatedWork.actionButton4: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileRelated.NativeAsset_RelatedWork.actionButton5: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileRelated.NativeAsset_RelatedWork.actionButton6: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileRelated.NativeAsset_RelatedWork.container22: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileRelated.NativeAsset_RelatedWork.container23: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileRelated.NativeAsset_RelatedWork.container6: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileRelated.NativeNoteNP_View.container2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileRelated.NativeWorkOrderNP_Details_ToPickUp.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileRelated.NativeWorkOrderNP_Details_ToPickUp.actionButton2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileRelated.NativeWorkOrderNP_Details_ToPickUp.actionButton3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileRelated.NativeWorkOrderNP_Load.appEvents1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileRelated.NativeWorkOrderNP_Overview.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileRelated.NativeWorkOrderNP_Overview.actionButton2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileRelated.NativeWorkOrderNP_Overview.container22: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileRelated.Snippet_NativeAppointmentNP.container41: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileRelated.Snippet_NativeAppointmentNP.staticImage1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileRelated.Snippet_NativeInstanceFormNP.container16: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileRelated.Snippet_NativeNoteNPList.container7: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileRelated.Snippet_NativeWorkOrderNP_BasicDetails.container60: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileTimeRegistration.NativeTimeRegistrationNP_NewEdit.actionButton10: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileTimeRegistration.NativeTimeRegistrationNP_NewEdit.actionButton12: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileTimeRegistration.NativeTimeRegistrationNP_NewEdit.actionButton8: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileTimeRegistration.NativeTimeRegistrationNP_NewEdit.actionButton9: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileTimeRegistration.NativeTimeRegistrationNP_Overview.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileTimeRegistration.NativeTimeRegistrationNP_Overview.container2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeMobileTimeRegistration.NativeWorkBreak_Edit.actionButton11: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeNote.NativeNote_NewEdit.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeNote.NativeNote_NewEdit.actionButton10: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeNote.NativeNote_NewEdit.actionButton2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeNote.NativeNote_NewEdit.actionButton3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeNote.NativeNote_NewEdit.actionButton8: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeNote.NativeNote_NewEdit.actionButton9: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeNote.NativeNote_NewEdit.appEvents1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeNote.NativeNote_NewEdit.appEvents1#2: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeNote.NativeNote_NewEdit.appEvents1#3: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeNote.NativeNote_NewEdit.appEvents1#4: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeNote.NativeNote_NewEdit.appEvents1#5: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeNote.NativeNote_NewEdit.appEvents1#6: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeNote.NativeNote_NewEdit.container5: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- NativeNote.NativeNote_NewEdit.dynamicImage1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+- TEST_NativeLocalLogin.Login.actionButton1: no route from any navigation entry or home page of any role; name not in the app's Java or JavaScript
+
+## out of scope: no-role (27)
+
+- Dashboard.DashboardAll.actionButton1: no user role may open the page and run the flow
+- Dashboard.DashboardAll.actionButton11: no user role may open the page and run the flow
+- Dashboard.DashboardAll.actionButton14: no user role may open the page and run the flow
+- Dashboard.DashboardAll.actionButton2: no user role may open the page and run the flow
+- Dashboard.DashboardAll.actionButton8: no user role may open the page and run the flow
+- Dashboard.Grids.actionButton16: no user role may open the page and run the flow
+- Dashboard.Grids.actionButton17: no user role may open the page and run the flow
+- Dashboard.Grids.actionButton18: no user role may open the page and run the flow
+- Dashboard.Grids.actionButton19: no user role may open the page and run the flow
+- Dashboard.Grids.actionButton20: no user role may open the page and run the flow
+- Dashboard.Grids.actionButton21: no user role may open the page and run the flow
+- Dashboard.Grids.actionButton22: no user role may open the page and run the flow
+- Dashboard.Grids.actionButton23: no user role may open the page and run the flow
+- Dashboard.Grids.actionButton24: no user role may open the page and run the flow
+- Dashboard.Grids.actionButton25: no user role may open the page and run the flow
+- Dashboard.Grids.actionButton26: no user role may open the page and run the flow
+- Dashboard.Grids.actionButton27: no user role may open the page and run the flow
+- Dashboard.Grids.actionButton28: no user role may open the page and run the flow
+- Dashboard.Grids.actionButton29: no user role may open the page and run the flow
+- Dashboard.Grids.actionButton30: no user role may open the page and run the flow
+- Dashboard.Grids.actionButton31: no user role may open the page and run the flow
+- Dashboard.Grids.actionButton32: no user role may open the page and run the flow
+- Dashboard.Grids.actionButton34: no user role may open the page and run the flow
+- Dashboard.Grids.pop_upMenu4: no user role may open the page and run the flow
+- Dashboard.Grids.pop_upMenu4#2: no user role may open the page and run the flow
+- Dashboard.Grids.pop_upMenu4#3: no user role may open the page and run the flow
+- MasterData.Asset_NewEdit_MxAdmin.actionButton5: no user role may open the page and run the flow

@@ -1,0 +1,664 @@
+{
+  "schema_version": 2,
+  "tool_version": "2.0.0-dev",
+  "catalog_version": "2026.09.28+2",
+  "rules_versions": {
+    "js-rules.json": "2026.09.27+1"
+  },
+  "project": {
+    "path": "<app>",
+    "mpr": "<app>/app.mpr",
+    "mendix_version": "9.24.2.6130",
+    "catalog_build_mode": "full",
+    "catalog_schema_version": "37",
+    "catalog_build_time": "2026-11-10T23:22:46+08:00",
+    "catalog_db": "<app>/.mxcli/catalog.db",
+    "from_version": "9.24.2.6130",
+    "target_version": "10.24.28.129343",
+    "client_mode": "Dojo (classic)",
+    "languages_enabled": [
+      "en_US",
+      "nl_NL"
+    ],
+    "language_default": "en_US"
+  },
+  "selected_scans": [
+    "census",
+    "client",
+    "java",
+    "js",
+    "modules",
+    "project",
+    "strings",
+    "widgets",
+    "xpath"
+  ],
+  "catalog_entries_total": 75,
+  "catalog_entries_applicable": 0,
+  "scans": [
+    {
+      "id": "project_facts",
+      "catalog_ids": [],
+      "status": "ok",
+      "reason": "",
+      "query": "",
+      "rows_examined": 0,
+      "ms": 0
+    },
+    {
+      "id": "client_settings",
+      "catalog_ids": [],
+      "status": "ok",
+      "reason": "mxcli's SHOW SETTINGS output didn't contain: Java version",
+      "query": "",
+      "rows_examined": 3,
+      "ms": 149
+    },
+    {
+      "id": "census",
+      "catalog_ids": [],
+      "status": "ok",
+      "reason": "",
+      "query": "",
+      "rows_examined": 26558,
+      "ms": 7
+    },
+    {
+      "id": "widget_census",
+      "catalog_ids": [],
+      "status": "ok",
+      "reason": "",
+      "query": "SELECT \"WidgetType\", COUNT(*) AS n FROM widgets GROUP BY \"WidgetType\" ORDER BY n DESC",
+      "rows_examined": 7587,
+      "ms": 3
+    },
+    {
+      "id": "modules",
+      "catalog_ids": [],
+      "status": "ok",
+      "reason": "",
+      "query": "SELECT \"Name\", \"Source\", \"AppStoreVersion\", \"AppStoreGuid\" FROM modules ORDER BY \"Name\"",
+      "rows_examined": 59,
+      "ms": 0
+    },
+    {
+      "id": "widget_bundles",
+      "catalog_ids": [
+        "MX11-WIDGET-DOJO-PACKAGE"
+      ],
+      "status": "ok",
+      "reason": "",
+      "query": "",
+      "rows_examined": 58,
+      "ms": 6901
+    }
+  ],
+  "findings": [],
+  "advisories": [],
+  "module_advisories": [
+    {
+      "module": "Atlas_Core",
+      "installed_version": "3.8.1",
+      "status": "advisory",
+      "advice": "Moving from Atlas 3 to Atlas 4 is optional in Mendix 11; the change is SASS variables to CSS variables, and Atlas 4 remains backwards compatible with apps still using SASS variables. If you do migrate, upgrade Atlas Web Content too, and watch for UI modules still reading old Atlas SASS variables -- those usages silently fall back to Atlas defaults rather than failing.",
+      "replacement": "Atlas 4",
+      "replacement_url": "https://docs.mendix.com/refguide/upgrading-from-10-to-11/",
+      "catalog_id": "MX11-MODULE-ATLAS-4",
+      "sources": [
+        {
+          "url": "https://docs.mendix.com/refguide/upgrading-from-10-to-11/",
+          "title": "Upgrading from Mendix Studio Pro 10 to 11",
+          "quote": "Upgrading from Atlas 3 to Atlas 4 in Mendix 11 is an optional process.",
+          "retrieved": "2026-09-16"
+        },
+        {
+          "url": "https://docs.mendix.com/refguide/upgrading-from-10-to-11/",
+          "title": "Upgrading from Mendix Studio Pro 10 to 11",
+          "quote": "those usages will fallback to Atlas default values",
+          "retrieved": "2026-09-16"
+        }
+      ]
+    },
+    {
+      "module": "DeepLink",
+      "installed_version": "9.0.5",
+      "status": "deprecated",
+      "advice": "Replace deep-link routing with built-in page URLs, or microflow URLs where a microflow has to run first. To keep existing links working, set the URL prefix to the prefix the module used so the old addresses still resolve.",
+      "replacement": "Page URLs and microflow URLs",
+      "replacement_url": "https://docs.mendix.com/appstore/modules/deep-link/#migrate-page-micro",
+      "catalog_id": "MX11-MODULE-DEEP-LINK-DEPRECATED",
+      "sources": [
+        {
+          "url": "https://docs.mendix.com/refguide/upgrading-from-10-to-11/",
+          "title": "Upgrading from Mendix Studio Pro 10 to 11",
+          "quote": "The [Deep Link module] is deprecated, and no longer receives active support starting with Studio Pro 11.",
+          "retrieved": "2026-09-16"
+        },
+        {
+          "url": "https://docs.mendix.com/appstore/modules/deep-link/",
+          "title": "Deep Link",
+          "quote": "This module is deprecated from Studio Pro 10.6.0.",
+          "retrieved": "2026-09-16"
+        }
+      ]
+    },
+    {
+      "module": "MendixSSO",
+      "installed_version": "4.1.0",
+      "status": "deprecated",
+      "advice": "Mendix SSO is deprecated as of 1 May 2026 and is scheduled for removal from the public Marketplace on 1 November 2026. Plan a move to SAML or LDAP. This is a lifecycle deadline rather than a Mendix 11 breakage: the module does not stop working on upgrade, but it will stop being available.",
+      "replacement": "SAML or LDAP",
+      "replacement_url": "https://docs.mendix.com/appstore/modules/saml/",
+      "catalog_id": null,
+      "sources": [
+        {
+          "url": "https://docs.mendix.com/appstore/modules/oidc/",
+          "title": "OIDC SSO",
+          "quote": "this module is deprecated as of May 1, 2026. You may alternatively use",
+          "retrieved": "2026-09-16"
+        }
+      ]
+    }
+  ],
+  "findings_with_guidance": 0,
+  "counts_by": {
+    "severity": {},
+    "category": {},
+    "module": {},
+    "catalog_id": {},
+    "asset_kind": {},
+    "certain": {
+      "true": 0,
+      "false": 0
+    }
+  },
+  "census": {
+    "elements": {
+      "modules": 59,
+      "entities": 299,
+      "microflows": 2634,
+      "pages": 253,
+      "widgets": 7587,
+      "java_actions": 162,
+      "xpath_expressions": 772,
+      "strings": 14792
+    },
+    "widget_types": {
+      "Forms$DivContainer": 2917,
+      "Forms$DynamicText": 1395,
+      "Forms$ActionButton": 558,
+      "Forms$TextBox": 469,
+      "Forms$DataView": 397,
+      "Forms$LayoutGrid": 292,
+      "Forms$StaticImageViewer": 193,
+      "Forms$SnippetCallWidget": 170,
+      "Forms$DatePicker": 159,
+      "Forms$DataGrid": 155,
+      "Forms$ReferenceSelector": 124,
+      "Forms$Title": 89,
+      "Forms$Placeholder": 79,
+      "Forms$RadioButtonGroup": 63,
+      "Forms$TextArea": 61,
+      "Forms$ScrollContainer": 60,
+      "Forms$CheckBox": 48,
+      "Forms$ListView": 45,
+      "Forms$DropDown": 40,
+      "com.mendix.widget.native.repeater.Repeater": 36,
+      "Forms$TabControl": 26,
+      "com.mendix.widget.web.popupmenu.PopupMenu": 22,
+      "com.mendix.widget.native.image.Image": 21,
+      "Forms$ListViewTemplate": 15,
+      "Forms$ImageViewer": 14,
+      "Forms$InputReferenceSetSelector": 14,
+      "com.mendix.widget.native.safeareaview.SafeAreaView": 13,
+      "com.mendix.widget.web.gallery.Gallery": 10,
+      "Forms$Header": 9,
+      "com.mendix.widget.native.appevents.AppEvents": 9,
+      "Forms$Table": 8,
+      "Forms$NavigationTree": 7,
+      "Forms$SimpleMenuBar": 7,
+      "Forms$SidebarToggleButton": 6,
+      "Forms$TemplateGrid": 6,
+      "Forms$GroupBox": 5,
+      "Forms$Label": 5,
+      "cpf.imagebase.ImageBase": 5,
+      "Forms$ReferenceSetSelector": 3,
+      "com.mendix.widget.native.popupmenu.PopupMenu": 3,
+      "com.mendix.widget.web.piechart.PieChart": 3,
+      "Forms$ImageUploader": 2,
+      "MicroflowTimer.widget.MicroflowTimer": 2,
+      "ShowByCondition.widget.ShowByCondition": 2,
+      "URLRedirector.widget.URLRedirector": 2,
+      "bizzomate.bizzomatescheduler.BizzomateScheduler": 2,
+      "com.mendix.widget.custom.PieChart.PieChart": 2,
+      "com.mendix.widget.native.feedback.Feedback": 2,
+      "Forms$FileManager": 1,
+      "Forms$LoginButton": 1,
+      "Forms$LoginIdTextBox": 1,
+      "Forms$MenuBar": 1,
+      "Forms$PasswordTextBox": 1,
+      "Forms$ValidationMessage": 1,
+      "HTMLSnippet.widget.HTMLSnippet": 1,
+      "SprintrFeedbackWidget.SprintrFeedback": 1,
+      "com.mendix.widget.web.languageselector.LanguageSelector": 1,
+      "com.mendix.widget.web.linechart.LineChart": 1,
+      "mendix.dropdowncontainer.DropdownContainer": 1,
+      "snippetjs.widget.snippetjs": 1
+    },
+    "modules": [
+      {
+        "Name": "Administration",
+        "Source": "Marketplace v2.1.0",
+        "AppStoreVersion": "2.1.0",
+        "AppStoreGuid": "e13a2f00-0d44-4bc9-adc4-fffd4b710ee6",
+        "marketplace": true
+      },
+      {
+        "Name": "AppSettings",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "AssetManagement",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "Atlas_Core",
+        "Source": "Marketplace v3.8.1",
+        "AppStoreVersion": "3.8.1",
+        "AppStoreGuid": "b67c24e5-2cba-47b0-a175-43e103571777",
+        "marketplace": true
+      },
+      {
+        "Name": "Atlas_NativeMobile_Content",
+        "Source": "Marketplace v3.0.2",
+        "AppStoreVersion": "3.0.2",
+        "AppStoreGuid": "0b227ecb-c9fa-46ae-a24b-8b076197fd1b",
+        "marketplace": true
+      },
+      {
+        "Name": "Atlas_Web_Content",
+        "Source": "Marketplace v3.1.2",
+        "AppStoreVersion": "3.1.2",
+        "AppStoreGuid": "7e264a21-6c7f-49d6-ad28-797b93e2233a",
+        "marketplace": true
+      },
+      {
+        "Name": "BizzomateScheduler",
+        "Source": "Marketplace v1.4.0",
+        "AppStoreVersion": "1.4.0",
+        "AppStoreGuid": "44523c0a-3022-4c91-8111-acffc58ab6bc",
+        "marketplace": true
+      },
+      {
+        "Name": "CommunityCommons",
+        "Source": "Marketplace v9.0.2",
+        "AppStoreVersion": "9.0.2",
+        "AppStoreGuid": "a30a97b7-8105-447c-9ee2-8587b70b28ef",
+        "marketplace": true
+      },
+      {
+        "Name": "CustomerManagement",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "Dashboard",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "DataWidgets",
+        "Source": "Marketplace v2.5.6",
+        "AppStoreVersion": "2.5.6",
+        "AppStoreGuid": "4427c531-aa49-49ac-a7ef-6a24186ac33a",
+        "marketplace": true
+      },
+      {
+        "Name": "DeepLink",
+        "Source": "Marketplace v9.0.5",
+        "AppStoreVersion": "9.0.5",
+        "AppStoreGuid": "403684cb-c1b6-49e8-a63d-e812f5ca0b17",
+        "marketplace": true
+      },
+      {
+        "Name": "DemoUserSwitcher",
+        "Source": "Marketplace v1.1.0",
+        "AppStoreVersion": "1.1.0",
+        "AppStoreGuid": "18da8467-393b-4209-b418-fdcfec5a181d",
+        "marketplace": true
+      },
+      {
+        "Name": "FSMPublishedAPI",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "FSM_Specific",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "FeatureToggle",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "Form",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "General",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "IDCreation",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "JWT",
+        "Source": "Marketplace v3.2.2",
+        "AppStoreVersion": "3.2.2",
+        "AppStoreGuid": "d8f47b57-da74-46be-b357-17996371f380",
+        "marketplace": true
+      },
+      {
+        "Name": "LoadTest",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "Logging",
+        "Source": "Marketplace v1.9.0",
+        "AppStoreVersion": "1.9.0",
+        "AppStoreGuid": "94b084db-675b-4372-b9f9-65f2380131d1",
+        "marketplace": true
+      },
+      {
+        "Name": "MasterData",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "MendixSSO",
+        "Source": "Marketplace v4.1.0",
+        "AppStoreVersion": "4.1.0",
+        "AppStoreGuid": "0da5b992-bdaa-464b-aca3-d48f1404f15c",
+        "marketplace": true
+      },
+      {
+        "Name": "ModuleIntegration_Administration_Impl",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "ModuleIntegration_DeepLink_Impl",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "ModuleIntegration_Logging_Impl",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "NanoflowCommons",
+        "Source": "Marketplace v3.0.0",
+        "AppStoreVersion": "3.0.0",
+        "AppStoreGuid": "e652e79b-2acc-4a3b-b210-15a6d0751258",
+        "marketplace": true
+      },
+      {
+        "Name": "NativeMobile",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "NativeMobileAsset",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "NativeMobileForm",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "NativeMobilePart",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "NativeMobileRelated",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "NativeMobileResources",
+        "Source": "Marketplace v4.0.1",
+        "AppStoreVersion": "4.0.1",
+        "AppStoreGuid": "9d9c8dee-285d-4e9d-a4e0-660e8e7821d0",
+        "marketplace": true
+      },
+      {
+        "Name": "NativeMobileTimeRegistration",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "NativeMobileWarehouse",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "NativeModelCheck",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "NativeNote",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "NativeReason",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "NativeRestAPI",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "NativeTechnician",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "Note",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "ObjectHandling",
+        "Source": "Marketplace v3.2.0",
+        "AppStoreVersion": "3.2.0",
+        "AppStoreGuid": "5ef40a68-780e-4a13-afba-b2a6c67d4e7f",
+        "marketplace": true
+      },
+      {
+        "Name": "Part",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "Reason",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "RosterManagement",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "Scheduler",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "Skill",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "Synchronization",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "System",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "TEST_NativeLocalLogin",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "Technician",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "TicketManagement",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "TimeRegistration",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "Tool",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "Utils",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "ValidationFeedback",
+        "Source": "Marketplace v1.2.0",
+        "AppStoreVersion": "1.2.0",
+        "AppStoreGuid": "fb6e7ccf-529a-4b10-ba54-6d8e7c8a852a",
+        "marketplace": true
+      },
+      {
+        "Name": "Visualizations",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      },
+      {
+        "Name": "WarehouseManagement",
+        "Source": "",
+        "AppStoreVersion": "",
+        "AppStoreGuid": "",
+        "marketplace": false
+      }
+    ]
+  }
+}

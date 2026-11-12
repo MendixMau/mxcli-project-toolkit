@@ -12,6 +12,11 @@ target/
 # convertcheck, design_props_guard); the blanket *.log above would silently drop them from `git add`.
 !upgrade-toolkit/controls/fixtures/**/*.log
 
+# upgrade-toolkit's worked examples (examples/fsm/...) keep real build/check logs as evidence
+# per step; same gap as the fixtures carve-out above — caught 2026-11-12 when 40 of them in the
+# FSM example were silently dropped by `git add` and only surfaced by `git status --ignored`.
+!upgrade-toolkit/examples/**/*.log
+
 # ...but `build/` above is unanchored, so it matches a directory named "build" at ANY depth —
 # including skills/build/, the page/MDL/workflow skill group added 2026-08-20. Caught the same
 # day: skills/build/mdl/oneshot-mdl-method.md existed on disk, rendered into every routing

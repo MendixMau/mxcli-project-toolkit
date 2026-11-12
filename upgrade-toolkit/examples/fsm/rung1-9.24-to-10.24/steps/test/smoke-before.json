@@ -1,0 +1,3153 @@
+{
+ "url": "http://localhost:8580",
+ "plan": "<run>/plan.json",
+ "at": "2026-11-10T17:31:45.268Z",
+ "repeat": 3,
+ "roles": [
+  {
+   "role": "ServiceRegionManager",
+   "steps": [
+    {
+     "caption": "home microflow",
+     "kind": "microflow",
+     "via": "home",
+     "target": "Dashboard.NAV_DashboardInternal",
+     "verdict": "SKIPPED",
+     "reason": "microflow (use --microflows)",
+     "runs": [
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      },
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      },
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      }
+     ]
+    },
+    {
+     "caption": "Dashboard",
+     "kind": "page",
+     "via": "menu",
+     "target": "Dashboard.DashboardInternal",
+     "ms": 1524,
+     "landed": "content",
+     "t0": "2026-11-10T17:31:49.143Z",
+     "t1": "2026-11-10T17:31:50.667Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:31:49.143Z",
+       "t1": "2026-11-10T17:31:50.667Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:38:52.920Z",
+       "t1": "2026-11-10T17:38:54.443Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:44:33.167Z",
+       "t1": "2026-11-10T17:44:34.689Z"
+      }
+     ]
+    },
+    {
+     "caption": "Tickets",
+     "kind": "page",
+     "via": "menu",
+     "target": "TicketManagement.Ticket_Overview_ServiceDesk",
+     "ms": 1547,
+     "landed": "content",
+     "t0": "2026-11-10T17:31:53.751Z",
+     "t1": "2026-11-10T17:31:55.298Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:31:53.751Z",
+       "t1": "2026-11-10T17:31:55.298Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:38:56.127Z",
+       "t1": "2026-11-10T17:38:57.670Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:44:36.388Z",
+       "t1": "2026-11-10T17:44:37.930Z"
+      }
+     ]
+    },
+    {
+     "caption": "Scheduler",
+     "kind": "microflow",
+     "via": "menu",
+     "target": "Scheduler.NAV_Planner",
+     "verdict": "SKIPPED",
+     "reason": "microflow (use --microflows)",
+     "runs": [
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      },
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      },
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      }
+     ]
+    },
+    {
+     "caption": "Forms",
+     "kind": "page",
+     "via": "menu",
+     "target": "Form.Form_Overview",
+     "ms": 1535,
+     "landed": "content",
+     "t0": "2026-11-10T17:31:58.042Z",
+     "t1": "2026-11-10T17:31:59.577Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:31:58.042Z",
+       "t1": "2026-11-10T17:31:59.577Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:38:59.331Z",
+       "t1": "2026-11-10T17:39:00.858Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:44:39.585Z",
+       "t1": "2026-11-10T17:44:41.113Z"
+      }
+     ]
+    },
+    {
+     "caption": "Switch user",
+     "kind": "page",
+     "via": "menu",
+     "target": "DemoUserSwitcher.User_SelectDemoUser",
+     "ms": 15014,
+     "landed": "still on Dashboard/DashboardInternal.page.xml",
+     "t0": "2026-11-10T17:32:02.285Z",
+     "t1": "2026-11-10T17:32:17.299Z",
+     "errors": [],
+     "verdict": "FAIL",
+     "runs": [
+      {
+       "verdict": "FAIL",
+       "errors": [],
+       "landed": "still on Dashboard/DashboardInternal.page.xml",
+       "t0": "2026-11-10T17:32:02.285Z",
+       "t1": "2026-11-10T17:32:17.299Z"
+      },
+      {
+       "verdict": "FAIL",
+       "errors": [],
+       "landed": "still on Dashboard/DashboardInternal.page.xml",
+       "t0": "2026-11-10T17:39:02.509Z",
+       "t1": "2026-11-10T17:39:17.521Z"
+      },
+      {
+       "verdict": "FAIL",
+       "errors": [],
+       "landed": "still on Dashboard/DashboardInternal.page.xml",
+       "t0": "2026-11-10T17:44:42.874Z",
+       "t1": "2026-11-10T17:44:57.883Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Assets",
+     "kind": "page",
+     "via": "menu",
+     "target": "AssetManagement.Asset_Overview",
+     "ms": 1525,
+     "landed": "content",
+     "t0": "2026-11-10T17:32:19.087Z",
+     "t1": "2026-11-10T17:32:20.612Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:32:19.087Z",
+       "t1": "2026-11-10T17:32:20.612Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:39:19.215Z",
+       "t1": "2026-11-10T17:39:20.744Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:44:59.571Z",
+       "t1": "2026-11-10T17:45:01.096Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Units of measurement",
+     "kind": "page",
+     "via": "menu",
+     "target": "Part.UnitOfMeasure_Overview",
+     "ms": 1526,
+     "landed": "content",
+     "t0": "2026-11-10T17:32:23.328Z",
+     "t1": "2026-11-10T17:32:24.854Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:32:23.328Z",
+       "t1": "2026-11-10T17:32:24.854Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:39:22.447Z",
+       "t1": "2026-11-10T17:39:23.978Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:45:02.785Z",
+       "t1": "2026-11-10T17:45:04.309Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Technicians",
+     "kind": "page",
+     "via": "menu",
+     "target": "Technician.Technician_Overview",
+     "ms": 1528,
+     "landed": "content",
+     "t0": "2026-11-10T17:32:27.575Z",
+     "t1": "2026-11-10T17:32:29.103Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:32:27.575Z",
+       "t1": "2026-11-10T17:32:29.103Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:39:25.648Z",
+       "t1": "2026-11-10T17:39:27.167Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:45:05.973Z",
+       "t1": "2026-11-10T17:45:07.511Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Technician groups",
+     "kind": "page",
+     "via": "menu",
+     "target": "Technician.TechnicianGroup_Overview",
+     "ms": 1530,
+     "landed": "content",
+     "t0": "2026-11-10T17:32:31.818Z",
+     "t1": "2026-11-10T17:32:33.348Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:32:31.818Z",
+       "t1": "2026-11-10T17:32:33.348Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:39:28.881Z",
+       "t1": "2026-11-10T17:39:30.408Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:45:09.182Z",
+       "t1": "2026-11-10T17:45:10.715Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Offline actions",
+     "kind": "page",
+     "via": "menu",
+     "target": "Synchronization.OfflineAction_Overview",
+     "ms": 1538,
+     "landed": "content",
+     "t0": "2026-11-10T17:32:36.075Z",
+     "t1": "2026-11-10T17:32:37.614Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:32:36.075Z",
+       "t1": "2026-11-10T17:32:37.614Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:39:32.072Z",
+       "t1": "2026-11-10T17:39:33.608Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:45:12.366Z",
+       "t1": "2026-11-10T17:45:13.978Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Feature toggles",
+     "kind": "page",
+     "via": "menu",
+     "target": "FeatureToggle.FeatureToggle_Overview",
+     "ms": 1521,
+     "landed": "content",
+     "t0": "2026-11-10T17:32:40.364Z",
+     "t1": "2026-11-10T17:32:41.885Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:32:40.364Z",
+       "t1": "2026-11-10T17:32:41.885Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:39:35.301Z",
+       "t1": "2026-11-10T17:39:36.812Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:45:15.635Z",
+       "t1": "2026-11-10T17:45:17.170Z"
+      }
+     ]
+    }
+   ],
+   "verdict": "FAIL"
+  },
+  {
+   "role": "TechnicalAdministrator",
+   "steps": [
+    {
+     "caption": "home page",
+     "kind": "page",
+     "via": "home",
+     "target": "TicketManagement.Ticket_Overview_ServiceDesk",
+     "ms": 1503,
+     "landed": "content",
+     "t0": "2026-11-10T17:32:46.339Z",
+     "t1": "2026-11-10T17:32:47.842Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:32:46.339Z",
+       "t1": "2026-11-10T17:32:47.842Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:39:39.419Z",
+       "t1": "2026-11-10T17:39:40.925Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:45:22.596Z",
+       "t1": "2026-11-10T17:45:24.102Z"
+      }
+     ]
+    },
+    {
+     "caption": "Tickets",
+     "kind": "page",
+     "via": "menu",
+     "target": "TicketManagement.Ticket_Overview_ServiceDesk",
+     "ms": 1519,
+     "landed": "content",
+     "t0": "2026-11-10T17:32:50.566Z",
+     "t1": "2026-11-10T17:32:52.085Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:32:50.566Z",
+       "t1": "2026-11-10T17:32:52.085Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:39:42.555Z",
+       "t1": "2026-11-10T17:39:44.070Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:45:25.734Z",
+       "t1": "2026-11-10T17:45:27.254Z"
+      }
+     ]
+    },
+    {
+     "caption": "Work orders",
+     "kind": "page",
+     "via": "menu",
+     "target": "TicketManagement.WorkOrder_Overview",
+     "ms": 1535,
+     "landed": "content",
+     "t0": "2026-11-10T17:32:54.885Z",
+     "t1": "2026-11-10T17:32:56.421Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:32:54.885Z",
+       "t1": "2026-11-10T17:32:56.421Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:39:45.713Z",
+       "t1": "2026-11-10T17:39:47.233Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:45:28.892Z",
+       "t1": "2026-11-10T17:45:30.424Z"
+      }
+     ]
+    },
+    {
+     "caption": "Forms",
+     "kind": "page",
+     "via": "menu",
+     "target": "Form.Form_Overview",
+     "ms": 1525,
+     "landed": "content",
+     "t0": "2026-11-10T17:32:59.128Z",
+     "t1": "2026-11-10T17:33:00.653Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:32:59.128Z",
+       "t1": "2026-11-10T17:33:00.653Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:39:48.885Z",
+       "t1": "2026-11-10T17:39:50.414Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:45:32.046Z",
+       "t1": "2026-11-10T17:45:33.575Z"
+      }
+     ]
+    },
+    {
+     "caption": "Switch user",
+     "kind": "page",
+     "via": "menu",
+     "target": "DemoUserSwitcher.User_SelectDemoUser",
+     "ms": 15010,
+     "landed": "still on TicketManagement/Ticket_Overview_ServiceDesk.page.xml",
+     "t0": "2026-11-10T17:33:03.397Z",
+     "t1": "2026-11-10T17:33:18.407Z",
+     "errors": [],
+     "verdict": "FAIL",
+     "runs": [
+      {
+       "verdict": "FAIL",
+       "errors": [],
+       "landed": "still on TicketManagement/Ticket_Overview_ServiceDesk.page.xml",
+       "t0": "2026-11-10T17:33:03.397Z",
+       "t1": "2026-11-10T17:33:18.407Z"
+      },
+      {
+       "verdict": "FAIL",
+       "errors": [],
+       "landed": "still on TicketManagement/Ticket_Overview_ServiceDesk.page.xml",
+       "t0": "2026-11-10T17:39:52.042Z",
+       "t1": "2026-11-10T17:40:07.049Z"
+      },
+      {
+       "verdict": "FAIL",
+       "errors": [],
+       "landed": "still on TicketManagement/Ticket_Overview_ServiceDesk.page.xml",
+       "t0": "2026-11-10T17:45:35.225Z",
+       "t1": "2026-11-10T17:45:50.246Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Accounts",
+     "kind": "page",
+     "via": "menu",
+     "target": "ModuleIntegration_Administration_Impl.Account_Overview",
+     "ms": 1526,
+     "landed": "content",
+     "t0": "2026-11-10T17:33:20.146Z",
+     "t1": "2026-11-10T17:33:21.672Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:33:20.146Z",
+       "t1": "2026-11-10T17:33:21.672Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:40:08.713Z",
+       "t1": "2026-11-10T17:40:10.233Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:45:51.905Z",
+       "t1": "2026-11-10T17:45:53.500Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Application settings",
+     "kind": "microflow",
+     "via": "menu",
+     "target": "AppSettings.NAV_ApplicationSettings_Overview",
+     "verdict": "SKIPPED",
+     "reason": "microflow (use --microflows)",
+     "runs": [
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      },
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      },
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Assets",
+     "kind": "page",
+     "via": "menu",
+     "target": "AssetManagement.Asset_Overview",
+     "ms": 1519,
+     "landed": "content",
+     "t0": "2026-11-10T17:33:24.378Z",
+     "t1": "2026-11-10T17:33:25.897Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:33:24.378Z",
+       "t1": "2026-11-10T17:33:25.897Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:40:11.877Z",
+       "t1": "2026-11-10T17:40:13.396Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:45:55.182Z",
+       "t1": "2026-11-10T17:45:56.703Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Contracts",
+     "kind": "page",
+     "via": "menu",
+     "target": "CustomerManagement.Contract_Overview",
+     "ms": 1529,
+     "landed": "content",
+     "t0": "2026-11-10T17:33:28.584Z",
+     "t1": "2026-11-10T17:33:30.113Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:33:28.584Z",
+       "t1": "2026-11-10T17:33:30.113Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:40:15.035Z",
+       "t1": "2026-11-10T17:40:16.550Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:45:58.354Z",
+       "t1": "2026-11-10T17:45:59.934Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Deeplink",
+     "kind": "page",
+     "via": "menu",
+     "target": "ModuleIntegration_DeepLink_Impl.Deeplink_Overview",
+     "ms": 1533,
+     "landed": "content",
+     "t0": "2026-11-10T17:33:32.798Z",
+     "t1": "2026-11-10T17:33:34.331Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:33:32.798Z",
+       "t1": "2026-11-10T17:33:34.331Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:40:18.178Z",
+       "t1": "2026-11-10T17:40:19.705Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:46:01.652Z",
+       "t1": "2026-11-10T17:46:03.217Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Tools",
+     "kind": "microflow",
+     "via": "menu",
+     "target": "Tool.NAV_Tool_Overview",
+     "verdict": "SKIPPED",
+     "reason": "microflow (use --microflows)",
+     "runs": [
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      },
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      },
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Customers",
+     "kind": "page",
+     "via": "menu",
+     "target": "CustomerManagement.Customer_Overview",
+     "ms": 1525,
+     "landed": "content",
+     "t0": "2026-11-10T17:33:37.012Z",
+     "t1": "2026-11-10T17:33:38.537Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:33:37.012Z",
+       "t1": "2026-11-10T17:33:38.537Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:40:21.337Z",
+       "t1": "2026-11-10T17:40:22.856Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:46:04.871Z",
+       "t1": "2026-11-10T17:46:06.424Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Load test",
+     "kind": "microflow",
+     "via": "menu",
+     "target": "LoadTest.ACT_LoadTestHelperNP_NewEdit",
+     "verdict": "SKIPPED",
+     "reason": "microflow (use --microflows)",
+     "runs": [
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      },
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      },
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Masterdata views",
+     "kind": "page",
+     "via": "menu",
+     "target": "MasterData.Masterdata_Overview_MxAdmin",
+     "ms": 1528,
+     "landed": "content",
+     "t0": "2026-11-10T17:33:41.217Z",
+     "t1": "2026-11-10T17:33:42.745Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:33:41.217Z",
+       "t1": "2026-11-10T17:33:42.745Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:40:24.492Z",
+       "t1": "2026-11-10T17:40:26.015Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:46:08.109Z",
+       "t1": "2026-11-10T17:46:09.679Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Technicians",
+     "kind": "page",
+     "via": "menu",
+     "target": "Technician.Technician_Overview",
+     "ms": 1521,
+     "landed": "content",
+     "t0": "2026-11-10T17:33:45.440Z",
+     "t1": "2026-11-10T17:33:46.961Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:33:45.440Z",
+       "t1": "2026-11-10T17:33:46.961Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:40:27.671Z",
+       "t1": "2026-11-10T17:40:29.193Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:46:11.311Z",
+       "t1": "2026-11-10T17:46:12.842Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Technician groups",
+     "kind": "page",
+     "via": "menu",
+     "target": "Technician.TechnicianGroup_Overview",
+     "ms": 1515,
+     "landed": "content",
+     "t0": "2026-11-10T17:33:49.642Z",
+     "t1": "2026-11-10T17:33:51.157Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:33:49.642Z",
+       "t1": "2026-11-10T17:33:51.157Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:40:30.827Z",
+       "t1": "2026-11-10T17:40:32.346Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:46:14.505Z",
+       "t1": "2026-11-10T17:46:16.025Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Offline actions",
+     "kind": "page",
+     "via": "menu",
+     "target": "Synchronization.OfflineAction_Overview",
+     "ms": 1529,
+     "landed": "content",
+     "t0": "2026-11-10T17:33:53.826Z",
+     "t1": "2026-11-10T17:33:55.355Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:33:53.826Z",
+       "t1": "2026-11-10T17:33:55.355Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:40:33.993Z",
+       "t1": "2026-11-10T17:40:35.509Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:46:17.690Z",
+       "t1": "2026-11-10T17:46:19.228Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Scheduled Events",
+     "kind": "page",
+     "via": "menu",
+     "target": "Administration.ScheduledEvents",
+     "ms": 1526,
+     "landed": "content",
+     "t0": "2026-11-10T17:33:58.026Z",
+     "t1": "2026-11-10T17:33:59.552Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:33:58.026Z",
+       "t1": "2026-11-10T17:33:59.552Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:40:37.138Z",
+       "t1": "2026-11-10T17:40:38.656Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:46:20.880Z",
+       "t1": "2026-11-10T17:46:22.420Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Scripts",
+     "kind": "page",
+     "via": "menu",
+     "target": "AppSettings.Script_Overview",
+     "ms": 1534,
+     "landed": "content",
+     "t0": "2026-11-10T17:34:02.254Z",
+     "t1": "2026-11-10T17:34:03.788Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:34:02.254Z",
+       "t1": "2026-11-10T17:34:03.788Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:40:40.326Z",
+       "t1": "2026-11-10T17:40:41.845Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:46:24.065Z",
+       "t1": "2026-11-10T17:46:25.614Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > SLA's",
+     "kind": "page",
+     "via": "menu",
+     "target": "CustomerManagement.SLA_Overview",
+     "ms": 1525,
+     "landed": "content",
+     "t0": "2026-11-10T17:34:06.535Z",
+     "t1": "2026-11-10T17:34:08.060Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:34:06.535Z",
+       "t1": "2026-11-10T17:34:08.060Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:40:43.495Z",
+       "t1": "2026-11-10T17:40:45.014Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:46:27.306Z",
+       "t1": "2026-11-10T17:46:28.836Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Systemlogs",
+     "kind": "page",
+     "via": "menu",
+     "target": "ModuleIntegration_Logging_Impl.Message_Overview_2",
+     "ms": 1525,
+     "landed": "content",
+     "t0": "2026-11-10T17:34:10.804Z",
+     "t1": "2026-11-10T17:34:12.329Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:34:10.804Z",
+       "t1": "2026-11-10T17:34:12.329Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:40:46.709Z",
+       "t1": "2026-11-10T17:40:48.233Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:46:30.478Z",
+       "t1": "2026-11-10T17:46:32.053Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Registration codes",
+     "kind": "page",
+     "via": "menu",
+     "target": "TimeRegistration.RegistrationCode_Overview",
+     "ms": 1526,
+     "landed": "content",
+     "t0": "2026-11-10T17:34:15.080Z",
+     "t1": "2026-11-10T17:34:16.606Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:34:15.080Z",
+       "t1": "2026-11-10T17:34:16.606Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:40:49.905Z",
+       "t1": "2026-11-10T17:40:51.427Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:46:33.718Z",
+       "t1": "2026-11-10T17:46:35.248Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Business contacts",
+     "kind": "page",
+     "via": "menu",
+     "target": "CustomerManagement.ContactPerson_Overview",
+     "ms": 1533,
+     "landed": "content",
+     "t0": "2026-11-10T17:34:19.305Z",
+     "t1": "2026-11-10T17:34:20.838Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:34:19.305Z",
+       "t1": "2026-11-10T17:34:20.838Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:40:53.066Z",
+       "t1": "2026-11-10T17:40:54.582Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:46:36.899Z",
+       "t1": "2026-11-10T17:46:38.570Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Feature toggles",
+     "kind": "page",
+     "via": "menu",
+     "target": "FeatureToggle.FeatureToggle_Overview",
+     "ms": 1518,
+     "landed": "content",
+     "t0": "2026-11-10T17:34:23.633Z",
+     "t1": "2026-11-10T17:34:25.151Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:34:23.633Z",
+       "t1": "2026-11-10T17:34:25.151Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:40:56.221Z",
+       "t1": "2026-11-10T17:40:57.732Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:46:40.210Z",
+       "t1": "2026-11-10T17:46:41.728Z"
+      }
+     ]
+    },
+    {
+     "caption": "Grids templates",
+     "kind": "page",
+     "via": "menu",
+     "target": "Dashboard.Grids",
+     "ms": 1548,
+     "landed": "content",
+     "t0": "2026-11-10T17:34:27.867Z",
+     "t1": "2026-11-10T17:34:29.415Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:34:27.867Z",
+       "t1": "2026-11-10T17:34:29.415Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:40:59.371Z",
+       "t1": "2026-11-10T17:41:00.888Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:46:43.374Z",
+       "t1": "2026-11-10T17:46:44.936Z"
+      }
+     ]
+    }
+   ],
+   "verdict": "FAIL"
+  },
+  {
+   "role": "Mechanic",
+   "steps": [
+    {
+     "caption": "home microflow",
+     "kind": "microflow",
+     "via": "home",
+     "target": "Technician.NAV_Technician_Home",
+     "verdict": "SKIPPED",
+     "reason": "microflow (use --microflows)",
+     "runs": [
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      },
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      },
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      }
+     ]
+    },
+    {
+     "caption": "Tickets",
+     "kind": "page",
+     "via": "menu",
+     "target": "TicketManagement.Ticket_Overview_Technician",
+     "ms": 1516,
+     "landed": "content",
+     "t0": "2026-11-10T17:34:33.438Z",
+     "t1": "2026-11-10T17:34:34.954Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:34:33.438Z",
+       "t1": "2026-11-10T17:34:34.954Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:41:03.240Z",
+       "t1": "2026-11-10T17:41:04.762Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:46:47.272Z",
+       "t1": "2026-11-10T17:46:48.789Z"
+      }
+     ]
+    },
+    {
+     "caption": "Scheduler",
+     "kind": "microflow",
+     "via": "menu",
+     "target": "Scheduler.NAV_Planner",
+     "verdict": "SKIPPED",
+     "reason": "microflow (use --microflows)",
+     "runs": [
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      },
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      },
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      }
+     ]
+    },
+    {
+     "caption": "Switch user",
+     "kind": "page",
+     "via": "menu",
+     "target": "DemoUserSwitcher.User_SelectDemoUser",
+     "ms": 15008,
+     "landed": "still on TicketManagement/Ticket_Overview_Technician.page.xml",
+     "t0": "2026-11-10T17:34:37.683Z",
+     "t1": "2026-11-10T17:34:52.691Z",
+     "errors": [],
+     "verdict": "FAIL",
+     "runs": [
+      {
+       "verdict": "FAIL",
+       "errors": [],
+       "landed": "still on TicketManagement/Ticket_Overview_Technician.page.xml",
+       "t0": "2026-11-10T17:34:37.683Z",
+       "t1": "2026-11-10T17:34:52.691Z"
+      },
+      {
+       "verdict": "FAIL",
+       "errors": [],
+       "landed": "still on TicketManagement/Ticket_Overview_Technician.page.xml",
+       "t0": "2026-11-10T17:41:06.385Z",
+       "t1": "2026-11-10T17:41:21.391Z"
+      },
+      {
+       "verdict": "FAIL",
+       "errors": [],
+       "landed": "still on TicketManagement/Ticket_Overview_Technician.page.xml",
+       "t0": "2026-11-10T17:46:50.433Z",
+       "t1": "2026-11-10T17:47:05.441Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Assets",
+     "kind": "page",
+     "via": "menu",
+     "target": "AssetManagement.Asset_Overview",
+     "ms": 1519,
+     "landed": "content",
+     "t0": "2026-11-10T17:34:54.422Z",
+     "t1": "2026-11-10T17:34:55.941Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:34:54.422Z",
+       "t1": "2026-11-10T17:34:55.941Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:41:23.041Z",
+       "t1": "2026-11-10T17:41:24.555Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:47:07.156Z",
+       "t1": "2026-11-10T17:47:08.675Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Units of measurement",
+     "kind": "page",
+     "via": "menu",
+     "target": "Part.UnitOfMeasure_Overview",
+     "ms": 1521,
+     "landed": "content",
+     "t0": "2026-11-10T17:34:58.663Z",
+     "t1": "2026-11-10T17:35:00.184Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:34:58.663Z",
+       "t1": "2026-11-10T17:35:00.184Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:41:26.200Z",
+       "t1": "2026-11-10T17:41:27.727Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:47:10.329Z",
+       "t1": "2026-11-10T17:47:11.851Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Technicians",
+     "kind": "page",
+     "via": "menu",
+     "target": "Technician.Technician_Overview",
+     "ms": 1530,
+     "landed": "content",
+     "t0": "2026-11-10T17:35:02.880Z",
+     "t1": "2026-11-10T17:35:04.410Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:35:02.880Z",
+       "t1": "2026-11-10T17:35:04.410Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:41:29.357Z",
+       "t1": "2026-11-10T17:41:30.880Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:47:13.484Z",
+       "t1": "2026-11-10T17:47:15.009Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Technician groups",
+     "kind": "page",
+     "via": "menu",
+     "target": "Technician.TechnicianGroup_Overview",
+     "ms": 1540,
+     "landed": "content",
+     "t0": "2026-11-10T17:35:07.121Z",
+     "t1": "2026-11-10T17:35:08.661Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:35:07.121Z",
+       "t1": "2026-11-10T17:35:08.661Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:41:32.513Z",
+       "t1": "2026-11-10T17:41:34.041Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:47:16.653Z",
+       "t1": "2026-11-10T17:47:18.168Z"
+      }
+     ]
+    }
+   ],
+   "verdict": "FAIL"
+  },
+  {
+   "role": "CallCenterEmployee",
+   "steps": [
+    {
+     "caption": "home microflow",
+     "kind": "microflow",
+     "via": "home",
+     "target": "Dashboard.NAV_DashboardExternal",
+     "verdict": "SKIPPED",
+     "reason": "microflow (use --microflows)",
+     "runs": [
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      },
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      },
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      }
+     ]
+    },
+    {
+     "caption": "Dashboard",
+     "kind": "page",
+     "via": "menu",
+     "target": "Dashboard.DashboardExternal",
+     "ms": 1528,
+     "landed": "content",
+     "t0": "2026-11-10T17:35:12.922Z",
+     "t1": "2026-11-10T17:35:14.450Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:35:12.922Z",
+       "t1": "2026-11-10T17:35:14.450Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:41:37.330Z",
+       "t1": "2026-11-10T17:41:38.860Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:47:22.297Z",
+       "t1": "2026-11-10T17:47:23.827Z"
+      }
+     ]
+    },
+    {
+     "caption": "Tickets",
+     "kind": "page",
+     "via": "menu",
+     "target": "TicketManagement.Ticket_Overview_ServiceDesk",
+     "ms": 1518,
+     "landed": "content",
+     "t0": "2026-11-10T17:35:17.264Z",
+     "t1": "2026-11-10T17:35:18.782Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:35:17.264Z",
+       "t1": "2026-11-10T17:35:18.782Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:41:40.588Z",
+       "t1": "2026-11-10T17:41:42.106Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:47:25.535Z",
+       "t1": "2026-11-10T17:47:27.060Z"
+      }
+     ]
+    },
+    {
+     "caption": "Forms",
+     "kind": "page",
+     "via": "menu",
+     "target": "Form.Form_Overview",
+     "ms": 1524,
+     "landed": "content",
+     "t0": "2026-11-10T17:35:21.507Z",
+     "t1": "2026-11-10T17:35:23.031Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:35:21.507Z",
+       "t1": "2026-11-10T17:35:23.031Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:41:43.787Z",
+       "t1": "2026-11-10T17:41:45.319Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:47:28.705Z",
+       "t1": "2026-11-10T17:47:30.235Z"
+      }
+     ]
+    },
+    {
+     "caption": "Switch user",
+     "kind": "page",
+     "via": "menu",
+     "target": "DemoUserSwitcher.User_SelectDemoUser",
+     "ms": 15007,
+     "landed": "still on Dashboard/DashboardExternal.page.xml",
+     "t0": "2026-11-10T17:35:25.758Z",
+     "t1": "2026-11-10T17:35:40.765Z",
+     "errors": [],
+     "verdict": "FAIL",
+     "runs": [
+      {
+       "verdict": "FAIL",
+       "errors": [],
+       "landed": "still on Dashboard/DashboardExternal.page.xml",
+       "t0": "2026-11-10T17:35:25.758Z",
+       "t1": "2026-11-10T17:35:40.765Z"
+      },
+      {
+       "verdict": "FAIL",
+       "errors": [],
+       "landed": "still on Dashboard/DashboardExternal.page.xml",
+       "t0": "2026-11-10T17:41:47.037Z",
+       "t1": "2026-11-10T17:42:02.049Z"
+      },
+      {
+       "verdict": "FAIL",
+       "errors": [],
+       "landed": "still on Dashboard/DashboardExternal.page.xml",
+       "t0": "2026-11-10T17:47:31.883Z",
+       "t1": "2026-11-10T17:47:46.890Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Assets",
+     "kind": "page",
+     "via": "menu",
+     "target": "AssetManagement.Asset_Overview",
+     "ms": 1525,
+     "landed": "content",
+     "t0": "2026-11-10T17:35:42.501Z",
+     "t1": "2026-11-10T17:35:44.026Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:35:42.501Z",
+       "t1": "2026-11-10T17:35:44.026Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:42:03.735Z",
+       "t1": "2026-11-10T17:42:05.255Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:47:48.564Z",
+       "t1": "2026-11-10T17:47:50.084Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Units of measurement",
+     "kind": "page",
+     "via": "menu",
+     "target": "Part.UnitOfMeasure_Overview",
+     "ms": 1511,
+     "landed": "content",
+     "t0": "2026-11-10T17:35:46.727Z",
+     "t1": "2026-11-10T17:35:48.238Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:35:46.727Z",
+       "t1": "2026-11-10T17:35:48.238Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:42:06.934Z",
+       "t1": "2026-11-10T17:42:08.454Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:47:51.732Z",
+       "t1": "2026-11-10T17:47:53.250Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Technicians",
+     "kind": "page",
+     "via": "menu",
+     "target": "Technician.Technician_Overview",
+     "ms": 1517,
+     "landed": "content",
+     "t0": "2026-11-10T17:35:50.947Z",
+     "t1": "2026-11-10T17:35:52.464Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:35:50.947Z",
+       "t1": "2026-11-10T17:35:52.464Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:42:10.146Z",
+       "t1": "2026-11-10T17:42:11.671Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:47:54.924Z",
+       "t1": "2026-11-10T17:47:56.442Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Technician groups",
+     "kind": "page",
+     "via": "menu",
+     "target": "Technician.TechnicianGroup_Overview",
+     "ms": 1524,
+     "landed": "content",
+     "t0": "2026-11-10T17:35:55.159Z",
+     "t1": "2026-11-10T17:35:56.683Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:35:55.159Z",
+       "t1": "2026-11-10T17:35:56.683Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:42:13.394Z",
+       "t1": "2026-11-10T17:42:14.910Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:47:58.117Z",
+       "t1": "2026-11-10T17:47:59.640Z"
+      }
+     ]
+    }
+   ],
+   "verdict": "FAIL"
+  },
+  {
+   "role": "FunctionalAdministrator",
+   "steps": [
+    {
+     "caption": "home page",
+     "kind": "page",
+     "via": "home",
+     "target": "TicketManagement.Ticket_Overview_ServiceDesk",
+     "ms": 1503,
+     "landed": "content",
+     "t0": "2026-11-10T17:35:59.946Z",
+     "t1": "2026-11-10T17:36:01.449Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:35:59.946Z",
+       "t1": "2026-11-10T17:36:01.449Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:42:17.887Z",
+       "t1": "2026-11-10T17:42:19.392Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:48:01.887Z",
+       "t1": "2026-11-10T17:48:03.397Z"
+      }
+     ]
+    },
+    {
+     "caption": "Tickets",
+     "kind": "page",
+     "via": "menu",
+     "target": "TicketManagement.Ticket_Overview_ServiceDesk",
+     "ms": 1515,
+     "landed": "content",
+     "t0": "2026-11-10T17:36:04.136Z",
+     "t1": "2026-11-10T17:36:05.652Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:36:04.136Z",
+       "t1": "2026-11-10T17:36:05.652Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:42:21.017Z",
+       "t1": "2026-11-10T17:42:22.536Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:48:05.063Z",
+       "t1": "2026-11-10T17:48:06.581Z"
+      }
+     ]
+    },
+    {
+     "caption": "Work orders",
+     "kind": "page",
+     "via": "menu",
+     "target": "TicketManagement.WorkOrder_Overview",
+     "ms": 1519,
+     "landed": "content",
+     "t0": "2026-11-10T17:36:08.371Z",
+     "t1": "2026-11-10T17:36:09.890Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:36:08.371Z",
+       "t1": "2026-11-10T17:36:09.890Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:42:24.178Z",
+       "t1": "2026-11-10T17:42:25.702Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:48:08.244Z",
+       "t1": "2026-11-10T17:48:09.767Z"
+      }
+     ]
+    },
+    {
+     "caption": "Forms",
+     "kind": "page",
+     "via": "menu",
+     "target": "Form.Form_Overview",
+     "ms": 1520,
+     "landed": "content",
+     "t0": "2026-11-10T17:36:12.584Z",
+     "t1": "2026-11-10T17:36:14.104Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:36:12.584Z",
+       "t1": "2026-11-10T17:36:14.104Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:42:27.378Z",
+       "t1": "2026-11-10T17:42:28.908Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:48:11.411Z",
+       "t1": "2026-11-10T17:48:12.936Z"
+      }
+     ]
+    },
+    {
+     "caption": "Switch user",
+     "kind": "page",
+     "via": "menu",
+     "target": "DemoUserSwitcher.User_SelectDemoUser",
+     "ms": 15008,
+     "landed": "still on TicketManagement/Ticket_Overview_ServiceDesk.page.xml",
+     "t0": "2026-11-10T17:36:16.770Z",
+     "t1": "2026-11-10T17:36:31.778Z",
+     "errors": [],
+     "verdict": "FAIL",
+     "runs": [
+      {
+       "verdict": "FAIL",
+       "errors": [],
+       "landed": "still on TicketManagement/Ticket_Overview_ServiceDesk.page.xml",
+       "t0": "2026-11-10T17:36:16.770Z",
+       "t1": "2026-11-10T17:36:31.778Z"
+      },
+      {
+       "verdict": "FAIL",
+       "errors": [],
+       "landed": "still on TicketManagement/Ticket_Overview_ServiceDesk.page.xml",
+       "t0": "2026-11-10T17:42:30.583Z",
+       "t1": "2026-11-10T17:42:45.594Z"
+      },
+      {
+       "verdict": "FAIL",
+       "errors": [],
+       "landed": "still on TicketManagement/Ticket_Overview_ServiceDesk.page.xml",
+       "t0": "2026-11-10T17:48:14.594Z",
+       "t1": "2026-11-10T17:48:29.603Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Accounts",
+     "kind": "page",
+     "via": "menu",
+     "target": "ModuleIntegration_Administration_Impl.Account_Overview",
+     "ms": 1524,
+     "landed": "content",
+     "t0": "2026-11-10T17:36:33.488Z",
+     "t1": "2026-11-10T17:36:35.012Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:36:33.488Z",
+       "t1": "2026-11-10T17:36:35.012Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:42:47.288Z",
+       "t1": "2026-11-10T17:42:48.813Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:48:31.246Z",
+       "t1": "2026-11-10T17:48:32.767Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Assets",
+     "kind": "page",
+     "via": "menu",
+     "target": "AssetManagement.Asset_Overview",
+     "ms": 1519,
+     "landed": "content",
+     "t0": "2026-11-10T17:36:37.693Z",
+     "t1": "2026-11-10T17:36:39.212Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:36:37.693Z",
+       "t1": "2026-11-10T17:36:39.212Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:42:50.447Z",
+       "t1": "2026-11-10T17:42:51.965Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:48:34.391Z",
+       "t1": "2026-11-10T17:48:35.910Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Contracts",
+     "kind": "page",
+     "via": "menu",
+     "target": "CustomerManagement.Contract_Overview",
+     "ms": 1523,
+     "landed": "content",
+     "t0": "2026-11-10T17:36:41.896Z",
+     "t1": "2026-11-10T17:36:43.419Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:36:41.896Z",
+       "t1": "2026-11-10T17:36:43.419Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:42:53.620Z",
+       "t1": "2026-11-10T17:42:55.142Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:48:37.540Z",
+       "t1": "2026-11-10T17:48:39.058Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Tools",
+     "kind": "microflow",
+     "via": "menu",
+     "target": "Tool.NAV_Tool_Overview",
+     "verdict": "SKIPPED",
+     "reason": "microflow (use --microflows)",
+     "runs": [
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      },
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      },
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Customers",
+     "kind": "page",
+     "via": "menu",
+     "target": "CustomerManagement.Customer_Overview",
+     "ms": 2228,
+     "landed": "content",
+     "t0": "2026-11-10T17:36:46.085Z",
+     "t1": "2026-11-10T17:36:48.313Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:36:46.085Z",
+       "t1": "2026-11-10T17:36:48.313Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:42:56.782Z",
+       "t1": "2026-11-10T17:42:58.302Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:48:40.681Z",
+       "t1": "2026-11-10T17:48:42.202Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Units of measurement",
+     "kind": "page",
+     "via": "menu",
+     "target": "Part.UnitOfMeasure_Overview",
+     "ms": 1521,
+     "landed": "content",
+     "t0": "2026-11-10T17:36:50.974Z",
+     "t1": "2026-11-10T17:36:52.495Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:36:50.974Z",
+       "t1": "2026-11-10T17:36:52.495Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:42:59.932Z",
+       "t1": "2026-11-10T17:43:01.453Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:48:43.823Z",
+       "t1": "2026-11-10T17:48:45.343Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Warehouses",
+     "kind": "page",
+     "via": "menu",
+     "target": "WarehouseManagement.Warehouse_Overview",
+     "ms": 1694,
+     "landed": "content",
+     "t0": "2026-11-10T17:36:55.173Z",
+     "t1": "2026-11-10T17:36:56.867Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:36:55.173Z",
+       "t1": "2026-11-10T17:36:56.867Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:43:03.082Z",
+       "t1": "2026-11-10T17:43:04.607Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:48:46.971Z",
+       "t1": "2026-11-10T17:48:48.501Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Technicians",
+     "kind": "page",
+     "via": "menu",
+     "target": "Technician.Technician_Overview",
+     "ms": 1523,
+     "landed": "content",
+     "t0": "2026-11-10T17:36:59.786Z",
+     "t1": "2026-11-10T17:37:01.309Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:36:59.786Z",
+       "t1": "2026-11-10T17:37:01.309Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:43:06.272Z",
+       "t1": "2026-11-10T17:43:07.788Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:48:50.124Z",
+       "t1": "2026-11-10T17:48:51.648Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Technician groups",
+     "kind": "page",
+     "via": "menu",
+     "target": "Technician.TechnicianGroup_Overview",
+     "ms": 1783,
+     "landed": "content",
+     "t0": "2026-11-10T17:37:03.976Z",
+     "t1": "2026-11-10T17:37:05.759Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:37:03.976Z",
+       "t1": "2026-11-10T17:37:05.759Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:43:09.421Z",
+       "t1": "2026-11-10T17:43:10.939Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:48:53.280Z",
+       "t1": "2026-11-10T17:48:54.798Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Parts",
+     "kind": "microflow",
+     "via": "menu",
+     "target": "Part.NAV_Part_Overview",
+     "verdict": "SKIPPED",
+     "reason": "microflow (use --microflows)",
+     "runs": [
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      },
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      },
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Reasons",
+     "kind": "page",
+     "via": "menu",
+     "target": "Reason.Reason_Overview",
+     "ms": 1525,
+     "landed": "content",
+     "t0": "2026-11-10T17:37:08.428Z",
+     "t1": "2026-11-10T17:37:09.953Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:37:08.428Z",
+       "t1": "2026-11-10T17:37:09.953Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:43:12.560Z",
+       "t1": "2026-11-10T17:43:14.079Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:48:56.413Z",
+       "t1": "2026-11-10T17:48:57.939Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Priorities",
+     "kind": "page",
+     "via": "menu",
+     "target": "TicketManagement.Priority_Overview",
+     "ms": 1885,
+     "landed": "content",
+     "t0": "2026-11-10T17:37:12.664Z",
+     "t1": "2026-11-10T17:37:14.549Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:37:12.664Z",
+       "t1": "2026-11-10T17:37:14.549Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:43:15.702Z",
+       "t1": "2026-11-10T17:43:17.223Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:48:59.563Z",
+       "t1": "2026-11-10T17:49:01.093Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > SLA's",
+     "kind": "page",
+     "via": "menu",
+     "target": "CustomerManagement.SLA_Overview",
+     "ms": 1617,
+     "landed": "content",
+     "t0": "2026-11-10T17:37:17.285Z",
+     "t1": "2026-11-10T17:37:18.903Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:37:17.285Z",
+       "t1": "2026-11-10T17:37:18.903Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:43:18.840Z",
+       "t1": "2026-11-10T17:43:20.360Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:49:02.712Z",
+       "t1": "2026-11-10T17:49:04.229Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Snap settings",
+     "kind": "microflow",
+     "via": "menu",
+     "target": "Scheduler.NAV_SnapSetting_Open",
+     "verdict": "SKIPPED",
+     "reason": "microflow (use --microflows)",
+     "runs": [
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      },
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      },
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Ticket types",
+     "kind": "page",
+     "via": "menu",
+     "target": "TicketManagement.TicketType_Overview",
+     "ms": 1527,
+     "landed": "content",
+     "t0": "2026-11-10T17:37:21.605Z",
+     "t1": "2026-11-10T17:37:23.132Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:37:21.605Z",
+       "t1": "2026-11-10T17:37:23.132Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:43:21.984Z",
+       "t1": "2026-11-10T17:43:23.504Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:49:05.892Z",
+       "t1": "2026-11-10T17:49:07.418Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Registration codes",
+     "kind": "page",
+     "via": "menu",
+     "target": "TimeRegistration.RegistrationCode_Overview",
+     "ms": 1514,
+     "landed": "content",
+     "t0": "2026-11-10T17:37:26.200Z",
+     "t1": "2026-11-10T17:37:27.714Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:37:26.200Z",
+       "t1": "2026-11-10T17:37:27.714Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:43:25.122Z",
+       "t1": "2026-11-10T17:43:26.648Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:49:09.040Z",
+       "t1": "2026-11-10T17:49:10.559Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Skills",
+     "kind": "microflow",
+     "via": "menu",
+     "target": "Skill.NAV_Skill",
+     "verdict": "SKIPPED",
+     "reason": "microflow (use --microflows)",
+     "runs": [
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      },
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      },
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Business contacts",
+     "kind": "page",
+     "via": "menu",
+     "target": "CustomerManagement.ContactPerson_Overview",
+     "ms": 1642,
+     "landed": "content",
+     "t0": "2026-11-10T17:37:30.458Z",
+     "t1": "2026-11-10T17:37:32.100Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:37:30.458Z",
+       "t1": "2026-11-10T17:37:32.100Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:43:28.275Z",
+       "t1": "2026-11-10T17:43:29.793Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:49:12.186Z",
+       "t1": "2026-11-10T17:49:13.702Z"
+      }
+     ]
+    }
+   ],
+   "verdict": "FAIL"
+  },
+  {
+   "role": "ServiceDeskEmployee",
+   "steps": [
+    {
+     "caption": "home microflow",
+     "kind": "microflow",
+     "via": "home",
+     "target": "Dashboard.NAV_DashboardAll",
+     "verdict": "SKIPPED",
+     "reason": "microflow (use --microflows)",
+     "runs": [
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      },
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      },
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      }
+     ]
+    },
+    {
+     "caption": "Dashboard",
+     "kind": "page",
+     "via": "menu",
+     "target": "Dashboard.DashboardAll",
+     "ms": 1540,
+     "landed": "content",
+     "t0": "2026-11-10T17:37:36.092Z",
+     "t1": "2026-11-10T17:37:37.632Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:37:36.092Z",
+       "t1": "2026-11-10T17:37:37.632Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:43:32.299Z",
+       "t1": "2026-11-10T17:43:33.837Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:49:16.290Z",
+       "t1": "2026-11-10T17:49:17.835Z"
+      }
+     ]
+    },
+    {
+     "caption": "Tickets",
+     "kind": "page",
+     "via": "menu",
+     "target": "TicketManagement.Ticket_Overview_ServiceDesk",
+     "ms": 1518,
+     "landed": "content",
+     "t0": "2026-11-10T17:37:40.579Z",
+     "t1": "2026-11-10T17:37:42.097Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:37:40.579Z",
+       "t1": "2026-11-10T17:37:42.097Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:43:35.628Z",
+       "t1": "2026-11-10T17:43:37.147Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:49:19.676Z",
+       "t1": "2026-11-10T17:49:21.199Z"
+      }
+     ]
+    },
+    {
+     "caption": "Scheduler",
+     "kind": "microflow",
+     "via": "menu",
+     "target": "Scheduler.NAV_Planner",
+     "verdict": "SKIPPED",
+     "reason": "microflow (use --microflows)",
+     "runs": [
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      },
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      },
+      {
+       "verdict": "SKIPPED",
+       "reason": "microflow (use --microflows)"
+      }
+     ]
+    },
+    {
+     "caption": "Forms",
+     "kind": "page",
+     "via": "menu",
+     "target": "Form.Form_Overview",
+     "ms": 1525,
+     "landed": "content",
+     "t0": "2026-11-10T17:37:45.012Z",
+     "t1": "2026-11-10T17:37:46.537Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:37:45.012Z",
+       "t1": "2026-11-10T17:37:46.537Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:43:38.922Z",
+       "t1": "2026-11-10T17:43:40.446Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:49:22.961Z",
+       "t1": "2026-11-10T17:49:24.495Z"
+      }
+     ]
+    },
+    {
+     "caption": "Alerts",
+     "kind": "page",
+     "via": "menu",
+     "target": "Visualizations.Ticket_Overview_NeedsAction",
+     "ms": 1625,
+     "landed": "content",
+     "t0": "2026-11-10T17:37:49.375Z",
+     "t1": "2026-11-10T17:37:51.000Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:37:49.375Z",
+       "t1": "2026-11-10T17:37:51.000Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:43:42.244Z",
+       "t1": "2026-11-10T17:43:43.768Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:49:26.263Z",
+       "t1": "2026-11-10T17:49:27.808Z"
+      }
+     ]
+    },
+    {
+     "caption": "Switch user",
+     "kind": "page",
+     "via": "menu",
+     "target": "DemoUserSwitcher.User_SelectDemoUser",
+     "ms": 15021,
+     "landed": "still on Dashboard/DashboardAll.page.xml",
+     "t0": "2026-11-10T17:37:53.986Z",
+     "t1": "2026-11-10T17:38:09.007Z",
+     "errors": [],
+     "verdict": "FAIL",
+     "runs": [
+      {
+       "verdict": "FAIL",
+       "errors": [],
+       "landed": "still on Dashboard/DashboardAll.page.xml",
+       "t0": "2026-11-10T17:37:53.986Z",
+       "t1": "2026-11-10T17:38:09.007Z"
+      },
+      {
+       "verdict": "FAIL",
+       "errors": [],
+       "landed": "still on Dashboard/DashboardAll.page.xml",
+       "t0": "2026-11-10T17:43:45.554Z",
+       "t1": "2026-11-10T17:44:00.563Z"
+      },
+      {
+       "verdict": "FAIL",
+       "errors": [],
+       "landed": "still on Dashboard/DashboardAll.page.xml",
+       "t0": "2026-11-10T17:49:29.574Z",
+       "t1": "2026-11-10T17:49:44.586Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Assets",
+     "kind": "page",
+     "via": "menu",
+     "target": "AssetManagement.Asset_Overview",
+     "ms": 1517,
+     "landed": "content",
+     "t0": "2026-11-10T17:38:11.034Z",
+     "t1": "2026-11-10T17:38:12.551Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:38:11.034Z",
+       "t1": "2026-11-10T17:38:12.551Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:44:02.347Z",
+       "t1": "2026-11-10T17:44:03.872Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:49:46.398Z",
+       "t1": "2026-11-10T17:49:47.913Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Contracts",
+     "kind": "page",
+     "via": "menu",
+     "target": "CustomerManagement.Contract_Overview",
+     "ms": 1529,
+     "landed": "content",
+     "t0": "2026-11-10T17:38:15.537Z",
+     "t1": "2026-11-10T17:38:17.066Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:38:15.537Z",
+       "t1": "2026-11-10T17:38:17.066Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:44:05.610Z",
+       "t1": "2026-11-10T17:44:07.129Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:49:49.684Z",
+       "t1": "2026-11-10T17:49:51.209Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Customers",
+     "kind": "page",
+     "via": "menu",
+     "target": "CustomerManagement.Customer_Overview",
+     "ms": 1515,
+     "landed": "content",
+     "t0": "2026-11-10T17:38:19.986Z",
+     "t1": "2026-11-10T17:38:21.501Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:38:19.986Z",
+       "t1": "2026-11-10T17:38:21.501Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:44:08.890Z",
+       "t1": "2026-11-10T17:44:10.409Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:49:52.986Z",
+       "t1": "2026-11-10T17:49:54.508Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Units of measurement",
+     "kind": "page",
+     "via": "menu",
+     "target": "Part.UnitOfMeasure_Overview",
+     "ms": 1579,
+     "landed": "content",
+     "t0": "2026-11-10T17:38:24.494Z",
+     "t1": "2026-11-10T17:38:26.073Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:38:24.494Z",
+       "t1": "2026-11-10T17:38:26.073Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:44:12.158Z",
+       "t1": "2026-11-10T17:44:13.687Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:49:56.243Z",
+       "t1": "2026-11-10T17:49:57.759Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Technicians",
+     "kind": "page",
+     "via": "menu",
+     "target": "Technician.Technician_Overview",
+     "ms": 1524,
+     "landed": "content",
+     "t0": "2026-11-10T17:38:29.455Z",
+     "t1": "2026-11-10T17:38:30.979Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:38:29.455Z",
+       "t1": "2026-11-10T17:38:30.979Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:44:15.435Z",
+       "t1": "2026-11-10T17:44:16.958Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:49:59.504Z",
+       "t1": "2026-11-10T17:50:01.022Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Technician groups",
+     "kind": "page",
+     "via": "menu",
+     "target": "Technician.TechnicianGroup_Overview",
+     "ms": 1528,
+     "landed": "content",
+     "t0": "2026-11-10T17:38:33.934Z",
+     "t1": "2026-11-10T17:38:35.462Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:38:33.934Z",
+       "t1": "2026-11-10T17:38:35.462Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:44:18.696Z",
+       "t1": "2026-11-10T17:44:20.217Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:50:02.792Z",
+       "t1": "2026-11-10T17:50:04.309Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > SLA's",
+     "kind": "page",
+     "via": "menu",
+     "target": "CustomerManagement.SLA_Overview",
+     "ms": 1521,
+     "landed": "content",
+     "t0": "2026-11-10T17:38:38.343Z",
+     "t1": "2026-11-10T17:38:39.864Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:38:38.343Z",
+       "t1": "2026-11-10T17:38:39.864Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:44:21.994Z",
+       "t1": "2026-11-10T17:44:23.517Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:50:06.054Z",
+       "t1": "2026-11-10T17:50:07.571Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Business contacts",
+     "kind": "page",
+     "via": "menu",
+     "target": "CustomerManagement.ContactPerson_Overview",
+     "ms": 1521,
+     "landed": "content",
+     "t0": "2026-11-10T17:38:42.719Z",
+     "t1": "2026-11-10T17:38:44.240Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:38:42.719Z",
+       "t1": "2026-11-10T17:38:44.240Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:44:25.281Z",
+       "t1": "2026-11-10T17:44:26.808Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:50:09.344Z",
+       "t1": "2026-11-10T17:50:10.868Z"
+      }
+     ]
+    },
+    {
+     "caption": "Administration > Feature toggles",
+     "kind": "page",
+     "via": "menu",
+     "target": "FeatureToggle.FeatureToggle_Overview",
+     "ms": 1669,
+     "landed": "content",
+     "t0": "2026-11-10T17:38:47.195Z",
+     "t1": "2026-11-10T17:38:48.864Z",
+     "errors": [],
+     "verdict": "PASS",
+     "runs": [
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:38:47.195Z",
+       "t1": "2026-11-10T17:38:48.864Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:44:28.561Z",
+       "t1": "2026-11-10T17:44:30.090Z"
+      },
+      {
+       "verdict": "PASS",
+       "errors": [],
+       "landed": "content",
+       "t0": "2026-11-10T17:50:12.687Z",
+       "t1": "2026-11-10T17:50:14.219Z"
+      }
+     ]
+    }
+   ],
+   "verdict": "FAIL"
+  },
+  {
+   "role": "FSMAPIConsumer",
+   "steps": [
+    {
+     "caption": "home page",
+     "kind": "page",
+     "via": "home",
+     "target": "General.Login_Web",
+     "verdict": "SKIPPED",
+     "reason": "API-only role: its home page is the login page General.Login_Web, no signed-in home to walk",
+     "runs": [
+      {
+       "verdict": "SKIPPED",
+       "reason": "API-only role: its home page is the login page General.Login_Web, no signed-in home to walk"
+      },
+      {
+       "verdict": "SKIPPED",
+       "reason": "API-only role: its home page is the login page General.Login_Web, no signed-in home to walk"
+      },
+      {
+       "verdict": "SKIPPED",
+       "reason": "API-only role: its home page is the login page General.Login_Web, no signed-in home to walk"
+      }
+     ]
+    }
+   ],
+   "apiOnly": true,
+   "verdict": "SKIPPED"
+  }
+ ],
+ "totals": {
+  "PASS": 73,
+  "FAIL": 6,
+  "INVALID": 0,
+  "SKIPPED": 15,
+  "roles_invalid": 0
+ }
+}

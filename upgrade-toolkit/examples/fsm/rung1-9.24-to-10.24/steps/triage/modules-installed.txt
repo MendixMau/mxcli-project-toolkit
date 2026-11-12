@@ -1,0 +1,16 @@
+Administration 2.1.0 23513
+Atlas_Core 3.8.1 117187
+Atlas_NativeMobile_Content 3.0.2 117175
+Atlas_Web_Content 3.1.2 117183
+BizzomateScheduler 1.4.0 208890
+CommunityCommons 9.0.2 170
+DataWidgets 2.5.6 116540
+DeepLink 9.0.5 43
+DemoUserSwitcher 1.1.0 120303
+JWT 3.2.2 106447
+Logging 1.9.0 159
+MendixSSO 4.1.0 111349
+NanoflowCommons 3.0.0 109515
+NativeMobileResources 4.0.1 109513
+ObjectHandling 3.2.0 37114
+ValidationFeedback 1.2.0 110282

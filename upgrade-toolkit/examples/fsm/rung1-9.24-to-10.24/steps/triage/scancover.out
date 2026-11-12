@@ -1,0 +1,6 @@
+NO COVERAGE: 0 of 75 catalog entries apply to 9.24.2.6130 -> 10.24.28.129343. '0 findings' means nothing was checked, not clean.
+  manual check: bin/javafinal.py <app>: Java action parameters are final in 10 (javac error; mx check says 0 errors) (E5 F19)
+  manual check: Java 11 -> 21 (runtime image and own Java code); PDFBox 2 -> 3 and other vendorlib jars after module updates
+  manual check: legacy scheduled events are removed in 10: convert them to the new scheduled event type
+  manual check: REST: 9.x serves /rest-doc/<svc>/swagger.json, 10.x openapi.json; snapshot.py reads both, diff.py compares contracts
+  manual check: module updates: mx 9.24 has no module-import, so convert first, then update once on 10.x (playbooks/9-to-10.md)

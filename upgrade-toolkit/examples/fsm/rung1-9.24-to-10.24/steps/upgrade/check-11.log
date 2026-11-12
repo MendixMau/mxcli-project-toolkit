@@ -1,0 +1,29 @@
+Checking your app for issues...
+Checking the version of the mpr file.
+The mpr file version is '10.24.28.129343'.
+Loading the mpr file.
+The mpr file version is '10.24.28.129343'.
+Checking app for errors...
+[error] [CE0161] "Error(s) in XPath constraint." at Data grid 'grid2'
+[error] [CE0463] "The definition of this widget has changed. Update this widget by right-clicking it and selecting 'Update widget', or select 'Update all widgets' to update all widgets in the app" at Image 'image6'
+[error] [CE0463] "The definition of this widget has changed. Update this widget by right-clicking it and selecting 'Update widget', or select 'Update all widgets' to update all widgets in the app" at Image 'image5'
+[error] [CE0463] "The definition of this widget has changed. Update this widget by right-clicking it and selecting 'Update widget', or select 'Update all widgets' to update all widgets in the app" at Image 'image4'
+[error] [CE0463] "The definition of this widget has changed. Update this widget by right-clicking it and selecting 'Update widget', or select 'Update all widgets' to update all widgets in the app" at Image 'image3'
+[error] [CE0463] "The definition of this widget has changed. Update this widget by right-clicking it and selecting 'Update widget', or select 'Update all widgets' to update all widgets in the app" at Image 'image2'
+[error] [CE0463] "The definition of this widget has changed. Update this widget by right-clicking it and selecting 'Update widget', or select 'Update all widgets' to update all widgets in the app" at Image 'image7'
+[error] [CE0463] "The definition of this widget has changed. Update this widget by right-clicking it and selecting 'Update widget', or select 'Update all widgets' to update all widgets in the app" at Image 'image8'
+[error] [CE0463] "The definition of this widget has changed. Update this widget by right-clicking it and selecting 'Update widget', or select 'Update all widgets' to update all widgets in the app" at Image 'image9'
+[error] [CE0463] "The definition of this widget has changed. Update this widget by right-clicking it and selecting 'Update widget', or select 'Update all widgets' to update all widgets in the app" at Image 'image10'
+[error] [CE0463] "The definition of this widget has changed. Update this widget by right-clicking it and selecting 'Update widget', or select 'Update all widgets' to update all widgets in the app" at Image 'image119'
+[error] [CE0463] "The definition of this widget has changed. Update this widget by right-clicking it and selecting 'Update widget', or select 'Update all widgets' to update all widgets in the app" at Image 'image12'
+[error] [CE0463] "The definition of this widget has changed. Update this widget by right-clicking it and selecting 'Update widget', or select 'Update all widgets' to update all widgets in the app" at Image 'image11'
+[error] [CE0463] "The definition of this widget has changed. Update this widget by right-clicking it and selecting 'Update widget', or select 'Update all widgets' to update all widgets in the app" at Image 'image13'
+[error] [CE0463] "The definition of this widget has changed. Update this widget by right-clicking it and selecting 'Update widget', or select 'Update all widgets' to update all widgets in the app" at Image 'image14'
+[error] [CE0463] "The definition of this widget has changed. Update this widget by right-clicking it and selecting 'Update widget', or select 'Update all widgets' to update all widgets in the app" at Image 'image15'
+[error] [CE0463] "The definition of this widget has changed. Update this widget by right-clicking it and selecting 'Update widget', or select 'Update all widgets' to update all widgets in the app" at Image 'image1'
+[error] [CE0463] "The definition of this widget has changed. Update this widget by right-clicking it and selecting 'Update widget', or select 'Update all widgets' to update all widgets in the app" at Image 'image2'
+[error] [CE0463] "The definition of this widget has changed. Update this widget by right-clicking it and selecting 'Update widget', or select 'Update all widgets' to update all widgets in the app" at Image 'image1'
+[error] [CE0463] "The definition of this widget has changed. Update this widget by right-clicking it and selecting 'Update widget', or select 'Update all widgets' to update all widgets in the app" at Image 'image1'
+The app contains: 20 errors.
+Output JSON summary to work/check-11.json
+[heavy-lock] check rc=1 29s

@@ -1,0 +1,5 @@
++ env UPG_ROOT=<run-root> <toolkit>/bin/heavy-lock.sh convert <toolkit>/bin/mx10.sh 11.12.7 mx convert --in-place <app> > <run>/convert-11.12.7.log
++ python3 <toolkit>/bin/convertcheck.py <run>/convert-11.12.7.log <app> --target 11.12.7 > <run>/convertcheck.out
+CONVERTED 10.24.28.129343 -> 11.12.7
+  2 errors, 294 warnings, 223 deprecations: REPAIR BACKLOG 2, step 4 must bring mx check to 0
++ python3 <toolkit>/bin/localedits.py <app> --md <run>/localedits-post-convert.md --json <run>/localedits-post-convert.json > <run>/localedits-post-convert.out

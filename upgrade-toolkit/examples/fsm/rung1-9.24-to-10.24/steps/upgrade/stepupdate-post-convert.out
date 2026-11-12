@@ -1,0 +1,204 @@
+== step 1: CommunityCommons 11.5.1 (content 170)
+   installed CommunityCommons cannot serve as the local-edit baseline (range from 9.18.0 to 9.24.99): retry with --no-baseline
+   WARNING: local edits in CommunityCommons are unproven by the update; localedits must show its domain layer unchanged
+   FILES: this route replaces CommunityCommons's themesource/javascriptsource files without a check; pre-check: clean, snapshot <app>/.stepupdate/saved/CommunityCommons
+   findings: 0 total, 0 RED (data-bearing), 0 of them approved, 0 open
+   verdict: PASS  (FAIL = open data-bearing GUID change; REVIEW = open data-bearing removals or persistence loss only: confirm each is intended, then add it to the approved list / allow-list)
+   warn MODULE_RECREATED CommunityCommons: all 125 unit ids new (128 units now): the module was deleted and imported again, not updated in place; documents that use it (pages, snippets) were rewritten too: review them, or redo the update with Studio Pro's module update (NS-7)
+   committed 1c6177e
+== step 2: ObjectHandling 5.2.0 (content 37114)
+   installed ObjectHandling cannot serve as the local-edit baseline (range from 9.18.0 to 9.24.99): retry with --no-baseline
+   WARNING: local edits in ObjectHandling are unproven by the update; localedits must show its domain layer unchanged
+   FILES: this route replaces ObjectHandling's themesource/javascriptsource files without a check; pre-check: clean, snapshot <app>/.stepupdate/saved/ObjectHandling
+   findings: 0 total, 0 RED (data-bearing), 0 of them approved, 0 open
+   verdict: PASS  (FAIL = open data-bearing GUID change; REVIEW = open data-bearing removals or persistence loss only: confirm each is intended, then add it to the approved list / allow-list)
+   warn MODULE_RECREATED ObjectHandling: all 30 unit ids new (30 units now): the module was deleted and imported again, not updated in place; documents that use it (pages, snippets) were rewritten too: review them, or redo the update with Studio Pro's module update (NS-7)
+   committed f987e43
+== step 3: Atlas_Core 3.22.0 (content 117187)
+   installed Atlas_Core cannot serve as the local-edit baseline (range from 9.18.0 to 9.24.99): retry with --no-baseline
+   WARNING: local edits in Atlas_Core are unproven by the update; localedits must show its domain layer unchanged
+   FILES: this route replaces Atlas_Core's themesource/javascriptsource files without a check; pre-check: clean, snapshot <app>/.stepupdate/saved/Atlas_Core
+   files: 45 file(s) of Atlas_Core changed by the new package itself (the installed copy was unedited, nothing lost)
+   findings: 0 total, 0 RED (data-bearing), 0 of them approved, 0 open
+   verdict: PASS  (FAIL = open data-bearing GUID change; REVIEW = open data-bearing removals or persistence loss only: confirm each is intended, then add it to the approved list / allow-list)
+   warn MODULE_RECREATED Atlas_Core: all 42 unit ids new (48 units now): the module was deleted and imported again, not updated in place; documents that use it (pages, snippets) were rewritten too: review them, or redo the update with Studio Pro's module update (NS-7)
+   WIDGETS: the Atlas_Core update changed 4 widget package(s) in widgets/ (check each one is meant; widgets.md section 3):
+      widgets/SprintrFeedbackWidget.mpk SprintrFeedback 9.0.4 -> 10.1.0
+      widgets/com.mendix.widget.native.Feedback.mpk Feedback 3.2.2 -> 3.6.2
+      widgets/com.mendix.widget.web.Combobox.mpk Combobox added 2.6.2
+      widgets/com.mendix.widget.web.Image.mpk Image added 1.4.3
+   NEW-ROLES: the Atlas_Core update left module role(s) unmapped, or mapped to a role that no longer exists (fix before the smoke rung):
+      UNMAPPED Atlas_Core.Administrator  (Atlas_Core 3.8.1 -> 3.22.0): held by no user role; proposal: user roles holding a role named Administrator in another module: FunctionalAdministrator, TechnicalAdministrator
+      UNMAPPED Atlas_Core.User  (Atlas_Core 3.8.1 -> 3.22.0): held by no user role; proposal: user roles holding a role named User in another module: Anonymous, CallCenterEmployee, FSMAPIConsumer, FunctionalAdministrator, Mechanic, ServiceDeskEmployee, ServiceRegionManager, TechnicalAdministrator
+      (before a convert: map after the post-convert pass, or waive now; a model commit between the last step and the convert, see convertpre.py)
+   committed a61e0e1
+== step 4: Atlas_Web_Content 3.9.0 (content 117183)
+   installed Atlas_Web_Content cannot serve as the local-edit baseline (range from 9.18.0 to 9.24.99): retry with --no-baseline
+   WARNING: local edits in Atlas_Web_Content are unproven by the update; localedits must show its domain layer unchanged
+   FILES: this route replaces Atlas_Web_Content's themesource/javascriptsource files without a check; pre-check: clean, snapshot <app>/.stepupdate/saved/Atlas_Web_Content
+   files: 1 file(s) of Atlas_Web_Content changed by the new package itself (the installed copy was unedited, nothing lost)
+   findings: 0 total, 0 RED (data-bearing), 0 of them approved, 0 open
+   verdict: PASS  (FAIL = open data-bearing GUID change; REVIEW = open data-bearing removals or persistence loss only: confirm each is intended, then add it to the approved list / allow-list)
+   warn MODULE_RECREATED Atlas_Web_Content: all 141 unit ids new (144 units now): the module was deleted and imported again, not updated in place; documents that use it (pages, snippets) were rewritten too: review them, or redo the update with Studio Pro's module update (NS-7)
+   WIDGETS: the Atlas_Web_Content update changed 7 widget package(s) in widgets/ (check each one is meant; widgets.md section 3):
+      widgets/Badge.mpk Badge added 3.2.2
+      widgets/Charts.mpk Charts 4.0.2 -> 6.2.0
+      widgets/Maps.mpk Maps added 4.0.0
+      widgets/ProgressBar.mpk Progress Bar added 3.2.2
+      widgets/ProgressCircle.mpk ProgressCircle added 3.3.2
+      widgets/com.mendix.widget.web.Datagrid.mpk Datagrid 2.4.2 -> 2.30.6
+      widgets/com.mendix.widget.web.Timeline.mpk Timeline 3.1.0 -> 3.2.2
+   NEW-ROLES: the Atlas_Web_Content update left module role(s) unmapped, or mapped to a role that no longer exists (fix before the smoke rung):
+      UNMAPPED Atlas_Web_Content.Anonymous  (Atlas_Web_Content 3.1.2 -> 3.9.0): held by no user role; proposal: user roles holding a role named Anonymous in another module: Anonymous
+      (before a convert: map after the post-convert pass, or waive now; a model commit between the last step and the convert, see convertpre.py)
+   committed 757bcf5
+== step 5: Atlas_NativeMobile_Content 3.2.1 (content 117175)
+   installed Atlas_NativeMobile_Content cannot serve as the local-edit baseline (range from 9.18.0 to 9.24.99): retry with --no-baseline
+   WARNING: local edits in Atlas_NativeMobile_Content are unproven by the update; localedits must show its domain layer unchanged
+   FILES: this route replaces Atlas_NativeMobile_Content's themesource/javascriptsource files without a check; pre-check: clean, snapshot <app>/.stepupdate/saved/Atlas_NativeMobile_Content
+   findings: 0 total, 0 RED (data-bearing), 0 of them approved, 0 open
+   verdict: PASS  (FAIL = open data-bearing GUID change; REVIEW = open data-bearing removals or persistence loss only: confirm each is intended, then add it to the approved list / allow-list)
+   warn MODULE_RECREATED Atlas_NativeMobile_Content: all 70 unit ids new (70 units now): the module was deleted and imported again, not updated in place; documents that use it (pages, snippets) were rewritten too: review them, or redo the update with Studio Pro's module update (NS-7)
+   WIDGETS: the Atlas_NativeMobile_Content update changed 10 widget package(s) in widgets/ (check each one is meant; widgets.md section 3):
+      widgets/com.mendix.widget.native.BackgroundImage.mpk BackgroundImage 2.1.0 -> 2.2.0
+      widgets/com.mendix.widget.native.Badge.mpk Badge 2.2.0 -> 2.3.0
+      widgets/com.mendix.widget.native.BottomSheet.mpk BottomSheet 3.2.1 -> 5.0.0
+      widgets/com.mendix.widget.native.Carousel.mpk Carousel 3.0.0 -> 3.1.0
+      widgets/com.mendix.widget.native.FloatingActionButton.mpk FloatingActionButton 4.0.0 -> 4.1.0
+      widgets/com.mendix.widget.native.IntroScreen.mpk IntroScreen 3.2.2 -> 4.0.0
+      widgets/com.mendix.widget.native.ListViewSwipe.mpk ListViewSwipe 3.0.0 -> 3.3.0
+      widgets/com.mendix.widget.native.Maps.mpk Maps 4.0.0 -> 5.1.1
+      widgets/com.mendix.widget.native.PopupMenu.mpk PopupMenu 3.0.0 -> 4.0.0
+      widgets/com.mendix.widget.native.SafeAreaView.mpk SafeAreaView 2.2.0 -> 3.0.1
+   committed ff98798
+== step 6: DataWidgets 3.11.8 (content 116540)
+   FILES-EDITED themesource/datawidgets/.DS_Store  REMOVED  package file deleted locally, comes back on update
+   DataWidgets has local theme/JavaScript file edits (UI edits the update replaces silently): rerun with --force-ui DataWidgets; the files
+   are saved under <app>/.stepupdate/saved/DataWidgets, the changed SCSS variables go to theme/web/custom-variables.scss (if it exists).
+   KEPT: DataWidgets stays at the installed version (local theme/javascript file edits refuse the update (FILES-EDITED)); tree reverted, next line
+== step 7: NanoflowCommons 5.2.1 (content 109515)
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/Base64Decode.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/Base64Encode.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/CallPhoneNumber.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/ClearCachedSessionData.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/DraftEmail.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/Geocode.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/GetCurrentLocation.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/GetCurrentLocationMinimumAccuracy.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/GetGuid.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/GetObjectByGuid.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/GetPlatform.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/GetStorageItemObject.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/GetStorageItemObjectList.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/GetStorageItemString.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/HideProgress.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/NavigateTo.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/OpenMap.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/OpenURL.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/RefreshEntity.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/RefreshObject.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/Reload.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/RemoveStorageItem.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/RequestLocationPermission.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/ReverseGeocode.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/SendTextMessage.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/SetStorageItemObject.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/SetStorageItemObjectList.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/SetStorageItemString.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/Share.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/ShowConfirmation.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/ShowProgress.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/SignIn.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/SignOut.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/StorageItemExists.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/TimeBetween.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/ToggleSidebar.js  CHANGED  differs from the installed package
+   FILES-EDITED javascriptsource/nanoflowcommons/actions/Wait.js  CHANGED  differs from the installed package
+   NanoflowCommons has local theme/JavaScript file edits (UI edits the update replaces silently): rerun with --force-ui NanoflowCommons; the files
+   are saved under <app>/.stepupdate/saved/NanoflowCommons, the changed SCSS variables go to theme/web/custom-variables.scss (if it exists).
+   KEPT: NanoflowCommons stays at the installed version (local theme/javascript file edits refuse the update (FILES-EDITED)); tree reverted, next line
+== step 8: NativeMobileResources 10.1.17 (content 109513)
+   FILES-EDITED javascriptsource/nativemobileresources/actions/ChangeStatusBar.js  CHANGED  differs from the installed package
+   NativeMobileResources has local theme/JavaScript file edits (UI edits the update replaces silently): rerun with --force-ui NativeMobileResources; the files
+   are saved under <app>/.stepupdate/saved/NativeMobileResources, the changed SCSS variables go to theme/web/custom-variables.scss (if it exists).
+   KEPT: NativeMobileResources stays at the installed version (local theme/javascript file edits refuse the update (FILES-EDITED)); tree reverted, next line
+== step 9: ValidationFeedback 2.4.0 (content 110282)
+   FILES-UNKNOWN: ValidationFeedback has theme/JavaScript/Java files but they cannot be compared with the installed package:
+   ## ValidationFeedback 1.2.0: FILES NOT COMPARED (version "1.2.0" not found; run 'mxcli marketplace versions <id>' to list available versions); not 'unedited'
+   
+   FILES-UNKNOWN ValidationFeedback: the module is already in the first commit: the history shows no install of it
+   snapshot kept under <app>/.stepupdate/saved/ValidationFeedback; a file the update replaces is listed afterwards and stops the step
+   installed ValidationFeedback cannot serve as the local-edit baseline (re-run with --no-baseline): retry with --no-baseline
+   WARNING: local edits in ValidationFeedback are unproven by the update; localedits must show its domain layer unchanged
+   FILES: this route replaces ValidationFeedback's themesource/javascriptsource files without a check; pre-check: unknown, snapshot <app>/.stepupdate/saved/ValidationFeedback
+   files: installed package not comparable, but the update replaced none of the files of ValidationFeedback
+   findings: 0 total, 0 RED (data-bearing), 0 of them approved, 0 open
+   verdict: PASS  (FAIL = open data-bearing GUID change; REVIEW = open data-bearing removals or persistence loss only: confirm each is intended, then add it to the approved list / allow-list)
+   warn MODULE_RECREATED ValidationFeedback: all 9 unit ids new (9 units now): the module was deleted and imported again, not updated in place; documents that use it (pages, snippets) were rewritten too: review them, or redo the update with Studio Pro's module update (NS-7)
+   committed 4806d4b
+== step 10: Logging 2.3.0 (content 159)
+   installed Logging cannot serve as the local-edit baseline (range from 9.18.0 to 9.24.99): retry with --no-baseline
+   WARNING: local edits in Logging are unproven by the update; localedits must show its domain layer unchanged
+   FILES: this route replaces Logging's themesource/javascriptsource files without a check; pre-check: clean, snapshot <app>/.stepupdate/saved/Logging
+   findings: 0 total, 0 RED (data-bearing), 0 of them approved, 0 open
+   verdict: PASS  (FAIL = open data-bearing GUID change; REVIEW = open data-bearing removals or persistence loss only: confirm each is intended, then add it to the approved list / allow-list)
+   warn MODULE_RECREATED Logging: all 27 unit ids new (39 units now): the module was deleted and imported again, not updated in place; documents that use it (pages, snippets) were rewritten too: review them, or redo the update with Studio Pro's module update (NS-7)
+   committed 4e7ab03
+== step 11: JWT 3.3.3 (content 106447)
+   installed JWT cannot serve as the local-edit baseline (range from 9.18.0 to 9.24.99): retry with --no-baseline
+   WARNING: local edits in JWT are unproven by the update; localedits must show its domain layer unchanged
+   FILES: this route replaces JWT's themesource/javascriptsource files without a check; pre-check: clean, snapshot <app>/.stepupdate/saved/JWT
+   findings: 0 total, 0 RED (data-bearing), 0 of them approved, 0 open
+   verdict: PASS  (FAIL = open data-bearing GUID change; REVIEW = open data-bearing removals or persistence loss only: confirm each is intended, then add it to the approved list / allow-list)
+   warn MODULE_RECREATED JWT: all 30 unit ids new (31 units now): the module was deleted and imported again, not updated in place; documents that use it (pages, snippets) were rewritten too: review them, or redo the update with Studio Pro's module update (NS-7)
+   committed 940ac2f
+== step 12: MendixSSO 10.6.2 (content 111349)
+   findings: 3 total, 1 RED (data-bearing), 0 of them approved, 1 open
+   RED  REMOVED      attribute   MendixSSO.AuthRequest.Nonce  (column/table dropped; intended?)
+   verdict: REVIEW  (FAIL = open data-bearing GUID change; REVIEW = open data-bearing removals or persistence loss only: confirm each is intended, then add it to the approved list / allow-list)
+   KEPT: MendixSSO stays at the installed version (idcheck REVIEW (persistence loss or removal: accept it in approved.txt with a reason, or keep), see .stepupdate/step12-MendixSSO.idcheck); tree reverted, next line
+== step 13: DeepLink 10.0.10 (content 43)
+   installed DeepLink cannot serve as the local-edit baseline (range from 9.18.0 to 9.24.99): retry with --no-baseline
+   WARNING: local edits in DeepLink are unproven by the update; localedits must show its domain layer unchanged
+   FILES: this route replaces DeepLink's themesource/javascriptsource files without a check; pre-check: clean, snapshot <app>/.stepupdate/saved/DeepLink
+   files: 1 file(s) of DeepLink changed by the new package itself (the installed copy was unedited, nothing lost)
+   findings: 0 total, 0 RED (data-bearing), 0 of them approved, 0 open
+   verdict: PASS  (FAIL = open data-bearing GUID change; REVIEW = open data-bearing removals or persistence loss only: confirm each is intended, then add it to the approved list / allow-list)
+   warn MODULE_RECREATED DeepLink: all 88 unit ids new (86 units now): the module was deleted and imported again, not updated in place; documents that use it (pages, snippets) were rewritten too: review them, or redo the update with Studio Pro's module update (NS-7)
+   WIDGETS: the DeepLink update changed 1 widget package(s) in widgets/ (check each one is meant; widgets.md section 3):
+      widgets/com.mendix.widget.web.DatagridTextFilter.mpk DatagridTextFilter 2.3.2 -> 2.4.3
+   committed df1ab57
+== step 14: BizzomateScheduler 3.12.1 (content 208890)
+   FILES-EDITED themesource/bizzomatescheduler/public/css/scheduler-material-theme.css  ADDED  local file, not in the package (the update may remove it)
+   BizzomateScheduler has local theme/JavaScript file edits (UI edits the update replaces silently): rerun with --force-ui BizzomateScheduler; the files
+   are saved under <app>/.stepupdate/saved/BizzomateScheduler, the changed SCSS variables go to theme/web/custom-variables.scss (if it exists).
+   KEPT: BizzomateScheduler stays at the installed version (local theme/javascript file edits refuse the update (FILES-EDITED)); tree reverted, next line
+stepupdate: jar cleanup REFUSED, vendorlib is stale (nothing removed): run mx sync-java-dependencies (repair row 2), then repair/jardedupe.py --apply (repair row 3)
+   no sync possible (cloud proxy, B4T2-9): the jars marked 'rests on vendorlib' in <app>/.stepupdate/jardedupe.log need their newer copy
+   in vendorlib/; check them, then UPG_VENDORLIB_SYNCED=1 or jardedupe.py --apply --vendorlib-synced (steps/upgrade.md)
+stepupdate: 14 steps: 10 run, 9 committed, 5 kept, 0 network
+   kept: DataWidgets local theme/javascript file edits refuse the update (FILES-EDITED)
+   kept: NanoflowCommons local theme/javascript file edits refuse the update (FILES-EDITED)
+   kept: NativeMobileResources local theme/javascript file edits refuse the update (FILES-EDITED)
+   kept: MendixSSO idcheck REVIEW (persistence loss or removal: accept it in approved.txt with a reason, or keep), see .stepupdate/step12-MendixSSO.idcheck
+   kept: BizzomateScheduler local theme/javascript file edits refuse the update (FILES-EDITED)
+   no-baseline (local edits unproven): CommunityCommons 11.5.1 range from 9.18.0 to 9.24.99
+   no-baseline (local edits unproven): ObjectHandling 5.2.0 range from 9.18.0 to 9.24.99
+   no-baseline (local edits unproven): Atlas_Core 3.22.0 range from 9.18.0 to 9.24.99
+   no-baseline (local edits unproven): Atlas_Web_Content 3.9.0 range from 9.18.0 to 9.24.99
+   no-baseline (local edits unproven): Atlas_NativeMobile_Content 3.2.1 range from 9.18.0 to 9.24.99
+   no-baseline (local edits unproven): ValidationFeedback 2.4.0 re-run with --no-baseline
+   no-baseline (local edits unproven): Logging 2.3.0 range from 9.18.0 to 9.24.99
+   no-baseline (local edits unproven): JWT 3.3.3 range from 9.18.0 to 9.24.99
+   no-baseline (local edits unproven): DeepLink 10.0.10 range from 9.18.0 to 9.24.99
+   WIDGETS: Atlas_Core 3.22.0: SprintrFeedbackWidget.mpk SprintrFeedback 9.0.4 -> 10.1.0; com.mendix.widget.native.Feedback.mpk Feedback 3.2.2 -> 3.6.2; com.mendix.widget.web.Combobox.mpk Combobox added 2.6.2; com.mendix.widget.web.Image.mpk Image added 1.4.3
+   WIDGETS: Atlas_Web_Content 3.9.0: Badge.mpk Badge added 3.2.2; Charts.mpk Charts 4.0.2 -> 6.2.0; Maps.mpk Maps added 4.0.0; ProgressBar.mpk Progress Bar added 3.2.2; ProgressCircle.mpk ProgressCircle added 3.3.2; com.mendix.widget.web.Datagrid.mpk Datagrid 2.4.2 -> 2.30.6; com.mendix.widget.web.Timeline.mpk Timeline 3.1.0 -> 3.2.2
+   WIDGETS: Atlas_NativeMobile_Content 3.2.1: com.mendix.widget.native.BackgroundImage.mpk BackgroundImage 2.1.0 -> 2.2.0; com.mendix.widget.native.Badge.mpk Badge 2.2.0 -> 2.3.0; com.mendix.widget.native.BottomSheet.mpk BottomSheet 3.2.1 -> 5.0.0; com.mendix.widget.native.Carousel.mpk Carousel 3.0.0 -> 3.1.0; com.mendix.widget.native.FloatingActionButton.mpk FloatingActionButton 4.0.0 -> 4.1.0; com.mendix.widget.native.IntroScreen.mpk IntroScreen 3.2.2 -> 4.0.0; com.mendix.widget.native.ListViewSwipe.mpk ListViewSwipe 3.0.0 -> 3.3.0; com.mendix.widget.native.Maps.mpk Maps 4.0.0 -> 5.1.1; com.mendix.widget.native.PopupMenu.mpk PopupMenu 3.0.0 -> 4.0.0; com.mendix.widget.native.SafeAreaView.mpk SafeAreaView 2.2.0 -> 3.0.1
+   WIDGETS: DeepLink 10.0.10: com.mendix.widget.web.DatagridTextFilter.mpk DatagridTextFilter 2.3.2 -> 2.4.3
+stepupdate: NEW MODULE ROLES with no user role (PLM-26; rolecheck.py; waive with a reason in <app>/.stepupdate/roles-waived.txt):
+   NEW-ROLES: Atlas_Core 3.22.0: UNMAPPED Atlas_Core.Administrator  (Atlas_Core 3.8.1 -> 3.22.0): held by no user role;  proposal: user roles holding a role named Administrator in another module: FunctionalAdministrator, TechnicalAdministrator; UNMAPPED Atlas_Core.User  (Atlas_Core 3.8.1 -> 3.22.0): held by no user role;  proposal: user roles holding a role named User in another module: Anonymous, CallCenterEmployee, FSMAPIConsumer, FunctionalAdministrator, Mechanic, ServiceDeskEmployee, ServiceRegionManager, TechnicalAdministrator
+   NEW-ROLES: Atlas_Web_Content 3.9.0: UNMAPPED Atlas_Web_Content.Anonymous  (Atlas_Web_Content 3.1.2 -> 3.9.0): held by no user role;  proposal: user roles holding a role named Anonymous in another module: Anonymous
+stepupdate: kept-module dependencies (<app>/.stepupdate/keptdeps.txt; decide per pair: update the kept module too, hold the
+   updated one back, or port the missing elements; REVIEW closes with mx check and the build):
+   REVIEW Atlas_Web_Content 3.9.0 needs kept NanoflowCommons 3.0.0: 3 references, all present by name (e.g. javascriptaction Atlas_Web_Content.ACT_Login -> NanoflowCommons.SignIn; parameter of javascriptaction Atlas_Web_Content.ACT_Login -> NanoflowCommons.SignIn.Password; parameter of javascriptaction Atlas_Web_Content.ACT_Login -> NanoflowCommons.SignIn.Username)
+   keptdeps: verdict REVIEW (0 FAIL, 1 REVIEW pair(s); 7 of 9 updated module(s) share no reference with a kept module)

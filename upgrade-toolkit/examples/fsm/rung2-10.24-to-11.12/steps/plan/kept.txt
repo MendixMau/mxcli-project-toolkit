@@ -1,0 +1,4 @@
+JWT elements could not be read, module not shown unedited
+MendixSSO idcheck REVIEW (persistence loss or removal: accept it in approved.txt with a reason, or keep), see .stepupdate/step9-MendixSSO.idcheck
+BizzomateScheduler 3.12.4 target package made before 10.21 (pre-convert plan)
+DataWidgets UNSAVED: no-baseline route saved 0 of its UI edits

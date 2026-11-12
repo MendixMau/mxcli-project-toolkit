@@ -1,0 +1,18 @@
+WARNING: This is a vibe-coded PoC, alpha quality, use with caution.
+Warning: git branch "main" has no upstream. Studio Pro 11.13 fails to open a project in this state ("Unable to find 'system' property in 'system'"). Before opening it in Studio Pro, run: git remote add origin <url> && git push -u origin main
+Using mx: /root/.mxcli/mxbuild/11.12.7/modeler/mx
+Checking a temporary copy (mx writes into the project it checks; the project on disk is not changed).
+Checking project <app>/app.mpr...
+Checking your app for issues...
+Checking the version of the mpr file.
+The mpr file version is '11.12.7'.
+Loading the mpr file.
+The mpr file version is '11.12.7'.
+Checking app for errors...
+[error] [CE6085] "Unknown option Horizontal divider for design property Borders. Right-click to see more options." at Gallery 'gallery1'
+[error] [CE6085] "Unknown option Horizontal divider for design property Borders. Right-click to see more options." at Gallery 'gallery1'
+[error] [CE6085] "Unknown option Horizontal divider for design property Borders. Right-click to see more options." at Gallery 'gallery1'
+[error] [CE6085] "Unknown option Horizontal divider for design property Borders. Right-click to see more options." at Gallery 'gallery4'
+[error] [CE6085] "Unknown option Horizontal divider for design property Borders. Right-click to see more options." at Gallery 'gallery6'
+The app contains: 5 errors.
+Error: project check failed: exit status 1

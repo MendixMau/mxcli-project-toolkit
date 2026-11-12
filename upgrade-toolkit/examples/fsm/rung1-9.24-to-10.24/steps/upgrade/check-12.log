@@ -1,0 +1,10 @@
+Checking your app for issues...
+Checking the version of the mpr file.
+The mpr file version is '10.24.28.129343'.
+Loading the mpr file.
+The mpr file version is '10.24.28.129343'.
+Checking app for errors...
+[error] [CE0161] "Error(s) in XPath constraint." at Data grid 'grid2'
+The app contains: 1 errors.
+Output JSON summary to work/check-12.json
+[heavy-lock] check rc=1 28s

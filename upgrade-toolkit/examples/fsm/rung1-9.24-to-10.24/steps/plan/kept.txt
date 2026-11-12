@@ -1,0 +1,5 @@
+DataWidgets local theme/javascript file edits refuse the update (FILES-EDITED)
+NanoflowCommons local theme/javascript file edits refuse the update (FILES-EDITED)
+NativeMobileResources local theme/javascript file edits refuse the update (FILES-EDITED)
+MendixSSO idcheck REVIEW (persistence loss or removal: accept it in approved.txt with a reason, or keep), see .stepupdate/step12-MendixSSO.idcheck
+BizzomateScheduler local theme/javascript file edits refuse the update (FILES-EDITED)

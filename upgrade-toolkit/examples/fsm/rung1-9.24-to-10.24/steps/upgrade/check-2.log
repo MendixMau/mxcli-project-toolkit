@@ -1,0 +1,14 @@
+Checking your app for issues...
+Checking the version of the mpr file.
+The mpr file version is '10.24.28.129343'.
+Loading the mpr file.
+The mpr file version is '10.24.28.129343'.
+Checking app for errors...
+[error] [CE1613] "The selected layout 'Logging.PopupLayout' no longer exists." at Page 'ModuleIntegration_Logging_Impl.Message_View_2'
+[error] [CE1613] "The selected placeholder 'Logging.PopupLayout.Main' no longer exists." at Content for placeholder 'Main'
+[error] [CE1613] "The selected layout 'Logging.PopupLayout' no longer exists." at Page 'Synchronization.OfflineAction_View'
+[error] [CE1613] "The selected placeholder 'Logging.PopupLayout.Main' no longer exists." at Content for placeholder 'Main'
+[error] [CE1613] "The selected layout 'Logging.PopupLayout' no longer exists." at Page 'ModuleIntegration_DeepLink_Impl.Attribute_Select'
+[error] [CE1613] "The selected placeholder 'Logging.PopupLayout.Main' no longer exists." at Content for placeholder 'Main'
+The app contains: 6 errors.
+[heavy-lock] check rc=1 23s

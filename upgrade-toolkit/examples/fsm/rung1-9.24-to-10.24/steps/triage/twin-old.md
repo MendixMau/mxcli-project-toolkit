@@ -1,0 +1,836 @@
+# Upgrade regression diff: before -> restart
+
+INVALID 0 | FAIL 8 | REVIEW 0 | NEW_ENDPOINT 0 | PASS* 0 | PASS 620 | INFO 189
+
+| verdict | check | detail |
+|---|---|---|
+| FAIL | db.attr.Logging.Message.HasStackTrace | values changed (non-null 5311 -> 5315) |
+| FAIL | db.attr.Logging.Message.Level | values changed (non-null 5311 -> 5315) |
+| FAIL | db.attr.Logging.Message.Message | values changed (non-null 5272 -> 5276) |
+| FAIL | db.attr.Logging.Message.Node | values changed (non-null 5311 -> 5315) |
+| FAIL | db.attr.Logging.Message.StackTrace | values changed (non-null 41 -> 41) |
+| FAIL | db.attr.Logging.Message.Timestamp | values changed (non-null 5311 -> 5315) |
+| FAIL | db.attr.Logging.Message.submetaobjectname | values changed (non-null 5311 -> 5315) |
+| FAIL | db.attr.System.User.Password | values changed (non-null 17 -> 17) |
+
+620 PASS and 189 INFO rows omitted from the table (in --md output only as counts).
+
+## All rows
+
+- FAIL db.attr.Logging.Message.HasStackTrace: values changed (non-null 5311 -> 5315)
+- FAIL db.attr.Logging.Message.Level: values changed (non-null 5311 -> 5315)
+- FAIL db.attr.Logging.Message.Message: values changed (non-null 5272 -> 5276)
+- FAIL db.attr.Logging.Message.Node: values changed (non-null 5311 -> 5315)
+- FAIL db.attr.Logging.Message.StackTrace: values changed (non-null 41 -> 41)
+- FAIL db.attr.Logging.Message.Timestamp: values changed (non-null 5311 -> 5315)
+- FAIL db.attr.Logging.Message.submetaobjectname: values changed (non-null 5311 -> 5315)
+- FAIL db.attr.System.User.Password: values changed (non-null 17 -> 17)
+- PASS admin.after_running: runtime_status=running
+- PASS db.assoc.Administration.Account_NativeTechnician: pairs 4 -> 4
+- PASS db.assoc.Administration.Account_Technician: pairs 4 -> 4
+- PASS db.assoc.AppSettings.ApplicationSettings_TicketType: pairs 1 -> 1
+- PASS db.assoc.AssetManagement.Asset_Customer: pairs 22 -> 22
+- PASS db.assoc.AssetManagement.Asset_Technician_Preferred: pairs 19 -> 19
+- PASS db.assoc.CustomerManagement.SLA_Contract: pairs 1 -> 1
+- PASS db.assoc.Form.CheckboxOption_CheckboxItem: pairs 17 -> 17
+- PASS db.assoc.Form.FormVersion_Form: pairs 4 -> 4
+- PASS db.assoc.Form.FormVersion_TicketType: pairs 4 -> 4
+- PASS db.assoc.Form.InstanceCheckboxOption_InstanceCheckboxItem: pairs 581 -> 581
+- PASS db.assoc.Form.InstanceForm_Account_LastChangedBy: pairs 119 -> 119
+- PASS db.assoc.Form.InstanceForm_FormVersion: pairs 119 -> 119
+- PASS db.assoc.Form.InstanceItem_Account_LastChangedBy: pairs 595 -> 595
+- PASS db.assoc.Form.InstanceItem_InstanceForm: pairs 595 -> 595
+- PASS db.assoc.Form.InstanceItem_Item: pairs 595 -> 595
+- PASS db.assoc.Form.InstanceMultipleChoiceOption_InstanceMultipleChoiceItem: pairs 439 -> 439
+- PASS db.assoc.Form.InstanceOption_Account_LastChangedBy: pairs 1020 -> 1020
+- PASS db.assoc.Form.Item_FormVersion: pairs 20 -> 20
+- PASS db.assoc.Form.MultipleChoiceOption_MultipleChoiceItem: pairs 14 -> 14
+- PASS db.assoc.Form.SelectedForm_InstanceForm: pairs 119 -> 119
+- PASS db.assoc.Form.SelectedForm_WorkOrder: pairs 119 -> 119
+- PASS db.assoc.NativeMobile.NativeAppointment_NativeTechnician_AssignedTo: pairs 115 -> 115
+- PASS db.assoc.NativeMobile.NativeAppointment_NativeWorkOrder: pairs 115 -> 115
+- PASS db.assoc.NativeMobile.NativeAttachment_NativeTicket: pairs 5 -> 5
+- PASS db.assoc.NativeMobile.NativeTicket_NativeAsset: pairs 110 -> 110
+- PASS db.assoc.NativeMobile.NativeWorkOrderAssignment_NativeTechnician: pairs 123 -> 123
+- PASS db.assoc.NativeMobile.NativeWorkOrderAssignment_NativeWorkOrder: pairs 249 -> 249
+- PASS db.assoc.NativeMobile.NativeWorkOrderHelper_NativeTechnician: pairs 119 -> 119
+- PASS db.assoc.NativeMobile.NativeWorkOrderHelper_NativeWorkOrder: pairs 119 -> 119
+- PASS db.assoc.NativeMobile.NativeWorkOrder_NativeTicket: pairs 126 -> 126
+- PASS db.assoc.NativeMobile._NativeWorkOrder_NativeTechnician_EditMy: pairs 118 -> 118
+- PASS db.assoc.NativeMobileForm.NativeInstanceForm_NativeWorkOrder: pairs 123 -> 123
+- PASS db.assoc.NativeMobileForm.NativeInstanceItem_NativeInstanceForm: pairs 615 -> 615
+- PASS db.assoc.NativeMobileForm.NativeInstanceOption_NativeInstanceItem: pairs 1059 -> 1059
+- PASS db.assoc.NativeMobilePart.NativeAssetPart_NativeAsset: pairs 141 -> 141
+- PASS db.assoc.NativeMobilePart.NativeAssetPart_NativePart: pairs 141 -> 141
+- PASS db.assoc.NativeMobilePart.NativePart_NativeUnitOfMeasure: pairs 39 -> 39
+- PASS db.assoc.NativeMobilePart.NativeSuggestedPart_NativePart: pairs 120 -> 120
+- PASS db.assoc.NativeMobilePart.NativeSuggestedPart_NativeWorkOrder: pairs 120 -> 120
+- PASS db.assoc.NativeMobilePart.NativeUsedPart_NativeAppointment: pairs 1 -> 1
+- PASS db.assoc.NativeMobilePart.NativeUsedPart_NativeInventory: pairs 1 -> 1
+- PASS db.assoc.NativeMobileWarehouse.NativeInventory_NativePart: pairs 121 -> 121
+- PASS db.assoc.NativeMobileWarehouse.NativeInventory_NativeWarehouse: pairs 121 -> 121
+- PASS db.assoc.NativeMobileWarehouse.NativeWarehouseHelper_NativeTechnician: pairs 9 -> 9
+- PASS db.assoc.NativeMobileWarehouse.NativeWarehouseHelper_NativeWarehouse: pairs 9 -> 9
+- PASS db.assoc.Part.AssetPart_Asset: pairs 141 -> 141
+- PASS db.assoc.Part.AssetPart_Part: pairs 141 -> 141
+- PASS db.assoc.Part.Part_UnitOfMeasure: pairs 39 -> 39
+- PASS db.assoc.Part.SuggestedPart_Part: pairs 118 -> 118
+- PASS db.assoc.Part.SuggestedPart_WorkOrder: pairs 118 -> 118
+- PASS db.assoc.RosterManagement.TechnicianRoster_Technician: pairs 124 -> 124
+- PASS db.assoc.Synchronization.WebSyncHelper_Account: pairs 4 -> 4
+- PASS db.assoc.System.TokenInformation_User: pairs 13 -> 13
+- PASS db.assoc.System.UserRoles: pairs 17 -> 17
+- PASS db.assoc.System.User_Language: pairs 15 -> 15
+- PASS db.assoc.System.User_TimeZone: pairs 17 -> 17
+- PASS db.assoc.System.grantableRoles: pairs 9 -> 9
+- PASS db.assoc.Technician.TechnicianGroup_Account_Manager: pairs 1 -> 1
+- PASS db.assoc.Technician.TechnicianGroup_Technician: pairs 4 -> 4
+- PASS db.assoc.Technician.Technician_Skill: pairs 10 -> 10
+- PASS db.assoc.Technician.Technician_TechnicianLocation_Home: pairs 4 -> 4
+- PASS db.assoc.Technician.Technician_Warehouse: pairs 9 -> 9
+- PASS db.assoc.TicketManagement.AppointmentAssignment_Appointment: pairs 114 -> 114
+- PASS db.assoc.TicketManagement.AppointmentAssignment_Technician: pairs 114 -> 114
+- PASS db.assoc.TicketManagement.Appointment_Account_LastChangedBy: pairs 114 -> 114
+- PASS db.assoc.TicketManagement.Appointment_WorkOrder: pairs 114 -> 114
+- PASS db.assoc.TicketManagement.Attachment_Document: pairs 5 -> 5
+- PASS db.assoc.TicketManagement.Attachment_Ticket: pairs 5 -> 5
+- PASS db.assoc.TicketManagement.TicketType_Skill: pairs 3 -> 3
+- PASS db.assoc.TicketManagement.Ticket_Account_LastChangedBy: pairs 110 -> 110
+- PASS db.assoc.TicketManagement.Ticket_Asset: pairs 110 -> 110
+- PASS db.assoc.TicketManagement.Ticket_Priority: pairs 110 -> 110
+- PASS db.assoc.TicketManagement.Ticket_TicketType: pairs 110 -> 110
+- PASS db.assoc.TicketManagement.WorkOrderAssignment_Account_LastChangedBy: pairs 242 -> 242
+- PASS db.assoc.TicketManagement.WorkOrderAssignment_Technician: pairs 120 -> 120
+- PASS db.assoc.TicketManagement.WorkOrderAssignment_WorkOrder: pairs 242 -> 242
+- PASS db.assoc.TicketManagement.WorkOrder_Account_LastChangedBy: pairs 122 -> 122
+- PASS db.assoc.TicketManagement.WorkOrder_Skill: pairs 121 -> 121
+- PASS db.assoc.TicketManagement.WorkOrder_TechnicianGroup: pairs 5 -> 5
+- PASS db.assoc.TicketManagement.WorkOrder_Ticket: pairs 122 -> 122
+- PASS db.assoc.TicketManagement._Appointment_Technician: pairs 114 -> 114
+- PASS db.assoc.TicketManagement._Ticket_Technician_Workorder: pairs 104 -> 104
+- PASS db.assoc.TicketManagement._WorkOrder_Technician: pairs 115 -> 115
+- PASS db.assoc.WarehouseManagement.Inventory_Part: pairs 117 -> 117
+- PASS db.assoc.WarehouseManagement.Inventory_Warehouse: pairs 117 -> 117
+- PASS db.attr.Administration.Account.Email: 6 values identical
+- PASS db.attr.Administration.Account.FullName: 10 values identical
+- PASS db.attr.Administration.Account.IsLocalUser: 16 values identical
+- PASS db.attr.AppSettings.ApplicationSettings.AutoConfirmAsset: 1 values identical
+- PASS db.attr.AppSettings.ApplicationSettings.DaysBeforeTrueDeletingData: 1 values identical
+- PASS db.attr.AppSettings.ApplicationSettings.MalfunctionDelta: 1 values identical
+- PASS db.attr.AppSettings.ApplicationSettings.MinimumDurationManualPlanning: 1 values identical
+- PASS db.attr.AppSettings.ApplicationSettings.NrOfDaysNativeDataIsRetained: 1 values identical
+- PASS db.attr.AppSettings.ApplicationSettings.RoundingTimeRegistration: 1 values identical
+- PASS db.attr.AssetManagement.Asset.Address: 22 values identical
+- PASS db.attr.AssetManagement.Asset.AssetID: 22 values identical
+- PASS db.attr.AssetManagement.Asset.City: 22 values identical
+- PASS db.attr.AssetManagement.Asset.Description: 22 values identical
+- PASS db.attr.AssetManagement.Asset.FullAddress: 22 values identical
+- PASS db.attr.AssetManagement.Asset.HasOpeningTimes: 22 values identical
+- PASS db.attr.AssetManagement.Asset.SystemID: 22 values identical
+- PASS db.attr.AssetManagement.Asset.ZipCode: 22 values identical
+- PASS db.attr.CustomerManagement.Contract.Description: 1 values identical
+- PASS db.attr.CustomerManagement.Contract.Number: 1 values identical
+- PASS db.attr.CustomerManagement.Customer.CustomerID: 3 values identical
+- PASS db.attr.CustomerManagement.Customer.CustomerName: 3 values identical
+- PASS db.attr.CustomerManagement.Customer.DebtorNumber: 3 values identical
+- PASS db.attr.CustomerManagement.Customer.Email: 3 values identical
+- PASS db.attr.CustomerManagement.Customer.PhoneNumber: 3 values identical
+- PASS db.attr.CustomerManagement.Customer.ReferenceNumber: 3 values identical
+- PASS db.attr.CustomerManagement.Customer.changedDate: 3 values identical
+- PASS db.attr.CustomerManagement.Customer.createdDate: 3 values identical
+- PASS db.attr.CustomerManagement.SLA.Description: 1 values identical
+- PASS db.attr.CustomerManagement.SLA.HighPriorityResponseTime: 1 values identical
+- PASS db.attr.CustomerManagement.SLA.LowPriorityResponseTime: 1 values identical
+- PASS db.attr.CustomerManagement.SLA.MaximumCost: 1 values identical
+- PASS db.attr.CustomerManagement.SLA.MediumPriorityResponseTime: 1 values identical
+- PASS db.attr.CustomerManagement.SLA.NeedsMandatoryTaskNumber: 1 values identical
+- PASS db.attr.CustomerManagement.SLA.Number: 1 values identical
+- PASS db.attr.CustomerManagement.SLA.SLAtype: 1 values identical
+- PASS db.attr.FeatureToggle.FeatureToggle.FeatureType: 1 values identical
+- PASS db.attr.FeatureToggle.FeatureToggle.IsEnabled: 1 values identical
+- PASS db.attr.Form.CheckboxOption.SequenceNumber: 17 values identical
+- PASS db.attr.Form.CheckboxOption.Title: 17 values identical
+- PASS db.attr.Form.Form.FormType: 3 values identical
+- PASS db.attr.Form.Form.SystemID: 3 values identical
+- PASS db.attr.Form.Form.Title: 3 values identical
+- PASS db.attr.Form.FormVersion.ArchivedDateTime: 1 values identical
+- PASS db.attr.Form.FormVersion.Description: 4 values identical
+- PASS db.attr.Form.FormVersion.FormTrigger: 4 values identical
+- PASS db.attr.Form.FormVersion.PublishedDateTime: 4 values identical
+- PASS db.attr.Form.FormVersion.Status: 4 values identical
+- PASS db.attr.Form.FormVersion.SystemID: 4 values identical
+- PASS db.attr.Form.FormVersion.VersionNumber: 4 values identical
+- PASS db.attr.Form.FormVersion.changedDate: 4 values identical
+- PASS db.attr.Form.FormVersion.createdDate: 4 values identical
+- PASS db.attr.Form.InstanceForm.Description: 119 values identical
+- PASS db.attr.Form.InstanceForm.ProcessStatus: 119 values identical
+- PASS db.attr.Form.InstanceForm.StartDateTime: 1 values identical
+- PASS db.attr.Form.InstanceForm.SystemID: 119 values identical
+- PASS db.attr.Form.InstanceForm.Title: 119 values identical
+- PASS db.attr.Form.InstanceForm.changedDate: 119 values identical
+- PASS db.attr.Form.InstanceForm.createdDate: 119 values identical
+- PASS db.attr.Form.InstanceItem.Description: 283 values identical
+- PASS db.attr.Form.InstanceItem.IsMandatory: 595 values identical
+- PASS db.attr.Form.InstanceItem.ItemType: 595 values identical
+- PASS db.attr.Form.InstanceItem.SequenceNumber: 595 values identical
+- PASS db.attr.Form.InstanceItem.SystemID: 595 values identical
+- PASS db.attr.Form.InstanceItem.Title: 595 values identical
+- PASS db.attr.Form.InstanceItem.changedDate: 595 values identical
+- PASS db.attr.Form.InstanceItem.createdDate: 595 values identical
+- PASS db.attr.Form.InstanceItem.submetaobjectname: 595 values identical
+- PASS db.attr.Form.InstanceOption.SequenceNumber: 1020 values identical
+- PASS db.attr.Form.InstanceOption.SystemID: 1020 values identical
+- PASS db.attr.Form.InstanceOption.Title: 1020 values identical
+- PASS db.attr.Form.InstanceOption.changedDate: 1020 values identical
+- PASS db.attr.Form.InstanceOption.createdDate: 1020 values identical
+- PASS db.attr.Form.InstanceOption.submetaobjectname: 1020 values identical
+- PASS db.attr.Form.InstanceTextItem.IsNumberValueRequired: 119 values identical
+- PASS db.attr.Form.Item.Description: 8 values identical
+- PASS db.attr.Form.Item.IsMandatory: 20 values identical
+- PASS db.attr.Form.Item.ItemType: 20 values identical
+- PASS db.attr.Form.Item.SequenceNumber: 20 values identical
+- PASS db.attr.Form.Item.SystemID: 20 values identical
+- PASS db.attr.Form.Item.Title: 20 values identical
+- PASS db.attr.Form.Item.changedDate: 20 values identical
+- PASS db.attr.Form.Item.createdDate: 20 values identical
+- PASS db.attr.Form.Item.submetaobjectname: 20 values identical
+- PASS db.attr.Form.MultipleChoiceOption.SequenceNumber: 14 values identical
+- PASS db.attr.Form.MultipleChoiceOption.Title: 14 values identical
+- PASS db.attr.Form.SelectedForm.IsFromTicketType: 119 values identical
+- PASS db.attr.Form.SelectedForm.SequenceNumber: 119 values identical
+- PASS db.attr.Form.SelectedForm.SystemID: 119 values identical
+- PASS db.attr.Form.SelectedForm.createdDate: 119 values identical
+- PASS db.attr.Form.TextItem.IsNumberValueRequired: 4 values identical
+- PASS db.attr.NativeMobile.NativeAppointment.AppointmentID: 115 values identical
+- PASS db.attr.NativeMobile.NativeAppointment.DeletedDate: 1 values identical
+- PASS db.attr.NativeMobile.NativeAppointment.DisplayEnd: 115 values identical
+- PASS db.attr.NativeMobile.NativeAppointment.DisplayStart: 115 values identical
+- PASS db.attr.NativeMobile.NativeAppointment.DisplayTravelStart: 115 values identical
+- PASS db.attr.NativeMobile.NativeAppointment.IsDeleted: 115 values identical
+- PASS db.attr.NativeMobile.NativeAppointment.LastStatusChangedDate: 115 values identical
+- PASS db.attr.NativeMobile.NativeAppointment.PlannedTravelStart: 115 values identical
+- PASS db.attr.NativeMobile.NativeAppointment.PlannedWorkEnd: 115 values identical
+- PASS db.attr.NativeMobile.NativeAppointment.PlannedWorkStart: 115 values identical
+- PASS db.attr.NativeMobile.NativeAppointment.Status: 115 values identical
+- PASS db.attr.NativeMobile.NativeAppointment.SystemID: 115 values identical
+- PASS db.attr.NativeMobile.NativeAppointment.changedDate: 115 values identical
+- PASS db.attr.NativeMobile.NativeAppointment.createdDate: 115 values identical
+- PASS db.attr.NativeMobile.NativeAttachment.AttachmentID: 5 values identical
+- PASS db.attr.NativeMobile.NativeAttachment.ChangedDateAttachment: 5 values identical
+- PASS db.attr.NativeMobile.NativeAttachment.IsDeleted: 5 values identical
+- PASS db.attr.NativeMobile.NativeAttachment.Title: 5 values identical
+- PASS db.attr.NativeMobile.NativeAttachment._FileType: 5 values identical
+- PASS db.attr.NativeMobile.NativeAttachment.changedDate: 5 values identical
+- PASS db.attr.NativeMobile.NativeTicket.CallerName: 110 values identical
+- PASS db.attr.NativeMobile.NativeTicket.CallerPhoneNumber: 110 values identical
+- PASS db.attr.NativeMobile.NativeTicket.CustomerReference: 106 values identical
+- PASS db.attr.NativeMobile.NativeTicket.DisplayEnd: 99 values identical
+- PASS db.attr.NativeMobile.NativeTicket.DisplayStart: 99 values identical
+- PASS db.attr.NativeMobile.NativeTicket.DueDate: 110 values identical
+- PASS db.attr.NativeMobile.NativeTicket.ExpectedDuration: 110 values identical
+- PASS db.attr.NativeMobile.NativeTicket.IsDeleted: 110 values identical
+- PASS db.attr.NativeMobile.NativeTicket.LastStatusChangedDate: 110 values identical
+- PASS db.attr.NativeMobile.NativeTicket.PlannedWorkEnd: 99 values identical
+- PASS db.attr.NativeMobile.NativeTicket.PlannedWorkStart: 99 values identical
+- PASS db.attr.NativeMobile.NativeTicket.PriorityDescription: 110 values identical
+- PASS db.attr.NativeMobile.NativeTicket.PriorityLevel: 110 values identical
+- PASS db.attr.NativeMobile.NativeTicket.ShortDescription: 110 values identical
+- PASS db.attr.NativeMobile.NativeTicket.Status: 110 values identical
+- PASS db.attr.NativeMobile.NativeTicket.SystemID: 110 values identical
+- PASS db.attr.NativeMobile.NativeTicket.TicketDescription: 110 values identical
+- PASS db.attr.NativeMobile.NativeTicket.TicketID: 110 values identical
+- PASS db.attr.NativeMobile.NativeTicket.TicketType: 110 values identical
+- PASS db.attr.NativeMobile.NativeTicket.TicketTypeDescription: 110 values identical
+- PASS db.attr.NativeMobile.NativeTicket.changedDate: 110 values identical
+- PASS db.attr.NativeMobile.NativeTicket.createdDate: 110 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrder.AssignmentStatus: 126 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrder.DeletedDate: 4 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrder.DisplayEnd: 114 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrder.DisplayStart: 114 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrder.DueDate: 4 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrder.ExpectedDuration: 126 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrder.IsDeleted: 126 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrder.LastStatusChangedDate: 126 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrder.MinutesPlanned: 126 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrder.PercentagePlanned: 126 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrder.PlannedEnd: 114 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrder.PlannedStart: 114 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrder.PlannedTravelStart: 114 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrder.SetOnSpecificTechnician: 126 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrder.SetOnSpecificTime: 126 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrder.ShortDescription: 104 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrder.Status: 126 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrder.SystemID: 126 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrder.WorkOrderDescription: 124 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrder.WorkOrderID: 126 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrder.changedDate: 126 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrder.createdDate: 126 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrderAssignment.AutoAcceptedDate: 115 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrderAssignment.CancelledDate: 1 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrderAssignment.CreatedDateTime: 249 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrderAssignment.DeletedDate: 7 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrderAssignment.IsDeleted: 249 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrderAssignment.LastChangeDate: 123 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrderAssignment.ShouldShowAsNotification: 249 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrderAssignment.Status: 123 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrderAssignment.SystemID: 249 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrderAssignment._AssetFullAddress: 8 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrderAssignment._TicketDescription: 8 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrderAssignment.changedDate: 249 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrderAssignment.createdDate: 249 values identical
+- PASS db.attr.NativeMobile.NativeWorkOrderHelper.changedDate: 119 values identical
+- PASS db.attr.NativeMobileAsset.NativeAsset.AssetID: 22 values identical
+- PASS db.attr.NativeMobileAsset.NativeAsset.CustomerName: 20 values identical
+- PASS db.attr.NativeMobileAsset.NativeAsset.Description: 22 values identical
+- PASS db.attr.NativeMobileAsset.NativeAsset.FullAddress: 22 values identical
+- PASS db.attr.NativeMobileAsset.NativeAsset.HasOpeningTimes: 22 values identical
+- PASS db.attr.NativeMobileAsset.NativeAsset.IsDeleted: 22 values identical
+- PASS db.attr.NativeMobileAsset.NativeAsset.SystemID: 22 values identical
+- PASS db.attr.NativeMobileAsset.NativeAsset.changedDate: 22 values identical
+- PASS db.attr.NativeMobileForm.NativeInstanceForm.DeletedDate: 4 values identical
+- PASS db.attr.NativeMobileForm.NativeInstanceForm.Description: 123 values identical
+- PASS db.attr.NativeMobileForm.NativeInstanceForm.FormTrigger: 123 values identical
+- PASS db.attr.NativeMobileForm.NativeInstanceForm.IsDeleted: 123 values identical
+- PASS db.attr.NativeMobileForm.NativeInstanceForm.ProcessStatus: 123 values identical
+- PASS db.attr.NativeMobileForm.NativeInstanceForm.SequenceNumber: 123 values identical
+- PASS db.attr.NativeMobileForm.NativeInstanceForm.StartDateTime: 1 values identical
+- PASS db.attr.NativeMobileForm.NativeInstanceForm.SystemID: 123 values identical
+- PASS db.attr.NativeMobileForm.NativeInstanceForm.Title: 123 values identical
+- PASS db.attr.NativeMobileForm.NativeInstanceForm.changedDate: 123 values identical
+- PASS db.attr.NativeMobileForm.NativeInstanceItem.DeletedDate: 20 values identical
+- PASS db.attr.NativeMobileForm.NativeInstanceItem.Description: 295 values identical
+- PASS db.attr.NativeMobileForm.NativeInstanceItem.IsDeleted: 615 values identical
+- PASS db.attr.NativeMobileForm.NativeInstanceItem.IsMandatory: 615 values identical
+- PASS db.attr.NativeMobileForm.NativeInstanceItem.IsNumberValueRequired: 615 values identical
+- PASS db.attr.NativeMobileForm.NativeInstanceItem.ItemType: 615 values identical
+- PASS db.attr.NativeMobileForm.NativeInstanceItem.SequenceNumber: 615 values identical
+- PASS db.attr.NativeMobileForm.NativeInstanceItem.SystemID: 615 values identical
+- PASS db.attr.NativeMobileForm.NativeInstanceItem.Title: 615 values identical
+- PASS db.attr.NativeMobileForm.NativeInstanceItem.changedDate: 615 values identical
+- PASS db.attr.NativeMobileForm.NativeInstanceOption.DeletedDate: 39 values identical
+- PASS db.attr.NativeMobileForm.NativeInstanceOption.IsChecked: 1059 values identical
+- PASS db.attr.NativeMobileForm.NativeInstanceOption.IsDeleted: 1059 values identical
+- PASS db.attr.NativeMobileForm.NativeInstanceOption.SequenceNumber: 1059 values identical
+- PASS db.attr.NativeMobileForm.NativeInstanceOption.SystemID: 1059 values identical
+- PASS db.attr.NativeMobileForm.NativeInstanceOption.Title: 1059 values identical
+- PASS db.attr.NativeMobileForm.NativeInstanceOption.changedDate: 1059 values identical
+- PASS db.attr.NativeMobilePart.NativeAssetPart.IsDeleted: 141 values identical
+- PASS db.attr.NativeMobilePart.NativeAssetPart.Quantity: 141 values identical
+- PASS db.attr.NativeMobilePart.NativeAssetPart.SystemID: 141 values identical
+- PASS db.attr.NativeMobilePart.NativeAssetPart.changedDate: 141 values identical
+- PASS db.attr.NativeMobilePart.NativePart.Description: 39 values identical
+- PASS db.attr.NativeMobilePart.NativePart.IsActive: 39 values identical
+- PASS db.attr.NativeMobilePart.NativePart.IsAdditionalPart: 39 values identical
+- PASS db.attr.NativeMobilePart.NativePart.IsDeleted: 39 values identical
+- PASS db.attr.NativeMobilePart.NativePart.Name: 39 values identical
+- PASS db.attr.NativeMobilePart.NativePart.PartID: 39 values identical
+- PASS db.attr.NativeMobilePart.NativePart.Price: 39 values identical
+- PASS db.attr.NativeMobilePart.NativePart.ShouldBeSynced: 39 values identical
+- PASS db.attr.NativeMobilePart.NativePart.SystemID: 39 values identical
+- PASS db.attr.NativeMobilePart.NativePart.Vendor: 39 values identical
+- PASS db.attr.NativeMobilePart.NativePart.changedDate: 39 values identical
+- PASS db.attr.NativeMobilePart.NativeSelectedPart.DeletedDate: 3 values identical
+- PASS db.attr.NativeMobilePart.NativeSelectedPart.IsDeleted: 121 values identical
+- PASS db.attr.NativeMobilePart.NativeSelectedPart.SystemID: 121 values identical
+- PASS db.attr.NativeMobilePart.NativeSelectedPart.changedDate: 121 values identical
+- PASS db.attr.NativeMobilePart.NativeSelectedPart.submetaobjectname: 121 values identical
+- PASS db.attr.NativeMobilePart.NativeSuggestedPart.IsUsed: 120 values identical
+- PASS db.attr.NativeMobilePart.NativeSuggestedPart.Quantity: 120 values identical
+- PASS db.attr.NativeMobilePart.NativeUnitOfMeasure.Abbreviation: 4 values identical
+- PASS db.attr.NativeMobilePart.NativeUnitOfMeasure.IsDeleted: 4 values identical
+- PASS db.attr.NativeMobilePart.NativeUnitOfMeasure.SystemID: 4 values identical
+- PASS db.attr.NativeMobilePart.NativeUnitOfMeasure.UnitName: 4 values identical
+- PASS db.attr.NativeMobilePart.NativeUnitOfMeasure.changedDate: 4 values identical
+- PASS db.attr.NativeMobilePart.NativeUsedPart.CalculatedPrice: 1 values identical
+- PASS db.attr.NativeMobilePart.NativeUsedPart.IsFromWarehouse: 1 values identical
+- PASS db.attr.NativeMobilePart.NativeUsedPart.Quantity: 1 values identical
+- PASS db.attr.NativeMobilePart.NativeUsedPart.ShouldBeSynced: 1 values identical
+- PASS db.attr.NativeMobileTimeRegistration.NativeRegistrationCode.AvailableForMaintenance: 3 values identical
+- PASS db.attr.NativeMobileTimeRegistration.NativeRegistrationCode.Code: 3 values identical
+- PASS db.attr.NativeMobileTimeRegistration.NativeRegistrationCode.CodeType: 3 values identical
+- PASS db.attr.NativeMobileTimeRegistration.NativeRegistrationCode.Description: 3 values identical
+- PASS db.attr.NativeMobileTimeRegistration.NativeRegistrationCode.IsDefaultCode: 3 values identical
+- PASS db.attr.NativeMobileTimeRegistration.NativeRegistrationCode.IsDeleted: 3 values identical
+- PASS db.attr.NativeMobileTimeRegistration.NativeRegistrationCode.NeedsApproval: 3 values identical
+- PASS db.attr.NativeMobileTimeRegistration.NativeRegistrationCode.RegistrationType: 3 values identical
+- PASS db.attr.NativeMobileTimeRegistration.NativeRegistrationCode.SubCode: 3 values identical
+- PASS db.attr.NativeMobileTimeRegistration.NativeRegistrationCode.SystemID: 3 values identical
+- PASS db.attr.NativeMobileTimeRegistration.NativeRegistrationCode.changedDate: 3 values identical
+- PASS db.attr.NativeMobileWarehouse.NativeInventory.Amount: 121 values identical
+- PASS db.attr.NativeMobileWarehouse.NativeInventory.DeletedDate: 4 values identical
+- PASS db.attr.NativeMobileWarehouse.NativeInventory.InventoryID: 121 values identical
+- PASS db.attr.NativeMobileWarehouse.NativeInventory.IsDeleted: 121 values identical
+- PASS db.attr.NativeMobileWarehouse.NativeInventory.ShouldBeSynced: 121 values identical
+- PASS db.attr.NativeMobileWarehouse.NativeInventory.SystemID: 121 values identical
+- PASS db.attr.NativeMobileWarehouse.NativeInventory.changedDate: 121 values identical
+- PASS db.attr.NativeMobileWarehouse.NativeWarehouse.Description: 3 values identical
+- PASS db.attr.NativeMobileWarehouse.NativeWarehouse.IsDeleted: 3 values identical
+- PASS db.attr.NativeMobileWarehouse.NativeWarehouse.SystemID: 3 values identical
+- PASS db.attr.NativeMobileWarehouse.NativeWarehouse.WarehouseID: 3 values identical
+- PASS db.attr.NativeMobileWarehouse.NativeWarehouse.changedDate: 3 values identical
+- PASS db.attr.NativeMobileWarehouse.NativeWarehouseHelper.IsDeleted: 9 values identical
+- PASS db.attr.NativeMobileWarehouse.NativeWarehouseHelper.changedDate: 9 values identical
+- PASS db.attr.NativeReason.NativeReason.AllowFreeText: 1 values identical
+- PASS db.attr.NativeReason.NativeReason.IsActive: 1 values identical
+- PASS db.attr.NativeReason.NativeReason.IsDeleted: 1 values identical
+- PASS db.attr.NativeReason.NativeReason.Reason: 1 values identical
+- PASS db.attr.NativeReason.NativeReason.ReasonType: 1 values identical
+- PASS db.attr.NativeReason.NativeReason.SystemID: 1 values identical
+- PASS db.attr.NativeReason.NativeReason.changedDate: 1 values identical
+- PASS db.attr.NativeTechnician.NativeTechnician.EmailAddress: 4 values identical
+- PASS db.attr.NativeTechnician.NativeTechnician.EmployeeNumber: 4 values identical
+- PASS db.attr.NativeTechnician.NativeTechnician.IsActive: 4 values identical
+- PASS db.attr.NativeTechnician.NativeTechnician.IsDeleted: 4 values identical
+- PASS db.attr.NativeTechnician.NativeTechnician.IsExternal: 4 values identical
+- PASS db.attr.NativeTechnician.NativeTechnician.SystemID: 4 values identical
+- PASS db.attr.NativeTechnician.NativeTechnician.TechnicianID: 4 values identical
+- PASS db.attr.NativeTechnician.NativeTechnician.TechnicianName: 4 values identical
+- PASS db.attr.NativeTechnician.NativeTechnician.TelephoneNumber: 4 values identical
+- PASS db.attr.NativeTechnician.NativeTechnician.changedDate: 4 values identical
+- PASS db.attr.Part.AssetPart.Quantity: 141 values identical
+- PASS db.attr.Part.AssetPart.SystemID: 141 values identical
+- PASS db.attr.Part.Part.Description: 39 values identical
+- PASS db.attr.Part.Part.IsActive: 39 values identical
+- PASS db.attr.Part.Part.IsAdditionalPart: 39 values identical
+- PASS db.attr.Part.Part.Name: 39 values identical
+- PASS db.attr.Part.Part.PartID: 39 values identical
+- PASS db.attr.Part.Part.Price: 39 values identical
+- PASS db.attr.Part.Part.SystemID: 39 values identical
+- PASS db.attr.Part.Part.Vendor: 39 values identical
+- PASS db.attr.Part.Part.changedDate: 39 values identical
+- PASS db.attr.Part.Part.createdDate: 39 values identical
+- PASS db.attr.Part.SelectedPart.SystemID: 118 values identical
+- PASS db.attr.Part.SelectedPart.changedDate: 118 values identical
+- PASS db.attr.Part.SelectedPart.createdDate: 118 values identical
+- PASS db.attr.Part.SelectedPart.submetaobjectname: 118 values identical
+- PASS db.attr.Part.SuggestedPart.IsUsed: 118 values identical
+- PASS db.attr.Part.SuggestedPart.Quantity: 118 values identical
+- PASS db.attr.Part.UnitOfMeasure.Abbreviation: 4 values identical
+- PASS db.attr.Part.UnitOfMeasure.SystemID: 4 values identical
+- PASS db.attr.Part.UnitOfMeasure.UnitName: 4 values identical
+- PASS db.attr.Reason.Reason.AllowFreeText: 1 values identical
+- PASS db.attr.Reason.Reason.IsActive: 1 values identical
+- PASS db.attr.Reason.Reason.Reason: 1 values identical
+- PASS db.attr.Reason.Reason.ReasonType: 1 values identical
+- PASS db.attr.Reason.Reason.SystemID: 1 values identical
+- PASS db.attr.RosterManagement.TechnicianRoster.EndDate: 124 values identical
+- PASS db.attr.RosterManagement.TechnicianRoster.RosterType: 124 values identical
+- PASS db.attr.RosterManagement.TechnicianRoster.StartDate: 124 values identical
+- PASS db.attr.RosterManagement.TechnicianRoster.TechnicianRosterID: 124 values identical
+- PASS db.attr.Scheduler.SnapSetting.SnapPerMinutes: 1 values identical
+- PASS db.attr.Scheduler.SnapSetting.StickToPreviousTicket: 1 values identical
+- PASS db.attr.Skill.Skill.SkillID: 3 values identical
+- PASS db.attr.Skill.Skill.SkillName: 3 values identical
+- PASS db.attr.Skill.Skill.SystemID: 3 values identical
+- PASS db.attr.Synchronization.WebSyncHelper.LastDataChange: 4 values identical
+- PASS db.attr.System.FileDocument.DeleteAfterDownload: 5 values identical
+- PASS db.attr.System.FileDocument.FileID: 5 values identical
+- PASS db.attr.System.FileDocument.HasContents: 5 values identical
+- PASS db.attr.System.FileDocument.Name: 5 values identical
+- PASS db.attr.System.FileDocument.Size: 5 values identical
+- PASS db.attr.System.FileDocument.__FileName__: 5 values identical
+- PASS db.attr.System.FileDocument.__UUID__: 5 values identical
+- PASS db.attr.System.FileDocument.changedDate: 5 values identical
+- PASS db.attr.System.FileDocument.createdDate: 5 values identical
+- PASS db.attr.System.FileDocument.submetaobjectname: 5 values identical
+- PASS db.attr.System.Language.Code: 2 values identical
+- PASS db.attr.System.Language.Description: 2 values identical
+- PASS db.attr.System.TimeZone.Code: 514 values identical
+- PASS db.attr.System.TimeZone.Description: 514 values identical
+- PASS db.attr.System.TimeZone.RawOffset: 514 values identical
+- PASS db.attr.System.User.Active: 17 values identical
+- PASS db.attr.System.User.Blocked: 17 values identical
+- PASS db.attr.System.User.FailedLogins: 17 values identical
+- PASS db.attr.System.User.IsAnonymous: 17 values identical
+- PASS db.attr.System.User.LastLogin: 13 values identical
+- PASS db.attr.System.User.Name: 17 values identical
+- PASS db.attr.System.User.WebServiceUser: 17 values identical
+- PASS db.attr.System.User.changedDate: 17 values identical
+- PASS db.attr.System.User.createdDate: 17 values identical
+- PASS db.attr.System.User.submetaobjectname: 17 values identical
+- PASS db.attr.System.UserRole.Description: 8 values identical
+- PASS db.attr.System.UserRole.ModelGUID: 8 values identical
+- PASS db.attr.System.UserRole.Name: 8 values identical
+- PASS db.attr.Technician.Technician.EmailAddress: 4 values identical
+- PASS db.attr.Technician.Technician.EmployeeNumber: 4 values identical
+- PASS db.attr.Technician.Technician.IsActive: 4 values identical
+- PASS db.attr.Technician.Technician.IsExternal: 4 values identical
+- PASS db.attr.Technician.Technician.SystemID: 4 values identical
+- PASS db.attr.Technician.Technician.TechnicianID: 4 values identical
+- PASS db.attr.Technician.Technician.TechnicianName: 4 values identical
+- PASS db.attr.Technician.Technician.TelephoneNumber: 4 values identical
+- PASS db.attr.Technician.Technician.changedDate: 4 values identical
+- PASS db.attr.Technician.TechnicianGroup.Description: 2 values identical
+- PASS db.attr.Technician.TechnicianGroup.Name: 2 values identical
+- PASS db.attr.Technician.TechnicianLocation.Address: 4 values identical
+- PASS db.attr.Technician.TechnicianLocation.City: 4 values identical
+- PASS db.attr.Technician.TechnicianLocation.Country: 4 values identical
+- PASS db.attr.Technician.TechnicianLocation.Description: 4 values identical
+- PASS db.attr.Technician.TechnicianLocation.changedDate: 4 values identical
+- PASS db.attr.TicketManagement.Appointment.AppointmentID: 114 values identical
+- PASS db.attr.TicketManagement.Appointment.DisplayEnd: 114 values identical
+- PASS db.attr.TicketManagement.Appointment.DisplayStart: 114 values identical
+- PASS db.attr.TicketManagement.Appointment.DisplayTravelStart: 114 values identical
+- PASS db.attr.TicketManagement.Appointment.LastStatusChangedDate: 114 values identical
+- PASS db.attr.TicketManagement.Appointment.PlannedTravelStart: 114 values identical
+- PASS db.attr.TicketManagement.Appointment.PlannedWorkEnd: 114 values identical
+- PASS db.attr.TicketManagement.Appointment.PlannedWorkStart: 114 values identical
+- PASS db.attr.TicketManagement.Appointment.Status: 114 values identical
+- PASS db.attr.TicketManagement.Appointment.SystemID: 114 values identical
+- PASS db.attr.TicketManagement.Appointment.changedDate: 114 values identical
+- PASS db.attr.TicketManagement.AppointmentAssignment.SystemID: 114 values identical
+- PASS db.attr.TicketManagement.Attachment.AttachmentID: 5 values identical
+- PASS db.attr.TicketManagement.Attachment.Title: 5 values identical
+- PASS db.attr.TicketManagement.Attachment._FileType: 5 values identical
+- PASS db.attr.TicketManagement.Attachment.changedDate: 5 values identical
+- PASS db.attr.TicketManagement.Attachment.createdDate: 5 values identical
+- PASS db.attr.TicketManagement.Priority.Code: 3 values identical
+- PASS db.attr.TicketManagement.Priority.Description: 3 values identical
+- PASS db.attr.TicketManagement.Priority.DescriptionLowerCase: 3 values identical
+- PASS db.attr.TicketManagement.Priority.IsActive: 3 values identical
+- PASS db.attr.TicketManagement.Priority.PriorityLevel: 3 values identical
+- PASS db.attr.TicketManagement.Ticket.AddCustomerReferenceLater: 110 values identical
+- PASS db.attr.TicketManagement.Ticket.CallerName: 110 values identical
+- PASS db.attr.TicketManagement.Ticket.CallerPhoneNumber: 110 values identical
+- PASS db.attr.TicketManagement.Ticket.CreationTime: 110 values identical
+- PASS db.attr.TicketManagement.Ticket.CustomerReference: 106 values identical
+- PASS db.attr.TicketManagement.Ticket.Description: 110 values identical
+- PASS db.attr.TicketManagement.Ticket.DisplayEnd: 99 values identical
+- PASS db.attr.TicketManagement.Ticket.DisplayStart: 99 values identical
+- PASS db.attr.TicketManagement.Ticket.DueDate: 110 values identical
+- PASS db.attr.TicketManagement.Ticket.HasOpeningTimes: 110 values identical
+- PASS db.attr.TicketManagement.Ticket.IsRecurring: 110 values identical
+- PASS db.attr.TicketManagement.Ticket.IsSavedAsDraft: 110 values identical
+- PASS db.attr.TicketManagement.Ticket.LastStatusChangedDate: 110 values identical
+- PASS db.attr.TicketManagement.Ticket.NumberOfWorkOrders: 110 values identical
+- PASS db.attr.TicketManagement.Ticket.PlannedWorkEnd: 99 values identical
+- PASS db.attr.TicketManagement.Ticket.PlannedWorkStart: 99 values identical
+- PASS db.attr.TicketManagement.Ticket.SLAStatus: 110 values identical
+- PASS db.attr.TicketManagement.Ticket.ShortDescription: 110 values identical
+- PASS db.attr.TicketManagement.Ticket.Status: 110 values identical
+- PASS db.attr.TicketManagement.Ticket.SystemID: 110 values identical
+- PASS db.attr.TicketManagement.Ticket.TicketID: 110 values identical
+- PASS db.attr.TicketManagement.Ticket.changedDate: 110 values identical
+- PASS db.attr.TicketManagement.TicketType.Code: 3 values identical
+- PASS db.attr.TicketManagement.TicketType.ExpectedDuration: 3 values identical
+- PASS db.attr.TicketManagement.TicketType.Name: 3 values identical
+- PASS db.attr.TicketManagement.TicketType.TicketCategory: 3 values identical
+- PASS db.attr.TicketManagement.WorkOrder.AssignedStatus: 122 values identical
+- PASS db.attr.TicketManagement.WorkOrder.Description: 120 values identical
+- PASS db.attr.TicketManagement.WorkOrder.DisplayEnd: 114 values identical
+- PASS db.attr.TicketManagement.WorkOrder.DisplayStart: 114 values identical
+- PASS db.attr.TicketManagement.WorkOrder.DueDate: 2 values identical
+- PASS db.attr.TicketManagement.WorkOrder.ExpectedDuration: 122 values identical
+- PASS db.attr.TicketManagement.WorkOrder.LastStatusChangedDate: 122 values identical
+- PASS db.attr.TicketManagement.WorkOrder.MinutesPlanned: 122 values identical
+- PASS db.attr.TicketManagement.WorkOrder.PercentagePlanned: 122 values identical
+- PASS db.attr.TicketManagement.WorkOrder.PlannedTravelStart: 114 values identical
+- PASS db.attr.TicketManagement.WorkOrder.PlannedWorkEnd: 114 values identical
+- PASS db.attr.TicketManagement.WorkOrder.PlannedWorkStart: 114 values identical
+- PASS db.attr.TicketManagement.WorkOrder.SetOnSpecificTechnician: 122 values identical
+- PASS db.attr.TicketManagement.WorkOrder.SetOnSpecificTime: 122 values identical
+- PASS db.attr.TicketManagement.WorkOrder.ShortDescription: 100 values identical
+- PASS db.attr.TicketManagement.WorkOrder.Status: 122 values identical
+- PASS db.attr.TicketManagement.WorkOrder.SystemID: 122 values identical
+- PASS db.attr.TicketManagement.WorkOrder.WorkOrderID: 122 values identical
+- PASS db.attr.TicketManagement.WorkOrder.changedDate: 122 values identical
+- PASS db.attr.TicketManagement.WorkOrderAssignment.AutoAcceptedDate: 115 values identical
+- PASS db.attr.TicketManagement.WorkOrderAssignment.CancelledDate: 1 values identical
+- PASS db.attr.TicketManagement.WorkOrderAssignment.CreatedDateTime: 242 values identical
+- PASS db.attr.TicketManagement.WorkOrderAssignment.HasToSendNotification: 242 values identical
+- PASS db.attr.TicketManagement.WorkOrderAssignment.LastChangeDate: 120 values identical
+- PASS db.attr.TicketManagement.WorkOrderAssignment.ShouldShowAsNotification: 242 values identical
+- PASS db.attr.TicketManagement.WorkOrderAssignment.Status: 120 values identical
+- PASS db.attr.TicketManagement.WorkOrderAssignment.SystemID: 242 values identical
+- PASS db.attr.TimeRegistration.RegistrationCode.AvailableForMaintenance: 3 values identical
+- PASS db.attr.TimeRegistration.RegistrationCode.Code: 3 values identical
+- PASS db.attr.TimeRegistration.RegistrationCode.CodeType: 3 values identical
+- PASS db.attr.TimeRegistration.RegistrationCode.Description: 3 values identical
+- PASS db.attr.TimeRegistration.RegistrationCode.IsDefault: 3 values identical
+- PASS db.attr.TimeRegistration.RegistrationCode.NeedsApproval: 3 values identical
+- PASS db.attr.TimeRegistration.RegistrationCode.RegistrationType: 3 values identical
+- PASS db.attr.TimeRegistration.RegistrationCode.SubCode: 3 values identical
+- PASS db.attr.TimeRegistration.RegistrationCode.SystemID: 3 values identical
+- PASS db.attr.WarehouseManagement.Inventory.Amount: 117 values identical
+- PASS db.attr.WarehouseManagement.Inventory.InventoryID: 117 values identical
+- PASS db.attr.WarehouseManagement.Inventory.SystemID: 117 values identical
+- PASS db.attr.WarehouseManagement.Warehouse.Description: 3 values identical
+- PASS db.attr.WarehouseManagement.Warehouse.SystemID: 3 values identical
+- PASS db.attr.WarehouseManagement.Warehouse.WarehouseID: 3 values identical
+- PASS db.entity.Administration.Account: rows 16 -> 16
+- PASS db.entity.AppSettings.ApplicationSettings: rows 1 -> 1
+- PASS db.entity.AssetManagement.Asset: rows 22 -> 22
+- PASS db.entity.CustomerManagement.Contract: rows 1 -> 1
+- PASS db.entity.CustomerManagement.Customer: rows 3 -> 3
+- PASS db.entity.CustomerManagement.SLA: rows 1 -> 1
+- PASS db.entity.FeatureToggle.FeatureToggle: rows 1 -> 1
+- PASS db.entity.Form.CheckboxItem: rows 4 -> 4
+- PASS db.entity.Form.CheckboxOption: rows 17 -> 17
+- PASS db.entity.Form.Form: rows 3 -> 3
+- PASS db.entity.Form.FormVersion: rows 4 -> 4
+- PASS db.entity.Form.InstanceCheckboxItem: rows 119 -> 119
+- PASS db.entity.Form.InstanceCheckboxOption: rows 581 -> 581
+- PASS db.entity.Form.InstanceForm: rows 119 -> 119
+- PASS db.entity.Form.InstanceInstructionItem: rows 119 -> 119
+- PASS db.entity.Form.InstanceItem: rows 595 -> 595
+- PASS db.entity.Form.InstanceMultipleChoiceItem: rows 119 -> 119
+- PASS db.entity.Form.InstanceMultipleChoiceOption: rows 439 -> 439
+- PASS db.entity.Form.InstanceOption: rows 1020 -> 1020
+- PASS db.entity.Form.InstancePictureItem: rows 119 -> 119
+- PASS db.entity.Form.InstanceTextItem: rows 119 -> 119
+- PASS db.entity.Form.InstructionItem: rows 4 -> 4
+- PASS db.entity.Form.Item: rows 20 -> 20
+- PASS db.entity.Form.MultipleChoiceItem: rows 4 -> 4
+- PASS db.entity.Form.MultipleChoiceOption: rows 14 -> 14
+- PASS db.entity.Form.PictureItem: rows 4 -> 4
+- PASS db.entity.Form.SelectedForm: rows 119 -> 119
+- PASS db.entity.Form.TextItem: rows 4 -> 4
+- PASS db.entity.Logging.Message: rows 5311 -> 5315
+- PASS db.entity.NativeMobile.NativeAppointment: rows 115 -> 115
+- PASS db.entity.NativeMobile.NativeAttachment: rows 5 -> 5
+- PASS db.entity.NativeMobile.NativeTicket: rows 110 -> 110
+- PASS db.entity.NativeMobile.NativeWorkOrder: rows 126 -> 126
+- PASS db.entity.NativeMobile.NativeWorkOrderAssignment: rows 249 -> 249
+- PASS db.entity.NativeMobile.NativeWorkOrderHelper: rows 119 -> 119
+- PASS db.entity.NativeMobileAsset.NativeAsset: rows 22 -> 22
+- PASS db.entity.NativeMobileForm.NativeInstanceForm: rows 123 -> 123
+- PASS db.entity.NativeMobileForm.NativeInstanceItem: rows 615 -> 615
+- PASS db.entity.NativeMobileForm.NativeInstanceOption: rows 1059 -> 1059
+- PASS db.entity.NativeMobilePart.NativeAssetPart: rows 141 -> 141
+- PASS db.entity.NativeMobilePart.NativePart: rows 39 -> 39
+- PASS db.entity.NativeMobilePart.NativeSelectedPart: rows 121 -> 121
+- PASS db.entity.NativeMobilePart.NativeSuggestedPart: rows 120 -> 120
+- PASS db.entity.NativeMobilePart.NativeUnitOfMeasure: rows 4 -> 4
+- PASS db.entity.NativeMobilePart.NativeUsedPart: rows 1 -> 1
+- PASS db.entity.NativeMobileTimeRegistration.NativeRegistrationCode: rows 3 -> 3
+- PASS db.entity.NativeMobileWarehouse.NativeInventory: rows 121 -> 121
+- PASS db.entity.NativeMobileWarehouse.NativeWarehouse: rows 3 -> 3
+- PASS db.entity.NativeMobileWarehouse.NativeWarehouseHelper: rows 9 -> 9
+- PASS db.entity.NativeReason.NativeReason: rows 1 -> 1
+- PASS db.entity.NativeTechnician.NativeTechnician: rows 4 -> 4
+- PASS db.entity.Part.AssetPart: rows 141 -> 141
+- PASS db.entity.Part.Part: rows 39 -> 39
+- PASS db.entity.Part.SelectedPart: rows 118 -> 118
+- PASS db.entity.Part.SuggestedPart: rows 118 -> 118
+- PASS db.entity.Part.UnitOfMeasure: rows 4 -> 4
+- PASS db.entity.Reason.Reason: rows 1 -> 1
+- PASS db.entity.RosterManagement.TechnicianRoster: rows 124 -> 124
+- PASS db.entity.Scheduler.SnapSetting: rows 1 -> 1
+- PASS db.entity.Skill.Skill: rows 3 -> 3
+- PASS db.entity.Synchronization.WebSyncHelper: rows 4 -> 4
+- PASS db.entity.System.FileDocument: rows 5 -> 5
+- PASS db.entity.System.Language: rows 2 -> 2
+- PASS db.entity.System.TimeZone: rows 514 -> 514
+- PASS db.entity.System.User: named user rows 17 -> 17
+- PASS db.entity.System.UserRole: rows 8 -> 8
+- PASS db.entity.Technician.Technician: rows 4 -> 4
+- PASS db.entity.Technician.TechnicianGroup: rows 2 -> 2
+- PASS db.entity.Technician.TechnicianLocation: rows 4 -> 4
+- PASS db.entity.TicketManagement.Appointment: rows 114 -> 114
+- PASS db.entity.TicketManagement.AppointmentAssignment: rows 114 -> 114
+- PASS db.entity.TicketManagement.Attachment: rows 5 -> 5
+- PASS db.entity.TicketManagement.Document: rows 5 -> 5
+- PASS db.entity.TicketManagement.Priority: rows 3 -> 3
+- PASS db.entity.TicketManagement.Ticket: rows 110 -> 110
+- PASS db.entity.TicketManagement.TicketType: rows 3 -> 3
+- PASS db.entity.TicketManagement.WorkOrder: rows 122 -> 122
+- PASS db.entity.TicketManagement.WorkOrderAssignment: rows 242 -> 242
+- PASS db.entity.TimeRegistration.RegistrationCode: rows 3 -> 3
+- PASS db.entity.WarehouseManagement.Inventory: rows 117 -> 117
+- PASS db.entity.WarehouseManagement.Warehouse: rows 3 -> 3
+- PASS db.identity.assoc:System.changedBy: all 8 old ids present (8 after)
+- PASS db.identity.assoc:System.owner: all 15 old ids present (15 after)
+- PASS http./: status 200 -> 200, 8661 -> 8661 bytes
+- PASS http./rest-doc/: status 200 -> 200, 1719 -> 1719 bytes
+- PASS http./rest-doc/document-share/v1/swagger.json: contract kept (2 operations)
+- PASS http./rest-doc/mendixsso-api/notifyroleschanged/v1/swagger.json: contract kept (1 operations)
+- PASS http./rest-doc/rest/fsm/v1/swagger.json: contract kept (2 operations)
+- INFO admin.versions: 9.24.2.6130 -> 9.24.2.6130
+- INFO db.assoc.AssetManagement.Asset_AgreementGroup: 0 -> 0 (no baseline data)
+- INFO db.assoc.AssetManagement.Asset_Contract: 0 -> 0 (no baseline data)
+- INFO db.assoc.AssetManagement.Asset_Dossier: 0 -> 0 (no baseline data)
+- INFO db.assoc.AssetManagement.Asset_Manufacturer: 0 -> 0 (no baseline data)
+- INFO db.assoc.AssetManagement.Asset_Structure: 0 -> 0 (no baseline data)
+- INFO db.assoc.AssetManagement.Asset_UmbrellaContract: 0 -> 0 (no baseline data)
+- INFO db.assoc.CustomerManagement.ContactPerson_Asset: 0 -> 0 (no baseline data)
+- INFO db.assoc.CustomerManagement.ContactPerson_Contract: 0 -> 0 (no baseline data)
+- INFO db.assoc.CustomerManagement.ContactPerson_Customer: 0 -> 0 (no baseline data)
+- INFO db.assoc.CustomerManagement.ContactPerson_Dossier: 0 -> 0 (no baseline data)
+- INFO db.assoc.CustomerManagement.SLA_Asset: 0 -> 0 (no baseline data)
+- INFO db.assoc.CustomerManagement.SLA_Customer: 0 -> 0 (no baseline data)
+- INFO db.assoc.CustomerManagement.SLA_UmbrellaContract: 0 -> 0 (no baseline data)
+- INFO db.assoc.DeepLink.Attribute_Entity: 0 -> 0 (no baseline data)
+- INFO db.assoc.DeepLink.DeepLink_Attribute: 0 -> 0 (no baseline data)
+- INFO db.assoc.DeepLink.DeepLink_Entity: 0 -> 0 (no baseline data)
+- INFO db.assoc.DeepLink.DeepLink_Language: 0 -> 0 (no baseline data)
+- INFO db.assoc.DeepLink.DeepLink_Microflow: 0 -> 0 (no baseline data)
+- INFO db.assoc.DeepLink.PendingLink_DeepLink: 0 -> 0 (no baseline data)
+- INFO db.assoc.DeepLink.param: 0 -> 0 (no baseline data)
+- INFO db.assoc.Form.InstanceCheckboxOption_InstanceCheckboxItem_Set: 0 -> 0 (no baseline data)
+- INFO db.assoc.Form.InstanceItemImage_InstanceItem: 0 -> 0 (no baseline data)
+- INFO db.assoc.Form.InstanceMultipleChoiceOption_InstanceMultipleChoiceItem_Set: 0 -> 0 (no baseline data)
+- INFO db.assoc.Form.InstancePictureImage_InstancePictureItem: 0 -> 0 (no baseline data)
+- INFO db.assoc.Form.ItemImage_Item: 0 -> 0 (no baseline data)
+- INFO db.assoc.JWT.JWTRSAPrivateKey_JWTRSAKeyPair: 0 -> 0 (no baseline data)
+- INFO db.assoc.JWT.JWTRSAPublicKey_JWTRSAKeyPair: 0 -> 0 (no baseline data)
+- INFO db.assoc.MendixSSO.ForeignIdentity_User: 0 -> 0 (no baseline data)
+- INFO db.assoc.MendixSSO.PlatformSession_Session: 0 -> 0 (no baseline data)
+- INFO db.assoc.MendixSSO.Token_Session: 0 -> 0 (no baseline data)
+- INFO db.assoc.MendixSSO.Token_User: 0 -> 0 (no baseline data)
+- INFO db.assoc.NativeMobile.ActiveSyncHelper_Account: 0 -> 0 (no baseline data)
+- INFO db.assoc.NativeMobile.NativeAppointment_NativeReason: 0 -> 0 (no baseline data)
+- INFO db.assoc.NativeMobile.NativeWorkOrderAssignment_NativeReason: 0 -> 0 (no baseline data)
+- INFO db.assoc.NativeMobileForm.NativeInstanceItemImage_NativeInstanceItem: 0 -> 0 (no baseline data)
+- INFO db.assoc.NativeMobileForm.NativeInstancePictureImage_NativeInstanceItem: 0 -> 0 (no baseline data)
+- INFO db.assoc.NativeMobileTimeRegistration.NativeTimeRegistration_NativeAppointment: 0 -> 0 (no baseline data)
+- INFO db.assoc.NativeMobileTimeRegistration.NativeTimeRegistration_NativeRegistrationCode: 0 -> 0 (no baseline data)
+- INFO db.assoc.NativeMobileTimeRegistration.NativeWorkBreak_NativeTechnician: 0 -> 0 (no baseline data)
+- INFO db.assoc.NativeMobileWarehouse.NativeWarehouse_NativeTechnician_EntityAccess: 0 -> 0 (no baseline data)
+- INFO db.assoc.NativeModelCheck.LogMessage_NativeModelCheck: 0 -> 0 (no baseline data)
+- INFO db.assoc.NativeNote.NativeImage_NativeNote: 0 -> 0 (no baseline data)
+- INFO db.assoc.NativeNote.NativeNote_NativeTechnician: 0 -> 0 (no baseline data)
+- INFO db.assoc.NativeNote.NativeNote_NativeWorkOrder: 0 -> 0 (no baseline data)
+- INFO db.assoc.NativeReason.NativeNotResolvedReason_NativeAppointment: 0 -> 0 (no baseline data)
+- INFO db.assoc.NativeReason.NativeNotResolvedReason_NativeTechnician: 0 -> 0 (no baseline data)
+- INFO db.assoc.NativeReason.NativeRejectReason_NativeTechnician: 0 -> 0 (no baseline data)
+- INFO db.assoc.NativeReason.NativeRejectReason_NativeWorkOrderAssignment: 0 -> 0 (no baseline data)
+- INFO db.assoc.NativeReason.NativeSelectedReason_NativeReason: 0 -> 0 (no baseline data)
+- INFO db.assoc.Note.Image_Note: 0 -> 0 (no baseline data)
+- INFO db.assoc.Note.Note_Account_LastChanged: 0 -> 0 (no baseline data)
+- INFO db.assoc.Note.Note_Technician: 0 -> 0 (no baseline data)
+- INFO db.assoc.Note.Note_WorkOrder: 0 -> 0 (no baseline data)
+- INFO db.assoc.Part.SelectedPart_Account_LastChanged: 0 -> 0 (no baseline data)
+- INFO db.assoc.Part.UsedPart_Appointment: 0 -> 0 (no baseline data)
+- INFO db.assoc.Part.UsedPart_Inventory: 0 -> 0 (no baseline data)
+- INFO db.assoc.Reason.NotResolvedReason_Appointment: 0 -> 0 (no baseline data)
+- INFO db.assoc.Reason.NotResolvedReason_Technician: 0 -> 0 (no baseline data)
+- INFO db.assoc.Reason.RejectReason_Technician: 0 -> 0 (no baseline data)
+- INFO db.assoc.Reason.RejectReason_WorkOrderAssignment: 0 -> 0 (no baseline data)
+- INFO db.assoc.Reason.SelectedReason_Reason: 0 -> 0 (no baseline data)
+- INFO db.assoc.RosterManagement.Roster_Asset: 0 -> 0 (no baseline data)
+- INFO db.assoc.RosterManagement.Roster_Ticket_PreferredStartWindow: 0 -> 0 (no baseline data)
+- INFO db.assoc.Scheduler.PlannerContext_Session: 0 -> 0 (no baseline data)
+- INFO db.assoc.Scheduler.PlannerContext_TechnicianGroup: 0 -> 0 (no baseline data)
+- INFO db.assoc.Scheduler.PlannerContext_WorkOrder_Selected: 0 -> 0 (no baseline data)
+- INFO db.assoc.Synchronization.OfflineAppointmentAction_Appointment: 0 -> 0 (no baseline data)
+- INFO db.assoc.Synchronization.OfflineFormAction_InstanceForm: 0 -> 0 (no baseline data)
+- INFO db.assoc.Synchronization.OfflineImageAction_NoteImage: 0 -> 0 (no baseline data)
+- INFO db.assoc.Synchronization.OfflineItemAction_InstanceItem: 0 -> 0 (no baseline data)
+- INFO db.assoc.Synchronization.OfflineOptionAction_InstanceOption: 0 -> 0 (no baseline data)
+- INFO db.assoc.Synchronization.OfflinePictureAction_PictureImage: 0 -> 0 (no baseline data)
+- INFO db.assoc.Synchronization.OfflineTicketAction_Ticket: 0 -> 0 (no baseline data)
+- INFO db.assoc.Synchronization.OfflineTicketImageAction_TicketImage: 0 -> 0 (no baseline data)
+- INFO db.assoc.Synchronization.OfflineWorkorderAssignmentAction_WorkorderAssignment: 0 -> 0 (no baseline data)
+- INFO db.assoc.Technician.Technician_ServiceRegionManager: 0 -> 0 (no baseline data)
+- INFO db.assoc.TicketManagement.Attachment_Image: 0 -> 0 (no baseline data)
+- INFO db.assoc.TicketManagement.TicketLog_Ticket: 0 -> 0 (no baseline data)
+- INFO db.assoc.TimeRegistration.TimeRegistration_Appointment: 0 -> 0 (no baseline data)
+- INFO db.assoc.TimeRegistration.TimeRegistration_LastChanged_Account: 0 -> 0 (no baseline data)
+- INFO db.assoc.TimeRegistration.TimeRegistration_RegistrationCode: 0 -> 0 (no baseline data)
+- INFO db.assoc.TimeRegistration.WorkBreak_Account_LastChanged: 0 -> 0 (no baseline data)
+- INFO db.assoc.TimeRegistration.WorkBreak_Technician: 0 -> 0 (no baseline data)
+- INFO db.assoc.Tool.SelectedTool_Tool: 0 -> 0 (no baseline data)
+- INFO db.assoc.Tool.SelectedTool_WorkOrder: 0 -> 0 (no baseline data)
+- INFO db.entity.AssetManagement.AgreementGroup: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.AssetManagement.Dossier: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.AssetManagement.Manufacturer: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.AssetManagement.Structure: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.CustomerManagement.ContactPerson: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.DeepLink.Attribute: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.DeepLink.DeepLink: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.DeepLink.Entity: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.DeepLink.Microflow: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.DeepLink.PendingLink: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Form.InstanceItemImage: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Form.InstancePictureImage: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Form.ItemImage: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.IDCreation.AppointmentNumber: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.IDCreation.TicketNumber: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.IDCreation.WorkOrderNumber: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.JWT.JWTRSAKeyPair: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.JWT.JWTRSAPrivateKey: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.JWT.JWTRSAPublicKey: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.LoadTest.LoadTestHelper: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.MendixSSO.AuthRequest: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.MendixSSO.ForeignIdentity: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.MendixSSO.MendixSSOUser: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.MendixSSO.PlatformSession: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.MendixSSO.Token: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.NativeMobile.ActiveSyncHelper: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.NativeMobile.NativeTicketImageHelper: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.NativeMobileForm.NativeInstanceItemImage: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.NativeMobileForm.NativeInstancePictureImage: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.NativeMobileTimeRegistration.NativeTimeRegistration: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.NativeMobileTimeRegistration.NativeWorkBreak: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.NativeModelCheck.LogMessage: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.NativeModelCheck.NativeModelCheck: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.NativeNote.NativeImage: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.NativeNote.NativeNote: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.NativeReason.NativeNotResolvedReason: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.NativeReason.NativeRejectReason: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.NativeReason.NativeSelectedReason: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Note.Image: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Note.Note: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Part.UsedPart: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Reason.NotResolvedReason: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Reason.RejectReason: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Reason.SelectedReason: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.RosterManagement.Roster: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Scheduler.PlannerContext: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Synchronization.NoteImage: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Synchronization.OfflineAction: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Synchronization.OfflineAppointmentAction: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Synchronization.OfflineCustomPartAction: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Synchronization.OfflineFormAction: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Synchronization.OfflineImageAction: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Synchronization.OfflineInventoryAction: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Synchronization.OfflineItemAction: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Synchronization.OfflineNoteAction: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Synchronization.OfflineOptionAction: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Synchronization.OfflinePartAction: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Synchronization.OfflinePictureAction: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Synchronization.OfflineTicketAction: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Synchronization.OfflineTicketImageAction: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Synchronization.OfflineTimeRegistrationAction: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Synchronization.OfflineUsedPartAction: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Synchronization.OfflineWorkBreakAction: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Synchronization.OfflineWorkOrderAssignmentAction: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Synchronization.PictureImage: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Synchronization.TicketImage: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.System.AutoCommitEntry: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.System.BackgroundJob: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.System.ChangeHash: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.System.DataBrokerEntityMetadata: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.System.Image: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.System.OfflineCreatedGuids: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.System.OfflineSynchronizationHistory: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.System.PrivateFileDocument: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.System.ProcessedQueueTask: 3644 -> 3645 (volatile)
+- INFO db.entity.System.QueuedTask: 9 -> 9 (volatile)
+- INFO db.entity.System.ScheduledEventInformation: 7 -> 7 (volatile)
+- INFO db.entity.System.Session: 0 -> 0 (volatile)
+- INFO db.entity.System.SynchronizationError: 0 -> 0 (volatile)
+- INFO db.entity.System.SynchronizationErrorFile: 0 -> 0 (volatile)
+- INFO db.entity.System.TaskQueueToken: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.System.Thumbnail: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.System.TokenInformation: 13 -> 13 (volatile)
+- INFO db.entity.System.UnreferencedFile: 0 -> 0 (volatile)
+- INFO db.entity.System.UserReportInfo: 0 -> 0 (volatile)
+- INFO db.entity.System.Workflow: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.System.WorkflowActivity: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.System.WorkflowActivityUserTaskOutcome: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.System.WorkflowDefinition: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.System.WorkflowUserTask: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.System.WorkflowUserTaskDefinition: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.System.WorkflowUserTaskOutcome: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.System.WorkflowVersion: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.System.XASInstance: 2 -> 1 (volatile)
+- INFO db.entity.TicketManagement.Image: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.TicketManagement.TicketLog: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.TimeRegistration.TimeRegistration: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.TimeRegistration.WorkBreak: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Tool.SelectedTool: 0 -> 0 (no baseline data: survival not tested)
+- INFO db.entity.Tool.Tool: 0 -> 0 (no baseline data: survival not tested)
+- INFO http./rest-doc/document-share/v1/openapi.json: baseline status 404, after 404
+- INFO http./rest-doc/mendixsso-api/notifyroleschanged/v1/openapi.json: baseline status 404, after 404
+- INFO http./rest-doc/rest/fsm/v1/openapi.json: baseline status 404, after 404

@@ -12,7 +12,7 @@
 
 1. **One builder = one worktree = one branch**, cut from the line it merges into, never from another branch (B). *Fails when:* a branch cut from a branch drags that branch's unreviewed model into the merge. Worktree branches are not pushed. Never open a worktree in Studio Pro: a branch with no upstream does not open (B).
 2. **Ports and database.** Per worktree an app port, admin port, `--serve-port` (mxbuild) and its own database (`--db-type hsqldb`, or a separate Postgres database; only hsqldb was run here). Never the defaults 8080, 8090, 6543, nor the line's own ports (general practice; only 6543 was observed here). Record them in a ledger in `PROJECT.md` (this skill's suggestion). *Fails when:* builder B's `run --local` on default ports stops builder A's app, or both write one database. Copy the untracked `mxcli` binary into each fresh worktree.
-3. **Isolation (B).** Rewire every constant whose default is a local URL: own apps to own ports, anything else to a closed port. List them and check where each points before the first start. Gap: no checked way to list them is known here; try `mxcli constant list` and `constants-audit.sh` (`project-bin/`, installed as `bin/`); never `show constants` (it prints default values, secrets included — `skills/learned-constants-and-secrets.md`). *Fails when:* a hand-written start script missed two base-URL constants and the worktree app called the demo apps.
+3. **Isolation (B).** Rewire every constant whose default is a local URL: own apps to own ports, anything else to a closed port. List them and check where each points before the first start. Gap: no checked way to list local-URL constants is known here. `bin/constants-audit.sh` (installed from `project-bin/`) classifies every constant without printing a value, but it does not show URLs. `mxcli constant list` prints resolved values and masks only machine-store ones, and `show constants` prints defaults, so treat both like `describe constant` (`skills/learned-constants-and-secrets.md`): run neither on a model whose constants may hold a credential. *Fails when:* a hand-written start script missed two base-URL constants and the worktree app called the demo apps.
 4. **Disk.** A built worktree is about 400 MB (A). Keep a handful of built worktrees; clear `deployment/` of stopped ones. *Fails when:* disk ran out with about 20 (B).
 5. **Script number block per branch (B).** The brief names it; else the next free hundred above the highest number on the line. *Fails when:* two merge scripts both numbered 81.
 6. **Owners.** One for shared parts (navigation, security, theme), one for cross-page flows and the shell (A; failure: a list does not refresh after another page's popup submit).
@@ -35,11 +35,11 @@ A local review file per branch, committed on the branch: what changed per app, t
 
 Never a plain `git merge` of the model (A; section 5 shows what it does).
 
-**On every merge, either path, one at a time:** commit work; create the rollback tag on the line first (`git tag pre-merge-<date>`); merge; section 5; the model check; the full gates on the line; then the next branch. Recovery: fallback path → check out the target and delete the merge branch; merge-command path (it merges ON the line) → cut a fresh branch from the rollback tag and continue there, never a hard reset of the line.
+**On every merge, either path, one at a time:** commit work; create the rollback tag on the line first (`git tag pre-merge-<date>`); merge; section 5; the model check; the full gates on the line; then the next branch. Recovery: fallback path → check out the target and delete the merge branch; merge-command path (it merges ON the line) → cut a fresh branch from the rollback tag and continue there, never a hard reset of the line. The line keeps the bad merge until the maintainer decides; nothing is reset.
 
 **First choice: `mxcli git --help` lists `merge` (v0.30+, B).** Merge through `mxcli git merge`. One app per run is what #744 reports for the command; a repo with two apps changed on both sides needs one run per app (no recipe proven here).
 
-Outcomes as reported by the maintainer's wrapper around the command (B); the bare command's exit codes and flags are not given in #744 — read `mxcli git merge --help`. Preconditions below (line checked out and clean, a review decision) are the wrapper's.
+Outcomes as reported by the maintainer's wrapper (B); the bare command's exit codes are not in #744 — read `mxcli git merge --help`. Preconditions below (line checked out and clean, a review decision) are the wrapper's.
 
 | Result | Do |
 |---|---|
@@ -63,7 +63,7 @@ Outcomes as reported by the maintainer's wrapper around the command (B); the bar
 
 ## 5. Check after every merge, in this order (A)
 
-1. `mxcli fix hashes -p <app>.mpr` exits 0 with 0 orphan and 0 missing. Capture: `tests/wave2/fixtures/worktree-merge/`. A plain merge that takes one side of the `.mpr` conflict leaves the other branch's units on disk, unregistered: the module vanishes while `mx check` and the mxbuild gate report 0 errors. On ORPHAN lines do NOT run the `mxcli diag --check-units --fix` that the output suggests: it deletes the unregistered files, which are the lost module. Recover as in section 4 (fallback path: check out the target, delete the merge branch; merge-command path: fresh branch from the rollback tag).
+1. `mxcli fix hashes -p <app>.mpr` exits 0 with 0 orphan and 0 missing. Capture: `tests/wave2/fixtures/worktree-merge/`. A plain merge that takes one side of the `.mpr` conflict leaves the other branch's units on disk, unregistered: the module vanishes while `mx check` and the mxbuild gate report 0 errors. On ORPHAN lines do NOT run the `mxcli diag --check-units --fix` that the output suggests: it deletes the unregistered files, which are the lost module. Recover as in section 4 ("On every merge").
 2. `mxcli show modules -p <app>.mpr` lists N of N modules.
 3. Shared units by eye: menu items N of N, each branch's role assignments present.
 4. Then the build gate. The gates alone are blind to orphans: *fails when* step 4 runs first and its green is read as proof.

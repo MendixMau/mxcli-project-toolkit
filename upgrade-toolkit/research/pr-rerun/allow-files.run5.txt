@@ -1,0 +1,20 @@
+# accepted expected differences, owner confirmed 2026-10-19 (S-8, chat: accepted the recommendation)
+db.assoc.WorkflowCommons.UserTaskView_Assignee # association gone in WorkflowCommons 4.x (user task views reworked); owner confirmed 2026-10-19 (S-8)
+db.assoc.WorkflowCommons.WorkflowComment_WorkflowView # association gone in 4.x, comments attach to the workflow; the 5 seeded comments are lost (S-7); owner confirmed 2026-10-19 (S-8)
+db.attr.WorkflowCommons.Configuration.ShowAssigneeMigration # column gone with the 4.x migration helpers; owner confirmed 2026-10-19 (S-8)
+db.attr.WorkflowCommons.Configuration.ShowKeyMigration # column gone with the 4.x migration helpers; owner confirmed 2026-10-19 (S-8)
+db.attr.WorkflowCommons.Configuration.VerifiedAssigneeMigration # column gone with the 4.x migration helpers; owner confirmed 2026-10-19 (S-8)
+db.attr.WorkflowCommons.Configuration.VerifiedKeyMigration # column gone with the 4.x migration helpers; owner confirmed 2026-10-19 (S-8)
+db.attr.MendixSSO.AuthRequest.Nonce # attribute removed in MendixSSO 10.x (login handshake row, transient); owner confirmed 2026-10-19 (S-8)
+db.attr.System.User.Password # re-stamped by the platform on the new runtime (hash values change, non-null count equal); owner confirmed 2026-10-19 (S-8)
+db.attr.System.User.changedDate # re-stamped on the upgrade start (non-null count equal); owner confirmed 2026-10-19 (S-8)
+db.attr.System.WorkflowVersion.ModelJSON # WorkflowCommons 4.x creates a second workflow version (1 -> 2); owner confirmed 2026-10-19 (S-8)
+db.attr.System.WorkflowVersion.VersionHash # same second workflow version (1 -> 2); owner confirmed 2026-10-19 (S-8)
+db.assoc.System.WorkflowDefinition_CurrentWorkflowVersion # points to the new workflow version (same count, different pair); owner confirmed 2026-10-19 (S-8)
+db.attr.Atlas_Web_Content.LoginContext.* # Atlas_Web_Content 4.4.0 makes the login-form helper entity non-persistent (publisher change since 3.7.0); the 5 old rows are transient login-form values; accepted within owner decision D1/S-1 (chat 2026-10-19), same acceptance as approved.txt
+db.entity.Atlas_Web_Content.LoginContext # same: non-persistent in 4.4.0, 5 transient login-form rows; owner decision D1/S-1 (chat 2026-10-19)
+MendixSSO.LocalizationEnabled # new constant in MendixSSO 10.x, default True, the app runs True; owner confirmed 2026-10-19 (S-8)
+WARNING Configuration: Using derived value for SessionKeepAliveUpdatesInterval* # runtime warning only, derived from ClusterManagerActionInterval; owner confirmed 2026-10-19 (S-8)
+INFO Workflow Commons: Start of verification microflow to determine if UserTaskView migration is required.* # WorkflowCommons 4.x after-startup check (ASU_UserTaskView_Migrate wired in R22), new INFO line; owner decision S-8 class (module-version change), R25 found no objects to migrate
+INFO Workflow Commons: Finished UserTaskView migration verification microflow; migration required: false.* # same WorkflowCommons 4.x check, result: no migration required; S-8 class, R25
+INFO Workflow Commons: Finished execution of after-startup UserTaskView migration; no objects require migration.* # same, no objects require migration (R25); S-8 class

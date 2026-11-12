@@ -1,0 +1,12 @@
+{"from": "replace-clean.json", "ops": [
+ ["set", "modules/0/pages/0/widgets", ["Viewer.widget.Viewer", "Fresh.widget.Fresh", "Plain.widget.Plain", "Mention.widget.Mention"]],
+ ["set", "widget_packages", {
+  "Viewer.mpk": {"ids": ["Viewer.widget.Viewer"], "version": "4.0.0",
+                 "js": "var Rt=Symbol.for(\"react.element\"),Pt=\"https://reactjs.org/docs/error-decoder.html?invariant=\";function jsx(){return {$$typeof:Rt}};var Bub={spinningBubbles:{}}"},
+  "Fresh.mpk": {"ids": ["Fresh.widget.Fresh"], "version": "2.0.0",
+                "js": "var a=Symbol.for(\"react.transitional.element\"),b=Symbol.for(\"react.element\");"},
+  "Plain.mpk": {"ids": ["Plain.widget.Plain"], "version": "1.0.0",
+                "js": "import{createElement as c}from\"react\";export default function W(){return c(\"div\")}"},
+  "Mention.mpk": {"ids": ["Mention.widget.Mention"], "version": "3.11.2",
+                  "js": "var isEl=function(o){return o.$$typeof===Symbol.for(\"react.element\")};"},
+  "Spare.mpk": {"ids": ["Spare.widget.Spare"], "version": "1.0.0", "js": "var x=Symbol.for(\"react.element\"),y=\"reactjs.org/docs/error-decoder\";"}}]]}

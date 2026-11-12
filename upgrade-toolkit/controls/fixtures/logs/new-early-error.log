@@ -1,0 +1,13 @@
+2026-09-14 10:15:02.037 INFO - Core: Mendix Runtime 10.24.16.96987 starting
+2026-09-14 10:15:02.074 INFO - M2EE: Admin request: 'update_configuration'
+2026-09-14 10:15:02.111 INFO - ConnectionBus: Initializing connection pool for database 'app' on postgres (jdbc:postgresql://localhost:5432/app)
+2026-09-14 10:15:02.148 INFO - ConnectionBus_Queries: Database synchronization: no changes found, 12 entities checked
+2026-09-14 10:15:02.185 INFO - Core: Loading model 'App' (version 3.1.0)
+2026-09-14 10:15:02.222 INFO - Core: Initializing 24 modules
+2026-09-14 10:15:02.259 WARNING - Core: Cache size for entity 'System.Session' is 20000 entries
+2026-09-14 10:15:02.296 ERROR - SAML_SSO: Unable to initialize the Servlet configuration
+2026-09-14 10:15:02.333 INFO - Core: Running after-startup-action: App.ASU_Startup
+2026-09-14 10:15:02.370 INFO - MFAmodule: MFA module login active
+2026-09-14 10:15:02.407 INFO - Scheduler: Registered 3 scheduled events
+2026-09-14 10:15:02.444 INFO - Core: Successfully ran after-startup-action
+2026-09-14 10:15:02.481 INFO - Core: Mendix Runtime successfully started, the application is now available.

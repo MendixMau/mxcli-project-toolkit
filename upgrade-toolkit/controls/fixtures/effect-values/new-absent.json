@@ -1,0 +1,29 @@
+{
+ "classes_from": "name heuristic (no --model)",
+ "entities": {
+  "Shop.Tag": {
+   "columns": {
+    "$id": "id",
+    "Label": "business",
+    "Shop.Item_Tag": "assoc"
+   },
+   "rows": [
+    {
+     "$id": 20,
+     "Label": "fresh",
+     "Shop.Item_Tag": [
+      {
+       "Name": "Apple"
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "format": "effect-values/1",
+ "invalid": {},
+ "missing": [],
+ "skipped": [
+  "System.Session"
+ ]
+}

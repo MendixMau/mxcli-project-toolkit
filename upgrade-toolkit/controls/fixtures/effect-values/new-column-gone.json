@@ -1,0 +1,64 @@
+{
+ "classes_from": "name heuristic (no --model)",
+ "entities": {
+  "Shop.Item": {
+   "columns": {
+    "$id": "id",
+    "ChangedDate": "system",
+    "Code": "sequence",
+    "CreatedDate": "system",
+    "Name": "business",
+    "Pwd": "hash",
+    "Shop.Item_Category": "assoc"
+   },
+   "rows": [
+    {
+     "$id": 1,
+     "ChangedDate": "2025-01-02T10:00:00",
+     "Code": 1001,
+     "CreatedDate": "2025-01-01T10:00:00",
+     "Name": "Apple",
+     "Pwd": true,
+     "Shop.Item_Category": [
+      {
+       "Title": "Fruit"
+      }
+     ]
+    },
+    {
+     "$id": 2,
+     "ChangedDate": "2025-01-01T10:00:00",
+     "Code": 1002,
+     "CreatedDate": "2025-01-01T10:00:00",
+     "Name": "Pear",
+     "Pwd": false,
+     "Shop.Item_Category": []
+    }
+   ]
+  },
+  "Shop.Tag": {
+   "columns": {
+    "$id": "id",
+    "Label": "business",
+    "Shop.Item_Tag": "assoc"
+   },
+   "rows": [
+    {
+     "$id": 20,
+     "Label": "fresh",
+     "Shop.Item_Tag": [
+      {
+       "Name": "Apple"
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "format": "effect-values/1",
+ "invalid": {},
+ "missing": [],
+ "skipped": [
+  "System.Session"
+ ]
+}

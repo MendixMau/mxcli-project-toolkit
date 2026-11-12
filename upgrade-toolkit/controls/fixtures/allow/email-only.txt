@@ -1,0 +1,1 @@
+db.attr.Administration.Account.Email values changed* # control: accept a changed Email column only, not a lost one

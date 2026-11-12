@@ -1,0 +1,10 @@
+{"modules": [
+  {"name": "KeptConn", "appstore": [1111, "3.0.0"],
+   "docs": [{"type": "Microflows$Microflow", "name": "ACT_Ask", "data": {"Call": {"Action": "AuthMod.ACT_Sign"}}},
+            {"type": "Microflows$Microflow", "name": "ACT_Java", "data": {"Call": {"JavaAction": "AuthMod.JA_Token"}}}],
+   "entities": [{"name": "Request", "generalization": "AuthMod.Credential"}]},
+  {"name": "AuthMod", "appstore": [2222, "3.2.0"],
+   "entities": [{"name": "Credential"}],
+   "docs": [{"type": "Microflows$Microflow", "name": "ACT_Sign"}, {"type": "JavaActions$JavaAction", "name": "JA_Token"}]},
+  {"name": "OtherMod", "appstore": [3333, "4.0.0"], "docs": [{"type": "Microflows$Microflow", "name": "ACT_Other"}]}
+ ]}

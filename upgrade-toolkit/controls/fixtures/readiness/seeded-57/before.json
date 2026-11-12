@@ -1,0 +1,10 @@
+{
+ "db": {
+  "entities": {
+   "Shop.Order": 3,
+   "Shop.Line": 3,
+   "Shop.Customer": 3,
+   "System.User": 4
+  }
+ }
+}

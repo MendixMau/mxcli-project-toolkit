@@ -1,0 +1,1 @@
+{"from": "base.json", "ops": [["append", "modules/0/pages/0/widgets", "com.mendix.widget.web.columnchart.ColumnChart"], ["delete", "widget_packages/Markdown.mpk"]]}

@@ -1,0 +1,6 @@
+alter microflow PurchaseApprovals.SubmitCommentRequester {
+  replace call microflow WorkflowCommons.ACT_WorkflowCommentHelper_SaveNew * with begin
+    call microflow WorkflowCommons.ACT_WorkflowCommentHelper_SaveNew(WorkflowCommentHelper = $WorkflowCommentHelper, Workflow = $Workflow);
+  end;
+  drop $WorkflowView;
+};

@@ -1,0 +1,3 @@
+# modules whose files the installed package cannot prove unedited (NanoflowCommons 6.0.0 is not in the Marketplace catalog)
+NanoflowCommons
+Atlas_Web_Content # owner decision S-1 (chat 2026-10-19): update to 4.4.0, UI-less local edit (_heroheader.scss) replayed from the saved patch

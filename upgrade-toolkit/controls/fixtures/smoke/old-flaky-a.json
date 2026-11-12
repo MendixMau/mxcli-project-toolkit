@@ -1,0 +1,49 @@
+{
+ "_why": "T6R-9 smoke walk results (synthetic, the shape smokewalk.js writes): Orders failed with the React #409 teardown error in this walk",
+ "url": "http://localhost:8080",
+ "roles": [
+  {
+   "role": "Clerk",
+   "verdict": "FAIL",
+   "steps": [
+    {
+     "caption": "Home",
+     "kind": "page",
+     "via": "home",
+     "target": "Shop.Home_Overview",
+     "verdict": "PASS"
+    },
+    {
+     "caption": "Orders",
+     "kind": "page",
+     "via": "menu",
+     "target": "Shop.Orders_Overview",
+     "verdict": "FAIL",
+     "errors": [
+      "console: [Client] Shop.Orders_Overview.dataView1: attempt to uninitialize widget that is not loaded yet, check widget structure"
+     ]
+    }
+   ]
+  },
+  {
+   "role": "Desk",
+   "verdict": "PASS",
+   "steps": [
+    {
+     "caption": "Home",
+     "kind": "page",
+     "via": "home",
+     "target": "Shop.Home_Overview",
+     "verdict": "PASS"
+    },
+    {
+     "caption": "Inbox",
+     "kind": "page",
+     "via": "menu",
+     "target": "Shop.Inbox_Overview",
+     "verdict": "PASS"
+    }
+   ]
+  }
+ ]
+}

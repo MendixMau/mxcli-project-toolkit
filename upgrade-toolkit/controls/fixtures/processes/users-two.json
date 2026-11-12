@@ -1,0 +1,52 @@
+{
+ "Approver": [
+  {
+   "user": "smoke_approver1",
+   "pass": "x"
+  },
+  {
+   "user": "smoke_approver2",
+   "pass": "x"
+  }
+ ],
+ "InvoiceProcessor": [
+  {
+   "user": "smoke_invoiceprocessor1",
+   "pass": "x"
+  },
+  {
+   "user": "smoke_invoiceprocessor2",
+   "pass": "x"
+  }
+ ],
+ "PurchaseOrderCreator": [
+  {
+   "user": "smoke_purchaseordercreator1",
+   "pass": "x"
+  },
+  {
+   "user": "smoke_purchaseordercreator2",
+   "pass": "x"
+  }
+ ],
+ "Receiver": [
+  {
+   "user": "smoke_receiver1",
+   "pass": "x"
+  },
+  {
+   "user": "smoke_receiver2",
+   "pass": "x"
+  }
+ ],
+ "Requester": [
+  {
+   "user": "smoke_requester1",
+   "pass": "x"
+  },
+  {
+   "user": "smoke_requester2",
+   "pass": "x"
+  }
+ ]
+}

@@ -1,0 +1,2 @@
+# keptdeps.py output saved by the run
+NOTE kept UpdConn 4.0.0 calls updated AuthMod 2.1.2: 8 references, all present by name

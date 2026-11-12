@@ -136,7 +136,7 @@ hits=$(scan grep -IilE "/Users/[a-z]|/home/[a-z]" -- | grep -v '^bin/check-no-cl
 [ -n "$hits" ] && { report "local home-directory path found in:"; echo "$hits"; }
 
 # 5) Contact details. Public/vendor addresses are allowed; anything else is a hit.
-EMAIL_ALLOW='@example\.(com|org)|@localhost|noreply@|@users\.noreply\.github\.com|i@izs\.me'
+EMAIL_ALLOW='@([a-z0-9.-]+\.)?example(\.(com|org|invalid))?\b|@([a-z0-9.-]+\.)?(test|invalid)\b|@localhost|noreply@|@users\.noreply\.github\.com|i@izs\.me'
 hits=$(scan grep -IinE "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}" -- \
        | grep -vE "$EMAIL_ALLOW" | grep -v '^bin/check-no-client-data.sh:' || true)
 [ -n "$hits" ] && { report "email address found in:"; echo "$hits"; }

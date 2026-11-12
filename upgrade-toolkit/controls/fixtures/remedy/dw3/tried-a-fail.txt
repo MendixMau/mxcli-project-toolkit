@@ -1,0 +1,2 @@
+# tried by the pipeline
+dw3-dropdown-captions A FAIL gate-b/gate-summary.md # paging text still doubled

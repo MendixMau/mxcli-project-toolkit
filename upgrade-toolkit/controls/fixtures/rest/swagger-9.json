@@ -1,0 +1,7 @@
+{"swagger": "2.0", "basePath": "/rest/notify/v1", "host": "localhost:8080",
+ "paths": {"/message": {"post": {"parameters": [{"in": "body", "name": "body", "required": true}],
+                                  "responses": {"201": {"description": "created"}, "400": {"description": "bad"}}},
+                        "get": {"parameters": [{"in": "query", "name": "limit", "required": false}],
+                                "responses": {"200": {"description": "ok"}}}},
+           "/message/{id}": {"parameters": [{"in": "path", "name": "id", "required": true}],
+                             "delete": {"responses": {"204": {"description": "gone"}}}}}}

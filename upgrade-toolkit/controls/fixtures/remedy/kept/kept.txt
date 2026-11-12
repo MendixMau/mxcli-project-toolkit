@@ -1,0 +1,6 @@
+Administration idcheck REVIEW (persistence loss or removal: accept it in approved.txt with a reason, or keep), see .stepupdate/step11-Administration.idcheck
+MxGenAIConnector local edits refuse the update
+GenAICommons elements could not be read, module not shown unedited
+OtherMod elements could not be read, idcheck REVIEW (persistence loss)
+TaskQueueHelpers newest
+OQL skipped by --skip

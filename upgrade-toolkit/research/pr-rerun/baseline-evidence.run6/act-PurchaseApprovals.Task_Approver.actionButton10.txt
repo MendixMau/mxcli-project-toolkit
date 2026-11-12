@@ -1,0 +1,7 @@
+journey: act-PurchaseApprovals.Task_Approver.actionButton10
+role: Approver
+old-app verdict: FAIL
+not_pass: ["FAIL microflow 'Reject' on PurchaseApprovals.Task_Approver (task-outcome): actions completed .mx-name-actionButton10 not visible"]
+cluster: H7
+reason: task-page attachment snippet needs an attachment on the open task, Receiver 5 needs a line not yet completed, Task_Approver 10/11 are the second-approver buttons (single Approver in the fixture)
+confirmed: owner 2026-10-22

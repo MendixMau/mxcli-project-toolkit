@@ -1,0 +1,2 @@
+# R1 before the remedy: shotdiff passed the doubled DataWidgets captions, found by eye
+screens	open	toolkit	DataWidgets paging captions doubled (found by eye; fixed on the remedy branch by the theme .sr-only rule and the caption write-back)

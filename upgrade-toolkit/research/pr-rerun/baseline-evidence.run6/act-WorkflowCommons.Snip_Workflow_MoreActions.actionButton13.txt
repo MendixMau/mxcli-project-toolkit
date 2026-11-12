@@ -1,0 +1,7 @@
+journey: act-WorkflowCommons.Snip_Workflow_MoreActions.actionButton13
+role: Administrator
+old-app verdict: FAIL
+not_pass: ["FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > menu pop_upMenu5: reached \".mx-name-actionButton13\" never appeared \u2014 screenshot act-WorkflowCommons.Snip_Workflow_MoreActions.actionButton13-step4-NOT-REACHED.png", "INVALID open PurchaseApprovals.Admin_Workflow_Instance_View > menu pop_upMenu5: downstream rungs not reached; nothing measured"]
+cluster: H4
+reason: Continue and Retry need an Incompatible or Failed workflow; no UI route makes one
+confirmed: owner 2026-10-22

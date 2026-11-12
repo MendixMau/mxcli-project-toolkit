@@ -1,0 +1,3 @@
+# release_impact --auto controls: DataGrid is Data Widgets (content id 116540), found only by the id (T1-9)
+DataGrid 1.0.0 -> 3.0.0 116540
+FixtureKept 1.0.0 -> 1.1.0

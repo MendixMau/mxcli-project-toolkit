@@ -1,0 +1,37 @@
+{
+  "version": "9.24.2.0",
+  "_why": "T6R-3: a landing guard that renders only with data. The T6R Inspector home picked dataView3, a data view with a microflow source (the user's departments); the seeded Inspector had none and the healthy OLD app FAILed. Data views on a microflow, nanoflow, association or 9.x association-path source and everything inside them are no guard; a widget around one is the last resort; a page-parameter data view stays a guard.",
+  "modules": [{
+    "name": "Shop",
+    "layouts": [{"name": "Layout_Plain", "named": [{"type": "LayoutGrid", "name": "layoutGrid9"}]}],
+    "pages": [
+      {"name": "Home_Mf", "layout": "Shop.Layout_Plain",
+       "named": [{"type": "LayoutGrid", "name": "layoutGrid2", "children": [
+                   {"type": "DataView", "name": "dataView3", "datasource": {"kind": "microflow", "microflow": "Shop.DS_MyDepartment"},
+                    "children": [{"type": "Label", "name": "label3", "text": "Department"}]}]},
+                 {"type": "ActionButton", "name": "actionButton2", "text": "Start"}]},
+      {"name": "Home_Nf", "layout": "Shop.Layout_Plain",
+       "named": [{"type": "DataView", "name": "dataView4", "datasource": {"kind": "nanoflow", "nanoflow": "Shop.DS_Current"}},
+                 {"type": "Label", "name": "label4", "text": "Today"}]},
+      {"name": "Home_Path", "layout": "Shop.Layout_Plain",
+       "named": [{"type": "DataView", "name": "dataView5", "datasource": {"kind": "path", "param": "Order"}},
+                 {"type": "Label", "name": "label5", "text": "Order lines"}]},
+      {"name": "Home_Assoc", "layout": "Shop.Layout_Plain",
+       "named": [{"type": "DataView", "name": "dataView6", "datasource": {"kind": "association"}},
+                 {"type": "Label", "name": "label6", "text": "Customer"}]},
+      {"name": "Order_Edit", "layout": "Shop.Layout_Plain",
+       "named": [{"type": "DataView", "name": "dataView7", "datasource": {"kind": "page", "param": "Order"},
+                  "children": [{"type": "DataView", "name": "dataView8", "datasource": {"kind": "microflow", "microflow": "Shop.DS_Customer"}}]}]},
+      {"name": "Grid_Only", "layout": "Shop.Layout_Plain",
+       "named": [{"type": "LayoutGrid", "name": "layoutGrid3", "children": [
+                   {"type": "DataView", "name": "dataView9", "datasource": {"kind": "microflow", "microflow": "Shop.DS_MyDepartment"},
+                    "children": [{"type": "Label", "name": "label9", "text": "Department"}]}]}]},
+      {"name": "Only_Dependent", "layout": "Shop.Layout_Plain",
+       "named": [{"type": "DataView", "name": "dataView10", "datasource": {"kind": "microflow", "microflow": "Shop.DS_MyDepartment"},
+                  "children": [{"type": "Label", "name": "label10", "text": "Department"}]}]}],
+    "docs": [{"type": "Microflows$Microflow", "name": "DS_MyDepartment"}, {"type": "Microflows$Microflow", "name": "DS_Customer"},
+             {"type": "Microflows$Nanoflow", "name": "DS_Current"},
+             {"type": "Microflows$Microflow", "name": "NAV_Inspector", "refs": {"Page": "Shop.Home_Mf"}},
+             {"type": "Microflows$Microflow", "name": "NAV_Only", "refs": {"Page": "Shop.Only_Dependent"}}]
+  }]
+}

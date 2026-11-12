@@ -1,0 +1,121 @@
+{
+ "old": "m/nav-api/App.mpr",
+ "new": "m/nav-api/App.mpr",
+ "user_roles": {
+  "admin": "Admin",
+  "guest": "Guest",
+  "all": [
+   "Admin",
+   "Clerk",
+   "Guest",
+   "ApiUser"
+  ]
+ },
+ "roles": {
+  "Admin": {
+   "home_page": "Shop.Home",
+   "landing": {
+    "widget": "container1",
+    "type": "Forms$DivContainer",
+    "generic_name": true
+   },
+   "menu_visible": [
+    "Home"
+   ],
+   "menu_hidden": [],
+   "sign_out_item": [
+    "Sign out"
+   ],
+   "is_admin": true,
+   "is_guest": false
+  },
+  "Clerk": {
+   "home_page": "Shop.Popup_Home",
+   "landing": {
+    "widget": "label1",
+    "type": "Forms$Label",
+    "generic_name": true
+   },
+   "menu_visible": [
+    "Home"
+   ],
+   "menu_hidden": [],
+   "sign_out_item": null,
+   "is_admin": false,
+   "is_guest": false
+  },
+  "Guest": {
+   "home_page": "Shop.Home",
+   "landing": null,
+   "menu_visible": [],
+   "menu_hidden": [
+    "Home"
+   ],
+   "sign_out_item": null,
+   "is_admin": false,
+   "is_guest": true
+  },
+  "ApiUser": {
+   "home_page": "Shop.Login_Web",
+   "landing": {
+    "widget": "signInButton",
+    "type": "Forms$LoginButton",
+    "generic_name": false
+   },
+   "menu_visible": [],
+   "menu_hidden": [],
+   "sign_out_item": null,
+   "is_admin": false,
+   "is_guest": false
+  }
+ },
+ "login": {},
+ "auth": {},
+ "candidates": [
+  {
+   "id": "home:Shop.Home",
+   "kind": "home",
+   "roles": [
+    "Admin"
+   ],
+   "target": "Shop.Home",
+   "title": "Role home Shop.Home works"
+  },
+  {
+   "id": "home:Shop.Popup_Home",
+   "kind": "home",
+   "roles": [
+    "Clerk"
+   ],
+   "target": "Shop.Popup_Home",
+   "title": "Role home Shop.Popup_Home works"
+  },
+  {
+   "id": "page:Shop.Detail",
+   "kind": "page",
+   "roles": [
+    "Admin"
+   ],
+   "target": "Shop.Detail",
+   "title": "Reach Shop.Detail"
+  },
+  {
+   "id": "page:Shop.Orphan",
+   "kind": "page",
+   "roles": [
+    "Admin"
+   ],
+   "target": "Shop.Orphan",
+   "title": "Reach Shop.Orphan"
+  },
+  {
+   "id": "page:Shop.Orphan_Child",
+   "kind": "page",
+   "roles": [
+    "Admin"
+   ],
+   "target": "Shop.Orphan_Child",
+   "title": "Reach Shop.Orphan_Child"
+  }
+ ]
+}

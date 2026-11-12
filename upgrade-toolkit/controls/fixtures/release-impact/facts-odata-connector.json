@@ -1,0 +1,16 @@
+{
+ "_comment": "T3F-11: as facts-auto.json, but 0 built-in consumed OData and 3 references into a connector module: consumed-OData rows must stay open.",
+ "db_vendor": "postgresql",
+ "db_version": "16",
+ "odata_published": 0,
+ "odata_consumed": 0,
+ "odata_consumed_connector": 3,
+ "workflows": 0,
+ "native_profile": false,
+ "oql": 0,
+ "document_templates": 0,
+ "own_java": 0,
+ "kept": [
+  "FixtureKept"
+ ]
+}

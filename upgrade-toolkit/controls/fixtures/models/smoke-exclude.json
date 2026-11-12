@@ -1,0 +1,11 @@
+{"version": "11.12.6.1",
+ "_why": "FM-6: an Admin menu with a demo-data reset page and an ordinary overview page: the plan must keep the overview and write the reset to skipped",
+ "security": {"user_roles": {"Admin": ["Shop.Admin"]}, "admin": "Admin"},
+ "modules": [
+  {"name": "Shop",
+   "pages": [{"name": "Home", "layout": "", "allowed": ["Shop.Admin"], "named": []},
+             {"name": "Overview", "layout": "", "allowed": ["Shop.Admin"], "named": []},
+             {"name": "DemoData_CreateByAdmin", "layout": "", "allowed": ["Shop.Admin"], "named": []}]}],
+ "navigation": {"homes": [{"role": "*", "page": "Shop.Home"}],
+                "menu": [{"caption": "Overview", "page": "Shop.Overview"},
+                         {"caption": "Demo data Reset", "page": "Shop.DemoData_CreateByAdmin"}]}}

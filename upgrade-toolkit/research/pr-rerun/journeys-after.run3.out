@@ -1,0 +1,415 @@
+data: psql: pgmap: 61 entities, 314 attributes, 95 associations (93 table storage, 2 column storage), 0 names cut at 63 bytes, 0 problems
+park: P02 after leg 1: 5 of 5 walked
+park: P02 after leg 2: 4 of 4 walked
+park: P02 after leg 3: 6 of 6 walked
+park: P02 after leg 4: 8 of 8 walked
+park: before Requester~data: assigned 22
+park: before Administrator~data: assigned 0
+park: before Approver~data: assigned 0
+park: before PurchaseOrderCreator~data: assigned 2
+park: before Receiver~data: assigned 1
+park: before InvoiceProcessor~data: assigned 1
+park: before Administrator~last: assigned 0
+park: before Approver~last: assigned 0
+park: before Administrator~destructive1: assigned 0
+== after (:8080) compared with /tmp/claude-0/-home-user/f6fa2bc2-de01-585e-8723-73c458210247/scratchpad/real/run1/work/e2e-before-picked
+  data psql: pgmap: 61 entities, 314 attributes, 95 associations (93 table storage, 2 column storage), 0 names cut at 63 bytes, 0 problems
+  park 23 of 23 walked (P02 after leg 1: 5/5, P02 after leg 2: 4/4, P02 after leg 3: 6/6, P02 after leg 4: 8/8); assigned Requester~data 22, Administrator~data 0, Approver~data 0, PurchaseOrderCreator~data 2, Receiver~data 1, InvoiceProcessor~data 1, Administrator~last 0, Approver~last 0, Administrator~destructive1 0
+  role Requester                login PASS    smoke_requester
+  role Administrator            login PASS    smoke_administrator
+  role Approver                 login PASS    smoke_approver
+  role PurchaseOrderCreator     login PASS    smoke_purchaseordercreator
+  role Receiver                 login PASS    smoke_receiver
+  role InvoiceProcessor         login PASS    smoke_invoiceprocessor
+  role Requester~data           login PASS    smoke_requester
+  role Administrator~data       login PASS    smoke_administrator
+  role Approver~data            login PASS    smoke_approver
+  role PurchaseOrderCreator~data login PASS    smoke_purchaseordercreator
+  role Receiver~data            login PASS    smoke_receiver
+  role InvoiceProcessor~data    login PASS    smoke_invoiceprocessor
+  role Administrator~last       login PASS    smoke_administrator
+  role Approver~last            login PASS    smoke_approver
+  role Administrator~destructive1 login PASS    smoke_administrator
+  PASS    act-PurchaseApprovals.NewRequest_Step1.navigationList2   [SCREEN REVIEW] screen REVIEW 25% of the page changed; new @sha256:d332b4aecd0f
+  PASS    act-PurchaseApprovals.NewRequest_Step1.navigationList2_2  [SCREEN REVIEW] screen REVIEW 25% of the page changed; new @sha256:d332b4aecd0f
+  PASS    act-PurchaseApprovals.NewRequest_Step2.actionButton3     [SCREEN REVIEW] screen REVIEW 25% of the page changed; new @sha256:d332b4aecd0f
+  PASS    act-PurchaseApprovals.NewRequest_Step2.navigationList2   [SCREEN REVIEW] screen REVIEW 25% of the page changed; new @sha256:d332b4aecd0f
+  PASS    act-PurchaseApprovals.NewRequest_Step2.navigationList2_2  [SCREEN REVIEW] screen REVIEW 25% of the page changed; new @sha256:d332b4aecd0f
+  PASS    act-PurchaseApprovals.NewRequest_Step3.actionButton3     [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:649a8a75303c
+  PASS    act-PurchaseApprovals.NewRequest_Step3.navigationList2   [SCREEN REVIEW] screen REVIEW 25% of the page changed; new @sha256:d332b4aecd0f
+  PASS    act-PurchaseApprovals.NewRequest_Step3.navigationList2_2  [SCREEN REVIEW] screen REVIEW 25% of the page changed; new @sha256:d332b4aecd0f
+  PASS    login-Requester                                          [SCREEN REVIEW] screen REVIEW 25% of the page changed; new @sha256:d332b4aecd0f
+  PASS    menu_My_requests-Requester                               [SCREEN REVIEW] screen REVIEW 25% of the page changed; new @sha256:d332b4aecd0f
+  PASS    proc-p01-01                                              [SCREEN REVIEW] screen REVIEW 25% of the page changed; new @sha256:d332b4aecd0f effect REVIEW step7 WorkflowCommons.UserTaskView: old +1, new +0; step7 WorkflowCommons.UserTaskView_TargetUsers: old +1, new +
+  PASS    proc-p02-01                                              [SCREEN REVIEW] screen REVIEW 38% of the page changed; 4% of the page had content before and  effect REVIEW step7 WorkflowCommons.UserTaskView: old +1, new +0; step7 WorkflowCommons.UserTaskView_TargetUsers: old +1, new +
+  PASS    proc-p05-01                                              [SCREEN REVIEW] screen REVIEW 39% of the page changed; 4% of the page had content before and  effect REVIEW step18 WorkflowCommons.UserTaskView: old +1, new +0; step18 WorkflowCommons.UserTaskView_TargetUsers: old +1, new
+  PASS    proc-p06-01                                              [SCREEN REVIEW] screen REVIEW 40% of the page changed; 4% of the page had content before and  effect REVIEW step7 WorkflowCommons.UserTaskView: old +1, new +0; step7 WorkflowCommons.UserTaskView_TargetUsers: old +1, new +
+  PASS    proc-p06b-01                                             [SCREEN REVIEW] screen REVIEW 40% of the page changed; 4% of the page had content before and  effect REVIEW step7 WorkflowCommons.UserTaskView: old +1, new +0; step7 WorkflowCommons.UserTaskView_TargetUsers: old +1, new +
+  PASS    proc-p06c-01                                             [SCREEN REVIEW] screen REVIEW 41% of the page changed; 4% of the page had content before and  effect REVIEW step7 WorkflowCommons.UserTaskView: old +1, new +0; step7 WorkflowCommons.UserTaskView_TargetUsers: old +1, new +
+  PASS    proc-p07-01                                              [SCREEN REVIEW] screen REVIEW 41% of the page changed; 4% of the page had content before and  effect REVIEW step7 WorkflowCommons.UserTaskView: old +1, new +0; step7 WorkflowCommons.UserTaskView_TargetUsers: old +1, new +
+  PASS    proc-p08-01                                              [SCREEN REVIEW] screen REVIEW 41% of the page changed; 4% of the page had content before and  effect REVIEW step7 WorkflowCommons.UserTaskView: old +1, new +0; step7 WorkflowCommons.UserTaskView_TargetUsers: old +1, new +
+  PASS    proc-p10-01                                              [SCREEN REVIEW] screen REVIEW 41% of the page changed; 4% of the page had content before and  effect REVIEW step7 WorkflowCommons.UserTaskView: old +1, new +0; step7 WorkflowCommons.UserTaskView_TargetUsers: old +1, new +
+  PASS    act-PurchaseApprovals.Admin_Homepage.container2          [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1
+  PASS    act-PurchaseApprovals.Admin_Homepage.container4          [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1
+  PASS    act-PurchaseApprovals.Admin_Homepage.container7          [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1
+  PASS    act-PurchaseApprovals.Admin_Homepage.container8          [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1
+  PASS    act-PurchaseApprovals.Atlas_TopBar_Customized.container6  [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1
+  PASS    act-PurchaseApprovals.Atlas_TopBar_Customized.image2     [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1
+  PASS    act-WorkflowCommons.Snip_WorkflowDashboard_Header.actionButton2  [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1
+  PASS    create-save                                              [SCREEN REVIEW] screen REVIEW 22% of the page changed; 9% of the page had content before and 
+  PASS    login-Administrator                                      [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1
+  PASS    menu_Home-Administrator                                  [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1
+  PASS    proc-p04-01                                              [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1 effect REVIEW step5 WorkflowCommons.WorkflowComment_WorkflowView: old +1, new +0
+  PASS    proc-p04b-01                                             [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1 effect REVIEW step5 WorkflowCommons.WorkflowComment_WorkflowView: old +1, new +0
+  FAIL    proc-p10-02                                             FAIL 20. Click "Unpause Workflow": actions completed pop_upMenu5: none of the 1 pop-up menu trigger(s) on the page opened .mx-name-pop_upMenu5 [BASELINE DEFECT (before FAIL): no evidence] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1
+  PASS    proc-p12-01                                              [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1
+  PASS    proc-p13-01                                              [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1
+  PASS    sign-out                                                
+  PASS    login-Approver                                           [SCREEN REVIEW] screen REVIEW 29% of the page changed; new @sha256:42c64e4d5890
+  PASS    menu_Task_Inbox-Approver                                 [SCREEN REVIEW] screen REVIEW 29% of the page changed; new @sha256:42c64e4d5890
+  PASS    proc-p02-02                                              [SCREEN REVIEW] screen REVIEW 29% of the page changed; new @sha256:42c64e4d5890 effect REVIEW step3 System.WorkflowEndedUserTask: old +0, new +1; step3 System.WorkflowEndedUserTaskOutcome: old +0, new +1; st
+  PASS    proc-p06-02                                              [SCREEN REVIEW] screen REVIEW 29% of the page changed; new @sha256:1148ca2a1ebf effect REVIEW step3 System.WorkflowEndedUserTask: old +0, new +1; step3 System.WorkflowEndedUserTaskOutcome: old +0, new +1; st
+  PASS    proc-p06b-02                                             [SCREEN REVIEW] screen REVIEW 29% of the page changed; new @sha256:a81c559a56ef effect REVIEW step3 System.WorkflowEndedUserTask: old +0, new +1; step3 System.WorkflowEndedUserTaskOutcome: old +0, new +1; st
+  PASS    proc-p06c-02                                             [SCREEN REVIEW] screen REVIEW 29% of the page changed; new @sha256:55cc4e566671 effect REVIEW step3 System.WorkflowEndedUserTask: old +0, new +1; step3 System.WorkflowEndedUserTaskOutcome: old +0, new +1; st
+  PASS    proc-p07-02                                              [SCREEN REVIEW] screen REVIEW 29% of the page changed; new @sha256:e582cdd4a8d5 effect REVIEW step3 System.WorkflowEndedUserTask: old +0, new +1; step3 System.WorkflowEndedUserTaskOutcome: old +0, new +1; st
+  PASS    proc-p08-02                                              [SCREEN REVIEW] screen REVIEW 29% of the page changed; new @sha256:0b70dc15ab6e effect REVIEW step3 System.WorkflowEndedUserTask: old +0, new +1; step3 System.WorkflowEndedUserTaskOutcome: old +0, new +1; st
+  PASS    login-PurchaseOrderCreator                               [SCREEN REVIEW] screen REVIEW 29% of the page changed; new @sha256:a81c559a56ef
+  PASS    proc-p02-03                                              [SCREEN REVIEW] screen REVIEW 29% of the page changed; new @sha256:a81c559a56ef effect REVIEW step9 System.WorkflowEndedUserTask: old +0, new +1; step9 System.WorkflowEndedUserTaskOutcome: old +0, new +1; st
+  PASS    proc-p06-03                                              [SCREEN REVIEW] screen REVIEW 29% of the page changed; new @sha256:55cc4e566671 effect REVIEW step6 System.WorkflowEndedUserTask: old +0, new +1; step6 System.WorkflowEndedUserTaskOutcome: old +0, new +1; st
+  PASS    proc-p06b-03                                             [SCREEN REVIEW] screen REVIEW 29% of the page changed; new @sha256:e582cdd4a8d5 effect REVIEW step7 System.WorkflowEndedUserTask: old +0, new +1; step7 System.WorkflowEndedUserTaskOutcome: old +0, new +1; st
+  PASS    proc-p06c-03                                             [SCREEN REVIEW] screen REVIEW 29% of the page changed; new @sha256:0b70dc15ab6e effect REVIEW step9 System.WorkflowEndedUserTask: old +0, new +1; step9 System.WorkflowEndedUserTaskOutcome: old +0, new +1; st
+  PASS    proc-p07-03                                              [SCREEN REVIEW] screen REVIEW 29% of the page changed; new @sha256:391b80d18fe3
+  PASS    proc-p08-03                                              [SCREEN REVIEW] screen REVIEW 31% of the page changed; new @sha256:e8f003401e31
+  PASS    login-Receiver                                           [SCREEN REVIEW] screen REVIEW 29% of the page changed; new @sha256:32cfa25b8706
+  PASS    proc-p02-04                                              [SCREEN REVIEW] screen REVIEW 29% of the page changed; new @sha256:32cfa25b8706 effect REVIEW step6 System.WorkflowEndedUserTask: old +0, new +1; step6 System.WorkflowEndedUserTaskOutcome: old +0, new +1; st
+  PASS    login-InvoiceProcessor                                   [SCREEN REVIEW] screen REVIEW 29% of the page changed; new @sha256:32cfa25b8706
+  PASS    proc-p02-05                                              [SCREEN REVIEW] screen REVIEW 29% of the page changed; new @sha256:32cfa25b8706 effect REVIEW step3 System.WorkflowEndedUserTask: old +0, new +1; step3 System.WorkflowEndedUserTaskOutcome: old +0, new +1; st
+  FAIL    act-PurchaseApprovals.MyRequests.container6             FAIL role home PurchaseApprovals.MyRequests: reached ".mx-name-container6" never appeared — screenshot act-PurchaseApprovals.MyRequests.container6-ste [REGRESSION] screen INVALID NEW step NOT-REACHED, OLD reached it; new @sha256:6ff8a18c5dfc [shown only if container5: $currentObject != empty]
+  PASS    act-PurchaseApprovals.Admin_Workflow_Instance_View.actionButton1  [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1
+  PASS    act-PurchaseApprovals.MendixSSOUserOverview.actionButton1  [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1
+  PASS    act-PurchaseApprovals.MendixSSOUserOverview.grid1        [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1
+  PASS    act-PurchaseApprovals.Product_Overview.actionButton1     [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1
+  PASS    act-PurchaseApprovals.Product_Overview.grid1             [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1
+  PASS    act-PurchaseApprovals.Vendor_Overview.actionButton1      [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1
+  PASS    act-PurchaseApprovals.Vendor_Overview.grid1              [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1
+  PASS    act-PurchaseApprovals.WorkflowDefinition_View.dataGrid21  [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1
+  FAIL    act-WorkflowCommons.Snip_AuditTrailViewer_Toolbar.actionButton1 FAIL open WorkflowCommons.DefaultWorkflowAdmin > tab 'Audit trail': actions completed .mx-name-tabPage5 not visible [BASELINE DEFECT (before FAIL): no evidence] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1 [shown only if container1: $Workflow/System.Workflow_ParentWorkflow != empty]
+  FAIL    act-WorkflowCommons.Snip_AuditTrailViewer_Toolbar.actionButton2 FAIL open WorkflowCommons.DefaultWorkflowAdmin > tab 'Audit trail': actions completed .mx-name-tabPage5 not visible [BASELINE DEFECT (before FAIL): no evidence] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1 [shown only if container1: $Workflow/System.Workflow_ParentWorkflow != empty]
+  FAIL    act-WorkflowCommons.Snip_AuditTrailViewer_Toolbar.actionButton3 FAIL open WorkflowCommons.DefaultWorkflowAdmin > tab 'Audit trail': actions completed .mx-name-tabPage5 not visible [BASELINE DEFECT (before FAIL): no evidence] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1 [shown only if container1: $Workflow/System.Workflow_ParentWorkflow != empty]
+  FAIL    act-WorkflowCommons.Snip_AuditTrailViewer_Toolbar.actionButton4 FAIL open WorkflowCommons.DefaultWorkflowAdmin > tab 'Audit trail': actions completed .mx-name-tabPage5 not visible [BASELINE DEFECT (before FAIL): no evidence] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1 [shown only if container1: $Workflow/System.Workflow_ParentWorkflow != empty]
+  FAIL    act-WorkflowCommons.Snip_AuditTrailViewer_Toolbar.actionButton5 FAIL open WorkflowCommons.DefaultWorkflowAdmin > tab 'Audit trail': actions completed .mx-name-tabPage5 not visible [BASELINE DEFECT (before FAIL): no evidence] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1 [shown only if container1: $Workflow/System.Workflow_ParentWorkflow != empty]
+  PASS    act-WorkflowCommons.Snip_UserTaskView_Details.actionButton10  [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1
+  FAIL    act-WorkflowCommons.Snip_UserTaskView_Details.actionButton11 FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > tab 'Task details': reached ".mx-name-actionButton11" never appeared — screenshot act-Workf [BASELINE DEFECT (before FAIL): no evidence] screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla [shown only if LayoutGridRow: WorkflowCommons.UserTaskView.State in ['Created', 'InProgress', 'Paused', 'Failed']; actionButton11: System.WorkflowUserTask.CompletionType in [']
+  FAIL    act-WorkflowCommons.Snip_UserTaskView_Details.actionButton5 FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > tab 'Task details': reached ".mx-name-actionButton5" never appeared — screenshot act-Workfl [BASELINE DEFECT (before FAIL): no evidence] screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla [shown only if container1: WorkflowCommons.UserTaskView.State in ['Created', 'InProgress', 'Paused', 'Failed']; container10: $currentObject/System.WorkflowUserTask_TargetUsers]
+  PASS    act-WorkflowCommons.Snip_UserTaskView_Details.actionButton6  [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1
+  FAIL    act-WorkflowCommons.Snip_UserTaskView_Details.actionButton9 FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > tab 'Task details': reached ".mx-name-actionButton9" never appeared — screenshot act-Workfl [BASELINE DEFECT (before FAIL): no evidence] screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla [shown only if LayoutGridRow: WorkflowCommons.UserTaskView.State in ['Created', 'InProgress', 'Paused', 'Failed']; actionButton9: $currentObject/CompletionType = System.Workfl]
+  FAIL    act-WorkflowCommons.Snip_WorkflowActivityRecord_Details.actionButton4 FAIL open WorkflowCommons.DefaultWorkflowAdmin: reached ".mx-name-actionButton4" never appeared — screenshot act-WorkflowCommons.Snip_WorkflowActivity [BASELINE DEFECT (before FAIL): no evidence] screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla [shown only if container1: $Workflow/System.Workflow_ParentWorkflow != empty; container10: System.WorkflowActivityRecord.ActivityType in ['UserTask', 'CallWorkflow', 'MultiInp]
+  FAIL    act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments_Admin.actionButton4 FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > tab 'Comments and attachments': reached ".mx-name-actionButton4" never appeared — screensho [BASELINE DEFECT (before FAIL): no evidence] screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla
+  FAIL    act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments_Admin.actionButton6 FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > tab 'Comments and attachments': reached ".mx-name-actionButton6" never appeared — screensho [BASELINE DEFECT (before FAIL): no evidence] screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla
+  FAIL    act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments_Admin.listView6 FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > tab 'Comments and attachments': reached ".mx-name-listView6" never appeared — screenshot ac [BASELINE DEFECT (before FAIL): no evidence] screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla
+  FAIL    act-WorkflowCommons.Snip_Workflow_ActivityTimelineOnly_Full.actionButton5 FAIL open WorkflowCommons.DefaultWorkflowAdmin: reached ".mx-name-actionButton5" never appeared — screenshot act-WorkflowCommons.Snip_Workflow_Activit [BASELINE DEFECT (before FAIL): no evidence] screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla [shown only if container1: $Workflow/System.Workflow_ParentWorkflow != empty; actionButton5: $currentObject/WorkflowCommons.TimelineViewer_Workflow != $Workflow]
+  PASS    act-WorkflowCommons.Snip_Workflow_Header.actionButton1   [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1
+  PASS    act-WorkflowCommons.Snip_Workflow_MoreActions.actionButton19  [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1
+  PASS    act-WorkflowCommons.UserTask_Assign.actionButton10       [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1 effect REVIEW step6 WorkflowCommons.UserTaskView_Assignees: old +1, new +0; step6 WorkflowCommons.UserTaskView_TargetUsers: old
+  FAIL    act-WorkflowCommons.UserTask_Assign.actionButton2       FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > tab 'Task details': reached ".mx-name-actionButton10" never appeared — screenshot act-Workf [BASELINE DEFECT (before FAIL): no evidence] screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla [shown only if LayoutGridRow: WorkflowCommons.UserTaskView.State in ['Created', 'InProgress', 'Paused', 'Failed']; actionButton10: $currentObject/CompletionType = System.Workf]
+  FAIL    act-WorkflowCommons.UserTask_Assign.actionButton7       FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > tab 'Task details': reached ".mx-name-actionButton10" never appeared — screenshot act-Workf [BASELINE DEFECT (before FAIL): no evidence] screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla [shown only if LayoutGridRow: WorkflowCommons.UserTaskView.State in ['Created', 'InProgress', 'Paused', 'Failed']; actionButton10: $currentObject/CompletionType = System.Workf]
+  FAIL    act-WorkflowCommons.UserTask_Assign.actionButton8       FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > tab 'Task details': reached ".mx-name-actionButton10" never appeared — screenshot act-Workf [BASELINE DEFECT (before FAIL): no evidence] screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla [shown only if LayoutGridRow: WorkflowCommons.UserTaskView.State in ['Created', 'InProgress', 'Paused', 'Failed']; actionButton10: $currentObject/CompletionType = System.Workf]
+  FAIL    act-WorkflowCommons.UserTask_Assign.actionButton9       FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > tab 'Task details': reached ".mx-name-actionButton10" never appeared — screenshot act-Workf [BASELINE DEFECT (before FAIL): no evidence] screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla [shown only if LayoutGridRow: WorkflowCommons.UserTaskView.State in ['Created', 'InProgress', 'Paused', 'Failed']; actionButton10: $currentObject/CompletionType = System.Workf]
+  PASS    act-WorkflowCommons.UserTask_Target.actionButton3        [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1 effect REVIEW step6 WorkflowCommons.UserTaskView_TargetUsers: old -1, new +0
+  PASS    act-WorkflowCommons.UserTask_Target.actionButton4        [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1 effect REVIEW step6 WorkflowCommons.UserTaskView_TargetUsers: old +1, new +0
+  FAIL    act-WorkflowCommons.WorkflowAttachment_View.actionButton16 FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > tab 'Comments and attachments': reached ".mx-name-listView6" never appeared — screenshot ac [BASELINE DEFECT (before FAIL): no evidence] screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla
+  FAIL    act-WorkflowCommons.WorkflowAttachment_View.actionButton17 FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > tab 'Comments and attachments': reached ".mx-name-listView6" never appeared — screenshot ac [BASELINE DEFECT (before FAIL): no evidence] screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla
+  FAIL    act-WorkflowCommons.WorkflowComment_Edit_Admin.actionButton5 FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > tab 'Comments and attachments': reached ".mx-name-actionButton4" never appeared — screensho [BASELINE DEFECT (before FAIL): no evidence] screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla
+  PASS    act-WorkflowCommons.Workflow_ActionConfirmation.actionButton2  [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1
+  PASS    act-WorkflowCommons.Workflow_JumpTo_Options.actionButton1  [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1
+  PASS    act-PurchaseApprovals.Attachments.actionButton2          [SCREEN REVIEW] screen REVIEW 35% of the page changed; new @sha256:44c2b50eebc5
+  FAIL    act-PurchaseApprovals.Attachments.container12           FAIL open PurchaseApprovals.Task_Approver: reached ".mx-name-container12" never appeared — screenshot act-PurchaseApprovals.Attachments.container12-st [BASELINE DEFECT (before FAIL): no evidence] screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla
+  PASS    act-PurchaseApprovals.Comments_TaskInbox.actionButton1   [SCREEN REVIEW] screen REVIEW 35% of the page changed; new @sha256:44c2b50eebc5
+  FAIL    act-PurchaseApprovals.Comments_TaskInbox.actionButton17 FAIL open PurchaseApprovals.Task_Approver: reached ".mx-name-actionButton17" never appeared — screenshot act-PurchaseApprovals.Comments_TaskInbox.acti [BASELINE DEFECT (before FAIL): no evidence] screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla [shown only if actionButton17: $currentObject/System.owner = [%CurrentUser%]]
+  PASS    act-PurchaseApprovals.TaskInbox.actionButton11           [SCREEN REVIEW] screen REVIEW 35% of the page changed; new @sha256:51c143fd5a6a
+  FAIL    act-PurchaseApprovals.TaskInbox.actionButton12          FAIL role home PurchaseApprovals.TaskInbox: reached ".mx-name-actionButton12" never appeared — screenshot act-PurchaseApprovals.TaskInbox.actionButton [BASELINE DEFECT (before FAIL): no evidence] screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla [shown only if actionButton12: $currentObject = empty]
+  PASS    act-PurchaseApprovals.TaskInbox.actionButton13           [SCREEN REVIEW] screen REVIEW 34% of the page changed; new @sha256:312b48ba84c9
+  FAIL    act-PurchaseApprovals.TaskInbox.actionButton8           FAIL role home PurchaseApprovals.TaskInbox > tab 'Open tasks': reached ".mx-name-actionButton8" never appeared — screenshot act-PurchaseApprovals.Task [BASELINE DEFECT (before FAIL): no evidence] screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla [shown only if actionButton8: $currentObject = empty]
+  PASS    act-PurchaseApprovals.TaskInbox.actionButton9            [SCREEN REVIEW] screen REVIEW 34% of the page changed; new @sha256:3c388fb6401c
+  PASS    act-PurchaseApprovals.TaskInbox.container20              [SCREEN REVIEW] screen REVIEW 35% of the page changed; new @sha256:8ef9e90faf30
+  PASS    act-PurchaseApprovals.TaskInbox.container25              [SCREEN REVIEW] screen REVIEW 34% of the page changed; new @sha256:0adf9e7812af
+  FAIL    act-PurchaseApprovals.Task_Approver.actionButton10      FAIL microflow 'Reject' on PurchaseApprovals.Task_Approver (task-outcome): actions completed .mx-name-actionButton10 not visible [BASELINE DEFECT (before FAIL): no evidence] screen REVIEW 34% of the page changed; new @sha256:0adf9e7812af [shown only if container6: $currentObject = [%CurrentUser%]; LayoutGridRow: $dataView13/PurchaseApprovals.Request_MendixSSOUser_FirstApprover != empty 
+and
+$dataView1/State = ]
+  FAIL    act-PurchaseApprovals.Task_Approver.actionButton11      FAIL microflow 'Approve' on PurchaseApprovals.Task_Approver (task-outcome): actions completed .mx-name-actionButton11 not visible [BASELINE DEFECT (before FAIL): no evidence] screen REVIEW 34% of the page changed; new @sha256:0adf9e7812af [shown only if container6: $currentObject = [%CurrentUser%]; LayoutGridRow: $dataView13/PurchaseApprovals.Request_MendixSSOUser_FirstApprover != empty 
+and
+$dataView1/State = ]
+  PASS    act-PurchaseApprovals.Task_Approver.actionButton15       [SCREEN REVIEW] screen REVIEW 34% of the page changed; new @sha256:0adf9e7812af
+  FAIL    act-PurchaseApprovals.Task_Approver.actionButton19      FAIL open PurchaseApprovals.Task_Approver: reached ".mx-name-actionButton19" never appeared — screenshot act-PurchaseApprovals.Task_Approver.actionBut [BASELINE DEFECT (before FAIL): no evidence] screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla [shown only if LayoutGridRow: $dataView1/System.WorkflowUserTask_Assignees = empty; actionButton19: $dataView1/State = System.WorkflowUserTaskState.InProgress
+and 
+$dataView1/]
+  PASS    act-PurchaseApprovals.Task_Approver.actionButton8        [SCREEN REVIEW] screen REVIEW 34% of the page changed; new @sha256:58d3cd8e1e38 effect REVIEW step3 System.WorkflowEndedUserTask: old +0, new +1; step3 System.WorkflowEndedUserTaskOutcome: old +0, new +1; st
+  FAIL    act-WorkflowCommons.WorkflowCommentHelper_Edit.actionButton5 FAIL open PurchaseApprovals.Task_Approver: reached ".mx-name-actionButton17" never appeared — screenshot act-WorkflowCommons.WorkflowCommentHelper_Edi [BASELINE DEFECT (before FAIL): no evidence] screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla [shown only if actionButton17: $currentObject/System.owner = [%CurrentUser%]]
+  FAIL    act-PurchaseApprovals.Task_POCreator.actionButton13     FAIL microflow 'Decline' on PurchaseApprovals.Task_POCreator (task-outcome): actions completed .mx-name-actionButton13 not visible [BASELINE DEFECT (before FAIL): no evidence] screen REVIEW 35% of the page changed; new @sha256:8c1881a67253 [shown only if container6: $currentObject = [%CurrentUser%]; LayoutGridRow: $dataView1/State = System.WorkflowUserTaskState.InProgress and
+$dataView13/POState = PurchaseApprov]
+  PASS    act-PurchaseApprovals.Task_POCreator.actionButton15      [SCREEN REVIEW] screen REVIEW 35% of the page changed; new @sha256:8c1881a67253
+  FAIL    act-PurchaseApprovals.Task_POCreator.actionButton19     FAIL open PurchaseApprovals.Task_POCreator: reached ".mx-name-actionButton19" never appeared — screenshot act-PurchaseApprovals.Task_POCreator.actionB [BASELINE DEFECT (before FAIL): no evidence] screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla [shown only if LayoutGridRow: $dataView1/System.WorkflowUserTask_Assignees = empty; actionButton19: $dataView1/State = System.WorkflowUserTaskState.InProgress
+and 
+$dataView1/]
+  PASS    act-PurchaseApprovals.Vendor_Select.actionButton3        [SCREEN REVIEW] screen REVIEW 34% of the page changed; new @sha256:cb1ec02cea6f
+  PASS    act-PurchaseApprovals.ProductLine_Edit_Receiver.actionButton3  [SCREEN REVIEW] screen REVIEW 34% of the page changed; new @sha256:47b193c20416
+  PASS    act-PurchaseApprovals.ProductLine_Edit_Receiver.actionButton4  [SCREEN REVIEW] screen REVIEW 34% of the page changed; new @sha256:47b193c20416
+  PASS    act-PurchaseApprovals.Task_Receiver.actionButton15       [SCREEN REVIEW] screen REVIEW 34% of the page changed; new @sha256:47b193c20416
+  FAIL    act-PurchaseApprovals.Task_Receiver.actionButton19      FAIL open PurchaseApprovals.Task_Receiver: reached ".mx-name-actionButton19" never appeared — screenshot act-PurchaseApprovals.Task_Receiver.actionBut [BASELINE DEFECT (before FAIL): no evidence] screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla [shown only if LayoutGridRow: $dataView1/System.WorkflowUserTask_Assignees = empty; actionButton19: $dataView1/State = System.WorkflowUserTaskState.InProgress
+and 
+$dataView1/]
+  FAIL    act-PurchaseApprovals.Task_Receiver.actionButton5       FAIL open PurchaseApprovals.Task_Receiver: reached ".mx-name-actionButton5" never appeared — screenshot act-PurchaseApprovals.Task_Receiver.actionButt [BASELINE DEFECT (before FAIL): no evidence] screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla [shown only if container1: $currentObject = [%CurrentUser%]; actionButton5: $dataGrid21/Status != PurchaseApprovals.ENUM_Receipt.Awaiting_delivery]
+  PASS    act-PurchaseApprovals.Task_InvoiceProcessor.actionButton15  [SCREEN REVIEW] screen REVIEW 35% of the page changed; new @sha256:be21341dc12f
+  FAIL    act-PurchaseApprovals.Task_InvoiceProcessor.actionButton19 FAIL open PurchaseApprovals.Task_InvoiceProcessor: reached ".mx-name-actionButton19" never appeared — screenshot act-PurchaseApprovals.Task_InvoicePro [BASELINE DEFECT (before FAIL): no evidence] screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla [shown only if LayoutGridRow: $dataView1/System.WorkflowUserTask_Assignees = empty; actionButton19: $dataView1/State = System.WorkflowUserTaskState.InProgress
+and 
+$dataView1/]
+  PASS    act-PurchaseApprovals.Product_Overview.actionButton2     [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1
+  PASS    act-PurchaseApprovals.Vendor_Overview.actionButton2      [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:833b870316ef
+  PASS    act-PurchaseApprovals.WorkflowDefinition_View.actionButton1  [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:833b870316ef
+  FAIL    act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments_Admin.actionButton3 FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > tab 'Comments and attachments': reached ".mx-name-actionButton3" never appeared — screensho [BASELINE DEFECT (before FAIL): no evidence] screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla
+  FAIL    act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments_Admin.actionButton8 FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > tab 'Comments and attachments': reached ".mx-name-actionButton8" never appeared — screensho [BASELINE DEFECT (before FAIL): no evidence] screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla
+  FAIL    act-WorkflowCommons.Snip_Workflow_MoreActions.actionButton13 FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > menu pop_upMenu5: reached ".mx-name-actionButton13" never appeared — screenshot act-Workflo [BASELINE DEFECT (before FAIL): no evidence] screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla [shown only if pop_upMenu5: $Workflow/State=System.WorkflowState.InProgress or 
+$Workflow/State=System.WorkflowState.Paused or 
+($Workflow/State=System.WorkflowState.Aborted a]
+  FAIL    act-WorkflowCommons.Snip_Workflow_MoreActions.actionButton18 FAIL open PurchaseApprovals.WorkflowDefinition_View: actions completed dataGrid21: row 6 asked for, the list shows 1: the data the journey needs is no [BASELINE DEFECT (before FAIL): no evidence] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1
+  FAIL    act-WorkflowCommons.Workflow_Retry_Options.actionButton1 FAIL open PurchaseApprovals.WorkflowDefinition_View: actions completed dataGrid21: row 7 asked for, the list shows 1: the data the journey needs is no [BASELINE DEFECT (before FAIL): no evidence] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1
+  FAIL    act-WorkflowCommons.Workflow_Retry_Options.actionButton2 FAIL open PurchaseApprovals.WorkflowDefinition_View: actions completed dataGrid21: row 8 asked for, the list shows 1: the data the journey needs is no [BASELINE DEFECT (before FAIL): no evidence] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1
+  FAIL    act-PurchaseApprovals.Attachments.actionButton6         FAIL open PurchaseApprovals.Task_Approver: reached ".mx-name-actionButton6" never appeared — screenshot act-PurchaseApprovals.Attachments.actionButton [BASELINE DEFECT (before FAIL): no evidence] screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla [shown only if actionButton6: $currentObject/System.owner = [%CurrentUser%]]
+  FAIL    act-PurchaseApprovals.Comments_TaskInbox.actionButton16 FAIL microflow 'actionButton16' on PurchaseApprovals.Comments_TaskInbox (delete): actions completed .mx-name-actionButton16 not visible [BASELINE DEFECT (before FAIL): no evidence] screen REVIEW 34% of the page changed; new @sha256:868ef1f3c9be [shown only if actionButton16: $currentObject/System.owner = [%CurrentUser%]]
+  PASS    act-PurchaseApprovals.MendixSSOUserOverview.actionButton2  [SCREEN REVIEW] screen REVIEW 27% of the page changed; new @sha256:a145fcbd2aa1 [DESTRUCTIVE(identity)]
+  INVALID act-Administration.Account_Edit.saveButton1             skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-Administration.Account_Edit.microflowTrigger1       skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-Administration.Account_New.microflowButton1         skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-Administration.Account_Overview.actionButton3       skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-Administration.Account_Overview.actionButton4       skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-Administration.Account_Overview.actionButton1       skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-Administration.Account_Overview.actionButton2       skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-Administration.ActiveSessions.actionButton1         skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-Administration.ChangeMyPasswordForm.microflowButton1 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-Administration.ChangePasswordForm.microflowButton1  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-Administration.MyAccount.saveButton1                skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-Administration.MyAccount.microflowTrigger1          skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-FeedbackModule.ShareFeedback.actionButton4          skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach)
+  INVALID act-FeedbackModule.ShareFeedback.actionButton5          skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach)
+  INVALID act-FeedbackModule.ShareFeedback.actionButton1          skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach)
+  INVALID act-FeedbackModule.ShareFeedback.feedback_clear         skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach)
+  INVALID act-FeedbackModule.ShareFeedback.feedback_submit        skipped: action todo: external-call: RestCallAction; no-click-path (a non-click caller reaches it: entry_reach)
+  INVALID act-PurchaseApprovals.Admin_Workflow_InstanceOverview.actionButton1 skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach)
+  INVALID act-PurchaseApprovals.Admin_Workflow_InstanceOverview.actionButton19 skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach)
+  INVALID act-PurchaseApprovals.Admin_Workflow_InstanceOverview.dataGrid21 skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach)
+  INVALID act-PurchaseApprovals.Comments_MyRequests.actionButton1 skipped: action todo: no-click-path (no entry point reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-PurchaseApprovals.Comments_MyRequests.actionButton16 skipped: action todo: no-click-path (no entry point reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-PurchaseApprovals.Comments_MyRequests.actionButton17 skipped: action todo: no-click-path (no entry point reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-PurchaseApprovals.Product_Select.actionButton1      skipped: action todo: no-click-path (no entry point reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-PurchaseApprovals.Product_SelectVendors.actionButton1 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-PurchaseApprovals.UserRole_Select.actionButton1     skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-PurchaseApprovals.Vendor_SelectProduct.actionButton1 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.ManageTaskAssignments.actionButton14 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.ManageTaskAssignments.dataGrid23    skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.ManageTaskAssignments.dataGrid23_2  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.ManageTaskAssignments.actionButton5 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.ManageTaskAssignments.actionButton12 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.ManageTaskAssignments.actionButton16 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.ManageTaskAssignments.dataGrid25    skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.ManageTaskAssignments.dataGrid25_2  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.ManageTaskAssignments.actionButton20 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.MyInitiatedWorkflows.actionButton4  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.MyInitiatedWorkflows.gallery1       skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.MyInitiatedWorkflows.actionButton3  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.Snip_TaskCount_RefreshBTN.actionButton1 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.Snip_TaskDashboard_Header.dropDown2 skipped: action todo: combobox: the action fires on a change of combobox dropDown2; no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.Snip_TaskDashboard_Header.referenceSelector5 skipped: action todo: combobox: the action fires on a change of combobox referenceSelector5; no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.Snip_TaskDashboard_Header.referenceSelector6 skipped: action todo: combobox: the action fires on a change of combobox referenceSelector6; no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.Snip_TaskDashboard_Numbers.actionButton24 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.Snip_UserTask_Detail.actionButton1  skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-WorkflowCommons.Snip_UserTask_Detail.actionButton2  skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-WorkflowCommons.Snip_UserTask_Detail.actionButton7  skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-WorkflowCommons.Snip_UserTask_Detail.actionButton4  skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-WorkflowCommons.Snip_WorkflowDashboard_Header.dropDown3 skipped: action todo: combobox: the action fires on a change of combobox dropDown3
+  INVALID act-WorkflowCommons.Snip_WorkflowDashboard_Header.referenceSelector4 skipped: action todo: combobox: the action fires on a change of combobox referenceSelector4
+  INVALID act-WorkflowCommons.Snip_WorkflowDashboard_TaskNumbers.referenceSelector5 skipped: action todo: combobox: the action fires on a change of combobox referenceSelector5
+  INVALID act-WorkflowCommons.Snip_WorkflowDefinition_Actions.actionButton17 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.Snip_WorkflowDefinition_Actions.actionButton13 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.Snip_WorkflowDefinition_Actions.actionButton18 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.Snip_WorkflowDefinition_Actions.actionButton19 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.Snip_WorkflowJumpToDetails.referenceSelector2 skipped: action todo: combobox: the action fires on a change of combobox referenceSelector2
+  INVALID act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments.actionButton1 skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments.actionButton3 skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments.actionButton4 skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments.actionButton7 skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments.listView6 skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments.actionButton6 skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments.actionButton8 skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments.actionButton16 skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments.actionButton17 skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-WorkflowCommons.TaskAssignmentHelper_UserTask_Reassign.actionButton7 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskAssignmentHelper_UserTask_Reassign_TargetUserOptions.actionButton1 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskAssignmentHelper_UserTask_Reassign_TargetUserOptions.actionButton2 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskAssignmentHelper_UserTask_Retarget.actionButton7 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskAssignmentHelper_UserTask_Retarget_TargetUserOptions.actionButton1 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskAssignmentHelper_UserTask_Retarget_TargetUserOptions.actionButton2 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskAssignmentHelper_UserTask_Unassign_TargetUserOptions.actionButton1 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskAssignmentHelper_UserTask_Unassign_TargetUserOptions.actionButton2 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskDashboard.actionButton23        skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskDashboard.dataGrid24            skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskDashboard.dataGrid24_2          skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskDashboard.actionButton13        skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskDashboard.actionButton22        skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskDashboard.dataGrid23            skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskDashboard.dataGrid23_2          skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskDashboard.actionButton12        skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskDashboard.actionButton21        skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskDashboard.dataGrid22            skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskDashboard.dataGrid22_2          skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskDashboard.actionButton20        skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskDashboard.dataGrid21            skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskDashboard.dataGrid21_2          skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskInbox.actionButton23            skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskInbox.dataGrid24                skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskInbox.dataGrid24_2              skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskInbox.actionButton13            skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskInbox.actionButton22            skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskInbox.dataGrid23                skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskInbox.dataGrid23_2              skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskInbox.actionButton12            skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskInbox.actionButton21            skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskInbox.dataGrid22                skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskInbox.dataGrid22_2              skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowAdminCenter.actionButton37  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowAdminCenter.actionButton15  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowAdminCenter.container21     skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowAdminCenter.actionButton20  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowAdminCenter.actionButton21  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowAdminCenter.container22     skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowAdminCenter.actionButton22  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowAdminCenter.actionButton23  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowAdminCenter.container20     skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowAdminCenter.actionButton18  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowAdminCenter.actionButton19  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowAdminCenter.container25     skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowAdminCenter.actionButton28  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowAdminCenter.actionButton29  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowAttachment_New.actionButton1 skipped: action todo: no-click-path (clicks reach the page, but not as a role allowed to run it)
+  INVALID act-WorkflowCommons.WorkflowDefinition_ActionConfirmation.actionButton2 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_CleanUp.actionButton1 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_CleanUp.actionButton3 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_CleanUp.actionButton4 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_Lock.actionButton3 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_Lock.actionButton2 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_Overview.container1 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_Overview.dataGrid21 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_Overview.dataGrid21_2 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_Unlock.actionButton1 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_Unlock.actionButton2 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_View.actionButton10 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_View.dataGrid22  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_View.dataGrid22_2 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_View.actionButton14 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_View.dataGrid23  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_View.dataGrid23_2 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_View.actionButton15 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_View.dataGrid24  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_View.dataGrid24_2 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.Workflow_WithdrawConfirmation.actionButton2 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  PASS    client_microflow:PurchaseApprovals.ACT_SaveComment_OnWorkflow todo closed by proc-p05-01 (hand-written journey) [EFFECT REVIEW] effect REVIEW step18 WorkflowCommons.UserTaskView: old +1, new +0; step18 WorkflowCommons.UserTaskView_TargetUsers: old +1, new
+  PASS    client_microflow:PurchaseApprovals.CompleteRequest_InvoiceProcessor todo closed by proc-p02-05 (hand-written journey) [EFFECT REVIEW] effect REVIEW step3 System.WorkflowEndedUserTask: old +0, new +1; step3 System.WorkflowEndedUserTaskOutcome: old +0, new +1; st
+  PASS    client_microflow:PurchaseApprovals.CreateNewVendor_POCreator todo closed by act-PurchaseApprovals.Vendor_Select.actionButton3 (hand-written journey)
+  PASS    client_microflow:PurchaseApprovals.CreatePurchaseOrder  todo closed by proc-p02-03 (hand-written journey) [EFFECT REVIEW] effect REVIEW step9 System.WorkflowEndedUserTask: old +0, new +1; step9 System.WorkflowEndedUserTaskOutcome: old +0, new +1; st
+  PASS    client_microflow:PurchaseApprovals.DS_CommentsOnWorkflow todo closed by proc-p05-01 (hand-written journey) [EFFECT REVIEW] effect REVIEW step18 WorkflowCommons.UserTaskView: old +1, new +0; step18 WorkflowCommons.UserTaskView_TargetUsers: old +1, new
+  PASS    client_microflow:PurchaseApprovals.DS_GetOwnerOfComment todo closed by proc-p05-01 (hand-written journey) [EFFECT REVIEW] effect REVIEW step18 WorkflowCommons.UserTaskView: old +1, new +0; step18 WorkflowCommons.UserTaskView_TargetUsers: old +1, new
+  PASS    client_microflow:PurchaseApprovals.EditProductLine_Receiver todo closed by proc-p02-04 (hand-written journey) [EFFECT REVIEW] effect REVIEW step6 System.WorkflowEndedUserTask: old +0, new +1; step6 System.WorkflowEndedUserTaskOutcome: old +0, new +1; st
+  PASS    client_microflow:PurchaseApprovals.FinishRequest_POCreator todo closed by proc-p02-03 (hand-written journey) [EFFECT REVIEW] effect REVIEW step9 System.WorkflowEndedUserTask: old +0, new +1; step9 System.WorkflowEndedUserTaskOutcome: old +0, new +1; st
+  PASS    client_microflow:PurchaseApprovals.ReceivedGoods_Receiver todo closed by proc-p02-04 (hand-written journey) [EFFECT REVIEW] effect REVIEW step6 System.WorkflowEndedUserTask: old +0, new +1; step6 System.WorkflowEndedUserTaskOutcome: old +0, new +1; st
+  PASS    client_microflow:PurchaseApprovals.ShowProductNewEdit   todo closed by proc-p08-03 (hand-written journey)
+  PASS    client_microflow:PurchaseApprovals.ShowSelectVendorPage todo closed by proc-p02-03 (hand-written journey) [EFFECT REVIEW] effect REVIEW step9 System.WorkflowEndedUserTask: old +0, new +1; step9 System.WorkflowEndedUserTaskOutcome: old +0, new +1; st
+  INVALID page:PurchaseApprovals.Admin_Workflow_InstanceOverview  todo: no menu item reaches it; needs a hand-written step from the page that opens it
+  PASS    page:PurchaseApprovals.Admin_Workflow_Instance_View     todo closed by act-PurchaseApprovals.Admin_Workflow_Instance_View.actionButton1 (hand-written journey)
+  PASS    page:PurchaseApprovals.ProductLine_Edit_Receiver        todo closed by proc-p02-04 (hand-written journey) [EFFECT REVIEW] effect REVIEW step6 System.WorkflowEndedUserTask: old +0, new +1; step6 System.WorkflowEndedUserTaskOutcome: old +0, new +1; st
+  PASS    page:PurchaseApprovals.PurchaseOrder_Edit               todo closed by proc-p02-03 (hand-written journey) [EFFECT REVIEW] effect REVIEW step9 System.WorkflowEndedUserTask: old +0, new +1; step9 System.WorkflowEndedUserTaskOutcome: old +0, new +1; st
+  PASS    page:PurchaseApprovals.Task_Approver                    todo closed by proc-p05-01 (hand-written journey) [EFFECT REVIEW] effect REVIEW step18 WorkflowCommons.UserTaskView: old +1, new +0; step18 WorkflowCommons.UserTaskView_TargetUsers: old +1, new
+  PASS    page:PurchaseApprovals.Task_InvoiceProcessor            todo closed by proc-p02-05 (hand-written journey) [EFFECT REVIEW] effect REVIEW step3 System.WorkflowEndedUserTask: old +0, new +1; step3 System.WorkflowEndedUserTaskOutcome: old +0, new +1; st
+  PASS    page:PurchaseApprovals.Task_POCreator                   todo closed by proc-p08-03 (hand-written journey)
+  PASS    page:PurchaseApprovals.Task_Receiver                    todo closed by proc-p02-04 (hand-written journey) [EFFECT REVIEW] effect REVIEW step6 System.WorkflowEndedUserTask: old +0, new +1; step6 System.WorkflowEndedUserTaskOutcome: old +0, new +1; st
+  PASS    page:PurchaseApprovals.Vendor_Select                    todo closed by proc-p02-03 (hand-written journey) [EFFECT REVIEW] effect REVIEW step9 System.WorkflowEndedUserTask: old +0, new +1; step9 System.WorkflowEndedUserTaskOutcome: old +0, new +1; st
+  INFO    home:PurchaseApprovals.Admin_Homepage                   covered: role home walked by login-Administrator
+  INFO    home:PurchaseApprovals.MyRequests                       covered: role home walked by login-Requester
+  INFO    home:PurchaseApprovals.TaskInbox                        covered: role home walked by login-Approver
+  PASS    act-PurchaseApprovals.MendixSSOUserOverview.actionButton3 covered: closed by create-save
+  PASS    act-PurchaseApprovals.MendixSSOUser_NewEdit.actionButton1 covered: closed by create-save
+  PASS    act-PurchaseApprovals.Product_NewEdit.actionButton1     covered: closed by create-save
+  PASS    act-PurchaseApprovals.Product_Overview.actionButton3    covered: closed by create-save
+  PASS    act-PurchaseApprovals.Product_Select.actionButton3      covered: closed by create-save
+  PASS    act-PurchaseApprovals.Vendor_NewEdit.actionButton1      covered: closed by create-save
+  PASS    act-PurchaseApprovals.Vendor_Overview.actionButton3     covered: closed by create-save
+  INFO    act-PurchaseApprovals.Admin_Homepage.container3         covered: walked in process P04 (proc-p04-01): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.Admin_Workflow_Overview.dataGrid21 covered: walked in process P04 (proc-p04-01): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.Attachment_NewEdit.actionButton1  covered: walked in process P05 (proc-p05-01): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.MyRequests.actionButton2          covered: walked in process P01 (proc-p01-01): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.NewRequest_Step1.actionButton1    covered: walked in process P01 (proc-p01-01): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.NewRequest_Step1.actionButton3    covered: walked in process P05 (proc-p05-01): the process walk replaces the one-click journey (PR-B1) screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla
+  INFO    act-PurchaseApprovals.NewRequest_Step1.actionButton5    covered: walked in process P05 (proc-p05-01): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.NewRequest_Step1.container7       covered: walked in process P05 (proc-p05-01): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.NewRequest_Step2.actionButton1    covered: walked in process P05 (proc-p05-01): the process walk replaces the one-click journey (PR-B1) screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla
+  INFO    act-PurchaseApprovals.NewRequest_Step2.actionButton2    covered: walked in process P01 (proc-p01-01): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.NewRequest_Step2.actionButton4    covered: walked in process P01 (proc-p01-01): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.NewRequest_Step3.actionButton1    covered: walked in process P01 (proc-p01-01): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.NewRequest_Step3.actionButton4    covered: walked in process P05 (proc-p05-01): the process walk replaces the one-click journey (PR-B1) screen INVALID BASELINE DEFECT: OLD step NOT-REACHED and NEW too: fix the pla
+  INFO    act-PurchaseApprovals.NewRequest_Step3.container7       covered: walked in process P05 (proc-p05-01): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.ProductLine_Edit_POCreator.actionButton1 covered: walked in process P08 (proc-p08-03): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.ProductLine_Edit_Receiver.actionButton1 covered: walked in process P02 (proc-p02-04): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.ProductLine_Edit_Receiver.actionButton2 covered: walked in process P02 (proc-p02-04): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.ProductLine_NewEdit.actionButton1 covered: walked in process P01 (proc-p01-01): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.PurchaseOrder_Edit.actionButton1  covered: walked in process P02 (proc-p02-03): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.TaskInbox.actionButton7           covered: walked in process P02 (proc-p02-02): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.Task_Approver.actionButton9       covered: walked in process P02 (proc-p02-02): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.Task_InvoiceProcessor.actionButton9 covered: walked in process P02 (proc-p02-05): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.Task_POCreator.actionButton1      covered: walked in process P02 (proc-p02-03): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.Task_POCreator.actionButton10     covered: walked in process P02 (proc-p02-03): the process walk replaces the one-click journey (PR-B1) screen REVIEW 26% of the page changed; 9% of the page had content before and 
+  INFO    act-PurchaseApprovals.Task_POCreator.actionButton11     covered: walked in process P06 (proc-p06-03): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.Task_POCreator.actionButton12     covered: walked in process P06b (proc-p06b-03): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.Task_POCreator.actionButton14     covered: walked in process P06c (proc-p06c-03): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.Task_POCreator.actionButton2      covered: walked in process P08 (proc-p08-03): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.Task_POCreator.actionButton5      covered: walked in process P02 (proc-p02-03): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.Task_POCreator.actionButton9      covered: walked in process P02 (proc-p02-03): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.Task_Receiver.actionButton4       covered: walked in process P02 (proc-p02-04): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.Task_Receiver.actionButton9       covered: walked in process P02 (proc-p02-04): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.Vendor_Select.actionButton1       covered: walked in process P02 (proc-p02-03): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.Vendor_Select.actionButton4       covered: walked in process P02 (proc-p02-03): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.Vendor_Select.actionButton5       covered: walked in process P07 (proc-p07-03): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-PurchaseApprovals.WorkflowDefinition_View.actionButton19 covered: walked in process P04 (proc-p04-01): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments_Admin.actionButton1 covered: walked in process P04 (proc-p04-01): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments_Admin.actionButton16 covered: walked in process P13 (proc-p13-01): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments_Admin.actionButton17 covered: walked in process P12 (proc-p12-01): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments_Admin.actionButton7 covered: walked in process P04 (proc-p04-01): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-WorkflowCommons.Snip_Workflow_MoreActions.actionButton14 covered: walked in process P10 (proc-p10-02): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-WorkflowCommons.Snip_Workflow_MoreActions.actionButton15 covered: walked in process P10 (proc-p10-02): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-WorkflowCommons.Snip_Workflow_MoreActions.actionButton16 covered: walked in process P10 (proc-p10-02): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-WorkflowCommons.Snip_Workflow_MoreActions.actionButton17 covered: walked in process P10 (proc-p10-02): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-WorkflowCommons.WorkflowAttachment_New.actionButton3 covered: walked in process P04 (proc-p04-01): the process walk replaces the one-click journey (PR-B1)
+  INFO    act-WorkflowCommons.WorkflowAttachment_View.actionButton1 covered: walked in process P12 (proc-p12-01): the process walk replaces the one-click journey (PR-B1)
+  INFO    client_microflow:PurchaseApprovals.RetrieveListOfComments unreachable: no menu item, home page or login page reaches it through any chain of callers: dead in the UI, report it
+  INFO    client_microflow:PurchaseApprovals.ShowWorkflowInstances unreachable: no menu item, home page or login page reaches it through any chain of callers: dead in the UI, report it
+  INFO    client_microflow:PurchaseApprovals.SubmitCommentRequester unreachable: no menu item, home page or login page reaches it through any chain of callers: dead in the UI, report it
+  INFO    page:WorkflowCommons.ManageTaskAssignments              unreachable: vendor page of module-pages:WorkflowCommons: no menu item, home page, login page, page URL or caller chain reaches it: dead in the UI, re
+  INFO    page:WorkflowCommons.MyInitiatedWorkflows               unreachable: vendor page of module-pages:WorkflowCommons: no menu item, home page, login page, page URL or caller chain reaches it: dead in the UI, re
+  INFO    page:WorkflowCommons.TaskAssignmentHelper_UserTask_Reassign_TargetUserOptions unreachable: vendor page of module-pages:WorkflowCommons: no menu item, home page, login page, page URL or caller chain reaches it: dead in the UI, re
+  INFO    page:WorkflowCommons.TaskAssignmentHelper_UserTask_Retarget_TargetUserOptions unreachable: vendor page of module-pages:WorkflowCommons: no menu item, home page, login page, page URL or caller chain reaches it: dead in the UI, re
+  INFO    page:WorkflowCommons.TaskAssignmentHelper_UserTask_Unassign_TargetUserOptions unreachable: vendor page of module-pages:WorkflowCommons: no menu item, home page, login page, page URL or caller chain reaches it: dead in the UI, re
+  INFO    page:WorkflowCommons.WorkflowAdminCenter                unreachable: vendor page of module-pages:WorkflowCommons: no menu item, home page, login page, page URL or caller chain reaches it: dead in the UI, re
+  INFO    page:WorkflowCommons.WorkflowDefinition_CleanUp         unreachable: vendor page of module-pages:WorkflowCommons: no menu item, home page, login page, page URL or caller chain reaches it: dead in the UI, re
+  INFO    page:WorkflowCommons.WorkflowDefinition_View            unreachable: vendor page of module-pages:WorkflowCommons: no menu item, home page, login page, page URL or caller chain reaches it: dead in the UI, re
+  INFO    page:WorkflowCommons.TaskAssignmentHelper_UserTask_Reassign unreachable: vendor page of module-pages:WorkflowCommons: no menu item, home page, login page, page URL or caller chain reaches it: dead in the UI, re
+  INFO    page:WorkflowCommons.TaskAssignmentHelper_UserTask_Retarget unreachable: vendor page of module-pages:WorkflowCommons: no menu item, home page, login page, page URL or caller chain reaches it: dead in the UI, re
+  INFO    page:WorkflowCommons.TaskDashboard                      unreachable: vendor page of module-pages:WorkflowCommons: no menu item, home page, login page, page URL or caller chain reaches it: dead in the UI, re
+  INFO    page:WorkflowCommons.TaskInbox                          unreachable: vendor page of module-pages:WorkflowCommons: no menu item, home page, login page, page URL or caller chain reaches it: dead in the UI, re
+  INFO    page:WorkflowCommons.WorkflowDefinition_CleanUp_Preview unreachable: vendor page of module-pages:WorkflowCommons: no menu item, home page, login page, page URL or caller chain reaches it: dead in the UI, re
+  INFO    page:WorkflowCommons.WorkflowDefinition_Overview        unreachable: vendor page of module-pages:WorkflowCommons: no menu item, home page, login page, page URL or caller chain reaches it: dead in the UI, re
+journeys: 115 PASS, 43 FAIL, 135 INVALID, 66 INFO (covered or unreachable, listed only)
+actions 280 found · 145 generated (134 todo: no-click-path 126, combobox 7, external-call 1) · 96 pass on baseline (49 defect) · 95 pass on new · 1 regression · coverage 96/279 (34%) · 1 destructive run apart (own line)
+destructive: 1/0 of 1 (identity 1; shared database, run after the main set, not in the coverage ratio)
+processes 13 confirmed · 13 compiled · 0 invalid · 12 pass · 12 pass on baseline · 0 regression · 1 draft (not compiled)
+defects: 42 failing on the baseline: 0 with evidence, 42 without (INVALID)
+  coverage INVALID: instrument not measuring: 49 of 145 actions fail on the baseline (33% > 30%)
+  coverage INVALID: 42 baseline defects without evidence (FIXTURE / OLD-APP / FLAKY, --baseline-evidence): act-PurchaseApprovals.Attachments.actionButton6, act-PurchaseApprovals.Attachments.container12, act-PurchaseApprovals.Comments_TaskInbox.actionButton16, act-PurchaseApprovals.Comments_TaskInbox.actionButton17, act-PurchaseApprovals.TaskInbox.actionButton12
+screens: 4 PASS, 0 PASS*, 482 REVIEW, 34 INVALID
+effects: 73 PASS, 0 PASS*, 42 REVIEW, 0 INVALID

@@ -1,0 +1,119 @@
+{
+ "old": "m/menu-old/App.mpr",
+ "new": "m/menu-new/App.mpr",
+ "user_roles": {
+  "admin": "Admin",
+  "guest": null,
+  "all": [
+   "Admin"
+  ]
+ },
+ "roles": {
+  "Admin": {
+   "home_page": "Shop.Home",
+   "landing": {
+    "widget": "homeGrid",
+    "type": "Forms$DataGrid",
+    "generic_name": false
+   },
+   "menu_visible": [
+    "Teams"
+   ],
+   "menu_hidden": [],
+   "sign_out_item": [
+    "Sign out"
+   ],
+   "is_admin": true,
+   "is_guest": false
+  }
+ },
+ "login": {},
+ "auth": {},
+ "candidates": [
+  {
+   "id": "menu:Teams",
+   "kind": "menu",
+   "roles": [
+    "Admin"
+   ],
+   "menu": [
+    "Teams"
+   ],
+   "target": "Shop.ACT_OpenTeams",
+   "title": "Open Teams"
+  },
+  {
+   "id": "menu:Bare",
+   "kind": "menu",
+   "roles": [
+    "Admin"
+   ],
+   "menu": [
+    "Bare"
+   ],
+   "target": "Shop.ACT_OpenBare",
+   "title": "Open Bare"
+  },
+  {
+   "id": "menu:One",
+   "kind": "menu",
+   "roles": [
+    "Admin"
+   ],
+   "menu": [
+    "One"
+   ],
+   "target": "Shop.ACT_OpenOne",
+   "title": "Open One"
+  },
+  {
+   "id": "menu:Saml",
+   "kind": "menu",
+   "roles": [
+    "Admin"
+   ],
+   "menu": [
+    "SAML"
+   ],
+   "target": "Shop.Saml_Config",
+   "title": "Open SAML"
+  },
+  {
+   "id": "menu:Fresh",
+   "kind": "menu",
+   "roles": [
+    "Admin"
+   ],
+   "menu": [
+    "Fresh"
+   ],
+   "target": "Shop.Fresh",
+   "title": "Open Fresh"
+  },
+  {
+   "id": "menu:Rebuilt",
+   "kind": "menu",
+   "roles": [
+    "Admin"
+   ],
+   "menu": [
+    "Rebuilt"
+   ],
+   "target": "Shop.Rebuilt",
+   "title": "Open Rebuilt"
+  },
+  {
+   "id": "module-pages:Shop",
+   "kind": "module-pages",
+   "roles": [
+    "Admin"
+   ],
+   "pages": [
+    "Shop.Orphan",
+    "Shop.Home"
+   ],
+   "priority": "P2",
+   "title": "Open the changed Shop pages a role can reach and look at them (screenshot old vs new)"
+  }
+ ]
+}

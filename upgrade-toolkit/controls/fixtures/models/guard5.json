@@ -1,0 +1,41 @@
+{
+  "version": "10.24.16.96987",
+  "_why": "B4T2-4: layout user menus whose sign-out is not the platform SignOut action: an item that calls a logout microflow, one captioned Log out, one whose flow calls a sign-out JavaScript action two levels down, one in a menu document of an unreadable add-on module, one with no sign-out at all, and one where the SignOut action and an inferred item both exist (the action wins)",
+  "security": {"user_roles": {"Flow": ["Shop.Flow"], "Caption": ["Shop.Caption"], "Deep": ["Shop.Deep"], "Addon": ["Shop.Addon"],
+                              "None": ["Shop.None"], "Both": ["Shop.Both"]}},
+  "navigation": {"homes": [{"role": "*", "page": "Shop.Home_E"}],
+                 "menu": [{"caption": "Home", "page": "Shop.Home_E"}],
+                 "login_page": "Shop.Login"},
+  "modules": [{
+    "name": "Shop",
+    "layouts": [
+      {"name": "Layout_Plain", "named": [{"type": "LayoutGrid", "name": "layoutGrid9"}]},
+      {"name": "Layout_A", "named": [{"type": "NavigationTree", "name": "navigationTree1", "source": {"profile": "Responsive"}},
+                                     {"type": "MenuBar", "name": "menuBar2", "source": {"menu": "Shop.User_Menu_Flow"}}]},
+      {"name": "Layout_B", "named": [{"type": "MenuBar", "name": "menuBar2", "source": {"menu": "Shop.User_Menu_Caption"}}]},
+      {"name": "Layout_C", "named": [{"type": "MenuBar", "name": "menuBar2", "source": {"menu": "Shop.User_Menu_Deep"}}]},
+      {"name": "Layout_D", "named": [{"type": "MenuBar", "name": "menuBar2", "source": {"menu": "EXFN_Addon.User_Menu"}}]},
+      {"name": "Layout_E", "named": [{"type": "MenuBar", "name": "menuBar2", "source": {"menu": "Shop.User_Menu_None"}}]},
+      {"name": "Layout_F", "named": [{"type": "MenuBar", "name": "menuBar2", "source": {"menu": "Shop.User_Menu_Both"}}]}],
+    "menus": [
+      {"name": "User_Menu_Flow", "items": [{"caption": "", "items": [{"caption": "My profile", "page": "Shop.Home_E"},
+                                                                     {"caption": "Sign out", "microflow": "Shop.ACT_Logout"}]}]},
+      {"name": "User_Menu_Caption", "items": [{"caption": "Help", "page": "Shop.Home_E"}, {"caption": "Log out", "microflow": "Shop.ACT_EndSession"}]},
+      {"name": "User_Menu_Deep", "items": [{"caption": "Account", "items": [{"caption": "Leave", "microflow": "Shop.ACT_Leave"}]}]},
+      {"name": "User_Menu_None", "items": [{"caption": "Help", "page": "Shop.Home_E"}, {"caption": "", "items": [{"caption": "My profile", "page": "Shop.Home_E"}]}]},
+      {"name": "User_Menu_Both", "items": [{"caption": "Log out", "microflow": "Shop.ACT_EndSession"}, {"caption": "Sign out", "signout": true}]}],
+    "pages": [
+      {"name": "Login", "layout": "Shop.Layout_Plain", "named": [["TextBox", "usernameInput"], ["TextBox", "passwordInput"], ["ActionButton", "loginButton"]]},
+      {"name": "Home_A", "layout": "Shop.Layout_A", "allowed": ["Shop.Flow"], "named": [["Title", "pageTitle1"]]},
+      {"name": "Home_B", "layout": "Shop.Layout_B", "allowed": ["Shop.Caption"], "named": [["Title", "pageTitle1"]]},
+      {"name": "Home_C", "layout": "Shop.Layout_C", "allowed": ["Shop.Deep"], "named": [["Title", "pageTitle1"]]},
+      {"name": "Home_D", "layout": "Shop.Layout_D", "allowed": ["Shop.Addon"], "named": [["Title", "pageTitle1"]]},
+      {"name": "Home_E", "layout": "Shop.Layout_E", "allowed": ["Shop.None"], "named": [["Title", "pageTitle1"]]},
+      {"name": "Home_F", "layout": "Shop.Layout_F", "allowed": ["Shop.Both"], "named": [["Title", "pageTitle1"]]}],
+    "docs": [{"type": "Microflows$Microflow", "name": "ACT_Logout", "refs": {"Page": "Shop.Login"}},
+             {"type": "Microflows$Microflow", "name": "ACT_EndSession", "refs": {"Page": "Shop.Login"}},
+             {"type": "Microflows$Microflow", "name": "ACT_Leave", "refs": {"Microflow": "Shop.SUB_Leave"}},
+             {"type": "Microflows$Nanoflow", "name": "SUB_Leave", "refs": {"JavaScriptAction": "Shop.JS_SignOut"}},
+             {"type": "JavaScriptActions$JavaScriptAction", "name": "JS_SignOut"}]
+  }]
+}

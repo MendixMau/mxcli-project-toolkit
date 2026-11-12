@@ -1,0 +1,7 @@
+journey: act-WorkflowCommons.Snip_AuditTrailViewer_Toolbar.actionButton3
+role: Administrator
+old-app verdict: FAIL
+not_pass: ["FAIL open WorkflowCommons.DefaultWorkflowAdmin > tab 'Audit trail': actions completed .mx-name-tabPage5 not visible"]
+cluster: H3
+reason: reachable only through "open parent workflow"; the app has no sub-workflows
+confirmed: owner 2026-10-22

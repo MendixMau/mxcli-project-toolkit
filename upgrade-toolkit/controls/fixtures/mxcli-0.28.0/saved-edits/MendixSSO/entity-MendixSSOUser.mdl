@@ -1,0 +1,16 @@
+-- ENTITY MendixSSOUser, as it stands in your project before the update.
+-- Replay with: mxcli exec <saved-edits>/MendixSSO/entity-MendixSSOUser.mdl -p <project.mpr>
+-- Note: this is the element's resulting state, not a diff — an edit that
+-- REMOVED something will not be restored by replaying it.
+
+mdl 1;
+@Position(210, 110)
+create or modify persistent entity MendixSSO.MendixSSOUser extends System.User (
+  DisplayName: String(200),
+  EmailAddress: String(500),
+  AvatarURL: String(500),
+  AvatarThumbURL: String(500)
+);
+grant create, delete, read (DisplayName, EmailAddress, AvatarURL, AvatarThumbURL), write (DisplayName, EmailAddress, AvatarURL, AvatarThumbURL) on entity MendixSSO.MendixSSOUser to MendixSSO.Administrator;
+grant read (DisplayName, EmailAddress, AvatarURL, AvatarThumbURL) on entity MendixSSO.MendixSSOUser to MendixSSO.User where [System.owner='[%CurrentUser%]'];
+grant read * on entity MendixSSO.MendixSSOUser to MendixSSO.UserManager;

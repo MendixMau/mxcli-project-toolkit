@@ -1,0 +1,2 @@
+{"from": "dm-old.json",
+ "ops": [["set", "modules/0/entities/0/access", [{"roles": ["PurchaseApprovals.Clerk"], "create": true, "delete": false, "default": "ReadWrite"}]]]}

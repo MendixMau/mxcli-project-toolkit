@@ -1,0 +1,1 @@
+{"findings": [{"catalog_id": "MX11-X-BLOCKER", "severity": "blocker", "evidence": {"text": "uses a removed API"}}, {"catalog_id": "MX11-Y-LOW", "severity": "low", "evidence": {"text": "note"}}]}

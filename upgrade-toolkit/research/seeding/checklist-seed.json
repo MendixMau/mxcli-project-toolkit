@@ -1,0 +1,6872 @@
+{
+ "objects": [
+  {
+   "ref": "acc_administrator",
+   "entity": "Administration.Account",
+   "lookup": {
+    "Name": "smoke_administrator"
+   }
+  },
+  {
+   "ref": "acc_departmentmanager",
+   "entity": "Administration.Account",
+   "lookup": {
+    "Name": "smoke_departmentmanager"
+   }
+  },
+  {
+   "ref": "acc_inspector",
+   "entity": "Administration.Account",
+   "lookup": {
+    "Name": "smoke_inspector"
+   }
+  },
+  {
+   "ref": "e_admin",
+   "entity": "EmployeeManagement.Employee",
+   "attrs": {
+    "UUID": "11bf09ae-b399-5e39-af75-d058c1237b17",
+    "FirstName": "Anna",
+    "LastName": "Visser",
+    "FullName": "Anna Visser",
+    "EmailAddress": "anna.visser@example.com",
+    "PhoneNumber": "+31 20 555 0103",
+    "CanBeResponsible": false
+   },
+   "links": {
+    "Employee_Account": "acc_administrator"
+   }
+  },
+  {
+   "ref": "e_mgr",
+   "entity": "EmployeeManagement.Employee",
+   "attrs": {
+    "UUID": "675da8d4-0cbd-5fa5-8c70-5e84ee1ebfa4",
+    "FirstName": "Maria",
+    "LastName": "Jansen",
+    "FullName": "Maria Jansen",
+    "EmailAddress": "maria.jansen@example.com",
+    "PhoneNumber": "+31 20 555 0104",
+    "CanBeResponsible": false
+   },
+   "links": {
+    "Employee_Account": "acc_departmentmanager"
+   }
+  },
+  {
+   "ref": "e_tom",
+   "entity": "EmployeeManagement.Employee",
+   "attrs": {
+    "UUID": "de71b899-efdc-512a-ab85-149f570134f8",
+    "FirstName": "Tom",
+    "LastName": "Becker",
+    "FullName": "Tom Becker",
+    "EmailAddress": "tom.becker@example.com",
+    "PhoneNumber": "+31 20 555 0105",
+    "CanBeResponsible": true
+   },
+   "links": {
+    "Employee_Account": "acc_inspector"
+   }
+  },
+  {
+   "ref": "e_priya",
+   "entity": "EmployeeManagement.Employee",
+   "attrs": {
+    "UUID": "03e7f97c-054d-5929-a27d-5cbc16474d3a",
+    "FirstName": "Priya",
+    "LastName": "Nair",
+    "FullName": "Priya Nair",
+    "EmailAddress": "priya.nair@example.com",
+    "PhoneNumber": "+31 20 555 0106",
+    "CanBeResponsible": true
+   }
+  },
+  {
+   "ref": "e_lars",
+   "entity": "EmployeeManagement.Employee",
+   "attrs": {
+    "UUID": "391a2762-bad8-54d4-81e6-cd772d3ed069",
+    "FirstName": "Lars",
+    "LastName": "Eriksson",
+    "FullName": "Lars Eriksson",
+    "EmailAddress": "lars.eriksson@example.com",
+    "PhoneNumber": "+31 20 555 0107",
+    "CanBeResponsible": true
+   }
+  },
+  {
+   "ref": "e_chen",
+   "entity": "EmployeeManagement.Employee",
+   "attrs": {
+    "UUID": "f20ad468-bee0-564a-b82c-b280caaa91e7",
+    "FirstName": "Chen",
+    "LastName": "Wei",
+    "FullName": "Chen Wei",
+    "EmailAddress": "chen.wei@example.com",
+    "PhoneNumber": "+31 20 555 0108",
+    "CanBeResponsible": false
+   }
+  },
+  {
+   "ref": "d_asm",
+   "entity": "Masterdata.Department",
+   "attrs": {
+    "UUID": "78ca3b81-a378-560a-b8da-44d0b1b91e90",
+    "TabIndex": 1,
+    "DisplayName": "Assembly"
+   },
+   "links": {
+    "Department_Employee": [
+     "e_tom",
+     "e_priya"
+    ]
+   }
+  },
+  {
+   "ref": "d_wh",
+   "entity": "Masterdata.Department",
+   "attrs": {
+    "UUID": "f5efed8d-8b40-5f84-a03b-3c5094aab8b5",
+    "TabIndex": 2,
+    "DisplayName": "Warehouse"
+   },
+   "links": {
+    "Department_Employee": [
+     "e_tom",
+     "e_lars"
+    ]
+   }
+  },
+  {
+   "ref": "d_lab",
+   "entity": "Masterdata.Department",
+   "attrs": {
+    "UUID": "837fa4ea-461f-5648-ab3a-3a5c5110cc45",
+    "TabIndex": 3,
+    "DisplayName": "Quality Lab"
+   },
+   "links": {
+    "Department_Employee": [
+     "e_priya",
+     "e_chen"
+    ]
+   }
+  },
+  {
+   "ref": "t_safety",
+   "entity": "Masterdata.ChecklistType",
+   "attrs": {
+    "Name": "Safety"
+   }
+  },
+  {
+   "ref": "t_quality",
+   "entity": "Masterdata.ChecklistType",
+   "attrs": {
+    "Name": "Quality"
+   }
+  },
+  {
+   "ref": "t_house",
+   "entity": "Masterdata.ChecklistType",
+   "attrs": {
+    "Name": "Housekeeping"
+   }
+  },
+  {
+   "ref": "c_fork",
+   "entity": "Checklist_Template.Checklist",
+   "attrs": {
+    "Name": "Daily forklift inspection",
+    "Description": "Pre-shift check of every forklift before it leaves the charging bay.",
+    "Location": "Hall 2",
+    "SubLocation": "Bay 4",
+    "IsActive": true,
+    "IsAllResponsible": false,
+    "ExpiresIn": 8,
+    "ExpiryUnit": "Hours",
+    "IsRecurring": true,
+    "HasPendingReviews": false,
+    "RepeatPeriod": "Daily",
+    "FrequencyInformation": "Daily"
+   },
+   "links": {
+    "Checklist_Department": "d_wh",
+    "Checklist_ChecklistType": "t_safety",
+    "Checklist_Employee": "e_mgr",
+    "Checklist_Employee_Responsible": [
+     "e_tom",
+     "e_priya"
+    ]
+   }
+  },
+  {
+   "ref": "g_c_fork_0",
+   "entity": "Checklist_Template.Group",
+   "attrs": {
+    "Name": "Equipment condition",
+    "Description": "Group 1 of Daily forklift inspection",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "Group_Checklist": "c_fork"
+   }
+  },
+  {
+   "ref": "q_c_fork_0_0",
+   "entity": "Checklist_Template.CheckboxQuestion",
+   "attrs": {
+    "UUID": "e7644b81-95d0-55ee-9163-922eb0092c49",
+    "Title": "Condition checks",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 1,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_fork_0"
+   }
+  },
+  {
+   "ref": "q_c_fork_0_0_o0",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Tyres undamaged",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_fork_0_0"
+   }
+  },
+  {
+   "ref": "q_c_fork_0_0_o1",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Forks free of cracks",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_fork_0_0"
+   }
+  },
+  {
+   "ref": "q_c_fork_0_0_o2",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Horn works",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_fork_0_0"
+   }
+  },
+  {
+   "ref": "q_c_fork_0_0_o3",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Lights work",
+    "SequenceNumber": 4
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_fork_0_0"
+   }
+  },
+  {
+   "ref": "q_c_fork_0_1",
+   "entity": "Checklist_Template.TextQuestion",
+   "attrs": {
+    "UUID": "09fa9dc1-f637-57ec-a35e-8f5fe31c33ef",
+    "Title": "Hour meter reading",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 2,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "IsNumberValueRequired": true
+   },
+   "links": {
+    "Question_Group": "g_c_fork_0"
+   }
+  },
+  {
+   "ref": "q_c_fork_0_2",
+   "entity": "Checklist_Template.InstructionQuestion",
+   "attrs": {
+    "UUID": "db139108-a2e6-5014-b992-3ae24124b1ae",
+    "Title": "Park on the marked bay with forks lowered",
+    "Description": "",
+    "QuestionType": "Instruction",
+    "SequenceNumber": 3,
+    "IsMandatory": false,
+    "Criticality": "Low",
+    "AllowComment": false,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_fork_0"
+   }
+  },
+  {
+   "ref": "q_c_fork_0_3",
+   "entity": "Checklist_Template.MultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "0a94adfe-32f1-5ea7-9423-89075a2ccf5f",
+    "Title": "Battery charge level",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 4,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_fork_0"
+   }
+  },
+  {
+   "ref": "q_c_fork_0_3_o0",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "Below 20%",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_fork_0_3"
+   }
+  },
+  {
+   "ref": "q_c_fork_0_3_o1",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "20-60%",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_fork_0_3"
+   }
+  },
+  {
+   "ref": "q_c_fork_0_3_o2",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "Above 60%",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_fork_0_3"
+   }
+  },
+  {
+   "ref": "q_c_fork_0_4",
+   "entity": "Checklist_Template.PictureQuestion",
+   "attrs": {
+    "UUID": "4ccb8115-8e4f-5b98-b98e-af736d8a6c2b",
+    "Title": "Photo of any visible damage",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 5,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_fork_0"
+   }
+  },
+  {
+   "ref": "g_c_fork_1",
+   "entity": "Checklist_Template.Group",
+   "attrs": {
+    "Name": "Handover",
+    "Description": "Group 2 of Daily forklift inspection",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "Group_Checklist": "c_fork"
+   }
+  },
+  {
+   "ref": "q_c_fork_1_0",
+   "entity": "Checklist_Template.CheckboxQuestion",
+   "attrs": {
+    "UUID": "494d19f6-d9ee-55e4-8382-31747276ce86",
+    "Title": "Safety equipment present",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 1,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_fork_1"
+   }
+  },
+  {
+   "ref": "q_c_fork_1_0_o0",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Seat belt",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_fork_1_0"
+   }
+  },
+  {
+   "ref": "q_c_fork_1_0_o1",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Warning light",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_fork_1_0"
+   }
+  },
+  {
+   "ref": "q_c_fork_1_0_o2",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Fire blanket",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_fork_1_0"
+   }
+  },
+  {
+   "ref": "q_c_fork_1_1",
+   "entity": "Checklist_Template.TextQuestion",
+   "attrs": {
+    "UUID": "6e0b586b-0337-5f94-ac31-6ff55a1d89f7",
+    "Title": "Remarks for the next shift",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 2,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "IsNumberValueRequired": false
+   },
+   "links": {
+    "Question_Group": "g_c_fork_1"
+   }
+  },
+  {
+   "ref": "q_c_fork_1_2",
+   "entity": "Checklist_Template.MultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "aa016f61-cd4c-59a9-a292-e647fac22395",
+    "Title": "Overall condition",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 3,
+    "IsMandatory": true,
+    "Criticality": "Low",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_fork_1"
+   }
+  },
+  {
+   "ref": "q_c_fork_1_2_o0",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "Good",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_fork_1_2"
+   }
+  },
+  {
+   "ref": "q_c_fork_1_2_o1",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "Needs attention",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_fork_1_2"
+   }
+  },
+  {
+   "ref": "q_c_fork_1_2_o2",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "Out of service",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_fork_1_2"
+   }
+  },
+  {
+   "ref": "q_c_fork_1_3",
+   "entity": "Checklist_Template.PictureQuestion",
+   "attrs": {
+    "UUID": "4126700c-bb60-51b1-b79d-d72c8883aa8c",
+    "Title": "Photo of the data plate",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 4,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_fork_1"
+   }
+  },
+  {
+   "ref": "c_fire",
+   "entity": "Checklist_Template.Checklist",
+   "attrs": {
+    "Name": "Weekly fire extinguisher check",
+    "Description": "Seal, pressure gauge, signage and access of each extinguisher.",
+    "Location": "Hall 1",
+    "SubLocation": "Line A",
+    "IsActive": true,
+    "IsAllResponsible": false,
+    "ExpiresIn": 3,
+    "ExpiryUnit": "Days",
+    "IsRecurring": true,
+    "HasPendingReviews": false,
+    "RepeatPeriod": "Weekly",
+    "FrequencyInformation": "Weekly"
+   },
+   "links": {
+    "Checklist_Department": "d_asm",
+    "Checklist_ChecklistType": "t_safety",
+    "Checklist_Employee": "e_mgr",
+    "Checklist_Employee_Responsible": [
+     "e_tom",
+     "e_priya"
+    ]
+   }
+  },
+  {
+   "ref": "g_c_fire_0",
+   "entity": "Checklist_Template.Group",
+   "attrs": {
+    "Name": "Equipment condition",
+    "Description": "Group 1 of Weekly fire extinguisher check",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "Group_Checklist": "c_fire"
+   }
+  },
+  {
+   "ref": "q_c_fire_0_0",
+   "entity": "Checklist_Template.CheckboxQuestion",
+   "attrs": {
+    "UUID": "717cb21c-1c38-55c0-af64-49e6e9e3eba0",
+    "Title": "Condition checks",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 1,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_fire_0"
+   }
+  },
+  {
+   "ref": "q_c_fire_0_0_o0",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Tyres undamaged",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_fire_0_0"
+   }
+  },
+  {
+   "ref": "q_c_fire_0_0_o1",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Forks free of cracks",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_fire_0_0"
+   }
+  },
+  {
+   "ref": "q_c_fire_0_0_o2",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Horn works",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_fire_0_0"
+   }
+  },
+  {
+   "ref": "q_c_fire_0_0_o3",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Lights work",
+    "SequenceNumber": 4
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_fire_0_0"
+   }
+  },
+  {
+   "ref": "q_c_fire_0_1",
+   "entity": "Checklist_Template.TextQuestion",
+   "attrs": {
+    "UUID": "bf3dc638-8980-58ac-ae65-cb5ed3661376",
+    "Title": "Hour meter reading",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 2,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "IsNumberValueRequired": true
+   },
+   "links": {
+    "Question_Group": "g_c_fire_0"
+   }
+  },
+  {
+   "ref": "q_c_fire_0_2",
+   "entity": "Checklist_Template.InstructionQuestion",
+   "attrs": {
+    "UUID": "1a9153cd-5f01-5fb5-ba92-08070c98e2f2",
+    "Title": "Park on the marked bay with forks lowered",
+    "Description": "",
+    "QuestionType": "Instruction",
+    "SequenceNumber": 3,
+    "IsMandatory": false,
+    "Criticality": "Low",
+    "AllowComment": false,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_fire_0"
+   }
+  },
+  {
+   "ref": "q_c_fire_0_3",
+   "entity": "Checklist_Template.MultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "a206a435-0654-52bf-a050-aee70c8770eb",
+    "Title": "Battery charge level",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 4,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_fire_0"
+   }
+  },
+  {
+   "ref": "q_c_fire_0_3_o0",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "Below 20%",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_fire_0_3"
+   }
+  },
+  {
+   "ref": "q_c_fire_0_3_o1",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "20-60%",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_fire_0_3"
+   }
+  },
+  {
+   "ref": "q_c_fire_0_3_o2",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "Above 60%",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_fire_0_3"
+   }
+  },
+  {
+   "ref": "q_c_fire_0_4",
+   "entity": "Checklist_Template.PictureQuestion",
+   "attrs": {
+    "UUID": "0f5de18b-e96e-51a7-b0df-7db6624b36ad",
+    "Title": "Photo of any visible damage",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 5,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_fire_0"
+   }
+  },
+  {
+   "ref": "g_c_fire_1",
+   "entity": "Checklist_Template.Group",
+   "attrs": {
+    "Name": "Handover",
+    "Description": "Group 2 of Weekly fire extinguisher check",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "Group_Checklist": "c_fire"
+   }
+  },
+  {
+   "ref": "q_c_fire_1_0",
+   "entity": "Checklist_Template.CheckboxQuestion",
+   "attrs": {
+    "UUID": "d5128169-bde3-59a5-b4aa-a17d5c4f3243",
+    "Title": "Safety equipment present",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 1,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_fire_1"
+   }
+  },
+  {
+   "ref": "q_c_fire_1_0_o0",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Seat belt",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_fire_1_0"
+   }
+  },
+  {
+   "ref": "q_c_fire_1_0_o1",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Warning light",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_fire_1_0"
+   }
+  },
+  {
+   "ref": "q_c_fire_1_0_o2",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Fire blanket",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_fire_1_0"
+   }
+  },
+  {
+   "ref": "q_c_fire_1_1",
+   "entity": "Checklist_Template.TextQuestion",
+   "attrs": {
+    "UUID": "2427a293-a20e-517b-bd9a-3590a93c30b8",
+    "Title": "Remarks for the next shift",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 2,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "IsNumberValueRequired": false
+   },
+   "links": {
+    "Question_Group": "g_c_fire_1"
+   }
+  },
+  {
+   "ref": "q_c_fire_1_2",
+   "entity": "Checklist_Template.MultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "9e82a3a5-cd3b-5cbe-830e-8ccd2259580d",
+    "Title": "Overall condition",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 3,
+    "IsMandatory": true,
+    "Criticality": "Low",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_fire_1"
+   }
+  },
+  {
+   "ref": "q_c_fire_1_2_o0",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "Good",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_fire_1_2"
+   }
+  },
+  {
+   "ref": "q_c_fire_1_2_o1",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "Needs attention",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_fire_1_2"
+   }
+  },
+  {
+   "ref": "q_c_fire_1_2_o2",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "Out of service",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_fire_1_2"
+   }
+  },
+  {
+   "ref": "q_c_fire_1_3",
+   "entity": "Checklist_Template.PictureQuestion",
+   "attrs": {
+    "UUID": "a123f91f-5298-50d6-905d-5e32e79fe05c",
+    "Title": "Photo of the data plate",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 4,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_fire_1"
+   }
+  },
+  {
+   "ref": "c_gate",
+   "entity": "Checklist_Template.Checklist",
+   "attrs": {
+    "Name": "Line start-up quality gate",
+    "Description": "Release criteria before the first part of a shift is shipped.",
+    "Location": "Hall 1",
+    "SubLocation": "Line B",
+    "IsActive": true,
+    "IsAllResponsible": false,
+    "ExpiresIn": 3,
+    "ExpiryUnit": "Days",
+    "IsRecurring": false,
+    "HasPendingReviews": false
+   },
+   "links": {
+    "Checklist_Department": "d_asm",
+    "Checklist_ChecklistType": "t_quality",
+    "Checklist_Employee": "e_mgr",
+    "Checklist_Employee_Responsible": [
+     "e_tom",
+     "e_priya"
+    ]
+   }
+  },
+  {
+   "ref": "g_c_gate_0",
+   "entity": "Checklist_Template.Group",
+   "attrs": {
+    "Name": "Equipment condition",
+    "Description": "Group 1 of Line start-up quality gate",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "Group_Checklist": "c_gate"
+   }
+  },
+  {
+   "ref": "q_c_gate_0_0",
+   "entity": "Checklist_Template.CheckboxQuestion",
+   "attrs": {
+    "UUID": "f688b5e2-b626-5ece-9dad-0431fc861b98",
+    "Title": "Condition checks",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 1,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_gate_0"
+   }
+  },
+  {
+   "ref": "q_c_gate_0_0_o0",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Tyres undamaged",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_gate_0_0"
+   }
+  },
+  {
+   "ref": "q_c_gate_0_0_o1",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Forks free of cracks",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_gate_0_0"
+   }
+  },
+  {
+   "ref": "q_c_gate_0_0_o2",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Horn works",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_gate_0_0"
+   }
+  },
+  {
+   "ref": "q_c_gate_0_0_o3",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Lights work",
+    "SequenceNumber": 4
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_gate_0_0"
+   }
+  },
+  {
+   "ref": "q_c_gate_0_1",
+   "entity": "Checklist_Template.TextQuestion",
+   "attrs": {
+    "UUID": "927af1bf-6f51-5af3-8c3b-3dedd04b4eac",
+    "Title": "Hour meter reading",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 2,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "IsNumberValueRequired": true
+   },
+   "links": {
+    "Question_Group": "g_c_gate_0"
+   }
+  },
+  {
+   "ref": "q_c_gate_0_2",
+   "entity": "Checklist_Template.InstructionQuestion",
+   "attrs": {
+    "UUID": "5c791554-0e27-5ad7-be4d-f79ee96ee79a",
+    "Title": "Park on the marked bay with forks lowered",
+    "Description": "",
+    "QuestionType": "Instruction",
+    "SequenceNumber": 3,
+    "IsMandatory": false,
+    "Criticality": "Low",
+    "AllowComment": false,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_gate_0"
+   }
+  },
+  {
+   "ref": "q_c_gate_0_3",
+   "entity": "Checklist_Template.MultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "7a64b96c-a6bf-5f39-9cf6-07bc983beb8c",
+    "Title": "Battery charge level",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 4,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_gate_0"
+   }
+  },
+  {
+   "ref": "q_c_gate_0_3_o0",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "Below 20%",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_gate_0_3"
+   }
+  },
+  {
+   "ref": "q_c_gate_0_3_o1",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "20-60%",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_gate_0_3"
+   }
+  },
+  {
+   "ref": "q_c_gate_0_3_o2",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "Above 60%",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_gate_0_3"
+   }
+  },
+  {
+   "ref": "q_c_gate_0_4",
+   "entity": "Checklist_Template.PictureQuestion",
+   "attrs": {
+    "UUID": "ceb6b059-08cf-5267-98a7-5f74af381a1a",
+    "Title": "Photo of any visible damage",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 5,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_gate_0"
+   }
+  },
+  {
+   "ref": "g_c_gate_1",
+   "entity": "Checklist_Template.Group",
+   "attrs": {
+    "Name": "Handover",
+    "Description": "Group 2 of Line start-up quality gate",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "Group_Checklist": "c_gate"
+   }
+  },
+  {
+   "ref": "q_c_gate_1_0",
+   "entity": "Checklist_Template.CheckboxQuestion",
+   "attrs": {
+    "UUID": "0800d07f-8eba-5b14-942c-a9804f3db07e",
+    "Title": "Safety equipment present",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 1,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_gate_1"
+   }
+  },
+  {
+   "ref": "q_c_gate_1_0_o0",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Seat belt",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_gate_1_0"
+   }
+  },
+  {
+   "ref": "q_c_gate_1_0_o1",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Warning light",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_gate_1_0"
+   }
+  },
+  {
+   "ref": "q_c_gate_1_0_o2",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Fire blanket",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_gate_1_0"
+   }
+  },
+  {
+   "ref": "q_c_gate_1_1",
+   "entity": "Checklist_Template.TextQuestion",
+   "attrs": {
+    "UUID": "70ae6d03-5a7d-5bad-bb6b-96c7fa178f6f",
+    "Title": "Remarks for the next shift",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 2,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "IsNumberValueRequired": false
+   },
+   "links": {
+    "Question_Group": "g_c_gate_1"
+   }
+  },
+  {
+   "ref": "q_c_gate_1_2",
+   "entity": "Checklist_Template.MultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "e14e5ff1-8638-5e5b-9bf6-c3668d57259e",
+    "Title": "Overall condition",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 3,
+    "IsMandatory": true,
+    "Criticality": "Low",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_gate_1"
+   }
+  },
+  {
+   "ref": "q_c_gate_1_2_o0",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "Good",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_gate_1_2"
+   }
+  },
+  {
+   "ref": "q_c_gate_1_2_o1",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "Needs attention",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_gate_1_2"
+   }
+  },
+  {
+   "ref": "q_c_gate_1_2_o2",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "Out of service",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_gate_1_2"
+   }
+  },
+  {
+   "ref": "q_c_gate_1_3",
+   "entity": "Checklist_Template.PictureQuestion",
+   "attrs": {
+    "UUID": "1b2ee48e-56c6-52d3-86c5-c721f19ecc53",
+    "Title": "Photo of the data plate",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 4,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_gate_1"
+   }
+  },
+  {
+   "ref": "c_5s",
+   "entity": "Checklist_Template.Checklist",
+   "attrs": {
+    "Name": "5S audit goods-in",
+    "Description": "Sort, set in order, shine, standardise, sustain.",
+    "Location": "Hall 2",
+    "SubLocation": "Goods-in",
+    "IsActive": true,
+    "IsAllResponsible": false,
+    "ExpiresIn": 3,
+    "ExpiryUnit": "Days",
+    "IsRecurring": true,
+    "HasPendingReviews": false,
+    "RepeatPeriod": "Monthly",
+    "FrequencyInformation": "Monthly"
+   },
+   "links": {
+    "Checklist_Department": "d_wh",
+    "Checklist_ChecklistType": "t_house",
+    "Checklist_Employee": "e_mgr",
+    "Checklist_Employee_Responsible": [
+     "e_tom",
+     "e_priya"
+    ]
+   }
+  },
+  {
+   "ref": "g_c_5s_0",
+   "entity": "Checklist_Template.Group",
+   "attrs": {
+    "Name": "Equipment condition",
+    "Description": "Group 1 of 5S audit goods-in",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "Group_Checklist": "c_5s"
+   }
+  },
+  {
+   "ref": "q_c_5s_0_0",
+   "entity": "Checklist_Template.CheckboxQuestion",
+   "attrs": {
+    "UUID": "6a2c99e3-5421-532b-9061-8591e6a83326",
+    "Title": "Condition checks",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 1,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_5s_0"
+   }
+  },
+  {
+   "ref": "q_c_5s_0_0_o0",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Tyres undamaged",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_5s_0_0"
+   }
+  },
+  {
+   "ref": "q_c_5s_0_0_o1",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Forks free of cracks",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_5s_0_0"
+   }
+  },
+  {
+   "ref": "q_c_5s_0_0_o2",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Horn works",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_5s_0_0"
+   }
+  },
+  {
+   "ref": "q_c_5s_0_0_o3",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Lights work",
+    "SequenceNumber": 4
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_5s_0_0"
+   }
+  },
+  {
+   "ref": "q_c_5s_0_1",
+   "entity": "Checklist_Template.TextQuestion",
+   "attrs": {
+    "UUID": "63ec2c96-2b04-58a9-8a22-0ab28cce9b4d",
+    "Title": "Hour meter reading",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 2,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "IsNumberValueRequired": true
+   },
+   "links": {
+    "Question_Group": "g_c_5s_0"
+   }
+  },
+  {
+   "ref": "q_c_5s_0_2",
+   "entity": "Checklist_Template.InstructionQuestion",
+   "attrs": {
+    "UUID": "a8d77f76-c0b9-5c56-921b-ce9a529e2741",
+    "Title": "Park on the marked bay with forks lowered",
+    "Description": "",
+    "QuestionType": "Instruction",
+    "SequenceNumber": 3,
+    "IsMandatory": false,
+    "Criticality": "Low",
+    "AllowComment": false,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_5s_0"
+   }
+  },
+  {
+   "ref": "q_c_5s_0_3",
+   "entity": "Checklist_Template.MultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "f6f2b47f-412a-553f-a020-b31dc6b51088",
+    "Title": "Battery charge level",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 4,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_5s_0"
+   }
+  },
+  {
+   "ref": "q_c_5s_0_3_o0",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "Below 20%",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_5s_0_3"
+   }
+  },
+  {
+   "ref": "q_c_5s_0_3_o1",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "20-60%",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_5s_0_3"
+   }
+  },
+  {
+   "ref": "q_c_5s_0_3_o2",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "Above 60%",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_5s_0_3"
+   }
+  },
+  {
+   "ref": "q_c_5s_0_4",
+   "entity": "Checklist_Template.PictureQuestion",
+   "attrs": {
+    "UUID": "12001f83-bdb2-5377-b938-a8fb3311d404",
+    "Title": "Photo of any visible damage",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 5,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_5s_0"
+   }
+  },
+  {
+   "ref": "g_c_5s_1",
+   "entity": "Checklist_Template.Group",
+   "attrs": {
+    "Name": "Handover",
+    "Description": "Group 2 of 5S audit goods-in",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "Group_Checklist": "c_5s"
+   }
+  },
+  {
+   "ref": "q_c_5s_1_0",
+   "entity": "Checklist_Template.CheckboxQuestion",
+   "attrs": {
+    "UUID": "818e4841-11e7-50c9-ba51-60f8c7654cc5",
+    "Title": "Safety equipment present",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 1,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_5s_1"
+   }
+  },
+  {
+   "ref": "q_c_5s_1_0_o0",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Seat belt",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_5s_1_0"
+   }
+  },
+  {
+   "ref": "q_c_5s_1_0_o1",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Warning light",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_5s_1_0"
+   }
+  },
+  {
+   "ref": "q_c_5s_1_0_o2",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Fire blanket",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_5s_1_0"
+   }
+  },
+  {
+   "ref": "q_c_5s_1_1",
+   "entity": "Checklist_Template.TextQuestion",
+   "attrs": {
+    "UUID": "a1ef8302-64af-58fd-8d75-986e98bd121f",
+    "Title": "Remarks for the next shift",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 2,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "IsNumberValueRequired": false
+   },
+   "links": {
+    "Question_Group": "g_c_5s_1"
+   }
+  },
+  {
+   "ref": "q_c_5s_1_2",
+   "entity": "Checklist_Template.MultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "dccf3553-af91-5fbb-811f-d836a90e0fcf",
+    "Title": "Overall condition",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 3,
+    "IsMandatory": true,
+    "Criticality": "Low",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_5s_1"
+   }
+  },
+  {
+   "ref": "q_c_5s_1_2_o0",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "Good",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_5s_1_2"
+   }
+  },
+  {
+   "ref": "q_c_5s_1_2_o1",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "Needs attention",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_5s_1_2"
+   }
+  },
+  {
+   "ref": "q_c_5s_1_2_o2",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "Out of service",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_5s_1_2"
+   }
+  },
+  {
+   "ref": "q_c_5s_1_3",
+   "entity": "Checklist_Template.PictureQuestion",
+   "attrs": {
+    "UUID": "8e4bc755-b713-52b3-afda-096f4d7e8b54",
+    "Title": "Photo of the data plate",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 4,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_5s_1"
+   }
+  },
+  {
+   "ref": "c_cal",
+   "entity": "Checklist_Template.Checklist",
+   "attrs": {
+    "Name": "Lab calibration log",
+    "Description": "Torque wrench and caliper calibration status.",
+    "Location": "Lab",
+    "SubLocation": "Room 3",
+    "IsActive": true,
+    "IsAllResponsible": false,
+    "ExpiresIn": 3,
+    "ExpiryUnit": "Days",
+    "IsRecurring": true,
+    "HasPendingReviews": false,
+    "RepeatPeriod": "Weekly",
+    "FrequencyInformation": "Weekly"
+   },
+   "links": {
+    "Checklist_Department": "d_lab",
+    "Checklist_ChecklistType": "t_quality",
+    "Checklist_Employee": "e_mgr",
+    "Checklist_Employee_Responsible": [
+     "e_priya",
+     "e_chen"
+    ]
+   }
+  },
+  {
+   "ref": "g_c_cal_0",
+   "entity": "Checklist_Template.Group",
+   "attrs": {
+    "Name": "Equipment condition",
+    "Description": "Group 1 of Lab calibration log",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "Group_Checklist": "c_cal"
+   }
+  },
+  {
+   "ref": "q_c_cal_0_0",
+   "entity": "Checklist_Template.CheckboxQuestion",
+   "attrs": {
+    "UUID": "83890c01-8939-531b-9db2-df736cac409c",
+    "Title": "Condition checks",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 1,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_cal_0"
+   }
+  },
+  {
+   "ref": "q_c_cal_0_0_o0",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Tyres undamaged",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_cal_0_0"
+   }
+  },
+  {
+   "ref": "q_c_cal_0_0_o1",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Forks free of cracks",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_cal_0_0"
+   }
+  },
+  {
+   "ref": "q_c_cal_0_0_o2",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Horn works",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_cal_0_0"
+   }
+  },
+  {
+   "ref": "q_c_cal_0_0_o3",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Lights work",
+    "SequenceNumber": 4
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_cal_0_0"
+   }
+  },
+  {
+   "ref": "q_c_cal_0_1",
+   "entity": "Checklist_Template.TextQuestion",
+   "attrs": {
+    "UUID": "b15caac3-8a74-5f8d-9bce-d2d20546fa73",
+    "Title": "Hour meter reading",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 2,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "IsNumberValueRequired": true
+   },
+   "links": {
+    "Question_Group": "g_c_cal_0"
+   }
+  },
+  {
+   "ref": "q_c_cal_0_2",
+   "entity": "Checklist_Template.InstructionQuestion",
+   "attrs": {
+    "UUID": "a0b2fb7b-b77c-5fb5-a9ec-099ee8420730",
+    "Title": "Park on the marked bay with forks lowered",
+    "Description": "",
+    "QuestionType": "Instruction",
+    "SequenceNumber": 3,
+    "IsMandatory": false,
+    "Criticality": "Low",
+    "AllowComment": false,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_cal_0"
+   }
+  },
+  {
+   "ref": "q_c_cal_0_3",
+   "entity": "Checklist_Template.MultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "76dbcfc7-b66b-5841-a450-fdc967bbed2c",
+    "Title": "Battery charge level",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 4,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_cal_0"
+   }
+  },
+  {
+   "ref": "q_c_cal_0_3_o0",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "Below 20%",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_cal_0_3"
+   }
+  },
+  {
+   "ref": "q_c_cal_0_3_o1",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "20-60%",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_cal_0_3"
+   }
+  },
+  {
+   "ref": "q_c_cal_0_3_o2",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "Above 60%",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_cal_0_3"
+   }
+  },
+  {
+   "ref": "q_c_cal_0_4",
+   "entity": "Checklist_Template.PictureQuestion",
+   "attrs": {
+    "UUID": "1f2bd502-1699-5cc4-8269-532c428104bc",
+    "Title": "Photo of any visible damage",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 5,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_cal_0"
+   }
+  },
+  {
+   "ref": "g_c_cal_1",
+   "entity": "Checklist_Template.Group",
+   "attrs": {
+    "Name": "Handover",
+    "Description": "Group 2 of Lab calibration log",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "Group_Checklist": "c_cal"
+   }
+  },
+  {
+   "ref": "q_c_cal_1_0",
+   "entity": "Checklist_Template.CheckboxQuestion",
+   "attrs": {
+    "UUID": "137d7824-ae8f-581b-a2f1-d69b525f9a4e",
+    "Title": "Safety equipment present",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 1,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_cal_1"
+   }
+  },
+  {
+   "ref": "q_c_cal_1_0_o0",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Seat belt",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_cal_1_0"
+   }
+  },
+  {
+   "ref": "q_c_cal_1_0_o1",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Warning light",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_cal_1_0"
+   }
+  },
+  {
+   "ref": "q_c_cal_1_0_o2",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Fire blanket",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_cal_1_0"
+   }
+  },
+  {
+   "ref": "q_c_cal_1_1",
+   "entity": "Checklist_Template.TextQuestion",
+   "attrs": {
+    "UUID": "567903bd-436b-55fd-93b1-3a7695c02783",
+    "Title": "Remarks for the next shift",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 2,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "IsNumberValueRequired": false
+   },
+   "links": {
+    "Question_Group": "g_c_cal_1"
+   }
+  },
+  {
+   "ref": "q_c_cal_1_2",
+   "entity": "Checklist_Template.MultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "93494d7a-7909-5656-b829-e445b0e142e7",
+    "Title": "Overall condition",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 3,
+    "IsMandatory": true,
+    "Criticality": "Low",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_cal_1"
+   }
+  },
+  {
+   "ref": "q_c_cal_1_2_o0",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "Good",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_cal_1_2"
+   }
+  },
+  {
+   "ref": "q_c_cal_1_2_o1",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "Needs attention",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_cal_1_2"
+   }
+  },
+  {
+   "ref": "q_c_cal_1_2_o2",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "Out of service",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_cal_1_2"
+   }
+  },
+  {
+   "ref": "q_c_cal_1_3",
+   "entity": "Checklist_Template.PictureQuestion",
+   "attrs": {
+    "UUID": "80544855-6644-5660-a13e-f76938ad6674",
+    "Title": "Photo of the data plate",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 4,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_cal_1"
+   }
+  },
+  {
+   "ref": "c_rack",
+   "entity": "Checklist_Template.Checklist",
+   "attrs": {
+    "Name": "Pallet racking audit (retired)",
+    "Description": "Replaced by the daily forklift inspection.",
+    "Location": "Hall 2",
+    "SubLocation": "Aisle 7",
+    "IsActive": false,
+    "IsAllResponsible": false,
+    "ExpiresIn": 3,
+    "ExpiryUnit": "Days",
+    "IsRecurring": false,
+    "HasPendingReviews": false,
+    "RetiredDateTime": "-30d 09:00"
+   },
+   "links": {
+    "Checklist_Department": "d_wh",
+    "Checklist_ChecklistType": "t_safety",
+    "Checklist_Employee": "e_mgr",
+    "Checklist_Employee_Responsible": [
+     "e_tom",
+     "e_priya"
+    ]
+   }
+  },
+  {
+   "ref": "g_c_rack_0",
+   "entity": "Checklist_Template.Group",
+   "attrs": {
+    "Name": "Equipment condition",
+    "Description": "Group 1 of Pallet racking audit (retired)",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "Group_Checklist": "c_rack"
+   }
+  },
+  {
+   "ref": "q_c_rack_0_0",
+   "entity": "Checklist_Template.CheckboxQuestion",
+   "attrs": {
+    "UUID": "73343b39-0c59-5668-907b-df67c24328f8",
+    "Title": "Condition checks",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 1,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_rack_0"
+   }
+  },
+  {
+   "ref": "q_c_rack_0_0_o0",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Tyres undamaged",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_rack_0_0"
+   }
+  },
+  {
+   "ref": "q_c_rack_0_0_o1",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Forks free of cracks",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_rack_0_0"
+   }
+  },
+  {
+   "ref": "q_c_rack_0_0_o2",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Horn works",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_rack_0_0"
+   }
+  },
+  {
+   "ref": "q_c_rack_0_0_o3",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Lights work",
+    "SequenceNumber": 4
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_rack_0_0"
+   }
+  },
+  {
+   "ref": "q_c_rack_0_1",
+   "entity": "Checklist_Template.TextQuestion",
+   "attrs": {
+    "UUID": "6a054804-339d-5c3a-a936-3155ae5fe130",
+    "Title": "Hour meter reading",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 2,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "IsNumberValueRequired": true
+   },
+   "links": {
+    "Question_Group": "g_c_rack_0"
+   }
+  },
+  {
+   "ref": "q_c_rack_0_2",
+   "entity": "Checklist_Template.InstructionQuestion",
+   "attrs": {
+    "UUID": "c7206631-0b14-5453-80ed-5a7a1b6b1835",
+    "Title": "Park on the marked bay with forks lowered",
+    "Description": "",
+    "QuestionType": "Instruction",
+    "SequenceNumber": 3,
+    "IsMandatory": false,
+    "Criticality": "Low",
+    "AllowComment": false,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_rack_0"
+   }
+  },
+  {
+   "ref": "q_c_rack_0_3",
+   "entity": "Checklist_Template.MultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "8f8b81de-1c5a-5802-8c5d-67a9e9754b91",
+    "Title": "Battery charge level",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 4,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_rack_0"
+   }
+  },
+  {
+   "ref": "q_c_rack_0_3_o0",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "Below 20%",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_rack_0_3"
+   }
+  },
+  {
+   "ref": "q_c_rack_0_3_o1",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "20-60%",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_rack_0_3"
+   }
+  },
+  {
+   "ref": "q_c_rack_0_3_o2",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "Above 60%",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_rack_0_3"
+   }
+  },
+  {
+   "ref": "q_c_rack_0_4",
+   "entity": "Checklist_Template.PictureQuestion",
+   "attrs": {
+    "UUID": "0cc5f181-7aff-540d-b152-3fa49ac75796",
+    "Title": "Photo of any visible damage",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 5,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_rack_0"
+   }
+  },
+  {
+   "ref": "g_c_rack_1",
+   "entity": "Checklist_Template.Group",
+   "attrs": {
+    "Name": "Handover",
+    "Description": "Group 2 of Pallet racking audit (retired)",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "Group_Checklist": "c_rack"
+   }
+  },
+  {
+   "ref": "q_c_rack_1_0",
+   "entity": "Checklist_Template.CheckboxQuestion",
+   "attrs": {
+    "UUID": "510d3ea1-999a-5af0-90bb-f0a01b991155",
+    "Title": "Safety equipment present",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 1,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_rack_1"
+   }
+  },
+  {
+   "ref": "q_c_rack_1_0_o0",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Seat belt",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_rack_1_0"
+   }
+  },
+  {
+   "ref": "q_c_rack_1_0_o1",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Warning light",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_rack_1_0"
+   }
+  },
+  {
+   "ref": "q_c_rack_1_0_o2",
+   "entity": "Checklist_Template.CheckboxOption",
+   "attrs": {
+    "Title": "Fire blanket",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "CheckboxOption_CheckboxQuestion": "q_c_rack_1_0"
+   }
+  },
+  {
+   "ref": "q_c_rack_1_1",
+   "entity": "Checklist_Template.TextQuestion",
+   "attrs": {
+    "UUID": "82d3f3e6-7c0d-511c-b6ef-98dcf17ca6d7",
+    "Title": "Remarks for the next shift",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 2,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "IsNumberValueRequired": false
+   },
+   "links": {
+    "Question_Group": "g_c_rack_1"
+   }
+  },
+  {
+   "ref": "q_c_rack_1_2",
+   "entity": "Checklist_Template.MultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "0e9d7af1-50f7-5d7e-a567-1b0e9d7e1347",
+    "Title": "Overall condition",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 3,
+    "IsMandatory": true,
+    "Criticality": "Low",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_rack_1"
+   }
+  },
+  {
+   "ref": "q_c_rack_1_2_o0",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "Good",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_rack_1_2"
+   }
+  },
+  {
+   "ref": "q_c_rack_1_2_o1",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "Needs attention",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_rack_1_2"
+   }
+  },
+  {
+   "ref": "q_c_rack_1_2_o2",
+   "entity": "Checklist_Template.MultipleChoiceOption",
+   "attrs": {
+    "Title": "Out of service",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "MultipleChoiceOption_MultipleChoiceQuestion": "q_c_rack_1_2"
+   }
+  },
+  {
+   "ref": "q_c_rack_1_3",
+   "entity": "Checklist_Template.PictureQuestion",
+   "attrs": {
+    "UUID": "87a951e6-5f61-50aa-999a-16d183665375",
+    "Title": "Photo of the data plate",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 4,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "Question_Group": "g_c_rack_1"
+   }
+  },
+  {
+   "ref": "i1",
+   "entity": "Checklist_Instance.InstanceChecklist",
+   "attrs": {
+    "UUID": "054daf34-7323-5c46-a66c-a00e720cf930",
+    "Name": "Daily forklift inspection",
+    "Description": "Scheduled run of Daily forklift inspection",
+    "StartDateTime": "-0d 06:00",
+    "EndDateTime": "+0d 14:00",
+    "HasEndDate": true,
+    "Status": "In_Progress",
+    "IsCompliant": false,
+    "Location": "Hall 2",
+    "SubLocation": "Bay 4"
+   },
+   "links": {
+    "InstanceChecklist_Checklist": "c_fork",
+    "InstanceChecklist_ChecklistType": "t_safety",
+    "InstanceChecklist_Employee_Responsible": "e_tom"
+   }
+  },
+  {
+   "ref": "i1_q_c_fork_0_0",
+   "entity": "Checklist_Instance.InstanceCheckboxQuestion",
+   "attrs": {
+    "UUID": "4a760e46-270a-5215-ade1-5c853072a70d",
+    "Title": "Condition checks",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 1,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-0d 06:00",
+    "Compliant": "Compliant"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i1",
+    "InstanceQuestion_Question": "q_c_fork_0_0"
+   }
+  },
+  {
+   "ref": "i1_q_c_fork_0_0_o0",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "f800301d-fb62-5d49-8e9f-3166ec66bedd",
+    "Title": "Tyres undamaged",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i1_q_c_fork_0_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i1_q_c_fork_0_0"
+   }
+  },
+  {
+   "ref": "i1_q_c_fork_0_0_o1",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "c4108242-7a41-5a33-b3c3-92348a2b46a7",
+    "Title": "Forks free of cracks",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i1_q_c_fork_0_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i1_q_c_fork_0_0"
+   }
+  },
+  {
+   "ref": "i1_q_c_fork_0_0_o2",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "9f3bf263-907c-5ba6-954a-41f512952b8f",
+    "Title": "Horn works",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i1_q_c_fork_0_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i1_q_c_fork_0_0"
+   }
+  },
+  {
+   "ref": "i1_q_c_fork_0_0_o3",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "006ad82a-c4d3-5c9a-9a86-62fe8a5f01be",
+    "Title": "Lights work",
+    "SequenceNumber": 4
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i1_q_c_fork_0_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i1_q_c_fork_0_0"
+   }
+  },
+  {
+   "ref": "i1_q_c_fork_0_1",
+   "entity": "Checklist_Instance.InstanceTextQuestion",
+   "attrs": {
+    "UUID": "20ded8c7-a9c9-5e8b-a85b-195a4559b8c8",
+    "Title": "Hour meter reading",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 2,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-0d 06:00",
+    "Compliant": "Compliant",
+    "AnswerText": "1243",
+    "IsNumberValueRequired": true,
+    "AnswerTextNumbersOnly": 1243
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i1",
+    "InstanceQuestion_Question": "q_c_fork_0_1"
+   }
+  },
+  {
+   "ref": "i1_q_c_fork_0_2",
+   "entity": "Checklist_Instance.InstanceInstructionQuestion",
+   "attrs": {
+    "UUID": "c2389414-e0a2-53f0-a68f-78b7a62bcfa0",
+    "Title": "Park on the marked bay with forks lowered",
+    "Description": "",
+    "QuestionType": "Instruction",
+    "SequenceNumber": 3,
+    "IsMandatory": false,
+    "Criticality": "Low",
+    "AllowComment": false,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i1",
+    "InstanceQuestion_Question": "q_c_fork_0_2"
+   }
+  },
+  {
+   "ref": "i1_q_c_fork_0_3",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "50064d08-a6b5-5256-a96d-0091f8d89685",
+    "Title": "Battery charge level",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 4,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-0d 06:00",
+    "Compliant": "Compliant"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i1",
+    "InstanceQuestion_Question": "q_c_fork_0_3"
+   }
+  },
+  {
+   "ref": "i1_q_c_fork_0_3_o0",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "0cf3d065-3b3e-5139-bba7-a55599cef0f7",
+    "Title": "Below 20%",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i1_q_c_fork_0_3"
+   }
+  },
+  {
+   "ref": "i1_q_c_fork_0_3_o1",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "0eb5c619-7bfb-5bd0-828f-e574e894df26",
+    "Title": "20-60%",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i1_q_c_fork_0_3"
+   }
+  },
+  {
+   "ref": "i1_q_c_fork_0_3_o2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "9bf771b9-0fb3-535f-a1a6-f2be4bc202dd",
+    "Title": "Above 60%",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i1_q_c_fork_0_3",
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion_Set": "i1_q_c_fork_0_3"
+   }
+  },
+  {
+   "ref": "i1_q_c_fork_0_4",
+   "entity": "Checklist_Instance.InstancePictureQuestion",
+   "attrs": {
+    "UUID": "4d65b5f1-86f4-5a74-9720-afbc62d1ddde",
+    "Title": "Photo of any visible damage",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 5,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i1",
+    "InstanceQuestion_Question": "q_c_fork_0_4"
+   }
+  },
+  {
+   "ref": "i1_q_c_fork_1_0",
+   "entity": "Checklist_Instance.InstanceCheckboxQuestion",
+   "attrs": {
+    "UUID": "2fbff322-ce08-501d-9171-006006377954",
+    "Title": "Safety equipment present",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 6,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i1",
+    "InstanceQuestion_Question": "q_c_fork_1_0"
+   }
+  },
+  {
+   "ref": "i1_q_c_fork_1_0_o0",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "da2cc816-13b4-5e58-a8a6-f814c9e8e48e",
+    "Title": "Seat belt",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i1_q_c_fork_1_0"
+   }
+  },
+  {
+   "ref": "i1_q_c_fork_1_0_o1",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "cce86bd6-b3ea-50f1-8b49-5312d73ab89c",
+    "Title": "Warning light",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i1_q_c_fork_1_0"
+   }
+  },
+  {
+   "ref": "i1_q_c_fork_1_0_o2",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "2562dbcf-7cad-5210-837a-0e2dc1ed1f68",
+    "Title": "Fire blanket",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i1_q_c_fork_1_0"
+   }
+  },
+  {
+   "ref": "i1_q_c_fork_1_1",
+   "entity": "Checklist_Instance.InstanceTextQuestion",
+   "attrs": {
+    "UUID": "370e117c-4ef6-5906-9e3a-c2dcee1599b3",
+    "Title": "Remarks for the next shift",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 7,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerText": null,
+    "IsNumberValueRequired": false
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i1",
+    "InstanceQuestion_Question": "q_c_fork_1_1"
+   }
+  },
+  {
+   "ref": "i1_q_c_fork_1_2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "64d8cdb8-acb4-5282-8cc9-04713bb6e292",
+    "Title": "Overall condition",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 8,
+    "IsMandatory": true,
+    "Criticality": "Low",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i1",
+    "InstanceQuestion_Question": "q_c_fork_1_2"
+   }
+  },
+  {
+   "ref": "i1_q_c_fork_1_2_o0",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "99e3bdbc-6c42-57b8-9531-c5fc0db5f179",
+    "Title": "Good",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i1_q_c_fork_1_2"
+   }
+  },
+  {
+   "ref": "i1_q_c_fork_1_2_o1",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "f51d5a28-ed09-58b6-a523-d5b8cdda4b32",
+    "Title": "Needs attention",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i1_q_c_fork_1_2"
+   }
+  },
+  {
+   "ref": "i1_q_c_fork_1_2_o2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "7df529ff-14c7-59ec-a0ba-3479b93eba92",
+    "Title": "Out of service",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i1_q_c_fork_1_2"
+   }
+  },
+  {
+   "ref": "i1_q_c_fork_1_3",
+   "entity": "Checklist_Instance.InstancePictureQuestion",
+   "attrs": {
+    "UUID": "fdd32540-09b3-5ae6-81af-245f4cbe6d84",
+    "Title": "Photo of the data plate",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 9,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i1",
+    "InstanceQuestion_Question": "q_c_fork_1_3"
+   }
+  },
+  {
+   "ref": "h_i2",
+   "entity": "HistoryManagement.HistoryObject"
+  },
+  {
+   "ref": "hi_i2a",
+   "entity": "HistoryManagement.HistoryItem",
+   "attrs": {
+    "Subject": "Submitted",
+    "Message": "Checklist submitted by the inspector",
+    "By": "Tom Becker",
+    "currentDate": "-1d 14:00"
+   },
+   "links": {
+    "HistoryItem_HistoryObject": "h_i2"
+   }
+  },
+  {
+   "ref": "i2",
+   "entity": "Checklist_Instance.InstanceChecklist",
+   "attrs": {
+    "UUID": "b9c1d755-69b4-588c-b4b1-846f53b96961",
+    "Name": "Daily forklift inspection",
+    "Description": "Scheduled run of Daily forklift inspection",
+    "StartDateTime": "-1d 06:00",
+    "EndDateTime": "-1d 14:00",
+    "HasEndDate": true,
+    "Status": "Submitted",
+    "IsCompliant": false,
+    "Location": "Hall 2",
+    "SubLocation": "Bay 4",
+    "SubmittedDateTIme": "-1d 14:00"
+   },
+   "links": {
+    "InstanceChecklist_Checklist": "c_fork",
+    "InstanceChecklist_ChecklistType": "t_safety",
+    "InstanceChecklist_Employee_Responsible": "e_tom",
+    "InstanceChecklist_HistoryObject": "h_i2"
+   }
+  },
+  {
+   "ref": "i2_q_c_fork_0_0",
+   "entity": "Checklist_Instance.InstanceCheckboxQuestion",
+   "attrs": {
+    "UUID": "fe18b7b4-5743-54cd-a2c4-24c4aa2e57fb",
+    "Title": "Condition checks",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 1,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-1d 06:00",
+    "Compliant": "Compliant"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i2",
+    "InstanceQuestion_Question": "q_c_fork_0_0"
+   }
+  },
+  {
+   "ref": "i2_q_c_fork_0_0_o0",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "54f9c129-3ab5-585f-9c20-c189a2138726",
+    "Title": "Tyres undamaged",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i2_q_c_fork_0_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i2_q_c_fork_0_0"
+   }
+  },
+  {
+   "ref": "i2_q_c_fork_0_0_o1",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "1281a640-cc8d-5f6e-962a-d0759bbad053",
+    "Title": "Forks free of cracks",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i2_q_c_fork_0_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i2_q_c_fork_0_0"
+   }
+  },
+  {
+   "ref": "i2_q_c_fork_0_0_o2",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "fd66eb29-425a-5f32-88c2-9d8ee773fd47",
+    "Title": "Horn works",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i2_q_c_fork_0_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i2_q_c_fork_0_0"
+   }
+  },
+  {
+   "ref": "i2_q_c_fork_0_0_o3",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "0ae662ab-6536-5987-bd5c-82fc105bab36",
+    "Title": "Lights work",
+    "SequenceNumber": 4
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i2_q_c_fork_0_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i2_q_c_fork_0_0"
+   }
+  },
+  {
+   "ref": "i2_q_c_fork_0_1",
+   "entity": "Checklist_Instance.InstanceTextQuestion",
+   "attrs": {
+    "UUID": "3a6afcbc-598a-58f9-8d6b-6cdf2db388fb",
+    "Title": "Hour meter reading",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 2,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-1d 06:00",
+    "Compliant": "Compliant",
+    "AnswerText": "1243",
+    "IsNumberValueRequired": true,
+    "AnswerTextNumbersOnly": 1243
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i2",
+    "InstanceQuestion_Question": "q_c_fork_0_1"
+   }
+  },
+  {
+   "ref": "i2_q_c_fork_0_2",
+   "entity": "Checklist_Instance.InstanceInstructionQuestion",
+   "attrs": {
+    "UUID": "b83ef9a9-cfd7-5e86-adcd-e33d5e24acc5",
+    "Title": "Park on the marked bay with forks lowered",
+    "Description": "",
+    "QuestionType": "Instruction",
+    "SequenceNumber": 3,
+    "IsMandatory": false,
+    "Criticality": "Low",
+    "AllowComment": false,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i2",
+    "InstanceQuestion_Question": "q_c_fork_0_2"
+   }
+  },
+  {
+   "ref": "i2_q_c_fork_0_3",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "32fa5fb8-786a-5749-a0e5-c5a114506552",
+    "Title": "Battery charge level",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 4,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-1d 06:00",
+    "Compliant": "NotCompliant",
+    "Comment": "Needs follow-up before next shift"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i2",
+    "InstanceQuestion_Question": "q_c_fork_0_3"
+   }
+  },
+  {
+   "ref": "i2_q_c_fork_0_3_o0",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "df2fa9b9-f01c-518d-aad2-3bc2f838ec4c",
+    "Title": "Below 20%",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i2_q_c_fork_0_3"
+   }
+  },
+  {
+   "ref": "i2_q_c_fork_0_3_o1",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "b8844688-4b8e-5f0a-b7aa-13f845a3156c",
+    "Title": "20-60%",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i2_q_c_fork_0_3"
+   }
+  },
+  {
+   "ref": "i2_q_c_fork_0_3_o2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "1e2ae693-3182-5f96-b214-8738b9d30690",
+    "Title": "Above 60%",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i2_q_c_fork_0_3",
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion_Set": "i2_q_c_fork_0_3"
+   }
+  },
+  {
+   "ref": "i2_q_c_fork_0_4",
+   "entity": "Checklist_Instance.InstancePictureQuestion",
+   "attrs": {
+    "UUID": "e3979ff4-b3e1-5764-89dc-3ef743544c86",
+    "Title": "Photo of any visible damage",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 5,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-1d 06:00",
+    "Compliant": "Compliant"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i2",
+    "InstanceQuestion_Question": "q_c_fork_0_4"
+   }
+  },
+  {
+   "ref": "i2_q_c_fork_1_0",
+   "entity": "Checklist_Instance.InstanceCheckboxQuestion",
+   "attrs": {
+    "UUID": "c93d25a5-828b-5e43-b772-9259a5ec700f",
+    "Title": "Safety equipment present",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 6,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-1d 06:00",
+    "Compliant": "Compliant"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i2",
+    "InstanceQuestion_Question": "q_c_fork_1_0"
+   }
+  },
+  {
+   "ref": "i2_q_c_fork_1_0_o0",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "79ce4102-c5d6-512b-9609-e5eab03fef88",
+    "Title": "Seat belt",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i2_q_c_fork_1_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i2_q_c_fork_1_0"
+   }
+  },
+  {
+   "ref": "i2_q_c_fork_1_0_o1",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "86aa77fd-8151-5ec9-b0c4-5379d87de624",
+    "Title": "Warning light",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i2_q_c_fork_1_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i2_q_c_fork_1_0"
+   }
+  },
+  {
+   "ref": "i2_q_c_fork_1_0_o2",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "16e50100-8224-5dfa-ab8a-e078b09739b2",
+    "Title": "Fire blanket",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i2_q_c_fork_1_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i2_q_c_fork_1_0"
+   }
+  },
+  {
+   "ref": "i2_q_c_fork_1_1",
+   "entity": "Checklist_Instance.InstanceTextQuestion",
+   "attrs": {
+    "UUID": "ef4d55ea-88b5-5c12-8d14-1d95e30c48ba",
+    "Title": "Remarks for the next shift",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 7,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-1d 06:00",
+    "Compliant": "Compliant",
+    "AnswerText": "No issues",
+    "IsNumberValueRequired": false
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i2",
+    "InstanceQuestion_Question": "q_c_fork_1_1"
+   }
+  },
+  {
+   "ref": "i2_q_c_fork_1_2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "d98af9f3-4d58-5a0b-b05b-00ab1a344328",
+    "Title": "Overall condition",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 8,
+    "IsMandatory": true,
+    "Criticality": "Low",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-1d 06:00",
+    "Compliant": "Compliant"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i2",
+    "InstanceQuestion_Question": "q_c_fork_1_2"
+   }
+  },
+  {
+   "ref": "i2_q_c_fork_1_2_o0",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "11624aae-d31a-5bcc-8d2a-7b2b060e25be",
+    "Title": "Good",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i2_q_c_fork_1_2"
+   }
+  },
+  {
+   "ref": "i2_q_c_fork_1_2_o1",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "b5b1debf-7080-5a85-aa07-dca44d2ccc17",
+    "Title": "Needs attention",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i2_q_c_fork_1_2"
+   }
+  },
+  {
+   "ref": "i2_q_c_fork_1_2_o2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "77bed8c7-b48f-5f20-81f0-b6addc8286b8",
+    "Title": "Out of service",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i2_q_c_fork_1_2",
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion_Set": "i2_q_c_fork_1_2"
+   }
+  },
+  {
+   "ref": "i2_q_c_fork_1_3",
+   "entity": "Checklist_Instance.InstancePictureQuestion",
+   "attrs": {
+    "UUID": "a2f75010-909b-5ce5-812c-85e0c02da631",
+    "Title": "Photo of the data plate",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 9,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-1d 06:00",
+    "Compliant": "Compliant"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i2",
+    "InstanceQuestion_Question": "q_c_fork_1_3"
+   }
+  },
+  {
+   "ref": "i3",
+   "entity": "Checklist_Instance.InstanceChecklist",
+   "attrs": {
+    "UUID": "848591b6-195b-5beb-86ad-0e2be2488d44",
+    "Name": "Daily forklift inspection",
+    "Description": "Scheduled run of Daily forklift inspection",
+    "StartDateTime": "-3d 06:00",
+    "EndDateTime": "-2d 14:00",
+    "HasEndDate": true,
+    "Status": "Overdue_assigned",
+    "IsCompliant": false,
+    "Location": "Hall 2",
+    "SubLocation": "Bay 4"
+   },
+   "links": {
+    "InstanceChecklist_Checklist": "c_fork",
+    "InstanceChecklist_ChecklistType": "t_safety",
+    "InstanceChecklist_Employee_Responsible": "e_tom"
+   }
+  },
+  {
+   "ref": "i3_q_c_fork_0_0",
+   "entity": "Checklist_Instance.InstanceCheckboxQuestion",
+   "attrs": {
+    "UUID": "e0682a92-3c16-5c73-a199-a9956254aaeb",
+    "Title": "Condition checks",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 1,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i3",
+    "InstanceQuestion_Question": "q_c_fork_0_0"
+   }
+  },
+  {
+   "ref": "i3_q_c_fork_0_0_o0",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "739c96e7-ed03-5ce9-a5c0-2e88e9eab67a",
+    "Title": "Tyres undamaged",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i3_q_c_fork_0_0"
+   }
+  },
+  {
+   "ref": "i3_q_c_fork_0_0_o1",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "24485fcc-31cd-57cd-a12c-8ae06ac71844",
+    "Title": "Forks free of cracks",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i3_q_c_fork_0_0"
+   }
+  },
+  {
+   "ref": "i3_q_c_fork_0_0_o2",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "d9a924ae-eff8-564e-9bf1-0d9a1522a395",
+    "Title": "Horn works",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i3_q_c_fork_0_0"
+   }
+  },
+  {
+   "ref": "i3_q_c_fork_0_0_o3",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "131950bb-6e96-58d1-b3ce-ff14ad0f79e1",
+    "Title": "Lights work",
+    "SequenceNumber": 4
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i3_q_c_fork_0_0"
+   }
+  },
+  {
+   "ref": "i3_q_c_fork_0_1",
+   "entity": "Checklist_Instance.InstanceTextQuestion",
+   "attrs": {
+    "UUID": "7b875b7d-39fc-5f72-aed8-4aeb3212e477",
+    "Title": "Hour meter reading",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 2,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerText": null,
+    "IsNumberValueRequired": true
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i3",
+    "InstanceQuestion_Question": "q_c_fork_0_1"
+   }
+  },
+  {
+   "ref": "i3_q_c_fork_0_2",
+   "entity": "Checklist_Instance.InstanceInstructionQuestion",
+   "attrs": {
+    "UUID": "3c37758b-8262-5c85-83b0-77468ec92046",
+    "Title": "Park on the marked bay with forks lowered",
+    "Description": "",
+    "QuestionType": "Instruction",
+    "SequenceNumber": 3,
+    "IsMandatory": false,
+    "Criticality": "Low",
+    "AllowComment": false,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i3",
+    "InstanceQuestion_Question": "q_c_fork_0_2"
+   }
+  },
+  {
+   "ref": "i3_q_c_fork_0_3",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "927aa1b5-23a3-51d0-aa49-bb852bee2261",
+    "Title": "Battery charge level",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 4,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i3",
+    "InstanceQuestion_Question": "q_c_fork_0_3"
+   }
+  },
+  {
+   "ref": "i3_q_c_fork_0_3_o0",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "5912c3aa-e792-5d06-be0a-3a3a07397d4d",
+    "Title": "Below 20%",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i3_q_c_fork_0_3"
+   }
+  },
+  {
+   "ref": "i3_q_c_fork_0_3_o1",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "9f76a93b-cb49-557f-847d-3e1d2879095d",
+    "Title": "20-60%",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i3_q_c_fork_0_3"
+   }
+  },
+  {
+   "ref": "i3_q_c_fork_0_3_o2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "aacf9bef-1a14-591d-9843-9d2956410260",
+    "Title": "Above 60%",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i3_q_c_fork_0_3"
+   }
+  },
+  {
+   "ref": "i3_q_c_fork_0_4",
+   "entity": "Checklist_Instance.InstancePictureQuestion",
+   "attrs": {
+    "UUID": "2947603e-2e6f-53d8-bfa9-5d66640c3f78",
+    "Title": "Photo of any visible damage",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 5,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i3",
+    "InstanceQuestion_Question": "q_c_fork_0_4"
+   }
+  },
+  {
+   "ref": "i3_q_c_fork_1_0",
+   "entity": "Checklist_Instance.InstanceCheckboxQuestion",
+   "attrs": {
+    "UUID": "fb81c471-cc49-57dd-980a-606c4d4145e9",
+    "Title": "Safety equipment present",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 6,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i3",
+    "InstanceQuestion_Question": "q_c_fork_1_0"
+   }
+  },
+  {
+   "ref": "i3_q_c_fork_1_0_o0",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "ddb37c66-8abd-5357-ab0a-49a803564ac0",
+    "Title": "Seat belt",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i3_q_c_fork_1_0"
+   }
+  },
+  {
+   "ref": "i3_q_c_fork_1_0_o1",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "85fc8af1-296e-54b7-965a-d634d7ae1a38",
+    "Title": "Warning light",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i3_q_c_fork_1_0"
+   }
+  },
+  {
+   "ref": "i3_q_c_fork_1_0_o2",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "37ad399e-6e14-56ae-9492-f10000f06499",
+    "Title": "Fire blanket",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i3_q_c_fork_1_0"
+   }
+  },
+  {
+   "ref": "i3_q_c_fork_1_1",
+   "entity": "Checklist_Instance.InstanceTextQuestion",
+   "attrs": {
+    "UUID": "3cee90d8-35c7-5da5-804e-aa2abb3a2372",
+    "Title": "Remarks for the next shift",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 7,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerText": null,
+    "IsNumberValueRequired": false
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i3",
+    "InstanceQuestion_Question": "q_c_fork_1_1"
+   }
+  },
+  {
+   "ref": "i3_q_c_fork_1_2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "6fef604c-9135-5fc6-8918-c57dea53e97a",
+    "Title": "Overall condition",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 8,
+    "IsMandatory": true,
+    "Criticality": "Low",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i3",
+    "InstanceQuestion_Question": "q_c_fork_1_2"
+   }
+  },
+  {
+   "ref": "i3_q_c_fork_1_2_o0",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "884c94d9-c826-598a-9c5b-67cfcac74b90",
+    "Title": "Good",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i3_q_c_fork_1_2"
+   }
+  },
+  {
+   "ref": "i3_q_c_fork_1_2_o1",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "1638b95c-99b9-599e-b4d7-9f56c8e452ed",
+    "Title": "Needs attention",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i3_q_c_fork_1_2"
+   }
+  },
+  {
+   "ref": "i3_q_c_fork_1_2_o2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "cce794ff-b407-56de-983e-dc4d91819fca",
+    "Title": "Out of service",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i3_q_c_fork_1_2"
+   }
+  },
+  {
+   "ref": "i3_q_c_fork_1_3",
+   "entity": "Checklist_Instance.InstancePictureQuestion",
+   "attrs": {
+    "UUID": "79cb1c47-05e9-5552-8ed3-d4b08e405136",
+    "Title": "Photo of the data plate",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 9,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i3",
+    "InstanceQuestion_Question": "q_c_fork_1_3"
+   }
+  },
+  {
+   "ref": "i4",
+   "entity": "Checklist_Instance.InstanceChecklist",
+   "attrs": {
+    "UUID": "eb81ec34-5cd2-52eb-a5d4-d209d663c45f",
+    "Name": "Weekly fire extinguisher check",
+    "Description": "Scheduled run of Weekly fire extinguisher check",
+    "StartDateTime": "-0d 08:00",
+    "EndDateTime": "+4d 17:00",
+    "HasEndDate": true,
+    "Status": "_New",
+    "IsCompliant": false,
+    "Location": "Hall 1",
+    "SubLocation": "Line A"
+   },
+   "links": {
+    "InstanceChecklist_Checklist": "c_fire",
+    "InstanceChecklist_ChecklistType": "t_safety",
+    "InstanceChecklist_Employee_Responsible": "e_tom"
+   }
+  },
+  {
+   "ref": "i4_q_c_fire_0_0",
+   "entity": "Checklist_Instance.InstanceCheckboxQuestion",
+   "attrs": {
+    "UUID": "d680cb18-e003-5cc4-ac6f-bdc98496a868",
+    "Title": "Condition checks",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 1,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i4",
+    "InstanceQuestion_Question": "q_c_fire_0_0"
+   }
+  },
+  {
+   "ref": "i4_q_c_fire_0_0_o0",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "21b126f3-bfc9-540b-9795-06a12fdff5fb",
+    "Title": "Tyres undamaged",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i4_q_c_fire_0_0"
+   }
+  },
+  {
+   "ref": "i4_q_c_fire_0_0_o1",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "443365b0-adb1-55be-8b9c-68ad8986b777",
+    "Title": "Forks free of cracks",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i4_q_c_fire_0_0"
+   }
+  },
+  {
+   "ref": "i4_q_c_fire_0_0_o2",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "e6f0c5c5-93bf-5aee-ae61-51812d528fa6",
+    "Title": "Horn works",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i4_q_c_fire_0_0"
+   }
+  },
+  {
+   "ref": "i4_q_c_fire_0_0_o3",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "8297df70-7a46-5769-ab61-93ae959bc676",
+    "Title": "Lights work",
+    "SequenceNumber": 4
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i4_q_c_fire_0_0"
+   }
+  },
+  {
+   "ref": "i4_q_c_fire_0_1",
+   "entity": "Checklist_Instance.InstanceTextQuestion",
+   "attrs": {
+    "UUID": "5302539a-d7ef-5a1d-a6b0-bf72432d56b8",
+    "Title": "Hour meter reading",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 2,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerText": null,
+    "IsNumberValueRequired": true
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i4",
+    "InstanceQuestion_Question": "q_c_fire_0_1"
+   }
+  },
+  {
+   "ref": "i4_q_c_fire_0_2",
+   "entity": "Checklist_Instance.InstanceInstructionQuestion",
+   "attrs": {
+    "UUID": "1226e61e-52f1-5669-b6f6-03b671917530",
+    "Title": "Park on the marked bay with forks lowered",
+    "Description": "",
+    "QuestionType": "Instruction",
+    "SequenceNumber": 3,
+    "IsMandatory": false,
+    "Criticality": "Low",
+    "AllowComment": false,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i4",
+    "InstanceQuestion_Question": "q_c_fire_0_2"
+   }
+  },
+  {
+   "ref": "i4_q_c_fire_0_3",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "9e1df340-7794-5940-82a7-dd59268fd805",
+    "Title": "Battery charge level",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 4,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i4",
+    "InstanceQuestion_Question": "q_c_fire_0_3"
+   }
+  },
+  {
+   "ref": "i4_q_c_fire_0_3_o0",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "8db5cb63-299d-5a2b-b4bf-8355541eb6d4",
+    "Title": "Below 20%",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i4_q_c_fire_0_3"
+   }
+  },
+  {
+   "ref": "i4_q_c_fire_0_3_o1",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "108c43c6-cb99-5460-859f-d17bf9301f28",
+    "Title": "20-60%",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i4_q_c_fire_0_3"
+   }
+  },
+  {
+   "ref": "i4_q_c_fire_0_3_o2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "9c8917de-269e-563d-84c5-5844635d3b92",
+    "Title": "Above 60%",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i4_q_c_fire_0_3"
+   }
+  },
+  {
+   "ref": "i4_q_c_fire_0_4",
+   "entity": "Checklist_Instance.InstancePictureQuestion",
+   "attrs": {
+    "UUID": "f937cba0-aebb-5a06-855b-4cae04850da6",
+    "Title": "Photo of any visible damage",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 5,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i4",
+    "InstanceQuestion_Question": "q_c_fire_0_4"
+   }
+  },
+  {
+   "ref": "i4_q_c_fire_1_0",
+   "entity": "Checklist_Instance.InstanceCheckboxQuestion",
+   "attrs": {
+    "UUID": "46d8aa68-6a13-5b25-887b-8c1f0f7d843f",
+    "Title": "Safety equipment present",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 6,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i4",
+    "InstanceQuestion_Question": "q_c_fire_1_0"
+   }
+  },
+  {
+   "ref": "i4_q_c_fire_1_0_o0",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "408ce9ab-ed19-5229-afd3-2b28641bd822",
+    "Title": "Seat belt",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i4_q_c_fire_1_0"
+   }
+  },
+  {
+   "ref": "i4_q_c_fire_1_0_o1",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "5dfbbe77-1252-5870-989d-4f2a724a8d34",
+    "Title": "Warning light",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i4_q_c_fire_1_0"
+   }
+  },
+  {
+   "ref": "i4_q_c_fire_1_0_o2",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "f872eb34-bc63-5ab0-8d5b-638be8e2c39e",
+    "Title": "Fire blanket",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i4_q_c_fire_1_0"
+   }
+  },
+  {
+   "ref": "i4_q_c_fire_1_1",
+   "entity": "Checklist_Instance.InstanceTextQuestion",
+   "attrs": {
+    "UUID": "478a56aa-20d9-54aa-8978-609fe7ed163d",
+    "Title": "Remarks for the next shift",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 7,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerText": null,
+    "IsNumberValueRequired": false
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i4",
+    "InstanceQuestion_Question": "q_c_fire_1_1"
+   }
+  },
+  {
+   "ref": "i4_q_c_fire_1_2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "e56f769f-4093-59f7-afb1-87385c91d623",
+    "Title": "Overall condition",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 8,
+    "IsMandatory": true,
+    "Criticality": "Low",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i4",
+    "InstanceQuestion_Question": "q_c_fire_1_2"
+   }
+  },
+  {
+   "ref": "i4_q_c_fire_1_2_o0",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "fec22d52-3369-5fa0-b786-28cdd86d5b15",
+    "Title": "Good",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i4_q_c_fire_1_2"
+   }
+  },
+  {
+   "ref": "i4_q_c_fire_1_2_o1",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "83795760-e1cc-57ab-81b9-f3c024140848",
+    "Title": "Needs attention",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i4_q_c_fire_1_2"
+   }
+  },
+  {
+   "ref": "i4_q_c_fire_1_2_o2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "0cbc7851-b0c6-5679-8ed2-42d84ed0e605",
+    "Title": "Out of service",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i4_q_c_fire_1_2"
+   }
+  },
+  {
+   "ref": "i4_q_c_fire_1_3",
+   "entity": "Checklist_Instance.InstancePictureQuestion",
+   "attrs": {
+    "UUID": "b12b4c45-7e92-5a14-9d3d-e7e0dce31394",
+    "Title": "Photo of the data plate",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 9,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i4",
+    "InstanceQuestion_Question": "q_c_fire_1_3"
+   }
+  },
+  {
+   "ref": "i5",
+   "entity": "Checklist_Instance.InstanceChecklist",
+   "attrs": {
+    "UUID": "287ab2da-c329-5854-af97-eb7214eb197e",
+    "Name": "Weekly fire extinguisher check",
+    "Description": "Scheduled run of Weekly fire extinguisher check",
+    "StartDateTime": "-6d 08:00",
+    "EndDateTime": "-3d 17:00",
+    "HasEndDate": true,
+    "Status": "Overdue_unassigned",
+    "IsCompliant": false,
+    "Location": "Hall 1",
+    "SubLocation": "Line A"
+   },
+   "links": {
+    "InstanceChecklist_Checklist": "c_fire",
+    "InstanceChecklist_ChecklistType": "t_safety"
+   }
+  },
+  {
+   "ref": "i5_q_c_fire_0_0",
+   "entity": "Checklist_Instance.InstanceCheckboxQuestion",
+   "attrs": {
+    "UUID": "84a5c8e9-50d3-5d56-9a9f-7ccfac93f758",
+    "Title": "Condition checks",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 1,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i5",
+    "InstanceQuestion_Question": "q_c_fire_0_0"
+   }
+  },
+  {
+   "ref": "i5_q_c_fire_0_0_o0",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "4cc8732b-fbba-5c26-8eb7-14ca7da67922",
+    "Title": "Tyres undamaged",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i5_q_c_fire_0_0"
+   }
+  },
+  {
+   "ref": "i5_q_c_fire_0_0_o1",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "ba8a9561-acd1-5c95-b4e1-8ede94b55596",
+    "Title": "Forks free of cracks",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i5_q_c_fire_0_0"
+   }
+  },
+  {
+   "ref": "i5_q_c_fire_0_0_o2",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "9924d8f3-b20d-5a8c-9676-445fa0d6bf4b",
+    "Title": "Horn works",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i5_q_c_fire_0_0"
+   }
+  },
+  {
+   "ref": "i5_q_c_fire_0_0_o3",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "593e0522-bcc6-564d-89eb-73ed0a51501f",
+    "Title": "Lights work",
+    "SequenceNumber": 4
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i5_q_c_fire_0_0"
+   }
+  },
+  {
+   "ref": "i5_q_c_fire_0_1",
+   "entity": "Checklist_Instance.InstanceTextQuestion",
+   "attrs": {
+    "UUID": "202f2713-e055-5bc9-9c75-e710a6e0b953",
+    "Title": "Hour meter reading",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 2,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerText": null,
+    "IsNumberValueRequired": true
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i5",
+    "InstanceQuestion_Question": "q_c_fire_0_1"
+   }
+  },
+  {
+   "ref": "i5_q_c_fire_0_2",
+   "entity": "Checklist_Instance.InstanceInstructionQuestion",
+   "attrs": {
+    "UUID": "4ae074c4-0b03-5108-bfe6-fa5baf5b048b",
+    "Title": "Park on the marked bay with forks lowered",
+    "Description": "",
+    "QuestionType": "Instruction",
+    "SequenceNumber": 3,
+    "IsMandatory": false,
+    "Criticality": "Low",
+    "AllowComment": false,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i5",
+    "InstanceQuestion_Question": "q_c_fire_0_2"
+   }
+  },
+  {
+   "ref": "i5_q_c_fire_0_3",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "6f520300-fbde-5aab-af86-a611110ff401",
+    "Title": "Battery charge level",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 4,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i5",
+    "InstanceQuestion_Question": "q_c_fire_0_3"
+   }
+  },
+  {
+   "ref": "i5_q_c_fire_0_3_o0",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "2233ad1c-20f9-58de-bed8-4e0d2b594afc",
+    "Title": "Below 20%",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i5_q_c_fire_0_3"
+   }
+  },
+  {
+   "ref": "i5_q_c_fire_0_3_o1",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "26e8c90a-30d3-53b6-ad40-8ad3735cf320",
+    "Title": "20-60%",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i5_q_c_fire_0_3"
+   }
+  },
+  {
+   "ref": "i5_q_c_fire_0_3_o2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "fb228b17-612b-5abc-b382-535b83c88063",
+    "Title": "Above 60%",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i5_q_c_fire_0_3"
+   }
+  },
+  {
+   "ref": "i5_q_c_fire_0_4",
+   "entity": "Checklist_Instance.InstancePictureQuestion",
+   "attrs": {
+    "UUID": "4a777ba8-4440-5d8e-b7d7-a10b8ea10b95",
+    "Title": "Photo of any visible damage",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 5,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i5",
+    "InstanceQuestion_Question": "q_c_fire_0_4"
+   }
+  },
+  {
+   "ref": "i5_q_c_fire_1_0",
+   "entity": "Checklist_Instance.InstanceCheckboxQuestion",
+   "attrs": {
+    "UUID": "9e3f6c7f-581f-5dc4-89b8-7a13e25fe473",
+    "Title": "Safety equipment present",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 6,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i5",
+    "InstanceQuestion_Question": "q_c_fire_1_0"
+   }
+  },
+  {
+   "ref": "i5_q_c_fire_1_0_o0",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "74280bc2-2f6d-5bb1-90ce-0c741799f19a",
+    "Title": "Seat belt",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i5_q_c_fire_1_0"
+   }
+  },
+  {
+   "ref": "i5_q_c_fire_1_0_o1",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "a161111f-5bdc-535a-81e0-60697b4d3ad6",
+    "Title": "Warning light",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i5_q_c_fire_1_0"
+   }
+  },
+  {
+   "ref": "i5_q_c_fire_1_0_o2",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "4cae88e7-a7b3-5d73-b1de-0937221c9e32",
+    "Title": "Fire blanket",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i5_q_c_fire_1_0"
+   }
+  },
+  {
+   "ref": "i5_q_c_fire_1_1",
+   "entity": "Checklist_Instance.InstanceTextQuestion",
+   "attrs": {
+    "UUID": "6b798646-68d0-5e08-8f68-f482af6f2187",
+    "Title": "Remarks for the next shift",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 7,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerText": null,
+    "IsNumberValueRequired": false
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i5",
+    "InstanceQuestion_Question": "q_c_fire_1_1"
+   }
+  },
+  {
+   "ref": "i5_q_c_fire_1_2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "e3be09ad-3034-5d86-bdfa-0b41847412b7",
+    "Title": "Overall condition",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 8,
+    "IsMandatory": true,
+    "Criticality": "Low",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i5",
+    "InstanceQuestion_Question": "q_c_fire_1_2"
+   }
+  },
+  {
+   "ref": "i5_q_c_fire_1_2_o0",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "b946c668-0a3e-5da8-a61a-6bbb3335a43d",
+    "Title": "Good",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i5_q_c_fire_1_2"
+   }
+  },
+  {
+   "ref": "i5_q_c_fire_1_2_o1",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "6264f078-01b7-543b-b414-3339facc5e9c",
+    "Title": "Needs attention",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i5_q_c_fire_1_2"
+   }
+  },
+  {
+   "ref": "i5_q_c_fire_1_2_o2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "cf1d106f-8337-5f33-9293-a4b09a3dcfe8",
+    "Title": "Out of service",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i5_q_c_fire_1_2"
+   }
+  },
+  {
+   "ref": "i5_q_c_fire_1_3",
+   "entity": "Checklist_Instance.InstancePictureQuestion",
+   "attrs": {
+    "UUID": "c0a6ccbc-e209-5f99-bd2d-21ccb4d0060a",
+    "Title": "Photo of the data plate",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 9,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i5",
+    "InstanceQuestion_Question": "q_c_fire_1_3"
+   }
+  },
+  {
+   "ref": "h_i6",
+   "entity": "HistoryManagement.HistoryObject"
+  },
+  {
+   "ref": "hi_i6a",
+   "entity": "HistoryManagement.HistoryItem",
+   "attrs": {
+    "Subject": "Submitted",
+    "Message": "Checklist submitted by the inspector",
+    "By": "Tom Becker",
+    "currentDate": "-6d 17:00"
+   },
+   "links": {
+    "HistoryItem_HistoryObject": "h_i6"
+   }
+  },
+  {
+   "ref": "hi_i6b",
+   "entity": "HistoryManagement.HistoryItem",
+   "attrs": {
+    "Subject": "Resolved",
+    "Message": "Findings reviewed and closed by the department manager",
+    "By": "Maria Jansen",
+    "currentDate": "-5d 10:00"
+   },
+   "links": {
+    "HistoryItem_HistoryObject": "h_i6"
+   }
+  },
+  {
+   "ref": "i6",
+   "entity": "Checklist_Instance.InstanceChecklist",
+   "attrs": {
+    "UUID": "1dd939a3-6dc0-5dc9-98dc-fea7ee88ea0c",
+    "Name": "Weekly fire extinguisher check",
+    "Description": "Scheduled run of Weekly fire extinguisher check",
+    "StartDateTime": "-9d 08:00",
+    "EndDateTime": "-6d 17:00",
+    "HasEndDate": true,
+    "Status": "Resolved",
+    "IsCompliant": false,
+    "Location": "Hall 1",
+    "SubLocation": "Line A",
+    "SubmittedDateTIme": "-6d 17:00",
+    "ResolvedDateTime": "-5d 10:00"
+   },
+   "links": {
+    "InstanceChecklist_Checklist": "c_fire",
+    "InstanceChecklist_ChecklistType": "t_safety",
+    "InstanceChecklist_Employee_Responsible": "e_priya",
+    "InstanceChecklist_Employee_Resolved": "e_mgr",
+    "InstanceChecklist_HistoryObject": "h_i6"
+   }
+  },
+  {
+   "ref": "i6_q_c_fire_0_0",
+   "entity": "Checklist_Instance.InstanceCheckboxQuestion",
+   "attrs": {
+    "UUID": "43d6e331-6cc3-5bcc-8223-85385f13d442",
+    "Title": "Condition checks",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 1,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-9d 08:00",
+    "Compliant": "Compliant"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i6",
+    "InstanceQuestion_Question": "q_c_fire_0_0"
+   }
+  },
+  {
+   "ref": "i6_q_c_fire_0_0_o0",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "b762e988-93e3-5318-bf95-a7d2e99bdb92",
+    "Title": "Tyres undamaged",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i6_q_c_fire_0_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i6_q_c_fire_0_0"
+   }
+  },
+  {
+   "ref": "i6_q_c_fire_0_0_o1",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "7ce40d8f-6b82-519e-ab68-020c7877cb67",
+    "Title": "Forks free of cracks",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i6_q_c_fire_0_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i6_q_c_fire_0_0"
+   }
+  },
+  {
+   "ref": "i6_q_c_fire_0_0_o2",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "135155f5-c77e-5838-84f3-d2a73fda4cce",
+    "Title": "Horn works",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i6_q_c_fire_0_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i6_q_c_fire_0_0"
+   }
+  },
+  {
+   "ref": "i6_q_c_fire_0_0_o3",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "3432ca92-f21f-57e6-86e0-8166e106e47d",
+    "Title": "Lights work",
+    "SequenceNumber": 4
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i6_q_c_fire_0_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i6_q_c_fire_0_0"
+   }
+  },
+  {
+   "ref": "i6_q_c_fire_0_1",
+   "entity": "Checklist_Instance.InstanceTextQuestion",
+   "attrs": {
+    "UUID": "3ef8b233-812e-52c9-9ee7-b1cfb68c2d48",
+    "Title": "Hour meter reading",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 2,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-9d 08:00",
+    "Compliant": "Compliant",
+    "AnswerText": "1243",
+    "IsNumberValueRequired": true,
+    "AnswerTextNumbersOnly": 1243
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i6",
+    "InstanceQuestion_Question": "q_c_fire_0_1"
+   }
+  },
+  {
+   "ref": "i6_q_c_fire_0_2",
+   "entity": "Checklist_Instance.InstanceInstructionQuestion",
+   "attrs": {
+    "UUID": "60c0aed5-cf9e-5ffc-9959-121fe8bc212e",
+    "Title": "Park on the marked bay with forks lowered",
+    "Description": "",
+    "QuestionType": "Instruction",
+    "SequenceNumber": 3,
+    "IsMandatory": false,
+    "Criticality": "Low",
+    "AllowComment": false,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i6",
+    "InstanceQuestion_Question": "q_c_fire_0_2"
+   }
+  },
+  {
+   "ref": "i6_q_c_fire_0_3",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "278617dd-6ab2-58b1-9aed-d630e65c5531",
+    "Title": "Battery charge level",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 4,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-9d 08:00",
+    "Compliant": "NotCompliant",
+    "Comment": "Needs follow-up before next shift"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i6",
+    "InstanceQuestion_Question": "q_c_fire_0_3"
+   }
+  },
+  {
+   "ref": "i6_q_c_fire_0_3_o0",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "2782cb39-a230-5f2a-af68-b4c12529da30",
+    "Title": "Below 20%",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i6_q_c_fire_0_3"
+   }
+  },
+  {
+   "ref": "i6_q_c_fire_0_3_o1",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "7faae86e-0e3c-5592-8a64-a02d58586c33",
+    "Title": "20-60%",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i6_q_c_fire_0_3"
+   }
+  },
+  {
+   "ref": "i6_q_c_fire_0_3_o2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "edfb8ad9-ab65-5db5-acdb-248c94f337ac",
+    "Title": "Above 60%",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i6_q_c_fire_0_3",
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion_Set": "i6_q_c_fire_0_3"
+   }
+  },
+  {
+   "ref": "i6_q_c_fire_0_4",
+   "entity": "Checklist_Instance.InstancePictureQuestion",
+   "attrs": {
+    "UUID": "8c59c8db-fd63-54c7-9b9e-563fbad3b0cf",
+    "Title": "Photo of any visible damage",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 5,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-9d 08:00",
+    "Compliant": "Compliant"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i6",
+    "InstanceQuestion_Question": "q_c_fire_0_4"
+   }
+  },
+  {
+   "ref": "i6_q_c_fire_1_0",
+   "entity": "Checklist_Instance.InstanceCheckboxQuestion",
+   "attrs": {
+    "UUID": "14399d92-cb55-5d1d-9808-bf0edb46684a",
+    "Title": "Safety equipment present",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 6,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-9d 08:00",
+    "Compliant": "Compliant"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i6",
+    "InstanceQuestion_Question": "q_c_fire_1_0"
+   }
+  },
+  {
+   "ref": "i6_q_c_fire_1_0_o0",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "29c2f7eb-7f7d-5cea-a1bc-6e45a532346a",
+    "Title": "Seat belt",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i6_q_c_fire_1_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i6_q_c_fire_1_0"
+   }
+  },
+  {
+   "ref": "i6_q_c_fire_1_0_o1",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "16067e87-7796-533e-86cb-d3ff11a29944",
+    "Title": "Warning light",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i6_q_c_fire_1_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i6_q_c_fire_1_0"
+   }
+  },
+  {
+   "ref": "i6_q_c_fire_1_0_o2",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "f62f3b90-8365-558a-93ae-8ba4c6e9ce6c",
+    "Title": "Fire blanket",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i6_q_c_fire_1_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i6_q_c_fire_1_0"
+   }
+  },
+  {
+   "ref": "i6_q_c_fire_1_1",
+   "entity": "Checklist_Instance.InstanceTextQuestion",
+   "attrs": {
+    "UUID": "fbe97a85-ddd5-526c-b1a1-e7aa087418c6",
+    "Title": "Remarks for the next shift",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 7,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-9d 08:00",
+    "Compliant": "Compliant",
+    "AnswerText": "No issues",
+    "IsNumberValueRequired": false
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i6",
+    "InstanceQuestion_Question": "q_c_fire_1_1"
+   }
+  },
+  {
+   "ref": "i6_q_c_fire_1_2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "ddc13a01-3834-5310-953c-0ee2cd28aebd",
+    "Title": "Overall condition",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 8,
+    "IsMandatory": true,
+    "Criticality": "Low",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-9d 08:00",
+    "Compliant": "NotCompliant",
+    "Comment": "Needs follow-up before next shift"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i6",
+    "InstanceQuestion_Question": "q_c_fire_1_2"
+   }
+  },
+  {
+   "ref": "i6_q_c_fire_1_2_o0",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "2d4909fd-123d-5110-be19-d6fd2504ad98",
+    "Title": "Good",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i6_q_c_fire_1_2"
+   }
+  },
+  {
+   "ref": "i6_q_c_fire_1_2_o1",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "1e4ab49d-10ce-5f34-a1d6-5a1d8a3e6e26",
+    "Title": "Needs attention",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i6_q_c_fire_1_2"
+   }
+  },
+  {
+   "ref": "i6_q_c_fire_1_2_o2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "fb9ba878-e87c-5ba8-8192-56bd6e3aff6b",
+    "Title": "Out of service",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i6_q_c_fire_1_2",
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion_Set": "i6_q_c_fire_1_2"
+   }
+  },
+  {
+   "ref": "i6_q_c_fire_1_3",
+   "entity": "Checklist_Instance.InstancePictureQuestion",
+   "attrs": {
+    "UUID": "b3bf3231-76c2-59d9-9a91-9fa00dc6564a",
+    "Title": "Photo of the data plate",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 9,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-9d 08:00",
+    "Compliant": "Compliant"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i6",
+    "InstanceQuestion_Question": "q_c_fire_1_3"
+   }
+  },
+  {
+   "ref": "i7",
+   "entity": "Checklist_Instance.InstanceChecklist",
+   "attrs": {
+    "UUID": "65b5b4be-c8a1-5791-b53e-0b5a2d2c78d8",
+    "Name": "Line start-up quality gate",
+    "Description": "Scheduled run of Line start-up quality gate",
+    "StartDateTime": "-5d 07:00",
+    "EndDateTime": "-4d 15:00",
+    "HasEndDate": true,
+    "Status": "Overdue_waiting",
+    "IsCompliant": false,
+    "Location": "Hall 1",
+    "SubLocation": "Line B"
+   },
+   "links": {
+    "InstanceChecklist_Checklist": "c_gate",
+    "InstanceChecklist_ChecklistType": "t_quality",
+    "InstanceChecklist_Employee_Responsible": "e_priya"
+   }
+  },
+  {
+   "ref": "i7_q_c_gate_0_0",
+   "entity": "Checklist_Instance.InstanceCheckboxQuestion",
+   "attrs": {
+    "UUID": "6ef90f57-f7ea-5cf8-be12-232f132fb404",
+    "Title": "Condition checks",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 1,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-5d 07:00",
+    "Compliant": "Compliant"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i7",
+    "InstanceQuestion_Question": "q_c_gate_0_0"
+   }
+  },
+  {
+   "ref": "i7_q_c_gate_0_0_o0",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "54f00187-95f4-5ec8-8ee9-04934cf568fb",
+    "Title": "Tyres undamaged",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i7_q_c_gate_0_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i7_q_c_gate_0_0"
+   }
+  },
+  {
+   "ref": "i7_q_c_gate_0_0_o1",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "a1fc84b5-ddf4-544e-ba71-1191ad683a56",
+    "Title": "Forks free of cracks",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i7_q_c_gate_0_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i7_q_c_gate_0_0"
+   }
+  },
+  {
+   "ref": "i7_q_c_gate_0_0_o2",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "f9a3ed1b-a328-5f47-8148-ef75efa006b0",
+    "Title": "Horn works",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i7_q_c_gate_0_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i7_q_c_gate_0_0"
+   }
+  },
+  {
+   "ref": "i7_q_c_gate_0_0_o3",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "f95cbd1e-bf19-5e6c-a169-ad9c15a29a95",
+    "Title": "Lights work",
+    "SequenceNumber": 4
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i7_q_c_gate_0_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i7_q_c_gate_0_0"
+   }
+  },
+  {
+   "ref": "i7_q_c_gate_0_1",
+   "entity": "Checklist_Instance.InstanceTextQuestion",
+   "attrs": {
+    "UUID": "944cf946-425d-58a5-8680-2fcdb4f2713c",
+    "Title": "Hour meter reading",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 2,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-5d 07:00",
+    "Compliant": "Compliant",
+    "AnswerText": "1243",
+    "IsNumberValueRequired": true,
+    "AnswerTextNumbersOnly": 1243
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i7",
+    "InstanceQuestion_Question": "q_c_gate_0_1"
+   }
+  },
+  {
+   "ref": "i7_q_c_gate_0_2",
+   "entity": "Checklist_Instance.InstanceInstructionQuestion",
+   "attrs": {
+    "UUID": "29e1e9c1-6368-5a2c-8815-fa13b5d95381",
+    "Title": "Park on the marked bay with forks lowered",
+    "Description": "",
+    "QuestionType": "Instruction",
+    "SequenceNumber": 3,
+    "IsMandatory": false,
+    "Criticality": "Low",
+    "AllowComment": false,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i7",
+    "InstanceQuestion_Question": "q_c_gate_0_2"
+   }
+  },
+  {
+   "ref": "i7_q_c_gate_0_3",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "f3a9447c-0472-5a9a-a96b-f915194d1b38",
+    "Title": "Battery charge level",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 4,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-5d 07:00",
+    "Compliant": "Compliant"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i7",
+    "InstanceQuestion_Question": "q_c_gate_0_3"
+   }
+  },
+  {
+   "ref": "i7_q_c_gate_0_3_o0",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "1ee453ea-2d06-5591-90e1-bf65aa1b4e55",
+    "Title": "Below 20%",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i7_q_c_gate_0_3"
+   }
+  },
+  {
+   "ref": "i7_q_c_gate_0_3_o1",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "79389d72-a282-5aee-93a6-8765fa1fba4d",
+    "Title": "20-60%",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i7_q_c_gate_0_3"
+   }
+  },
+  {
+   "ref": "i7_q_c_gate_0_3_o2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "cbd49f48-5719-5dea-aaae-efcbaefb6237",
+    "Title": "Above 60%",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i7_q_c_gate_0_3",
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion_Set": "i7_q_c_gate_0_3"
+   }
+  },
+  {
+   "ref": "i7_q_c_gate_0_4",
+   "entity": "Checklist_Instance.InstancePictureQuestion",
+   "attrs": {
+    "UUID": "e087eb09-fe80-5903-933e-55c3a592092b",
+    "Title": "Photo of any visible damage",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 5,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i7",
+    "InstanceQuestion_Question": "q_c_gate_0_4"
+   }
+  },
+  {
+   "ref": "i7_q_c_gate_1_0",
+   "entity": "Checklist_Instance.InstanceCheckboxQuestion",
+   "attrs": {
+    "UUID": "405c2073-8b08-5c56-b4c6-4ca2570b5ee1",
+    "Title": "Safety equipment present",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 6,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i7",
+    "InstanceQuestion_Question": "q_c_gate_1_0"
+   }
+  },
+  {
+   "ref": "i7_q_c_gate_1_0_o0",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "7f0af7bd-9de2-5a8c-9e8d-6f87e676e980",
+    "Title": "Seat belt",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i7_q_c_gate_1_0"
+   }
+  },
+  {
+   "ref": "i7_q_c_gate_1_0_o1",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "c162cd7c-c349-5cfc-af21-bd77c0a49fab",
+    "Title": "Warning light",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i7_q_c_gate_1_0"
+   }
+  },
+  {
+   "ref": "i7_q_c_gate_1_0_o2",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "644cc667-fada-5ba0-8fc0-6d350cb6eb03",
+    "Title": "Fire blanket",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i7_q_c_gate_1_0"
+   }
+  },
+  {
+   "ref": "i7_q_c_gate_1_1",
+   "entity": "Checklist_Instance.InstanceTextQuestion",
+   "attrs": {
+    "UUID": "c724b69c-39e2-58de-a98c-de752d4e0493",
+    "Title": "Remarks for the next shift",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 7,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerText": null,
+    "IsNumberValueRequired": false
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i7",
+    "InstanceQuestion_Question": "q_c_gate_1_1"
+   }
+  },
+  {
+   "ref": "i7_q_c_gate_1_2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "f6e1106b-78e3-5130-a5fd-e9530fb75c59",
+    "Title": "Overall condition",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 8,
+    "IsMandatory": true,
+    "Criticality": "Low",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i7",
+    "InstanceQuestion_Question": "q_c_gate_1_2"
+   }
+  },
+  {
+   "ref": "i7_q_c_gate_1_2_o0",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "0307274c-f3f6-5db4-a015-18f2212010c1",
+    "Title": "Good",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i7_q_c_gate_1_2"
+   }
+  },
+  {
+   "ref": "i7_q_c_gate_1_2_o1",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "c7785fc3-5f97-5d8c-8e4c-e85f857ecdd6",
+    "Title": "Needs attention",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i7_q_c_gate_1_2"
+   }
+  },
+  {
+   "ref": "i7_q_c_gate_1_2_o2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "a3cd106e-dffe-5754-92f1-c65f8cc57063",
+    "Title": "Out of service",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i7_q_c_gate_1_2"
+   }
+  },
+  {
+   "ref": "i7_q_c_gate_1_3",
+   "entity": "Checklist_Instance.InstancePictureQuestion",
+   "attrs": {
+    "UUID": "ce998093-464b-51e2-bfcc-5ad28d993630",
+    "Title": "Photo of the data plate",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 9,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i7",
+    "InstanceQuestion_Question": "q_c_gate_1_3"
+   }
+  },
+  {
+   "ref": "h_i8",
+   "entity": "HistoryManagement.HistoryObject"
+  },
+  {
+   "ref": "hi_i8a",
+   "entity": "HistoryManagement.HistoryItem",
+   "attrs": {
+    "Subject": "Submitted",
+    "Message": "Checklist submitted by the inspector",
+    "By": "Tom Becker",
+    "currentDate": "-7d 15:00"
+   },
+   "links": {
+    "HistoryItem_HistoryObject": "h_i8"
+   }
+  },
+  {
+   "ref": "i8",
+   "entity": "Checklist_Instance.InstanceChecklist",
+   "attrs": {
+    "UUID": "e1103fe3-6c5b-5def-b791-39cb6bdcdf18",
+    "Name": "Line start-up quality gate",
+    "Description": "Scheduled run of Line start-up quality gate",
+    "StartDateTime": "-8d 07:00",
+    "EndDateTime": "-7d 15:00",
+    "HasEndDate": true,
+    "Status": "Overdue_done",
+    "IsCompliant": true,
+    "Location": "Hall 1",
+    "SubLocation": "Line B",
+    "SubmittedDateTIme": "-7d 15:00"
+   },
+   "links": {
+    "InstanceChecklist_Checklist": "c_gate",
+    "InstanceChecklist_ChecklistType": "t_quality",
+    "InstanceChecklist_Employee_Responsible": "e_tom",
+    "InstanceChecklist_HistoryObject": "h_i8"
+   }
+  },
+  {
+   "ref": "i8_q_c_gate_0_0",
+   "entity": "Checklist_Instance.InstanceCheckboxQuestion",
+   "attrs": {
+    "UUID": "98611b36-7edb-5bff-af57-ce0f881ebcf6",
+    "Title": "Condition checks",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 1,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-8d 07:00",
+    "Compliant": "Compliant"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i8",
+    "InstanceQuestion_Question": "q_c_gate_0_0"
+   }
+  },
+  {
+   "ref": "i8_q_c_gate_0_0_o0",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "9efe0011-e983-5831-a493-66a87872f47b",
+    "Title": "Tyres undamaged",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i8_q_c_gate_0_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i8_q_c_gate_0_0"
+   }
+  },
+  {
+   "ref": "i8_q_c_gate_0_0_o1",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "3d219884-0145-50eb-934d-547e0255441f",
+    "Title": "Forks free of cracks",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i8_q_c_gate_0_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i8_q_c_gate_0_0"
+   }
+  },
+  {
+   "ref": "i8_q_c_gate_0_0_o2",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "69d24906-94be-5e5c-ba76-bdb9a7177686",
+    "Title": "Horn works",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i8_q_c_gate_0_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i8_q_c_gate_0_0"
+   }
+  },
+  {
+   "ref": "i8_q_c_gate_0_0_o3",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "41b160f8-d1f6-5332-8659-c8f719f4d1c0",
+    "Title": "Lights work",
+    "SequenceNumber": 4
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i8_q_c_gate_0_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i8_q_c_gate_0_0"
+   }
+  },
+  {
+   "ref": "i8_q_c_gate_0_1",
+   "entity": "Checklist_Instance.InstanceTextQuestion",
+   "attrs": {
+    "UUID": "69976fcc-04e1-58e7-afef-1397c5fbc7d2",
+    "Title": "Hour meter reading",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 2,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-8d 07:00",
+    "Compliant": "Compliant",
+    "AnswerText": "1243",
+    "IsNumberValueRequired": true,
+    "AnswerTextNumbersOnly": 1243
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i8",
+    "InstanceQuestion_Question": "q_c_gate_0_1"
+   }
+  },
+  {
+   "ref": "i8_q_c_gate_0_2",
+   "entity": "Checklist_Instance.InstanceInstructionQuestion",
+   "attrs": {
+    "UUID": "17132f1e-f66f-5cf8-9f9c-01e04ce79e77",
+    "Title": "Park on the marked bay with forks lowered",
+    "Description": "",
+    "QuestionType": "Instruction",
+    "SequenceNumber": 3,
+    "IsMandatory": false,
+    "Criticality": "Low",
+    "AllowComment": false,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i8",
+    "InstanceQuestion_Question": "q_c_gate_0_2"
+   }
+  },
+  {
+   "ref": "i8_q_c_gate_0_3",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "1abe7597-da83-502a-9ccb-fd30a72cce94",
+    "Title": "Battery charge level",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 4,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-8d 07:00",
+    "Compliant": "Compliant"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i8",
+    "InstanceQuestion_Question": "q_c_gate_0_3"
+   }
+  },
+  {
+   "ref": "i8_q_c_gate_0_3_o0",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "46b0696f-af9b-5477-815e-eff69f9163ed",
+    "Title": "Below 20%",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i8_q_c_gate_0_3"
+   }
+  },
+  {
+   "ref": "i8_q_c_gate_0_3_o1",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "4f6be964-92bf-56e1-aaf8-fcdbb7b3705c",
+    "Title": "20-60%",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i8_q_c_gate_0_3"
+   }
+  },
+  {
+   "ref": "i8_q_c_gate_0_3_o2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "e731cc96-c38b-5a89-ba12-9c43d6b37eea",
+    "Title": "Above 60%",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i8_q_c_gate_0_3",
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion_Set": "i8_q_c_gate_0_3"
+   }
+  },
+  {
+   "ref": "i8_q_c_gate_0_4",
+   "entity": "Checklist_Instance.InstancePictureQuestion",
+   "attrs": {
+    "UUID": "c25f0d3d-4cf8-548b-9b2a-4a9a74f643c7",
+    "Title": "Photo of any visible damage",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 5,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-8d 07:00",
+    "Compliant": "Compliant"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i8",
+    "InstanceQuestion_Question": "q_c_gate_0_4"
+   }
+  },
+  {
+   "ref": "i8_q_c_gate_1_0",
+   "entity": "Checklist_Instance.InstanceCheckboxQuestion",
+   "attrs": {
+    "UUID": "d51824bb-f2a8-5326-879e-802d6d28056b",
+    "Title": "Safety equipment present",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 6,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-8d 07:00",
+    "Compliant": "Compliant"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i8",
+    "InstanceQuestion_Question": "q_c_gate_1_0"
+   }
+  },
+  {
+   "ref": "i8_q_c_gate_1_0_o0",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "6f6ac3c1-edf5-5e7d-8e76-4348df2518cf",
+    "Title": "Seat belt",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i8_q_c_gate_1_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i8_q_c_gate_1_0"
+   }
+  },
+  {
+   "ref": "i8_q_c_gate_1_0_o1",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "92f4c248-d1eb-5624-9f08-083d604036a5",
+    "Title": "Warning light",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i8_q_c_gate_1_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i8_q_c_gate_1_0"
+   }
+  },
+  {
+   "ref": "i8_q_c_gate_1_0_o2",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "bedff36f-8ee4-5851-ba5a-3fdb4074d7b0",
+    "Title": "Fire blanket",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i8_q_c_gate_1_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i8_q_c_gate_1_0"
+   }
+  },
+  {
+   "ref": "i8_q_c_gate_1_1",
+   "entity": "Checklist_Instance.InstanceTextQuestion",
+   "attrs": {
+    "UUID": "81a1082d-b901-5c40-be29-3cf4dc1352f5",
+    "Title": "Remarks for the next shift",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 7,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-8d 07:00",
+    "Compliant": "Compliant",
+    "AnswerText": "No issues",
+    "IsNumberValueRequired": false
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i8",
+    "InstanceQuestion_Question": "q_c_gate_1_1"
+   }
+  },
+  {
+   "ref": "i8_q_c_gate_1_2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "6c5318c1-ae60-5773-96fe-3ba17587742d",
+    "Title": "Overall condition",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 8,
+    "IsMandatory": true,
+    "Criticality": "Low",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-8d 07:00",
+    "Compliant": "Compliant"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i8",
+    "InstanceQuestion_Question": "q_c_gate_1_2"
+   }
+  },
+  {
+   "ref": "i8_q_c_gate_1_2_o0",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "a485cd5e-f52f-557e-be4d-f4360c9f711b",
+    "Title": "Good",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i8_q_c_gate_1_2"
+   }
+  },
+  {
+   "ref": "i8_q_c_gate_1_2_o1",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "c1eee66e-bfd3-5e9b-81f5-c33a99901a92",
+    "Title": "Needs attention",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i8_q_c_gate_1_2"
+   }
+  },
+  {
+   "ref": "i8_q_c_gate_1_2_o2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "607d32be-6ffb-5219-aaa3-9f9ba81ab92b",
+    "Title": "Out of service",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i8_q_c_gate_1_2",
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion_Set": "i8_q_c_gate_1_2"
+   }
+  },
+  {
+   "ref": "i8_q_c_gate_1_3",
+   "entity": "Checklist_Instance.InstancePictureQuestion",
+   "attrs": {
+    "UUID": "3f14ff90-d34b-51e6-8c7a-f65f8ad78790",
+    "Title": "Photo of the data plate",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 9,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-8d 07:00",
+    "Compliant": "Compliant"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i8",
+    "InstanceQuestion_Question": "q_c_gate_1_3"
+   }
+  },
+  {
+   "ref": "i9",
+   "entity": "Checklist_Instance.InstanceChecklist",
+   "attrs": {
+    "UUID": "8d06ed02-40ef-5eba-b28c-02b01b63f2d2",
+    "Name": "5S audit goods-in",
+    "Description": "Scheduled run of 5S audit goods-in",
+    "StartDateTime": "-0d 09:00",
+    "EndDateTime": "+25d 17:00",
+    "HasEndDate": true,
+    "Status": "_New",
+    "IsCompliant": false,
+    "Location": "Hall 2",
+    "SubLocation": "Goods-in"
+   },
+   "links": {
+    "InstanceChecklist_Checklist": "c_5s",
+    "InstanceChecklist_ChecklistType": "t_house",
+    "InstanceChecklist_Employee_Responsible": "e_tom"
+   }
+  },
+  {
+   "ref": "i9_q_c_5s_0_0",
+   "entity": "Checklist_Instance.InstanceCheckboxQuestion",
+   "attrs": {
+    "UUID": "ebf1680c-4d0e-5e13-8c74-a869f7791251",
+    "Title": "Condition checks",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 1,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i9",
+    "InstanceQuestion_Question": "q_c_5s_0_0"
+   }
+  },
+  {
+   "ref": "i9_q_c_5s_0_0_o0",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "2b8868ec-d72e-5913-98d6-794453eac042",
+    "Title": "Tyres undamaged",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i9_q_c_5s_0_0"
+   }
+  },
+  {
+   "ref": "i9_q_c_5s_0_0_o1",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "d63119d4-31e6-52e7-a0ac-09aa83457bf5",
+    "Title": "Forks free of cracks",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i9_q_c_5s_0_0"
+   }
+  },
+  {
+   "ref": "i9_q_c_5s_0_0_o2",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "6b8f0ddb-6e01-51c2-86a6-c89a24834995",
+    "Title": "Horn works",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i9_q_c_5s_0_0"
+   }
+  },
+  {
+   "ref": "i9_q_c_5s_0_0_o3",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "ca1f434e-59aa-51e6-a6d4-9a801a0e97e8",
+    "Title": "Lights work",
+    "SequenceNumber": 4
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i9_q_c_5s_0_0"
+   }
+  },
+  {
+   "ref": "i9_q_c_5s_0_1",
+   "entity": "Checklist_Instance.InstanceTextQuestion",
+   "attrs": {
+    "UUID": "8d3b07dc-f8b7-5b03-b447-fd3b377b647d",
+    "Title": "Hour meter reading",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 2,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerText": null,
+    "IsNumberValueRequired": true
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i9",
+    "InstanceQuestion_Question": "q_c_5s_0_1"
+   }
+  },
+  {
+   "ref": "i9_q_c_5s_0_2",
+   "entity": "Checklist_Instance.InstanceInstructionQuestion",
+   "attrs": {
+    "UUID": "70f968e0-78a0-58b1-8c66-66515d5b63eb",
+    "Title": "Park on the marked bay with forks lowered",
+    "Description": "",
+    "QuestionType": "Instruction",
+    "SequenceNumber": 3,
+    "IsMandatory": false,
+    "Criticality": "Low",
+    "AllowComment": false,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i9",
+    "InstanceQuestion_Question": "q_c_5s_0_2"
+   }
+  },
+  {
+   "ref": "i9_q_c_5s_0_3",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "a0a38410-6602-5145-b4ca-19c818cf1dcf",
+    "Title": "Battery charge level",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 4,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i9",
+    "InstanceQuestion_Question": "q_c_5s_0_3"
+   }
+  },
+  {
+   "ref": "i9_q_c_5s_0_3_o0",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "ebce1105-b3fb-5f3b-88e6-5babc550f088",
+    "Title": "Below 20%",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i9_q_c_5s_0_3"
+   }
+  },
+  {
+   "ref": "i9_q_c_5s_0_3_o1",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "b38f415b-c840-55e3-84dd-7d05b04b3d13",
+    "Title": "20-60%",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i9_q_c_5s_0_3"
+   }
+  },
+  {
+   "ref": "i9_q_c_5s_0_3_o2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "b0da9cbc-09ac-5a65-a01a-dc77607c6f8d",
+    "Title": "Above 60%",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i9_q_c_5s_0_3"
+   }
+  },
+  {
+   "ref": "i9_q_c_5s_0_4",
+   "entity": "Checklist_Instance.InstancePictureQuestion",
+   "attrs": {
+    "UUID": "0e46f800-f56d-5485-8e3d-7c364e07a037",
+    "Title": "Photo of any visible damage",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 5,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i9",
+    "InstanceQuestion_Question": "q_c_5s_0_4"
+   }
+  },
+  {
+   "ref": "i9_q_c_5s_1_0",
+   "entity": "Checklist_Instance.InstanceCheckboxQuestion",
+   "attrs": {
+    "UUID": "5d4c68bf-4cb7-572d-a22d-7f22c2411127",
+    "Title": "Safety equipment present",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 6,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i9",
+    "InstanceQuestion_Question": "q_c_5s_1_0"
+   }
+  },
+  {
+   "ref": "i9_q_c_5s_1_0_o0",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "4f682bee-7703-544c-a947-aa534ddbce63",
+    "Title": "Seat belt",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i9_q_c_5s_1_0"
+   }
+  },
+  {
+   "ref": "i9_q_c_5s_1_0_o1",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "85a70a22-54fa-5fc5-b298-53aa264583e0",
+    "Title": "Warning light",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i9_q_c_5s_1_0"
+   }
+  },
+  {
+   "ref": "i9_q_c_5s_1_0_o2",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "3406119b-b1be-579e-b2ca-15a66ddb2379",
+    "Title": "Fire blanket",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i9_q_c_5s_1_0"
+   }
+  },
+  {
+   "ref": "i9_q_c_5s_1_1",
+   "entity": "Checklist_Instance.InstanceTextQuestion",
+   "attrs": {
+    "UUID": "4937cd25-c334-5175-9fe4-b3d5537f0285",
+    "Title": "Remarks for the next shift",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 7,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerText": null,
+    "IsNumberValueRequired": false
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i9",
+    "InstanceQuestion_Question": "q_c_5s_1_1"
+   }
+  },
+  {
+   "ref": "i9_q_c_5s_1_2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "9697d403-35e6-566d-8cbc-441894bc0340",
+    "Title": "Overall condition",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 8,
+    "IsMandatory": true,
+    "Criticality": "Low",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i9",
+    "InstanceQuestion_Question": "q_c_5s_1_2"
+   }
+  },
+  {
+   "ref": "i9_q_c_5s_1_2_o0",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "414d9a43-8663-5085-9391-ba8b9ab57800",
+    "Title": "Good",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i9_q_c_5s_1_2"
+   }
+  },
+  {
+   "ref": "i9_q_c_5s_1_2_o1",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "4b949092-27af-5603-a68d-eba6488d8b57",
+    "Title": "Needs attention",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i9_q_c_5s_1_2"
+   }
+  },
+  {
+   "ref": "i9_q_c_5s_1_2_o2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "77db3d66-11a2-56a4-b77e-a2114e20115a",
+    "Title": "Out of service",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i9_q_c_5s_1_2"
+   }
+  },
+  {
+   "ref": "i9_q_c_5s_1_3",
+   "entity": "Checklist_Instance.InstancePictureQuestion",
+   "attrs": {
+    "UUID": "ceb33b0b-0c49-5af8-ac12-138397156e27",
+    "Title": "Photo of the data plate",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 9,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i9",
+    "InstanceQuestion_Question": "q_c_5s_1_3"
+   }
+  },
+  {
+   "ref": "h_i10",
+   "entity": "HistoryManagement.HistoryObject"
+  },
+  {
+   "ref": "hi_i10a",
+   "entity": "HistoryManagement.HistoryItem",
+   "attrs": {
+    "Subject": "Submitted",
+    "Message": "Checklist submitted by the inspector",
+    "By": "Tom Becker",
+    "currentDate": "-1d 17:00"
+   },
+   "links": {
+    "HistoryItem_HistoryObject": "h_i10"
+   }
+  },
+  {
+   "ref": "i10",
+   "entity": "Checklist_Instance.InstanceChecklist",
+   "attrs": {
+    "UUID": "0f56d230-6e98-5a7b-ba70-3f6b363a2289",
+    "Name": "5S audit goods-in",
+    "Description": "Scheduled run of 5S audit goods-in",
+    "StartDateTime": "-2d 09:00",
+    "EndDateTime": "-1d 17:00",
+    "HasEndDate": true,
+    "Status": "Submitted",
+    "IsCompliant": true,
+    "Location": "Hall 2",
+    "SubLocation": "Goods-in",
+    "SubmittedDateTIme": "-1d 17:00"
+   },
+   "links": {
+    "InstanceChecklist_Checklist": "c_5s",
+    "InstanceChecklist_ChecklistType": "t_house",
+    "InstanceChecklist_Employee_Responsible": "e_lars",
+    "InstanceChecklist_HistoryObject": "h_i10"
+   }
+  },
+  {
+   "ref": "i10_q_c_5s_0_0",
+   "entity": "Checklist_Instance.InstanceCheckboxQuestion",
+   "attrs": {
+    "UUID": "32be1705-3b3e-5d56-bc9d-e86aebcbd7f2",
+    "Title": "Condition checks",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 1,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-2d 09:00",
+    "Compliant": "Compliant"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i10",
+    "InstanceQuestion_Question": "q_c_5s_0_0"
+   }
+  },
+  {
+   "ref": "i10_q_c_5s_0_0_o0",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "b980528b-891c-5f44-b130-5a57ae24f105",
+    "Title": "Tyres undamaged",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i10_q_c_5s_0_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i10_q_c_5s_0_0"
+   }
+  },
+  {
+   "ref": "i10_q_c_5s_0_0_o1",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "362bcbd8-f63e-5d24-a0b8-8977f7419f15",
+    "Title": "Forks free of cracks",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i10_q_c_5s_0_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i10_q_c_5s_0_0"
+   }
+  },
+  {
+   "ref": "i10_q_c_5s_0_0_o2",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "462ad40e-6c7f-5aa6-8e85-f5b2daf6f17e",
+    "Title": "Horn works",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i10_q_c_5s_0_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i10_q_c_5s_0_0"
+   }
+  },
+  {
+   "ref": "i10_q_c_5s_0_0_o3",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "074a29d7-911d-5e9f-9c21-7f55bd9caab1",
+    "Title": "Lights work",
+    "SequenceNumber": 4
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i10_q_c_5s_0_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i10_q_c_5s_0_0"
+   }
+  },
+  {
+   "ref": "i10_q_c_5s_0_1",
+   "entity": "Checklist_Instance.InstanceTextQuestion",
+   "attrs": {
+    "UUID": "5d52c474-03db-5235-a447-904977106f96",
+    "Title": "Hour meter reading",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 2,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-2d 09:00",
+    "Compliant": "Compliant",
+    "AnswerText": "1243",
+    "IsNumberValueRequired": true,
+    "AnswerTextNumbersOnly": 1243
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i10",
+    "InstanceQuestion_Question": "q_c_5s_0_1"
+   }
+  },
+  {
+   "ref": "i10_q_c_5s_0_2",
+   "entity": "Checklist_Instance.InstanceInstructionQuestion",
+   "attrs": {
+    "UUID": "4e0c9b17-4bc5-52ac-829d-9b7f355e0637",
+    "Title": "Park on the marked bay with forks lowered",
+    "Description": "",
+    "QuestionType": "Instruction",
+    "SequenceNumber": 3,
+    "IsMandatory": false,
+    "Criticality": "Low",
+    "AllowComment": false,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i10",
+    "InstanceQuestion_Question": "q_c_5s_0_2"
+   }
+  },
+  {
+   "ref": "i10_q_c_5s_0_3",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "42518f6d-1b10-559c-81c2-05f7c12a84c2",
+    "Title": "Battery charge level",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 4,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-2d 09:00",
+    "Compliant": "Compliant"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i10",
+    "InstanceQuestion_Question": "q_c_5s_0_3"
+   }
+  },
+  {
+   "ref": "i10_q_c_5s_0_3_o0",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "7f27f14c-7a4b-5f36-a0e2-45c845345090",
+    "Title": "Below 20%",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i10_q_c_5s_0_3"
+   }
+  },
+  {
+   "ref": "i10_q_c_5s_0_3_o1",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "3b8bd56e-03e0-58a6-896c-e50a21f26549",
+    "Title": "20-60%",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i10_q_c_5s_0_3"
+   }
+  },
+  {
+   "ref": "i10_q_c_5s_0_3_o2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "0c3883f2-5a3f-5a4d-94cd-eb0e3f572049",
+    "Title": "Above 60%",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i10_q_c_5s_0_3",
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion_Set": "i10_q_c_5s_0_3"
+   }
+  },
+  {
+   "ref": "i10_q_c_5s_0_4",
+   "entity": "Checklist_Instance.InstancePictureQuestion",
+   "attrs": {
+    "UUID": "2cf9afe0-5bcb-5440-84e6-0a696971fa43",
+    "Title": "Photo of any visible damage",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 5,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-2d 09:00",
+    "Compliant": "Compliant"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i10",
+    "InstanceQuestion_Question": "q_c_5s_0_4"
+   }
+  },
+  {
+   "ref": "i10_q_c_5s_1_0",
+   "entity": "Checklist_Instance.InstanceCheckboxQuestion",
+   "attrs": {
+    "UUID": "4b723721-a6df-58d0-9dcd-ca5ffebcf3de",
+    "Title": "Safety equipment present",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 6,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-2d 09:00",
+    "Compliant": "Compliant"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i10",
+    "InstanceQuestion_Question": "q_c_5s_1_0"
+   }
+  },
+  {
+   "ref": "i10_q_c_5s_1_0_o0",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "864b0c2b-86fa-53c5-b91f-140e7dd9d53d",
+    "Title": "Seat belt",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i10_q_c_5s_1_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i10_q_c_5s_1_0"
+   }
+  },
+  {
+   "ref": "i10_q_c_5s_1_0_o1",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "bb2b74c2-7069-5ce5-a0e3-016f8a762cf0",
+    "Title": "Warning light",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i10_q_c_5s_1_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i10_q_c_5s_1_0"
+   }
+  },
+  {
+   "ref": "i10_q_c_5s_1_0_o2",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "f2fc9b94-b802-575d-b6f0-9c6f6dbbf760",
+    "Title": "Fire blanket",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i10_q_c_5s_1_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i10_q_c_5s_1_0"
+   }
+  },
+  {
+   "ref": "i10_q_c_5s_1_1",
+   "entity": "Checklist_Instance.InstanceTextQuestion",
+   "attrs": {
+    "UUID": "f10b75cc-1552-5200-ab59-b487ef781cad",
+    "Title": "Remarks for the next shift",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 7,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-2d 09:00",
+    "Compliant": "Compliant",
+    "AnswerText": "No issues",
+    "IsNumberValueRequired": false
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i10",
+    "InstanceQuestion_Question": "q_c_5s_1_1"
+   }
+  },
+  {
+   "ref": "i10_q_c_5s_1_2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "7792c089-a3a2-5d53-8d64-c5d762e9f743",
+    "Title": "Overall condition",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 8,
+    "IsMandatory": true,
+    "Criticality": "Low",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-2d 09:00",
+    "Compliant": "Compliant"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i10",
+    "InstanceQuestion_Question": "q_c_5s_1_2"
+   }
+  },
+  {
+   "ref": "i10_q_c_5s_1_2_o0",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "7e5566a1-307b-5bee-ab61-a607c58dba6c",
+    "Title": "Good",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i10_q_c_5s_1_2"
+   }
+  },
+  {
+   "ref": "i10_q_c_5s_1_2_o1",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "e220bcb3-bd3c-5341-9d6b-4d72e274be42",
+    "Title": "Needs attention",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i10_q_c_5s_1_2"
+   }
+  },
+  {
+   "ref": "i10_q_c_5s_1_2_o2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "2607dc39-60b1-5309-b531-fd20b212bf48",
+    "Title": "Out of service",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i10_q_c_5s_1_2",
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion_Set": "i10_q_c_5s_1_2"
+   }
+  },
+  {
+   "ref": "i10_q_c_5s_1_3",
+   "entity": "Checklist_Instance.InstancePictureQuestion",
+   "attrs": {
+    "UUID": "eb97b8e7-1d59-5d85-9437-7fa1d69bfbbb",
+    "Title": "Photo of the data plate",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 9,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-2d 09:00",
+    "Compliant": "Compliant"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i10",
+    "InstanceQuestion_Question": "q_c_5s_1_3"
+   }
+  },
+  {
+   "ref": "h_i11",
+   "entity": "HistoryManagement.HistoryObject"
+  },
+  {
+   "ref": "hi_i11a",
+   "entity": "HistoryManagement.HistoryItem",
+   "attrs": {
+    "Subject": "Submitted",
+    "Message": "Checklist submitted by the inspector",
+    "By": "Tom Becker",
+    "currentDate": "-1d 17:00"
+   },
+   "links": {
+    "HistoryItem_HistoryObject": "h_i11"
+   }
+  },
+  {
+   "ref": "i11",
+   "entity": "Checklist_Instance.InstanceChecklist",
+   "attrs": {
+    "UUID": "3aaa5f9b-6960-5ae3-bc77-fc1479cfc829",
+    "Name": "Lab calibration log",
+    "Description": "Scheduled run of Lab calibration log",
+    "StartDateTime": "-2d 10:00",
+    "EndDateTime": "-1d 17:00",
+    "HasEndDate": true,
+    "Status": "Submitted",
+    "IsCompliant": false,
+    "Location": "Lab",
+    "SubLocation": "Room 3",
+    "SubmittedDateTIme": "-1d 17:00"
+   },
+   "links": {
+    "InstanceChecklist_Checklist": "c_cal",
+    "InstanceChecklist_ChecklistType": "t_quality",
+    "InstanceChecklist_Employee_Responsible": "e_chen",
+    "InstanceChecklist_HistoryObject": "h_i11"
+   }
+  },
+  {
+   "ref": "i11_q_c_cal_0_0",
+   "entity": "Checklist_Instance.InstanceCheckboxQuestion",
+   "attrs": {
+    "UUID": "0f331ea2-d655-575e-8b0c-f853df456bf2",
+    "Title": "Condition checks",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 1,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-2d 10:00",
+    "Compliant": "Compliant"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i11",
+    "InstanceQuestion_Question": "q_c_cal_0_0"
+   }
+  },
+  {
+   "ref": "i11_q_c_cal_0_0_o0",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "12d83768-a747-5a79-9db8-7a0b168fed56",
+    "Title": "Tyres undamaged",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i11_q_c_cal_0_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i11_q_c_cal_0_0"
+   }
+  },
+  {
+   "ref": "i11_q_c_cal_0_0_o1",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "b4c6d5f1-f15e-56f5-812c-81a48ee51c3d",
+    "Title": "Forks free of cracks",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i11_q_c_cal_0_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i11_q_c_cal_0_0"
+   }
+  },
+  {
+   "ref": "i11_q_c_cal_0_0_o2",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "aee647b1-f2bb-505f-9828-71ad6fa31014",
+    "Title": "Horn works",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i11_q_c_cal_0_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i11_q_c_cal_0_0"
+   }
+  },
+  {
+   "ref": "i11_q_c_cal_0_0_o3",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "c21cecf9-9908-5cab-a38f-2a18e9dd4c09",
+    "Title": "Lights work",
+    "SequenceNumber": 4
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i11_q_c_cal_0_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i11_q_c_cal_0_0"
+   }
+  },
+  {
+   "ref": "i11_q_c_cal_0_1",
+   "entity": "Checklist_Instance.InstanceTextQuestion",
+   "attrs": {
+    "UUID": "eabfb8be-b915-5e6a-928e-69e7a3a3de07",
+    "Title": "Hour meter reading",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 2,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-2d 10:00",
+    "Compliant": "NotCompliant",
+    "Comment": "Needs follow-up before next shift",
+    "AnswerText": "1243",
+    "IsNumberValueRequired": true,
+    "AnswerTextNumbersOnly": 1243
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i11",
+    "InstanceQuestion_Question": "q_c_cal_0_1"
+   }
+  },
+  {
+   "ref": "i11_q_c_cal_0_2",
+   "entity": "Checklist_Instance.InstanceInstructionQuestion",
+   "attrs": {
+    "UUID": "cbcc1a4f-8cc3-5939-96fb-613414f91821",
+    "Title": "Park on the marked bay with forks lowered",
+    "Description": "",
+    "QuestionType": "Instruction",
+    "SequenceNumber": 3,
+    "IsMandatory": false,
+    "Criticality": "Low",
+    "AllowComment": false,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i11",
+    "InstanceQuestion_Question": "q_c_cal_0_2"
+   }
+  },
+  {
+   "ref": "i11_q_c_cal_0_3",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "da190e21-9e2b-5800-aa11-4ca3b4b3260e",
+    "Title": "Battery charge level",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 4,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-2d 10:00",
+    "Compliant": "NotCompliant",
+    "Comment": "Needs follow-up before next shift"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i11",
+    "InstanceQuestion_Question": "q_c_cal_0_3"
+   }
+  },
+  {
+   "ref": "i11_q_c_cal_0_3_o0",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "6cbd865c-eb04-5809-bebc-bd39788522f2",
+    "Title": "Below 20%",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i11_q_c_cal_0_3"
+   }
+  },
+  {
+   "ref": "i11_q_c_cal_0_3_o1",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "ac502839-c6e6-5ff5-abaa-c2a8c7249ff6",
+    "Title": "20-60%",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i11_q_c_cal_0_3"
+   }
+  },
+  {
+   "ref": "i11_q_c_cal_0_3_o2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "64894995-bda4-53df-bb5f-a26e887d1213",
+    "Title": "Above 60%",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i11_q_c_cal_0_3",
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion_Set": "i11_q_c_cal_0_3"
+   }
+  },
+  {
+   "ref": "i11_q_c_cal_0_4",
+   "entity": "Checklist_Instance.InstancePictureQuestion",
+   "attrs": {
+    "UUID": "3381467a-7aee-5d79-b953-01b71940acba",
+    "Title": "Photo of any visible damage",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 5,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-2d 10:00",
+    "Compliant": "Compliant"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i11",
+    "InstanceQuestion_Question": "q_c_cal_0_4"
+   }
+  },
+  {
+   "ref": "i11_q_c_cal_1_0",
+   "entity": "Checklist_Instance.InstanceCheckboxQuestion",
+   "attrs": {
+    "UUID": "b29d60e0-3c00-505f-a54d-91cb48b34ac2",
+    "Title": "Safety equipment present",
+    "Description": "",
+    "QuestionType": "Checkbox",
+    "SequenceNumber": 6,
+    "IsMandatory": true,
+    "Criticality": "High",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-2d 10:00",
+    "Compliant": "Compliant"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i11",
+    "InstanceQuestion_Question": "q_c_cal_1_0"
+   }
+  },
+  {
+   "ref": "i11_q_c_cal_1_0_o0",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "6b0183ef-315b-5eb7-825b-1a7f9780f290",
+    "Title": "Seat belt",
+    "SequenceNumber": 1
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i11_q_c_cal_1_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i11_q_c_cal_1_0"
+   }
+  },
+  {
+   "ref": "i11_q_c_cal_1_0_o1",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "07954b80-3dde-5085-90c6-e264259abcd8",
+    "Title": "Warning light",
+    "SequenceNumber": 2
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i11_q_c_cal_1_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i11_q_c_cal_1_0"
+   }
+  },
+  {
+   "ref": "i11_q_c_cal_1_0_o2",
+   "entity": "Checklist_Instance.InstanceCheckboxOption",
+   "attrs": {
+    "UUID": "339e1c1a-12e2-5f52-9938-6db92751948c",
+    "Title": "Fire blanket",
+    "SequenceNumber": 3
+   },
+   "links": {
+    "InstanceCheckboxOption_InstanceCheckboxQuestion": "i11_q_c_cal_1_0",
+    "InstanceCheckboxOption_InstanceCheckboxQuestion_Set": "i11_q_c_cal_1_0"
+   }
+  },
+  {
+   "ref": "i11_q_c_cal_1_1",
+   "entity": "Checklist_Instance.InstanceTextQuestion",
+   "attrs": {
+    "UUID": "c9ea6e69-3ef9-572f-bc94-2a4b560f1dc2",
+    "Title": "Remarks for the next shift",
+    "Description": "",
+    "QuestionType": "Text",
+    "SequenceNumber": 7,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-2d 10:00",
+    "Compliant": "Compliant",
+    "AnswerText": "No issues",
+    "IsNumberValueRequired": false
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i11",
+    "InstanceQuestion_Question": "q_c_cal_1_1"
+   }
+  },
+  {
+   "ref": "i11_q_c_cal_1_2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceQuestion",
+   "attrs": {
+    "UUID": "013b5ecb-2abb-5d7c-889c-b97c4bf0420b",
+    "Title": "Overall condition",
+    "Description": "",
+    "QuestionType": "Multiple_choice",
+    "SequenceNumber": 8,
+    "IsMandatory": true,
+    "Criticality": "Low",
+    "AllowComment": true,
+    "AllowImages": false,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-2d 10:00",
+    "Compliant": "NotCompliant",
+    "Comment": "Needs follow-up before next shift"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i11",
+    "InstanceQuestion_Question": "q_c_cal_1_2"
+   }
+  },
+  {
+   "ref": "i11_q_c_cal_1_2_o0",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "66765708-124d-5d55-a20c-e8fd1fb8a955",
+    "Title": "Good",
+    "SequenceNumber": 1,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i11_q_c_cal_1_2"
+   }
+  },
+  {
+   "ref": "i11_q_c_cal_1_2_o1",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "c5e0e83f-1753-5944-ac70-1e96726f3b3d",
+    "Title": "Needs attention",
+    "SequenceNumber": 2,
+    "CorrectAnswer": false
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i11_q_c_cal_1_2"
+   }
+  },
+  {
+   "ref": "i11_q_c_cal_1_2_o2",
+   "entity": "Checklist_Instance.InstanceMultipleChoiceOption",
+   "attrs": {
+    "UUID": "38365b75-9f54-5a7b-8b39-1750043ea36e",
+    "Title": "Out of service",
+    "SequenceNumber": 3,
+    "CorrectAnswer": true
+   },
+   "links": {
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion": "i11_q_c_cal_1_2",
+    "InstanceMultipleChoiceOption_InstanceMultipleChoiceQuestion_Set": "i11_q_c_cal_1_2"
+   }
+  },
+  {
+   "ref": "i11_q_c_cal_1_3",
+   "entity": "Checklist_Instance.InstancePictureQuestion",
+   "attrs": {
+    "UUID": "92c944dc-6dc2-5fd9-88f8-b354ff27d834",
+    "Title": "Photo of the data plate",
+    "Description": "",
+    "QuestionType": "Picture",
+    "SequenceNumber": 9,
+    "IsMandatory": true,
+    "Criticality": "Medium",
+    "AllowComment": true,
+    "AllowImages": true,
+    "PositiveOption": "Yes",
+    "NegativeOption": "No",
+    "AnswerDateTime": "-2d 10:00",
+    "Compliant": "Compliant"
+   },
+   "links": {
+    "InstanceQuestion_InstanceChecklist": "i11",
+    "InstanceQuestion_Question": "q_c_cal_1_3"
+   }
+  }
+ ]
+}

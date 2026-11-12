@@ -1,0 +1,2 @@
+{"from": "keptdeps-ok.json", "ops": [
+  ["set", "files", {"javasource/updconn/actions/Translate.java": "package updconn.actions;\n\nimport authmod.proxies.Credential;\nimport authmod.proxies.microflows.Microflows;\n\npublic class Translate {\n  void f() throws Exception { Microflows.aCT_Sign(null); Microflows.gone(1); }\n}\n"}]]}

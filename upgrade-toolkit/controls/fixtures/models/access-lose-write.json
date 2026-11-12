@@ -1,0 +1,1 @@
+{"from": "access-base.json", "ops": [["set", "modules/0/entities/1/access/0/members/0/1", "ReadOnly"]]}

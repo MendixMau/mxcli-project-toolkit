@@ -1,0 +1,1 @@
+D3: Gridmod 2.0.0 (classic widget, its logger was removed in the new client) breaks the Order_Detail page; afterwalk REGRESSION. Rework needed: replace with the built-in print element (about 12 units).

@@ -1,0 +1,184 @@
+# admin part from the first run (admin runs first on intact data), other roles from a separate run on a fresh copy
+PASS act-Administration.ChangePasswordForm.microflowButton1 
+FAIL act-DemoUserSwitcher.User_SelectDemoUser.gallery1 FAIL open DemoUserSwitcher.User_SelectDemoUser via Switch user: reached ".mx-name-gallery1" never appeared — screenshot act-DemoUserSwitcher.User_Sele
+FAIL act-EmployeeManagement.Employee_Edit.actionButton5 FAIL open EmployeeManagement.Employee_Overview via Employee: reached ".mx-name-actionButton3" never appeared — screenshot act-EmployeeManagement.Emplo
+FAIL act-EmployeeManagement.Employee_Edit.actionButton6 FAIL open EmployeeManagement.Employee_Overview via Employee: reached ".mx-name-actionButton3" never appeared — screenshot act-EmployeeManagement.Emplo
+FAIL act-EmployeeManagement.Employee_Edit.microflowButton1 FAIL open EmployeeManagement.Employee_Overview via Employee: reached ".mx-name-actionButton3" never appeared — screenshot act-EmployeeManagement.Emplo
+FAIL act-EmployeeManagement.Employee_Edit.microflowTrigger2 FAIL open EmployeeManagement.Employee_Overview via Employee: reached ".mx-name-actionButton3" never appeared — screenshot act-EmployeeManagement.Emplo
+PASS act-EmployeeManagement.Employee_New.actionButton5 
+FAIL act-EmployeeManagement.Employee_New.actionButton6 FAIL open EmployeeManagement.Employee_New: reached ".mx-name-actionButton6" never appeared — screenshot act-EmployeeManagement.Employee_New.actionButt
+PASS act-EmployeeManagement.Employee_New.microflowButton1 
+PASS act-EmployeeManagement.Employee_New.microflowTrigger2 
+FAIL act-EmployeeManagement.Employee_Overview.actionButton2 FAIL open EmployeeManagement.Employee_Overview via Employee: reached ".mx-name-actionButton2" never appeared — screenshot act-EmployeeManagement.Emplo
+FAIL act-EmployeeManagement.Employee_Overview.actionButton3 FAIL open EmployeeManagement.Employee_Overview via Employee: reached ".mx-name-actionButton3" never appeared — screenshot act-EmployeeManagement.Emplo
+PASS act-EmployeeManagement.Employee_Overview.actionButton4 
+FAIL act-EmployeeManagement.Employee_Overview.dataGrid21 FAIL microflow 'dataGrid21' on EmployeeManagement.Employee_Overview (open-page): actions completed dataGrid21: no row to click in .mx-name-dataGrid21:
+FAIL act-EmployeeManagement.Employee_Overview.dataGrid21_2 FAIL microflow 'dataGrid21' on EmployeeManagement.Employee_Overview (no-db-effect): actions completed dataGrid21: no row to click in .mx-name-dataGrid
+PASS act-EmployeeManagement.Userrole_Select.actionButton1 
+PASS act-MES_ChecklistToGo_Theme.CompanyLogo_NewEdit.actionButton1 
+PASS act-MES_ChecklistToGo_Theme.CompanyLogo_NewEdit.actionButton2 
+PASS act-MES_ChecklistToGo_Theme.SNIP_CompanyLogo_AdminEdit.actionButton3 
+PASS act-Masterdata.ApplicationSettings_Overview.actionButton15 
+FAIL act-Masterdata.ApplicationSettings_Overview.actionButton16 FAIL role home Masterdata.ApplicationSettings_Overview > tab 'Checklist type': reached ".mx-name-actionButton16" never appeared — screenshot act-Maste
+FAIL act-Masterdata.ApplicationSettings_Overview.actionButton17 FAIL role home Masterdata.ApplicationSettings_Overview > tab 'Checklist type': reached ".mx-name-actionButton17" never appeared — screenshot act-Maste
+FAIL act-Masterdata.ApplicationSettings_Overview.actionButton5 FAIL microflow 'Delete demo data' on Masterdata.ApplicationSettings_Overview (delete): actions completed confirm: the dialog is still open after click
+FAIL act-Masterdata.ChecklistType_NewEdit.actionButton1 FAIL role home Masterdata.ApplicationSettings_Overview > tab 'Checklist type': reached ".mx-name-actionButton16" never appeared — screenshot act-Maste
+PASS login-Administrator 
+PASS sign-out 
+FAIL act-Checklist_Instance.InstanceChecklistAssignmentHelperNP_NewEdit.actionButton1 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container34" never appeared — screenshot act-Checklist_Instance.InstanceCheck
+FAIL act-Checklist_Instance.InstanceChecklistAssignmentHelperNP_NewEdit.actionButton5 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container34" never appeared — screenshot act-Checklist_Instance.InstanceCheck
+FAIL act-Checklist_Instance.InstanceChecklistAssignmentHelperNP_SelectResponsibleEmployee.actionButton1 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container34" never appeared — screenshot act-Checklist_Instance.InstanceCheck
+FAIL act-Checklist_Instance.InstanceChecklistAssignmentHelperNP_SelectResponsibleEmployee.dataGrid21 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container34" never appeared — screenshot act-Checklist_Instance.InstanceCheck
+FAIL act-Checklist_Instance.InstanceChecklistAssignmentHelperNP_SelectResponsibleEmployee.dataGrid21_2 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container34" never appeared — screenshot act-Checklist_Instance.InstanceCheck
+FAIL act-Checklist_Instance.InstanceChecklist_Details.accordion10 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Ch
+FAIL act-Checklist_Instance.InstanceChecklist_Details.accordion6 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Ch
+FAIL act-Checklist_Instance.InstanceChecklist_Details.accordion7 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Ch
+FAIL act-Checklist_Instance.InstanceChecklist_Details.accordion8 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Ch
+FAIL act-Checklist_Instance.InstanceChecklist_Details.accordion9 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Ch
+FAIL act-Checklist_Instance.InstanceChecklist_Details.actionButton1 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Ch
+FAIL act-Checklist_Instance.InstanceChecklist_Details.actionButton2 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Ch
+FAIL act-Checklist_Instance.InstanceChecklist_Details.actionButton8 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Ch
+FAIL act-Checklist_Instance.InstanceChecklist_Details.badge1 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Ch
+FAIL act-Checklist_Instance.InstanceChecklist_Details.container2 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Ch
+FAIL act-Checklist_Instance.InstanceChecklist_Reassign_SlideIn.actionButton2 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Ch
+FAIL act-Checklist_Instance.InstanceChecklist_Review.accordion1 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container2" never appeared — screenshot act-Checklist_Instance.InstanceCheckl
+FAIL act-Checklist_Instance.InstanceChecklist_Review.accordion2 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container2" never appeared — screenshot act-Checklist_Instance.InstanceCheckl
+FAIL act-Checklist_Instance.InstanceChecklist_Review.accordion3 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container2" never appeared — screenshot act-Checklist_Instance.InstanceCheckl
+FAIL act-Checklist_Instance.InstanceChecklist_Review.accordion4 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container2" never appeared — screenshot act-Checklist_Instance.InstanceCheckl
+FAIL act-Checklist_Instance.InstanceChecklist_Review.accordion5 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container2" never appeared — screenshot act-Checklist_Instance.InstanceCheckl
+FAIL act-Checklist_Instance.InstanceChecklist_Review.actionButton13 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container2" never appeared — screenshot act-Checklist_Instance.InstanceCheckl
+FAIL act-Checklist_Instance.InstanceChecklist_Review.actionButton2 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container2" never appeared — screenshot act-Checklist_Instance.InstanceCheckl
+FAIL act-Checklist_Instance.InstanceChecklist_Review.actionButton6 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container2" never appeared — screenshot act-Checklist_Instance.InstanceCheckl
+FAIL act-Checklist_Instance.InstanceChecklist_Review.actionButton8 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container2" never appeared — screenshot act-Checklist_Instance.InstanceCheckl
+FAIL act-Checklist_Instance.InstanceChecklist_Review.badge1 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container2" never appeared — screenshot act-Checklist_Instance.InstanceCheckl
+FAIL act-Checklist_Instance.InstanceChecklist_ShowHistory_RightSlideIn.actionButton1 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container2" never appeared — screenshot act-Checklist_Instance.InstanceCheckl
+FAIL act-Checklist_Instance.InstanceChecklist_SummaryAndSignature.actionButton1 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container2" never appeared — screenshot act-Checklist_Instance.InstanceCheckl
+FAIL act-Checklist_Instance.InstanceChecklist_SummaryAndSignature.actionButton2 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container2" never appeared — screenshot act-Checklist_Instance.InstanceCheckl
+FAIL act-Checklist_Instance.InstanceChecklist_SummaryAndSignature.actionButton3 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container2" never appeared — screenshot act-Checklist_Instance.InstanceCheckl
+FAIL act-Checklist_Instance.SNIP_InstanceQuestion_Reference.actionButton2 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Ch
+FAIL act-Checklist_Instance.SNIP_InstanceQuestion_ReviewButtons.actionButton11 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container2" never appeared — screenshot act-Checklist_Instance.SNIP_InstanceQ
+FAIL act-Checklist_Instance.SNIP_InstanceQuestion_ReviewButtons.actionButton12 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container2" never appeared — screenshot act-Checklist_Instance.SNIP_InstanceQ
+FAIL act-Checklist_Recurring.RepeatIntervalNP_SelectDaysOfTheMonth.container1 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Recurring.RepeatInterv
+FAIL act-Checklist_Recurring.RepeatIntervalNP_SelectDaysOfTheMonth.dataGrid21 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Recurring.RepeatInterv
+FAIL act-Checklist_Recurring.RepeatIntervalNP_SelectDaysOfTheWeek.container1 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Recurring.RepeatInterv
+FAIL act-Checklist_Recurring.RepeatIntervalNP_SelectDaysOfTheWeek.dataGrid21 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Recurring.RepeatInterv
+FAIL act-Checklist_Template.ChecklistIconHelper_NewEdit.actionButton1 FAIL open Checklist_Template.ChecklistIconHelper_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if container6: System.FileD
+FAIL act-Checklist_Template.ChecklistIconHelper_NewEdit.actionButton2 FAIL open Checklist_Template.ChecklistIconHelper_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if container6: System.FileD
+FAIL act-Checklist_Template.Checklist_Details.actionButton1 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Checklist_Det
+FAIL act-Checklist_Template.Checklist_Details.actionButton10 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Checklist_Det
+FAIL act-Checklist_Template.Checklist_Details.actionButton11 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Checklist_Det
+FAIL act-Checklist_Template.Checklist_Details.actionButton12 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Checklist_Det
+FAIL act-Checklist_Template.Checklist_Details.actionButton13 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Checklist_Det
+FAIL act-Checklist_Template.Checklist_Details.actionButton14 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Checklist_Det
+FAIL act-Checklist_Template.Checklist_Details.actionButton15 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Checklist_Det
+FAIL act-Checklist_Template.Checklist_Details.actionButton16 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Checklist_Det
+FAIL act-Checklist_Template.Checklist_Details.actionButton17 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Checklist_Det
+FAIL act-Checklist_Template.Checklist_Details.actionButton18 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Checklist_Det
+FAIL act-Checklist_Template.Checklist_Details.actionButton19 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Checklist_Det
+FAIL act-Checklist_Template.Checklist_Details.actionButton4 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Checklist_Det
+FAIL act-Checklist_Template.Checklist_Details.actionButton5 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Checklist_Det
+FAIL act-Checklist_Template.Checklist_Details.actionButton6 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Checklist_Det
+FAIL act-Checklist_Template.Checklist_Details.actionButton7 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Checklist_Det
+FAIL act-Checklist_Template.Checklist_Details.actionButton8 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Checklist_Det
+FAIL act-Checklist_Template.Checklist_Details.actionButton9 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Checklist_Det
+FAIL act-Checklist_Template.Checklist_Details.badge1 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Checklist_Det
+FAIL act-Checklist_Template.Checklist_Details.container2 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Checklist_Det
+FAIL act-Checklist_Template.Checklist_HeaderData.actionButton1 FAIL open Checklist_Template.Checklist_HeaderData: reached ".mx-name-actionButton1" never appeared — screenshot act-Checklist_Template.Checklist_Heade
+PASS act-Checklist_Template.Checklist_HeaderData.actionButton2 
+FAIL act-Checklist_Template.Checklist_HeaderData.actionButton3 FAIL microflow 'Cancel' on Checklist_Template.Checklist_HeaderData (delete): actions completed referenceSelector1: no option to choose (first asked): 
+FAIL act-Checklist_Template.Checklist_HeaderData.actionButton4 FAIL microflow 'Next step' on Checklist_Template.Checklist_HeaderData (delete): actions completed referenceSelector1: no option to choose (first asked
+FAIL act-Checklist_Template.Checklist_HeaderData.actionButton5 FAIL microflow 'Select employees' on Checklist_Template.Checklist_HeaderData (open-page): actions completed referenceSelector1: no option to choose (f
+FAIL act-Checklist_Template.Checklist_HeaderData.actionButton6 FAIL microflow 'actionButton6' on Checklist_Template.Checklist_HeaderData (create): actions completed .mx-name-actionButton6 not visible [shown only i
+PASS act-Checklist_Template.Checklist_HeaderData.container5 
+FAIL act-Checklist_Template.Checklist_HeaderData.switch1 FAIL microflow 'switch1' on Checklist_Template.Checklist_HeaderData (no-db-effect): actions completed referenceSelector1: no option to choose (first a
+FAIL act-Checklist_Template.Checklist_HeaderData_Frequency.actionButton1 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Checklist_Hea
+FAIL act-Checklist_Template.Checklist_HeaderData_Frequency.actionButton6 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Checklist_Hea
+FAIL act-Checklist_Template.Checklist_SelectResponsibleEmployee.actionButton1 FAIL open Checklist_Template.Checklist_SelectResponsibleEmployee: actions completed referenceSelector1: no option to choose (first asked): the list is
+FAIL act-Checklist_Template.Checklist_SelectResponsibleEmployee.dataGrid21 FAIL open Checklist_Template.Checklist_SelectResponsibleEmployee: actions completed referenceSelector1: no option to choose (first asked): the list is
+FAIL act-Checklist_Template.Checklist_SelectResponsibleEmployee.dataGrid21_2 FAIL open Checklist_Template.Checklist_SelectResponsibleEmployee: actions completed referenceSelector1: no option to choose (first asked): the list is
+FAIL act-Checklist_Template.ExecutedChecklists_Overview.actionButton13 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton13" never appeared — screenshot act-Ch
+FAIL act-Checklist_Template.ExecutedChecklists_Overview.actionButton14 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton14" never appeared — screenshot act-Ch
+FAIL act-Checklist_Template.ExecutedChecklists_Overview.actionButton16 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Ch
+FAIL act-Checklist_Template.ExecutedChecklists_Overview.badge1 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-badge1" never appeared — screenshot act-Checklist_
+FAIL act-Checklist_Template.ExecutedChecklists_Overview.dataGrid21 FAIL microflow 'dataGrid21' on Checklist_Template.ExecutedChecklists_Overview (no-db-effect): actions completed dataGrid21: no row to click in .mx-nam
+FAIL act-Checklist_Template.Group_New.actionButton1 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Group_New.act
+FAIL act-Checklist_Template.Group_NewEdit.actionButton49 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Group_NewEdit
+FAIL act-Checklist_Template.Group_NewEdit.actionButton50 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Group_NewEdit
+FAIL act-Checklist_Template.Group_NewEdit.actionButton51 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Group_NewEdit
+FAIL act-Checklist_Template.Group_NewEdit.actionButton52 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Group_NewEdit
+FAIL act-Checklist_Template.Group_NewEdit.actionButton53 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Group_NewEdit
+FAIL act-Checklist_Template.Group_NewEdit.actionButton55 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Group_NewEdit
+FAIL act-Checklist_Template.Group_NewEdit.actionButton56 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Group_NewEdit
+FAIL act-Checklist_Template.Group_NewEdit.actionButton57 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Group_NewEdit
+FAIL act-Checklist_Template.Group_NewEdit.actionButton58 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Group_NewEdit
+FAIL act-Checklist_Template.Group_NewEdit.actionButton59 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Group_NewEdit
+FAIL act-Checklist_Template.Group_NewEdit.actionButton61 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Group_NewEdit
+FAIL act-Checklist_Template.Group_NewEdit.actionButton62 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Group_NewEdit
+FAIL act-Checklist_Template.Group_NewEdit.actionButton63 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Group_NewEdit
+FAIL act-Checklist_Template.Group_NewEdit.actionButton64 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Group_NewEdit
+FAIL act-Checklist_Template.Group_NewEdit.actionButton65 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Group_NewEdit
+FAIL act-Checklist_Template.Group_NewEdit.actionButton66 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Group_NewEdit
+FAIL act-Checklist_Template.Group_NewEdit.actionButton67 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Group_NewEdit
+FAIL act-Checklist_Template.Group_NewEdit.actionButton68 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Group_NewEdit
+FAIL act-Checklist_Template.Group_NewEdit.actionButton69 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Group_NewEdit
+FAIL act-Checklist_Template.Group_NewEdit.actionButton70 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Group_NewEdit
+FAIL act-Checklist_Template.Group_NewEdit.actionButton71 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Group_NewEdit
+FAIL act-Checklist_Template.Group_NewEdit.actionButton72 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Group_NewEdit
+FAIL act-Checklist_Template.Group_NewEdit.actionButton73 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Group_NewEdit
+FAIL act-Checklist_Template.Group_NewEdit.actionButton74 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Group_NewEdit
+FAIL act-Checklist_Template.Group_NewEdit.actionButton75 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Group_NewEdit
+FAIL act-Checklist_Template.Group_NewEdit.container44 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Group_NewEdit
+FAIL act-Checklist_Template.Group_NewEdit.dropdownContainer3 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Group_NewEdit
+FAIL act-Checklist_Template.Group_NewEdit.dropdownContainer4 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.Group_NewEdit
+FAIL act-Checklist_Template.OverdueChecklists_Overview.actionButton13 FAIL open Checklist_Template.OverdueChecklists_Overview via Overdue checklists: reached ".mx-name-actionButton13" never appeared — screenshot act-Chec
+FAIL act-Checklist_Template.OverdueChecklists_Overview.actionButton14 FAIL open Checklist_Template.OverdueChecklists_Overview via Overdue checklists: reached ".mx-name-actionButton14" never appeared — screenshot act-Chec
+FAIL act-Checklist_Template.OverdueChecklists_Overview.actionButton16 FAIL open Checklist_Template.OverdueChecklists_Overview via Overdue checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Chec
+FAIL act-Checklist_Template.OverdueChecklists_Overview.dataGrid21 FAIL microflow 'dataGrid21' on Checklist_Template.OverdueChecklists_Overview (no-db-effect): actions completed dataGrid21: no row to click in .mx-name
+FAIL act-Checklist_Template.QuestionImage_NewEdit.actionButton1 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.QuestionImage
+FAIL act-Checklist_Template.QuestionReference_NewEdit_File.actionButton1 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.QuestionRefer
+FAIL act-Checklist_Template.QuestionReference_NewEdit_Video.actionButton1 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.QuestionRefer
+FAIL act-Checklist_Template.SNIP_AdditionalAnswerOptions.switch1 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.SNIP_Addition
+FAIL act-Checklist_Template.SNIP_AdditionalAnswerOptions.switch2 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.SNIP_Addition
+FAIL act-Checklist_Template.SNIP_AdditionalAnswerOptions.switch3 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.SNIP_Addition
+FAIL act-Checklist_Template.SNIP_Checklist_RepeatIntervalNP.actionButton10 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.SNIP_Checklis
+FAIL act-Checklist_Template.SNIP_Checklist_RepeatIntervalNP.actionButton12 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.SNIP_Checklis
+FAIL act-Checklist_Template.SNIP_Checklist_RepeatIntervalNP.actionButton13 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.SNIP_Checklis
+FAIL act-Checklist_Template.SNIP_Checklist_RepeatIntervalNP.actionButton7 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.SNIP_Checklis
+FAIL act-Checklist_Template.SNIP_Checklist_RepeatIntervalNP.actionButton8 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.SNIP_Checklis
+FAIL act-Checklist_Template.SNIP_Checklist_RepeatIntervalNP.actionButton9 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.SNIP_Checklis
+FAIL act-Checklist_Template.SNIP_QuestionImage.actionButton12 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.SNIP_Question
+FAIL act-Checklist_Template.SNIP_QuestionReference.actionButton12 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.SNIP_Question
+FAIL act-Checklist_Template.SNIP_Question_AddReference.actionButton1 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.SNIP_Question
+FAIL act-Checklist_Template.SNIP_Question_AddReference.actionButton2 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.SNIP_Question
+FAIL act-Checklist_Template.SNIP_Question_AddReference.actionButton48 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.SNIP_Question
+FAIL act-Checklist_Template.SNIP_Question_AddReference.switch1 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.SNIP_Question
+FAIL act-Checklist_Template.SNIP_Question_Controls.actionButton31 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.SNIP_Question
+FAIL act-Checklist_Template.SNIP_Question_Controls.actionButton32 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Checklist_Template.SNIP_Question
+FAIL act-Masterdata.Dashboard_DepartmentManager.actionButton2 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-actionButton2" never appeared — screenshot act-Masterdata.Dashboard_Departmen
+FAIL act-Masterdata.Dashboard_DepartmentManager.actionButton3 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-actionButton3" never appeared — screenshot act-Masterdata.Dashboard_Departmen
+FAIL act-Masterdata.Dashboard_DepartmentManager.actionButton4 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-actionButton4" never appeared — screenshot act-Masterdata.Dashboard_Departmen
+FAIL act-Masterdata.Dashboard_DepartmentManager.actionButton5 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-actionButton5" never appeared — screenshot act-Masterdata.Dashboard_Departmen
+PASS act-Masterdata.Dashboard_DepartmentManager.actionButton6 
+PASS act-Masterdata.Dashboard_DepartmentManager.actionButton7 
+FAIL act-Masterdata.Dashboard_DepartmentManager.actionButton8 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-actionButton8" never appeared — screenshot act-Masterdata.Dashboard_Departmen
+FAIL act-Masterdata.Dashboard_DepartmentManager.actionButton9 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-actionButton9" never appeared — screenshot act-Masterdata.Dashboard_Departmen
+FAIL act-Masterdata.Dashboard_DepartmentManager.container14 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container14" never appeared — screenshot act-Masterdata.Dashboard_DepartmentM
+FAIL act-Masterdata.Dashboard_DepartmentManager.container15 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container15" never appeared — screenshot act-Masterdata.Dashboard_DepartmentM
+FAIL act-Masterdata.Dashboard_DepartmentManager.container16 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container16" never appeared — screenshot act-Masterdata.Dashboard_DepartmentM
+FAIL act-Masterdata.Dashboard_DepartmentManager.container2 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container2" never appeared — screenshot act-Masterdata.Dashboard_DepartmentMa
+FAIL act-Masterdata.Dashboard_DepartmentManager.container24 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container24" never appeared — screenshot act-Masterdata.Dashboard_DepartmentM
+FAIL act-Masterdata.Dashboard_DepartmentManager.container34 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container34" never appeared — screenshot act-Masterdata.Dashboard_DepartmentM
+FAIL act-Masterdata.Dashboard_DepartmentManager.controllableTabContainer2 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-controllableTabContainer2" never appeared — screenshot act-Masterdata.Dashboa
+PASS act-Masterdata.Department_NewEdit.actionButton1 
+PASS act-Masterdata.Department_NewEdit.actionButton2 
+FAIL act-Mobile_Inspector.SNIP_InstanceChecklist_Status.badge1 FAIL open Checklist_Template.OverdueChecklists_Overview via Overdue checklists: reached ".mx-name-badge1" never appeared — screenshot act-Mobile_Inspe
+FAIL act-Mobile_Inspector.SNIP_InstanceChecklist_Status.badge2 FAIL open Checklist_Template.OverdueChecklists_Overview via Overdue checklists: reached ".mx-name-badge2" never appeared — screenshot act-Mobile_Inspe
+FAIL act-Mobile_Inspector.SNIP_InstanceChecklist_Status.badge3 FAIL open Checklist_Template.OverdueChecklists_Overview via Overdue checklists: reached ".mx-name-badge3" never appeared — screenshot act-Mobile_Inspe
+FAIL act-Mobile_Inspector.SNIP_InstanceChecklist_Status.badge4 FAIL open Checklist_Template.OverdueChecklists_Overview via Overdue checklists: reached ".mx-name-badge4" never appeared — screenshot act-Mobile_Inspe
+FAIL act-Mobile_Inspector.SNIP_InstanceChecklist_Status.badge5 FAIL open Checklist_Template.OverdueChecklists_Overview via Overdue checklists: reached ".mx-name-badge5" never appeared — screenshot act-Mobile_Inspe
+FAIL act-Mobile_Inspector.SNIP_InstanceChecklist_Status.badge6 FAIL open Checklist_Template.OverdueChecklists_Overview via Overdue checklists: reached ".mx-name-badge6" never appeared — screenshot act-Mobile_Inspe
+FAIL act-Mobile_Inspector.SNIP_InstanceChecklist_Status.badge7 FAIL open Checklist_Template.OverdueChecklists_Overview via Overdue checklists: reached ".mx-name-badge7" never appeared — screenshot act-Mobile_Inspe
+FAIL act-Mobile_Inspector.SNIP_InstanceQuestion_CompliantOrNotCompliant.badge1 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Mo
+FAIL act-Mobile_Inspector.SNIP_InstanceQuestion_CompliantOrNotCompliant.badge2 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Mo
+PASS login-DepartmentManager 
+PASS login-Inspector 

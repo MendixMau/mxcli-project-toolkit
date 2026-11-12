@@ -1,0 +1,10 @@
+alter snippet PurchaseApprovals.Comments_TaskInbox {
+  replace text17 with {
+    dynamictext text17 (
+      Content: '{1}',
+      ContentParams: ({1} = System.owner/Name),
+      Class: 'd-block',
+      DesignProperties: ('Color': 'Brand Primary', 'Weight': 'Bold')
+    )
+  };
+};

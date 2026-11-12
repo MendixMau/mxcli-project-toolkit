@@ -1,0 +1,7 @@
+key	title	match	jump	option	action	effort	risk	evidence	test	mode	apply	regate	source	verified
+fx-card	Fixture symptom on the overview page	(?i)fixture symptom	any	A	pin the fixture module	S	r	e	t	AUTO-TRY	append fixA to App.mpr and move the widget	build,idcheck	RT-10	yes (fixture)
+fx-card	Fixture symptom on the overview page	(?i)fixture symptom	any	B	swap the fixture widget	S	r	e	t	AUTO-TRY	append fixB to App.mpr	build,idcheck,eye	RT-10	yes (fixture)
+fx-card	Fixture symptom on the overview page	(?i)fixture symptom	any	B2	swap with release rows	S	r	e	t	AUTO-TRY	append fixB2 to App.mpr	build,release	RT-10	yes (fixture)
+fx-card	Fixture symptom on the overview page	(?i)fixture symptom	any	B3	swap that breaks mx check	S	r	e	t	AUTO-TRY	append fixB3 to App.mpr	build	RT-10	yes (fixture)
+fx-card	Fixture symptom on the overview page	(?i)fixture symptom	any	B4	swap whose idcheck is not judged	S	r	e	t	AUTO-TRY	append fixB4 to App.mpr	build,idcheck	RT-10	yes (fixture)
+fx-card	Fixture symptom on the overview page	(?i)fixture symptom	any	C	rebuild the page	M	r	e	t	HUMAN	-	build,smoke	RT-10	no

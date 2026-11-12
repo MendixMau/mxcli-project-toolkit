@@ -1,0 +1,296 @@
+{
+ "tool": "action_inventory.py",
+ "model": "scope-model/App.mpr",
+ "summary": {
+  "actions": 11
+ },
+ "summary_line": "actions 11 found",
+ "actions": [
+  {
+   "id": "Shop.Home.btnA",
+   "host": "Shop.Home",
+   "host_type": "Page",
+   "widget": "btnA",
+   "widget_type": "ActionButton",
+   "caption": "btnA",
+   "action": "microflow",
+   "target": null,
+   "kind": "commit",
+   "effects": [],
+   "path": [
+    {
+     "entry": "Home"
+    }
+   ],
+   "path_text": "as Clerk: menu: Home -> click btnA",
+   "roles": [
+    "Clerk"
+   ],
+   "fields": [],
+   "needs": [],
+   "todo": [],
+   "unknown": [],
+   "via_pages": [
+    "Shop.Home"
+   ]
+  },
+  {
+   "id": "Shop.OrderEdit.save",
+   "host": "Shop.OrderEdit",
+   "host_type": "Page",
+   "widget": "save",
+   "widget_type": "ActionButton",
+   "caption": "save",
+   "action": "microflow",
+   "target": null,
+   "kind": "commit",
+   "effects": [],
+   "path": null,
+   "path_text": null,
+   "roles": [
+    "Clerk"
+   ],
+   "fields": [],
+   "needs": [],
+   "todo": [
+    "no-click-path (a non-click caller reaches it: entry_reach)"
+   ],
+   "unknown": [],
+   "via_pages": [
+    "Shop.OrderEdit"
+   ]
+  },
+  {
+   "id": "Shop.Orphan.btn",
+   "host": "Shop.Orphan",
+   "host_type": "Page",
+   "widget": "btn",
+   "widget_type": "ActionButton",
+   "caption": "btn",
+   "action": "microflow",
+   "target": null,
+   "kind": "commit",
+   "effects": [],
+   "path": null,
+   "path_text": null,
+   "roles": [
+    "Clerk"
+   ],
+   "fields": [],
+   "needs": [],
+   "todo": [
+    "no-click-path (a non-click caller reaches it: entry_reach)"
+   ],
+   "unknown": [],
+   "via_pages": [
+    "Shop.Orphan"
+   ]
+  },
+  {
+   "id": "Shop.Orphan_Child.btn",
+   "host": "Shop.Orphan_Child",
+   "host_type": "Page",
+   "widget": "btn",
+   "widget_type": "ActionButton",
+   "caption": "btn",
+   "action": "microflow",
+   "target": null,
+   "kind": "commit",
+   "effects": [],
+   "path": null,
+   "path_text": null,
+   "roles": [
+    "Clerk"
+   ],
+   "fields": [],
+   "needs": [],
+   "todo": [
+    "no-click-path (a non-click caller reaches it: entry_reach)"
+   ],
+   "unknown": [],
+   "via_pages": [
+    "Shop.Orphan_Child"
+   ]
+  },
+  {
+   "id": "Shop.ViaExcluded.btn",
+   "host": "Shop.ViaExcluded",
+   "host_type": "Page",
+   "widget": "btn",
+   "widget_type": "ActionButton",
+   "caption": "btn",
+   "action": "microflow",
+   "target": null,
+   "kind": "commit",
+   "effects": [],
+   "path": null,
+   "path_text": null,
+   "roles": [
+    "Clerk"
+   ],
+   "fields": [],
+   "needs": [],
+   "todo": [
+    "no-click-path (a non-click caller reaches it: entry_reach)"
+   ],
+   "unknown": [],
+   "via_pages": [
+    "Shop.ViaExcluded"
+   ]
+  },
+  {
+   "id": "Shop.CodeOpened.btn",
+   "host": "Shop.CodeOpened",
+   "host_type": "Page",
+   "widget": "btn",
+   "widget_type": "ActionButton",
+   "caption": "btn",
+   "action": "microflow",
+   "target": null,
+   "kind": "commit",
+   "effects": [],
+   "path": null,
+   "path_text": null,
+   "roles": [
+    "Clerk"
+   ],
+   "fields": [],
+   "needs": [],
+   "todo": [
+    "no-click-path (a non-click caller reaches it: entry_reach)"
+   ],
+   "unknown": [],
+   "via_pages": [
+    "Shop.CodeOpened"
+   ]
+  },
+  {
+   "id": "Shop.NoRolePage.btn",
+   "host": "Shop.NoRolePage",
+   "host_type": "Page",
+   "widget": "btn",
+   "widget_type": "ActionButton",
+   "caption": "btn",
+   "action": "microflow",
+   "target": null,
+   "kind": "commit",
+   "effects": [],
+   "path": null,
+   "path_text": null,
+   "roles": [],
+   "fields": [],
+   "needs": [],
+   "todo": [
+    "no-click-path (a non-click caller reaches it: entry_reach)"
+   ],
+   "unknown": [],
+   "via_pages": [
+    "Shop.NoRolePage"
+   ]
+  },
+  {
+   "id": "Administration.Account_Overview.btn",
+   "host": "Administration.Account_Overview",
+   "host_type": "Page",
+   "widget": "btn",
+   "widget_type": "ActionButton",
+   "caption": "btn",
+   "action": "microflow",
+   "target": null,
+   "kind": "commit",
+   "effects": [],
+   "path": null,
+   "path_text": null,
+   "roles": [
+    "Clerk"
+   ],
+   "fields": [],
+   "needs": [],
+   "todo": [
+    "no-click-path (a non-click caller reaches it: entry_reach)"
+   ],
+   "unknown": [],
+   "via_pages": [
+    "Administration.Account_Overview"
+   ]
+  },
+  {
+   "id": "Administration.Custom.btn",
+   "host": "Administration.Custom",
+   "host_type": "Page",
+   "widget": "btn",
+   "widget_type": "ActionButton",
+   "caption": "btn",
+   "action": "microflow",
+   "target": null,
+   "kind": "commit",
+   "effects": [],
+   "path": null,
+   "path_text": null,
+   "roles": [
+    "Clerk"
+   ],
+   "fields": [],
+   "needs": [],
+   "todo": [
+    "no-click-path (a non-click caller reaches it: entry_reach)"
+   ],
+   "unknown": [],
+   "via_pages": [
+    "Administration.Custom"
+   ]
+  },
+  {
+   "id": "MxModelReflection.MxObject_Overview.btn",
+   "host": "MxModelReflection.MxObject_Overview",
+   "host_type": "Page",
+   "widget": "btn",
+   "widget_type": "ActionButton",
+   "caption": "btn",
+   "action": "microflow",
+   "target": null,
+   "kind": "commit",
+   "effects": [],
+   "path": null,
+   "path_text": null,
+   "roles": [
+    "Clerk"
+   ],
+   "fields": [],
+   "needs": [],
+   "todo": [
+    "no-click-path (a non-click caller reaches it: entry_reach)"
+   ],
+   "unknown": [],
+   "via_pages": [
+    "MxModelReflection.MxObject_Overview"
+   ]
+  },
+  {
+   "id": "UserCommons.Settings.btn",
+   "host": "UserCommons.Settings",
+   "host_type": "Page",
+   "widget": "btn",
+   "widget_type": "ActionButton",
+   "caption": "btn",
+   "action": "microflow",
+   "target": null,
+   "kind": "commit",
+   "effects": [],
+   "path": null,
+   "path_text": null,
+   "roles": [
+    "Clerk"
+   ],
+   "fields": [],
+   "needs": [],
+   "todo": [
+    "no-click-path (a non-click caller reaches it: entry_reach)"
+   ],
+   "unknown": [],
+   "via_pages": [
+    "UserCommons.Settings"
+   ]
+  }
+ ]
+}

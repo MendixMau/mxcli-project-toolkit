@@ -1,0 +1,184 @@
+# admin part from the first run (admin runs first on intact data), other roles from a separate run on a fresh copy
+PASS act-Administration.ChangePasswordForm.microflowButton1 
+FAIL act-DemoUserSwitcher.User_SelectDemoUser.gallery1 FAIL open DemoUserSwitcher.User_SelectDemoUser via Switch user: reached ".mx-name-gallery1" never appeared — screenshot act-DemoUserSwitcher.User_Sele
+PASS act-EmployeeManagement.Employee_Edit.actionButton5 
+PASS act-EmployeeManagement.Employee_Edit.actionButton6 
+PASS act-EmployeeManagement.Employee_Edit.microflowButton1 
+PASS act-EmployeeManagement.Employee_Edit.microflowTrigger2 
+PASS act-EmployeeManagement.Employee_New.actionButton5 
+FAIL act-EmployeeManagement.Employee_New.actionButton6 FAIL open EmployeeManagement.Employee_New: reached ".mx-name-actionButton6" never appeared — screenshot act-EmployeeManagement.Employee_New.actionButt
+PASS act-EmployeeManagement.Employee_New.microflowButton1 
+PASS act-EmployeeManagement.Employee_New.microflowTrigger2 
+FAIL act-EmployeeManagement.Employee_Overview.actionButton2 FAIL microflow 'actionButton2' on EmployeeManagement.Employee_Overview (delete): actions completed confirm: the dialog is still open after clicking "P
+PASS act-EmployeeManagement.Employee_Overview.actionButton3 
+PASS act-EmployeeManagement.Employee_Overview.actionButton4 
+FAIL act-EmployeeManagement.Employee_Overview.dataGrid21 FAIL microflow 'dataGrid21' on EmployeeManagement.Employee_Overview (open-page): actions completed dataGrid21: 4 row element(s) render in .mx-name-dat
+FAIL act-EmployeeManagement.Employee_Overview.dataGrid21_2 FAIL microflow 'dataGrid21' on EmployeeManagement.Employee_Overview (no-db-effect): actions completed dataGrid21: 4 row element(s) render in .mx-name-
+PASS act-EmployeeManagement.Userrole_Select.actionButton1 
+PASS act-MES_ChecklistToGo_Theme.CompanyLogo_NewEdit.actionButton1 
+PASS act-MES_ChecklistToGo_Theme.CompanyLogo_NewEdit.actionButton2 
+PASS act-MES_ChecklistToGo_Theme.SNIP_CompanyLogo_AdminEdit.actionButton3 
+PASS act-Masterdata.ApplicationSettings_Overview.actionButton15 
+FAIL act-Masterdata.ApplicationSettings_Overview.actionButton16 FAIL role home Masterdata.ApplicationSettings_Overview > tab 'Checklist type': reached ".mx-name-actionButton16" never appeared — screenshot act-Maste
+FAIL act-Masterdata.ApplicationSettings_Overview.actionButton17 FAIL role home Masterdata.ApplicationSettings_Overview > tab 'Checklist type': reached ".mx-name-actionButton17" never appeared — screenshot act-Maste
+PASS act-Masterdata.ApplicationSettings_Overview.actionButton5 
+FAIL act-Masterdata.ChecklistType_NewEdit.actionButton1 FAIL role home Masterdata.ApplicationSettings_Overview > tab 'Checklist type': reached ".mx-name-actionButton16" never appeared — screenshot act-Maste
+PASS login-Administrator 
+PASS sign-out 
+FAIL act-Checklist_Instance.InstanceChecklistAssignmentHelperNP_NewEdit.actionButton1 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container34" never appeared — screenshot act-Checklist_Instance.InstanceCheck
+FAIL act-Checklist_Instance.InstanceChecklistAssignmentHelperNP_NewEdit.actionButton5 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container34" never appeared — screenshot act-Checklist_Instance.InstanceCheck
+FAIL act-Checklist_Instance.InstanceChecklistAssignmentHelperNP_SelectResponsibleEmployee.actionButton1 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container34" never appeared — screenshot act-Checklist_Instance.InstanceCheck
+FAIL act-Checklist_Instance.InstanceChecklistAssignmentHelperNP_SelectResponsibleEmployee.dataGrid21 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container34" never appeared — screenshot act-Checklist_Instance.InstanceCheck
+FAIL act-Checklist_Instance.InstanceChecklistAssignmentHelperNP_SelectResponsibleEmployee.dataGrid21_2 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container34" never appeared — screenshot act-Checklist_Instance.InstanceCheck
+FAIL act-Checklist_Instance.InstanceChecklist_Details.accordion10 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Ch
+FAIL act-Checklist_Instance.InstanceChecklist_Details.accordion6 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Ch
+FAIL act-Checklist_Instance.InstanceChecklist_Details.accordion7 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Ch
+FAIL act-Checklist_Instance.InstanceChecklist_Details.accordion8 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Ch
+FAIL act-Checklist_Instance.InstanceChecklist_Details.accordion9 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Ch
+FAIL act-Checklist_Instance.InstanceChecklist_Details.actionButton1 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Ch
+FAIL act-Checklist_Instance.InstanceChecklist_Details.actionButton2 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Ch
+FAIL act-Checklist_Instance.InstanceChecklist_Details.actionButton8 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Ch
+FAIL act-Checklist_Instance.InstanceChecklist_Details.badge1 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Ch
+FAIL act-Checklist_Instance.InstanceChecklist_Details.container2 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Ch
+FAIL act-Checklist_Instance.InstanceChecklist_Reassign_SlideIn.actionButton2 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Ch
+FAIL act-Checklist_Instance.InstanceChecklist_Review.accordion1 FAIL open Checklist_Instance.InstanceChecklist_Review: reached ".mx-name-accordion1" never appeared — screenshot act-Checklist_Instance.InstanceCheckl
+FAIL act-Checklist_Instance.InstanceChecklist_Review.accordion2 FAIL open Checklist_Instance.InstanceChecklist_Review: reached ".mx-name-accordion2" never appeared — screenshot act-Checklist_Instance.InstanceCheckl
+FAIL act-Checklist_Instance.InstanceChecklist_Review.accordion3 FAIL open Checklist_Instance.InstanceChecklist_Review: reached ".mx-name-accordion3" never appeared — screenshot act-Checklist_Instance.InstanceCheckl
+FAIL act-Checklist_Instance.InstanceChecklist_Review.accordion4 FAIL open Checklist_Instance.InstanceChecklist_Review: reached ".mx-name-accordion4" never appeared — screenshot act-Checklist_Instance.InstanceCheckl
+FAIL act-Checklist_Instance.InstanceChecklist_Review.accordion5 FAIL open Checklist_Instance.InstanceChecklist_Review: reached ".mx-name-accordion5" never appeared — screenshot act-Checklist_Instance.InstanceCheckl
+FAIL act-Checklist_Instance.InstanceChecklist_Review.actionButton13 FAIL open Checklist_Instance.InstanceChecklist_Review: reached ".mx-name-actionButton13" never appeared — screenshot act-Checklist_Instance.InstanceCh
+FAIL act-Checklist_Instance.InstanceChecklist_Review.actionButton2 FAIL open Checklist_Instance.InstanceChecklist_Review: reached ".mx-name-dataView8" never appeared — screenshot act-Checklist_Instance.InstanceCheckli
+FAIL act-Checklist_Instance.InstanceChecklist_Review.actionButton6 FAIL open Checklist_Instance.InstanceChecklist_Review: reached ".mx-name-dataView8" never appeared — screenshot act-Checklist_Instance.InstanceCheckli
+FAIL act-Checklist_Instance.InstanceChecklist_Review.actionButton8 FAIL open Checklist_Instance.InstanceChecklist_Review: reached ".mx-name-dataView8" never appeared — screenshot act-Checklist_Instance.InstanceCheckli
+FAIL act-Checklist_Instance.InstanceChecklist_Review.badge1 FAIL open Checklist_Instance.InstanceChecklist_Review: reached ".mx-name-badge1" never appeared — screenshot act-Checklist_Instance.InstanceChecklist_
+FAIL act-Checklist_Instance.InstanceChecklist_ShowHistory_RightSlideIn.actionButton1 FAIL open Checklist_Instance.InstanceChecklist_Review: reached ".mx-name-dataView8" never appeared — screenshot act-Checklist_Instance.InstanceCheckli
+FAIL act-Checklist_Instance.InstanceChecklist_SummaryAndSignature.actionButton1 FAIL open Checklist_Instance.InstanceChecklist_Review: reached ".mx-name-actionButton13" never appeared — screenshot act-Checklist_Instance.InstanceCh
+FAIL act-Checklist_Instance.InstanceChecklist_SummaryAndSignature.actionButton2 FAIL open Checklist_Instance.InstanceChecklist_Review: reached ".mx-name-actionButton13" never appeared — screenshot act-Checklist_Instance.InstanceCh
+FAIL act-Checklist_Instance.InstanceChecklist_SummaryAndSignature.actionButton3 FAIL open Checklist_Instance.InstanceChecklist_Review: reached ".mx-name-actionButton13" never appeared — screenshot act-Checklist_Instance.InstanceCh
+FAIL act-Checklist_Instance.SNIP_InstanceQuestion_Reference.actionButton2 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Ch
+FAIL act-Checklist_Instance.SNIP_InstanceQuestion_ReviewButtons.actionButton11 FAIL open Checklist_Instance.InstanceChecklist_Review: reached ".mx-name-actionButton11" never appeared — screenshot act-Checklist_Instance.SNIP_Insta
+FAIL act-Checklist_Instance.SNIP_InstanceQuestion_ReviewButtons.actionButton12 FAIL open Checklist_Instance.InstanceChecklist_Review: reached ".mx-name-actionButton12" never appeared — screenshot act-Checklist_Instance.SNIP_Insta
+PASS act-Checklist_Recurring.RepeatIntervalNP_SelectDaysOfTheMonth.container1 
+PASS act-Checklist_Recurring.RepeatIntervalNP_SelectDaysOfTheMonth.dataGrid21 
+PASS act-Checklist_Recurring.RepeatIntervalNP_SelectDaysOfTheWeek.container1 
+PASS act-Checklist_Recurring.RepeatIntervalNP_SelectDaysOfTheWeek.dataGrid21 
+FAIL act-Checklist_Template.ChecklistIconHelper_NewEdit.actionButton1 FAIL open Checklist_Template.ChecklistIconHelper_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if container6: System.FileD
+FAIL act-Checklist_Template.ChecklistIconHelper_NewEdit.actionButton2 FAIL open Checklist_Template.ChecklistIconHelper_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if container6: System.FileD
+FAIL act-Checklist_Template.Checklist_Details.actionButton1 FAIL open Checklist_Template.Checklist_Details: reached ".mx-name-actionButton1" never appeared — screenshot act-Checklist_Template.Checklist_Details.
+FAIL act-Checklist_Template.Checklist_Details.actionButton10 FAIL open Checklist_Template.Checklist_Details: reached ".mx-name-actionButton10" never appeared — screenshot act-Checklist_Template.Checklist_Details
+FAIL act-Checklist_Template.Checklist_Details.actionButton11 FAIL open Checklist_Template.Checklist_Details: reached ".mx-name-actionButton11" never appeared — screenshot act-Checklist_Template.Checklist_Details
+FAIL act-Checklist_Template.Checklist_Details.actionButton12 FAIL open Checklist_Template.Checklist_Details: reached ".mx-name-actionButton12" never appeared — screenshot act-Checklist_Template.Checklist_Details
+PASS act-Checklist_Template.Checklist_Details.actionButton13 
+FAIL act-Checklist_Template.Checklist_Details.actionButton14 FAIL open Checklist_Template.Checklist_Details > tab 'Filled out checklists': reached ".mx-name-actionButton14" never appeared — screenshot act-Checkl
+PASS act-Checklist_Template.Checklist_Details.actionButton15 
+FAIL act-Checklist_Template.Checklist_Details.actionButton16 FAIL open Checklist_Template.Checklist_Details > tab 'Filled out checklists': reached ".mx-name-actionButton16" never appeared — screenshot act-Checkl
+PASS act-Checklist_Template.Checklist_Details.actionButton17 
+PASS act-Checklist_Template.Checklist_Details.actionButton18 
+FAIL act-Checklist_Template.Checklist_Details.actionButton19 FAIL open Checklist_Template.Checklist_Details: reached ".mx-name-actionButton19" never appeared — screenshot act-Checklist_Template.Checklist_Details
+FAIL act-Checklist_Template.Checklist_Details.actionButton4 FAIL microflow 'Activate' on Checklist_Template.Checklist_Details (commit): actions completed .mx-name-actionButton4 not visible [shown only if action
+FAIL act-Checklist_Template.Checklist_Details.actionButton5 FAIL microflow 'Edit details' on Checklist_Template.Checklist_Details (create): actions completed .mx-name-actionButton5 not visible [shown only if ac
+FAIL act-Checklist_Template.Checklist_Details.actionButton6 FAIL microflow 'Edit questions' on Checklist_Template.Checklist_Details (open-page): actions completed .mx-name-actionButton6 not visible [shown only 
+FAIL act-Checklist_Template.Checklist_Details.actionButton7 FAIL microflow ' ' on Checklist_Template.Checklist_Details (delete): actions completed .mx-name-actionButton7 not visible [shown only if actionButton7
+FAIL act-Checklist_Template.Checklist_Details.actionButton8 FAIL microflow ' ' on Checklist_Template.Checklist_Details (delete): actions completed .mx-name-actionButton8 not visible [shown only if container14: 
+FAIL act-Checklist_Template.Checklist_Details.actionButton9 FAIL microflow ' ' on Checklist_Template.Checklist_Details (commit): actions completed .mx-name-actionButton9 not visible [shown only if container13: 
+PASS act-Checklist_Template.Checklist_Details.badge1 
+PASS act-Checklist_Template.Checklist_Details.container2 
+FAIL act-Checklist_Template.Checklist_HeaderData.actionButton1 FAIL open Checklist_Template.Checklist_HeaderData: reached ".mx-name-actionButton1" never appeared — screenshot act-Checklist_Template.Checklist_Heade
+PASS act-Checklist_Template.Checklist_HeaderData.actionButton2 
+PASS act-Checklist_Template.Checklist_HeaderData.actionButton3 
+PASS act-Checklist_Template.Checklist_HeaderData.actionButton4 
+FAIL act-Checklist_Template.Checklist_HeaderData.actionButton5 FAIL microflow 'Select employees' on Checklist_Template.Checklist_HeaderData (open-page): actions completed .mx-name-actionButton5 not visible [shown 
+FAIL act-Checklist_Template.Checklist_HeaderData.actionButton6 FAIL microflow 'actionButton6' on Checklist_Template.Checklist_HeaderData (create): actions completed .mx-name-actionButton6 not visible [shown only i
+PASS act-Checklist_Template.Checklist_HeaderData.container5 
+PASS act-Checklist_Template.Checklist_HeaderData.switch1 
+FAIL act-Checklist_Template.Checklist_HeaderData_Frequency.actionButton1 FAIL open Checklist_Template.Checklist_Details: reached ".mx-name-actionButton18" never appeared — screenshot act-Checklist_Template.Checklist_HeaderD
+FAIL act-Checklist_Template.Checklist_HeaderData_Frequency.actionButton6 FAIL open Checklist_Template.Checklist_Details: reached ".mx-name-actionButton18" never appeared — screenshot act-Checklist_Template.Checklist_HeaderD
+FAIL act-Checklist_Template.Checklist_SelectResponsibleEmployee.actionButton1 FAIL open Checklist_Template.Checklist_SelectResponsibleEmployee: actions completed .mx-name-actionButton5 not visible [shown only if LayoutGridRow: C
+FAIL act-Checklist_Template.Checklist_SelectResponsibleEmployee.dataGrid21 FAIL open Checklist_Template.Checklist_SelectResponsibleEmployee: actions completed .mx-name-actionButton5 not visible [shown only if LayoutGridRow: C
+FAIL act-Checklist_Template.Checklist_SelectResponsibleEmployee.dataGrid21_2 FAIL open Checklist_Template.Checklist_SelectResponsibleEmployee: actions completed .mx-name-actionButton5 not visible [shown only if LayoutGridRow: C
+PASS act-Checklist_Template.ExecutedChecklists_Overview.actionButton13 
+FAIL act-Checklist_Template.ExecutedChecklists_Overview.actionButton14 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton14" never appeared — screenshot act-Ch
+FAIL act-Checklist_Template.ExecutedChecklists_Overview.actionButton16 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Ch
+PASS act-Checklist_Template.ExecutedChecklists_Overview.badge1 
+PASS act-Checklist_Template.ExecutedChecklists_Overview.dataGrid21 
+FAIL act-Checklist_Template.Group_New.actionButton1 FAIL open Checklist_Template.Checklist_Details: reached ".mx-name-actionButton1" never appeared — screenshot act-Checklist_Template.Group_New.actionBu
+FAIL act-Checklist_Template.Group_NewEdit.actionButton49 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.Group_NewEdit.actionButton50 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.Group_NewEdit.actionButton51 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.Group_NewEdit.actionButton52 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.Group_NewEdit.actionButton53 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.Group_NewEdit.actionButton55 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.Group_NewEdit.actionButton56 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.Group_NewEdit.actionButton57 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.Group_NewEdit.actionButton58 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.Group_NewEdit.actionButton59 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.Group_NewEdit.actionButton61 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.Group_NewEdit.actionButton62 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.Group_NewEdit.actionButton63 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.Group_NewEdit.actionButton64 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.Group_NewEdit.actionButton65 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.Group_NewEdit.actionButton66 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.Group_NewEdit.actionButton67 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.Group_NewEdit.actionButton68 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.Group_NewEdit.actionButton69 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.Group_NewEdit.actionButton70 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.Group_NewEdit.actionButton71 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.Group_NewEdit.actionButton72 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.Group_NewEdit.actionButton73 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.Group_NewEdit.actionButton74 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.Group_NewEdit.actionButton75 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.Group_NewEdit.container44 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.Group_NewEdit.dropdownContainer3 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.Group_NewEdit.dropdownContainer4 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.OverdueChecklists_Overview.actionButton13 FAIL open Checklist_Template.OverdueChecklists_Overview via Overdue checklists: reached ".mx-name-actionButton13" never appeared — screenshot act-Chec
+FAIL act-Checklist_Template.OverdueChecklists_Overview.actionButton14 FAIL open Checklist_Template.OverdueChecklists_Overview via Overdue checklists: reached ".mx-name-actionButton14" never appeared — screenshot act-Chec
+PASS act-Checklist_Template.OverdueChecklists_Overview.actionButton16 
+PASS act-Checklist_Template.OverdueChecklists_Overview.dataGrid21 
+FAIL act-Checklist_Template.QuestionImage_NewEdit.actionButton1 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.QuestionReference_NewEdit_File.actionButton1 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.QuestionReference_NewEdit_Video.actionButton1 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.SNIP_AdditionalAnswerOptions.switch1 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.SNIP_AdditionalAnswerOptions.switch2 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.SNIP_AdditionalAnswerOptions.switch3 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.SNIP_Checklist_RepeatIntervalNP.actionButton10 FAIL open Checklist_Template.Checklist_Details: reached ".mx-name-actionButton18" never appeared — screenshot act-Checklist_Template.SNIP_Checklist_Re
+FAIL act-Checklist_Template.SNIP_Checklist_RepeatIntervalNP.actionButton12 FAIL open Checklist_Template.Checklist_HeaderData_Frequency: reached ".mx-name-actionButton12" never appeared — screenshot act-Checklist_Template.SNIP
+FAIL act-Checklist_Template.SNIP_Checklist_RepeatIntervalNP.actionButton13 FAIL open Checklist_Template.Checklist_Details: reached ".mx-name-actionButton18" never appeared — screenshot act-Checklist_Template.SNIP_Checklist_Re
+PASS act-Checklist_Template.SNIP_Checklist_RepeatIntervalNP.actionButton7 
+FAIL act-Checklist_Template.SNIP_Checklist_RepeatIntervalNP.actionButton8 FAIL open Checklist_Template.Checklist_HeaderData_Frequency: reached ".mx-name-actionButton8" never appeared — screenshot act-Checklist_Template.SNIP_
+FAIL act-Checklist_Template.SNIP_Checklist_RepeatIntervalNP.actionButton9 FAIL open Checklist_Template.Checklist_HeaderData_Frequency: reached ".mx-name-actionButton9" never appeared — screenshot act-Checklist_Template.SNIP_
+FAIL act-Checklist_Template.SNIP_QuestionImage.actionButton12 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.SNIP_QuestionReference.actionButton12 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.SNIP_Question_AddReference.actionButton1 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.SNIP_Question_AddReference.actionButton2 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.SNIP_Question_AddReference.actionButton48 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.SNIP_Question_AddReference.switch1 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.SNIP_Question_Controls.actionButton31 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Checklist_Template.SNIP_Question_Controls.actionButton32 FAIL open Checklist_Template.Group_NewEdit: actions completed .mx-name-actionButton6 not visible [shown only if actionButton6: not($dataView1/IsActive
+FAIL act-Masterdata.Dashboard_DepartmentManager.actionButton2 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-actionButton2" never appeared — screenshot act-Masterdata.Dashboard_Departmen
+FAIL act-Masterdata.Dashboard_DepartmentManager.actionButton3 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-actionButton3" never appeared — screenshot act-Masterdata.Dashboard_Departmen
+FAIL act-Masterdata.Dashboard_DepartmentManager.actionButton4 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-actionButton4" never appeared — screenshot act-Masterdata.Dashboard_Departmen
+FAIL act-Masterdata.Dashboard_DepartmentManager.actionButton5 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-actionButton5" never appeared — screenshot act-Masterdata.Dashboard_Departmen
+PASS act-Masterdata.Dashboard_DepartmentManager.actionButton6 
+PASS act-Masterdata.Dashboard_DepartmentManager.actionButton7 
+PASS act-Masterdata.Dashboard_DepartmentManager.actionButton8 
+PASS act-Masterdata.Dashboard_DepartmentManager.actionButton9 
+PASS act-Masterdata.Dashboard_DepartmentManager.container14 
+FAIL act-Masterdata.Dashboard_DepartmentManager.container15 FAIL microflow 'container15' on Masterdata.Dashboard_DepartmentManager (open-page): actions completed .mx-name-container15 is covered by .mx-name-cont
+FAIL act-Masterdata.Dashboard_DepartmentManager.container16 FAIL microflow 'container16' on Masterdata.Dashboard_DepartmentManager (open-page): actions completed .mx-name-container16 is covered by .mx-text.mx-n
+PASS act-Masterdata.Dashboard_DepartmentManager.container2 
+PASS act-Masterdata.Dashboard_DepartmentManager.container24 
+FAIL act-Masterdata.Dashboard_DepartmentManager.container34 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-container34" never appeared — screenshot act-Masterdata.Dashboard_DepartmentM
+FAIL act-Masterdata.Dashboard_DepartmentManager.controllableTabContainer2 FAIL role home Masterdata.Dashboard_DepartmentManager: reached ".mx-name-controllableTabContainer2" never appeared — screenshot act-Masterdata.Dashboa
+PASS act-Masterdata.Department_NewEdit.actionButton1 
+PASS act-Masterdata.Department_NewEdit.actionButton2 
+FAIL act-Mobile_Inspector.SNIP_InstanceChecklist_Status.badge1 FAIL open Checklist_Template.OverdueChecklists_Overview via Overdue checklists: reached ".mx-name-badge1" never appeared — screenshot act-Mobile_Inspe
+FAIL act-Mobile_Inspector.SNIP_InstanceChecklist_Status.badge2 FAIL open Checklist_Template.OverdueChecklists_Overview via Overdue checklists: reached ".mx-name-badge2" never appeared — screenshot act-Mobile_Inspe
+FAIL act-Mobile_Inspector.SNIP_InstanceChecklist_Status.badge3 FAIL open Checklist_Template.OverdueChecklists_Overview via Overdue checklists: reached ".mx-name-badge3" never appeared — screenshot act-Mobile_Inspe
+PASS act-Mobile_Inspector.SNIP_InstanceChecklist_Status.badge4 
+FAIL act-Mobile_Inspector.SNIP_InstanceChecklist_Status.badge5 FAIL open Checklist_Template.OverdueChecklists_Overview via Overdue checklists: reached ".mx-name-badge5" never appeared — screenshot act-Mobile_Inspe
+FAIL act-Mobile_Inspector.SNIP_InstanceChecklist_Status.badge6 FAIL open Checklist_Template.OverdueChecklists_Overview via Overdue checklists: reached ".mx-name-badge6" never appeared — screenshot act-Mobile_Inspe
+FAIL act-Mobile_Inspector.SNIP_InstanceChecklist_Status.badge7 FAIL open Checklist_Template.OverdueChecklists_Overview via Overdue checklists: reached ".mx-name-badge7" never appeared — screenshot act-Mobile_Inspe
+FAIL act-Mobile_Inspector.SNIP_InstanceQuestion_CompliantOrNotCompliant.badge1 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Mo
+FAIL act-Mobile_Inspector.SNIP_InstanceQuestion_CompliantOrNotCompliant.badge2 FAIL open Checklist_Template.ExecutedChecklists_Overview via Executed checklists: reached ".mx-name-actionButton16" never appeared — screenshot act-Mo
+PASS login-DepartmentManager 
+PASS login-Inspector 

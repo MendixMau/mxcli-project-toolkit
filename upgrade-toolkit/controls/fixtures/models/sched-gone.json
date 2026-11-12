@@ -1,0 +1,3 @@
+{"from": "sched-new.json",
+ "ops": [["delete", "modules/0/docs/0"],
+         ["append", "modules/0/pages", {"name": "Live_Page", "refs": {"Microflow": "Vendor.ACT_Gone"}}]]}

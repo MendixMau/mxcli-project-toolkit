@@ -1,0 +1,148 @@
+{
+ "version": "10.24.16.96987",
+ "_why": "impact_actions.py controls: a two-level sub-flow chain (Home.btnDeep -> ACT_Deep -> SUB_Mid -> SUB_Leaf), a flow no button reaches down a chain (ACT_Plain, Home.btnPlain), and a button on another page (Other.btnOther). Synthetic names only. action_inventory.py on this model gives the actions.json the controls feed impact_actions.py.",
+ "modules": [
+  {
+   "name": "Shop",
+   "layouts": [
+    {
+     "name": "Layout_Plain",
+     "named": [
+      {
+       "type": "LayoutGrid",
+       "name": "layoutGrid9"
+      }
+     ]
+    }
+   ],
+   "pages": [
+    {
+     "name": "Home",
+     "layout": "Shop.Layout_Plain",
+     "named": [
+      {
+       "type": "ActionButton",
+       "name": "btnDeep",
+       "text": "Deep",
+       "action": {
+        "microflow": "Shop.ACT_Deep"
+       }
+      },
+      {
+       "type": "ActionButton",
+       "name": "btnPlain",
+       "text": "Plain",
+       "action": {
+        "microflow": "Shop.ACT_Plain"
+       }
+      }
+     ]
+    },
+    {
+     "name": "Other",
+     "layout": "Shop.Layout_Plain",
+     "named": [
+      {
+       "type": "ActionButton",
+       "name": "btnOther",
+       "text": "Other",
+       "action": {
+        "microflow": "Shop.ACT_Other"
+       }
+      }
+     ]
+    }
+   ],
+   "docs": [
+    {
+     "type": "Microflows$Microflow",
+     "name": "ACT_Deep",
+     "data": {
+      "ObjectCollection": {
+       "$Type": "Microflows$MicroflowObjectCollection",
+       "Objects": [
+        3,
+        {
+         "$ID": "x",
+         "$Type": "Microflows$ActionActivity",
+         "Action": {
+          "$Type": "Microflows$MicroflowCallAction",
+          "MicroflowCall": {
+           "$Type": "Microflows$MicroflowCall",
+           "Microflow": "Shop.SUB_Mid",
+           "ParameterMappings": [
+            3
+           ]
+          }
+         }
+        }
+       ]
+      }
+     }
+    },
+    {
+     "type": "Microflows$Microflow",
+     "name": "SUB_Mid",
+     "data": {
+      "ObjectCollection": {
+       "$Type": "Microflows$MicroflowObjectCollection",
+       "Objects": [
+        3,
+        {
+         "$ID": "x",
+         "$Type": "Microflows$ActionActivity",
+         "Action": {
+          "$Type": "Microflows$MicroflowCallAction",
+          "MicroflowCall": {
+           "$Type": "Microflows$MicroflowCall",
+           "Microflow": "Shop.SUB_Leaf",
+           "ParameterMappings": [
+            3
+           ]
+          }
+         }
+        }
+       ]
+      }
+     }
+    },
+    {
+     "type": "Microflows$Microflow",
+     "name": "SUB_Leaf",
+     "data": {
+      "ObjectCollection": {
+       "$Type": "Microflows$MicroflowObjectCollection",
+       "Objects": [
+        3
+       ]
+      }
+     }
+    },
+    {
+     "type": "Microflows$Microflow",
+     "name": "ACT_Plain",
+     "data": {
+      "ObjectCollection": {
+       "$Type": "Microflows$MicroflowObjectCollection",
+       "Objects": [
+        3
+       ]
+      }
+     }
+    },
+    {
+     "type": "Microflows$Microflow",
+     "name": "ACT_Other",
+     "data": {
+      "ObjectCollection": {
+       "$Type": "Microflows$MicroflowObjectCollection",
+       "Objects": [
+        3
+       ]
+      }
+     }
+    }
+   ]
+  }
+ ]
+}

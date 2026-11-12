@@ -1,0 +1,1 @@
+{"from": "xmod.json", "ops": [["set", "modules/1/cross", [{"name": "MFA_Account", "parent": "MFA", "child": "Administration.Account"}]]]}

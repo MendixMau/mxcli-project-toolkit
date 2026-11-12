@@ -1,0 +1,46 @@
+[
+ {
+  "name": "Administration",
+  "version": "4.5.0",
+  "compared_with": "4.5.0",
+  "domain": [],
+  "logic": [],
+  "files": [],
+  "files_error": null,
+  "ui": [
+   {
+    "change": "CHANGED",
+    "kind": "page",
+    "name": "Administration.Custom",
+    "detail": "content differs"
+   }
+  ]
+ },
+ {
+  "name": "MxModelReflection",
+  "version": "6.2.0",
+  "compared_with": null,
+  "domain": null,
+  "logic": null,
+  "ui": null,
+  "files": null,
+  "files_error": "HTTP 500"
+ },
+ {
+  "name": "UserCommons",
+  "version": "2.4.0",
+  "compared_with": "2.4.0",
+  "domain": [],
+  "ui": [],
+  "files": [],
+  "files_error": null,
+  "logic": [
+   {
+    "change": "CHANGED",
+    "kind": "microflow",
+    "name": "UserCommons.ACT_Save",
+    "detail": "x"
+   }
+  ]
+ }
+]

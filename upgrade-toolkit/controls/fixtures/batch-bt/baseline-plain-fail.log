@@ -1,0 +1,5 @@
+Executing step 'Clean up'
+Cleaning up...
+ERROR: An error occurred while creating the deployment package.
+BUILD FAILED
+[heavy-lock] build-old rc=3 53s

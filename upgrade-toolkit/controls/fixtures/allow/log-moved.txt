@@ -1,0 +1,1 @@
+ERROR SAML_SSO: Unable to initialize the Servlet configuration # moved: the module now initialises during start

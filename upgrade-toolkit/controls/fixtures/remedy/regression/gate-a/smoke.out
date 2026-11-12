@@ -1,0 +1,4 @@
+  FAIL    menu   Admin -> MyOwn.Admin_Page [content, 1528ms]
+steps: PASS 58, FAIL 3, INVALID 0, SKIPPED 0; roles not run (INVALID): 0
+  REGRESSION Administrator | menu | Admin | MyOwn.Admin_Page: old PASS 3 of 3, new not PASS 3 of 3; console: [Client] TypeError: o.x is undefined at e.componentDidMount (http://localhost:#/widgets/mendix/somewidget/Some.js?#:#:#)
+  REGRESSION Administrator | button | button actionButton33 | MyOwn.Admin_Page: old PASS 3 of 3, new not PASS 3 of 3; console: [Client] TypeError: o.x is undefined at e.componentDidMount (http://localhost:#/widgets/mendix/somewidget/Some.js?#:#:#)

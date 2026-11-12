@@ -1,0 +1,325 @@
+{
+ "objects": [
+  {
+   "ref": "acc_administrator",
+   "entity": "Administration.Account",
+   "lookup": {
+    "Name": "smoke_administrator"
+   }
+  },
+  {
+   "ref": "emp_administrator",
+   "entity": "EmployeeManagement.Employee",
+   "attrs": {
+    "UUID": "smoke-administrator",
+    "FirstName": "Anna",
+    "LastName": "Visser",
+    "FullName": "Anna Visser",
+    "EmailAddress": "anna.visser@example.com"
+   },
+   "links": {
+    "Employee_Account": "acc_administrator"
+   }
+  },
+  {
+   "ref": "acc_qualitymanager",
+   "entity": "Administration.Account",
+   "lookup": {
+    "Name": "smoke_qualitymanager"
+   }
+  },
+  {
+   "ref": "emp_qualitymanager",
+   "entity": "EmployeeManagement.Employee",
+   "attrs": {
+    "UUID": "smoke-qualitymanager",
+    "FirstName": "Maria",
+    "LastName": "Jansen",
+    "FullName": "Maria Jansen",
+    "EmailAddress": "maria.jansen@example.com"
+   },
+   "links": {
+    "Employee_Account": "acc_qualitymanager"
+   }
+  },
+  {
+   "ref": "acc_inspector",
+   "entity": "Administration.Account",
+   "lookup": {
+    "Name": "smoke_inspector"
+   }
+  },
+  {
+   "ref": "emp_inspector",
+   "entity": "EmployeeManagement.Employee",
+   "attrs": {
+    "UUID": "smoke-inspector",
+    "FirstName": "Tom",
+    "LastName": "Becker",
+    "FullName": "Tom Becker",
+    "EmailAddress": "tom.becker@example.com"
+   },
+   "links": {
+    "Employee_Account": "acc_inspector"
+   }
+  },
+  {
+   "ref": "prod",
+   "entity": "MasterData.Product",
+   "lookup": {
+    "_ID": "SI-ET-R1-200SP"
+   }
+  },
+  {
+   "ref": "loc0",
+   "entity": "MasterData.Location",
+   "lookup": {
+    "UUID": "06c4ae9f-ff7e-4ffc-86d9-7d03a2a86c5c"
+   }
+  },
+  {
+   "ref": "loc1",
+   "entity": "MasterData.Location",
+   "lookup": {
+    "UUID": "4dfdf93e-a924-4de3-b021-849bcd965213"
+   }
+  },
+  {
+   "ref": "loc2",
+   "entity": "MasterData.Location",
+   "lookup": {
+    "UUID": "5700d698-fc54-4ed6-899d-05476a729ac3"
+   }
+  },
+  {
+   "ref": "loc3",
+   "entity": "MasterData.Location",
+   "lookup": {
+    "UUID": "a91f2553-9e97-48b1-809f-c91054b8ab47"
+   }
+  },
+  {
+   "ref": "dt0",
+   "entity": "MasterData.DefectType",
+   "lookup": {
+    "Code": "B-001"
+   }
+  },
+  {
+   "ref": "dt1",
+   "entity": "MasterData.DefectType",
+   "lookup": {
+    "Code": "B-002"
+   }
+  },
+  {
+   "ref": "dt2",
+   "entity": "MasterData.DefectType",
+   "lookup": {
+    "Code": "B-003"
+   }
+  },
+  {
+   "ref": "ins0",
+   "entity": "Inspection.Inspection",
+   "attrs": {
+    "_ID": "IVSM0001",
+    "Status": "Open",
+    "SerialNumber": "SI-20261013-001",
+    "NumberOfTickets": 2,
+    "NumberOfOpenTickets": 2,
+    "CreatedOn": "-1h"
+   },
+   "links": {
+    "Inspection_Product": "prod",
+    "Inspection_Employee_Inspector": "emp_inspector"
+   }
+  },
+  {
+   "ref": "ins0_def0",
+   "entity": "Inspection.Defect",
+   "attrs": {
+    "_ID": "DVSM0001",
+    "Comment": "Scratch near the connector, about 3 cm",
+    "Status": "Open",
+    "CreatedOn": "-1h"
+   },
+   "links": {
+    "Defect_Inspection": "ins0",
+    "Defect_Location": "loc0",
+    "Defect_DefectType": "dt0"
+   }
+  },
+  {
+   "ref": "ins0_task0",
+   "entity": "Inspection.Task",
+   "attrs": {
+    "Name": "Re-inspect housing",
+    "Email": "quality@example.com",
+    "DueDate": "+2d"
+   },
+   "links": {
+    "Task_Defect": "ins0_def0"
+   }
+  },
+  {
+   "ref": "ins0_def1",
+   "entity": "Inspection.Defect",
+   "attrs": {
+    "_ID": "DVSM0002",
+    "Comment": "Label printed off-centre",
+    "Status": "Open",
+    "CreatedOn": "-1h"
+   },
+   "links": {
+    "Defect_Inspection": "ins0",
+    "Defect_Location": "loc1",
+    "Defect_DefectType": "dt1"
+   }
+  },
+  {
+   "ref": "ins0_task1",
+   "entity": "Inspection.Task",
+   "attrs": {
+    "Name": "Check label printer",
+    "Email": "quality@example.com",
+    "DueDate": "+3d"
+   },
+   "links": {
+    "Task_Defect": "ins0_def1"
+   }
+  },
+  {
+   "ref": "ins1",
+   "entity": "Inspection.Inspection",
+   "attrs": {
+    "_ID": "IVSM0002",
+    "Status": "Open",
+    "SerialNumber": "SI-20261013-002",
+    "NumberOfTickets": 1,
+    "NumberOfOpenTickets": 1,
+    "CreatedOn": "-6h"
+   },
+   "links": {
+    "Inspection_Product": "prod",
+    "Inspection_Employee_Inspector": "emp_inspector"
+   }
+  },
+  {
+   "ref": "ins1_def0",
+   "entity": "Inspection.Defect",
+   "attrs": {
+    "_ID": "DVSM0011",
+    "Comment": "Label printed off-centre",
+    "Status": "Open",
+    "CreatedOn": "-6h"
+   },
+   "links": {
+    "Defect_Inspection": "ins1",
+    "Defect_Location": "loc1",
+    "Defect_DefectType": "dt1"
+   }
+  },
+  {
+   "ref": "ins1_task0",
+   "entity": "Inspection.Task",
+   "attrs": {
+    "Name": "Check label printer",
+    "Email": "quality@example.com",
+    "DueDate": "+2d"
+   },
+   "links": {
+    "Task_Defect": "ins1_def0"
+   }
+  },
+  {
+   "ref": "ins2",
+   "entity": "Inspection.Inspection",
+   "attrs": {
+    "_ID": "IVSM0003",
+    "Status": "Inspection_done",
+    "SerialNumber": "SI-20261012-007",
+    "NumberOfTickets": 2,
+    "NumberOfOpenTickets": 2,
+    "CreatedOn": "-11h"
+   },
+   "links": {
+    "Inspection_Product": "prod",
+    "Inspection_Employee_Inspector": "emp_inspector"
+   }
+  },
+  {
+   "ref": "ins2_def0",
+   "entity": "Inspection.Defect",
+   "attrs": {
+    "_ID": "DVSM0021",
+    "Comment": "Dent on the housing edge",
+    "Status": "Open",
+    "CreatedOn": "-11h"
+   },
+   "links": {
+    "Defect_Inspection": "ins2",
+    "Defect_Location": "loc2",
+    "Defect_DefectType": "dt2"
+   }
+  },
+  {
+   "ref": "ins2_task0",
+   "entity": "Inspection.Task",
+   "attrs": {
+    "Name": "Order replacement part",
+    "Email": "quality@example.com",
+    "DueDate": "+2d"
+   },
+   "links": {
+    "Task_Defect": "ins2_def0"
+   }
+  },
+  {
+   "ref": "ins2_def1",
+   "entity": "Inspection.Defect",
+   "attrs": {
+    "_ID": "DVSM0022",
+    "Comment": "Scratch near the connector, about 3 cm",
+    "Status": "Open",
+    "CreatedOn": "-11h"
+   },
+   "links": {
+    "Defect_Inspection": "ins2",
+    "Defect_Location": "loc3",
+    "Defect_DefectType": "dt0"
+   }
+  },
+  {
+   "ref": "ins2_task1",
+   "entity": "Inspection.Task",
+   "attrs": {
+    "Name": "Re-inspect housing",
+    "Email": "quality@example.com",
+    "DueDate": "+3d"
+   },
+   "links": {
+    "Task_Defect": "ins2_def1"
+   }
+  },
+  {
+   "ref": "aws",
+   "entity": "AWSAuthentication.Settings",
+   "attrs": {
+    "Region": "eu_west_1",
+    "UseStaticCredentials": false
+   }
+  },
+  {
+   "ref": "bedrock",
+   "entity": "AIChatbotBedrock.ConfigurationSelection",
+   "attrs": {
+    "DisplayName": "Defect assistant (demo, not connected)",
+    "ConfigName": "defect-assistant-demo",
+    "IsActive": false,
+    "SystemPrompt": "You help inspectors describe defects.",
+    "AmazonBedrockRegion": "eu_west_1"
+   }
+  }
+ ]
+}

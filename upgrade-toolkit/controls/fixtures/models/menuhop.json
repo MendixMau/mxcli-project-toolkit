@@ -1,0 +1,142 @@
+{
+ "version": "10.24.16.96987",
+ "_why": "click_causes / menu hops: a layout's menu bar shows menu document Side. Settings is opened only by the Side item 'Settings'; Tools only by the item 'Tools'. Orphan is opened by nothing.",
+ "security": {
+  "user_roles": {
+   "Clerk": [
+    "Shop.Clerk"
+   ]
+  }
+ },
+ "navigation": {
+  "homes": [
+   {
+    "role": "*",
+    "page": "Shop.Home"
+   }
+  ],
+  "menu": []
+ },
+ "modules": [
+  {
+   "name": "Shop",
+   "module_roles": [
+    "Clerk"
+   ],
+   "menus": [
+    {
+     "name": "Side",
+     "items": [
+      {
+       "caption": "Settings",
+       "page": "Shop.Settings"
+      },
+      {
+       "caption": "Tools",
+       "page": "Shop.Tools"
+      }
+     ]
+    }
+   ],
+   "pages": [
+    {
+     "name": "Home",
+     "layout": "Shop.Layout",
+     "allowed": [
+      "Shop.Clerk"
+     ]
+    },
+    {
+     "name": "Settings",
+     "layout": "Shop.Layout",
+     "allowed": [
+      "Shop.Clerk"
+     ],
+     "named": [
+      {
+       "type": "ActionButton",
+       "name": "saveBtn",
+       "text": "Save",
+       "action": {
+        "microflow": "Shop.ACT_Save",
+        "mappings": []
+       }
+      }
+     ]
+    },
+    {
+     "name": "Tools",
+     "layout": "Shop.Layout",
+     "allowed": [
+      "Shop.Clerk"
+     ],
+     "named": [
+      {
+       "type": "ActionButton",
+       "name": "runBtn",
+       "text": "Run",
+       "action": {
+        "microflow": "Shop.ACT_Run",
+        "mappings": []
+       }
+      }
+     ]
+    },
+    {
+     "name": "Orphan",
+     "layout": "Shop.Layout",
+     "allowed": [
+      "Shop.Clerk"
+     ],
+     "named": [
+      {
+       "type": "ActionButton",
+       "name": "lostBtn",
+       "text": "Lost",
+       "action": {
+        "microflow": "Shop.ACT_Save",
+        "mappings": []
+       }
+      }
+     ]
+    }
+   ],
+   "layouts": [
+    {
+     "name": "Layout",
+     "named": [
+      {
+       "type": "MenuBar",
+       "name": "sideBar",
+       "source": {
+        "menu": "Shop.Side"
+       }
+      }
+     ]
+    }
+   ],
+   "docs": [
+    {
+     "type": "Microflows$Microflow",
+     "name": "ACT_Save",
+     "data": {
+      "AllowedModuleRoles": [
+       3,
+       "Shop.Clerk"
+      ]
+     }
+    },
+    {
+     "type": "Microflows$Microflow",
+     "name": "ACT_Run",
+     "data": {
+      "AllowedModuleRoles": [
+       3,
+       "Shop.Clerk"
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}

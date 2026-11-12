@@ -1,0 +1,1 @@
+{"role": "Admin", "nav": {"item": "Home"}, "newButton": "newButton1", "fields": [{"widget": "textBox1", "value": "Item ${RUN_ID}"}], "saveButton": "saveButton1", "entity": "Shop.Item", "ready": ".mx-name-grid1"}

@@ -1,0 +1,18 @@
+diff --git a/themesource/atlas_web_content/web/buildingblocks/_heroheader.scss b/themesource/atlas_web_content/web/buildingblocks/_heroheader.scss
+index 8dc3cf7..4339076 100644
+--- a/themesource/atlas_web_content/web/buildingblocks/_heroheader.scss
++++ b/themesource/atlas_web_content/web/buildingblocks/_heroheader.scss
+@@ -26,9 +26,12 @@
+ .headerhero-backgroundimage {
+     position: absolute;
++    top: -200%;
++
++    > img{
+     z-index: 0;
+-    top: 0;
+     height: 100%;
+     width: 100%;
+     filter: var(--header-bgimage-filter);
++    }
+ }
+ 

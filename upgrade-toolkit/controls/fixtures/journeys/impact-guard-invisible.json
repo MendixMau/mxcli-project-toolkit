@@ -1,0 +1,117 @@
+{
+ "old": "m/guard-invisible/App.mpr",
+ "new": "m/guard-invisible/App.mpr",
+ "_why": "role facts as an impact.json written before the T7 fix carries them: the landing is the never-rendered Set URL widget (modelled on the field report). gen_journeys must re-check them on the model Auditor: a renamed Set URL (type alone identifies it). Lead: a widget with the default name timer2 and a generic type (name alone).",
+ "user_roles": {
+  "admin": null,
+  "guest": null,
+  "all": [
+   "Auditor",
+   "Clerk",
+   "Desk",
+   "Inspector",
+   "Lead",
+   "Planner"
+  ]
+ },
+ "roles": {
+  "Desk": {
+   "home_page": "Shop.Home_SetUrl",
+   "home_microflow": "",
+   "landing": {
+    "widget": "setURL1",
+    "type": "Forms$SetURL",
+    "generic_name": true
+   },
+   "menu_visible": [],
+   "menu_hidden": [],
+   "sign_out_item": null,
+   "is_admin": false,
+   "is_guest": false
+  },
+  "Planner": {
+   "home_page": "Shop.Home_Invisible",
+   "home_microflow": "",
+   "landing": {
+    "widget": "timer1",
+    "type": "Forms$Timer",
+    "generic_name": true
+   },
+   "menu_visible": [],
+   "menu_hidden": [],
+   "sign_out_item": null,
+   "is_admin": false,
+   "is_guest": false
+  },
+  "Clerk": {
+   "home_page": "Shop.Home_OnlySetUrl",
+   "home_microflow": "",
+   "landing": {
+    "widget": "setURL1",
+    "type": "Forms$SetURL",
+    "generic_name": true
+   },
+   "menu_visible": [],
+   "menu_hidden": [],
+   "sign_out_item": null,
+   "is_admin": false,
+   "is_guest": false
+  },
+  "Inspector": {
+   "home_page": "Shop.Home_Plain",
+   "home_microflow": "",
+   "landing": {
+    "widget": "label9",
+    "type": "Forms$Label",
+    "generic_name": true
+   },
+   "menu_visible": [],
+   "menu_hidden": [],
+   "sign_out_item": null,
+   "is_admin": false,
+   "is_guest": false
+  },
+  "Auditor": {
+   "home_page": "Shop.Home_RenamedSetUrl",
+   "home_microflow": "",
+   "landing": {
+    "widget": "redirectTarget",
+    "type": "Forms$SetURL",
+    "generic_name": false
+   },
+   "menu_visible": [],
+   "menu_hidden": [],
+   "sign_out_item": null,
+   "is_admin": false,
+   "is_guest": false
+  },
+  "Lead": {
+   "home_page": "Shop.Home_GenericTimer",
+   "home_microflow": "",
+   "landing": {
+    "widget": "timer2",
+    "type": "Forms$Label",
+    "generic_name": true
+   },
+   "menu_visible": [],
+   "menu_hidden": [],
+   "sign_out_item": null,
+   "is_admin": false,
+   "is_guest": false
+  }
+ },
+ "login": {
+  "login_page": "Shop.Login",
+  "id": "usernameInput",
+  "password": "passwordInput",
+  "button": "loginButton",
+  "other_text_boxes": [],
+  "docs": [
+   "Shop.Login"
+  ]
+ },
+ "auth": {
+  "modules": []
+ },
+ "candidates": []
+}

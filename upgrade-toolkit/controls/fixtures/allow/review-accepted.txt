@@ -1,0 +1,3 @@
+db.attr.Administration.Account.Email values changed* # control: accept a changed Email column only, not a lost one
+http./rest-doc/notify/openapi.json # control: new 10.x contract document, accepted on a 9 -> 10 rung
+log.start.MOVED* # the module initialises during start now; same SAML error as before, accepted at the gate

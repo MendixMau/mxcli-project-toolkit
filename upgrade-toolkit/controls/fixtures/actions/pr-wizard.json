@@ -1,0 +1,1734 @@
+{
+ "tool": "action_inventory.py",
+ "model": "PurchaseRequest original.mpr (10.24), New Request wizard rows only; paths re-captured after PR-F26 (navigation list hops carry item, items)",
+ "summary_line": "actions 280 found \u00b7 by kind commit 59, create 25, delete 31, external 1, no-db-effect 42, open-page 74, open-task 16, open-workflow 4, status-change 5, task-outcome 11, unknown 2, workflow-call 1, workflow-op 9 \u00b7 todo 135 by reason combobox 7, external-call 1, no-click-path 131, no-role 18 \u00b7 unknown 2 \u00b7 not actions 47 (cancel 24, close 20, link 2, sign-out 1) \u00b7 excluded docs 4",
+ "actions": [
+  {
+   "id": "PurchaseApprovals.MyRequests.actionButton2",
+   "host": "PurchaseApprovals.MyRequests",
+   "host_type": "Page",
+   "widget": "actionButton2",
+   "widget_type": "ActionButton",
+   "caption": "New Request",
+   "action": "microflow",
+   "target": "PurchaseApprovals.CreateNewRequest",
+   "kind": "create",
+   "effects": [
+    "create",
+    "open-page"
+   ],
+   "path": [
+    {
+     "entry": "home Responsive",
+     "target": "PurchaseApprovals.MyRequests",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.MyRequests"
+    },
+    {
+     "click": "actionButton2",
+     "on": "PurchaseApprovals.MyRequests",
+     "action": "microflow",
+     "id": "PurchaseApprovals.MyRequests.actionButton2"
+    }
+   ],
+   "path_text": "as Requester: home Responsive -> PurchaseApprovals.MyRequests -> click actionButton2",
+   "roles": [
+    "Requester"
+   ],
+   "fields": [],
+   "needs": [],
+   "todo": [],
+   "unknown": [],
+   "click": {},
+   "context": null,
+   "path_roles": [
+    "Requester"
+   ],
+   "path_role": "Requester"
+  },
+  {
+   "id": "PurchaseApprovals.NewRequest_Step1.navigationList2",
+   "host": "PurchaseApprovals.NewRequest_Step1",
+   "host_type": "Page",
+   "widget": "navigationList2",
+   "widget_type": "NavigationList",
+   "caption": "",
+   "action": "open-page",
+   "target": "PurchaseApprovals.NewRequest_Step2",
+   "kind": "open-page",
+   "effects": [],
+   "path": [
+    {
+     "entry": "home Responsive",
+     "target": "PurchaseApprovals.MyRequests",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.MyRequests"
+    },
+    {
+     "click": "actionButton2",
+     "on": "PurchaseApprovals.MyRequests",
+     "action": "microflow",
+     "id": "PurchaseApprovals.MyRequests.actionButton2"
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step1"
+    },
+    {
+     "click": "navigationList2",
+     "on": "PurchaseApprovals.NewRequest_Step1",
+     "action": "open-page",
+     "id": "PurchaseApprovals.NewRequest_Step1.navigationList2",
+     "item": 1,
+     "items": 3
+    }
+   ],
+   "path_text": "as Requester: home Responsive -> PurchaseApprovals.MyRequests -> click actionButton2 -> PurchaseApprovals.NewRequest_Step1 -> click navigationList2",
+   "roles": [
+    "Approver",
+    "Requester"
+   ],
+   "fields": [],
+   "needs": [],
+   "todo": [],
+   "unknown": [],
+   "click": {},
+   "context": "PurchaseApprovals.Request",
+   "path_roles": [
+    "Requester"
+   ],
+   "path_role": "Requester"
+  },
+  {
+   "id": "PurchaseApprovals.NewRequest_Step1.navigationList2#2",
+   "host": "PurchaseApprovals.NewRequest_Step1",
+   "host_type": "Page",
+   "widget": "navigationList2",
+   "widget_type": "NavigationList",
+   "caption": "",
+   "action": "open-page",
+   "target": "PurchaseApprovals.NewRequest_Step3",
+   "kind": "open-page",
+   "effects": [],
+   "path": [
+    {
+     "entry": "home Responsive",
+     "target": "PurchaseApprovals.MyRequests",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.MyRequests"
+    },
+    {
+     "click": "actionButton2",
+     "on": "PurchaseApprovals.MyRequests",
+     "action": "microflow",
+     "id": "PurchaseApprovals.MyRequests.actionButton2"
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step1"
+    },
+    {
+     "click": "navigationList2",
+     "on": "PurchaseApprovals.NewRequest_Step1",
+     "action": "open-page",
+     "id": "PurchaseApprovals.NewRequest_Step1.navigationList2#2",
+     "item": 2,
+     "items": 3
+    }
+   ],
+   "path_text": "as Requester: home Responsive -> PurchaseApprovals.MyRequests -> click actionButton2 -> PurchaseApprovals.NewRequest_Step1 -> click navigationList2",
+   "roles": [
+    "Approver",
+    "Requester"
+   ],
+   "fields": [],
+   "needs": [],
+   "todo": [],
+   "unknown": [],
+   "click": {},
+   "context": "PurchaseApprovals.Request",
+   "path_roles": [
+    "Requester"
+   ],
+   "path_role": "Requester"
+  },
+  {
+   "id": "PurchaseApprovals.NewRequest_Step1.actionButton1",
+   "host": "PurchaseApprovals.NewRequest_Step1",
+   "host_type": "Page",
+   "widget": "actionButton1",
+   "widget_type": "ActionButton",
+   "caption": "Next",
+   "action": "open-page",
+   "target": "PurchaseApprovals.NewRequest_Step2",
+   "kind": "open-page",
+   "effects": [],
+   "path": [
+    {
+     "entry": "home Responsive",
+     "target": "PurchaseApprovals.MyRequests",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.MyRequests"
+    },
+    {
+     "click": "actionButton2",
+     "on": "PurchaseApprovals.MyRequests",
+     "action": "microflow",
+     "id": "PurchaseApprovals.MyRequests.actionButton2"
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step1"
+    },
+    {
+     "click": "actionButton1",
+     "on": "PurchaseApprovals.NewRequest_Step1",
+     "action": "open-page",
+     "id": "PurchaseApprovals.NewRequest_Step1.actionButton1"
+    }
+   ],
+   "path_text": "as Requester: home Responsive -> PurchaseApprovals.MyRequests -> click actionButton2 -> PurchaseApprovals.NewRequest_Step1 -> click actionButton1",
+   "roles": [
+    "Approver",
+    "Requester"
+   ],
+   "fields": [
+    {
+     "widget": "textBox1",
+     "input": "text",
+     "attribute": "PurchaseApprovals.Request.Title",
+     "attr_type": {
+      "type": "String",
+      "length": 100
+     },
+     "editable": "Always"
+    },
+    {
+     "widget": "dropDown1",
+     "input": "combobox",
+     "attribute": "PurchaseApprovals.Request.Department",
+     "attr_type": {
+      "type": "Enumeration",
+      "enum": "PurchaseApprovals.ENUM_Department",
+      "enum_first": "Marketing",
+      "enum_first_caption": "Marketing"
+     },
+     "editable": "Always"
+    },
+    {
+     "widget": "datePicker1",
+     "input": "date",
+     "attribute": "PurchaseApprovals.Request.RequiredDeliveryDate",
+     "attr_type": {
+      "type": "DateTime"
+     },
+     "editable": "Always",
+     "date_format": {
+      "DateFormat": "Date",
+      "Custom": ""
+     }
+    },
+    {
+     "widget": "textArea2",
+     "input": "text",
+     "attribute": "PurchaseApprovals.Request.ShippingAddress",
+     "attr_type": {
+      "type": "String"
+     },
+     "editable": "Always"
+    },
+    {
+     "widget": "textArea1",
+     "input": "text",
+     "attribute": "PurchaseApprovals.Request.RequestReason",
+     "attr_type": {
+      "type": "String"
+     },
+     "editable": "Always"
+    }
+   ],
+   "needs": [],
+   "todo": [],
+   "unknown": [],
+   "click": {},
+   "context": "PurchaseApprovals.Request",
+   "path_roles": [
+    "Requester"
+   ],
+   "path_role": "Requester"
+  },
+  {
+   "id": "PurchaseApprovals.NewRequest_Step1.actionButton5",
+   "host": "PurchaseApprovals.NewRequest_Step1",
+   "host_type": "Page",
+   "widget": "actionButton5",
+   "widget_type": "ActionButton",
+   "caption": "New Attachment",
+   "action": "microflow",
+   "target": "PurchaseApprovals.Attachment_NewEdit",
+   "kind": "create",
+   "effects": [
+    "create",
+    "open-page"
+   ],
+   "path": [
+    {
+     "entry": "home Responsive",
+     "target": "PurchaseApprovals.MyRequests",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.MyRequests"
+    },
+    {
+     "click": "actionButton2",
+     "on": "PurchaseApprovals.MyRequests",
+     "action": "microflow",
+     "id": "PurchaseApprovals.MyRequests.actionButton2"
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step1"
+    },
+    {
+     "click": "actionButton5",
+     "on": "PurchaseApprovals.NewRequest_Step1",
+     "action": "microflow",
+     "id": "PurchaseApprovals.NewRequest_Step1.actionButton5"
+    }
+   ],
+   "path_text": "as Requester: home Responsive -> PurchaseApprovals.MyRequests -> click actionButton2 -> PurchaseApprovals.NewRequest_Step1 -> click actionButton5",
+   "roles": [
+    "Approver",
+    "Requester"
+   ],
+   "fields": [
+    {
+     "widget": "textBox1",
+     "input": "text",
+     "attribute": "PurchaseApprovals.Request.Title",
+     "attr_type": {
+      "type": "String",
+      "length": 100
+     },
+     "editable": "Always"
+    },
+    {
+     "widget": "dropDown1",
+     "input": "combobox",
+     "attribute": "PurchaseApprovals.Request.Department",
+     "attr_type": {
+      "type": "Enumeration",
+      "enum": "PurchaseApprovals.ENUM_Department",
+      "enum_first": "Marketing",
+      "enum_first_caption": "Marketing"
+     },
+     "editable": "Always"
+    },
+    {
+     "widget": "datePicker1",
+     "input": "date",
+     "attribute": "PurchaseApprovals.Request.RequiredDeliveryDate",
+     "attr_type": {
+      "type": "DateTime"
+     },
+     "editable": "Always",
+     "date_format": {
+      "DateFormat": "Date",
+      "Custom": ""
+     }
+    },
+    {
+     "widget": "textArea2",
+     "input": "text",
+     "attribute": "PurchaseApprovals.Request.ShippingAddress",
+     "attr_type": {
+      "type": "String"
+     },
+     "editable": "Always"
+    },
+    {
+     "widget": "textArea1",
+     "input": "text",
+     "attribute": "PurchaseApprovals.Request.RequestReason",
+     "attr_type": {
+      "type": "String"
+     },
+     "editable": "Always"
+    }
+   ],
+   "needs": [],
+   "todo": [],
+   "unknown": [],
+   "click": {},
+   "context": "PurchaseApprovals.Request",
+   "path_roles": [
+    "Requester"
+   ],
+   "path_role": "Requester"
+  },
+  {
+   "id": "PurchaseApprovals.NewRequest_Step1.actionButton3",
+   "host": "PurchaseApprovals.NewRequest_Step1",
+   "host_type": "Page",
+   "widget": "actionButton3",
+   "widget_type": "ActionButton",
+   "caption": "",
+   "action": "microflow",
+   "target": "PurchaseApprovals.DeleteAttachment",
+   "kind": "delete",
+   "effects": [
+    "delete"
+   ],
+   "path": [
+    {
+     "entry": "home Responsive",
+     "target": "PurchaseApprovals.MyRequests",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.MyRequests"
+    },
+    {
+     "click": "actionButton2",
+     "on": "PurchaseApprovals.MyRequests",
+     "action": "microflow",
+     "id": "PurchaseApprovals.MyRequests.actionButton2"
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step1"
+    },
+    {
+     "click": "actionButton3",
+     "on": "PurchaseApprovals.NewRequest_Step1",
+     "action": "microflow",
+     "id": "PurchaseApprovals.NewRequest_Step1.actionButton3",
+     "within": "listView6"
+    }
+   ],
+   "path_text": "as Requester: home Responsive -> PurchaseApprovals.MyRequests -> click actionButton2 -> PurchaseApprovals.NewRequest_Step1 -> click actionButton3",
+   "roles": [
+    "Approver",
+    "Requester"
+   ],
+   "fields": [
+    {
+     "widget": "textBox1",
+     "input": "text",
+     "attribute": "PurchaseApprovals.Request.Title",
+     "attr_type": {
+      "type": "String",
+      "length": 100
+     },
+     "editable": "Always"
+    },
+    {
+     "widget": "dropDown1",
+     "input": "combobox",
+     "attribute": "PurchaseApprovals.Request.Department",
+     "attr_type": {
+      "type": "Enumeration",
+      "enum": "PurchaseApprovals.ENUM_Department",
+      "enum_first": "Marketing",
+      "enum_first_caption": "Marketing"
+     },
+     "editable": "Always"
+    },
+    {
+     "widget": "datePicker1",
+     "input": "date",
+     "attribute": "PurchaseApprovals.Request.RequiredDeliveryDate",
+     "attr_type": {
+      "type": "DateTime"
+     },
+     "editable": "Always",
+     "date_format": {
+      "DateFormat": "Date",
+      "Custom": ""
+     }
+    },
+    {
+     "widget": "textArea2",
+     "input": "text",
+     "attribute": "PurchaseApprovals.Request.ShippingAddress",
+     "attr_type": {
+      "type": "String"
+     },
+     "editable": "Always"
+    },
+    {
+     "widget": "textArea1",
+     "input": "text",
+     "attribute": "PurchaseApprovals.Request.RequestReason",
+     "attr_type": {
+      "type": "String"
+     },
+     "editable": "Always"
+    }
+   ],
+   "needs": [
+    "a row in ListView listView6"
+   ],
+   "todo": [],
+   "unknown": [],
+   "click": {
+    "within": "listView6"
+   },
+   "context": "PurchaseApprovals.Request",
+   "path_roles": [
+    "Requester"
+   ],
+   "path_role": "Requester"
+  },
+  {
+   "id": "PurchaseApprovals.NewRequest_Step1.container7",
+   "host": "PurchaseApprovals.NewRequest_Step1",
+   "host_type": "Page",
+   "widget": "container7",
+   "widget_type": "DivContainer",
+   "caption": "",
+   "action": "microflow",
+   "target": "PurchaseApprovals.DownloadAttachment",
+   "kind": "no-db-effect",
+   "effects": [],
+   "path": [
+    {
+     "entry": "home Responsive",
+     "target": "PurchaseApprovals.MyRequests",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.MyRequests"
+    },
+    {
+     "click": "actionButton2",
+     "on": "PurchaseApprovals.MyRequests",
+     "action": "microflow",
+     "id": "PurchaseApprovals.MyRequests.actionButton2"
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step1"
+    },
+    {
+     "click": "container7",
+     "on": "PurchaseApprovals.NewRequest_Step1",
+     "action": "microflow",
+     "id": "PurchaseApprovals.NewRequest_Step1.container7",
+     "within": "listView6"
+    }
+   ],
+   "path_text": "as Requester: home Responsive -> PurchaseApprovals.MyRequests -> click actionButton2 -> PurchaseApprovals.NewRequest_Step1 -> click container7",
+   "roles": [
+    "Approver",
+    "Requester"
+   ],
+   "fields": [
+    {
+     "widget": "textBox1",
+     "input": "text",
+     "attribute": "PurchaseApprovals.Request.Title",
+     "attr_type": {
+      "type": "String",
+      "length": 100
+     },
+     "editable": "Always"
+    },
+    {
+     "widget": "dropDown1",
+     "input": "combobox",
+     "attribute": "PurchaseApprovals.Request.Department",
+     "attr_type": {
+      "type": "Enumeration",
+      "enum": "PurchaseApprovals.ENUM_Department",
+      "enum_first": "Marketing",
+      "enum_first_caption": "Marketing"
+     },
+     "editable": "Always"
+    },
+    {
+     "widget": "datePicker1",
+     "input": "date",
+     "attribute": "PurchaseApprovals.Request.RequiredDeliveryDate",
+     "attr_type": {
+      "type": "DateTime"
+     },
+     "editable": "Always",
+     "date_format": {
+      "DateFormat": "Date",
+      "Custom": ""
+     }
+    },
+    {
+     "widget": "textArea2",
+     "input": "text",
+     "attribute": "PurchaseApprovals.Request.ShippingAddress",
+     "attr_type": {
+      "type": "String"
+     },
+     "editable": "Always"
+    },
+    {
+     "widget": "textArea1",
+     "input": "text",
+     "attribute": "PurchaseApprovals.Request.RequestReason",
+     "attr_type": {
+      "type": "String"
+     },
+     "editable": "Always"
+    }
+   ],
+   "needs": [
+    "a row in ListView listView6"
+   ],
+   "todo": [],
+   "unknown": [],
+   "click": {
+    "within": "listView6"
+   },
+   "context": "PurchaseApprovals.Request",
+   "path_roles": [
+    "Requester"
+   ],
+   "path_role": "Requester"
+  },
+  {
+   "id": "PurchaseApprovals.NewRequest_Step2.navigationList2",
+   "host": "PurchaseApprovals.NewRequest_Step2",
+   "host_type": "Page",
+   "widget": "navigationList2",
+   "widget_type": "NavigationList",
+   "caption": "",
+   "action": "open-page",
+   "target": "PurchaseApprovals.NewRequest_Step1",
+   "kind": "open-page",
+   "effects": [],
+   "path": [
+    {
+     "entry": "home Responsive",
+     "target": "PurchaseApprovals.MyRequests",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.MyRequests"
+    },
+    {
+     "click": "actionButton2",
+     "on": "PurchaseApprovals.MyRequests",
+     "action": "microflow",
+     "id": "PurchaseApprovals.MyRequests.actionButton2"
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step1"
+    },
+    {
+     "click": "navigationList2",
+     "on": "PurchaseApprovals.NewRequest_Step1",
+     "action": "open-page",
+     "id": "PurchaseApprovals.NewRequest_Step1.navigationList2",
+     "item": 1,
+     "items": 3
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step2"
+    },
+    {
+     "click": "navigationList2",
+     "on": "PurchaseApprovals.NewRequest_Step2",
+     "action": "open-page",
+     "id": "PurchaseApprovals.NewRequest_Step2.navigationList2",
+     "item": 0,
+     "items": 3
+    }
+   ],
+   "path_text": "as Requester: home Responsive -> PurchaseApprovals.MyRequests -> click actionButton2 -> PurchaseApprovals.NewRequest_Step1 -> click navigationList2 -> PurchaseApprovals.NewRequest_Step2 -> click navigationList2",
+   "roles": [
+    "Requester"
+   ],
+   "fields": [],
+   "needs": [],
+   "todo": [],
+   "unknown": [],
+   "click": {},
+   "context": "PurchaseApprovals.Request",
+   "path_roles": [
+    "Requester"
+   ],
+   "path_role": "Requester"
+  },
+  {
+   "id": "PurchaseApprovals.NewRequest_Step2.navigationList2#2",
+   "host": "PurchaseApprovals.NewRequest_Step2",
+   "host_type": "Page",
+   "widget": "navigationList2",
+   "widget_type": "NavigationList",
+   "caption": "",
+   "action": "open-page",
+   "target": "PurchaseApprovals.NewRequest_Step3",
+   "kind": "open-page",
+   "effects": [],
+   "path": [
+    {
+     "entry": "home Responsive",
+     "target": "PurchaseApprovals.MyRequests",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.MyRequests"
+    },
+    {
+     "click": "actionButton2",
+     "on": "PurchaseApprovals.MyRequests",
+     "action": "microflow",
+     "id": "PurchaseApprovals.MyRequests.actionButton2"
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step1"
+    },
+    {
+     "click": "navigationList2",
+     "on": "PurchaseApprovals.NewRequest_Step1",
+     "action": "open-page",
+     "id": "PurchaseApprovals.NewRequest_Step1.navigationList2",
+     "item": 1,
+     "items": 3
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step2"
+    },
+    {
+     "click": "navigationList2",
+     "on": "PurchaseApprovals.NewRequest_Step2",
+     "action": "open-page",
+     "id": "PurchaseApprovals.NewRequest_Step2.navigationList2#2",
+     "item": 2,
+     "items": 3
+    }
+   ],
+   "path_text": "as Requester: home Responsive -> PurchaseApprovals.MyRequests -> click actionButton2 -> PurchaseApprovals.NewRequest_Step1 -> click navigationList2 -> PurchaseApprovals.NewRequest_Step2 -> click navigationList2",
+   "roles": [
+    "Requester"
+   ],
+   "fields": [],
+   "needs": [],
+   "todo": [],
+   "unknown": [],
+   "click": {},
+   "context": "PurchaseApprovals.Request",
+   "path_roles": [
+    "Requester"
+   ],
+   "path_role": "Requester"
+  },
+  {
+   "id": "PurchaseApprovals.NewRequest_Step2.actionButton3",
+   "host": "PurchaseApprovals.NewRequest_Step2",
+   "host_type": "Page",
+   "widget": "actionButton3",
+   "widget_type": "ActionButton",
+   "caption": "Previous",
+   "action": "open-page",
+   "target": "PurchaseApprovals.NewRequest_Step1",
+   "kind": "open-page",
+   "effects": [],
+   "path": [
+    {
+     "entry": "home Responsive",
+     "target": "PurchaseApprovals.MyRequests",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.MyRequests"
+    },
+    {
+     "click": "actionButton2",
+     "on": "PurchaseApprovals.MyRequests",
+     "action": "microflow",
+     "id": "PurchaseApprovals.MyRequests.actionButton2"
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step1"
+    },
+    {
+     "click": "navigationList2",
+     "on": "PurchaseApprovals.NewRequest_Step1",
+     "action": "open-page",
+     "id": "PurchaseApprovals.NewRequest_Step1.navigationList2",
+     "item": 1,
+     "items": 3
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step2"
+    },
+    {
+     "click": "actionButton3",
+     "on": "PurchaseApprovals.NewRequest_Step2",
+     "action": "open-page",
+     "id": "PurchaseApprovals.NewRequest_Step2.actionButton3"
+    }
+   ],
+   "path_text": "as Requester: home Responsive -> PurchaseApprovals.MyRequests -> click actionButton2 -> PurchaseApprovals.NewRequest_Step1 -> click navigationList2 -> PurchaseApprovals.NewRequest_Step2 -> click actionButton3",
+   "roles": [
+    "Requester"
+   ],
+   "fields": [],
+   "needs": [],
+   "todo": [],
+   "unknown": [],
+   "click": {},
+   "context": "PurchaseApprovals.Request",
+   "path_roles": [
+    "Requester"
+   ],
+   "path_role": "Requester"
+  },
+  {
+   "id": "PurchaseApprovals.NewRequest_Step2.actionButton2",
+   "host": "PurchaseApprovals.NewRequest_Step2",
+   "host_type": "Page",
+   "widget": "actionButton2",
+   "widget_type": "ActionButton",
+   "caption": "Next",
+   "action": "open-page",
+   "target": "PurchaseApprovals.NewRequest_Step3",
+   "kind": "open-page",
+   "effects": [],
+   "path": [
+    {
+     "entry": "home Responsive",
+     "target": "PurchaseApprovals.MyRequests",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.MyRequests"
+    },
+    {
+     "click": "actionButton2",
+     "on": "PurchaseApprovals.MyRequests",
+     "action": "microflow",
+     "id": "PurchaseApprovals.MyRequests.actionButton2"
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step1"
+    },
+    {
+     "click": "navigationList2",
+     "on": "PurchaseApprovals.NewRequest_Step1",
+     "action": "open-page",
+     "id": "PurchaseApprovals.NewRequest_Step1.navigationList2",
+     "item": 1,
+     "items": 3
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step2"
+    },
+    {
+     "click": "actionButton2",
+     "on": "PurchaseApprovals.NewRequest_Step2",
+     "action": "open-page",
+     "id": "PurchaseApprovals.NewRequest_Step2.actionButton2"
+    }
+   ],
+   "path_text": "as Requester: home Responsive -> PurchaseApprovals.MyRequests -> click actionButton2 -> PurchaseApprovals.NewRequest_Step1 -> click navigationList2 -> PurchaseApprovals.NewRequest_Step2 -> click actionButton2",
+   "roles": [
+    "Requester"
+   ],
+   "fields": [],
+   "needs": [],
+   "todo": [],
+   "unknown": [],
+   "click": {},
+   "context": "PurchaseApprovals.Request",
+   "path_roles": [
+    "Requester"
+   ],
+   "path_role": "Requester"
+  },
+  {
+   "id": "PurchaseApprovals.NewRequest_Step2.actionButton4",
+   "host": "PurchaseApprovals.NewRequest_Step2",
+   "host_type": "Page",
+   "widget": "actionButton4",
+   "widget_type": "ActionButton",
+   "caption": "Add product",
+   "action": "microflow",
+   "target": "PurchaseApprovals.CreateNewProductLine",
+   "kind": "create",
+   "effects": [
+    "create",
+    "open-page"
+   ],
+   "path": [
+    {
+     "entry": "home Responsive",
+     "target": "PurchaseApprovals.MyRequests",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.MyRequests"
+    },
+    {
+     "click": "actionButton2",
+     "on": "PurchaseApprovals.MyRequests",
+     "action": "microflow",
+     "id": "PurchaseApprovals.MyRequests.actionButton2"
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step1"
+    },
+    {
+     "click": "navigationList2",
+     "on": "PurchaseApprovals.NewRequest_Step1",
+     "action": "open-page",
+     "id": "PurchaseApprovals.NewRequest_Step1.navigationList2",
+     "item": 1,
+     "items": 3
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step2"
+    },
+    {
+     "click": "actionButton4",
+     "on": "PurchaseApprovals.NewRequest_Step2",
+     "action": "microflow",
+     "id": "PurchaseApprovals.NewRequest_Step2.actionButton4"
+    }
+   ],
+   "path_text": "as Requester: home Responsive -> PurchaseApprovals.MyRequests -> click actionButton2 -> PurchaseApprovals.NewRequest_Step1 -> click navigationList2 -> PurchaseApprovals.NewRequest_Step2 -> click actionButton4",
+   "roles": [
+    "Requester"
+   ],
+   "fields": [],
+   "needs": [],
+   "todo": [],
+   "unknown": [],
+   "click": {},
+   "context": "PurchaseApprovals.Request",
+   "path_roles": [
+    "Requester"
+   ],
+   "path_role": "Requester"
+  },
+  {
+   "id": "PurchaseApprovals.NewRequest_Step2.actionButton1",
+   "host": "PurchaseApprovals.NewRequest_Step2",
+   "host_type": "Page",
+   "widget": "actionButton1",
+   "widget_type": "ActionButton",
+   "caption": "",
+   "action": "delete",
+   "target": null,
+   "kind": "delete",
+   "effects": [],
+   "path": [
+    {
+     "entry": "home Responsive",
+     "target": "PurchaseApprovals.MyRequests",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.MyRequests"
+    },
+    {
+     "click": "actionButton2",
+     "on": "PurchaseApprovals.MyRequests",
+     "action": "microflow",
+     "id": "PurchaseApprovals.MyRequests.actionButton2"
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step1"
+    },
+    {
+     "click": "navigationList2",
+     "on": "PurchaseApprovals.NewRequest_Step1",
+     "action": "open-page",
+     "id": "PurchaseApprovals.NewRequest_Step1.navigationList2",
+     "item": 1,
+     "items": 3
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step2"
+    },
+    {
+     "click": "actionButton1",
+     "on": "PurchaseApprovals.NewRequest_Step2",
+     "action": "delete",
+     "id": "PurchaseApprovals.NewRequest_Step2.actionButton1",
+     "within": "listView1"
+    }
+   ],
+   "path_text": "as Requester: home Responsive -> PurchaseApprovals.MyRequests -> click actionButton2 -> PurchaseApprovals.NewRequest_Step1 -> click navigationList2 -> PurchaseApprovals.NewRequest_Step2 -> click actionButton1",
+   "roles": [
+    "Requester"
+   ],
+   "fields": [],
+   "needs": [
+    "a row in ListView listView1"
+   ],
+   "todo": [],
+   "unknown": [],
+   "click": {
+    "within": "listView1"
+   },
+   "context": "PurchaseApprovals.Request",
+   "path_roles": [
+    "Requester"
+   ],
+   "path_role": "Requester"
+  },
+  {
+   "id": "PurchaseApprovals.NewRequest_Step3.navigationList2",
+   "host": "PurchaseApprovals.NewRequest_Step3",
+   "host_type": "Page",
+   "widget": "navigationList2",
+   "widget_type": "NavigationList",
+   "caption": "",
+   "action": "open-page",
+   "target": "PurchaseApprovals.NewRequest_Step1",
+   "kind": "open-page",
+   "effects": [],
+   "path": [
+    {
+     "entry": "home Responsive",
+     "target": "PurchaseApprovals.MyRequests",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.MyRequests"
+    },
+    {
+     "click": "actionButton2",
+     "on": "PurchaseApprovals.MyRequests",
+     "action": "microflow",
+     "id": "PurchaseApprovals.MyRequests.actionButton2"
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step1"
+    },
+    {
+     "click": "navigationList2",
+     "on": "PurchaseApprovals.NewRequest_Step1",
+     "action": "open-page",
+     "id": "PurchaseApprovals.NewRequest_Step1.navigationList2#2",
+     "item": 2,
+     "items": 3
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step3"
+    },
+    {
+     "click": "navigationList2",
+     "on": "PurchaseApprovals.NewRequest_Step3",
+     "action": "open-page",
+     "id": "PurchaseApprovals.NewRequest_Step3.navigationList2",
+     "item": 0,
+     "items": 3
+    }
+   ],
+   "path_text": "as Requester: home Responsive -> PurchaseApprovals.MyRequests -> click actionButton2 -> PurchaseApprovals.NewRequest_Step1 -> click navigationList2 -> PurchaseApprovals.NewRequest_Step3 -> click navigationList2",
+   "roles": [
+    "Requester"
+   ],
+   "fields": [],
+   "needs": [],
+   "todo": [],
+   "unknown": [],
+   "click": {},
+   "context": "PurchaseApprovals.Request",
+   "path_roles": [
+    "Requester"
+   ],
+   "path_role": "Requester"
+  },
+  {
+   "id": "PurchaseApprovals.NewRequest_Step3.navigationList2#2",
+   "host": "PurchaseApprovals.NewRequest_Step3",
+   "host_type": "Page",
+   "widget": "navigationList2",
+   "widget_type": "NavigationList",
+   "caption": "",
+   "action": "open-page",
+   "target": "PurchaseApprovals.NewRequest_Step2",
+   "kind": "open-page",
+   "effects": [],
+   "path": [
+    {
+     "entry": "home Responsive",
+     "target": "PurchaseApprovals.MyRequests",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.MyRequests"
+    },
+    {
+     "click": "actionButton2",
+     "on": "PurchaseApprovals.MyRequests",
+     "action": "microflow",
+     "id": "PurchaseApprovals.MyRequests.actionButton2"
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step1"
+    },
+    {
+     "click": "navigationList2",
+     "on": "PurchaseApprovals.NewRequest_Step1",
+     "action": "open-page",
+     "id": "PurchaseApprovals.NewRequest_Step1.navigationList2#2",
+     "item": 2,
+     "items": 3
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step3"
+    },
+    {
+     "click": "navigationList2",
+     "on": "PurchaseApprovals.NewRequest_Step3",
+     "action": "open-page",
+     "id": "PurchaseApprovals.NewRequest_Step3.navigationList2#2",
+     "item": 1,
+     "items": 3
+    }
+   ],
+   "path_text": "as Requester: home Responsive -> PurchaseApprovals.MyRequests -> click actionButton2 -> PurchaseApprovals.NewRequest_Step1 -> click navigationList2 -> PurchaseApprovals.NewRequest_Step3 -> click navigationList2",
+   "roles": [
+    "Requester"
+   ],
+   "fields": [],
+   "needs": [],
+   "todo": [],
+   "unknown": [],
+   "click": {},
+   "context": "PurchaseApprovals.Request",
+   "path_roles": [
+    "Requester"
+   ],
+   "path_role": "Requester"
+  },
+  {
+   "id": "PurchaseApprovals.NewRequest_Step3.actionButton3",
+   "host": "PurchaseApprovals.NewRequest_Step3",
+   "host_type": "Page",
+   "widget": "actionButton3",
+   "widget_type": "ActionButton",
+   "caption": "Previous",
+   "action": "open-page",
+   "target": "PurchaseApprovals.NewRequest_Step2",
+   "kind": "open-page",
+   "effects": [],
+   "path": [
+    {
+     "entry": "home Responsive",
+     "target": "PurchaseApprovals.MyRequests",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.MyRequests"
+    },
+    {
+     "click": "actionButton2",
+     "on": "PurchaseApprovals.MyRequests",
+     "action": "microflow",
+     "id": "PurchaseApprovals.MyRequests.actionButton2"
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step1"
+    },
+    {
+     "click": "navigationList2",
+     "on": "PurchaseApprovals.NewRequest_Step1",
+     "action": "open-page",
+     "id": "PurchaseApprovals.NewRequest_Step1.navigationList2#2",
+     "item": 2,
+     "items": 3
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step3"
+    },
+    {
+     "click": "actionButton3",
+     "on": "PurchaseApprovals.NewRequest_Step3",
+     "action": "open-page",
+     "id": "PurchaseApprovals.NewRequest_Step3.actionButton3"
+    }
+   ],
+   "path_text": "as Requester: home Responsive -> PurchaseApprovals.MyRequests -> click actionButton2 -> PurchaseApprovals.NewRequest_Step1 -> click navigationList2 -> PurchaseApprovals.NewRequest_Step3 -> click actionButton3",
+   "roles": [
+    "Requester"
+   ],
+   "fields": [
+    {
+     "widget": "textBox3",
+     "input": "text",
+     "attribute": "PurchaseApprovals.Request.Title",
+     "attr_type": {
+      "type": "String",
+      "length": 100
+     },
+     "editable": "Never"
+    },
+    {
+     "widget": "dropDown1",
+     "input": "combobox",
+     "attribute": "PurchaseApprovals.Request.Department",
+     "attr_type": {
+      "type": "Enumeration",
+      "enum": "PurchaseApprovals.ENUM_Department",
+      "enum_first": "Marketing",
+      "enum_first_caption": "Marketing"
+     },
+     "editable": "Never"
+    },
+    {
+     "widget": "datePicker1",
+     "input": "date",
+     "attribute": "PurchaseApprovals.Request.RequiredDeliveryDate",
+     "attr_type": {
+      "type": "DateTime"
+     },
+     "editable": "Never",
+     "date_format": {
+      "DateFormat": "Date",
+      "Custom": ""
+     }
+    },
+    {
+     "widget": "textArea2",
+     "input": "text",
+     "attribute": "PurchaseApprovals.Request.ShippingAddress",
+     "attr_type": {
+      "type": "String"
+     },
+     "editable": "Never"
+    },
+    {
+     "widget": "textArea1",
+     "input": "text",
+     "attribute": "PurchaseApprovals.Request.RequestReason",
+     "attr_type": {
+      "type": "String"
+     },
+     "editable": "Never"
+    }
+   ],
+   "needs": [],
+   "todo": [],
+   "unknown": [],
+   "click": {},
+   "context": "PurchaseApprovals.Request",
+   "path_roles": [
+    "Requester"
+   ],
+   "path_role": "Requester"
+  },
+  {
+   "id": "PurchaseApprovals.NewRequest_Step3.actionButton1",
+   "host": "PurchaseApprovals.NewRequest_Step3",
+   "host_type": "Page",
+   "widget": "actionButton1",
+   "widget_type": "ActionButton",
+   "caption": "Submit",
+   "action": "microflow",
+   "target": "PurchaseApprovals.SubmitRequest",
+   "kind": "workflow-call",
+   "effects": [
+    "workflow-call",
+    "commit",
+    "open-page"
+   ],
+   "path": [
+    {
+     "entry": "home Responsive",
+     "target": "PurchaseApprovals.MyRequests",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.MyRequests"
+    },
+    {
+     "click": "actionButton2",
+     "on": "PurchaseApprovals.MyRequests",
+     "action": "microflow",
+     "id": "PurchaseApprovals.MyRequests.actionButton2"
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step1"
+    },
+    {
+     "click": "navigationList2",
+     "on": "PurchaseApprovals.NewRequest_Step1",
+     "action": "open-page",
+     "id": "PurchaseApprovals.NewRequest_Step1.navigationList2#2",
+     "item": 2,
+     "items": 3
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step3"
+    },
+    {
+     "click": "actionButton1",
+     "on": "PurchaseApprovals.NewRequest_Step3",
+     "action": "microflow",
+     "id": "PurchaseApprovals.NewRequest_Step3.actionButton1"
+    }
+   ],
+   "path_text": "as Requester: home Responsive -> PurchaseApprovals.MyRequests -> click actionButton2 -> PurchaseApprovals.NewRequest_Step1 -> click navigationList2 -> PurchaseApprovals.NewRequest_Step3 -> click actionButton1",
+   "roles": [
+    "Requester"
+   ],
+   "fields": [
+    {
+     "widget": "textBox3",
+     "input": "text",
+     "attribute": "PurchaseApprovals.Request.Title",
+     "attr_type": {
+      "type": "String",
+      "length": 100
+     },
+     "editable": "Never"
+    },
+    {
+     "widget": "dropDown1",
+     "input": "combobox",
+     "attribute": "PurchaseApprovals.Request.Department",
+     "attr_type": {
+      "type": "Enumeration",
+      "enum": "PurchaseApprovals.ENUM_Department",
+      "enum_first": "Marketing",
+      "enum_first_caption": "Marketing"
+     },
+     "editable": "Never"
+    },
+    {
+     "widget": "datePicker1",
+     "input": "date",
+     "attribute": "PurchaseApprovals.Request.RequiredDeliveryDate",
+     "attr_type": {
+      "type": "DateTime"
+     },
+     "editable": "Never",
+     "date_format": {
+      "DateFormat": "Date",
+      "Custom": ""
+     }
+    },
+    {
+     "widget": "textArea2",
+     "input": "text",
+     "attribute": "PurchaseApprovals.Request.ShippingAddress",
+     "attr_type": {
+      "type": "String"
+     },
+     "editable": "Never"
+    },
+    {
+     "widget": "textArea1",
+     "input": "text",
+     "attribute": "PurchaseApprovals.Request.RequestReason",
+     "attr_type": {
+      "type": "String"
+     },
+     "editable": "Never"
+    }
+   ],
+   "needs": [],
+   "todo": [],
+   "unknown": [],
+   "click": {},
+   "confirm": {
+    "proceed": "Proceed"
+   },
+   "workflows": [
+    "PurchaseApprovals.PurchaseRequestWorkflow"
+   ],
+   "context": "PurchaseApprovals.Request",
+   "path_roles": [
+    "Requester"
+   ],
+   "path_role": "Requester"
+  },
+  {
+   "id": "PurchaseApprovals.NewRequest_Step3.actionButton4",
+   "host": "PurchaseApprovals.NewRequest_Step3",
+   "host_type": "Page",
+   "widget": "actionButton4",
+   "widget_type": "ActionButton",
+   "caption": "",
+   "action": "microflow",
+   "target": "PurchaseApprovals.DeleteAttachment",
+   "kind": "delete",
+   "effects": [
+    "delete"
+   ],
+   "path": [
+    {
+     "entry": "home Responsive",
+     "target": "PurchaseApprovals.MyRequests",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.MyRequests"
+    },
+    {
+     "click": "actionButton2",
+     "on": "PurchaseApprovals.MyRequests",
+     "action": "microflow",
+     "id": "PurchaseApprovals.MyRequests.actionButton2"
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step1"
+    },
+    {
+     "click": "navigationList2",
+     "on": "PurchaseApprovals.NewRequest_Step1",
+     "action": "open-page",
+     "id": "PurchaseApprovals.NewRequest_Step1.navigationList2#2",
+     "item": 2,
+     "items": 3
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step3"
+    },
+    {
+     "click": "actionButton4",
+     "on": "PurchaseApprovals.NewRequest_Step3",
+     "action": "microflow",
+     "id": "PurchaseApprovals.NewRequest_Step3.actionButton4",
+     "within": "listView6"
+    }
+   ],
+   "path_text": "as Requester: home Responsive -> PurchaseApprovals.MyRequests -> click actionButton2 -> PurchaseApprovals.NewRequest_Step1 -> click navigationList2 -> PurchaseApprovals.NewRequest_Step3 -> click actionButton4",
+   "roles": [
+    "Requester"
+   ],
+   "fields": [
+    {
+     "widget": "textBox3",
+     "input": "text",
+     "attribute": "PurchaseApprovals.Request.Title",
+     "attr_type": {
+      "type": "String",
+      "length": 100
+     },
+     "editable": "Never"
+    },
+    {
+     "widget": "dropDown1",
+     "input": "combobox",
+     "attribute": "PurchaseApprovals.Request.Department",
+     "attr_type": {
+      "type": "Enumeration",
+      "enum": "PurchaseApprovals.ENUM_Department",
+      "enum_first": "Marketing",
+      "enum_first_caption": "Marketing"
+     },
+     "editable": "Never"
+    },
+    {
+     "widget": "datePicker1",
+     "input": "date",
+     "attribute": "PurchaseApprovals.Request.RequiredDeliveryDate",
+     "attr_type": {
+      "type": "DateTime"
+     },
+     "editable": "Never",
+     "date_format": {
+      "DateFormat": "Date",
+      "Custom": ""
+     }
+    },
+    {
+     "widget": "textArea2",
+     "input": "text",
+     "attribute": "PurchaseApprovals.Request.ShippingAddress",
+     "attr_type": {
+      "type": "String"
+     },
+     "editable": "Never"
+    },
+    {
+     "widget": "textArea1",
+     "input": "text",
+     "attribute": "PurchaseApprovals.Request.RequestReason",
+     "attr_type": {
+      "type": "String"
+     },
+     "editable": "Never"
+    }
+   ],
+   "needs": [
+    "a row in ListView listView6"
+   ],
+   "todo": [],
+   "unknown": [],
+   "click": {
+    "within": "listView6"
+   },
+   "context": "PurchaseApprovals.Request",
+   "path_roles": [
+    "Requester"
+   ],
+   "path_role": "Requester"
+  },
+  {
+   "id": "PurchaseApprovals.NewRequest_Step3.container7",
+   "host": "PurchaseApprovals.NewRequest_Step3",
+   "host_type": "Page",
+   "widget": "container7",
+   "widget_type": "DivContainer",
+   "caption": "",
+   "action": "microflow",
+   "target": "PurchaseApprovals.DownloadAttachment",
+   "kind": "no-db-effect",
+   "effects": [],
+   "path": [
+    {
+     "entry": "home Responsive",
+     "target": "PurchaseApprovals.MyRequests",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.MyRequests"
+    },
+    {
+     "click": "actionButton2",
+     "on": "PurchaseApprovals.MyRequests",
+     "action": "microflow",
+     "id": "PurchaseApprovals.MyRequests.actionButton2"
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step1"
+    },
+    {
+     "click": "navigationList2",
+     "on": "PurchaseApprovals.NewRequest_Step1",
+     "action": "open-page",
+     "id": "PurchaseApprovals.NewRequest_Step1.navigationList2#2",
+     "item": 2,
+     "items": 3
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step3"
+    },
+    {
+     "click": "container7",
+     "on": "PurchaseApprovals.NewRequest_Step3",
+     "action": "microflow",
+     "id": "PurchaseApprovals.NewRequest_Step3.container7",
+     "within": "listView6"
+    }
+   ],
+   "path_text": "as Requester: home Responsive -> PurchaseApprovals.MyRequests -> click actionButton2 -> PurchaseApprovals.NewRequest_Step1 -> click navigationList2 -> PurchaseApprovals.NewRequest_Step3 -> click container7",
+   "roles": [
+    "Requester"
+   ],
+   "fields": [
+    {
+     "widget": "textBox3",
+     "input": "text",
+     "attribute": "PurchaseApprovals.Request.Title",
+     "attr_type": {
+      "type": "String",
+      "length": 100
+     },
+     "editable": "Never"
+    },
+    {
+     "widget": "dropDown1",
+     "input": "combobox",
+     "attribute": "PurchaseApprovals.Request.Department",
+     "attr_type": {
+      "type": "Enumeration",
+      "enum": "PurchaseApprovals.ENUM_Department",
+      "enum_first": "Marketing",
+      "enum_first_caption": "Marketing"
+     },
+     "editable": "Never"
+    },
+    {
+     "widget": "datePicker1",
+     "input": "date",
+     "attribute": "PurchaseApprovals.Request.RequiredDeliveryDate",
+     "attr_type": {
+      "type": "DateTime"
+     },
+     "editable": "Never",
+     "date_format": {
+      "DateFormat": "Date",
+      "Custom": ""
+     }
+    },
+    {
+     "widget": "textArea2",
+     "input": "text",
+     "attribute": "PurchaseApprovals.Request.ShippingAddress",
+     "attr_type": {
+      "type": "String"
+     },
+     "editable": "Never"
+    },
+    {
+     "widget": "textArea1",
+     "input": "text",
+     "attribute": "PurchaseApprovals.Request.RequestReason",
+     "attr_type": {
+      "type": "String"
+     },
+     "editable": "Never"
+    }
+   ],
+   "needs": [
+    "a row in ListView listView6"
+   ],
+   "todo": [],
+   "unknown": [],
+   "click": {
+    "within": "listView6"
+   },
+   "context": "PurchaseApprovals.Request",
+   "path_roles": [
+    "Requester"
+   ],
+   "path_role": "Requester"
+  },
+  {
+   "id": "PurchaseApprovals.ProductLine_NewEdit.actionButton1",
+   "host": "PurchaseApprovals.ProductLine_NewEdit",
+   "host_type": "Page",
+   "widget": "actionButton1",
+   "widget_type": "ActionButton",
+   "caption": "Save",
+   "action": "microflow",
+   "target": "PurchaseApprovals.SaveProductLine",
+   "kind": "status-change",
+   "effects": [
+    "status-change",
+    "commit"
+   ],
+   "path": [
+    {
+     "entry": "home Responsive",
+     "target": "PurchaseApprovals.MyRequests",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.MyRequests"
+    },
+    {
+     "click": "actionButton2",
+     "on": "PurchaseApprovals.MyRequests",
+     "action": "microflow",
+     "id": "PurchaseApprovals.MyRequests.actionButton2"
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step1"
+    },
+    {
+     "click": "navigationList2",
+     "on": "PurchaseApprovals.NewRequest_Step1",
+     "action": "open-page",
+     "id": "PurchaseApprovals.NewRequest_Step1.navigationList2",
+     "item": 1,
+     "items": 3
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step2"
+    },
+    {
+     "click": "actionButton4",
+     "on": "PurchaseApprovals.NewRequest_Step2",
+     "action": "microflow",
+     "id": "PurchaseApprovals.NewRequest_Step2.actionButton4"
+    },
+    {
+     "page": "PurchaseApprovals.ProductLine_NewEdit"
+    },
+    {
+     "click": "actionButton1",
+     "on": "PurchaseApprovals.ProductLine_NewEdit",
+     "action": "microflow",
+     "id": "PurchaseApprovals.ProductLine_NewEdit.actionButton1"
+    }
+   ],
+   "path_text": "as Requester: home Responsive -> PurchaseApprovals.MyRequests -> click actionButton2 -> PurchaseApprovals.NewRequest_Step1 -> click navigationList2 -> PurchaseApprovals.NewRequest_Step2 -> click actionButton4 -> PurchaseApprovals.ProductLine_NewEdit -> click actionButton1",
+   "roles": [
+    "InvoiceProcessor",
+    "PurchaseOrderCreator",
+    "Requester"
+   ],
+   "fields": [
+    {
+     "widget": "referenceSelector2",
+     "input": "combobox",
+     "attribute": "PurchaseApprovals.Product.Name",
+     "attr_type": {
+      "type": "String",
+      "length": 200
+     },
+     "association": "PurchaseApprovals.ProductLine_Product",
+     "editable": "Always"
+    },
+    {
+     "widget": "textBox1",
+     "input": "text",
+     "attribute": "PurchaseApprovals.ProductLine.Quantity",
+     "attr_type": {
+      "type": "Integer"
+     },
+     "editable": "Always"
+    }
+   ],
+   "needs": [],
+   "todo": [],
+   "unknown": [],
+   "click": {},
+   "context": "PurchaseApprovals.ProductLine",
+   "path_roles": [
+    "Requester"
+   ],
+   "path_role": "Requester"
+  }
+ ]
+}

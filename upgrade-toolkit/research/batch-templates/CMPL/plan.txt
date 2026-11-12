@@ -1,0 +1,6 @@
+# CMPL rung 1 (9.24.2 -> 10.24.0.73019): module updates after the convert, on 10.24. <content id> <version> <Module>
+# newest version whose min Mendix is at or below 10.24.0 (mxcli marketplace versions).
+# Held at the installed version, crosscalls.py CAP (kept callers DemoUserSwitcher, PushNotifications): Administration 2.1.2, CommunityCommons 9.0.1, Encryption 9.0.1, NanoflowCommons 3.0.0.
+# Kept, not planned: PushNotifications 5.3.0 (3 RED edits), DemoUserSwitcher 1.1.0 and NativeMobileResources 2.0.1 (no versions listed), TcConnector 3.5.0 (installed version not listed; newest needs 10.24.8), AmazonRekognitionConnector 1.0.0 (content id 0).
+116540 3.11.7 DataWidgets
+111349 10.6.2 MendixSSO

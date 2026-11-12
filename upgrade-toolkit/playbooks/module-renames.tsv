@@ -1,0 +1,8 @@
+# module-renames.tsv: Marketplace modules whose listing was renamed or republished under a new name (BT-6).
+# Read by bin/renamed_modules.py (steps/triage.md item 3) and bin/proposal.py (section 3). Matched by CONTENT ID first (a rename keeps
+# the id); a module the MPR records without an id is matched by its old name. A row never lists a module that already carries new_name.
+# kind RENAMED = same line, new module name, versions continue; REPUBLISHED = new name and the numbering restarts, so it is NOT an update of
+# the installed module. Rows come from batch runs (source column); add a row when a run meets another rename, never a guess.
+id	content_id	old_name	new_name	kind	route	source
+MR1	116540	DataGrid	DataWidgets	RENAMED	install DataWidgets (same content id, mxcli marketplace versions 116540 lists it), move the references, delete the old module only after idcheck; do not plan DataGrid as a version update	TOUR 9.4 batch run: installed DataGrid 1.1.3, localedits UNKNOWN (download HTTP 500); DOCGEN carries the same id as DataWidgets 3.11.4; publisher-lessons T1-14
+MR2	1445	ApprontoLicenser	Emixa Licenser module	REPUBLISHED	the listing restarts at 1.0.0 (min Mendix 11.12.1) under a new name: not an update of the installed 7.x. Decide: keep the installed version and test it at the gate, or replace by the new module (the module name inside the package is not verified here); owner and vendor decision	DOCGEN 10.24.21 batch run: installed 7.0.1 (content 1445), listing newest "Emixa Licenser module" 1.0.0

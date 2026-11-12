@@ -1,0 +1,94 @@
+{
+ "old": "m/guard4/App.mpr",
+ "new": "m/guard4/App.mpr",
+ "_why": "T6R-3b: microflow homes whose page is shown by a sub-microflow (fixtures/models/guard4.json); Clerk has no test user",
+ "user_roles": {
+  "admin": null,
+  "guest": null,
+  "all": [
+   "Admin",
+   "Deep",
+   "Service",
+   "Clerk"
+  ]
+ },
+ "roles": {
+  "Admin": {
+   "home_page": "",
+   "home_microflow": "Shop.NAV_Admin",
+   "landing": null,
+   "menu_visible": [],
+   "menu_hidden": [],
+   "sign_out_item": null,
+   "is_admin": false,
+   "is_guest": false
+  },
+  "Deep": {
+   "home_page": "",
+   "home_microflow": "Shop.NAV_Deep",
+   "landing": null,
+   "menu_visible": [],
+   "menu_hidden": [],
+   "sign_out_item": null,
+   "is_admin": false,
+   "is_guest": false
+  },
+  "Service": {
+   "home_page": "",
+   "home_microflow": "Shop.NAV_Service",
+   "landing": null,
+   "menu_visible": [],
+   "menu_hidden": [],
+   "sign_out_item": null,
+   "is_admin": false,
+   "is_guest": false
+  },
+  "Clerk": {
+   "home_page": "",
+   "home_microflow": "Shop.NAV_Clerk",
+   "landing": null,
+   "menu_visible": [],
+   "menu_hidden": [],
+   "sign_out_item": null,
+   "is_admin": false,
+   "is_guest": false
+  }
+ },
+ "candidates": [
+  {
+   "id": "home:Shop.NAV_Admin",
+   "kind": "home",
+   "target": "Shop.NAV_Admin",
+   "roles": [
+    "Admin"
+   ]
+  },
+  {
+   "id": "home:Shop.NAV_Deep",
+   "kind": "home",
+   "target": "Shop.NAV_Deep",
+   "roles": [
+    "Deep"
+   ]
+  },
+  {
+   "id": "home:Shop.NAV_Service",
+   "kind": "home",
+   "target": "Shop.NAV_Service",
+   "roles": [
+    "Service"
+   ]
+  },
+  {
+   "id": "home:Shop.NAV_Clerk",
+   "kind": "home",
+   "target": "Shop.NAV_Clerk",
+   "roles": [
+    "Clerk"
+   ]
+  }
+ ],
+ "changes": [],
+ "login": {},
+ "auth": {}
+}

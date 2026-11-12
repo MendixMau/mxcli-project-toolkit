@@ -1,0 +1,11 @@
+create or modify microflow PurchaseApprovals.ACT_SaveWorkflowComment (
+  $WorkflowCommentHelper: WorkflowCommons.WorkflowCommentHelper,
+  $WorkflowView: WorkflowCommons.WorkflowView
+)
+folder 'User/Approver/Microflows'
+begin
+  retrieve $Workflow from $WorkflowView/WorkflowCommons.WorkflowView_Workflow;
+  call microflow WorkflowCommons.ACT_WorkflowCommentHelper_SaveNew(WorkflowCommentHelper = $WorkflowCommentHelper, Workflow = $Workflow);
+  return;
+end;
+grant execute on microflow PurchaseApprovals.ACT_SaveWorkflowComment to PurchaseApprovals.Administrator, PurchaseApprovals.Approver, PurchaseApprovals.InvoiceProcessor, PurchaseApprovals.PurchaseOrderCreator, PurchaseApprovals.Receiver, PurchaseApprovals.Requester;

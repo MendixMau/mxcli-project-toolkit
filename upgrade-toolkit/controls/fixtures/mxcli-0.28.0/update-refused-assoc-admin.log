@@ -1,0 +1,9 @@
+WARNING: This is a vibe-coded PoC, alpha quality, use with caution.
+refusing to update: the update would discard 4 local element(s) (1 association(s) in other modules reach into Administration and are removed with it):
+    PAGE Account_Edit
+    PAGE Account_New
+    PAGE MyAccount
+    ASSOCIATION WorkflowCommons.TaskAssignmentHelper_Account
+
+  - Save them first:  --save-edits <dir>
+  - Then update:      --force

@@ -1,0 +1,6 @@
+{"from": "maps-old.json",
+ "_why": "the same pages after mx convert 9 to 10 (field shape, T2-1): convert wrote explicit mappings. NewEdit Save now maps the PAGE PARAMETER (a different, empty object), not the data view object; the data view's own source call gets the page parameter too (an input, not a site inside the view); Phone_Edit maps the same object its data view shows; Stable is unchanged",
+ "ops": [["set", "version", "10.24.26.12345"],
+         ["set", "modules/0/pages/0/named/0/datasource/mappings", [["ActualConfig", {"page": "ClientConfiguration"}]]],
+         ["set", "modules/0/pages/0/named/0/children/0/action/mappings", [["ClientConfiguration", {"page": "ClientConfiguration"}]]],
+         ["set", "modules/0/pages/1/named/0/children/0/action/mappings", [["UoM", {"page": "UoM"}]]]]}

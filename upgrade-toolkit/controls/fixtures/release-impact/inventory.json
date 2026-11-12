@@ -1,0 +1,5 @@
+{"modules": {"marketplace": [], "own": ["MyOwn"]},
+ "published_rest": [], "consumed_rest": [],
+ "odata_published": [{"QualifiedName": "MyOwn.PublishedOData", "Path": "odata/v1", "EntitySetCount": 2}], "odata_consumed": [],
+ "java_actions": [{"module": "MyOwn", "n": 3}], "workflows": [],
+ "test_plan": []}

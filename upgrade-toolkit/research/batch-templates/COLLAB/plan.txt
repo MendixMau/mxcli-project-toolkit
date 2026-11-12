@@ -1,0 +1,15 @@
+# COLLAB rung 1 (9.18 -> 10.24.0.73019): module updates after the convert, on 10.24. <content id> <version> <Module>
+# newest version whose min Mendix is at or below 10.24.0 (mxcli marketplace versions); Email_Connector 6.4.x needs 10.24.11, so 6.3.2.
+# Held at the installed version, crosscalls.py CAP (kept caller DemoUserSwitcher): CommunityCommons 9.0.0, NanoflowCommons 2.3.1, Administration 2.1.0.
+# Not planned: DemoUserSwitcher 1.1.0 and MES_Atlas_Extension 2.0.1 (no versions listed for the content id: kept as installed, owner decision).
+1011 11.1.2 Encryption
+116540 3.11.7 DataWidgets
+117187 3.21.1 Atlas_Core
+117183 3.9.0 Atlas_Web_Content
+114337 2.11.2 WebActions
+43 10.0.10 DeepLink
+111349 10.6.2 MendixSSO
+120333 4.1.4 AWSAuthentication
+205646 3.0.1 AmazonTextractConnector
+69 9.1.0 MxModelReflection
+120739 6.3.2 Email_Connector

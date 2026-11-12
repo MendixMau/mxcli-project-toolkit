@@ -1,0 +1,129 @@
+  PASS    act-EmployeeManagement.Employee_New.microflowButton1    
+  PASS    act-EmployeeManagement.Employee_Overview.actionButton1  
+  PASS    act-MasterData.Dashboard_Admin.actionButton2            
+  PASS    act-MasterData.Settings_Overview.actionButton9          
+  PASS    login-Administrator                                     
+  PASS    sign-out                                                
+  FAIL    act-Inspection.Inspection_EnterSerialNumber.actionButton1 login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_EnterSerialNumber.container10 login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_EnterSerialNumber.container4  login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_EnterSerialNumber.staticImage4 login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_Overview.actionButton1        login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_ScanSerialNumber.barcodeScanner1 login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_StartInspect.actionButton1    login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_StartInspect.actionButton2    login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_StartInspect.planview2        login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MES_Application_Specific.Atlas_TopBar_Dark.container1 login FAIL: The username or password you entered is incorrect.
+  FAIL    login-Inspector                                         login FAIL: The username or password you entered is incorrect.
+  FAIL    act-AIChatbotBedrock.Snippet_ChatContext_Interaction.btnDisabled login FAIL: The username or password you entered is incorrect.
+  FAIL    act-AIChatbotBedrock.Snippet_ChatContext_Interaction.btnSendMessage login FAIL: The username or password you entered is incorrect.
+  FAIL    act-ConversationalUI.Snippet_Message_Sources.accordion1 login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Task_NewEdit.actionButton1               login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.Dashboard_QualityManager.container5      login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.Dashboard_QualityManager.container6      login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.Dashboard_QualityManager.planview3       login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.Dashboard_QualityManager.planview4       login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.DefectType_NewEdit.actionButton1         login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.DefectType_Overview.actionButton1        login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.DefectType_Overview.actionButton2        login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.DefectType_Overview.actionButton3        login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.LocationType_DefectSelect.actionButton4  login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.LocationType_NewEdit.actionButton3       login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.LocationType_Overview.actionButton1      login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.LocationType_Overview.actionButton2      login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.LocationType_Overview.actionButton3      login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.LocationType_Overview.actionButton4      login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.ProductView_NewEdit.actionButton2        login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.ProductView_NewEdit.actionButton3        login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.ProductView_NewEdit.actionButton4        login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.ProductWizard_Step1_NewProduct.actionButton2 login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.ProductWizard_Step2_ProductViews.actionButton2 login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.ProductWizard_Step2_ProductViews.actionButton4 login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.ProductWizard_Step2_ProductViews.actionButton6 login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.Product_Edit.actionButton4               login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.Product_Overview.actionButton1           login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.Product_Overview.actionButton2           login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.Product_Overview.actionButton3           login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.SNIPPET_InspectionReview.actionButton1   login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.SNIPPET_InspectionReview.actionButton11  login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.SNIPPET_InspectionReview.actionButton12  login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.SNIPPET_InspectionReview.actionButton2   login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.SNIPPET_InspectionReview.actionButton3   login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.SNIPPET_InspectionReview.actionButton4   login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.SNIPPET_InspectionReview.actionButton5   login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.SNIPPET_InspectionReview.actionButton6   login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.SNIPPET_InspectionReview.actionButton7   login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.SNIP_ChatContext_ChatbotButton.container3 login FAIL: The username or password you entered is incorrect.
+  FAIL    login-QualityManager                                    login FAIL: The username or password you entered is incorrect.
+  FAIL    act-AIChatbotBedrock.ConfigurationSelection_NewEdit.actionButton1 FAIL open AIChatbotBedrock.ConfigurationSelection_NewEdit: actions completed grid1: no row to click in .mx-name-grid1: the list is empty, a fixture ga
+  FAIL    act-AIChatbotBedrock.SNIP_ConfigurationSelection_Overview.actionButton2 FAIL microflow 'Edit' on AIChatbotBedrock.SNIP_ConfigurationSelection_Overview (open-page): actions completed grid1: no row to click in .mx-name-gri
+  FAIL    act-AIChatbotBedrock.SNIP_ConfigurationSelection_Overview.actionButton3 FAIL microflow 'New' on AIChatbotBedrock.SNIP_ConfigurationSelection_Overview (create): actions completed grid1: no row to click in .mx-name-grid1: 
+  FAIL    act-AWSAuthentication.SNIPPET_AWSAuthentication_Settings.actionButton3 FAIL microflow 'New/Edit' on AWSAuthentication.SNIPPET_AWSAuthentication_Settings (create): actions completed grid1: no row to click in .mx-name-grid
+  FAIL    act-AWSAuthentication.Settings_NewEdit.actionButton1    FAIL open AWSAuthentication.Settings_NewEdit: actions completed grid1: no row to click in .mx-name-grid1: the list is empty, a fixture gap (the data t
+  FAIL    act-EmployeeManagement.Employee_Edit.microflowButton1   FAIL open EmployeeManagement.Employee_Overview via Employees: reached ".mx-name-actionButton3" never appeared — screenshot act-EmployeeManagement.Empl
+  FAIL    act-EmployeeManagement.Employee_Edit.microflowTrigger2  FAIL open EmployeeManagement.Employee_Overview via Employees: reached ".mx-name-actionButton3" never appeared — screenshot act-EmployeeManagement.Empl
+  FAIL    act-EmployeeManagement.Employee_Overview.actionButton3  FAIL open EmployeeManagement.Employee_Overview via Employees: reached ".mx-name-actionButton3" never appeared — screenshot act-EmployeeManagement.Empl
+  FAIL    act-EmployeeManagement.Employee_Overview.dataGrid21     FAIL microflow 'dataGrid21' on EmployeeManagement.Employee_Overview (open-page): actions completed dataGrid21: no row to click in .mx-name-dataGrid21:
+  FAIL    act-EmployeeManagement.Employee_Overview.dataGrid21_2   FAIL microflow 'dataGrid21' on EmployeeManagement.Employee_Overview (no-db-effect): actions completed dataGrid21: no row to click in .mx-name-dataGrid
+  FAIL    act-Inspection.Inspection_Confirm.actionButton2         login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_Overview.dataGrid23           login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_Overview.dataGrid23_2         login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_Overview.dataGrid24           login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_SelectArea.actionButton12     login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_SelectArea.planview1          login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.SNIPPET_Defect_ShowDefectImages_Edit.actionButton9 login FAIL: The username or password you entered is incorrect.
+  FAIL    act-AIChatbotBedrock.Snippet_ChatContext_ConversationalUI_Bubbles.events1 login FAIL: The username or password you entered is incorrect.
+  FAIL    act-AIChatbotBedrock.Snippet_ChatContext_ConversationalUI_Bubbles.events1_2 login FAIL: The username or password you entered is incorrect.
+  FAIL    act-ConversationalUI.Snippet_Message_Sources.actionButton4 login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.Dashboard_QualityManager.dataGrid23      login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.Dashboard_QualityManager.dataGrid24      login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.LocationType_DefectSelect.actionButton1  login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.LocationType_DefectSelect.actionButton2  login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.LocationType_Overview.actionButton6      login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.Location_NewEdit.actionButton1           login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.ProductWizard_Step2_ProductViews.actionButton1 login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.ProductWizard_Step2_ProductViews.actionButton3 login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.ProductWizard_Step2_ProductViews.dataGrid21 login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.ProductWizard_Step2_ProductViews.dataGrid21_2 login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.ProductWizard_Step3_Locations.actionButton4 login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.ProductWizard_Step3_Locations.marker2    login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.ProductWizard_Step3_Locations.planview2  login FAIL: The username or password you entered is incorrect.
+  FAIL    act-AIChatbotBedrock.SNIP_ConfigurationSelection_Overview.actionButton1 FAIL microflow 'Delete' on AIChatbotBedrock.SNIP_ConfigurationSelection_Overview (delete): actions completed grid1: no row to click in .mx-name-grid
+  FAIL    act-AWSAuthentication.SNIPPET_AWSAuthentication_Settings.actionButton2 FAIL open MasterData.Settings_Overview via Settings > tab 'AWS authentification': reached ".mx-name-actionButton2" never appeared — screenshot act-
+  FAIL    act-Administration.ChangePasswordForm.microflowButton1  FAIL open EmployeeManagement.Employee_Overview via Employees: reached ".mx-name-actionButton3" never appeared — screenshot act-Administration.ChangePa
+  FAIL    act-DemoUserSwitcher.User_SelectDemoUser.gallery1       FAIL open DemoUserSwitcher.User_SelectDemoUser via Switch user: reached ".mx-name-gallery1" never appeared — screenshot act-DemoUserSwitcher.User_Sele
+  FAIL    act-EmployeeManagement.Employee_Overview.actionButton2  FAIL open EmployeeManagement.Employee_Overview via Employees: reached ".mx-name-actionButton2" never appeared — screenshot act-EmployeeManagement.Empl
+  PASS    act-MasterData.Settings_Overview.actionButton2          
+  PASS    act-MasterData.Settings_Overview.actionButton3          
+  FAIL    act-Inspection.Inspection_Confirm.actionButton1         login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_Confirm.actionButton10        login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_Confirm.actionButton11        login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_Confirm.actionButton12        login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_Confirm.actionButton3         login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_Confirm.actionButton4         login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_Confirm.actionButton8         login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_Confirm.container6            login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_Confirm.listView6             login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_SelectArea.actionButton1      login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_SelectArea.actionButton10     login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_SelectArea.actionButton11     login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_SelectArea.actionButton13     login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_SelectArea.actionButton2      login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_SelectArea.actionButton3      login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_SelectArea.actionButton4      login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_SelectArea.actionButton5      login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_SelectArea.actionButton6      login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_SelectArea.actionButton7      login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_SelectArea.actionButton8      login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_SelectArea.container11        login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_SelectArea.container5         login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_SelectArea.container7         login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_SelectArea.container8         login FAIL: The username or password you entered is incorrect.
+  FAIL    act-Inspection.Inspection_SelectArea.marker2            login FAIL: The username or password you entered is incorrect.
+  FAIL    act-AIChatbotBedrock.Snippet_ChatContext_Interaction.btnUseSuggestedUserPrompt login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.Location_NewEdit.actionButton3           login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.ProductWizard_Step2_ProductViews.actionButton5 login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.SNIPPET_InspectionReview.container6      login FAIL: The username or password you entered is incorrect.
+  FAIL    act-MasterData.SNIPPET_InspectionReview.listView6       login FAIL: The username or password you entered is incorrect.
+journeys: 8 PASS, 119 FAIL, 68 INVALID
+actions 190 found · 123 generated (67 todo: no-click-path 65, external-call 2) · 6 pass on baseline (117 defect) · - pass on new · - regression · coverage 6/190 (3%)

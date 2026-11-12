@@ -1,0 +1,3 @@
+{"_comment": "as facts-auto.json, but the app publishes OData (2 services): the breaking OData row must stay open.",
+ "db_vendor": "postgresql", "db_version": "16", "odata_published": 2, "odata_consumed": 0, "odata_consumed_connector": 0, "workflows": 0,
+ "native_profile": false, "oql": 0, "document_templates": 0, "own_java": 0, "kept": ["FixtureKept"]}

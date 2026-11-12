@@ -1,0 +1,15 @@
+WARNING: This is a vibe-coded PoC, alpha quality, use with caution.
+refusing to update: the update would discard 9 local element(s) (6 association(s) in other modules reach into MendixSSO and are removed with it):
+    ENTITY MendixSSOUser
+    JAR_DEPENDENCY com.nimbusds:oauth2-oidc-sdk
+    JAR_DEPENDENCY org.apache.commons:commons-text
+    ASSOCIATION PurchaseApprovals.Request_MendixSSOUser_FirstApprover
+    ASSOCIATION PurchaseApprovals.Request_MendixSSOUser_InvoiceProcessor
+    ASSOCIATION PurchaseApprovals.Request_MendixSSOUser_PurchaseOrderCreator
+    ASSOCIATION PurchaseApprovals.Request_MendixSSOUser_Receiver
+    ASSOCIATION PurchaseApprovals.Request_MendixSSOUser_Requester
+    ASSOCIATION PurchaseApprovals.Request_MendixSSOUser_SecondApprover
+
+  - Save them first:  --save-edits <dir>
+  - Then update:      --force
+timeout 600 $N marketplace update 111349 --to 10.6.2 --module MendixSSO -p   28.76s user 5.72s system 68% cpu 50.323 total

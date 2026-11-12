@@ -1,0 +1,14 @@
+{"from": "replace-clean.json", "ops": [
+ ["append", "modules", {"name": "OldChart", "appstore": [999001, "1.0.0"]}],
+ ["set", "modules/0/pages/0/widgets", ["com.mendix.widget.web.markdown.Markdown", "Moving.widget.Moving", "Moving.widget.Moving", "Stuck.widget.Stuck", "Fresh.widget.Fresh"]],
+ ["set", "modules/0/pages/0/named", [["TemplateGrid", "tg1"]]],
+ ["set", "widget_packages", {
+   "Markdown.mpk": ["com.mendix.widget.web.markdown.Markdown"],
+   "Moving.mpk": {"ids": ["Moving.widget.Moving", "Moving.widget.MovingContext"], "dojo": true, "version": "2.0.0"},
+   "Stuck.mpk": {"ids": ["Stuck.widget.Stuck"], "dojo": true, "version": "1.1"},
+   "Fresh.mpk": {"ids": ["Fresh.widget.Fresh"], "dojo": true},
+   "Unused.mpk": {"ids": ["Unused.widget.Unused"], "dojo": true, "version": "3.0.0"}}],
+ ["set", "files", {
+  "javascriptsource/myown/actions/Dlg.js": "export async function Dlg() { require([\"dojo/dom\"], function (dom) {}); mx.ui.openForm(\"x\"); }\n",
+  "javascriptsource/myown/actions/Clean.js": "export async function Clean() { console.log(\"ok\"); }\n",
+  "theme/web/index.html": "<html></html>\n"}]]}

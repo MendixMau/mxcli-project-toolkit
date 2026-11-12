@@ -1,0 +1,714 @@
+
+<title>Upgrade Toolkit Field Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: one 1040px column of visual sections; diagrams first, text as captions */
+:root{
+  --bg:#f5f6f8; --surface:#ffffff; --ink:#17202b; --muted:#5d6878; --line:#dce1e8;
+  --accent:#1f4fd1; --accent-soft:#e6ecfc; --orch:#7a3fc4; --orch-soft:#f1e9fb;
+  --pass:#17804a; --pass-bg:#e2f3e9; --star:#557a12; --star-bg:#edf4da;
+  --inv:#8a6200; --inv-bg:#fbefd0; --fail:#b42318; --fail-bg:#fde4e1; --idle:#c9d0da;
+  --display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10141a; --surface:#171d25; --ink:#e6eaf0; --muted:#9ba6b5; --line:#29313c;
+  --accent:#7d9cff; --accent-soft:#1c2640; --orch:#c49bff; --orch-soft:#2a1f3d;
+  --pass:#5fd394; --pass-bg:#16321f; --star:#b6d46b; --star-bg:#25301a;
+  --inv:#f0c25a; --inv-bg:#342910; --fail:#ff8a7a; --fail-bg:#3a1a17; --idle:#3a4350; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10141a; --surface:#171d25; --ink:#e6eaf0; --muted:#9ba6b5; --line:#29313c;
+  --accent:#7d9cff; --accent-soft:#1c2640; --orch:#c49bff; --orch-soft:#2a1f3d;
+  --pass:#5fd394; --pass-bg:#16321f; --star:#b6d46b; --star-bg:#25301a;
+  --inv:#f0c25a; --inv-bg:#342910; --fail:#ff8a7a; --fail-bg:#3a1a17; --idle:#3a4350; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.55 var(--body)}
+.wrap{max-width:1040px;margin:0 auto;padding-inline:20px;padding-block:40px 80px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;line-height:1.15;margin:0}
+h1{font-size:clamp(30px,5vw,46px);font-weight:800;letter-spacing:-.01em}
+h2{font-size:26px;font-weight:800}
+h3{font-size:16px;font-weight:700}
+p{max-width:70ch;margin:0}
+code,.mono{font-family:var(--mono);font-size:.86em}
+code{background:var(--accent-soft);padding:1px 5px;border-radius:3px}
+.eyebrow{font:600 11.5px/1 var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+section{margin-top:64px;display:grid;gap:16px}
+section{grid-template-columns:minmax(0,1fr)}section>*,.card,.two>*{min-width:0}
+@media (max-width:600px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.stat:last-child:nth-child(odd){grid-column:1/-1}}
+.sec-head{display:grid;gap:6px;border-top:2px solid var(--ink);padding-top:16px}
+.sub{color:var(--muted)}
+.lede{font-size:18px;margin-top:12px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin-top:26px}
+.stat{background:var(--surface);padding:14px 16px}
+.stat b{display:block;font:800 30px/1 var(--display);font-variant-numeric:tabular-nums}
+.stat span{font-size:12.5px;color:var(--muted)}
+/* loop */
+.loopwrap{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:20px;align-items:start}
+@media (max-width:860px){.loopwrap{grid-template-columns:1fr}}
+figure{margin:0;background:var(--surface);border:1px solid var(--line);padding:12px}
+figure svg{display:block;width:100%;height:auto;color:var(--ink)}
+figcaption{font-size:13px;color:var(--muted);padding:8px 4px 0}
+svg .node{fill:var(--surface);stroke:currentColor;stroke-width:1.4}
+svg .hl .node{stroke:var(--orch);fill:var(--orch-soft)}
+svg .nt{font:700 15px var(--display);fill:currentColor}
+svg .ns{font:400 11.5px var(--mono);fill:var(--muted)}
+svg .role{font:600 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;fill:var(--muted)}
+svg .hl .role{fill:var(--orch)}
+svg .arc{fill:none;stroke:var(--accent);stroke-width:2.2}
+svg .al{font:500 11.5px var(--mono);fill:var(--accent)}
+svg .c1{font:800 40px var(--display);fill:currentColor}
+svg .c2{font:500 12px var(--mono);fill:var(--muted)}
+svg .c3{font:700 14px var(--display);fill:var(--pass)}
+svg .ahf{fill:var(--accent)}
+.side{display:grid;gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);padding:14px 16px}
+.card h3{margin-bottom:8px}
+.rules{list-style:none;padding:0;margin:0;display:grid;gap:8px;font-size:13.5px}
+.rules li{display:grid;grid-template-columns:18px 1fr;gap:6px}
+.rules li::before{content:"■";color:var(--orch);font-size:10px;line-height:2}
+.rounds{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+@media (max-width:640px){.rounds{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.round{background:var(--surface);border:1px solid var(--line);padding:10px 12px;display:grid;gap:4px;min-width:0}
+.round .eyebrow{color:var(--accent)}
+.round b{font:700 14px var(--display)}
+.round small{font-size:12.5px;color:var(--muted);line-height:1.4}
+.round.live{border-color:var(--accent);border-style:dashed}
+.sbar{display:flex;height:30px;border:1px solid var(--line);overflow:hidden}
+.sbar div{display:flex;align-items:center;justify-content:center;font:600 11.5px var(--mono);color:var(--bg);white-space:nowrap;overflow:hidden}
+.vlegend{display:flex;flex-direction:column;gap:6px;margin:12px 0 0;font-size:13px;color:var(--muted)}
+.vlegend div{display:grid;grid-template-columns:5.5rem 1fr;align-items:center;gap:10px}
+.vlegend dt,.vlegend dd{margin:0}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;margin-right:5px;vertical-align:-1px}
+/* path */
+.path{display:flex;align-items:center;flex-wrap:wrap;gap:8px;font:600 14px var(--mono)}
+.path .ver{background:var(--ink);color:var(--bg);padding:6px 10px}
+.path .arrow{color:var(--muted)}
+.path .rep{font:500 12px var(--mono);color:var(--accent);border:1px dashed var(--accent);padding:5px 8px}
+.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:900px){.steps{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:600px){.steps{grid-template-columns:1fr}}
+.step{background:var(--surface);border:1px solid var(--line);padding:16px;display:grid;gap:10px;align-content:start;min-width:0}
+.step.rpt{border-top:3px solid var(--accent)}
+.step header{display:flex;align-items:baseline;gap:10px}
+.step header span{font:800 28px/1 var(--display);color:var(--accent);font-variant-numeric:tabular-nums}
+.step header h3{font-size:19px}
+.step .why{font-size:13.5px;color:var(--muted)}
+.step ol{margin:0;padding:0;list-style:none;counter-reset:ss;display:grid;gap:5px}
+.step ol li{counter-increment:ss;display:grid;grid-template-columns:26px 1fr;font-size:13.5px;line-height:1.4}
+.step ol li::before{content:counter(ss,lower-alpha);font:600 12px var(--mono);color:var(--muted);padding-top:1px}
+.step ol li.j::after{content:"judgment";grid-column:2;justify-self:start;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--orch);background:var(--orch-soft);padding:2px 6px;margin-top:3px}
+.tools{display:flex;flex-wrap:wrap;gap:5px}
+.tools code{font-size:11.5px}
+/* gate */
+.ladder{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+@media (max-width:820px){.ladder{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.rung{background:var(--surface);border:1px solid var(--line);padding:10px 12px;min-width:0}
+.rung b{display:block;font:700 14px var(--display)}
+.rung b em{font:600 11px var(--mono);color:var(--muted);font-style:normal;margin-right:6px}
+.rung small{font-size:12.5px;color:var(--muted);line-height:1.35;display:block;margin-top:3px}
+.verdicts{display:flex;flex-wrap:wrap;gap:8px;font-size:13px;color:var(--muted);align-items:center}
+.v{display:inline-block;font:600 11px/1 var(--mono);padding:4px 7px;border-radius:3px;white-space:nowrap}
+.v.p{color:var(--pass);background:var(--pass-bg)} .v.s{color:var(--star);background:var(--star-bg)}
+.v.i{color:var(--inv);background:var(--inv-bg)} .v.f{color:var(--fail);background:var(--fail-bg)}
+.v.o{color:var(--orch);background:var(--orch-soft)}
+/* tools map */
+.tmap{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.tool{background:var(--surface);border:1px solid var(--line);padding:14px;display:grid;gap:6px;align-content:start;min-width:0}
+.tool .top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.tool h3{font-size:15.5px}
+.tool p{font-size:13px;color:var(--muted)}
+.tool .big{font:800 22px/1 var(--display);font-variant-numeric:tabular-nums}
+.tool .uses{font:500 11.5px var(--mono);color:var(--accent)}
+.acc{font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.06em;padding:3px 6px;white-space:nowrap}
+.acc.pub{color:var(--pass);background:var(--pass-bg)} .acc.acct{color:var(--accent);background:var(--accent-soft)}
+.acc.repo{color:var(--star);background:var(--star-bg)} .acc.int{color:var(--inv);background:var(--inv-bg)}
+.verdict-yes{display:flex;gap:14px;align-items:center;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--pass);padding:14px 16px}
+.verdict-yes b{font:800 20px var(--display);color:var(--pass);white-space:nowrap}
+/* results */
+.tbl{overflow-x:auto;border:1px solid var(--line);background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:600 11px/1.3 var(--mono);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);background:var(--bg)}
+tr:last-child td{border-bottom:0}
+td.num{font-variant-numeric:tabular-nums;white-space:nowrap;font-family:var(--mono);font-size:12.5px}
+.hw{display:grid;grid-template-columns:110px minmax(0,1fr);gap:8px 14px;align-items:center}
+.hw .lab{font:600 12.5px var(--mono)}
+.blocks{display:flex;flex-wrap:wrap;gap:3px}
+.blocks i{width:16px;height:16px;display:block}
+.blocks i.r{background:var(--pass)} .blocks i.l{background:var(--idle)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:700px){.two{grid-template-columns:1fr}}
+.two>div{min-width:0}
+.list{margin:0;padding-left:18px;display:grid;gap:6px;font-size:14px}
+/* confidence */
+.conf{display:grid;gap:8px}
+.crow{display:grid;grid-template-columns:minmax(0,1.3fr) 150px minmax(0,1.6fr);gap:12px;align-items:center;background:var(--surface);border:1px solid var(--line);padding:10px 14px}
+@media (max-width:700px){.crow{grid-template-columns:1fr}}
+.crow b{font-size:14px}
+.meter{display:flex;gap:3px}
+.meter i{flex:1;height:10px;background:var(--idle)}
+.meter.h i{background:var(--pass)} .meter.m i:nth-child(-n+3){background:var(--star)}
+.meter.l i:nth-child(1){background:var(--fail)} .meter.w i:nth-child(-n+2){background:var(--inv)}
+.crow small{font-size:12.5px;color:var(--muted)}
+.plan{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+@media (max-width:820px){.plan{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.plan div{background:var(--accent-soft);padding:12px;min-width:0}
+.plan b{display:block;font:700 14px var(--display);margin-bottom:4px}
+.plan small{font-size:12.5px;line-height:1.4;display:block}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* additions 8 Oct: fit diagram, planned marks */
+.fitwrap{display:grid;grid-template-columns:minmax(0,520px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:860px){.fitwrap{grid-template-columns:1fr}}
+svg .pl{stroke:var(--inv);stroke-dasharray:5 4}
+svg .plt{fill:var(--inv)}
+svg .arc.pl{stroke:var(--inv)}
+.card.planned{border-style:dashed;border-color:var(--inv)}
+.card.planned h3{color:var(--inv)}
+.verdict-yes.warn{border-left-color:var(--inv)}
+.verdict-yes.warn b{color:var(--inv);white-space:normal}
+@media (max-width:600px){.verdict-yes{flex-direction:column;align-items:flex-start;gap:6px}}
+.part-head{margin-block:40px 4px;padding-block:10px;border-top:2px solid var(--fg)}
+.part-head h2{margin:4px 0 0}
+</style>
+
+<div class="wrap">
+<div class="eyebrow">mxcli-project-toolkit / upgrade-toolkit · 13 Oct 2026</div>
+<h1>Upgrade Toolkit Field Report</h1>
+<p class="lede">The toolkit upgrades a Mendix app across major versions in a cloud container. It grades every step with evidence, and every problem it meets is turned into a toolkit fix. Target: the latest LTS, <b>Mendix 11.12.5</b>. Path 9.x/10.x → 10.24 → 11.12.</p>
+<div class="stats">
+  <div class="stat"><b>17</b><span>finished upgrade runs · 11 apps · 4 running</span></div>
+  <div class="stat"><b>27</b><span>toolkit fix rounds merged</span></div>
+  <div class="stat"><b>208/305</b><span>feedback rows fixed in code (+47 in docs) · 0 open</span></div>
+  <div class="stat"><b>1,394</b><span>automated controls, each new one mutation-tested</span></div>
+  <div class="stat"><b>−12</b><span>hand-work hacks retired on one app</span></div>
+</div>
+
+<div class="part-head"><div class="eyebrow">part 1</div><h2>The toolkit: approach, assets, learnings</h2></div>
+<!-- LOOP -->
+<section>
+  <div class="sec-head"><div class="eyebrow">our approach</div><h2>The improvement loop</h2>
+  <p class="sub">The toolkit is the product; the apps are its test bench. Each round runs real apps, collects what hurt, fixes it in the toolkit, proves the fix, then reruns the same apps.</p></div>
+  <div class="loopwrap">
+    <figure>
+      <svg viewBox="0 0 820 580" role="img" aria-label="Improvement loop: workers run apps and push evidence; the orchestrator triages; fix agents fix and prove; the orchestrator merges; the same app is rerun.">
+        <defs><marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahf"/></marker></defs>
+        <text x="410" y="262" class="c2" text-anchor="middle">GOAL</text>
+        <text x="410" y="304" class="c1" text-anchor="middle">0</text>
+        <text x="410" y="326" class="c2" text-anchor="middle">hand-work rows per run</text>
+        <text x="410" y="352" class="c3" text-anchor="middle">20 rounds · 180 fixed</text>
+<g><text x="410" y="46" class="role" text-anchor="middle">worker</text><rect x="332" y="53" width="156" height="74" rx="6" class="node"/><text x="410" y="79" class="nt" text-anchor="middle">1  Run</text><text x="410" y="99" class="ns" text-anchor="middle">1 worker per app</text><text x="410" y="115" class="ns" text-anchor="middle">cloud session, unattended</text></g>
+<g><text x="635" y="151" class="role" text-anchor="middle">worker</text><rect x="557" y="158" width="156" height="74" rx="6" class="node"/><text x="635" y="184" class="nt" text-anchor="middle">2  Evidence</text><text x="635" y="204" class="ns" text-anchor="middle">SCORECARD · HANDWORK</text><text x="635" y="220" class="ns" text-anchor="middle">TOOLKIT-FEEDBACK</text></g>
+<g class="hl"><text x="635" y="361" class="role" text-anchor="middle">orchestrator</text><rect x="557" y="368" width="156" height="74" rx="6" class="node"/><text x="635" y="394" class="nt" text-anchor="middle">3  Triage</text><text x="635" y="414" class="ns" text-anchor="middle">dedupe vs FEEDBACK.md</text><text x="635" y="430" class="ns" text-anchor="middle">did each fix hold?</text></g>
+<g><text x="410" y="563" class="role" text-anchor="middle">fix agent</text><rect x="332" y="473" width="156" height="74" rx="6" class="node"/><text x="410" y="499" class="nt" text-anchor="middle">4  Fix</text><text x="410" y="519" class="ns" text-anchor="middle">own branch + worktree</text><text x="410" y="535" class="ns" text-anchor="middle">one problem each</text></g>
+<g><text x="185" y="361" class="role" text-anchor="middle">fix agent</text><rect x="107" y="368" width="156" height="74" rx="6" class="node"/><text x="185" y="394" class="nt" text-anchor="middle">5  Prove</text><text x="185" y="414" class="ns" text-anchor="middle">catch/pass controls</text><text x="185" y="430" class="ns" text-anchor="middle">replay real run data</text></g>
+<g class="hl"><text x="185" y="151" class="role" text-anchor="middle">orchestrator</text><rect x="107" y="158" width="156" height="74" rx="6" class="node"/><text x="185" y="184" class="nt" text-anchor="middle">6  Merge</text><text x="185" y="204" class="ns" text-anchor="middle">reviewed PR</text><text x="185" y="220" class="ns" text-anchor="middle">FEEDBACK row → fixed</text></g>
+<path d="M498.9,102.7 A260,210 0 0 1 568.3,133.4" class="arc" marker-end="url(#ah)"/>
+<text x="530" y="98" class="al" text-anchor="start">pushes runs/&lt;app&gt;</text>
+<path d="M664.3,256.3 A260,210 0 0 1 664.3,343.7" class="arc" marker-end="url(#ah)"/>
+<text x="640" y="304" class="al" text-anchor="end">hand work + feedback</text>
+<path d="M568.3,466.6 A260,210 0 0 1 498.9,497.3" class="arc" marker-end="url(#ah)"/>
+<text x="521" y="462" class="al" text-anchor="end">high items</text>
+<path d="M321.1,497.3 A260,210 0 0 1 251.7,466.6" class="arc" marker-end="url(#ah)"/>
+<text x="299" y="462" class="al" text-anchor="start">diff + controls</text>
+<path d="M155.7,343.7 A260,210 0 0 1 155.7,256.3" class="arc" marker-end="url(#ah)"/>
+<text x="180" y="304" class="al" text-anchor="start">green + field proof</text>
+<path d="M251.7,133.4 A260,210 0 0 1 321.1,102.7" class="arc" marker-end="url(#ah)"/>
+<text x="290" y="98" class="al" text-anchor="end">rerun same app</text>
+
+      </svg>
+      <figcaption>Purple is the orchestrating session (decides and merges). Workers and fix agents do the hands-on work. Every arrow is a git branch or a file, so nothing lives only in a chat.</figcaption>
+    </figure>
+    <div class="side">
+      <div class="card"><h3>Rules that keep it honest</h3>
+        <ul class="rules">
+          <li>Workers never edit the toolkit; they file feedback.</li>
+          <li>A fix needs a catch/pass control plus proof on real run data.</li>
+          <li>A gate is never weakened; unknown stays INVALID.</li>
+          <li>Only reviewed PRs reach main.</li>
+          <li>Success is the hand-work ledger, not a PASS.</li>
+        </ul></div>
+      <div class="card"><h3>What a fix looks like</h3>
+        <p style="font-size:13.5px">Batch 1: a worker hand-built a login form for an app that redirects to SSO.<br>→ <code>runapp.py --login-override auto</code><br>Batch 3: <span class="v p">held</span> on 2 apps, no hand work.</p></div>
+    </div>
+  </div>
+  <div class="rounds">
+    <div class="round"><span class="eyebrow">round 1 · #6 #13</span><b>8 apps, first run</b><small>login, screenshot pins, tool errors stop the run, Charts 6 path</small></div>
+    <div class="round"><span class="eyebrow">round 2 · #15</span><b>Reruns + fix-ups</b><small>SSO login, SCSS case, jar cleanup</small></div>
+    <div class="round"><span class="eyebrow">round 3 · #16 #17</span><b>New paths</b><small>gate driver, 11.x → 11.y, release facts from the model</small></div>
+    <div class="round"><span class="eyebrow">round 4 · #19</span><b>Hardening</b><small>theme edit guard, smoke false PASS, one-command setup</small></div>
+    <div class="round"><span class="eyebrow">round 5 · #20</span><b>Batch-3 findings</b><small>INVALID vs FAIL, jars add-ons need, CE1571 repair, journey guards</small></div>
+    <div class="round"><span class="eyebrow">rounds 6–12 · #21–#31</span><b>Real-use testing</b><small>action inventory, user processes, API stand-ins, pages opened by a microflow</small></div>
+    <div class="round"><span class="eyebrow">rounds 13–18 · #32–#37</span><b>Replacements + Dojo</b><small>key-process PASS bar, replacement map, brain mining, Dojo report</small></div>
+    <div class="round"><span class="eyebrow">rounds 19–20 · #58 #59</span><b>Cleanup + data</b><small>every feedback row fixed, closed or backlog; journeys create the data they click (PR-F25)</small></div>
+    <div class="round"><span class="eyebrow">rounds 21–24 · #65–#68</span><b>Workflow fixtures</b><small>sole-target test users, tasks parked per stage, pop-up menus, grid-header selection, destructive journeys last</small></div>
+    <div class="round"><span class="eyebrow">rounds 25–28 · #69–#72</span><b>Honest failures</b><small>run evidence archived, tab guard split, "shown only if" on every gated FAIL, same-name widget guard, verdict guide</small></div>
+  </div>
+  <div class="sbar" role="img" aria-label="Feedback rows on main: 208 fixed, 47 doc, 5 unproved, 37 backlog, 10 closed or won't fix, 0 open; 305 in total">
+    <div style="flex:208;background:var(--pass)">208 fixed</div><div style="flex:47;background:var(--star)">47 doc</div><div style="flex:5;background:var(--inv)"></div><div style="flex:37;background:var(--accent)">37</div><div style="flex:10;background:var(--muted)"></div>
+  </div>
+  <div class="legend"><span><i style="background:var(--pass)"></i>fixed in code 208</span><span><i style="background:var(--star)"></i>fixed in docs 47</span><span><i style="background:var(--inv)"></i>unproved 5</span><span><i style="background:var(--accent)"></i>ranked backlog 37</span><span><i style="background:var(--muted)"></i>closed or won't fix 10</span><span>open 0 (13 Oct)</span></div>
+</section>
+
+<!-- FIT -->
+<section>
+  <div class="sec-head"><div class="eyebrow">architecture</div><h2>How it all fits: brain, scripts, learnings</h2>
+  <p class="sub">The brain holds facts from public sources. Scripts read it per app. Field runs feed new rows back into the toolkit. Dashed parts are planned, not built.</p></div>
+  <div class="fitwrap">
+    <figure>
+      <svg viewBox="0 0 440 780" role="img" aria-label="Public sources are extracted into the brain's release-note layer. release_impact.py reads it per app and sends open rows to the gate. brain_mine.py reads it for candidates, which a human promotes into toolkit tables. Detectors read the tables and report to the gate. Field runs go to FEEDBACK.md and fix rounds, which add rows and controls. Planned: an internal brain on private GitLab as a second path.">
+        <defs><marker id="ah2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahf"/></marker>
+        <marker id="ah3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="plt"/></marker></defs>
+        <!-- sources -->
+        <rect x="20" y="10" width="400" height="62" rx="6" class="node"/>
+        <text x="36" y="32" class="nt">Public sources</text>
+        <text x="36" y="50" class="ns">Mendix release notes · upgrade guides</text>
+        <text x="36" y="64" class="ns">React docs · Marketplace</text>
+        <path d="M150,72 L150,106" class="arc" marker-end="url(#ah2)"/>
+        <text x="158" y="94" class="al">extracted</text>
+        <!-- brain -->
+        <rect x="20" y="110" width="250" height="100" rx="6" class="node"/>
+        <text x="36" y="132" class="nt">Brain: release notes</text>
+        <text x="36" y="150" class="ns">baseline/versions</text>
+        <text x="36" y="166" class="ns">2,364 rows · 412 modules</text>
+        <line x1="30" y1="178" x2="260" y2="178" class="pl" stroke-width="1"/>
+        <text x="36" y="196" class="ns plt">planned: guides, React, community</text>
+        <!-- internal brain planned -->
+        <rect x="284" y="110" width="136" height="100" rx="6" class="node pl"/>
+        <text x="294" y="128" class="role plt">planned</text>
+        <text x="294" y="148" class="nt">Internal brain</text>
+        <text x="294" y="166" class="ns">private GitLab</text>
+        <text x="294" y="182" class="ns">field notes,</text>
+        <text x="294" y="198" class="ns">errors, practice</text>
+        <!-- arrows to readers -->
+        <path d="M100,210 L100,248" class="arc" marker-end="url(#ah2)"/>
+        <text x="108" y="234" class="al">reads</text>
+        <path d="M255,210 L255,248" class="arc" marker-end="url(#ah2)"/>
+        <text x="263" y="234" class="al">reads</text>
+        <path d="M384,210 L384,248" class="arc pl" marker-end="url(#ah3)"/>
+        <text x="376" y="234" class="al plt" text-anchor="end">2nd path</text>
+        <!-- readers -->
+        <rect x="20" y="250" width="195" height="96" rx="6" class="node"/>
+        <text x="30" y="274" class="nt">release_impact.py</text>
+        <text x="30" y="292" class="ns">per app, by version jump</text>
+        <text x="30" y="306" class="ns">must-act types only</text>
+        <text x="30" y="320" class="ns">auto-closes rows for</text>
+        <text x="30" y="334" class="ns">features not in the app</text>
+        <rect x="225" y="250" width="195" height="96" rx="6" class="node"/>
+        <text x="235" y="274" class="nt">brain_mine.py</text>
+        <text x="235" y="292" class="ns">replacement candidates</text>
+        <text x="235" y="306" class="ns">no LLM, read only</text>
+        <text x="235" y="320" class="ns">a lead, not a row</text>
+        <!-- mine to tables -->
+        <path d="M322,346 L322,384" class="arc" marker-end="url(#ah2)"/>
+        <text x="314" y="370" class="al" text-anchor="end">human promotes</text>
+        <!-- tables -->
+        <rect x="225" y="386" width="195" height="80" rx="6" class="node"/>
+        <text x="235" y="408" class="nt">Toolkit tables</text>
+        <text x="235" y="426" class="ns">replacements.tsv</text>
+        <text x="235" y="440" class="ns">dojo-successors.tsv</text>
+        <text x="235" y="454" class="ns">repair table</text>
+        <path d="M322,466 L322,504" class="arc" marker-end="url(#ah2)"/>
+        <text x="330" y="490" class="al">read by</text>
+        <!-- detectors -->
+        <rect x="225" y="506" width="195" height="66" rx="6" class="node"/>
+        <text x="235" y="528" class="nt">Detectors</text>
+        <text x="235" y="546" class="ns">replacement_check.py</text>
+        <text x="235" y="560" class="ns">dojo_report.py</text>
+        <path d="M322,572 L322,610" class="arc" marker-end="url(#ah2)"/>
+        <text x="330" y="596" class="al">HIT / UNKNOWN</text>
+        <!-- release impact straight to gate -->
+        <path d="M117,346 L117,610" class="arc" marker-end="url(#ah2)"/>
+        <text x="125" y="480" class="al">open rows</text>
+        <!-- gate -->
+        <g class="hl"><rect x="20" y="612" width="400" height="56" rx="6" class="node"/></g>
+        <text x="36" y="636" class="nt">Gate rung 10 + report</text>
+        <text x="36" y="654" class="ns">every open row handled, or no PASS</text>
+        <path d="M220,668 L220,706" class="arc" marker-end="url(#ah2)"/>
+        <text x="228" y="692" class="al">field runs</text>
+        <!-- feedback -->
+        <rect x="20" y="708" width="400" height="56" rx="6" class="node"/>
+        <text x="36" y="732" class="nt">FEEDBACK.md → fix round</text>
+        <text x="36" y="750" class="ns">each fix ships with catch/pass controls</text>
+        <!-- loop back to tables -->
+        <path d="M420,736 L432,736 L432,426 L424,426" class="arc" marker-end="url(#ah2)"/>
+        <text x="426" y="692" class="al" text-anchor="end">new rows</text>
+      </svg>
+      <figcaption>Facts flow down; learnings flow back up the right edge. A script never writes to the brain, and a mined candidate becomes a table row only when a person promotes it.</figcaption>
+    </figure>
+    <div class="side">
+      <div class="card"><h3>Release-note filter</h3>
+        <p style="font-size:13.5px;margin-bottom:10px">Keep everything in the brain. Filter when a script reads it. <code>release_impact.py</code> reads the must-act types by default; the rest is one <code>--types</code> flag away.</p>
+        <div class="tbl"><table>
+          <tr><th>type</th><th class="num">rows</th><th>read by default</th></tr>
+          <tr><td>breaking, removal, deprecation, requirement</td><td class="num"><b>531</b></td><td>yes, must act</td></tr>
+          <tr><td>security</td><td class="num">96</td><td>on request</td></tr>
+          <tr><td>known-issue</td><td class="num">708</td><td>on request</td></tr>
+          <tr><td>fix</td><td class="num">756</td><td>on request</td></tr>
+          <tr><td>improvement, feature</td><td class="num">273</td><td>on request</td></tr>
+          <tr><td><b>total</b> (Studio Pro 9, 10, 11)</td><td class="num"><b>2,364</b></td><td></td></tr>
+        </table></div></div>
+      <div class="card planned"><h3>Planned, not built</h3><ul class="list" style="font-size:13.5px">
+        <li>The brain gains upgrade guides, a React client file and community leads, marked lower trust.</li>
+        <li>An internal company brain (field notes from Confluence, GitLab and Slack, best practices, errors) moves to private GitLab. The upgrade tools read both brains through two path settings, and still work with only the public one.</li>
+        <li><code>dojo_report.py</code> uses the brain as a hint for "not researched" packages.</li>
+        <li><code>release_impact.py</code> shows known issues still open in the target version.</li>
+      </ul></div>
+    </div>
+  </div>
+</section>
+
+<!-- STEPS -->
+<section>
+  <div class="sec-head"><div class="eyebrow">one upgrade</div><h2>Six steps, with their sub-steps</h2>
+  <p class="sub">Scripts do the fixed work. The model steps in only at the points marked <span class="v o">judgment</span>.</p></div>
+  <div class="path"><span class="ver">9.24</span><span class="arrow">→</span><span class="ver">10.24</span><span class="arrow">→</span><span class="ver">11.12.5</span><span class="rep">↻ steps 3–5 repeat per version jump</span></div>
+  <div class="steps">
+    <article class="step"><header><span>1</span><h3>Triage</h3></header><p class="why">Know what you are upgrading before you touch it.</p>
+      <ol><li>Exact versions and the path (which playbook)</li><li>Module list; cross-linked modules go last</li><li>Detect local edits in Marketplace modules</li><li>Breaking changes, plus Emre's scanner if present</li><li>Test inventory: roles, pages, endpoints</li><li class="j">Release impact: every relevant release-note row, classified</li><li>Replacement map and Dojo report: deprecated parts still in use</li></ol>
+      <div class="tools"><code>localedits.py</code><code>idcheck --xmod</code><code>test_inventory.py</code><code>release_impact.py</code><code>replacement_check.py</code><code>dojo_report.py</code></div></article>
+    <article class="step"><header><span>2</span><h3>Baseline</h3></header><p class="why">Record how the old app behaves, so there is something to compare.</p>
+      <ol><li>Seed realistic data, then freeze it</li><li>Start the old app (Docker + Postgres)</li><li>Data snapshot from a restart-neutral copy</li><li>Mutant control: a planted change must FAIL</li><li>A test login per role</li><li>Smoke walk and journeys on the old app</li></ol>
+      <div class="tools"><code>seed_pg.py</code><code>seed_snapshot.py</code><code>runapp.py</code><code>snapshot.py</code><code>smokewalk.js</code></div></article>
+    <article class="step rpt"><header><span>3</span><h3>Upgrade</h3></header><p class="why">Move one controlled step at a time, one commit per step.</p>
+      <ol><li>Update Marketplace modules through the batch runner</li><li>Identity check after each module</li><li>Convert with the target Studio Pro version</li><li>Convert check: button mappings, warnings</li><li>Update modules again for the new version</li><li class="j">Edited modules: keep, port, or replace</li></ol>
+      <div class="tools"><code>stepupdate.sh</code><code>mx10.sh convert</code><code>convertcheck.py</code><code>convertmade.sh</code></div></article>
+    <article class="step rpt"><header><span>4</span><h3>Repair</h3></header><p class="why">Get back to zero errors, then a successful build and start.</p>
+      <ol><li>mx check, saved per attempt</li><li>Match error codes to the repair table (14 rows)</li><li>One fix per commit</li><li>Check diff: worse → undo, cascade → keep</li><li class="j">Unknown error: diagnose and add a row</li></ol>
+      <div class="tools"><code>jardedupe.py</code><code>jarclash.py</code><code>scsscase.py</code><code>missing_deps.py</code><code>checkdiff.py</code></div></article>
+    <article class="step rpt"><header><span>5</span><h3>Gate</h3></header><p class="why">Prove the new app does what the old one did, on 10 rungs.</p>
+      <ol><li>New app on its own copy of the frozen data</li><li>Run all 10 rungs with one command</li><li class="j">Review each difference: accept with a reason, or FAIL</li><li>Write gate-summary.md with evidence paths</li></ol>
+      <div class="tools"><code>gate.sh --config</code><code>diff.py</code><code>shotdiff</code><code>run_journeys.py</code></div></article>
+    <article class="step"><header><span>6</span><h3>Report</h3></header><p class="why">Make it something a customer can sign off.</p>
+      <ol><li>FAIL list with cause and owner</li><li>INVALID list with what is needed to judge it</li><li>Kept modules and accepted changes</li><li class="j">Compare against the publisher's own upgrade</li><li>Toolkit feedback and hand-work ledger</li></ol>
+      <div class="tools"><code>SCORECARD.md</code><code>COMPARE.md</code><code>HANDWORK.md</code></div></article>
+  </div>
+</section>
+
+<!-- GATE -->
+<section>
+  <div class="sec-head"><div class="eyebrow">step 5 in detail</div><h2>The 10-rung gate</h2></div>
+  <div class="ladder">
+    <div class="rung"><b><em>1</em>Build</b><small>0 errors, build succeeds</small></div>
+    <div class="rung"><b><em>2</em>Identity</b><small>no entity, attribute or flow silently lost</small></div>
+    <div class="rung"><b><em>3</em>Constants</b><small>config values survive</small></div>
+    <div class="rung"><b><em>4</em>Data</b><small>same rows before and after</small></div>
+    <div class="rung"><b><em>5</em>REST</b><small>no lost operation or parameter</small></div>
+    <div class="rung"><b><em>6</em>Start log</b><small>no new errors at startup</small></div>
+    <div class="rung"><b><em>7</em>Smoke</b><small>every role's pages open</small></div>
+    <div class="rung"><b><em>8</em>Journeys</b><small>user flows behave as before</small></div>
+    <div class="rung"><b><em>9</em>Screens</b><small>pixel diff per page</small></div>
+    <div class="rung"><b><em>10</em>Release impact</b><small>every relevant note handled</small></div>
+  </div>
+  <div class="verdicts"><span class="v p">PASS</span>held <span class="v s">PASS*</span>held with a reviewed, accepted difference <span class="v f">FAIL</span>real regression <span class="v i">INVALID</span>could not be judged, with a one-line reason</div>
+</section>
+
+<!-- TOOLING -->
+<section>
+  <div class="sec-head"><div class="eyebrow">what it runs on</div><h2>Tooling, the brain and the scanner</h2></div>
+  <div class="tmap">
+    <div class="tool"><div class="top"><h3>The brain</h3><span class="acc repo">in this repo</span></div><div class="big">22,702</div><p>Release-note records: 7,855 Studio Pro changes (9, 10, 11) and 14,847 module records across 412 Marketplace modules. Drives release impact and module compatibility. Refreshed to 11.15.0 / 10.24.26.</p><span class="uses">step 1 · rung 10 · override UPG_BRAIN</span></div>
+    <div class="tool"><div class="top"><h3>Emre's scanner</h3><span class="acc int">optional · internal</span></div><p>mxupgradeassist (internal GitLab): static findings for breaking changes. <code>scancover.py</code> checks whether it covered anything. Without it, its rows are INVALID, never PASS.</p><span class="uses">step 1</span></div>
+    <div class="tool"><div class="top"><h3>mxcli</h3><span class="acc pub">public</span></div><p>mendixlabs/mxcli, built from source. Marketplace updates, model reads, describe/alter, diffs. One upstream defect logged as won't-fix.</p><span class="uses">steps 1, 3, 4</span></div>
+    <div class="tool"><div class="top"><h3>Mendix CDN</h3><span class="acc pub">public</span></div><p>mxbuild and runtime for each version on the path (9.24, 10.24, 11.x). Used for convert, mx check and build.</p><span class="uses">steps 3–5</span></div>
+    <div class="tool"><div class="top"><h3>Marketplace + PAT</h3><span class="acc acct">Mendix account</span></div><p><code>MENDIX_PAT</code> with Marketplace scope, for template and module downloads. Kept in the environment only.</p><span class="uses">steps 1, 3</span></div>
+    <div class="tool"><div class="top"><h3>Docker + Postgres</h3><span class="acc pub">public</span></div><p>Temurin 11/21 and postgres:16 (via a mirror), plus two locally built toolkit images. They run the old and new apps on frozen copies of the data.</p><span class="uses">steps 2, 5</span></div>
+    <div class="tool"><div class="top"><h3>Journey engine</h3><span class="acc repo">vendored</span></div><p>From mxcli-project-toolkit (<code>project-tests/e2e</code>), copied into <code>vendor/e2e</code>. Playwright drives the smoke walk, journeys and screenshots. That repo is not needed.</p><span class="uses">steps 2, 5</span></div>
+    <div class="tool"><div class="top"><h3>The toolkit itself</h3><span class="acc repo">this repo</span></div><p>53 bin scripts (plus <code>cloud/</code>, <code>docker/</code>, <code>repair/</code>), 10 repair scripts, 6 steps, 9 playbooks, 1,170 controls, plus <code>setup-container.sh</code> and the worker pipeline.</p><span class="uses">everything</span></div>
+  </div>
+  <div class="verdict-yes"><b>Can anyone use it? Yes.</b><span>You need this repo and a Mendix account (PAT). Everything else is public. Emre's scanner is the only internal piece, and it is optional. Start with <code>setup-container.sh</code>, then follow <code>SKILL.md</code>.</span></div>
+</section>
+
+<!-- ADDED SINCE 7 OCT -->
+<section>
+  <div class="sec-head"><div class="eyebrow">rounds 14–18 · PRs #33–#37</div><h2>What we added since 7 Oct</h2>
+  <p class="sub">Release impact looks at version windows: what changed between the old and the new version. It missed things that were deprecated earlier and are still in use. These four fixes close that gap. Each row is in FEEDBACK.md with its controls and a field run.</p></div>
+  <div class="tmap">
+    <div class="tool"><div class="top"><h3>Replacement map</h3><span class="acc repo">B6-1 · #33</span></div><div class="big">28 rows</div><p><code>replacement_check.py</code> + <code>playbooks/replacements.tsv</code>. Finds deprecated modules and features by presence, not by version window: MendixSSO, Document Templates, legacy scheduled events, legacy Charts, Dojo in JavaScript actions. Every row is HIT, UNKNOWN, clear or not applicable, with a reason. Field run to 11.12.5: kanban 9 HIT, fsm 12, pfep 14.</p><span class="uses">step 1 · after release impact</span></div>
+    <div class="tool"><div class="top"><h3>Brain mining</h3><span class="acc repo">B6-2 · #34</span></div><div class="big">452 rows</div><p><code>brain_mine.py</code> reads the brain's release notes for replacement candidates. No LLM. On the real brain: 81 deprecated components, 7 recurring successors, 452 deprecation/removal rows, 305 not yet in the map. Output is a lead for a human, never a table row.</p><span class="uses">offline · feeds the map</span></div>
+    <div class="tool"><div class="top"><h3>Deprecated components</h3><span class="acc repo">B6-3 · #35 #36</span></div><div class="big">81 triaged</div><p><code>playbooks/deprecated-components.md</code>: all 81 deprecated Marketplace components sorted. 17 promoted or already a row (R25 Language Selector, R26 Dojo-era web widgets, R28 queues, R29 Atlas 2), 64 left out with a reason. The hybrid mobile row was dropped: out of scope.</p><span class="uses">replacements.tsv R25–R29</span></div>
+    <div class="tool"><div class="top"><h3>Dojo to React report</h3><span class="acc repo">B6-4 · #37</span></div><div class="big">37 rows</div><p><code>dojo_report.py</code>: Mendix 11 advises the React client; Mendix 12 removes Dojo. Per widget package: ready, delete, can move, can't move, not researched. ADVISORY on 11, BLOCKING on 12. <code>playbooks/dojo-successors.tsv</code>: 37 researched rows with sources (25 widgets, 9 core widgets, 3 modules).</p><span class="uses">step 1 · gate on 12+</span></div>
+  </div>
+</section>
+
+<!-- CONFIDENCE -->
+<section>
+  <div class="sec-head"><div class="eyebrow">are we testing the right thing?</div><h2>Test confidence</h2></div>
+  <div class="conf">
+    <div class="crow"><b>The checks catch what they claim</b><div class="meter h"><i></i><i></i><i></i><i></i><i></i></div><small>1,218 controls, each with a known-bad case and a known-good case</small></div>
+    <div class="crow"><b>The gate catches real regressions</b><div class="meter h"><i></i><i></i><i></i><i></i><i></i></div><small>blank charts, React errors, a broken theme</small></div>
+    <div class="crow"><b>As good as the publisher's upgrade</b><div class="meter m"><i></i><i></i><i></i><i></i><i></i></div><small>COMPARE.md on every run</small></div>
+    <div class="crow"><b>No PASS on fake APIs</b><div class="meter h"><i></i><i></i><i></i><i></i><i></i></div><small>A pass on a stand-in API is "PASS (on stand-in APIs: …)", never plain PASS. Preferred: vendor test system, then recorded responses</small></div>
+    <div class="crow"><b>No check can pass when it shouldn't</b><div class="meter w"><i></i><i></i><i></i><i></i><i></i></div><small>2 cases found (a smoke pass on a login page, wrong release facts) and both fixed</small></div>
+    <div class="crow"><b>We exercise the app's real use</b><div class="meter m"><i></i><i></i><i></i><i></i><i></i></div><small>Action inventory + coverage line on every gate; user processes drafted from model, manual and interview (human confirms)</small></div>
+  </div>
+  <div class="card"><h3>Real-use testing: built</h3>
+    <p style="font-size:13.5px;margin:6px 0 12px">E2E is now defined per user process, not per action. Scripts draft, a person confirms, the gate runs on the old app first and then the new one.</p>
+    <div class="plan">
+      <div><b>a · Inventory</b><small>every action per page from the model; coverage line "A found · G generated · B/A" in the gate row</small></div>
+      <div><b>b · Processes</b><small>drafted from the model, the user manual and a 15-min key-user interview; status: draft until a human confirms</small></div>
+      <div><b>c · Compile</b><small>confirmed process → per-role legs; an unresolvable step is INVALID, never dropped</small></div>
+      <div><b>d · APIs</b><small>vendor test system &gt; recorded responses &gt; stand-in; a stand-in pass stays conditional</small></div>
+    </div></div>
+</section>
+
+
+<div class="part-head"><div class="eyebrow">part 2</div><h2>Field runs: what happened on real apps</h2></div>
+
+
+<section>
+  <div class="sec-head"><div class="eyebrow">real run · 10–13 Oct</div><h2>Purchase Request 10.24 → 11.12.5, end to end</h2>
+  <p class="sub">One app, driven through all six steps on the target LTS. Every problem became a toolkit fix or a recorded decision. The build passes, mx check shows 0 errors, and the visual diff caught the one break the compiler could not see.</p></div>
+  <div class="verdict-yes warn"><b>Gate: not yet PASS. pipe-30 was INVALID: 79 of 146 journeys failed on the old app (gate: at most 43, 30%). pipe-33 is measuring now</b><span>The failures come from the instrument, not the app. Since pipe-30, four fixes merged. PR-F36 archives each run's evidence before a rerun. PR-F37 fixes a landing check that a tab click hid (14 comment and attachment journeys). PR-F38 names the condition behind each button that is shown only in some states, so a reviewer can look the FAIL up instead of reading a screenshot; about 62 of the 91 pipe-30 failures have this shape. PR-F39 fixes a check that looked at a hidden button with the same name instead of the vendor popup's Select button, which blocked every walk of the PO stage. pipe-32 then showed two more instrument defects, both fixed and checked on the live old app: PR-F40 opens the "Possible actions" pop-up menu (7 admin workflow actions), and PR-F41 types into the shown comment box instead of a hidden field with the same name on another tab (about 6 admin comment journeys). pipe-33 includes F38–F40; F41 joins on the next rerun. Expected after the rerun: about 45 baseline failures before evidence, close to the limit; the rest need old-app evidence or seeded state.</span></div>
+  <div class="two" style="margin-block:14px">
+    <div class="card"><h3>What went wrong, and what caught it</h3><ul class="list">
+      <li><b>Module updates</b> refused on 10.24 (F13), dropped associations (F14) and drifted patches (F15). The step checks stopped each one; none got through.</li>
+      <li><b>Atlas 3 → 4</b>: header menu and hero photo gone. Build and mx check were green; <b>only the visual diff</b> caught it. Fixed with a compat stylesheet (D17).</li>
+      <li><b>WorkflowCommons 4</b> removed the old comment API and possibly unmigrated data. Comments ported (D13); the data risk went to the user (D12, two releases).</li>
+      <li><b>Our tests</b>, not the app, caused every remaining INVALID (F22–F25).</li>
+    </ul></div>
+    <div class="card"><h3>Who decided</h3><ul class="list">
+      <li><b>6 user decisions</b> (D0, D1, D2, D12, D18, D33): customer-data risk and anything that changes what the gate proves.</li>
+      <li><b>40 agent decisions</b>, each with a written pass condition. A decision whose proof fails is reopened, not kept: D10 and D11 were reopened by the visual diff.</li>
+      <li>The full log ships with the final report, so a customer can see each call and its proof.</li>
+    </ul></div>
+  </div>
+  <div class="tbl" style="margin-block:14px"><table>
+<tr><th>#</th><th>decision</th><th>by</th><th>status</th></tr>
+<tr><td class="num">D0</td><td>MendixSSO has a local edit (rules removed on EmailAddress): update to 10.6.2 and re-apply it</td><td><b>user</b></td><td><span class="v i">to prove</span></td></tr>
+<tr><td class="num">D1</td><td>The MendixSSO update drops 6 Request→user associations: re-create them with their original IDs, so the data columns stay</td><td><b>user</b></td><td><span class="v i">to prove</span></td></tr>
+<tr><td class="num">D2</td><td>FeedbackModule: keep 4.0.0 (3 edited popup pages, low value)</td><td><b>user</b></td><td><span class="v i">to prove</span></td></tr>
+<tr><td class="num">D3</td><td>On a 10.24 source, update modules before the convert where possible; only the 11-only versions after it</td><td>agent</td><td><span class="v i">to prove</span></td></tr>
+<tr><td class="num">D4</td><td>Accept the vendor's removal of a short-lived SSO login field (no business data)</td><td>agent</td><td><span class="v i">to prove</span></td></tr>
+<tr><td class="num">D5</td><td>A separate approvals file for the SSO step only, so a failed restore can never pass the final check</td><td>agent</td><td><span class="v p">done</span></td></tr>
+<tr><td class="num">D6</td><td>Replay the SSO edit before the convert, not after</td><td>agent</td><td><span class="v p">done</span></td></tr>
+<tr><td class="num">D7</td><td>NanoflowCommons: its installed version is unpublished, so the gate decides; kept when unproven</td><td>agent</td><td><span class="v i">to prove</span></td></tr>
+<tr><td class="num">D8</td><td>Accept that Atlas_Web_Content stops storing typed login credentials</td><td>agent</td><td><span class="v i">to prove</span></td></tr>
+<tr><td class="num">D9</td><td>Force the WorkflowCommons update: the 2 snippets flagged as edited are provably unedited</td><td>agent</td><td><span class="v i">to prove</span></td></tr>
+<tr><td class="num">D10</td><td>Re-apply the navbar style edit without context. Applied cleanly, but the visual diff showed the menu gone</td><td>agent</td><td><span class="v f">reopened</span></td></tr>
+<tr><td class="num">D11</td><td>Hand-port the hero style edit to Atlas 4. The photo vanished; fixed under D17</td><td>agent</td><td><span class="v f">reopened</span></td></tr>
+<tr><td class="num">D12</td><td>WorkflowCommons removes data the app may still need: two releases (release 1 on 10.24 runs the migrations in production, release 2 moves to 11)</td><td><b>user</b></td><td><span class="v i">to prove</span></td></tr>
+<tr><td class="num">D13</td><td>Port 3 own documents to the new WorkflowCommons comment API; comment data was already linked the new way</td><td>agent</td><td><span class="v i">to prove</span></td></tr>
+<tr><td class="num">D14</td><td>Turn on OQL version 2: the only OQL in the app is in 5 vendor view entities</td><td>agent</td><td><span class="v i">to prove</span></td></tr>
+<tr><td class="num">D15</td><td>Restore the original access rules on the re-created associations (no new security decision)</td><td>agent</td><td><span class="v p">done</span></td></tr>
+<tr><td class="num">D16</td><td>Map the new Atlas_Core roles: Administrator → admin, all others → user</td><td>agent</td><td><span class="v i">to prove</span></td></tr>
+<tr><td class="num">D17</td><td>One Atlas 3 compat stylesheet instead of rewriting own pages; drop the navbar edit</td><td>agent</td><td><span class="v i">to prove</span></td></tr>
+<tr><td class="num">D18</td><td>20 vendor pages nothing reaches: report them as unreachable (info); they must still compile</td><td><b>user</b></td><td><span class="v i">to prove</span></td></tr>
+<tr><td class="num">D19</td><td>No journey submits a purchase request: the agent confirms process P01 from the model’s New Request wizard (pipe-18 had 51 defects with no evidence)</td><td>agent</td><td><span class="v i">to prove</span></td></tr>
+<tr><td class="num">D20</td><td>Fix the empty lists generically (PR-F25: data pass, combo box, wizard, dates), not with a hand fixture for this app</td><td>agent</td><td><span class="v i">to prove</span></td></tr>
+<tr><td class="num">D21</td><td>Start batch 6 (Forms, Checklist, Visual Inspection) while pipe-19 runs</td><td>agent</td><td><span class="v p">done</span></td></tr>
+<tr><td class="num">D22</td><td>Every new-app wizard journey stopped at the combo box: an instrument gap (Combo box 2.10 has a 0 px input), fixed generically (F27), not hand-accepted</td><td>agent</td><td><span class="v p">done</span></td></tr>
+<tr><td class="num">D23</td><td>Type dates in the date picker’s own placeholder format (11.12.5 shows dd mmm yyyy)</td><td>agent</td><td><span class="v p">done</span></td></tr>
+<tr><td class="num">D24</td><td>Create each role’s test user as the same user type as that role’s own users (MendixSSO), so the workflow assigns it tasks (F28)</td><td>agent</td><td><span class="v p">done</span></td></tr>
+<tr><td class="num">D25</td><td>The baseline has no workflow in flight: park one request at each approval stage before the role journeys, generically from the confirmed processes, not with a hand-made data dump</td><td>agent</td><td><span class="v i">to prove</span></td></tr>
+<tr><td class="num">D26</td><td>Write P02 “Approve a purchase request” as a confirmed process, so the run itself parks a request at approval (implements D25)</td><td>agent</td><td><span class="v p">done</span></td></tr>
+<tr><td class="num">D27</td><td>Drop P01 from the gate's data step; P02 picks the task from “Open tasks” (the inbox opens on an empty “My tasks” tab, F30)</td><td>agent</td><td><span class="v p">done</span></td></tr>
+<tr><td class="num">D28–D31</td><td>The workflow assigns each task to a target user the run doesn't pick, so “Assign to me” is absent or never renders (D31: a real old-app defect on the task card). Four routes tried, one per run</td><td>agent</td><td><span class="v p">done</span></td></tr>
+<tr><td class="num">D32</td><td>P02 is View → Approve and passes on the old app (pipe-27). P03 (PO, receipt, invoice) deferred; replaced by D39</td><td>agent</td><td><span class="v p">done</span></td></tr>
+<tr><td class="num">D33</td><td>The agent is the lead: it merges its own toolkit PRs</td><td><b>user</b></td><td><span class="v p">done</span></td></tr>
+<tr><td class="num">D34–D35</td><td>P02 passes on the new app too (0 regressions). The old app's 97 defects are the remaining blocker: the workflow's target-user lists hold every user with the role, so the test user rarely gets the task (PR-F32: the test user becomes the sole holder)</td><td>agent</td><td><span class="v p">done</span></td></tr>
+<tr><td class="num">D36–D37</td><td>Park tasks at each stage before the role journeys: <code>park: n after leg k</code> (PR-F33, PR-F34); an invalid process now stops the run before any app starts</td><td>agent</td><td><span class="v p">done</span></td></tr>
+<tr><td class="num">D38</td><td>Fix three test-instrument gaps found in pipe-30: open pop-up menus, select a row before Data grid 2 header buttons, run destructive journeys last (PR-F35, 7 controls, each mutation-tested)</td><td>agent</td><td><span class="v i">to prove</span></td></tr>
+<tr><td class="num">D39</td><td>Extend P02 into the full workflow: approval, PO (select vendor, create, complete, finish), receipt and invoice, with tasks parked at every stage</td><td>agent</td><td><span class="v i">to prove</span></td></tr>
+<tr><td class="num">D40</td><td>Stop pipe-30 during its new-app pass: its baseline already failed the gate; pipe-31 measures with PR-F35 and D39</td><td>agent</td><td><span class="v p">done</span></td></tr>
+<tr><td class="num">D41</td><td>Keep the previous journeys run's text evidence before a rerun overwrites it (PR-F36). Proven: pipe-32 archived pipe-31's 522 files</td><td>agent</td><td><span class="v p">done</span></td></tr>
+<tr><td class="num">D42</td><td>The comments and attachments cluster is a test defect, not an app defect: a tab click hid the landing check. Split it into a land step and a tab step (PR-F37)</td><td>agent</td><td><span class="v i">to prove</span></td></tr>
+<tr><td class="num">D43</td><td>Stop pipe-31 after 25 minutes, because PR-F37 supersedes its generator. Start pipe-32 from journeys</td><td>agent</td><td><span class="v p">done</span></td></tr>
+<tr><td class="num">D44</td><td>Label each FAIL on a conditionally shown button with its condition, never skip it (PR-F38). Example: the Audit trail cluster sits behind "Open parent workflow", and the app has no sub-workflows</td><td>agent</td><td><span class="v i">to prove</span></td></tr>
+<tr><td class="num">D46</td><td>Stop pipe-32, sync the run toolkit to PR-F40, start pipe-33 from journeys</td><td>agent</td><td><span class="v p">done</span></td></tr>
+<tr><td class="num">D48</td><td>Fill types into the first shown field: a hidden tab page held a same-name text area before the comment box (PR-F41)</td><td>agent</td><td><span class="v i">to prove</span></td></tr>
+<tr><td class="num">D45</td><td>The page-loaded check accepts any shown match of its widget. A hidden snippet button with the same name blocked every walk of the PO stage, so no task waited for the Approver (PR-F39)</td><td>agent</td><td><span class="v i">to prove</span></td></tr>
+</table></div>
+  <h3 style="margin-block:18px 10px">25 toolkit findings from this run</h3>
+  <div class="tmap">
+<div class="tool"><div class="top"><h3>Plan order on 10.24</h3><span class="acc repo">F13 · fixed</span></div><p>Mendix 11 refuses packages built before 10.21. Updates now split: before and after the convert.</p></div>
+<div class="tool"><div class="top"><h3>Keep data IDs</h3><span class="acc repo">F14 · fixed</span></div><p>An update dropped 6 associations. The replay re-creates them with their original IDs, so no data column is lost.</p></div>
+<div class="tool"><div class="top"><h3>Patch drift</h3><span class="acc repo">F15 · fixed</span></div><p>A vendor line next to a local edit changed. Apply without context only when every removed line is unique, else stop.</p></div>
+<div class="tool"><div class="top"><h3>Wrong installed version</h3><span class="acc repo">F16 · fixed</span></div><p>A stale package version made a clean module look edited. The toolkit now uses the version it installed itself.</p></div>
+<div class="tool"><div class="top"><h3>mxcli round-trip</h3><span class="acc int">F17 · follow-up</span></div><p>Rewriting a snippet silently changed an attribute path. Worked around; a before/after check is planned.</p></div>
+<div class="tool"><div class="top"><h3>Lost access rules</h3><span class="acc int">F18 · follow-up</span></div><p>Re-created associations lost their read/write rights. Fixed by hand; automatic restore planned.</p></div>
+<div class="tool"><div class="top"><h3>Unmapped new roles</h3><span class="acc int">F19 · follow-up</span></div><p>A module update added roles no user had. Planned: a proposed mapping as a judgment item.</p></div>
+<div class="tool"><div class="top"><h3>Atlas 3 → 4 styles</h3><span class="acc int">F20 · follow-up</span></div><p>Patches applied cleanly and still broke the header. Only the visual diff caught it. Compat check planned.</p></div>
+<div class="tool"><div class="top"><h3>Busy port</h3><span class="acc repo">F21 · fixed</span></div><p>A taken port read as “needs judgment”. Now an environment fault (exit 3) naming the container.</p></div>
+<div class="tool"><div class="top"><h3>Action inventory</h3><span class="acc repo">F22 · fixed</span></div><p>Journeys never got the list of all actions. Now built from the old app: 280 actions.</p></div>
+<div class="tool"><div class="top"><h3>Todos closed</h3><span class="acc repo">F23 · fixed</span></div><p>17 impact items stayed open though journeys walked them. Now each closes on the journey that covers it.</p></div>
+<div class="tool"><div class="top"><h3>Dead pages</h3><span class="acc repo">F24 · fixed</span></div><p>20 pages no user can reach blocked the gate. Now reported as unreachable; a page with a URL counts as reachable.</p></div>
+<div class="tool"><div class="top"><h3>Empty lists</h3><span class="acc repo">F25 · fixed</span></div><p>No journey created a request, so every row button sat on an empty list. Journeys now fill combo boxes and wizard steps, then run a second data pass.</p></div>
+<div class="tool"><div class="top"><h3>Navigation items</h3><span class="acc repo">F26 · fixed</span></div><p>11.12.5 menus are item lists, not buttons. Journeys now click the n-th item and guard against look-alikes.</p></div>
+<div class="tool"><div class="top"><h3>Combo box and dates</h3><span class="acc repo">F27 · fixed</span></div><p>Combo box 2.10 hides its input and the date picker wants “15 Jan 2027”. Both handled; Requester wizards 0 → 13 of 18 pass.</p></div>
+<div class="tool"><div class="top"><h3>Test user type</h3><span class="acc repo">F28 · fixed</span></div><p>Test users were plain accounts; the workflow only gives tasks to SSO users. Now each test user matches its role’s own users.</p></div>
+<div class="tool"><div class="top"><h3>Tabs in processes</h3><span class="acc repo">F30 · fixed</span></div><p>The task inbox opens on an empty tab. Written process steps now click the tab that holds the button, as generated journeys already did.</p></div>
+<div class="tool"><div class="top"><h3>Open a task</h3><span class="acc repo">F31 · fixed</span></div><p>“View” opens whichever task is in the row, so the next step had no known page. Steps after an open-task click now continue on the task page.</p></div>
+<div class="tool"><div class="top"><h3>One user per role</h3><span class="acc int">F32 · proving</span></div><p>The workflow hands each task to any user with the role. On test copies the test user is now the role’s only holder, so it gets every task.</p></div>
+<div class="tool"><div class="top"><h3>Keep the evidence</h3><span class="acc repo">F36 · fixed</span></div><p>A rerun overwrote the last run's per-journey results before anyone read them. Each run is now archived first.</p></div>
+<div class="tool"><div class="top"><h3>Guard behind a tab</h3><span class="acc repo">F37 · fixed</span></div><p>14 comment journeys failed on a healthy page: the check ran after a tab click hid it. Landing and tab are now two steps.</p></div>
+<div class="tool"><div class="top"><h3>Shown only if</h3><span class="acc repo">F38 · fixed</span></div><p>Most old-app failures hit a button the app shows only in some states. Each FAIL now names that condition.</p></div>
+<div class="tool"><div class="top"><h3>Same-name widget</h3><span class="acc repo">F39 · fixed</span></div><p>A hidden button with the vendor popup's button name sat earlier on the page. The check now accepts any shown match.</p></div>
+<div class="tool"><div class="top"><h3>Pop-up menu</h3><span class="acc repo">F40 · fixed</span></div><p>The old app names the open menu list, not its trigger. The verb now tries each trigger until the named menu shows, built from a live capture.</p></div>
+<div class="tool"><div class="top"><h3>Hidden same-name field</h3><span class="acc repo">F41 · fixed</span></div><p>A hidden tab held a text area with the comment box's name, earlier on the page. Fill now types into the first shown match.</p></div>
+  </div>
+</section>
+
+<!-- RESULTS -->
+<section>
+  <div class="sec-head"><div class="eyebrow">field results</div><h2>Batch 4: the apps hold, our click-through tests are the bottleneck</h2>
+  <p class="sub">No app has reached PASS on 11.12.5 yet. Of the finished batch-4 runs, only Quality Inspection has a FAIL. The rest have 0 FAIL and 0 regressions, and are INVALID because the toolkit could not walk enough user flows (journeys) or reach a backend. That is a gap in our tests, not a broken upgrade. <b>Batch 6</b> (started 12 Oct) re-gates Forms, Checklist and Visual Inspection on the current toolkit to measure how much of that INVALID the fixes since then remove.</p></div>
+  <div class="tbl"><table>
+<tr><th>app</th><th>path</th><th>first run</th><th>rerun</th><th>batch 4</th><th>why</th></tr>
+<tr><td>Opcenter EF Starter Kit</td><td class="num">9.24→10.24→11.15</td><td><span class="v p">PASS</span> <span class="v p">PASS</span></td><td><span class="v i">INVALID</span> <span class="v s">PASS*</span></td><td><span class="v i">INVALID</span></td><td>Batch 4 (10.24): 18 journeys PASS, 0 FAIL; 16 actions have no click path (unlinked admin pages), so not walked = not passed</td></tr>
+<tr><td>Opcenter Starter Kit 7.0</td><td class="num">11.6→11.15</td><td><span class="v i">INVALID</span></td><td><span class="v i">INVALID</span></td><td><span class="v i">INVALID</span></td><td>Home page and Opcenter pages blank on old and new (no Opcenter); 0 regressions</td></tr>
+<tr><td>Purchase Request 1.9</td><td class="num">9.24→10.24</td><td><span class="v i">INVALID</span></td><td><span class="v i">INVALID</span></td><td><span class="v o">stopped</span></td><td>Stopped in repair round 5 (8 Oct) to restart fresh on the current toolkit</td></tr>
+<tr><td>Purchase Request 3.3</td><td class="num">10.24→11.15</td><td><span class="v f">FAIL</span> <span class="v f">FAIL</span></td><td>—</td><td><span class="v i">INVALID</span></td><td>Look fixed; 94% of journeys fail on the old app too (empty task lists). 0 regressions</td></tr>
+<tr><td><b>Purchase Request (real run)</b></td><td class="num">10.24→11.12.5</td><td>—</td><td>—</td><td><span class="v i">INVALID</span></td><td>Build PASS, mx check 0 errors, 0 regressions. Pipe-21 INVALID: 91 actions fail on the old app too (no workflow in flight in the test data); fix D25 next</td></tr>
+<tr><td>Quality Inspection 2.0</td><td class="num">10.6→10.24→11.15</td><td><span class="v i">INVALID</span> <span class="v f">FAIL</span></td><td><span class="v f">FAIL</span> <span class="v f">FAIL</span></td><td><span class="v f">FAIL</span></td><td>Batch 4 (10.24): journeys cannot be walked (tabs, parameter pages); intermittent Charts 6 error on the dashboard</td></tr>
+<tr><td>FSM 1.1.1</td><td class="num">9.24→10.24</td><td><span class="v f">FAIL</span></td><td><span class="v f">FAIL</span></td><td><span class="v i">INVALID</span></td><td>Batch 4 (10.24.26): 0 FAIL, 8 repairs, 3 modules kept; 2 rungs not judgeable, on stand-in APIs</td></tr>
+<tr><td>Visual Inspection 3.0</td><td class="num">9.24→10.24</td><td><span class="v f">FAIL</span></td><td>—</td><td><span class="v i">INVALID</span></td><td>Journeys only: coverage 5/190 · batch 6 re-gate running</td></tr>
+<tr><td>Checklist to go 1.0</td><td class="num">9.24→10.24</td><td><span class="v i">INVALID</span></td><td><span class="v i">INVALID</span></td><td><span class="v i">INVALID</span></td><td>Journeys only: coverage 0/292 · batch 6 re-gate running</td></tr>
+<tr><td>PFEP 1.4.1 / 3.2.1</td><td class="num">9.24 / 10.12→10.24</td><td><span class="v i">INVALID</span></td><td>—</td><td><span class="v i">INVALID</span></td><td>Batch 4 (10.24.26): 0 FAIL; smoke, journeys, screens and APIs not judgeable (Teamcenter unreachable)</td></tr>
+<tr><td>Kanban with Opcenter</td><td class="num">9.24→10.24</td><td><span class="v i">INVALID</span></td><td>—</td><td><span class="v i">INVALID</span></td><td>Journeys only: coverage 22/144</td></tr>
+  </table></div>
+  <dl class="vlegend">
+    <div><dt><span class="v p">PASS</span></dt><dd>held</dd></div>
+    <div><dt><span class="v s">PASS*</span></dt><dd>held, with a reviewed and accepted difference</dd></div>
+    <div><dt><span class="v f">FAIL</span></dt><dd>something broke</dd></div>
+    <div><dt><span class="v i">INVALID</span></dt><dd>could not be judged (the reason is in the last column)</dd></div>
+    <div><dt><span class="v o">stopped</span></dt><dd>run ended before a verdict</dd></div>
+  </dl>
+  <div class="card" style="margin-block:14px"><h3>The journeys we did walk: 285 passed, 0 regressions</h3>
+    <p style="font-size:13.5px;margin:6px 0 10px">Every journey that failed after the upgrade failed the same way on the old app: the test could not walk it, or the backend was missing. No journey broke because of the upgrade. Coverage is low for other reasons (below).</p>
+    <div class="tbl"><table>
+      <tr><th>app (batch 4)</th><th class="num">PASS</th><th class="num">FAIL, same on old app</th><th class="num">regressions</th><th class="num">actions covered</th><th class="num">has a click path now</th></tr>
+<tr><td>FSM</td><td class="num">172</td><td class="num">0</td><td class="num"><b>0</b></td><td class="num">166/730 (22%)</td><td class="num"><b>468/730 (64%)</b></td></tr>
+<tr><td>Quality Inspection</td><td class="num">27</td><td class="num">117</td><td class="num"><b>0</b></td><td class="num">20/315 (6%)</td><td class="num"><b>141/315 (45%)</b></td></tr>
+<tr><td>Kanban with Opcenter</td><td class="num">22</td><td class="num">1</td><td class="num"><b>0</b></td><td class="num">22/144 (15%)</td><td class="num"><b>98/144 (68%)</b></td></tr>
+<tr><td>Visual Inspection</td><td class="num">20</td><td class="num">0</td><td class="num"><b>0</b></td><td class="num">5/190 (2%)</td><td class="num"><b>123/190 (65%)</b></td></tr>
+<tr><td>Opcenter EF</td><td class="num">18</td><td class="num">0</td><td class="num"><b>0</b></td><td class="num">10/34 (29%)</td><td class="num"><b>16/34 (47%)</b></td></tr>
+<tr><td>Checklist to go</td><td class="num">11</td><td class="num">1</td><td class="num"><b>0</b></td><td class="num">0/292 (0%)</td><td class="num"><b>234/292 (80%)</b></td></tr>
+<tr><td>PFEP</td><td class="num">9</td><td class="num">7</td><td class="num"><b>0</b></td><td class="num">0/325 (0%)</td><td class="num"><b>83/325 (26%)</b></td></tr>
+<tr><td>Opcenter Starter Kit 7.0</td><td class="num">6</td><td class="num">29</td><td class="num"><b>0</b></td><td class="num">3/63 (4%)</td><td class="num"><b>41/63 (65%)</b></td></tr>
+    </table></div>
+    <p style="font-size:13.5px;margin:10px 0 4px"><b>Why coverage is low</b></p>
+    <ol style="font-size:13.5px;margin:0;padding-left:20px">
+      <li><b>No click path found.</b> Most actions sit on pages opened by a <code>NAV_</code> microflow, which the inventory did not follow. Fixed in PR #31 after most batch-4 runs had started. Re-measured on all 8 apps (8 Oct, last column): the reachable share is now 26–80%, against 0–29% covered. The gap between those two columns is cause 2, our test generator, not the apps.</li>
+      <li><b>The test cannot walk the page.</b> Tabs, pages that need a parameter object, Data Grid 2 rows, combo boxes, phone pages. Those journeys fail on the old app too, so they prove nothing (Quality Inspection: 117).</li>
+      <li><b>No backend.</b> Opcenter and Teamcenter pages stay blank on both sides.</li>
+      <li><b>Dead pages.</b> Pages nothing links to, e.g. unlinked admin pages. Until 12 Oct, not walked counted as not passed. Now (D18, F24) they are reported as unreachable: no user can open them before or after the upgrade, and mx check still compiles them. A page with a URL counts as reachable. Follow-up: list dead logic as removal candidates, since each dead module adds cost to the next upgrade.</li>
+    </ol>
+  </div>
+  <p class="sub" style="font-size:13px">Two conditional verdicts exist but no app has reached them yet: <b>PASS (on stand-in APIs)</b>, when a backend was simulated, and <b>PASS (except Teamcenter: N items)</b>, when only the listed steps that need Teamcenter were not checked. Both are rerun against the real systems before go-live.</p>
+  <p class="sub" style="font-size:13px">These batch runs targeted 11.15, a non-LTS release. The target is now 11.12.5, the latest LTS (FEEDBACK row LTS-1). The 11.15 values stay as the record of what ran.</p>
+  <div class="card" style="margin-block:14px"><h3>Root cause found and fixed: menus that open pages through a microflow</h3>
+    <p style="font-size:13.5px;margin:6px 0 10px">These apps open their menu and home pages through <code>NAV_</code> microflows, and the pages have no access rules of their own. Mendix allows that. The toolkit assumed every page needs its own access, so it found no click path to most actions, and journeys could only come out INVALID. Fixed in round 12 (internal fix, PR #31).</p>
+    <div class="tbl"><table>
+      <tr><th>app</th><th class="num">actions</th><th class="num">with a click path, before</th><th class="num">after</th></tr>
+      <tr><td>Kanban with Opcenter</td><td class="num">144</td><td class="num">8</td><td class="num"><b>99</b></td></tr>
+      <tr><td>FSM</td><td class="num">730</td><td class="num">330</td><td class="num"><b>471</b></td></tr>
+      <tr><td>PFEP</td><td class="num">356</td><td class="num">192</td><td class="num"><b>201</b></td></tr>
+      <tr><td>Opcenter EF</td><td class="num">62</td><td class="num">41</td><td class="num">41</td></tr>
+    </table></div>
+    <p class="sub" style="font-size:13px;margin-top:8px">What is left: dead Marketplace example pages (proved unreachable on the old app, counted PASS*), and native-mobile pages, which a browser cannot test. Whether those leave the count is your call; it is logged, not hidden (B5-2).</p></div>
+  <div class="two">
+    <div class="card"><h3>Hand work on the rerun</h3>
+      <div class="hw" style="margin-top:10px">
+        <span class="lab">Opcenter EF</span><div class="blocks" aria-label="12 retired, 18 left"><i class="r"></i><i class="r"></i><i class="r"></i><i class="r"></i><i class="r"></i><i class="r"></i><i class="r"></i><i class="r"></i><i class="r"></i><i class="r"></i><i class="r"></i><i class="r"></i><i class="l"></i><i class="l"></i><i class="l"></i><i class="l"></i><i class="l"></i><i class="l"></i><i class="l"></i><i class="l"></i><i class="l"></i><i class="l"></i><i class="l"></i><i class="l"></i><i class="l"></i><i class="l"></i><i class="l"></i><i class="l"></i><i class="l"></i><i class="l"></i></div>
+        <span class="lab">Opcenter 7.0</span><div class="blocks" aria-label="7 retired, 10 left"><i class="r"></i><i class="r"></i><i class="r"></i><i class="r"></i><i class="r"></i><i class="r"></i><i class="r"></i><i class="l"></i><i class="l"></i><i class="l"></i><i class="l"></i><i class="l"></i><i class="l"></i><i class="l"></i><i class="l"></i><i class="l"></i><i class="l"></i></div>
+      </div>
+      <div class="legend" style="margin-top:10px"><span><i style="background:var(--pass)"></i>retired by a toolkit fix</span><span><i style="background:var(--idle)"></i>still by hand → round 5+</span></div></div>
+    <div class="card"><h3>Did the fixes hold?</h3>
+      <div class="verdicts" style="margin-top:10px"><span class="v p">SSO login</span><span class="v p">SCSS case</span><span class="v p">gate driver</span><span class="v p">screenshot pins</span><span class="v p">proxy + CA</span><span class="v p">names with spaces</span><span class="v s">release facts (partly)</span><span class="v f">jar cleanup</span><span class="v f">menu sign-out</span></div>
+      <p class="sub" style="font-size:13px;margin-top:10px">The two that did not hold are reopened and being fixed in round 5.</p></div>
+  </div>
+</section>
+
+<!-- DOJO -->
+<section>
+  <div class="sec-head"><div class="eyebrow">look-ahead · not in scope for 11.12.5</div><h2>Dojo to React: can vs can't move</h2>
+  <p class="sub">Our target is 11.12.5, where nothing here blocks: the Dojo client still works on 11. Mendix 12 is not released yet; this run only shows what a future move to React would cost. <code>dojo_report.py</code> on five apps. A package is a widget .mpk in the app. Legacy core widgets are built-in widgets the React client does not accept as they are.</p></div>
+  <div class="tbl"><table>
+    <tr><th>app</th><th class="num">packages</th><th class="num">ready</th><th class="num">can move</th><th class="num">delete</th><th class="num">can't move</th><th class="num">legacy core widgets</th></tr>
+    <tr><td>fsm</td><td class="num">58</td><td class="num">53</td><td class="num">5</td><td class="num">0</td><td class="num">0</td><td class="num">553</td></tr>
+    <tr><td>kanban</td><td class="num">45</td><td class="num">39</td><td class="num">0</td><td class="num">6</td><td class="num">0</td><td class="num">42</td></tr>
+    <tr><td>opcenter-ef</td><td class="num">63</td><td class="num">56</td><td class="num">0</td><td class="num">6</td><td class="num">1</td><td class="num">37</td></tr>
+    <tr><td><b>pfep</b></td><td class="num">38</td><td class="num">18</td><td class="num">14</td><td class="num">3</td><td class="num"><b>3</b></td><td class="num">325</td></tr>
+    <tr><td>customer</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">2</td></tr>
+  </table></div>
+  <div class="two">
+    <div class="card"><h3>What can't move</h3><ul class="list">
+      <li>pfep: MxTreeTable (25 uses), KeyboardShortcut, Notification. No React path found.</li>
+      <li>opcenter-ef: MobileFeatures. It is for hybrid mobile, which is out of scope.</li>
+      <li>customer: no packages; 2 Static Image core widgets.</li>
+      <li>No Dojo JavaScript in any app.</li>
+    </ul></div>
+    <div class="card"><h3>Legacy core widgets</h3><ul class="list">
+      <li>Most convert in a batch in Studio Pro 11.4+: Image, Combo box, Data Grid 2.</li>
+      <li>Template grid is converted by hand.</li>
+      <li>"ready" means the package declares <code>pluginWidget="true"</code>. A widget built with pluggable-widget-tools older than 9.4.1 can still fail. Update the widgets and let Studio Pro's check decide.</li>
+    </ul></div>
+  </div>
+  <div class="verdict-yes warn"><b>Only pfep is a real 12 problem.</b><span>MxTreeTable has 25 uses and no React successor. The other apps need deletes, updates and batch conversions, not a redesign.</span></div>
+</section>
+
+<section>
+  <div class="sec-head"><div class="eyebrow">where it stands</div><h2>What the pipeline does well, and where people still come in</h2></div>
+  <div class="two">
+    <div class="card"><h3>Runs without a person</h3><ul class="list">
+      <li><b>Convert and build:</b> version bump, <code>mx check</code> to 0 errors, MxBuild on the target LTS. Purchase Request 10.24 → 11.12.5 went end to end.</li>
+      <li><b>Predict before converting:</b> the scanner matches the app against the brain's release facts. Every post-convert error is checked as predicted or missed.</li>
+      <li><b>Data safety:</b> schema and id checks old vs new, and a ledger of every table, so data loss shows up as RED.</li>
+      <li><b>Screens:</b> old vs new visual diff. On Purchase Request it caught the one break the compiler could not see (Atlas 3→4).</li>
+      <li><b>Real use:</b> every action on every page is listed from the model, and click-through journeys are generated per role. They run on the old app first, then on the new one.</li>
+      <li><b>Honest gate:</b> 1,218 controls, each with a known-bad and a known-good case. Unknown stays INVALID. There is no PASS on stand-in APIs.</li>
+      <li><b>Self-improving:</b> every field defect becomes a toolkit fix with a control and proof on the real app. Purchase Request alone produced F13–F41.</li>
+    </ul></div>
+    <div class="card"><h3>Still needs a person</h3><ul class="list">
+      <li><b>Confirm the user processes:</b> scripts draft them from the model and the manual, and a key user confirms in about 15 minutes.</li>
+      <li><b>Screen review:</b> 325 REVIEWs on Purchase Request, mostly expected Atlas 3→4 changes, judged one by one.</li>
+      <li><b>Judgment items:</b> new module roles, behaviour changes, and whether to ship as two releases.</li>
+      <li><b>Test data:</b> journeys need rows and open tasks to exist. Examples: an empty comment list, or no task waiting for the Approver. Today a person adds evidence or seeds the state.</li>
+      <li><b>Backends:</b> Teamcenter and Opcenter need a vendor test system or recorded responses. They are exempt from the gate, with the reason named.</li>
+      <li><b>Environment:</b> part of the container setup behind a proxy is still done by hand (backlog #18).</li>
+      <li><b>Click-through reliability:</b> the main bottleneck right now. Most old-app failures were the instrument, not the app (pipe-30: 79 of 146; the limit is 43).</li>
+    </ul></div>
+  </div>
+  <div class="two" style="margin-top:16px">
+    <div class="card"><h3>How we improve it next</h3><ul class="list">
+      <li><b>Journeys under the limit:</b> fix only the largest failure clusters, and label real test-data gaps as such. Hard stop: if the run after pipe-33 is still above 43, write up what is left instead of experimenting further.</li>
+      <li><b>Seed test data automatically:</b> when a journey needs a row, make it first through the page's own create action (140 such needs on Purchase Request).</li>
+      <li><b>Structural check from MDL:</b> dump the full app as MDL before and after, and diff them. This is cheaper and deterministic, and leans less on clicking (D47).</li>
+      <li><b>Less screen review:</b> an Atlas 3→4 compat check that explains the expected deltas, so only real differences reach a person (#11).</li>
+      <li><b>Cost:</b> reuse the old-app walk on reruns (#19); workers hand off after 2 gate rounds.</li>
+      <li><b>More apps:</b> small Marketplace apps first, FSM last as the proof run.</li>
+    </ul></div>
+    <div class="card"><h3>Where we need others, including open source</h3><ul class="list">
+      <li><b>Upgrade facts:</b> breaking changes that the release notes miss. We hold 19 community leads at lower trust and need confirmations or counter-examples.</li>
+      <li><b>Widget successors:</b> Dojo → React replacements. MxTreeTable, for example, has no React successor and blocks one app.</li>
+      <li><b>Test apps:</b> public apps with realistic processes and data. We use public apps only, never customer data.</li>
+      <li><b>Browser patterns for Mendix widgets:</b> PopupMenu, Data Grid 2, combo box and tab markup per version. Our engine changes are written up as an upstream proposal (<code>research/journey-runner-verbs.patch.md</code>).</li>
+      <li><b>Platform hooks:</b> a stable, visible-only test id per widget. Today the same widget name repeats on hidden tabs, which caused F39 and F41.</li>
+      <li><b>Key users:</b> 15 minutes per app to confirm the drafted processes.</li>
+      <li><b>How to contribute:</b> a FEEDBACK.md row, or a PR with a control and a field run.</li>
+    </ul></div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><div class="eyebrow">cost and next</div><h2>What it cost, what's next</h2></div>
+  <div class="two">
+    <div class="card"><h3>Cost so far</h3><ul class="list"><li>About $385 so far: about $215 for the orchestrating session, about $170 for batch-4 workers</li><li>Batch-4 workers grew to 400–557k tokens of context each. Batch 5 stops and hands off after 2 gate rounds</li><li>27 toolkit rounds merged. Feedback register: 0 open; every row is fixed, documented, closed with a reason, or a ranked backlog item</li><li>The model is used only at judgment points; everything else is scripts</li></ul></div>
+    <div class="card"><h3>Next</h3><ul class="list">
+      <li><b>Plan B:</b> teach the journey generator tabs, parameter pages and Data Grid 2 rows; dead pages now reported as unreachable (D18). Iterate on small apps first (Opcenter EF, Starter Kit 7.0, Kanban, plus 2–3 small Marketplace apps with few dependencies); FSM last, as the proof run.</li>
+      <li><b>Purchase Request:</b> finish pipe-33 (PR-F38–F40), then rerun with PR-F41. Target: at most 43 old-app failures, each with evidence (old-app screenshot or seeded state); then the screen review (325 REVIEWs, Atlas 3→4); then release 1 (10.24: WorkflowCommons migrations in after-startup, D12) as a reusable “two releases” option.</li>
+      <li><b>Real-run follow-ups:</b> F17 attribute-path guard, F18 restore access rules, F19 role mapping, F20 Atlas compat check. F13–F41 merged; Purchase Request is the field proof.</li>
+      <li><b>Plan C:</b> fresh runs on 11.12.5 for FSM and PFEP.</li>
+      <li>Triage the sweep of official guides: about 68 candidate guide items, such as XPath/OQL rewrites, ShowHomePage entity access, published REST always returning JSON, Atlas 4 SCSS color functions and strict <code>parseDateTime</code>. Plus React (30 new) and community leads (19 new, lower trust: Java action fields final, blank white screen, Java 21 from 10.21). Store them in the brain.</li>
+      <li>Brain stays in one repo for now (user decision, 12 Oct).</li>
+      <li><b>Batch 6 running:</b> Forms, Checklist and Visual Inspection re-gated on the current toolkit; no Teamcenter needed.</li>
+      <li>Key users confirm the drafted processes.</li>
+      <li>Done = every app PASS on 11.12.5, or PASS except the Teamcenter and Opcenter backends, which are exempt with the reason named (user decision, 12 Oct).</li>
+    </ul></div>
+  </div>
+</section>
+</div>
+

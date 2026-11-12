@@ -1,0 +1,10 @@
+@mixin old-mixin($a) {
+  .old-mixin-body { margin: $a; }
+}
+@mixin kept-mixin() {
+  .kept-mixin-body { padding: 0; }
+}
+.btn-old { color: red; }
+.btn-kept:hover { color: $brand-primary; }
+%ph-old { margin: 0; }
+%ph-kept { margin: 1px; }

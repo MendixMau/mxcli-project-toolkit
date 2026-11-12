@@ -1,0 +1,195 @@
+{
+ "version": "10.24.16.96987",
+ "_why": "T7 (template-upgrade batch 1, quality-inspection): a page whose widgets include ones that never render an element of their own (Set URL, timer, listen-to). Modelled on the field report, not captured live: the Forms$ type names SetURL/Timer/ListenTo are the guesses the guard filter matches by type and by default name; the page shapes are the smallest that make the generator pick one of them first.",
+ "security": {
+  "user_roles": {
+   "Desk": [
+    "Shop.Desk"
+   ],
+   "Planner": [
+    "Shop.Planner"
+   ],
+   "Clerk": [
+    "Shop.Clerk"
+   ],
+   "Inspector": [
+    "Shop.Inspector"
+   ],
+   "Auditor": [
+    "Shop.Auditor"
+   ],
+   "Lead": [
+    "Shop.Lead"
+   ]
+  }
+ },
+ "navigation": {
+  "homes": [
+   {
+    "role": "Desk",
+    "page": "Shop.Home_SetUrl"
+   },
+   {
+    "role": "Planner",
+    "page": "Shop.Home_Invisible"
+   },
+   {
+    "role": "Clerk",
+    "page": "Shop.Home_OnlySetUrl"
+   },
+   {
+    "role": "Inspector",
+    "page": "Shop.Home_Plain"
+   },
+   {
+    "role": "Auditor",
+    "page": "Shop.Home_RenamedSetUrl"
+   },
+   {
+    "role": "Lead",
+    "page": "Shop.Home_GenericTimer"
+   }
+  ],
+  "menu": [],
+  "login_page": "Shop.Login"
+ },
+ "modules": [
+  {
+   "name": "Shop",
+   "layouts": [
+    {
+     "name": "Layout_Plain",
+     "named": [
+      {
+       "type": "LayoutGrid",
+       "name": "layoutGrid9"
+      }
+     ]
+    }
+   ],
+   "pages": [
+    {
+     "name": "Login",
+     "layout": "Shop.Layout_Plain",
+     "named": [
+      [
+       "TextBox",
+       "usernameInput"
+      ],
+      [
+       "TextBox",
+       "passwordInput"
+      ],
+      [
+       "ActionButton",
+       "loginButton"
+      ]
+     ]
+    },
+    {
+     "name": "Home_SetUrl",
+     "layout": "Shop.Layout_Plain",
+     "allowed": [
+      "Shop.Desk"
+     ],
+     "named": [
+      [
+       "SetURL",
+       "setURL1"
+      ],
+      {
+       "type": "Label",
+       "name": "label3",
+       "text": "Open orders"
+      }
+     ]
+    },
+    {
+     "name": "Home_Invisible",
+     "layout": "Shop.Layout_Plain",
+     "allowed": [
+      "Shop.Planner"
+     ],
+     "named": [
+      [
+       "Timer",
+       "timer1"
+      ],
+      [
+       "ListenTo",
+       "listenTo1"
+      ],
+      {
+       "type": "Label",
+       "name": "label4",
+       "text": "Plan"
+      }
+     ]
+    },
+    {
+     "name": "Home_OnlySetUrl",
+     "layout": "Shop.Layout_Plain",
+     "allowed": [
+      "Shop.Clerk"
+     ],
+     "named": [
+      [
+       "SetURL",
+       "setURL1"
+      ]
+     ]
+    },
+    {
+     "name": "Home_Plain",
+     "layout": "Shop.Layout_Plain",
+     "allowed": [
+      "Shop.Inspector"
+     ],
+     "named": [
+      {
+       "type": "Label",
+       "name": "label9",
+       "text": "Find"
+      }
+     ]
+    },
+    {
+     "name": "Home_RenamedSetUrl",
+     "layout": "Shop.Layout_Plain",
+     "allowed": [
+      "Shop.Auditor"
+     ],
+     "named": [
+      [
+       "SetURL",
+       "redirectTarget"
+      ],
+      {
+       "type": "Label",
+       "name": "label11",
+       "text": "Audit"
+      }
+     ]
+    },
+    {
+     "name": "Home_GenericTimer",
+     "layout": "Shop.Layout_Plain",
+     "allowed": [
+      "Shop.Lead"
+     ],
+     "named": [
+      [
+       "Label",
+       "timer2"
+      ],
+      {
+       "type": "Label",
+       "name": "label12",
+       "text": "Lead"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

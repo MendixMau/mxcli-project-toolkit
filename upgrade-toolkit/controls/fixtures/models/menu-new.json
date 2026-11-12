@@ -1,0 +1,150 @@
+{
+ "version": "10.24.16.96987",
+ "modules": [
+  {
+   "name": "Shop",
+   "layouts": [
+    {
+     "name": "Layout_Menu",
+     "named": [
+      [
+       "NavigationTree",
+       "navigationTree1"
+      ],
+      [
+       "DivContainer",
+       "container1"
+      ]
+     ]
+    }
+   ],
+   "pages": [
+    {
+     "name": "Home",
+     "layout": "Shop.Layout_Menu",
+     "named": [
+      [
+       "DataGrid",
+       "homeGrid"
+      ]
+     ]
+    },
+    {
+     "name": "TeamDetail",
+     "layout": "Shop.Layout_Menu",
+     "named": [
+      [
+       "DataView",
+       "teamDetailView"
+      ]
+     ]
+    },
+    {
+     "name": "TeamsOverview",
+     "layout": "Shop.Layout_Menu",
+     "named": [
+      [
+       "DataGrid",
+       "teamsGrid"
+      ]
+     ]
+    },
+    {
+     "name": "Bare",
+     "layout": "Shop.Layout_Menu"
+    },
+    {
+     "name": "Saml_Config",
+     "layout": "Shop.Layout_Menu",
+     "named": [
+      [
+       "DataView",
+       "idpPanel"
+      ],
+      [
+       "DataGrid",
+       "providerGrid"
+      ]
+     ]
+    },
+    {
+     "name": "Fresh",
+     "layout": "Shop.Layout_Menu",
+     "named": [
+      [
+       "DataGrid",
+       "freshGrid"
+      ]
+     ]
+    },
+    {
+     "name": "Rebuilt",
+     "layout": "Shop.Layout_Menu",
+     "named": [
+      [
+       "DataGrid",
+       "newGrid"
+      ]
+     ]
+    },
+    {
+     "name": "Orphan",
+     "layout": "Shop.Layout_Menu",
+     "named": [
+      [
+       "DataGrid",
+       "orphanGrid"
+      ]
+     ]
+    }
+   ],
+   "docs": [
+    {
+     "type": "Microflows$Microflow",
+     "name": "ACT_OpenTeams",
+     "refs": {
+      "Page": [
+       "Shop.TeamDetail",
+       "Shop.TeamsOverview"
+      ]
+     }
+    },
+    {
+     "type": "Microflows$Microflow",
+     "name": "ACT_OpenBare",
+     "refs": {
+      "Page": [
+       "Shop.TeamDetail",
+       "Shop.Bare"
+      ]
+     }
+    },
+    {
+     "type": "Microflows$Microflow",
+     "name": "ACT_OpenOne",
+     "refs": {
+      "Page": "Shop.TeamDetail"
+     }
+    }
+   ]
+  }
+ ],
+ "navigation": {
+  "homes": [
+   {
+    "role": "*",
+    "page": "Shop.Home"
+   }
+  ],
+  "menu": [
+   {
+    "caption": "Teams",
+    "page": "Shop.Home"
+   },
+   {
+    "caption": "Sign out",
+    "signout": true
+   }
+  ]
+ }
+}

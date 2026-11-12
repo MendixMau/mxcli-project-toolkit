@@ -1,0 +1,1 @@
+{"version": "11.6.3", "languages": ["en_US"], "modules": [{"name": "MyOwn"}, {"name": "Atlas_Core", "appstore": [117187, "3.21.0"]}], "files": {"javasource/myown/actions/Q.java": "class Q {}\n"}, "navigation": {"login_page": ""}}

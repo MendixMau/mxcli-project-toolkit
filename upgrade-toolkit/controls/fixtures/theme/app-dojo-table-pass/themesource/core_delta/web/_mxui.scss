@@ -1,0 +1,13 @@
+/* .mx-scrollcontainer-horizontal { display: table; } is only a comment */
+.mx-scrollcontainer-horizontal {
+    display: flex;
+    table-layout: auto;
+}
+.mx-scrollcontainer-horizontal > div {
+    display: block;
+    flex: 1 1 0;
+}
+.report-grid {
+    display: table;
+    table-layout: fixed;
+}

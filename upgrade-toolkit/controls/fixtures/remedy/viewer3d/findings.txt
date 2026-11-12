@@ -1,0 +1,2 @@
+# findings the run wrote down outside the gate
+the 3D panel shows Could not render widget; console React error #525 and a TypeError in widgets/com/mendix/viewer3d/Viewer.js (3DViewer.mpk 4.0.0)

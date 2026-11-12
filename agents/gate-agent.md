@@ -63,6 +63,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `project-bin/test-stack-up.sh` | Before any runtime test |
 | `skills/company-brain.md` | Setting up or wiring a COMPANY BRAIN |
 | `skills/build-company-brain.md` | Building, testing or improving a company KNOWLEDGE brain |
+| `skills/mendix-upgrade.md` | Upgrading an existing Mendix app's Studio Pro version or Marketplace modules, or judging whether a finished upgrade is safe (upgrade-toolkit/) |
 | `skills/close-the-loop.md` | Cutover and retrospective |
 | `skills/report-schema.md` | Writing or reading docs/report.json |
 | `skills/measured-claims.md` | Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence, or counting tokens from transcripts |

@@ -1,0 +1,7 @@
+journey: login-Administrator
+role: Administrator
+old-app verdict: FAIL
+not_pass: ["FAIL Administrator home after login: reached \".mx-name-imageHero\" never appeared \u2014 screenshot login-Administrator-step1-NOT-REACHED.png", "INVALID Administrator home after login: downstream rungs not reached; nothing measured"]
+cluster: H11
+reason: TOOLKIT FALSE DEFECT (PRF-3 backlog): its guard .mx-name-imageHero exists only on the new app (hero renamed from image2 by the repair); not one of the 31 action defects
+confirmed: owner 2026-10-22

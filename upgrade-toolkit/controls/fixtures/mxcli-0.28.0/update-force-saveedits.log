@@ -1,0 +1,31 @@
+WARNING: This is a vibe-coded PoC, alpha quality, use with caution.
+Saved 7 locally changed element(s) to <saved-edits>/MendixSSO:
+    <saved-edits>/MendixSSO/entity-MendixSSOUser.mdl
+    <saved-edits>/MendixSSO/association-PurchaseApprovals_Request_MendixSSOUser_FirstApprover.mdl
+    <saved-edits>/MendixSSO/association-PurchaseApprovals_Request_MendixSSOUser_InvoiceProcessor.mdl
+    <saved-edits>/MendixSSO/association-PurchaseApprovals_Request_MendixSSOUser_PurchaseOrderCreator.mdl
+    <saved-edits>/MendixSSO/association-PurchaseApprovals_Request_MendixSSOUser_Receiver.mdl
+    <saved-edits>/MendixSSO/association-PurchaseApprovals_Request_MendixSSOUser_Requester.mdl
+    <saved-edits>/MendixSSO/association-PurchaseApprovals_Request_MendixSSOUser_SecondApprover.mdl
+  Replay after the update with 'mxcli exec <file> -p <project.mpr>'.
+  These are resulting states, not diffs: an edit that REMOVED something
+  will not be restored by replaying them.
+
+  Could not be saved (2) — these edits are not recoverable this way:
+    JAR_DEPENDENCY com.nimbusds:oauth2-oidc-sdk (DESCRIBE produced no body, so a difference here is not evidence of an edit)
+    JAR_DEPENDENCY org.apache.commons:commons-text (DESCRIBE produced no body, so a difference here is not evidence of an edit)
+Proceeding under --force; 9 locally changed element(s) will be replaced:
+    ENTITY MendixSSOUser
+    JAR_DEPENDENCY com.nimbusds:oauth2-oidc-sdk
+    JAR_DEPENDENCY org.apache.commons:commons-text
+    ASSOCIATION PurchaseApprovals.Request_MendixSSOUser_FirstApprover
+    ASSOCIATION PurchaseApprovals.Request_MendixSSOUser_InvoiceProcessor
+    ASSOCIATION PurchaseApprovals.Request_MendixSSOUser_PurchaseOrderCreator
+    ASSOCIATION PurchaseApprovals.Request_MendixSSOUser_Receiver
+    ASSOCIATION PurchaseApprovals.Request_MendixSSOUser_Requester
+    ASSOCIATION PurchaseApprovals.Request_MendixSSOUser_SecondApprover
+
+Updating MendixSSO 4.2.0 → 10.6.2...
+install the new version's bundled files: open package target.mpk: open /tmp/mxu2372123298/target.mpk: no such file or directory
+
+The project may be mid-update — MendixSSO could be missing. Restore from version control

@@ -1,0 +1,7 @@
+# accepted step-idcheck findings: <pattern> # reason
+MendixSSO.AuthRequest.Nonce # attribute removed by the publisher in MendixSSO 10.x (login handshake row, transient data, no business data)
+WorkflowCommons.UserTaskView_Assignee # WorkflowCommons 4.0.0 reworked the user task views and removed the assignee/key migration helpers (brain: workflow-commons.md 4.0.0 removal)
+WorkflowCommons.WorkflowComment_WorkflowView # WorkflowCommons 4.0.0 replaced Snip_WorkflowView_CommentsAndAttachments by Snip_Workflow_CommentsAndAttachments (comments attach to the workflow); the publisher's migration microflow moves the data (brain 4.0.0 migration-step)
+WorkflowCommons.Configuration.Show*Migration # removed with the 4.0.0 migration helpers
+WorkflowCommons.Configuration.Verified*Migration # removed with the 4.0.0 migration helpers
+Atlas_Web_Content.LoginContext # AWC 3.7.0+ makes the login-form helper entity non-persistent (publisher change, steps/upgrade.md); the 5 old rows are transient login-form values (Username, RememberMe, ValidationMessage; Password never stored). Accepted as part of owner decision D1/S-1 (chat 2026-10-19), reversible by reverting the step commit

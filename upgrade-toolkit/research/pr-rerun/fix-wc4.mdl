@@ -1,0 +1,81 @@
+alter snippet PurchaseApprovals.Comments_TaskInbox {
+  replace listView2 with {
+    listview listView2 (
+      DataSource: microflow PurchaseApprovals.DS_CommentsOfWorkflowView(WorkflowView = $WorkflowView),
+      DesignProperties: ('Style': 'No styling', 'Row size': 'Small', 'Spacing': ('margin-bottom': 'L'))
+    ) {
+      -- Context: $currentObject (WorkflowCommons.WorkflowComment), $listView2 (selection)
+      layoutgrid layoutGrid3 (DesignProperties: ('Spacing': ('margin-bottom': 'M'))) {
+        row {
+          column (DesktopWidth: AutoFit, TabletWidth: AutoFit, PhoneWidth: AutoFit) {
+            dataview dataView6 (
+              DataSource: microflow PurchaseApprovals.DS_GetOwnerOfComment,
+              ReadOnlyStyle: Control,
+              Style: 'min-width: 32px;'
+            ) {
+              -- Context: $currentObject (MendixSSO.MendixSSOUser)
+              container container15 (
+                DesignProperties: ('Spacing': ('margin-bottom': 'S')),
+                Visible: $currentObject/AvatarURL != ''
+              ) {
+                image image1 (
+                  ImageType: imageUrl,
+                  ImageUrl: '{1}',
+                  ImageUrlParams: ({1} = AvatarURL),
+                  WidthUnit: pixels,
+                  Width: 30,
+                  HeightUnit: pixels,
+                  Height: 30,
+                  DesignProperties: ('Image style': 'Circle')
+                )
+              }
+              image image21 (
+                Image: 'PurchaseApprovals.Images.icon_user',
+                WidthUnit: pixels,
+                Width: 30,
+                HeightUnit: pixels,
+                Height: 30,
+                Class: 'img-circle',
+                DesignProperties: ('Spacing': ('margin-bottom': 'S')),
+                Visible: $currentObject/AvatarURL = ''
+              )
+            }
+          }
+          column (DesktopWidth: AutoFill) {
+            dynamictext text17 (
+              Content: '{1}',
+              ContentParams: ({1} = System.owner/DisplayName format (dateFormat: Custom, customDateFormat: 'MMMM dd')),
+              Class: 'd-block',
+              DesignProperties: ('Color': 'Brand Primary', 'Weight': 'Bold')
+            )
+            dynamictext text19 (
+              Content: '{1}',
+              ContentParams: ({1} = Content),
+              Class: 'd-block',
+              DesignProperties: ('Spacing': ('margin-top': 'S', 'margin-bottom': 'S'))
+            )
+            dynamictext text47 (
+              Content: '{1}',
+              ContentParams: ({1} = changedDate format (dateFormat: DateTime, customDateFormat: 'MM/dd/yyyy . hh:mma'))
+            )
+            actionbutton actionButton16 (
+              Action: call microflow WorkflowCommons.ACT_Comment_Delete,
+              Icon: glyph 57376,
+              Class: 'btn-icon-only',
+              DesignProperties: ('Spacing': ('margin-top': 'None', 'margin-left': 'S')),
+              Visible: $currentObject/System.owner = [%CurrentUser%]
+            )
+            actionbutton actionButton17 (
+              Action: call microflow WorkflowCommons.ACT_WorkflowComment_Edit,
+              Icon: glyph 9999,
+              Class: 'btn-icon-only',
+              DesignProperties: ('Spacing': ('margin-top': 'None', 'margin-left': 'S')),
+              Visible: $currentObject/System.owner = [%CurrentUser%]
+            )
+          }
+        }
+      }
+    }
+  };
+  set (Action: call microflow PurchaseApprovals.ACT_SaveWorkflowComment(WorkflowView = $WorkflowView)) on actionButton1;
+};

@@ -1,0 +1,5 @@
+// uses $old-var, @include old-mixin and .btn-old in a comment only
+/* .btn-old { color: blue; } $old-var */
+.s { content: "$old-var .btn-old"; }
+.kept { color: $kept_var; }
+.m { @include kept-mixin; }

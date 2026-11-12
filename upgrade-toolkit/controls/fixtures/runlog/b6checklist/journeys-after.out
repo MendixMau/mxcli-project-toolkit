@@ -1,0 +1,3 @@
+journeys: 67 PASS, 126 FAIL, 119 INVALID
+actions 295 found · 179 generated (116 todo: no-click-path 59, no journey 53, external-call 3, combobox 1) · 53 pass on baseline (126 defect) · 53 pass on new · 0 regression · coverage 53/295 (17%)
+verdict: INVALID only (exit 3): no REGRESSION, no open REVIEW; 119 journeys INVALID, 3 SCREEN INVALID, 126 failing on the baseline, 0 EFFECT INVALID, 2 coverage rules broken (the 'coverage INVALID' lines above)

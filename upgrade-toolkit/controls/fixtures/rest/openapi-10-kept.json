@@ -1,0 +1,8 @@
+{"openapi": "3.0.1", "servers": [{"url": "http://localhost:8080/rest/notify/v1"}],
+ "paths": {"/rest/notify/v1/message": {"post": {"requestBody": {"required": true},
+                                  "responses": {"201": {"description": "created"}, "400": {"description": "bad"}}},
+                        "get": {"parameters": [{"in": "query", "name": "limit", "required": false},
+                                               {"in": "query", "name": "offset", "required": false}],
+                                "responses": {"200": {"description": "ok"}}}},
+           "/rest/notify/v1/message/{id}": {"parameters": [{"in": "path", "name": "id", "required": true}],
+                             "delete": {"responses": {"204": {"description": "gone"}}}}}}

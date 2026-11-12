@@ -1,0 +1,247 @@
+{
+ "tool": "action_inventory.py",
+ "model": "/nowhere/PurchaseRequest.mpr",
+ "summary_line": "Purchase Request 11.12.5 run 3: the New Request wizard's New Attachment (a microflow shows Attachment_NewEdit) and the popup's Add, verbatim from actions.json (reach trimmed)",
+ "actions": [
+  {
+   "id": "PurchaseApprovals.Attachment_NewEdit.actionButton1",
+   "host": "PurchaseApprovals.Attachment_NewEdit",
+   "host_type": "Microflow",
+   "widget": "actionButton1",
+   "widget_type": "ActionButton",
+   "caption": "Add",
+   "action": "save",
+   "target": null,
+   "kind": "commit",
+   "effects": [],
+   "path": [
+    {
+     "entry": "home Responsive (Approver)",
+     "target": "PurchaseApprovals.TaskInbox",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.TaskInbox"
+    },
+    {
+     "click": "container25",
+     "on": "PurchaseApprovals.TaskInbox",
+     "action": "open-task",
+     "id": "PurchaseApprovals.TaskInbox.container25",
+     "within": "listView5"
+    },
+    {
+     "page": "PurchaseApprovals.Task_Approver"
+    },
+    {
+     "click": "actionButton2",
+     "on": "PurchaseApprovals.Attachments",
+     "action": "microflow",
+     "id": "PurchaseApprovals.Attachments.actionButton2"
+    },
+    {
+     "page": "PurchaseApprovals.Attachment_NewEdit"
+    },
+    {
+     "click": "actionButton1",
+     "on": "PurchaseApprovals.Attachment_NewEdit",
+     "action": "save",
+     "id": "PurchaseApprovals.Attachment_NewEdit.actionButton1"
+    }
+   ],
+   "path_text": "as Approver: home Responsive (Approver) -> PurchaseApprovals.TaskInbox -> click container25 -> PurchaseApprovals.Task_Approver -> click actionButton2 -> PurchaseApprovals.Attachment_NewEdit -> click actionButton1",
+   "roles": [
+    "Administrator",
+    "Approver",
+    "InvoiceProcessor",
+    "PurchaseOrderCreator",
+    "Receiver",
+    "Requester"
+   ],
+   "fields": [
+    {
+     "widget": "fileManager1",
+     "input": "file",
+     "attribute": null,
+     "attr_type": {
+      "type": "none"
+     },
+     "editable": "Always"
+    }
+   ],
+   "needs": [],
+   "todo": [],
+   "unknown": [],
+   "click": {},
+   "context": "PurchaseApprovals.Attachment",
+   "path_roles": [
+    "Approver",
+    "InvoiceProcessor",
+    "PurchaseOrderCreator",
+    "Receiver",
+    "Requester"
+   ],
+   "path_role": "Approver"
+  },
+  {
+   "id": "PurchaseApprovals.MyRequests.actionButton2",
+   "host": "PurchaseApprovals.MyRequests",
+   "host_type": "Page",
+   "widget": "actionButton2",
+   "widget_type": "ActionButton",
+   "caption": "New Request",
+   "action": "microflow",
+   "target": "PurchaseApprovals.CreateNewRequest",
+   "kind": "create",
+   "effects": [
+    "create",
+    "open-page"
+   ],
+   "path": [
+    {
+     "entry": "home Responsive",
+     "target": "PurchaseApprovals.MyRequests",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.MyRequests"
+    },
+    {
+     "click": "actionButton2",
+     "on": "PurchaseApprovals.MyRequests",
+     "action": "microflow",
+     "id": "PurchaseApprovals.MyRequests.actionButton2"
+    }
+   ],
+   "path_text": "as Requester: home Responsive -> PurchaseApprovals.MyRequests -> click actionButton2",
+   "roles": [
+    "Requester"
+   ],
+   "fields": [],
+   "needs": [],
+   "todo": [],
+   "unknown": [],
+   "click": {},
+   "context": null,
+   "path_roles": [
+    "Requester"
+   ],
+   "path_role": "Requester"
+  },
+  {
+   "id": "PurchaseApprovals.NewRequest_Step1.actionButton5",
+   "host": "PurchaseApprovals.NewRequest_Step1",
+   "host_type": "Page",
+   "widget": "actionButton5",
+   "widget_type": "ActionButton",
+   "caption": "New Attachment",
+   "action": "microflow",
+   "target": "PurchaseApprovals.Attachment_NewEdit",
+   "kind": "create",
+   "effects": [
+    "create",
+    "open-page"
+   ],
+   "path": [
+    {
+     "entry": "home Responsive",
+     "target": "PurchaseApprovals.MyRequests",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.MyRequests"
+    },
+    {
+     "click": "actionButton2",
+     "on": "PurchaseApprovals.MyRequests",
+     "action": "microflow",
+     "id": "PurchaseApprovals.MyRequests.actionButton2"
+    },
+    {
+     "page": "PurchaseApprovals.NewRequest_Step1"
+    },
+    {
+     "click": "actionButton5",
+     "on": "PurchaseApprovals.NewRequest_Step1",
+     "action": "microflow",
+     "id": "PurchaseApprovals.NewRequest_Step1.actionButton5"
+    }
+   ],
+   "path_text": "as Requester: home Responsive -> PurchaseApprovals.MyRequests -> click actionButton2 -> PurchaseApprovals.NewRequest_Step1 -> click actionButton5",
+   "roles": [
+    "Approver",
+    "Requester"
+   ],
+   "fields": [
+    {
+     "widget": "textBox1",
+     "input": "text",
+     "attribute": "PurchaseApprovals.Request.Title",
+     "attr_type": {
+      "type": "String",
+      "length": 100
+     },
+     "editable": "Always"
+    },
+    {
+     "widget": "dropDown1",
+     "input": "combobox",
+     "attribute": "PurchaseApprovals.Request.Department",
+     "attr_type": {
+      "type": "Enumeration",
+      "enum": "PurchaseApprovals.ENUM_Department",
+      "enum_first": "Marketing",
+      "enum_first_caption": "Marketing"
+     },
+     "editable": "Always"
+    },
+    {
+     "widget": "datePicker1",
+     "input": "date",
+     "attribute": "PurchaseApprovals.Request.RequiredDeliveryDate",
+     "attr_type": {
+      "type": "DateTime"
+     },
+     "editable": "Always",
+     "date_format": {
+      "DateFormat": "Date",
+      "Custom": ""
+     }
+    },
+    {
+     "widget": "textArea2",
+     "input": "text",
+     "attribute": "PurchaseApprovals.Request.ShippingAddress",
+     "attr_type": {
+      "type": "String"
+     },
+     "editable": "Always"
+    },
+    {
+     "widget": "textArea1",
+     "input": "text",
+     "attribute": "PurchaseApprovals.Request.RequestReason",
+     "attr_type": {
+      "type": "String"
+     },
+     "editable": "Always"
+    }
+   ],
+   "needs": [],
+   "todo": [],
+   "unknown": [],
+   "click": {},
+   "context": "PurchaseApprovals.Request",
+   "path_roles": [
+    "Requester"
+   ],
+   "path_role": "Requester"
+  }
+ ]
+}

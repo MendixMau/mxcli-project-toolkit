@@ -1,0 +1,5 @@
+{"fetchedAt": "2026-10-02T00:00:00Z", "items": [
+ {"contentId": 223053, "publisher": "Mendix", "type": "Module", "latestVersion": {"name": "UserCommons", "versionNumber": "2.4.0", "minSupportedMendixVersion": "10.24.0"}},
+ {"contentId": 115826, "publisher": "Mendix", "type": "Widget", "latestVersion": {"name": "Pop-up Menu", "versionNumber": "4.3.1", "minSupportedMendixVersion": "9.24.0"}},
+ {"contentId": 900001, "publisher": "Someone", "type": "Module", "latestVersion": {"name": "Pop-up Menu", "versionNumber": "1.0.0", "minSupportedMendixVersion": "9.0.0"}}
+]}

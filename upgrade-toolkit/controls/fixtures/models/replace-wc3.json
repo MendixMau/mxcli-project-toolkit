@@ -1,0 +1,1 @@
+{"from": "replace-clean.json", "ops": [["set", "version", "10.24.9.82412"], ["append", "modules", {"name": "WorkflowCommons", "appstore": [117066, "3.12.1"]}], ["set", "model_settings", {"UseOQLVersion2": false}]]}

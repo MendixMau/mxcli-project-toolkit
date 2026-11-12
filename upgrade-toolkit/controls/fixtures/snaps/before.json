@@ -1,0 +1,14 @@
+{"label": "before",
+ "db": {"entities": {"Administration.Account": 3, "MFAmodule.MFA": 2, "System.User": 4},
+        "attributes": {"Administration.Account.FullName": {"nonnull": 3, "md5": "a1"},
+                       "Administration.Account.Email": {"nonnull": 3, "md5": "b1"},
+                       "MFAmodule.MFA.QR_Url": {"nonnull": 2, "md5": "c1"}},
+        "associations": {"Administration.AccountPasswordData_Account": {"pairs": 0, "md5": ""}},
+        "idsets": {"assoc:System.owner": ["0001-owner-account", "0002-owner-mfa"],
+                   "attr:MFAmodule.MFA.QR_Url": ["0003-qrurl"]}},
+ "http": {"/rest/notify/v1/message": {"status": 200, "bytes": 10},
+          "/rest-doc/notify/swagger.json": {"status": 200, "contract":
+              {"/rest/notify/v1/message": {"get": {"responses": ["200"], "params": ["query:limit:opt"]},
+                                           "post": {"responses": ["201", "400"], "params": ["body:body:req"]}}}},
+          "/rest-doc/notify/openapi.json": {"status": 404}},
+ "admin": {"runtime_status": {"status": "running"}}}

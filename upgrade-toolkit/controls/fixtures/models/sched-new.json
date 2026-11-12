@@ -1,0 +1,5 @@
+{"from": "sched-old.json",
+ "ops": [["set", "modules/0/docs/0", {"type": "ScheduledEvents$ScheduledEvent", "name": "DeleteExpired", "data": {"Enabled": true, "Microflow": "Shop.SE_DeleteExpired"}}],
+         ["set", "modules/0/docs/1", {"type": "JavaActions$JavaAction", "name": "DeleteExpired"}],
+         ["delete", "modules/1/docs/0"],
+         ["append", "modules/0/pages", {"name": "Example_Page", "excluded": true, "refs": {"Microflow": "Vendor.ACT_Gone"}}]]}

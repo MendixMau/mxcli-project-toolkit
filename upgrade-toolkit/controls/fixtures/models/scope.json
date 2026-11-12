@@ -1,0 +1,120 @@
+{
+ "version": "10.24.16.96987",
+ "_why": "journey_scope: a field app in miniature. Home (menu) shows OrderEdit and Custom; Orphan, Orphan_Child, ViaExcluded (only an Excluded flow opens it) are dead; CodeOpened is opened by Java by name (the proxies file names Orphan and must not count).",
+ "security": {
+  "user_roles": {
+   "Clerk": [
+    "Shop.Clerk"
+   ]
+  }
+ },
+ "navigation": {
+  "homes": [
+   {
+    "role": "*",
+    "page": "Shop.Home"
+   }
+  ],
+  "menu": [
+   {
+    "caption": "Home",
+    "page": "Shop.Home"
+   }
+  ]
+ },
+ "modules": [
+  {
+   "name": "Shop",
+   "module_roles": [
+    "Clerk"
+   ],
+   "pages": [
+    {
+     "name": "Home",
+     "refs": {
+      "Page": [
+       "Shop.OrderEdit",
+       "Administration.Custom",
+       "Shop.NoRolePage"
+      ],
+      "Microflow": "Shop.ShowViaExcluded"
+     }
+    },
+    {
+     "name": "OrderEdit"
+    },
+    {
+     "name": "NoRolePage"
+    },
+    {
+     "name": "Orphan",
+     "refs": {
+      "Page": "Shop.Orphan_Child"
+     }
+    },
+    {
+     "name": "Orphan_Child"
+    },
+    {
+     "name": "ViaExcluded"
+    },
+    {
+     "name": "CodeOpened"
+    }
+   ],
+   "docs": [
+    {
+     "type": "Microflows$Microflow",
+     "name": "ShowViaExcluded",
+     "excluded": true,
+     "refs": {
+      "Page": "Shop.ViaExcluded"
+     }
+    }
+   ]
+  },
+  {
+   "name": "Administration",
+   "appstore": [
+    23513,
+    "4.5.0"
+   ],
+   "pages": [
+    {
+     "name": "Account_Overview"
+    },
+    {
+     "name": "Custom"
+    }
+   ]
+  },
+  {
+   "name": "MxModelReflection",
+   "appstore": [
+    69,
+    "6.2.0"
+   ],
+   "pages": [
+    {
+     "name": "MxObject_Overview"
+    }
+   ]
+  },
+  {
+   "name": "UserCommons",
+   "appstore": [
+    223053,
+    "2.4.0"
+   ],
+   "pages": [
+    {
+     "name": "Settings"
+    }
+   ]
+  }
+ ],
+ "files": {
+  "javasource/shop/actions/Open.java": "class Open { void go() { page(\"Shop.CodeOpened\"); } }",
+  "javasource/shop/proxies/microflows/Microflows.java": "class M { String a = \"Shop.Orphan\"; String b = \"Shop.Orphan_Child\"; }"
+ }
+}

@@ -1,0 +1,4 @@
+{"role": "Administrator", "nav": {"group": null, "item": "Home"}, "path": [{"widget": "container8", "label": "Vendors"}], "newButton": "actionButton3",
+ "fields": [{"widget": "textBox1", "value": "Vendor ${RUN_ID}", "attr": "Name"}, {"widget": "textArea1", "value": "V-${RUN_ID}", "attr": "VendorID"}],
+ "saveButton": "actionButton1", "entity": "PurchaseApprovals.Vendor", "ready": ".mx-name-grid1",
+ "textPresent": ["Vendor ${RUN_ID}"], "textAbsent": ["is required", "error"]}

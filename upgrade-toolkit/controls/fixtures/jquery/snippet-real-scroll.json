@@ -1,0 +1,6 @@
+[
+ {
+  "name": "WizardStep.scrollToTop",
+  "content": "window.mx.addOnLoad(function() {\r\n    setTimeout(() => {\r\n     document.querySelectorAll(\".mx-scrollcontainer-wrapper\")[3].scrollTo({top: 0, behavior: 'smooth'});\r\n    }, 100);\r\n});"
+ }
+]

@@ -1,0 +1,2 @@
+{"from": "dm-old.json",
+ "ops": [["set", "modules/0/entities/0/validation", [["Amount", "Required"], ["Status", "Unique"]]]]}

@@ -1,0 +1,34 @@
+{
+ "items": [
+  {
+   "contentId": 105695,
+   "publisher": "Mendix",
+   "type": "Widget",
+   "latestVersion": {
+    "name": "Charts",
+    "versionNumber": "6.3.2",
+    "minSupportedMendixVersion": "10.6.0"
+   }
+  },
+  {
+   "contentId": 230248,
+   "publisher": "Mendix",
+   "type": "Widget",
+   "latestVersion": {
+    "name": "Markdown viewer",
+    "versionNumber": "1.1.0",
+    "minSupportedMendixVersion": "9.24.0"
+   }
+  },
+  {
+   "contentId": 305407,
+   "publisher": "MxTechies",
+   "type": "Widget",
+   "latestVersion": {
+    "name": "Markdown",
+    "versionNumber": "1.0.0",
+    "minSupportedMendixVersion": "11.12.1"
+   }
+  }
+ ]
+}

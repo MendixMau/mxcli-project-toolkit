@@ -1,0 +1,8 @@
+WARNING: This is a vibe-coded PoC, alpha quality, use with caution.
+refusing to update: 3 element(s) have been changed locally and the update would discard them:
+    ENTITY MendixSSOUser
+    JAR_DEPENDENCY com.nimbusds:oauth2-oidc-sdk
+    JAR_DEPENDENCY org.apache.commons:commons-text
+
+  - Save them first:  --save-edits <dir>
+  - Then update:      --force

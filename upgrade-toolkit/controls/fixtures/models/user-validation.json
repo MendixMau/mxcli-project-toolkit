@@ -1,0 +1,2 @@
+{"from": "base.json", "ops": [["set", "modules/0/entities/0/validation", [["Email", "Unique"]]],
+                              ["set", "modules/0/entities/1/validation", [["NewPassword", "Required"]]]]}

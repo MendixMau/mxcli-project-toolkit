@@ -1,0 +1,5 @@
+[
+ {"name": "home", "role": "User", "storage": null, "wait": ".mx-page"},
+ {"name": "orders-list", "role": "User", "storage": null, "click": ["ORDERS"], "wait": ".mx-name-orderGallery .widget-gallery-item"},
+ {"name": "admin-users", "role": "Administrator", "storage": {"SomeLocalKey": "value"}, "click": ["USERS"], "wait": ".mx-page"}
+]

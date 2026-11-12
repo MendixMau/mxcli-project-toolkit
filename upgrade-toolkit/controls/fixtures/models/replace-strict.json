@@ -1,0 +1,23 @@
+{
+ "version": "9.24.3.8044",
+ "modules": [
+  {
+   "name": "MyOwn",
+   "docs": [
+    {"type": "Microflows$Microflow", "name": "ACT_SetByName", "data": {"ObjectCollection": {"$Type": "Microflows$MicroflowObjectCollection",
+     "Objects": [{"$Type": "Microflows$ActionActivity", "Action": {"$Type": "Microflows$JavaActionCallAction",
+      "JavaAction": "ObjectHandling.setMemberValueByMemberName", "OutputVariableName": "Ok"}}]}}}
+   ]
+  },
+  {"name": "ObjectHandling", "appstore": [5960, "4.0.0"]},
+  {"name": "Atlas_Core", "appstore": [117187, "4.1.0"]}
+ ],
+ "files": {
+  "javasource/myown/actions/SetByName.java": "package myown.actions;\npublic class SetByName { void run(com.mendix.systemwideinterfaces.core.IMendixObject obj, String status) { obj.setValue(getContext(), \"Status\", status); } }\n",
+  "javasource/myown/actions/Typed.java": "package myown.actions;\npublic class Typed { void run(myown.proxies.Item item, String v) { item.setName(getContext(), v); } }\n",
+  "javasource/objecthandling/ORM.java": "package objecthandling;\npublic class ORM { void copy(Object tar, Object ctx, String key, Object v) { tar.setValue(ctx, key, v); } }\n",
+  "javascriptsource/myown/actions/Clean.js": "export async function Clean() { console.log(\"ok\"); }\n",
+  "theme/web/main.scss": ".my-card { color: red; }\n"
+ },
+ "navigation": {"login_page": ""}
+}

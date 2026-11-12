@@ -1,0 +1,31 @@
+{
+ "modules": [
+  {
+   "name": "Shop",
+   "entities": [
+    {
+     "name": "Order",
+     "persistent": true,
+     "attributes": [
+      {
+       "name": "Total",
+       "type": "Decimal"
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "security": {
+  "user_roles": {
+   "Manager": [
+    "Shop.Manager"
+   ],
+   "Guest": [
+    "Shop.Anonymous"
+   ]
+  },
+  "admin": "Manager",
+  "guest": "Guest"
+ }
+}

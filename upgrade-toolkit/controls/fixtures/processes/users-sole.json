@@ -1,0 +1,22 @@
+{
+ "Approver": {
+  "user": "smoke_approver",
+  "pass": "x"
+ },
+ "InvoiceProcessor": {
+  "user": "smoke_invoiceprocessor",
+  "pass": "x"
+ },
+ "PurchaseOrderCreator": {
+  "user": "smoke_purchaseordercreator",
+  "pass": "x"
+ },
+ "Receiver": {
+  "user": "smoke_receiver",
+  "pass": "x"
+ },
+ "Requester": {
+  "user": "smoke_requester",
+  "pass": "x"
+ }
+}

@@ -1,0 +1,6 @@
+{"rows": [
+ {"id": "data:db.attr.Shop.Item.changedDate", "class": "startup-noise", "result": "accepted: start noise"},
+ {"id": "journey:act-Shop.Item_Edit.saveButton", "class": "test-setup", "result": "not rerun"},
+ {"id": "journey:act-Shop.Home.menuButton", "class": "real-regression", "evidence": "passes on the old app, fails on the new one: button is covered by an overlay"},
+ {"id": "journey:act-Shop.Home.logoutButton", "class": "real-regression", "evidence": "passes on the old app, fails on the new one: button is covered by an overlay"},
+ {"id": "journey:act-Shop.Order_Detail.printButton", "class": "real-regression", "evidence": "passes on the old app, fails on the new one: page blank"}]}

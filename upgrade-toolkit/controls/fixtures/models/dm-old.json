@@ -1,0 +1,13 @@
+{"version": "10.24.16.96987",
+ "modules": [
+  {"name": "PurchaseApprovals",
+   "entities": [
+     {"name": "Request", "persistent": true,
+      "attributes": [{"name": "Status", "type": "String", "default": "Pending_Approval"},
+                     {"name": "Amount", "type": "Integer"},
+                     {"name": "Note", "type": "String"}],
+      "validation": [["Amount", "Required"]],
+      "access": [{"roles": ["PurchaseApprovals.Clerk"], "create": true, "delete": false, "default": "ReadOnly"}]},
+     {"name": "Legacy", "persistent": true, "attributes": [{"name": "Code", "type": "String"}]}],
+   "docs": [{"type": "Microflows$Microflow", "name": "ACT_Submit", "data": {"Entity": "PurchaseApprovals.Request"}},
+            {"type": "Microflows$Microflow", "name": "ACT_Legacy", "data": {"Entity": "PurchaseApprovals.Legacy"}}]}]}

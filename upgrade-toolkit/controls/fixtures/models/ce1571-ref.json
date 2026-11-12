@@ -1,0 +1,3 @@
+{"from": "ce1571-app.json",
+ "_why": "the publisher's newer build of the same page (the reference dvfix.py read, T2R3-7): the data view's call carries the mapping, in the 10.x Argument shape",
+ "ops": [["set", "modules/0/pages/0/named/0/datasource/mappings", [["ActualConfig", {"arg": "$Config"}]]]]}

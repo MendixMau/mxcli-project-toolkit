@@ -1,0 +1,6 @@
+{"from": "replace-clean.json", "ops": [["set", "files", {
+  "javasource/myown/actions/Clean.java": "package myown.actions;\npublic class Clean { }\n",
+  "javascriptsource/myown/actions/Log.js": "export async function Log() { mx.logger.info(\"x\"); }\n",
+  "javascriptsource/myown/actions/Dlg.js": "export async function Dlg() { require([\"dojo/dom\"], function (dom) {}); }\n",
+  "javascriptsource/myown/node_modules/lib/index.js": "mx.logger.debug('vendored');\n",
+  "theme/web/main.scss": ".my-card { color: red; }\n"}]]}

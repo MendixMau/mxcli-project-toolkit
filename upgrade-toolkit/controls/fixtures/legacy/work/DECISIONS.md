@@ -1,0 +1,4 @@
+P-0 | proposal | proposal | continue without a sign-off | Interview mode: unattended signs nothing; the run goes on at the recommendations | - | ASSUMED (unattended) | closes by: a person signs PROPOSAL.md section 6
+P-1 | Cartkit | module | keep old version (kept list); the stop rule keeps it unattended | unattended: recommendation taken, nobody asked | - | ASSUMED (unattended) | closes by: a person signs PROPOSAL.md section 6
+P-2 | Themepack style files | theme | update and delete the files again | unattended: recommendation taken, nobody asked | - | ASSUMED (unattended) | closes by: a person signs PROPOSAL.md section 6
+S-1 | theme/web/index.html: 2 stale script tags (files do not exist, 404 on old app too) | page | remove the 2 tags | owner approved in chat 2026-01-05 (D5) | owner (chat) | CONFIRMED | closes by: no 404 on a page load of the rebuilt app

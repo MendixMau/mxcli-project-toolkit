@@ -1,0 +1,76 @@
+{
+ "rows": {
+  "order-grid": [
+   {
+    "name": "Order grid on the new client",
+    "sub": "2 pages",
+    "status": "done",
+    "stages": {
+     "triage": {
+      "say": "The order grid shows no rows on the new client."
+     },
+     "plan": {
+      "say": "Update the grid module to version 2.0.0.",
+      "why": "Version 1 does not load on the new client.",
+      "who": "The agent.",
+      "options": [
+       "Keep version 1 and stay on the old client"
+      ],
+      "gap": false
+     },
+     "upgrade": {
+      "say": "Gridmod is on version 2.0.0.",
+      "facts": [
+       "1 module update"
+      ],
+      "gap": false
+     },
+     "test": {
+      "say": "The order pages match old against new.",
+      "results": [
+       [
+        "Each user role signs in and opens its pages",
+        "pass",
+        "4 of 4."
+       ]
+      ]
+     }
+    }
+   },
+   {
+    "name": "Order export",
+    "sub": "1 page",
+    "status": "done",
+    "stages": {
+     "triage": {
+      "say": "The export button does nothing on the new client."
+     },
+     "plan": {
+      "say": "Use the export action of the new grid.",
+      "why": "It is the same result with less work.",
+      "who": "The agent.",
+      "options": [],
+      "gap": false
+     },
+     "upgrade": {
+      "say": "The export button works.",
+      "facts": [
+       "1 module update"
+      ],
+      "gap": false
+     },
+     "test": {
+      "say": "The export file matches the old one.",
+      "results": [
+       [
+        "Each user role signs in and opens its pages",
+        "pass",
+        "4 of 4."
+       ]
+      ]
+     }
+    }
+   }
+  ]
+ }
+}

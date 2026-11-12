@@ -1,0 +1,7 @@
+journey: act-WorkflowCommons.Snip_WorkflowActivityRecord_Details.actionButton4
+role: Administrator
+old-app verdict: FAIL
+not_pass: ["FAIL open WorkflowCommons.DefaultWorkflowAdmin: reached \".mx-name-actionButton4\" never appeared \u2014 screenshot act-WorkflowCommons.Snip_WorkflowActivityRecord_Details.actionButton4-step5-NOT-REACHED.png", "INVALID open WorkflowCommons.DefaultWorkflowAdmin: downstream rungs not reached; nothing measured"]
+cluster: H3
+reason: reachable only through "open parent workflow"; the app has no sub-workflows
+confirmed: owner 2026-10-22

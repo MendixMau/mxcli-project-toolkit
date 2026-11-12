@@ -1,0 +1,11 @@
+# e5-mx9-mono: the e5-mx9 image plus Mono, for the Mendix 9 mxbuild BEFORE 9.20 (BT-1).
+# Why: the CDN mxbuild for 9.0 to 9.19 is a Mono-era .NET Framework build (modeler/mxbuild.exe and mx.exe, no native
+# modeler/mxbuild launcher), which the plain e5-mx9 image cannot run: the baseline stopped with "mx9.sh: no .../modeler/mxbuild"
+# (INCL 9.3, TOUR 9.4, COLLAB 9.18). 9.20 and later ship a native launcher and use e5-mx9.
+# Build: docker build --network host -t e5-mx9-mono -f bin/docker/Dockerfile.mx9-mono bin/docker
+#   (bin/setup-container.sh and bin/cloud/setup.sh build it when the source is 9.x below 9.20). About +300 MB over e5-mx9 (measured
+#   1.47 GB on disk against 958 MB). bin/mono-shim.sh writes the two-line modeler/mxbuild and modeler/mx shims into the toolset;
+#   bin/mx9.sh picks this image on its own when it finds a shim (UPG_IMAGE9 overrides).
+# The image holds no Mendix binary: the toolset is mounted from the run folder.
+FROM eclipse-temurin:11-jdk
+RUN apt-get update && apt-get install -y --no-install-recommends libicu-dev libgdiplus git mono-runtime mono-devel && rm -rf /var/lib/apt/lists/*

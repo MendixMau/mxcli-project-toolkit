@@ -1,0 +1,68 @@
+{
+ "endpoints": [
+  {
+   "id": "rest:Payments.Call1",
+   "kind": "rest",
+   "module": "Payments",
+   "doc": "Payments.Call1",
+   "method": "GET",
+   "template": "",
+   "routes": [
+    [
+     "const",
+     "Payments.Url1"
+    ]
+   ],
+   "status": "MOCKED",
+   "system": ""
+  },
+  {
+   "id": "const:Payments.Call2",
+   "kind": "const",
+   "module": "Payments",
+   "doc": "Payments.Call2",
+   "method": "GET",
+   "template": "",
+   "routes": [
+    [
+     "const",
+     "Payments.Url2"
+    ]
+   ],
+   "status": "UNKNOWN",
+   "system": ""
+  },
+  {
+   "id": "rest:Ledger.Call3",
+   "kind": "rest",
+   "module": "Ledger",
+   "doc": "Ledger.Call3",
+   "method": "GET",
+   "template": "",
+   "routes": [
+    [
+     "attr",
+     "Ledger.Url3"
+    ]
+   ],
+   "status": "UNKNOWN",
+   "system": ""
+  },
+  {
+   "id": "rest:Ledger.Call4",
+   "kind": "rest",
+   "module": "Ledger",
+   "doc": "Ledger.Call4",
+   "method": "GET",
+   "template": "",
+   "routes": [
+    [
+     "literal",
+     "Ledger.Url4"
+    ]
+   ],
+   "status": "UNKNOWN",
+   "system": ""
+  }
+ ]
+}

@@ -1,0 +1,25 @@
+create or modify microflow PurchaseApprovals.DS_GetWorkflowView_FromUserTask (
+  $WorkflowUserTask: System.WorkflowUserTask
+)
+returns WorkflowCommons.WorkflowView
+folder 'User/Approver/Microflows'
+begin
+  retrieve $Workflow from $WorkflowUserTask/System.WorkflowUserTask_Workflow;
+  retrieve $WorkflowView from WorkflowCommons.WorkflowView
+    where WorkflowCommons.WorkflowView_Workflow = $Workflow
+    limit 1;
+  return $WorkflowView;
+end;
+
+create or modify microflow PurchaseApprovals.SubmitCommentRequester (
+  $Request: PurchaseApprovals.Request,
+  $WorkflowCommentHelper: WorkflowCommons.WorkflowCommentHelper
+)
+folder 'User/Requester/Microflows'
+begin
+  retrieve $Workflow from System.Workflow
+    where PurchaseApprovals.Request_Workflow = $Request
+    first;
+  call microflow WorkflowCommons.ACT_WorkflowCommentHelper_SaveNew(WorkflowCommentHelper = $WorkflowCommentHelper, Workflow = $Workflow);
+  return;
+end;

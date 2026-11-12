@@ -1,0 +1,1 @@
+{"from": "base.json", "ops": [["delete", "modules/1"], ["delete", "modules/1"], ["delete", "configurations"]]}

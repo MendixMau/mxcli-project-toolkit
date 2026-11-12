@@ -1,0 +1,41 @@
+{"id": "S-1", "field": "topic", "value": "modules:Widgetpack", "by": "toolkit", "at": "2026-01-02T10:00:00Z"}
+{"id": "S-1", "field": "title", "value": "Widgetpack module update", "by": "toolkit", "at": "2026-01-02T10:01:00Z"}
+{"id": "S-1", "field": "found_say", "value": "Widgetpack draws the product cards. Mendix 11 needs version 2.", "by": "toolkit", "at": "2026-01-02T10:02:00Z"}
+{"id": "S-1", "field": "stage", "value": "triage", "by": "toolkit", "at": "2026-01-02T10:03:00Z"}
+{"id": "S-1", "field": "evidence", "value": ["work/triage.md"], "by": "toolkit", "at": "2026-01-02T10:04:00Z"}
+{"id": "S-1", "field": "proposed_say", "value": "Update Widgetpack from 1.4.0 to 2.0.0 after the convert.", "by": "toolkit", "at": "2026-01-02T10:05:00Z"}
+{"id": "S-1", "field": "why", "value": "Version 1 does not load on the new client.", "by": "toolkit", "at": "2026-01-02T10:06:00Z"}
+{"id": "S-1", "field": "options", "value": ["Update now (recommended)", "Stay on 1.4.0, which blocks the new client"], "by": "toolkit", "at": "2026-01-02T10:07:00Z"}
+{"id": "S-1", "field": "recommend", "value": 0, "by": "toolkit", "at": "2026-01-02T10:08:00Z"}
+{"id": "S-1", "field": "closes_by", "value": ["smoke", "journeys"], "by": "toolkit", "at": "2026-01-02T10:09:00Z"}
+{"id": "S-1", "field": "approval", "value": {"state": "approved", "source": "page"}, "by": "Ana", "at": "2026-01-02T10:10:00Z"}
+{"id": "S-1", "field": "commit:1111111", "value": {"sha": "1111111", "say": "Widgetpack moved to version 2.0.0."}, "by": "toolkit", "at": "2026-01-02T10:11:00Z"}
+{"id": "S-1", "field": "test:smoke", "value": {"rung": "smoke", "verdict": "PASS", "say": "4 of 4 pages open without errors.", "proof": ["gate/smoke.json"]}, "by": "toolkit", "at": "2026-01-02T10:12:00Z"}
+{"id": "S-1", "field": "test:journeys", "value": {"rung": "journeys", "verdict": "PASS", "say": "12 of 12 click paths end the same.", "proof": ["gate/journeys.md"]}, "by": "toolkit", "at": "2026-01-02T10:13:00Z"}
+{"id": "S-2", "field": "topic", "value": "scripts:Snippetbox", "by": "toolkit", "at": "2026-01-02T10:14:00Z"}
+{"id": "S-2", "field": "title", "value": "jQuery scripts on the React client", "by": "toolkit", "at": "2026-01-02T10:15:00Z"}
+{"id": "S-2", "field": "found_say", "value": "The new React client cannot run the snippet widget. 12 snippets hold 5 different jQuery scripts.", "by": "toolkit", "at": "2026-01-02T10:16:00Z"}
+{"id": "S-2", "field": "stage", "value": "run", "by": "toolkit", "at": "2026-01-02T10:17:00Z"}
+{"id": "S-2", "field": "proposed_say", "value": "Keep every script, but run it from a JavaScript action that an Events widget starts when the page loads.", "by": "toolkit", "at": "2026-01-02T10:18:00Z"}
+{"id": "S-2", "field": "why", "value": "Same behaviour as today at the lowest cost. Rewriting 5 scripts as widgets takes weeks.", "by": "toolkit", "at": "2026-01-02T10:19:00Z"}
+{"id": "S-2", "field": "options", "value": ["Bridge now, review the scripts later (recommended)", "Rewrite each script as a widget or page logic (about 5 weeks)", "Stay on the classic client until just before Mendix 12"], "by": "toolkit", "at": "2026-01-02T10:20:00Z"}
+{"id": "S-2", "field": "recommend", "value": 0, "by": "toolkit", "at": "2026-01-02T10:21:00Z"}
+{"id": "S-2", "field": "closes_by", "value": ["smoke", "journeys", "screens"], "by": "toolkit", "at": "2026-01-02T10:22:00Z"}
+{"id": "S-2", "field": "decisions", "value": ["D71"], "by": "toolkit", "at": "2026-01-02T10:23:00Z"}
+{"id": "S-2", "field": "approval", "value": {"state": "assumed", "source": "mid-run", "needs": "the owner's OK"}, "by": "agent", "at": "2026-01-02T10:24:00Z"}
+{"id": "S-2", "field": "commit:2222222", "value": {"sha": "2222222", "say": "5 scripts moved into JavaScript actions."}, "by": "toolkit", "at": "2026-01-02T10:25:00Z"}
+{"id": "S-2", "field": "commit:3333333", "value": {"sha": "3333333", "say": "2 snippets that the build check did not flag."}, "by": "toolkit", "at": "2026-01-02T10:26:00Z"}
+{"id": "S-2", "field": "test:smoke", "value": {"rung": "smoke", "verdict": "PASS", "say": "The smoke check passed on the new app.", "proof": ["gate/gate-summary.md"]}, "by": "toolkit", "at": "2026-01-02T10:27:00Z"}
+{"id": "S-2", "field": "test:journeys", "value": {"rung": "journeys", "verdict": "PASS", "say": "The journeys check passed on the new app.", "proof": ["gate/gate-summary.md"]}, "by": "toolkit", "at": "2026-01-02T10:28:00Z"}
+{"id": "S-2", "field": "test:screens", "value": {"rung": "screens", "verdict": "PASS", "say": "The screens check passed on the new app.", "proof": ["gate/gate-summary.md"]}, "by": "toolkit", "at": "2026-01-02T10:29:00Z"}
+{"id": "S-3", "field": "topic", "value": "theme:Themepack", "by": "toolkit", "at": "2026-01-03T10:30:00Z"}
+{"id": "S-3", "field": "title", "value": "Themepack styles", "by": "toolkit", "at": "2026-01-03T10:31:00Z"}
+{"id": "S-3", "field": "found_say", "value": "The theme package has local edits that the new version would replace.", "by": "toolkit", "at": "2026-01-03T10:32:00Z"}
+{"id": "S-3", "field": "stage", "value": "triage", "by": "toolkit", "at": "2026-01-03T10:33:00Z"}
+{"id": "S-3", "field": "proposed_say", "value": "Keep the local styles and merge the new theme version around them.", "by": "toolkit", "at": "2026-01-03T10:34:00Z"}
+{"id": "S-3", "field": "why", "value": "The shop colours stay as they are today.", "by": "toolkit", "at": "2026-01-03T10:35:00Z"}
+{"id": "S-3", "field": "options", "value": ["Merge around the local styles (recommended)", "Take the new theme as it is"], "by": "toolkit", "at": "2026-01-03T10:36:00Z"}
+{"id": "S-3", "field": "recommend", "value": 0, "by": "toolkit", "at": "2026-01-03T10:37:00Z"}
+{"id": "S-3", "field": "approval", "value": {"state": "approved", "source": "page"}, "by": "Ana", "at": "2026-01-03T10:38:00Z"}
+{"id": "S-3", "field": "commit:4444444", "value": {"sha": "4444444", "say": "Theme merged, local styles kept."}, "by": "toolkit", "at": "2026-01-03T10:39:00Z"}
+{"id": "S-3", "field": "gap:tested", "value": "No check is linked to this step, so nothing tested it.", "by": "toolkit", "at": "2026-01-03T10:40:00Z"}

@@ -1,0 +1,8 @@
+[
+ {
+  "name": "Menu.jqueryNoRefresh",
+  "contentType": "jquery",
+  "refreshOnContextChange": false,
+  "content": "$('.mx-name-SomeMenu-0').click(function(){ $(this).addClass('active'); });\nfunction SaveLocal(){ $('.HiddenStoreButton').click(); }\n//setInterval(SaveLocal, 2);\n$('.AboutContainer').click(function(){ $('.AboutPanel').toggle(); });"
+ }
+]

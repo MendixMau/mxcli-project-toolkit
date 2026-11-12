@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <script type="text/javascript">
+        // Redirect to unsupported browser page if opened from browser that doesn't support async/arrow functions
+        try {
+            eval("async () => {}");
+        } catch (error) {
+            var homeUrl = window.location.origin + window.location.pathname;
+            var appUrl = homeUrl.slice(0, homeUrl.lastIndexOf("/") + 1);
+            window.location.replace(appUrl + "unsupported-browser.html");
+        }
+    </script>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mendix</title>
+    <link rel="stylesheet" href="theme.compiled.css?639275344907286082">
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?639275344907286082">
+    <link rel="icon" sizes="32x32" href="icon-32.png?639275344907286082">
+    <link rel="icon" sizes="16x16" href="icon-16.png?639275344907286082">
+    <link rel="manifest" href="manifest.webmanifest?639275344907286082" crossorigin="use-credentials">
+
+  </head>
+
+  <body>
+    <noscript>
+      You need to enable JavaScript to run this app.
+    </noscript>
+    <div id="root"></div>
+    <script src="dist/index.js?639275344907286082" type="module"></script>
+    <script>  
+      if (!document.cookie || !document.cookie.match(/(^|;) *originURI=/gi)) {
+        const url = new URL(window.location.href);
+        const subPath = url.pathname.substring(0, url.pathname.lastIndexOf("/"));
+      
+        document.cookie = `originURI=${subPath}/login.html${window.location.protocol === "https:" ? ";SameSite=None;Secure" : ""}`;
+      }
+    </script>
+  </body>
+</html>

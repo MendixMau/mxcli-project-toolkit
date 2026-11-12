@@ -1,0 +1,161 @@
+create or modify microflow PurchaseApprovals.DS_GetWorkflow_FromUserTask (
+  $WorkflowUserTask: System.WorkflowUserTask
+)
+returns System.Workflow
+folder 'User/Approver/Microflows'
+begin
+  retrieve $Workflow from $WorkflowUserTask/System.WorkflowUserTask_Workflow;
+  return $Workflow;
+end;
+grant execute on microflow PurchaseApprovals.DS_GetWorkflow_FromUserTask to PurchaseApprovals.Administrator, PurchaseApprovals.Approver, PurchaseApprovals.InvoiceProcessor, PurchaseApprovals.PurchaseOrderCreator, PurchaseApprovals.Receiver, PurchaseApprovals.Requester;
+
+create or modify microflow PurchaseApprovals.DS_CommentsOnWorkflow (
+  $Workflow: System.Workflow
+)
+returns List of WorkflowCommons.WorkflowComment
+folder 'User/Approver/Microflows'
+begin
+  retrieve $Comments from WorkflowCommons.WorkflowComment
+    where WorkflowCommons.WorkflowComment_Workflow = $Workflow
+    sort by changedDate desc;
+  return $Comments;
+end;
+grant execute on microflow PurchaseApprovals.DS_CommentsOnWorkflow to PurchaseApprovals.Administrator, PurchaseApprovals.Approver, PurchaseApprovals.InvoiceProcessor, PurchaseApprovals.PurchaseOrderCreator, PurchaseApprovals.Receiver, PurchaseApprovals.Requester;
+
+create or modify microflow PurchaseApprovals.ACT_SaveComment_OnWorkflow (
+  $WorkflowCommentHelper: WorkflowCommons.WorkflowCommentHelper,
+  $Workflow: System.Workflow
+)
+folder 'User/Approver/Microflows'
+begin
+  call microflow WorkflowCommons.ACT_WorkflowCommentHelper_SaveNew(WorkflowCommentHelper = $WorkflowCommentHelper, Workflow = $Workflow);
+  return;
+end;
+grant execute on microflow PurchaseApprovals.ACT_SaveComment_OnWorkflow to PurchaseApprovals.Administrator, PurchaseApprovals.Approver, PurchaseApprovals.InvoiceProcessor, PurchaseApprovals.PurchaseOrderCreator, PurchaseApprovals.Receiver, PurchaseApprovals.Requester;
+
+create or modify snippet PurchaseApprovals.Comments_TaskInbox folder 'Components/Snippets' (Params: ( $Workflow: System.Workflow )) {
+  container container7 {
+    dataview dataView7 (
+      DataSource: microflow WorkflowCommons.DS_WorkflowCommentHelper_InitializeNew,
+      ReadOnlyStyle: Control,
+      Visible: $Workflow.State in (InProgress)
+    ) {
+      -- Context: $currentObject (WorkflowCommons.WorkflowCommentHelper)
+      layoutgrid layoutGrid10 (DesignProperties: ('Spacing': ('padding-bottom': 'None'))) {
+        row {
+          column (DesktopWidth: AutoFit, TabletWidth: AutoFit, PhoneWidth: AutoFit) {
+            image image12 (
+              Image: 'PurchaseApprovals.Images.icon_comment',
+              WidthUnit: pixels,
+              Width: 35,
+              HeightUnit: pixels,
+              Height: 35,
+              Responsive: false
+            )
+          }
+          column (DesktopWidth: AutoFit, TabletWidth: AutoFit, PhoneWidth: AutoFit, VerticalAlignment: Center) {
+            dynamictext label16 (
+              Content: 'Comments',
+              RenderMode: H4,
+              Class: 'card-title',
+              DesignProperties: ('Spacing': ('margin-bottom': 'None'))
+            )
+          }
+        }
+        row (SpacingBetweenColumns: false) {
+          column (DesktopWidth: AutoFill) {
+            textarea textArea3 (
+              Attribute: Content,
+              Placeholder: 'Leave a comment...',
+              DesignProperties: ('Spacing': ('margin-top': 'S'))
+            )
+          }
+          column (DesktopWidth: AutoFit, TabletWidth: AutoFit, PhoneWidth: AutoFit, VerticalAlignment: End) {
+            actionbutton actionButton1 (
+              Caption: 'Submit',
+              Action: call microflow PurchaseApprovals.ACT_SaveComment_OnWorkflow(Workflow = $Workflow),
+              ButtonStyle: Info,
+              DesignProperties: ('Align self': 'Right', 'Spacing': ('margin-top': 'M', 'margin-bottom': 'M', 'margin-left': 'M'))
+            )
+          }
+        }
+      }
+    }
+    listview listView2 (
+      DataSource: microflow PurchaseApprovals.DS_CommentsOnWorkflow(Workflow = $Workflow),
+      DesignProperties: ('Style': 'No styling', 'Row size': 'Small', 'Spacing': ('margin-bottom': 'L'))
+    ) {
+      -- Context: $currentObject (WorkflowCommons.WorkflowComment), $listView2 (selection)
+      layoutgrid layoutGrid3 (DesignProperties: ('Spacing': ('margin-bottom': 'M'))) {
+        row {
+          column (DesktopWidth: AutoFit, TabletWidth: AutoFit, PhoneWidth: AutoFit) {
+            dataview dataView6 (
+              DataSource: microflow PurchaseApprovals.DS_GetOwnerOfComment,
+              ReadOnlyStyle: Control,
+              Style: 'min-width: 32px;'
+            ) {
+              -- Context: $currentObject (MendixSSO.MendixSSOUser)
+              container container15 (
+                DesignProperties: ('Spacing': ('margin-bottom': 'S')),
+                Visible: $currentObject/AvatarURL != ''
+              ) {
+                image image1 (
+                  ImageType: imageUrl,
+                  ImageUrl: '{1}',
+                  ImageUrlParams: ({1} = AvatarURL),
+                  WidthUnit: pixels,
+                  Width: 30,
+                  HeightUnit: pixels,
+                  Height: 30,
+                  DesignProperties: ('Image style': 'Circle')
+                )
+              }
+              image image21 (
+                Image: 'PurchaseApprovals.Images.icon_user',
+                WidthUnit: pixels,
+                Width: 30,
+                HeightUnit: pixels,
+                Height: 30,
+                Class: 'img-circle',
+                DesignProperties: ('Spacing': ('margin-bottom': 'S')),
+                Visible: $currentObject/AvatarURL = ''
+              )
+            }
+          }
+          column (DesktopWidth: AutoFill) {
+            dynamictext text17 (
+              Content: '{1}',
+              ContentParams: ({1} = System.owner/Name),
+              Class: 'd-block',
+              DesignProperties: ('Color': 'Brand Primary', 'Weight': 'Bold')
+            )
+            dynamictext text19 (
+              Content: '{1}',
+              ContentParams: ({1} = Content),
+              Class: 'd-block',
+              DesignProperties: ('Spacing': ('margin-top': 'S', 'margin-bottom': 'S'))
+            )
+            dynamictext text47 (
+              Content: '{1}',
+              ContentParams: ({1} = changedDate format (dateFormat: DateTime, customDateFormat: 'MM/dd/yyyy . hh:mma'))
+            )
+            actionbutton actionButton16 (
+              Action: call microflow WorkflowCommons.ACT_Comment_Delete,
+              Icon: glyph 57376,
+              Class: 'btn-icon-only',
+              DesignProperties: ('Spacing': ('margin-top': 'None', 'margin-left': 'S')),
+              Visible: $currentObject/System.owner = [%CurrentUser%]
+            )
+            actionbutton actionButton17 (
+              Action: call microflow WorkflowCommons.ACT_WorkflowComment_Edit,
+              Icon: glyph 9999,
+              Class: 'btn-icon-only',
+              DesignProperties: ('Spacing': ('margin-top': 'None', 'margin-left': 'S')),
+              Visible: $currentObject/System.owner = [%CurrentUser%]
+            )
+          }
+        }
+      }
+    }
+  }
+};

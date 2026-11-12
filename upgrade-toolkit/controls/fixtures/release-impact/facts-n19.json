@@ -1,0 +1,12 @@
+{
+ "_comment": "N1-9: the facts a Linux/PostgreSQL app gives: no own JDBC, no dev servlet, languages en_US only",
+ "db_vendor": "postgresql",
+ "db_version": "16",
+ "runtime_os": "linux",
+ "languages": [
+  "en_US"
+ ],
+ "own_jdbc": 0,
+ "dev_servlet": 0,
+ "database_connector": 0
+}

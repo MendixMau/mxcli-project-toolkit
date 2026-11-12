@@ -1,0 +1,83 @@
+{
+ "_comment": "Golden capture (B4T2-6, B4N1-9): verbatim BSON nodes from the public Opcenter EX Starter Kit add-on modules/EXFN_Authentication.mxmodule project.mpr (one BSON document, not sqlite); three Constants$Constant (ClientId is the non-URL negative) and the Microflows$ChangeActionItem that writes the URL attribute at runtime. Documentation pruned. Rebuilt into a .mxmodule by run-controls.sh.",
+ "module": "EXFN_Authentication",
+ "_ProductVersion": "9.24.4.11007",
+ "nodes": [
+  {
+   "$ID": {
+    "$binary": {
+     "base64": "tRMrO/rVB0KX3Cqro4wHMQ==",
+     "subType": "00"
+    }
+   },
+   "$Type": "Constants$Constant",
+   "DefaultValue": "OCEXFN: {{APPLICATIONBASEURL}}",
+   "ExposedToClient": true,
+   "Name": "APPBaseUrl",
+   "Type": {
+    "$ID": {
+     "$binary": {
+      "base64": "wno2ErlBKkOGQUsXybvglg==",
+      "subType": "00"
+     }
+    },
+    "$Type": "DataTypes$StringType"
+   }
+  },
+  {
+   "$ID": {
+    "$binary": {
+     "base64": "w3B8AYWu5kCNvbvj621G3w==",
+     "subType": "00"
+    }
+   },
+   "$Type": "Constants$Constant",
+   "DefaultValue": "OCEXFN: {{UMCBASEURL}}",
+   "ExposedToClient": true,
+   "Name": "UMCBaseUrl",
+   "Type": {
+    "$ID": {
+     "$binary": {
+      "base64": "tgw/8HsFcUeTdzP8Phzl+g==",
+      "subType": "00"
+     }
+    },
+    "$Type": "DataTypes$StringType"
+   }
+  },
+  {
+   "$ID": {
+    "$binary": {
+     "base64": "e3t7oVtINUayJ3Puq64/TA==",
+     "subType": "00"
+    }
+   },
+   "$Type": "Constants$Constant",
+   "DefaultValue": "OCEXFN: {{CLIENTID}}",
+   "ExposedToClient": false,
+   "Name": "ClientId",
+   "Type": {
+    "$ID": {
+     "$binary": {
+      "base64": "gcSGQOKpKkiSU+w8WiL2Ug==",
+      "subType": "00"
+     }
+    },
+    "$Type": "DataTypes$StringType"
+   }
+  },
+  {
+   "$ID": {
+    "$binary": {
+     "base64": "VzdZNbXWskexEnb7nUNVtQ==",
+     "subType": "00"
+    }
+   },
+   "$Type": "Microflows$ChangeActionItem",
+   "Association": "",
+   "Attribute": "EXFN_Authentication.ClientConfiguration.OpcenterEXFNUrl",
+   "Type": "Set",
+   "Value": "@EXFN_Authentication.APPBaseUrl"
+  }
+ ]
+}

@@ -1,0 +1,5 @@
+# updates BEFORE the convert (10.24 rung). Format: <content id> <version> <Module>; xmod targets last.
+116540 3.11.7 DataWidgets
+205506 5.0.0 FeedbackModule
+117066 3.12.1 WorkflowCommons
+111349 10.6.2 MendixSSO

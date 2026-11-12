@@ -1,0 +1,1 @@
+{"id": "S07", "app": "seeded", "doc": "Shop.ACT_Old", "op": "set", "path": "AllowedModuleRoles", "value": ["Shop.Clerk"], "symptom": "the Manager can no longer run ACT_Old", "why_plausible": "a role list reset by a module update", "unchanged_doc": true}

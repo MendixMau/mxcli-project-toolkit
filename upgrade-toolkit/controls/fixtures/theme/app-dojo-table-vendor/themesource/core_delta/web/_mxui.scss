@@ -1,0 +1,13 @@
+.mx-templategrid-item {
+    color: red;
+}
+
+.mx-scrollcontainer-horizontal {
+    width: 100%;
+    display: table;
+    table-layout: fixed;
+}
+.mx-scrollcontainer-horizontal > div {
+    display: table-cell;
+    vertical-align: top;
+}

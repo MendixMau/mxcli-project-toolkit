@@ -1,0 +1,36 @@
+{
+ "endpoints": [
+  {
+   "id": "rest:Payments.Call1",
+   "kind": "rest",
+   "module": "Payments",
+   "doc": "Payments.Call1",
+   "method": "GET",
+   "template": "",
+   "routes": [
+    [
+     "const",
+     "Payments.Url1"
+    ]
+   ],
+   "status": "MOCKED",
+   "system": ""
+  },
+  {
+   "id": "rest:Shipping.Call2",
+   "kind": "rest",
+   "module": "Shipping",
+   "doc": "Shipping.Call2",
+   "method": "GET",
+   "template": "",
+   "routes": [
+    [
+     "const",
+     "Shipping.Url2"
+    ]
+   ],
+   "status": "MOCKED",
+   "system": ""
+  }
+ ]
+}

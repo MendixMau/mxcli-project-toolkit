@@ -1,0 +1,10 @@
+{"version": "10.24.26.12345",
+ "_why": "T2-4, T2R3-7: the shape of ClientConfiguration_NewEdit after mx convert 9 to 10 when the data view's source microflow lives in a protected add-on (VendorAddon, a modules/*.mxmodule the controls add): convert could not read the flow, so the mapping stayed empty (CE1571). The Save button's own-module call is explicit and must stay untouched; Log_Page calls another add-on flow with an empty mapping (a --scan CANDIDATE with no reference call)",
+ "modules": [
+  {"name": "Shop",
+   "pages": [
+    {"name": "Config_NewEdit",
+     "named": [{"type": "DataView", "name": "dataView1", "datasource": {"kind": "microflow", "microflow": "VendorAddon.SUB_GetDefault", "mappings": []},
+                "children": [{"type": "ActionButton", "name": "saveButton", "action": {"microflow": "Shop.ACT_Save", "mappings": [["Config", {"widget": "dataView1"}]]}}]}]},
+    {"name": "Log_Page",
+     "named": [{"type": "ActionButton", "name": "logButton", "action": {"microflow": "VendorAddon.ACT_Log", "mappings": []}}]}]}]}

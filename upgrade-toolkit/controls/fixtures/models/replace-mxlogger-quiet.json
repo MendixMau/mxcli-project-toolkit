@@ -1,0 +1,5 @@
+{"from": "replace-mxlogger.json", "ops": [
+ ["set", "modules/0/pages/0/widgets", ["Quiet.widget.Quiet"]],
+ ["set", "widget_packages", {
+  "Quiet.mpk": {"ids": ["Quiet.widget.Quiet"], "version": "2.0.0", "js": "function T(){console.debug(\"HeaderSort\");}"},
+  "Spare.mpk": {"ids": ["Spare.widget.Spare"], "version": "1.0.0", "js": "mx.logger.error(\"x\");"}}]]}

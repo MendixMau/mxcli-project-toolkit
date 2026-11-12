@@ -1,0 +1,6 @@
+{"entities": [["e1", "System.User", "system$user", null], ["e2", "Administration.Account", "administration$account", "e1"], ["e3", "MendixSSO.MendixSSOUser", "mendixsso$mendixssouser", "e1"], ["e4", "CustomAdminModule.UserAccount", "customadminmodule$useraccount", "e2"], ["e5", "Other.PartnerAccount", "other$partneraccount", "e2"]],
+ "identifiers": [["e2", 10, 1], ["e3", 11, 1], ["e4", 12, 1], ["e5", 13, 1]],
+ "attributes": [["e1", "Name", "name", 30, 100], ["e1", "Password", "password", 30, 100], ["e2", "FullName", "fullname", 30, 200]],
+ "columns": [["system$user", "id"], ["system$user", "name"], ["system$user", "password"], ["system$user", "submetaobjectname"], ["administration$account", "id"], ["administration$account", "fullname"], ["mendixsso$mendixssouser", "id"]],
+ "associations": [],
+ "usercounts": [["Administration.Account", 1], ["CustomAdminModule.UserAccount", 3], ["MendixSSO.MendixSSOUser", 2]]}

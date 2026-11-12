@@ -1,0 +1,1 @@
+{"from": "base.json", "ops": [["append", "modules/1/entities", {"name": "Device", "attributes": [{"name": "Label"}]}], ["append", "modules/0/cross", {"name": "Account_Device", "parent": "Account", "child": "MFAmodule.Device"}]]}

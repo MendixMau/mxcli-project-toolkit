@@ -1,0 +1,5 @@
+This is mx convert, version 11.15.0.12345.
+Loading project 'App.mpr'.
+mpr file version is '10.18.1.55792'
+Error: Projects of version 10.18.1.55792 cannot be converted to Mendix 11; upgrade to 10.24 first.
+mx convert finished.

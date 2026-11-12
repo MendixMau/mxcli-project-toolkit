@@ -1,0 +1,6 @@
+{"modules": [
+  {"name": "KeptConn", "appstore": [1111, "3.0.0"]},
+  {"name": "AuthMod", "appstore": [2222, "3.2.0"]}
+ ],
+ "files": {"javasource/keptconn/actions/Sign.java": "package keptconn.actions;\n\nimport authmod.proxies.Credential;\nimport java.util.List;\n\npublic class Sign {}\n",
+           "javasource/authmod/proxies/Credential.java": "package authmod.proxies;\npublic class Credential {}\n"}}

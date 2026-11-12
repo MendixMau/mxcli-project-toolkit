@@ -1,0 +1,32 @@
+{
+ "_why": "T6R-9 smoke walk results (synthetic, the shape smokewalk.js writes): a walk that asked only for Desk (--role Desk)",
+ "url": "http://localhost:8080",
+ "roles": [
+  {
+   "role": "Clerk",
+   "verdict": "INVALID",
+   "reason": "no credentials (--user Clerk=name:pass)",
+   "steps": []
+  },
+  {
+   "role": "Desk",
+   "verdict": "PASS",
+   "steps": [
+    {
+     "caption": "Home",
+     "kind": "page",
+     "via": "home",
+     "target": "Shop.Home_Overview",
+     "verdict": "PASS"
+    },
+    {
+     "caption": "Inbox",
+     "kind": "page",
+     "via": "menu",
+     "target": "Shop.Inbox_Overview",
+     "verdict": "PASS"
+    }
+   ]
+  }
+ ]
+}

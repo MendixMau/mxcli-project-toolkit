@@ -1,0 +1,17 @@
+{
+  "version": "10.24.16.96987",
+  "modules": [
+    {
+      "name": "Shop",
+      "entities": [
+        {
+          "name": "Account",
+          "attributes": [
+            {"name": "Code", "type": "AutoNumber"},
+            {"name": "Qty", "type": "Integer"}
+          ]
+        }
+      ]
+    }
+  ]
+}

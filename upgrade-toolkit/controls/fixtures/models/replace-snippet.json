@@ -1,0 +1,5 @@
+{"from": "replace-clean.json", "ops": [
+ ["set", "modules/0/pages/0/widgets", ["HTMLSnippet.widget.HTMLSnippet", "HTMLSnippet.widget.HTMLSnippet", "snippetjs.widget.snippetjs"]],
+ ["set", "widget_packages", {
+   "HTMLSnippet.mpk": {"ids": ["HTMLSnippet.widget.HTMLSnippet"], "dojo": true, "version": "3.9.7"},
+   "snippetjs.mpk": {"ids": ["snippetjs.widget.snippetjs"], "dojo": true, "version": "1.3.1"}}]]}

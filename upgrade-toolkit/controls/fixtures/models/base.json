@@ -1,0 +1,18 @@
+{"version": "10.24.16.96987",
+ "modules": [
+  {"name": "Administration", "appstore": [23513, "4.1.0"],
+   "entities": [{"name": "Account", "generalization": "System.User",
+                 "attributes": [{"name": "FullName"}, {"name": "Email"}, {"name": "IsLocalUser", "type": "Boolean"}]},
+                {"name": "AccountPasswordData", "persistent": false, "attributes": [{"name": "NewPassword"}]}],
+   "cross": [{"name": "AccountPasswordData_Account", "parent": "AccountPasswordData", "child": "System.User"}],
+   "constants": [{"name": "PasswordMinLength", "type": "Integer", "default": "8"}],
+   "pages": [{"name": "Account_Overview", "widgets": ["com.mendix.widget.web.markdown.Markdown"],
+              "refs": {"Microflow": "Atlas_Core.ACT_Placeholder", "Entity": "Administration.Account"}},
+             {"name": "Old_Building_Block", "excluded": true, "refs": {"Microflow": "NotInstalled.ACT_Gone"}}]},
+  {"name": "MFAmodule", "appstore": [120743, "1.5.0"],
+   "entities": [{"name": "MFA", "attributes": [{"name": "Secret"}, {"name": "QR_Url"}]}],
+   "constants": [{"name": "EnabledMFA", "type": "Boolean", "default": "False"},
+                 {"name": "Issuer", "default": "App"}]},
+  {"name": "Atlas_Core", "appstore": [117187, "3.12.6"]}],
+ "configurations": [{"name": "Default", "constants": {"MFAmodule.EnabledMFA": "True"}}],
+ "widget_packages": {"Markdown.mpk": ["com.mendix.widget.web.markdown.Markdown"]}}

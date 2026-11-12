@@ -1,0 +1,22 @@
+{"old": "m/guard/App.mpr", "new": "m/guard/App.mpr",
+ "_why": "role facts as impact_map.py wrote them before the batch-1 fixes (the guards and captions that FAILed healthy old apps); gen_journeys must re-check them on the model",
+ "user_roles": {"admin": null, "guest": null, "all": ["Inspector", "Manager", "Planner", "Worker"]},
+ "roles": {
+  "Worker": {"home_page": "Shop.Inbox", "home_microflow": "", "landing": {"widget": "T_ButtonContainer6", "type": "Forms$ActionButton", "generic_name": false},
+             "menu_visible": ["Inbox", "Notifications"], "menu_hidden": ["Buffer", "Client Configuration", "Board"], "sign_out_item": null,
+             "is_admin": false, "is_guest": false},
+  "Manager": {"home_page": "Shop.Clients", "home_microflow": "", "landing": {"widget": "ClientFilterHelperNP", "type": "Forms$PageParameter", "generic_name": false},
+              "menu_visible": ["Buffer"], "menu_hidden": ["Inbox", "Client Configuration", "Board", "Notifications"], "sign_out_item": null,
+              "is_admin": false, "is_guest": false},
+  "Inspector": {"home_page": "Shop.Phone_Home", "home_microflow": "", "landing": {"widget": "label9", "type": "Forms$Label", "generic_name": true},
+                "menu_visible": [], "menu_hidden": ["Inbox", "Buffer", "Client Configuration", "Board", "Notifications"], "sign_out_item": null,
+                "is_admin": false, "is_guest": false},
+  "Planner": {"home_page": "", "home_microflow": "Shop.NAV_Planner", "landing": null,
+              "menu_visible": ["Board"], "menu_hidden": ["Inbox", "Buffer", "Client Configuration", "Notifications"], "sign_out_item": null,
+              "is_admin": false, "is_guest": false}},
+ "login": {}, "auth": {},
+ "candidates": [
+  {"id": "home:Shop.NAV_Planner", "kind": "home", "roles": ["Planner"], "target": "Shop.NAV_Planner", "title": "Role home Shop.NAV_Planner works"},
+  {"id": "home:Shop.Inbox", "kind": "home", "roles": ["Worker"], "target": "Shop.Inbox", "title": "Role home Shop.Inbox works"},
+  {"id": "menu:Notifications", "kind": "menu", "menu": ["Notifications"], "target": "Shop.Notifications", "roles": ["Worker"],
+   "title": "Open Notifications"}]}

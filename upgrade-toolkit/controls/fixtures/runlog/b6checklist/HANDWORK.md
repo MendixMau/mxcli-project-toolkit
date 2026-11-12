@@ -1,0 +1,24 @@
+# HANDWORK (B6T2): everything a person did that the toolkit did not do
+
+| # | step | what | why no toolkit instrument covered it | could it be generic |
+|---|---|---|---|---|
+| 1 | setup | probed the CDN for 10.24.27 builds (13k HEAD requests), picked 10.24.27.128337 | no tool lists CDN builds; release notes give no build number | yes: `cdn_versions.sh 10.24` (B6T2-2) |
+| 2 | triage | module plan (14 lines) copied from batch 4 and re-verified with `marketplace versions` per module; rung-2 plan and plan-pre by the same method | no script picks module versions (by design, steps/triage.md item 3) | partly: a `plan_suggest.py` printing newest-fitting version per module |
+| 3 | basewalk | create-spec.json for the always-on `create-save` (3 attempts: file-upload form, wrong tab) | specs are app specific; the baseline runs gen_journeys without `--actions` so the todo never clears (B6T2-3) | partly: derive a spec from actions.json; pass --actions at baseline |
+| 4 | basewalk | removed a stale `create-save.journey.json` from another role folder | gen_journeys does not clean its out-dir (B6T2-4) | yes |
+| 5 | update | approved.txt (AWSAuthentication, MendixSSO Nonce, System attrs), force-ui.txt (Atlas_Core, NanoflowCommons) with reasons | accepting data-bearing findings is a decision | no (decision), but pre-fill from earlier runs of the same app |
+| 6 | update | ran `stepupdate.sh --accept-unsaved --force-ui` by hand for Atlas_Core, DeepLink (rung 1) and Atlas_Web_Content, NanoflowCommons (rung 2) | the pipeline has no accept-unsaved hook (B6T2-11) | yes: `accept-unsaved.txt` |
+| 7 | build | `mxcli exec` of batch-4's MDL: two Translate microflows (CE1613), three DeepLink-calling NAV flows (`@applyentityaccess`, CE0114), two Administration MendixSSO flows (CE0117) | no repair row for a connector API change; row 17 is documented but not automated | partly: replay a repair MDL library keyed by module version pair |
+| 8 | build | pinned the version ranges in deps.txt and ran vendorlib_mvn.sh (44 jars) | the fallback refuses ranges (B6T2-7) | yes: resolve ranges |
+| 9 | build | deleted 43 + 2 userlib/vendorlib jars superseded by newer versions | jardedupe refuses without a vendorlib SBOM (B6T2-8) | yes: SBOM from vendorlib_mvn.sh |
+| 10 | gate prep | `enumfill.py` (NULL enum columns -> first enum value) on the frozen DB | baseline seed called without `--mpr` (B6T2-6) | yes: pass --mpr |
+| 11 | gate prep | `fixture-fill.sql`: checklists active, five instances Submitted/Resolved/Overdue | seed_pg writes boolean false and first enum value: the "business states" that make pages non-empty are app knowledge | partly: seed profile per entity state from the model's enum/boolean usage in XPath |
+| 12 | journeys | `journeys-manual.sh` / `-r2.sh`: same commands as step_journeys, with destructive journeys in the second wave and Administrator last (plan.json role_order, `_path_needs`) | `_destructive` journeys are flagged but never ordered (B6T2-14); "Delete demo data" emptied the data for all later roles | yes |
+| 13 | afterwalk | wrote state/afterwalk.done by hand after judging identical baseline smoke FAILs | no accept/skip route (B6T2-9) | yes |
+| 14 | rung 2 | `drop module AnyChart_BuildingBlocks`, recreated the Atlas_Core.FeedbackWidget snippet without the widget | pipeline stops on DEPRECATED-11 for design-time building blocks; Atlas_Core 4.5.0 snippet references an absent FeedbackModule | partly: missing_deps should skip building blocks (B6T2-15) |
+| 15 | rung 2 | theme fixes: `$gray-primary`/`$gray-lighter`/`$form-input-border-color` Sass colour functions replaced by literals, `$brand-info`, `$brand-inverse` defined, 4 build cycles; found the Dart Sass binary in mxbuild and iterated in seconds | Atlas 4 turned colour variables into CSS color-mix(): no repair row | yes: a `theme_sass_check` step and a repair row (B6T2-16) |
+| 16 | rung 2 | ported DeepLink 10.0.10 Java to 11 (`Core.getRuntimeVersion()`, `Core.createXPathQuery().execute()`) | no DeepLink version for 11; no API-port tool | no (module specific) |
+| 17 | rung 2 | deleted `.table{display:block !important}` from MES_Atlas_Extension `_datagrid.scss` | same line as batch 4 (B4T6-14); the screens rung only says REVIEW | yes: guard row for known broken vendor selectors |
+| 18 | gate | allow.txt / const-allow.txt / log-allow.txt / shot-accept files re-used from batch 4 and re-checked row by row; 363 journey screen pairs accepted with 3 reasons after opening a sample | accepting is a decision | partly |
+| 19 | gate | `diff.py before.json mutant.json --db-only` mutant control run by hand | the pipeline notes NOT RUN | yes |
+| 20 | gate | release-impact rows (166 in rung 2) filled with handled/not relevant by a reviewed script | release rows need per-row judgment | partly: auto-fill rows whose evidence is a green build/mx check |

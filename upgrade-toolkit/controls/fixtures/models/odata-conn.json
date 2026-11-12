@@ -1,0 +1,3 @@
+{"version": "10.24.16.96987", "languages": ["en_US"], "modules": [
+ {"name": "SAPODataConnector", "appstore": [88888, "7.1.6"], "entities": [{"name": "OdataObject", "persistent": false}]},
+ {"name": "MyOwn", "entities": [{"name": "Product", "persistent": true, "generalization": "SAPODataConnector.OdataObject"}]}]}

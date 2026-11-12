@@ -1,0 +1,1 @@
+{"from": "base.json", "ops": [["delete", "configurations/0/constants/MFAmodule.EnabledMFA"]]}

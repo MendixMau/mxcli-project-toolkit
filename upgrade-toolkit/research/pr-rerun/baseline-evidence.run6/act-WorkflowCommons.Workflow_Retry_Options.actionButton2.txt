@@ -1,0 +1,7 @@
+journey: act-WorkflowCommons.Workflow_Retry_Options.actionButton2
+role: Administrator
+old-app verdict: FAIL
+not_pass: ["FAIL open PurchaseApprovals.WorkflowDefinition_View: actions completed dataGrid21: row 8 asked for, the list shows 1: the data the journey needs is not there (a fixture gap)"]
+cluster: H4
+reason: Continue and Retry need an Incompatible or Failed workflow; no UI route makes one
+confirmed: owner 2026-10-22

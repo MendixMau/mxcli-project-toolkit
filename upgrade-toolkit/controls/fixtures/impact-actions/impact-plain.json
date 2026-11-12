@@ -1,0 +1,1 @@
+{"tool": "impact_map.py", "changes": [{"kind": "document", "qn": "Shop.ACT_Plain", "module": "Shop", "detail": "microflow changed", "severity": "medium"}]}

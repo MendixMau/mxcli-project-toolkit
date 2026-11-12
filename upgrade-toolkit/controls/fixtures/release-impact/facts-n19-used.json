@@ -1,0 +1,13 @@
+{
+ "_comment": "N1-9 catches: the app runs on Windows hosts, keeps Hebrew iw_IL, opens JDBC itself, calls the dev servlet, has the Database Connector",
+ "db_vendor": "postgresql",
+ "db_version": "16",
+ "runtime_os": "windows",
+ "languages": [
+  "en_US",
+  "iw_IL"
+ ],
+ "own_jdbc": 2,
+ "dev_servlet": 1,
+ "database_connector": 1
+}

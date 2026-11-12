@@ -1,0 +1,4 @@
+{"app": "Shop", "from": "10.24.16", "to": "11.12.5", "counts": {"HIT": 1, "UNKNOWN": 0, "clear": 1, "NOT APPLICABLE": 0},
+ "rows": [
+  {"id": "R4", "status": "HIT", "pattern": "expr:secondsBetween", "evidence": ["Shop.ACT_Plain Microflows$CreateVariableAction: 'secondsBetween($x, $y)'"]},
+  {"id": "R9", "status": "clear", "pattern": "widget:Chart", "evidence": ["no match"]}]}

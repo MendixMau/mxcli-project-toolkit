@@ -1,0 +1,123 @@
+{
+ "tool": "action_inventory.py",
+ "summary": {},
+ "summary_line": "",
+ "actions": [
+  {
+   "id": "PurchaseApprovals.PurchaseOrder_Edit.actionButton1",
+   "host": "PurchaseApprovals.PurchaseOrder_Edit",
+   "host_type": "Page",
+   "widget": "actionButton1",
+   "widget_type": "ActionButton",
+   "caption": "Save",
+   "action": "microflow",
+   "target": "PurchaseApprovals.SavePurchaseOrder",
+   "kind": "status-change",
+   "effects": [
+    "status-change",
+    "commit"
+   ],
+   "path": [
+    {
+     "entry": "home Responsive (PurchaseOrderCreator)",
+     "target": "PurchaseApprovals.TaskInbox",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.TaskInbox"
+    },
+    {
+     "click": "container25",
+     "on": "PurchaseApprovals.TaskInbox",
+     "action": "open-task",
+     "id": "PurchaseApprovals.TaskInbox.container25",
+     "within": "listView5"
+    },
+    {
+     "page": "PurchaseApprovals.Task_POCreator"
+    },
+    {
+     "click": "actionButton5",
+     "on": "PurchaseApprovals.Task_POCreator",
+     "action": "open-page",
+     "id": "PurchaseApprovals.Task_POCreator.actionButton5",
+     "shown_if": [
+      "container6: $currentObject = [%CurrentUser%]",
+      "LayoutGridRow: $dataView1/State = System.WorkflowUserTaskState.InProgress and\n$dataView13/POState = PurchaseApprovals.ENUM_PO.Please_fill_out_the_missing_fields"
+     ]
+    },
+    {
+     "page": "PurchaseApprovals.PurchaseOrder_Edit"
+    },
+    {
+     "click": "actionButton1",
+     "on": "PurchaseApprovals.PurchaseOrder_Edit",
+     "action": "microflow",
+     "id": "PurchaseApprovals.PurchaseOrder_Edit.actionButton1"
+    }
+   ],
+   "path_text": "as PurchaseOrderCreator: home Responsive (PurchaseOrderCreator) -> PurchaseApprovals.TaskInbox -> click container25 -> PurchaseApprovals.Task_POCreator -> click actionButton5 -> PurchaseApprovals.PurchaseOrder_Edit -> click actionButton1",
+   "roles": [
+    "PurchaseOrderCreator"
+   ],
+   "fields": [],
+   "needs": [],
+   "todo": [],
+   "unknown": [],
+   "click": {},
+   "row_fields": [
+    {
+     "widget": "datePicker1",
+     "input": "date",
+     "attribute": "PurchaseApprovals.PurchaseOrder.PODate",
+     "attr_type": {
+      "type": "DateTime"
+     },
+     "editable": "Always",
+     "date_format": {
+      "DateFormat": "Date",
+      "Custom": ""
+     },
+     "list": "listView1"
+    },
+    {
+     "widget": "datePicker2",
+     "input": "date",
+     "attribute": "PurchaseApprovals.PurchaseOrder.PromiseDate",
+     "attr_type": {
+      "type": "DateTime"
+     },
+     "editable": "Always",
+     "date_format": {
+      "DateFormat": "Date",
+      "Custom": ""
+     },
+     "list": "listView1"
+    },
+    {
+     "widget": "textBox2",
+     "input": "text",
+     "attribute": "PurchaseApprovals.PurchaseOrder.GeneralLedgerNumber",
+     "attr_type": {
+      "type": "Integer"
+     },
+     "editable": "Always",
+     "list": "listView1"
+    }
+   ],
+   "context": "PurchaseApprovals.Request",
+   "path_roles": [
+    "PurchaseOrderCreator"
+   ],
+   "path_role": "PurchaseOrderCreator",
+   "reach": [
+    "PurchaseApprovals",
+    "PurchaseApprovals.PurchaseOrder_Edit",
+    "PurchaseApprovals.SavePurchaseOrder"
+   ],
+   "reach_unknown": []
+  }
+ ]
+}

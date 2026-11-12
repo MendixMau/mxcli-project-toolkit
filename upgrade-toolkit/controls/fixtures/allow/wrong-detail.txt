@@ -1,0 +1,1 @@
+db.attr.Administration.Account.Email non-null* # control: pattern for a lost value; must NOT accept a changed one

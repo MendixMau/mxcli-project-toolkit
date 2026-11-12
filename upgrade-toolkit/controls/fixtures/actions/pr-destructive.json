@@ -1,0 +1,622 @@
+{
+ "tool": "action_inventory.py",
+ "model": "/tmp/claude-0/-home-user/f6fa2bc2-de01-585e-8723-73c458210247/scratchpad/real/run1/work/original.mpr",
+ "summary": {},
+ "summary_line": "captured: the destructive and workflow-op entries of the Purchase Request inventory (PR-P4)",
+ "actions": [
+  {
+   "id": "PurchaseApprovals.Comments_TaskInbox.actionButton16",
+   "host": "PurchaseApprovals.Comments_TaskInbox",
+   "host_type": "Snippet",
+   "widget": "actionButton16",
+   "widget_type": "ActionButton",
+   "caption": "",
+   "action": "microflow",
+   "target": "WorkflowCommons.ACT_Comment_Delete",
+   "kind": "delete",
+   "effects": [
+    "delete"
+   ],
+   "path": [
+    {
+     "entry": "home Responsive (Approver)",
+     "target": "PurchaseApprovals.TaskInbox",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.TaskInbox"
+    },
+    {
+     "click": "container25",
+     "on": "PurchaseApprovals.TaskInbox",
+     "action": "open-task",
+     "id": "PurchaseApprovals.TaskInbox.container25",
+     "within": "listView5"
+    },
+    {
+     "page": "PurchaseApprovals.Task_Approver"
+    },
+    {
+     "click": "actionButton16",
+     "on": "PurchaseApprovals.Comments_TaskInbox",
+     "action": "microflow",
+     "id": "PurchaseApprovals.Comments_TaskInbox.actionButton16",
+     "shown_if": [
+      "actionButton16: $currentObject/System.owner = [%CurrentUser%]"
+     ],
+     "within": "listView2"
+    }
+   ],
+   "path_text": "as Approver: home Responsive (Approver) -> PurchaseApprovals.TaskInbox -> click container25 -> PurchaseApprovals.Task_Approver -> click actionButton16",
+   "roles": [
+    "Approver",
+    "InvoiceProcessor",
+    "PurchaseOrderCreator",
+    "Receiver",
+    "Requester"
+   ],
+   "fields": [],
+   "needs": [
+    "a row in ListView listView2"
+   ],
+   "todo": [],
+   "unknown": [],
+   "conditional": true,
+   "shown_if": [
+    "actionButton16: $currentObject/System.owner = [%CurrentUser%]"
+   ],
+   "click": {
+    "within": "listView2"
+   },
+   "scope": "row",
+   "path_roles": [
+    "Approver",
+    "InvoiceProcessor",
+    "PurchaseOrderCreator",
+    "Receiver"
+   ],
+   "path_role": "Approver",
+   "reach": [
+    "PurchaseApprovals",
+    "PurchaseApprovals.Comments_TaskInbox",
+    "WorkflowCommons",
+    "WorkflowCommons.ACT_Comment_Delete"
+   ],
+   "reach_unknown": []
+  },
+  {
+   "id": "PurchaseApprovals.MendixSSOUserOverview.actionButton2",
+   "host": "PurchaseApprovals.MendixSSOUserOverview",
+   "host_type": "Page",
+   "widget": "actionButton2",
+   "widget_type": "ActionButton",
+   "caption": "Delete",
+   "action": "delete",
+   "target": null,
+   "kind": "delete",
+   "effects": [],
+   "path": [
+    {
+     "entry": "home Responsive (Administrator)",
+     "target": "PurchaseApprovals.Admin_Homepage",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.Admin_Homepage"
+    },
+    {
+     "click": "container4",
+     "on": "PurchaseApprovals.Admin_Homepage",
+     "action": "open-page",
+     "id": "PurchaseApprovals.Admin_Homepage.container4"
+    },
+    {
+     "page": "PurchaseApprovals.MendixSSOUserOverview"
+    },
+    {
+     "click": "actionButton2",
+     "on": "PurchaseApprovals.MendixSSOUserOverview",
+     "action": "delete",
+     "id": "PurchaseApprovals.MendixSSOUserOverview.actionButton2",
+     "within": "grid1"
+    }
+   ],
+   "path_text": "as Administrator: home Responsive (Administrator) -> PurchaseApprovals.Admin_Homepage -> click container4 -> PurchaseApprovals.MendixSSOUserOverview -> click actionButton2",
+   "roles": [
+    "Administrator"
+   ],
+   "fields": [],
+   "needs": [
+    "a row in com.mendix.widget.web.datagrid.Datagrid grid1"
+   ],
+   "todo": [],
+   "unknown": [],
+   "click": {
+    "within": "grid1"
+   },
+   "scope": "identity",
+   "path_roles": [
+    "Administrator"
+   ],
+   "path_role": "Administrator",
+   "reach": [
+    "PurchaseApprovals",
+    "PurchaseApprovals.MendixSSOUserOverview"
+   ],
+   "reach_unknown": []
+  },
+  {
+   "id": "PurchaseApprovals.Task_POCreator.actionButton10",
+   "host": "PurchaseApprovals.Task_POCreator",
+   "host_type": "Page",
+   "widget": "actionButton10",
+   "widget_type": "ActionButton",
+   "caption": "Create PO(s)",
+   "action": "microflow",
+   "target": "PurchaseApprovals.CreatePurchaseOrder",
+   "kind": "delete",
+   "effects": [
+    "delete",
+    "status-change",
+    "commit",
+    "create"
+   ],
+   "path": [
+    {
+     "entry": "home Responsive (PurchaseOrderCreator)",
+     "target": "PurchaseApprovals.TaskInbox",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.TaskInbox"
+    },
+    {
+     "click": "container25",
+     "on": "PurchaseApprovals.TaskInbox",
+     "action": "open-task",
+     "id": "PurchaseApprovals.TaskInbox.container25",
+     "within": "listView5"
+    },
+    {
+     "page": "PurchaseApprovals.Task_POCreator"
+    },
+    {
+     "click": "actionButton10",
+     "on": "PurchaseApprovals.Task_POCreator",
+     "action": "microflow",
+     "id": "PurchaseApprovals.Task_POCreator.actionButton10",
+     "shown_if": [
+      "container6: $currentObject = [%CurrentUser%]",
+      "LayoutGridRow: $dataView1/State = System.WorkflowUserTaskState.InProgress and\n$dataView13/POState = PurchaseApprovals.ENUM_PO.Ready_to_create_PO"
+     ]
+    }
+   ],
+   "path_text": "as PurchaseOrderCreator: home Responsive (PurchaseOrderCreator) -> PurchaseApprovals.TaskInbox -> click container25 -> PurchaseApprovals.Task_POCreator -> click actionButton10",
+   "roles": [
+    "InvoiceProcessor",
+    "PurchaseOrderCreator"
+   ],
+   "fields": [],
+   "needs": [],
+   "todo": [],
+   "unknown": [],
+   "conditional": true,
+   "shown_if": [
+    "container6: $currentObject = [%CurrentUser%]",
+    "LayoutGridRow: $dataView1/State = System.WorkflowUserTaskState.InProgress and\n$dataView13/POState = PurchaseApprovals.ENUM_PO.Ready_to_create_PO"
+   ],
+   "click": {},
+   "scope": "reimport",
+   "context": null,
+   "path_roles": [
+    "PurchaseOrderCreator"
+   ],
+   "path_role": "PurchaseOrderCreator",
+   "reach": [
+    "PurchaseApprovals",
+    "PurchaseApprovals.CreatePurchaseOrder",
+    "PurchaseApprovals.SUB_CreatePO_Loop",
+    "PurchaseApprovals.Task_POCreator"
+   ],
+   "reach_unknown": []
+  },
+  {
+   "id": "WorkflowCommons.Snip_Workflow_MoreActions.actionButton16",
+   "host": "WorkflowCommons.Snip_Workflow_MoreActions",
+   "host_type": "Snippet",
+   "widget": "actionButton16",
+   "widget_type": "ActionButton",
+   "caption": "Pause Workflow",
+   "action": "microflow",
+   "target": "WorkflowCommons.ACT_Workflow_Pause",
+   "kind": "workflow-op",
+   "effects": [
+    "workflow-op",
+    "open-page"
+   ],
+   "path": [
+    {
+     "entry": "home Responsive (Administrator)",
+     "target": "PurchaseApprovals.Admin_Homepage",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.Admin_Homepage"
+    },
+    {
+     "click": "container3",
+     "on": "PurchaseApprovals.Admin_Homepage",
+     "action": "open-page",
+     "id": "PurchaseApprovals.Admin_Homepage.container3"
+    },
+    {
+     "page": "PurchaseApprovals.Admin_Workflow_Overview"
+    },
+    {
+     "click": "dataGrid21",
+     "on": "PurchaseApprovals.Admin_Workflow_Overview",
+     "action": "microflow",
+     "id": "PurchaseApprovals.Admin_Workflow_Overview.dataGrid21",
+     "row": "dataGrid21",
+     "row_only": true
+    },
+    {
+     "page": "PurchaseApprovals.WorkflowDefinition_View"
+    },
+    {
+     "click": "actionButton19",
+     "on": "PurchaseApprovals.WorkflowDefinition_View",
+     "action": "open-workflow",
+     "id": "PurchaseApprovals.WorkflowDefinition_View.actionButton19",
+     "within": "dataGrid21"
+    },
+    {
+     "page": "PurchaseApprovals.Admin_Workflow_Instance_View"
+    },
+    {
+     "click": "actionButton16",
+     "on": "WorkflowCommons.Snip_Workflow_MoreActions",
+     "action": "microflow",
+     "id": "WorkflowCommons.Snip_Workflow_MoreActions.actionButton16",
+     "shown_if": [
+      "pop_upMenu5: $Workflow/State=System.WorkflowState.InProgress or \n$Workflow/State=System.WorkflowState.Paused or \n($Workflow/State=System.WorkflowState.Aborted and $Workflow/CanBeRestarted) or \n$Workflow/State=System.WorkflowState.Incompatible or \n$Workflow/State=System.WorkflowState.Failed",
+      "actionButton16: System.Workflow.State in ['InProgress']"
+     ]
+    }
+   ],
+   "path_text": "as Administrator: home Responsive (Administrator) -> PurchaseApprovals.Admin_Homepage -> click container3 -> PurchaseApprovals.Admin_Workflow_Overview -> click dataGrid21 -> PurchaseApprovals.WorkflowDefinition_View -> click actionButton19 -> PurchaseApprovals.Admin_Workflow_Instance_View -> click actionButton16",
+   "roles": [
+    "Administrator"
+   ],
+   "fields": [],
+   "needs": [],
+   "todo": [],
+   "unknown": [],
+   "conditional": true,
+   "shown_if": [
+    "pop_upMenu5: $Workflow/State=System.WorkflowState.InProgress or \n$Workflow/State=System.WorkflowState.Paused or \n($Workflow/State=System.WorkflowState.Aborted and $Workflow/CanBeRestarted) or \n$Workflow/State=System.WorkflowState.Incompatible or \n$Workflow/State=System.WorkflowState.Failed",
+    "actionButton16: System.Workflow.State in ['InProgress']"
+   ],
+   "click": {},
+   "confirm": {
+    "proceed": "Confirm"
+   },
+   "path_roles": [
+    "Administrator"
+   ],
+   "path_role": "Administrator",
+   "reach": [
+    "Atlas_Core",
+    "Atlas_Core.PopupLayout",
+    "WorkflowCommons",
+    "WorkflowCommons.ACT_Workflow_CloseActionConfirmation",
+    "WorkflowCommons.ACT_Workflow_Pause",
+    "WorkflowCommons.Snip_Workflow_MoreActions",
+    "WorkflowCommons.Workflow_ActionConfirmation"
+   ],
+   "reach_unknown": []
+  },
+  {
+   "id": "WorkflowCommons.Snip_Workflow_MoreActions.actionButton13",
+   "host": "WorkflowCommons.Snip_Workflow_MoreActions",
+   "host_type": "Snippet",
+   "widget": "actionButton13",
+   "widget_type": "ActionButton",
+   "caption": "Continue Workflow",
+   "action": "microflow",
+   "target": "WorkflowCommons.ACT_Workflow_Continue",
+   "kind": "workflow-op",
+   "effects": [
+    "workflow-op",
+    "open-page"
+   ],
+   "path": [
+    {
+     "entry": "home Responsive (Administrator)",
+     "target": "PurchaseApprovals.Admin_Homepage",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.Admin_Homepage"
+    },
+    {
+     "click": "container3",
+     "on": "PurchaseApprovals.Admin_Homepage",
+     "action": "open-page",
+     "id": "PurchaseApprovals.Admin_Homepage.container3"
+    },
+    {
+     "page": "PurchaseApprovals.Admin_Workflow_Overview"
+    },
+    {
+     "click": "dataGrid21",
+     "on": "PurchaseApprovals.Admin_Workflow_Overview",
+     "action": "microflow",
+     "id": "PurchaseApprovals.Admin_Workflow_Overview.dataGrid21",
+     "row": "dataGrid21",
+     "row_only": true
+    },
+    {
+     "page": "PurchaseApprovals.WorkflowDefinition_View"
+    },
+    {
+     "click": "actionButton19",
+     "on": "PurchaseApprovals.WorkflowDefinition_View",
+     "action": "open-workflow",
+     "id": "PurchaseApprovals.WorkflowDefinition_View.actionButton19",
+     "within": "dataGrid21"
+    },
+    {
+     "page": "PurchaseApprovals.Admin_Workflow_Instance_View"
+    },
+    {
+     "click": "actionButton13",
+     "on": "WorkflowCommons.Snip_Workflow_MoreActions",
+     "action": "microflow",
+     "id": "WorkflowCommons.Snip_Workflow_MoreActions.actionButton13",
+     "shown_if": [
+      "pop_upMenu5: $Workflow/State=System.WorkflowState.InProgress or \n$Workflow/State=System.WorkflowState.Paused or \n($Workflow/State=System.WorkflowState.Aborted and $Workflow/CanBeRestarted) or \n$Workflow/State=System.WorkflowState.Incompatible or \n$Workflow/State=System.WorkflowState.Failed",
+      "actionButton13: $Workflow/State = System.WorkflowState.Incompatible and\n$Workflow/CanBeContinued"
+     ]
+    }
+   ],
+   "path_text": "as Administrator: home Responsive (Administrator) -> PurchaseApprovals.Admin_Homepage -> click container3 -> PurchaseApprovals.Admin_Workflow_Overview -> click dataGrid21 -> PurchaseApprovals.WorkflowDefinition_View -> click actionButton19 -> PurchaseApprovals.Admin_Workflow_Instance_View -> click actionButton13",
+   "roles": [
+    "Administrator"
+   ],
+   "fields": [],
+   "needs": [],
+   "todo": [],
+   "unknown": [],
+   "conditional": true,
+   "shown_if": [
+    "pop_upMenu5: $Workflow/State=System.WorkflowState.InProgress or \n$Workflow/State=System.WorkflowState.Paused or \n($Workflow/State=System.WorkflowState.Aborted and $Workflow/CanBeRestarted) or \n$Workflow/State=System.WorkflowState.Incompatible or \n$Workflow/State=System.WorkflowState.Failed",
+    "actionButton13: $Workflow/State = System.WorkflowState.Incompatible and\n$Workflow/CanBeContinued"
+   ],
+   "click": {},
+   "confirm": {
+    "proceed": "Confirm"
+   },
+   "path_roles": [
+    "Administrator"
+   ],
+   "path_role": "Administrator",
+   "reach": [
+    "Atlas_Core",
+    "Atlas_Core.PopupLayout",
+    "WorkflowCommons",
+    "WorkflowCommons.ACT_Workflow_CloseActionConfirmation",
+    "WorkflowCommons.ACT_Workflow_Continue",
+    "WorkflowCommons.Snip_Workflow_MoreActions",
+    "WorkflowCommons.Workflow_ActionConfirmation"
+   ],
+   "reach_unknown": []
+  },
+  {
+   "id": "WorkflowCommons.Snip_Workflow_MoreActions.actionButton14",
+   "host": "WorkflowCommons.Snip_Workflow_MoreActions",
+   "host_type": "Snippet",
+   "widget": "actionButton14",
+   "widget_type": "ActionButton",
+   "caption": "Restart Workflow",
+   "action": "microflow",
+   "target": "WorkflowCommons.ACT_Workflow_Restart",
+   "kind": "workflow-op",
+   "effects": [
+    "workflow-op",
+    "open-page"
+   ],
+   "path": [
+    {
+     "entry": "home Responsive (Administrator)",
+     "target": "PurchaseApprovals.Admin_Homepage",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.Admin_Homepage"
+    },
+    {
+     "click": "container3",
+     "on": "PurchaseApprovals.Admin_Homepage",
+     "action": "open-page",
+     "id": "PurchaseApprovals.Admin_Homepage.container3"
+    },
+    {
+     "page": "PurchaseApprovals.Admin_Workflow_Overview"
+    },
+    {
+     "click": "dataGrid21",
+     "on": "PurchaseApprovals.Admin_Workflow_Overview",
+     "action": "microflow",
+     "id": "PurchaseApprovals.Admin_Workflow_Overview.dataGrid21",
+     "row": "dataGrid21",
+     "row_only": true
+    },
+    {
+     "page": "PurchaseApprovals.WorkflowDefinition_View"
+    },
+    {
+     "click": "actionButton19",
+     "on": "PurchaseApprovals.WorkflowDefinition_View",
+     "action": "open-workflow",
+     "id": "PurchaseApprovals.WorkflowDefinition_View.actionButton19",
+     "within": "dataGrid21"
+    },
+    {
+     "page": "PurchaseApprovals.Admin_Workflow_Instance_View"
+    },
+    {
+     "click": "actionButton14",
+     "on": "WorkflowCommons.Snip_Workflow_MoreActions",
+     "action": "microflow",
+     "id": "WorkflowCommons.Snip_Workflow_MoreActions.actionButton14",
+     "shown_if": [
+      "pop_upMenu5: $Workflow/State=System.WorkflowState.InProgress or \n$Workflow/State=System.WorkflowState.Paused or \n($Workflow/State=System.WorkflowState.Aborted and $Workflow/CanBeRestarted) or \n$Workflow/State=System.WorkflowState.Incompatible or \n$Workflow/State=System.WorkflowState.Failed",
+      "actionButton14: $Workflow/CanBeRestarted and\n($Workflow/State = System.WorkflowState.Aborted or\n$Workflow/State = System.WorkflowState.Failed or\n$Workflow/State = System.WorkflowState.Incompatible)"
+     ]
+    }
+   ],
+   "path_text": "as Administrator: home Responsive (Administrator) -> PurchaseApprovals.Admin_Homepage -> click container3 -> PurchaseApprovals.Admin_Workflow_Overview -> click dataGrid21 -> PurchaseApprovals.WorkflowDefinition_View -> click actionButton19 -> PurchaseApprovals.Admin_Workflow_Instance_View -> click actionButton14",
+   "roles": [
+    "Administrator"
+   ],
+   "fields": [],
+   "needs": [],
+   "todo": [],
+   "unknown": [],
+   "conditional": true,
+   "shown_if": [
+    "pop_upMenu5: $Workflow/State=System.WorkflowState.InProgress or \n$Workflow/State=System.WorkflowState.Paused or \n($Workflow/State=System.WorkflowState.Aborted and $Workflow/CanBeRestarted) or \n$Workflow/State=System.WorkflowState.Incompatible or \n$Workflow/State=System.WorkflowState.Failed",
+    "actionButton14: $Workflow/CanBeRestarted and\n($Workflow/State = System.WorkflowState.Aborted or\n$Workflow/State = System.WorkflowState.Failed or\n$Workflow/State = System.WorkflowState.Incompatible)"
+   ],
+   "click": {},
+   "confirm": {
+    "proceed": "Confirm"
+   },
+   "path_roles": [
+    "Administrator"
+   ],
+   "path_role": "Administrator",
+   "reach": [
+    "Atlas_Core",
+    "Atlas_Core.PopupLayout",
+    "WorkflowCommons",
+    "WorkflowCommons.ACT_Workflow_CloseActionConfirmation",
+    "WorkflowCommons.ACT_Workflow_Restart",
+    "WorkflowCommons.Snip_Workflow_MoreActions",
+    "WorkflowCommons.Workflow_ActionConfirmation"
+   ],
+   "reach_unknown": []
+  },
+  {
+   "id": "WorkflowCommons.Snip_Workflow_MoreActions.actionButton15",
+   "host": "WorkflowCommons.Snip_Workflow_MoreActions",
+   "host_type": "Snippet",
+   "widget": "actionButton15",
+   "widget_type": "ActionButton",
+   "caption": "Abort Workflow",
+   "action": "microflow",
+   "target": "WorkflowCommons.ACT_Workflow_Abort",
+   "kind": "workflow-op",
+   "effects": [
+    "workflow-op",
+    "open-page"
+   ],
+   "path": [
+    {
+     "entry": "home Responsive (Administrator)",
+     "target": "PurchaseApprovals.Admin_Homepage",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.Admin_Homepage"
+    },
+    {
+     "click": "container3",
+     "on": "PurchaseApprovals.Admin_Homepage",
+     "action": "open-page",
+     "id": "PurchaseApprovals.Admin_Homepage.container3"
+    },
+    {
+     "page": "PurchaseApprovals.Admin_Workflow_Overview"
+    },
+    {
+     "click": "dataGrid21",
+     "on": "PurchaseApprovals.Admin_Workflow_Overview",
+     "action": "microflow",
+     "id": "PurchaseApprovals.Admin_Workflow_Overview.dataGrid21",
+     "row": "dataGrid21",
+     "row_only": true
+    },
+    {
+     "page": "PurchaseApprovals.WorkflowDefinition_View"
+    },
+    {
+     "click": "actionButton19",
+     "on": "PurchaseApprovals.WorkflowDefinition_View",
+     "action": "open-workflow",
+     "id": "PurchaseApprovals.WorkflowDefinition_View.actionButton19",
+     "within": "dataGrid21"
+    },
+    {
+     "page": "PurchaseApprovals.Admin_Workflow_Instance_View"
+    },
+    {
+     "click": "actionButton15",
+     "on": "WorkflowCommons.Snip_Workflow_MoreActions",
+     "action": "microflow",
+     "id": "WorkflowCommons.Snip_Workflow_MoreActions.actionButton15",
+     "shown_if": [
+      "pop_upMenu5: $Workflow/State=System.WorkflowState.InProgress or \n$Workflow/State=System.WorkflowState.Paused or \n($Workflow/State=System.WorkflowState.Aborted and $Workflow/CanBeRestarted) or \n$Workflow/State=System.WorkflowState.Incompatible or \n$Workflow/State=System.WorkflowState.Failed",
+      "actionButton15: System.Workflow.State in ['InProgress', 'Paused', 'Incompatible', 'Failed']"
+     ]
+    }
+   ],
+   "path_text": "as Administrator: home Responsive (Administrator) -> PurchaseApprovals.Admin_Homepage -> click container3 -> PurchaseApprovals.Admin_Workflow_Overview -> click dataGrid21 -> PurchaseApprovals.WorkflowDefinition_View -> click actionButton19 -> PurchaseApprovals.Admin_Workflow_Instance_View -> click actionButton15",
+   "roles": [
+    "Administrator"
+   ],
+   "fields": [],
+   "needs": [],
+   "todo": [],
+   "unknown": [],
+   "conditional": true,
+   "shown_if": [
+    "pop_upMenu5: $Workflow/State=System.WorkflowState.InProgress or \n$Workflow/State=System.WorkflowState.Paused or \n($Workflow/State=System.WorkflowState.Aborted and $Workflow/CanBeRestarted) or \n$Workflow/State=System.WorkflowState.Incompatible or \n$Workflow/State=System.WorkflowState.Failed",
+    "actionButton15: System.Workflow.State in ['InProgress', 'Paused', 'Incompatible', 'Failed']"
+   ],
+   "click": {},
+   "confirm": {
+    "proceed": "Confirm"
+   },
+   "path_roles": [
+    "Administrator"
+   ],
+   "path_role": "Administrator",
+   "reach": [
+    "Atlas_Core",
+    "Atlas_Core.PopupLayout",
+    "WorkflowCommons",
+    "WorkflowCommons.ACT_Workflow_Abort",
+    "WorkflowCommons.ACT_Workflow_CloseActionConfirmation",
+    "WorkflowCommons.Snip_Workflow_MoreActions",
+    "WorkflowCommons.Workflow_ActionConfirmation"
+   ],
+   "reach_unknown": []
+  }
+ ]
+}

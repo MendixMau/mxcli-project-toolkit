@@ -1,0 +1,40 @@
+alter page PurchaseApprovals.Task_Approver {
+  replace dataView2 with {
+    dataview dataView2 (
+      DataSource: microflow PurchaseApprovals.DS_GetWorkflow_FromUserTask,
+      ReadOnlyStyle: Control
+    ) {
+      snippetcall snippetCall3 (Snippet: PurchaseApprovals.Comments_TaskInbox)
+    }
+  };
+};
+alter page PurchaseApprovals.Task_POCreator {
+  replace dataView2 with {
+    dataview dataView2 (
+      DataSource: microflow PurchaseApprovals.DS_GetWorkflow_FromUserTask,
+      ReadOnlyStyle: Control
+    ) {
+      snippetcall snippetCall3 (Snippet: PurchaseApprovals.Comments_TaskInbox)
+    }
+  };
+};
+alter page PurchaseApprovals.Task_Receiver {
+  replace dataView2 with {
+    dataview dataView2 (
+      DataSource: microflow PurchaseApprovals.DS_GetWorkflow_FromUserTask,
+      ReadOnlyStyle: Control
+    ) {
+      snippetcall snippetCall3 (Snippet: PurchaseApprovals.Comments_TaskInbox)
+    }
+  };
+};
+alter page PurchaseApprovals.Task_InvoiceProcessor {
+  replace dataView4 with {
+    dataview dataView4 (
+      DataSource: microflow PurchaseApprovals.DS_GetWorkflow_FromUserTask,
+      ReadOnlyStyle: Control
+    ) {
+      snippetcall snippetCall5 (Snippet: PurchaseApprovals.Comments_TaskInbox)
+    }
+  };
+};

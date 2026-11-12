@@ -1,0 +1,15 @@
+{"version": "9.24.32.58223",
+ "_why": "T2-1: the 9.24 shape of call sites with implicit arguments (no ParameterMappings). NewEdit: a Save button inside a data view whose source is a microflow (the real defect); Phone_Edit: a data view on the page parameter; Stable: one explicit and one still implicit call that convert leaves alone",
+ "modules": [
+  {"name": "Shop",
+   "pages": [
+    {"name": "Config_NewEdit",
+     "named": [{"type": "DataView", "name": "dataView1", "datasource": {"kind": "microflow", "microflow": "Shop.SUB_GetDefault", "mappings": []},
+                "children": [{"type": "ActionButton", "name": "saveButton", "action": {"microflow": "Shop.ACT_Save", "mappings": []}}]}]},
+    {"name": "Phone_Edit",
+     "named": [{"type": "DataView", "name": "dataView6", "datasource": {"kind": "page", "param": "UoM"},
+                "children": [{"type": "ActionButton", "name": "actionButton2", "action": {"microflow": "Shop.ACT_Update", "mappings": []}}]}]},
+    {"name": "Stable",
+     "named": [{"type": "DataView", "name": "dataView3", "datasource": {"kind": "association"},
+                "children": [{"type": "ActionButton", "name": "explicitButton", "action": {"microflow": "Shop.ACT_Save", "mappings": [["Item", {"page": "Item"}]]}},
+                             {"type": "ActionButton", "name": "implicitButton", "action": {"microflow": "Shop.ACT_Other", "mappings": []}}]}]}]}]}

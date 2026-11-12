@@ -1,0 +1,17 @@
+{"modules": [
+  {"name": "Shop",
+   "entities": [
+     {"name": "Customer", "persistent": true,
+      "attributes": [{"name": "Name", "type": "String"}],
+      "access": [{"roles": ["Shop.Manager"], "create": true, "delete": true, "default": "ReadWrite"}]},
+     {"name": "Order", "persistent": true,
+      "attributes": [{"name": "Total", "type": "Decimal"}, {"name": "Note", "type": "String"}],
+      "access": [{"roles": ["Shop.Clerk"], "create": true, "delete": false, "default": "None",
+                  "members": [["Shop.Order.Total", "ReadWrite"], ["Shop.Order.Note", "ReadOnly"], ["Shop.Order_Customer", "ReadWrite"]],
+                  "xpath": "[Shop.Order_Customer = '[%CurrentUser%]']"}]}],
+   "associations": [{"name": "Order_Customer", "parent": "Customer", "child": "Order"}],
+   "pages": [{"name": "Home", "allowed": ["Shop.Clerk", "Shop.Manager"]},
+             {"name": "Admin", "allowed": ["Shop.Manager"]}],
+   "docs": [{"type": "Microflows$Microflow", "name": "ACT_Save", "data": {"AllowedModuleRoles": [3, "Shop.Clerk"]}}]}],
+ "security": {"user_roles": {"Clerk": ["Shop.Clerk"], "Manager": ["Shop.Manager"], "Guest": ["Shop.Anonymous"]},
+              "admin": "Manager", "guest": "Guest"}}

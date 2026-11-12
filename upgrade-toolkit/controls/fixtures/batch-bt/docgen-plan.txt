@@ -1,0 +1,6 @@
+# DOCGEN post-convert pass (11.12.5): newest version whose min Mendix is at or below 11.12.5 (mxcli marketplace versions).
+# Already at the newest fit: Administration 4.5.0, CommunityCommons 11.5.1, DataWidgets 3.11.7 (after plan-pre), DocumentGenerationForMendix 10.4.1, FeedbackModule 5.0.0.
+# ApprontoLicenser 7.0.1 stays: the only newer listing is 1.0.0 "Emixa Licenser module" (a new numbering, min 11.12.1), not an update of the same line; owner decision.
+117187 4.5.1 Atlas_Core
+117183 4.4.0 Atlas_Web_Content
+109515 7.4.0 NanoflowCommons

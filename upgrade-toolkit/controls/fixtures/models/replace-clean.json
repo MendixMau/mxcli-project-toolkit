@@ -1,0 +1,31 @@
+{
+ "version": "10.24.16.96987",
+ "modules": [
+  {
+   "name": "MyOwn",
+   "pages": [
+    {
+     "name": "Home",
+     "widgets": [
+      "com.mendix.widget.web.markdown.Markdown"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Atlas_Core",
+   "appstore": [
+    117187,
+    "4.1.0"
+   ]
+  }
+ ],
+ "files": {
+  "javasource/myown/actions/Clean.java": "package myown.actions;\nimport com.mendix.core.Core;\npublic class Clean { void run() { Core.getLogger(\"MyOwn\").info(\"ok\"); } }\n",
+  "javascriptsource/myown/actions/Clean.js": "export async function Clean() { console.log(\"ok\"); }\n",
+  "theme/web/main.scss": ".my-card { color: red; }\n"
+ },
+ "navigation": {
+  "login_page": ""
+ }
+}

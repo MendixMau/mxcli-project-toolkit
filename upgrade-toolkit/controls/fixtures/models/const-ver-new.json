@@ -1,0 +1,1 @@
+{"from": "base.json", "ops": [["append", "modules/1/constants", {"name": "PublisherVersion", "default": "5.0.0"}]]}

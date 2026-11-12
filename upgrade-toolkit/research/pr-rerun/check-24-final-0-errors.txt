@@ -1,0 +1,8 @@
+Checking your app for issues...
+Checking the version of the mpr file.
+The mpr file version is '11.12.5'.
+Loading the mpr file.
+The mpr file version is '11.12.5'.
+Checking app for errors...
+The app contains: 0 errors.
+[heavy-lock] check rc=0 14s

@@ -1,0 +1,39 @@
+mdl 1;
+create module UiHelpers;
+create javascript action UiHelpers.JS_ScrollContentToTop() returns boolean platform web as $$
+document.querySelectorAll(".mx-scrollcontainer-wrapper").forEach(function (w) { w.scrollTo({ top: 0, behavior: "smooth" }); });
+return Promise.resolve(true);
+$$;
+create nanoflow UiHelpers.NF_ScrollContentToTop () returns boolean as $r begin
+  $r = call javascript action UiHelpers.JS_ScrollContentToTop();
+  return $r;
+end;
+
+alter page Showcase_AI_RESTSQLAPI.Wizard_AI_Step6_CortexAnalystAndAgent_ConversationalUI { replace hTMLSnippet7 with { events scrollOnLoad (onComponentLoad: call nanoflow UiHelpers.NF_ScrollContentToTop, componentLoadDelay: 100) } };
+alter page Showcase_AI_RESTSQLAPI.Wizard_AI_Step1_Introduction { replace hTMLSnippet7 with { events scrollOnLoad (onComponentLoad: call nanoflow UiHelpers.NF_ScrollContentToTop, componentLoadDelay: 100) } };
+alter page Showcase_AI_RESTSQLAPI.Wizard_AI_Step5_CortexAgents { replace hTMLSnippet7 with { events scrollOnLoad (onComponentLoad: call nanoflow UiHelpers.NF_ScrollContentToTop, componentLoadDelay: 100) } };
+alter page Showcase_AI_RESTSQLAPI.Wizard_AI_Step2_ML { replace hTMLSnippet7 with { events scrollOnLoad (onComponentLoad: call nanoflow UiHelpers.NF_ScrollContentToTop, componentLoadDelay: 100) } };
+alter page Showcase_AI_RESTSQLAPI.Wizard_AI_Step3_LLM { replace hTMLSnippet7 with { events scrollOnLoad (onComponentLoad: call nanoflow UiHelpers.NF_ScrollContentToTop, componentLoadDelay: 100) } };
+alter page Showcase_AI_RESTSQLAPI.Wizard_AI_Step4_CortexAnalyst { replace hTMLSnippet7 with { events scrollOnLoad (onComponentLoad: call nanoflow UiHelpers.NF_ScrollContentToTop, componentLoadDelay: 100) } };
+alter page Showcase_RBAC_RESTSQLAPI.Wizard_RBAC_Step1_Introduction { replace hTMLSnippet6 with { events scrollOnLoad (onComponentLoad: call nanoflow UiHelpers.NF_ScrollContentToTop, componentLoadDelay: 100) } };
+alter page Showcase_RBAC_RESTSQLAPI.Wizard_RBAC_Step2_Configuration { replace hTMLSnippet6 with { events scrollOnLoad (onComponentLoad: call nanoflow UiHelpers.NF_ScrollContentToTop, componentLoadDelay: 100) } };
+alter page Showcase_RBAC_RESTSQLAPI.Wizard_RBAC_Step5_VisualizeSFData { replace hTMLSnippet6 with { events scrollOnLoad (onComponentLoad: call nanoflow UiHelpers.NF_ScrollContentToTop, componentLoadDelay: 100) } };
+alter page Showcase_RBAC_RESTSQLAPI.Wizard_RBAC_Step4_ApplyingSFRBAC { replace hTMLSnippet6 with { events scrollOnLoad (onComponentLoad: call nanoflow UiHelpers.NF_ScrollContentToTop, componentLoadDelay: 100) } };
+alter page Showcase_RBAC_RESTSQLAPI.Wizard_RBAC_Step3_PrepareSFDataset_RBAC { replace hTMLSnippet6 with { events scrollOnLoad (onComponentLoad: call nanoflow UiHelpers.NF_ScrollContentToTop, componentLoadDelay: 100) } };
+alter page Showcase_RESTSQLAPI.Wizard_RestAPI_Step3_PrepareSFDataset { replace hTMLSnippet6 with { events scrollOnLoad (onComponentLoad: call nanoflow UiHelpers.NF_ScrollContentToTop, componentLoadDelay: 100) } };
+alter page Showcase_RESTSQLAPI.Wizard_RestAPI_Step5_mxDataToSnowflake { replace hTMLSnippet6 with { events scrollOnLoad (onComponentLoad: call nanoflow UiHelpers.NF_ScrollContentToTop, componentLoadDelay: 100) } };
+alter page Showcase_RESTSQLAPI.Wizard_RestAPI_Step2_Configuration { replace hTMLSnippet6 with { events scrollOnLoad (onComponentLoad: call nanoflow UiHelpers.NF_ScrollContentToTop, componentLoadDelay: 100) } };
+alter page Showcase_RESTSQLAPI.Wizard_RestAPI_Step1_Introduction { replace hTMLSnippet7 with { events scrollOnLoad (onComponentLoad: call nanoflow UiHelpers.NF_ScrollContentToTop, componentLoadDelay: 100) } };
+alter page Showcase_RESTSQLAPI.Wizard_RestAPI_Step4_DataFromSnowflake { replace hTMLSnippet6 with { events scrollOnLoad (onComponentLoad: call nanoflow UiHelpers.NF_ScrollContentToTop, componentLoadDelay: 100) } };
+alter page Showcase_JDBC.Wizard_JDBC_Step6_AIExperience { replace hTMLSnippet6 with { events scrollOnLoad (onComponentLoad: call nanoflow UiHelpers.NF_ScrollContentToTop, componentLoadDelay: 100) } };
+alter page Showcase_JDBC.Wizard_JDBC_Step5_DataToSnowflake { replace hTMLSnippet6 with { events scrollOnLoad (onComponentLoad: call nanoflow UiHelpers.NF_ScrollContentToTop, componentLoadDelay: 100) } };
+alter page Showcase_JDBC.Wizard_JDBC_Step3_PrepareSFDatabase { replace hTMLSnippet6 with { events scrollOnLoad (onComponentLoad: call nanoflow UiHelpers.NF_ScrollContentToTop, componentLoadDelay: 100) } };
+alter page Showcase_JDBC.Wizard_JDBC_Step1_Introduction { replace hTMLSnippet6 with { events scrollOnLoad (onComponentLoad: call nanoflow UiHelpers.NF_ScrollContentToTop, componentLoadDelay: 100) } };
+alter page Showcase_JDBC.Wizard_JDBC_Step4_DataFromSnowflake { replace hTMLSnippet6 with { events scrollOnLoad (onComponentLoad: call nanoflow UiHelpers.NF_ScrollContentToTop, componentLoadDelay: 100) } };
+alter page Showcase_JDBC.Wizard_JDBC_Step2_SetUpAuthentication { replace hTMLSnippet6 with { events scrollOnLoad (onComponentLoad: call nanoflow UiHelpers.NF_ScrollContentToTop, componentLoadDelay: 100) } };
+alter page Showcase_DataLoader.Wizard_DataLoader_Step2_Configuration { replace hTMLSnippet6 with { events scrollOnLoad (onComponentLoad: call nanoflow UiHelpers.NF_ScrollContentToTop, componentLoadDelay: 100) } };
+alter page Showcase_DataLoader.Wizard_DataLoader_Step5_ConfigurationAndSetup { replace hTMLSnippet6 with { events scrollOnLoad (onComponentLoad: call nanoflow UiHelpers.NF_ScrollContentToTop, componentLoadDelay: 100) } };
+alter page Showcase_DataLoader.Wizard_DataLoader_Step6_DataIngestion { replace hTMLSnippet6 with { events scrollOnLoad (onComponentLoad: call nanoflow UiHelpers.NF_ScrollContentToTop, componentLoadDelay: 100) } };
+alter page Showcase_DataLoader.Wizard_DataLoader_Step3_Deployment { replace hTMLSnippet6 with { events scrollOnLoad (onComponentLoad: call nanoflow UiHelpers.NF_ScrollContentToTop, componentLoadDelay: 100) } };
+alter page Showcase_DataLoader.Wizard_DataLoader_Step4_Installation { replace hTMLSnippet5 with { events scrollOnLoad (onComponentLoad: call nanoflow UiHelpers.NF_ScrollContentToTop, componentLoadDelay: 100) } };
+alter page Showcase_DataLoader.Wizard_DataLoader_Step1_Introduction { replace hTMLSnippet6 with { events scrollOnLoad (onComponentLoad: call nanoflow UiHelpers.NF_ScrollContentToTop, componentLoadDelay: 100) } };

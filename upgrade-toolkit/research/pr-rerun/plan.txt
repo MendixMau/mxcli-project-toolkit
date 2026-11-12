@@ -1,0 +1,5 @@
+# post-convert (11.12.5). min Mendix fits 11.12.5 (WorkflowCommons 4.11+ needs 11.13, NanoflowCommons 7.3+ needs 11.12.3).
+117187 4.5.0 Atlas_Core
+117183 4.4.0 Atlas_Web_Content
+109515 7.2.1 NanoflowCommons
+117066 4.10.0 WorkflowCommons

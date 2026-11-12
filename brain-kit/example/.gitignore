@@ -1,0 +1,4 @@
+work/ingest/
+work/compact/
+work/fix/
+work/*.log

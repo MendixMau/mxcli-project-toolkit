@@ -1,0 +1,2 @@
+key	title	match	jump	option	action	effort	risk	evidence	test	mode	apply	regate	source	verified
+x	t	foo	any	A	pin it	S	r	e	t	AUTO-TRY	-	smoke	-	-

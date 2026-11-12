@@ -1,0 +1,345 @@
+{
+ "tool": "action_inventory.py",
+ "model": "/nowhere/PurchaseRequest.mpr",
+ "summary_line": "Purchase Request 11.12.5 run 4: the Task Inbox's two task lists (My Tasks listView5 / Open tasks listView4) and two task page buttons, verbatim from actions.json (reach trimmed)",
+ "actions": [
+  {
+   "id": "PurchaseApprovals.TaskInbox.container25",
+   "host": "PurchaseApprovals.TaskInbox",
+   "host_type": "Page",
+   "widget": "container25",
+   "widget_type": "DivContainer",
+   "caption": "",
+   "action": "open-task",
+   "target": null,
+   "kind": "open-task",
+   "effects": [],
+   "path": [
+    {
+     "entry": "home Responsive (Approver)",
+     "target": "PurchaseApprovals.TaskInbox",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.TaskInbox"
+    },
+    {
+     "click": "container25",
+     "on": "PurchaseApprovals.TaskInbox",
+     "action": "open-task",
+     "id": "PurchaseApprovals.TaskInbox.container25",
+     "within": "listView5",
+     "assigned_to_me": true
+    }
+   ],
+   "path_text": "as Approver: home Responsive (Approver) -> PurchaseApprovals.TaskInbox -> click container25",
+   "roles": [
+    "Approver",
+    "InvoiceProcessor",
+    "PurchaseOrderCreator",
+    "Receiver"
+   ],
+   "fields": [],
+   "needs": [
+    "an open user task",
+    "a row in ListView listView5 (System.WorkflowUserTask)"
+   ],
+   "todo": [],
+   "unknown": [],
+   "click": {
+    "within": "listView5",
+    "assigned_to_me": true
+   },
+   "targets": [
+    "PurchaseApprovals.Task_Approver",
+    "PurchaseApprovals.Task_InvoiceProcessor",
+    "PurchaseApprovals.Task_POCreator",
+    "PurchaseApprovals.Task_Receiver"
+   ],
+   "path_roles": [
+    "Approver",
+    "InvoiceProcessor",
+    "PurchaseOrderCreator",
+    "Receiver"
+   ],
+   "path_role": "Approver"
+  },
+  {
+   "id": "PurchaseApprovals.TaskInbox.actionButton12",
+   "host": "PurchaseApprovals.TaskInbox",
+   "host_type": "Page",
+   "widget": "actionButton12",
+   "widget_type": "ActionButton",
+   "caption": "Assign to me",
+   "action": "microflow",
+   "target": "PurchaseApprovals.AssignToMe_TaskInbox",
+   "kind": "commit",
+   "effects": [
+    "commit"
+   ],
+   "path": [
+    {
+     "entry": "home Responsive (Approver)",
+     "target": "PurchaseApprovals.TaskInbox",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.TaskInbox"
+    },
+    {
+     "click": "actionButton12",
+     "on": "PurchaseApprovals.TaskInbox",
+     "action": "microflow",
+     "id": "PurchaseApprovals.TaskInbox.actionButton12",
+     "shown_if": [
+      "actionButton12: $currentObject = empty"
+     ],
+     "within": "listView5",
+     "assigned_to_me": true
+    }
+   ],
+   "path_text": "as Approver: home Responsive (Approver) -> PurchaseApprovals.TaskInbox -> click actionButton12",
+   "roles": [
+    "Approver",
+    "InvoiceProcessor",
+    "PurchaseOrderCreator",
+    "Receiver"
+   ],
+   "fields": [],
+   "needs": [
+    "a row in ListView listView5 (System.WorkflowUserTask)"
+   ],
+   "todo": [],
+   "unknown": [],
+   "conditional": true,
+   "shown_if": [
+    "actionButton12: $currentObject = empty"
+   ],
+   "click": {
+    "within": "listView5",
+    "assigned_to_me": true
+   },
+   "context": null,
+   "path_roles": [
+    "Approver",
+    "InvoiceProcessor",
+    "PurchaseOrderCreator",
+    "Receiver"
+   ],
+   "path_role": "Approver"
+  },
+  {
+   "id": "PurchaseApprovals.TaskInbox.container20",
+   "host": "PurchaseApprovals.TaskInbox",
+   "host_type": "Page",
+   "widget": "container20",
+   "widget_type": "DivContainer",
+   "caption": "",
+   "action": "open-task",
+   "target": null,
+   "kind": "open-task",
+   "effects": [],
+   "path": [
+    {
+     "entry": "home Responsive (Approver)",
+     "target": "PurchaseApprovals.TaskInbox",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.TaskInbox"
+    },
+    {
+     "click": "container20",
+     "on": "PurchaseApprovals.TaskInbox",
+     "action": "open-task",
+     "id": "PurchaseApprovals.TaskInbox.container20",
+     "within": "listView4"
+    }
+   ],
+   "path_text": "as Approver: home Responsive (Approver) -> PurchaseApprovals.TaskInbox -> click container20",
+   "roles": [
+    "Approver",
+    "InvoiceProcessor",
+    "PurchaseOrderCreator",
+    "Receiver"
+   ],
+   "fields": [],
+   "needs": [
+    "an open user task",
+    "a row in ListView listView4 (System.WorkflowUserTask)"
+   ],
+   "todo": [],
+   "unknown": [],
+   "click": {
+    "within": "listView4"
+   },
+   "targets": [
+    "PurchaseApprovals.Task_Approver",
+    "PurchaseApprovals.Task_InvoiceProcessor",
+    "PurchaseApprovals.Task_POCreator",
+    "PurchaseApprovals.Task_Receiver"
+   ],
+   "path_roles": [
+    "Approver",
+    "InvoiceProcessor",
+    "PurchaseOrderCreator",
+    "Receiver"
+   ],
+   "path_role": "Approver"
+  },
+  {
+   "id": "PurchaseApprovals.Task_Approver.actionButton8",
+   "host": "PurchaseApprovals.Task_Approver",
+   "host_type": "Page",
+   "widget": "actionButton8",
+   "widget_type": "ActionButton",
+   "caption": "Reject",
+   "action": "microflow",
+   "target": "PurchaseApprovals.RejectRequest_FirstApprover",
+   "kind": "task-outcome",
+   "effects": [
+    "task-outcome",
+    "status-change",
+    "commit"
+   ],
+   "path": [
+    {
+     "entry": "home Responsive (Approver)",
+     "target": "PurchaseApprovals.TaskInbox",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.TaskInbox"
+    },
+    {
+     "click": "container25",
+     "on": "PurchaseApprovals.TaskInbox",
+     "action": "open-task",
+     "id": "PurchaseApprovals.TaskInbox.container25",
+     "within": "listView5",
+     "assigned_to_me": true
+    },
+    {
+     "page": "PurchaseApprovals.Task_Approver"
+    },
+    {
+     "click": "actionButton8",
+     "on": "PurchaseApprovals.Task_Approver",
+     "action": "microflow",
+     "id": "PurchaseApprovals.Task_Approver.actionButton8",
+     "shown_if": [
+      "container6: $currentObject = [%CurrentUser%]",
+      "LayoutGridRow: $dataView13/PurchaseApprovals.Request_MendixSSOUser_FirstApprover = empty \nand\n$dataView1/State = System.WorkflowUserTaskState.InProgress"
+     ]
+    }
+   ],
+   "path_text": "as Approver: home Responsive (Approver) -> PurchaseApprovals.TaskInbox -> click container25 -> PurchaseApprovals.Task_Approver -> click actionButton8",
+   "roles": [
+    "Approver"
+   ],
+   "fields": [],
+   "needs": [],
+   "todo": [],
+   "unknown": [],
+   "conditional": true,
+   "shown_if": [
+    "container6: $currentObject = [%CurrentUser%]",
+    "LayoutGridRow: $dataView13/PurchaseApprovals.Request_MendixSSOUser_FirstApprover = empty \nand\n$dataView1/State = System.WorkflowUserTaskState.InProgress"
+   ],
+   "click": {},
+   "confirm": {
+    "proceed": "Proceed"
+   },
+   "outcomes": [
+    "Rejected"
+   ],
+   "context": null,
+   "path_roles": [
+    "Approver"
+   ],
+   "path_role": "Approver"
+  },
+  {
+   "id": "PurchaseApprovals.Task_Approver.actionButton19",
+   "host": "PurchaseApprovals.Task_Approver",
+   "host_type": "Page",
+   "widget": "actionButton19",
+   "widget_type": "ActionButton",
+   "caption": "Assign to me",
+   "action": "microflow",
+   "target": "PurchaseApprovals.AssignToMe_TaskPage",
+   "kind": "commit",
+   "effects": [
+    "commit"
+   ],
+   "path": [
+    {
+     "entry": "home Responsive (Approver)",
+     "target": "PurchaseApprovals.TaskInbox",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.TaskInbox"
+    },
+    {
+     "click": "container25",
+     "on": "PurchaseApprovals.TaskInbox",
+     "action": "open-task",
+     "id": "PurchaseApprovals.TaskInbox.container25",
+     "within": "listView5",
+     "assigned_to_me": true
+    },
+    {
+     "page": "PurchaseApprovals.Task_Approver"
+    },
+    {
+     "click": "actionButton19",
+     "on": "PurchaseApprovals.Task_Approver",
+     "action": "microflow",
+     "id": "PurchaseApprovals.Task_Approver.actionButton19",
+     "shown_if": [
+      "LayoutGridRow: $dataView1/System.WorkflowUserTask_Assignees = empty",
+      "actionButton19: $dataView1/State = System.WorkflowUserTaskState.InProgress\nand \n$dataView1/System.WorkflowUserTask_Assignees = empty"
+     ],
+     "within": "listView2"
+    }
+   ],
+   "path_text": "as Approver: home Responsive (Approver) -> PurchaseApprovals.TaskInbox -> click container25 -> PurchaseApprovals.Task_Approver -> click actionButton19",
+   "roles": [
+    "Approver",
+    "InvoiceProcessor",
+    "PurchaseOrderCreator",
+    "Receiver"
+   ],
+   "fields": [],
+   "needs": [
+    "a row in ListView listView2"
+   ],
+   "todo": [],
+   "unknown": [],
+   "conditional": true,
+   "shown_if": [
+    "LayoutGridRow: $dataView1/System.WorkflowUserTask_Assignees = empty",
+    "actionButton19: $dataView1/State = System.WorkflowUserTaskState.InProgress\nand \n$dataView1/System.WorkflowUserTask_Assignees = empty"
+   ],
+   "click": {
+    "within": "listView2"
+   },
+   "context": "System.WorkflowUserTask",
+   "path_roles": [
+    "Approver"
+   ],
+   "path_role": "Approver"
+  }
+ ]
+}

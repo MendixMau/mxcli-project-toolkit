@@ -1,0 +1,7 @@
+journey: act-WorkflowCommons.UserTask_Assign.actionButton8
+role: Administrator
+old-app verdict: FAIL
+not_pass: ["FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > tab 'Task details': reached \".mx-name-actionButton10\" never appeared \u2014 screenshot act-WorkflowCommons.UserTask_Assign.actionButton8-step4-NOT-REACHED.png", "INVALID open PurchaseApprovals.Admin_Workflow_Instance_View > tab 'Task details': downstream rungs not reached; nothing measured"]
+cluster: H2
+reason: needs a task with no targets or a non-single completion; every task in the fixture has one target (27 tasks, one with 2)
+confirmed: owner 2026-10-22

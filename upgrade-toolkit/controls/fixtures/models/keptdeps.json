@@ -1,0 +1,18 @@
+{"modules": [
+  {"name": "UpdConn", "appstore": [4444, "4.0.0"],
+   "docs": [{"type": "Microflows$Microflow", "name": "ACT_Translate",
+             "data": {"Call": {"Action": "AuthMod.ACT_Sign", "Mapping": {"Parameter": "AuthMod.ACT_Sign.Endpoint"}},
+                      "Region": {"Value": "AuthMod.ENUM_Region.EU_West"}, "Read": {"Attribute": "AuthMod.Credential.Token"}}},
+            {"type": "Microflows$Microflow", "name": "ACT_Session",
+             "data": {"Call": {"Action": "AuthMod.ACT_Session", "Mapping": {"Parameter": "AuthMod.ACT_Sign.SessionToken"}}}}],
+   "entities": [{"name": "Request", "generalization": "AuthMod.Credential"}]},
+  {"name": "AuthMod", "appstore": [2222, "2.1.2"],
+   "entities": [{"name": "Credential", "attributes": [{"name": "Token", "type": "String"}]}],
+   "docs": [{"type": "Microflows$Microflow", "name": "ACT_Sign",
+             "data": {"ObjectCollection": {"Objects": [{"$Type": "Microflows$MicroflowParameterObject", "Name": "Endpoint"}]}}},
+            {"type": "Enumerations$Enumeration", "name": "ENUM_Region",
+             "data": {"Values": [{"$Type": "Enumerations$EnumerationValue", "Name": "EU_West"}]}}]},
+  {"name": "OtherMod", "appstore": [3333, "4.0.0"], "docs": [{"type": "Microflows$Microflow", "name": "ACT_Other"}]}
+ ],
+ "files": {"javasource/updconn/actions/Translate.java": "package updconn.actions;\n\nimport authmod.proxies.Credential;\nimport authmod.impl.RegionBuilder;\nimport java.util.List;\n\npublic class Translate {}\n",
+           "javasource/authmod/proxies/Credential.java": "package authmod.proxies;\npublic class Credential {}\n"}}

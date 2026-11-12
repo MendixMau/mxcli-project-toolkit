@@ -8,6 +8,10 @@ build/
 target/
 *.log
 
+# upgrade-toolkit's control fixtures are synthetic logs its controls read (checkdiff, logdiff,
+# convertcheck, design_props_guard); the blanket *.log above would silently drop them from `git add`.
+!upgrade-toolkit/controls/fixtures/**/*.log
+
 # ...but `build/` above is unanchored, so it matches a directory named "build" at ANY depth —
 # including skills/build/, the page/MDL/workflow skill group added 2026-08-20. Caught the same
 # day: skills/build/mdl/oneshot-mdl-method.md existed on disk, rendered into every routing

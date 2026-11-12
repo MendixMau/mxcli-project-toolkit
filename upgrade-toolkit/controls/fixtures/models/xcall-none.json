@@ -1,0 +1,5 @@
+{"modules": [
+  {"name": "KeptConn", "appstore": [1111, "3.0.0"],
+   "docs": [{"type": "Microflows$Microflow", "name": "ACT_Ask", "data": {"Call": {"Action": "KeptConn.ACT_Other"}}}]},
+  {"name": "AuthMod", "appstore": [2222, "3.2.0"], "docs": [{"type": "Microflows$Microflow", "name": "ACT_Sign"}]}
+ ]}

@@ -1,0 +1,1 @@
+the paging text "Currently showing 1 to 10 of 20" shows twice on every list page after Atlas_Core 3.13

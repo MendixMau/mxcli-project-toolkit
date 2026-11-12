@@ -1,0 +1,10 @@
+{
+ "Clerk": {
+  "user": "smoke_clerk",
+  "pass": "x"
+ },
+ "Manager": {
+  "user": "smoke_manager",
+  "pass": "x"
+ }
+}

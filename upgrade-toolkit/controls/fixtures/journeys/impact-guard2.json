@@ -1,0 +1,22 @@
+{"old": "m/guard2/App.mpr", "new": "m/guard2/App.mpr",
+ "_why": "role facts as impact_map.py wrote them before the batch-2 fixes (B2-2, B2-3, G-3, T2R3-4, N1R2-3); gen_journeys must re-check them on the model",
+ "user_roles": {"admin": null, "guest": null, "all": ["ApiUser", "Clerk", "Desk", "Inspector", "Planner"]},
+ "roles": {
+  "Desk": {"home_page": "", "home_microflow": "Shop.NAV_Desk", "landing": null,
+           "menu_visible": ["Dashboard"], "menu_hidden": [], "sign_out_item": null, "is_admin": false, "is_guest": false},
+  "Planner": {"home_page": "Shop.Dashboard", "home_microflow": "", "landing": {"widget": "dataView1", "type": "Forms$DataView", "generic_name": true},
+              "menu_visible": ["Dashboard", "Offline"], "menu_hidden": [], "sign_out_item": null, "is_admin": false, "is_guest": false},
+  "Inspector": {"home_page": "Shop.Search_Home", "home_microflow": "", "landing": {"widget": "label7", "type": "Forms$Label", "generic_name": true},
+                "menu_visible": [], "menu_hidden": [], "sign_out_item": null, "is_admin": false, "is_guest": false},
+  "Clerk": {"home_page": "Shop.Titled_Home", "home_microflow": "", "landing": {"widget": "pageTitle1", "type": "Forms$Title", "generic_name": true},
+            "menu_visible": [], "menu_hidden": [], "sign_out_item": null, "is_admin": false, "is_guest": false},
+  "ApiUser": {"home_page": "Shop.Login", "home_microflow": "", "landing": null,
+              "menu_visible": [], "menu_hidden": [], "sign_out_item": null, "is_admin": false, "is_guest": false}},
+ "login": {"login_page": "Shop.Login", "id": "usernameInput", "password": "passwordInput", "button": "loginButton", "other_text_boxes": [], "docs": ["Shop.Login"]},
+ "auth": {"modules": ["MFAmodule"]},
+ "candidates": [
+  {"id": "home:Shop.NAV_Desk", "kind": "home", "roles": ["Desk"], "target": "Shop.NAV_Desk", "title": "Role home Shop.NAV_Desk works"},
+  {"id": "menu:Offline", "kind": "menu", "menu": ["Offline"], "target": "Shop.Offline", "roles": ["ApiUser", "Planner"], "title": "Open Offline"},
+  {"id": "menu:Offline default", "kind": "menu", "menu": ["Offline default"], "target": "Shop.Offline_Default", "roles": ["Planner"], "title": "Open Offline default"},
+  {"id": "menu:Hidden", "kind": "menu", "menu": ["Hidden"], "target": "Shop.Hidden", "roles": ["Planner"], "title": "Open Hidden"},
+  {"id": "menu:Shown", "kind": "menu", "menu": ["Shown"], "target": "Shop.Shown", "roles": ["Planner"], "title": "Open Shown"}]}

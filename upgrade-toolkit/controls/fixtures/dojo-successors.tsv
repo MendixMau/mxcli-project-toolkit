@@ -1,0 +1,6 @@
+# control table for bin/dojo_report.py (not the real playbook)
+match	component	installed	status	react_path	min_mendix	source	verified	note
+Moving\.widget\..*	Moving Widget	2.0.0	newer-pluggable	Moving Widget 3.0.0 (pluggable)	10.6.0	https://example.invalid/moving	partial	-
+Stuck\.widget\.Stuck	Stuck Widget	1.1	none-found	rebuild as a pluggable widget	-	https://example.invalid/stuck	yes	searched the Marketplace
+Forms\$TemplateGrid	Template grid (legacy)	-	core-unsupported	Gallery	-	https://example.invalid/react	yes	-
+OldChart	Old Chart module	-	module-not-ready	New Chart widget	-	https://example.invalid/oldchart	partial	-

@@ -1,0 +1,2 @@
+dw3-dropdown-captions C FAIL gate-c/gate-summary.md
+dw3-dropdown-captions B FAIL gate-b/gate-summary.md

@@ -1,0 +1,17 @@
+create or modify microflow PurchaseApprovals.DS_CommentsOfWorkflowView (
+  $WorkflowView: WorkflowCommons.WorkflowView
+)
+returns List of WorkflowCommons.WorkflowComment
+folder 'User/Approver/Microflows'
+begin
+  retrieve $Comments from WorkflowCommons.WorkflowComment
+    where WorkflowCommons.WorkflowComment_Workflow = $WorkflowView/WorkflowCommons.WorkflowView_Workflow
+    sort by changedDate desc;
+  return $Comments;
+end;
+grant execute on microflow PurchaseApprovals.DS_CommentsOfWorkflowView to PurchaseApprovals.Administrator, PurchaseApprovals.Approver, PurchaseApprovals.InvoiceProcessor, PurchaseApprovals.PurchaseOrderCreator, PurchaseApprovals.Receiver, PurchaseApprovals.Requester;
+
+alter snippet PurchaseApprovals.Comments_TaskInbox {
+  set (Action: call microflow WorkflowCommons.ACT_WorkflowCommentHelper_SaveNew(Workflow = $WorkflowView/WorkflowCommons.WorkflowView_Workflow)) on actionButton1;
+  set (DataSource: microflow PurchaseApprovals.DS_CommentsOfWorkflowView(WorkflowView = $WorkflowView)) on listView2;
+};

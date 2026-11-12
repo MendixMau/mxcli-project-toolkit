@@ -1,0 +1,16 @@
+Real mxcli output, captured 2026-10-23 with the v0.28.0 binary (built from the tag, `mxcli --version` = "mxcli version v0.28.0")
+and, for the old-wording contrast, the build 78bdfa5. Nothing here is hand-written.
+
+App:   the Purchase Request run's project (Mendix 10.24.0.73019) at the commit before its MendixSSO step, copied out with
+       `git archive`; the originals were not touched. Host binary, direct (no container), Marketplace auth from ~/.mxcli.
+Files:
+  update-refused-assoc.log          mxcli marketplace update 111349 --to 10.6.2 --module MendixSSO -p <mpr>        (exit 1)
+  update-refused-assoc-admin.log    mxcli marketplace update 23513 --to 4.5.0 --module Administration -p <mpr>     (exit 1)
+                                    (the "YYYY/MM/DD warning: widget definition" lines of the run were dropped; they are not part of the refusal)
+  update-force-saveedits.log        the first command again with --save-edits <dir> --force                       (exit 1)
+                                    writes 7 files, then fails: "install the new version's bundled files: open package target.mpk"
+                                    (v0.28.0: referenceFor is given slot "t" and writes t.mpk, the update reads target.mpk;
+                                    cmd/mxcli/cmd_marketplace_update.go lines 170-177; the module is already dropped: mid-update)
+  saved-edits/MendixSSO/*.mdl       the 7 files that run saved (6 association-*.mdl, 1 entity-*.mdl)
+  update-refused-old-78bdfa5.log    the first command with the old binary: the same module, no association wording, 3 elements
+Sanitised: the scratch folder path became <saved-edits>. The mxcli temp path /tmp/mxuNNN is verbatim.

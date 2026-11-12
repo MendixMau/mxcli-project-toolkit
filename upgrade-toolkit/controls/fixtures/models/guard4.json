@@ -1,0 +1,283 @@
+{
+ "version": "10.24.16.96987",
+ "_why": "T6R-3b: role homes that are microflows showing their page through a sub-microflow (the T6R Admin and DepartmentManager homes call DeepLink and a sub-microflow first). Actions in the real MPR shape (ActionActivity, MicroflowCallAction, ShowFormAction). NAV_Admin: page two calls down, closes. NAV_Deep: page five levels down, beyond the 3 followed: todo with the cut. NAV_Service: no page at all (the T6R WebserviceUser home): todo that says so.",
+ "modules": [
+  {
+   "name": "Shop",
+   "layouts": [
+    {
+     "name": "Layout_Plain",
+     "named": [
+      {
+       "type": "LayoutGrid",
+       "name": "layoutGrid9"
+      }
+     ]
+    }
+   ],
+   "pages": [
+    {
+     "name": "Settings_Overview",
+     "layout": "Shop.Layout_Plain",
+     "named": [
+      {
+       "type": "Label",
+       "name": "settingsTitle",
+       "text": "Application settings"
+      }
+     ]
+    },
+    {
+     "name": "Deep_Page",
+     "layout": "Shop.Layout_Plain",
+     "named": [
+      {
+       "type": "Label",
+       "name": "deepTitle",
+       "text": "Deep"
+      }
+     ]
+    }
+   ],
+   "docs": [
+    {
+     "type": "Microflows$Microflow",
+     "name": "NAV_Admin",
+     "data": {
+      "ObjectCollection": {
+       "$Type": "Microflows$MicroflowObjectCollection",
+       "Objects": [
+        3,
+        {
+         "$Type": "Microflows$ActionActivity",
+         "Action": {
+          "$Type": "Microflows$MicroflowCallAction",
+          "MicroflowCall": {
+           "$Type": "Microflows$MicroflowCall",
+           "Microflow": "Shop.SUB_DeepLinkHome",
+           "ParameterMappings": [
+            3
+           ]
+          }
+         }
+        },
+        {
+         "$Type": "Microflows$ActionActivity",
+         "Action": {
+          "$Type": "Microflows$MicroflowCallAction",
+          "MicroflowCall": {
+           "$Type": "Microflows$MicroflowCall",
+           "Microflow": "Shop.SUB_OpenSettings",
+           "ParameterMappings": [
+            3
+           ]
+          }
+         }
+        }
+       ]
+      }
+     }
+    },
+    {
+     "type": "Microflows$Microflow",
+     "name": "SUB_DeepLinkHome",
+     "data": {
+      "ObjectCollection": {
+       "$Type": "Microflows$MicroflowObjectCollection",
+       "Objects": [
+        3
+       ]
+      }
+     }
+    },
+    {
+     "type": "Microflows$Microflow",
+     "name": "SUB_OpenSettings",
+     "data": {
+      "ObjectCollection": {
+       "$Type": "Microflows$MicroflowObjectCollection",
+       "Objects": [
+        3,
+        {
+         "$Type": "Microflows$ActionActivity",
+         "Action": {
+          "$Type": "Microflows$MicroflowCallAction",
+          "MicroflowCall": {
+           "$Type": "Microflows$MicroflowCall",
+           "Microflow": "Shop.SUB_ShowSettings",
+           "ParameterMappings": [
+            3
+           ]
+          }
+         }
+        }
+       ]
+      }
+     }
+    },
+    {
+     "type": "Microflows$Microflow",
+     "name": "SUB_ShowSettings",
+     "data": {
+      "ObjectCollection": {
+       "$Type": "Microflows$MicroflowObjectCollection",
+       "Objects": [
+        3,
+        {
+         "$Type": "Microflows$ActionActivity",
+         "Action": {
+          "$Type": "Microflows$ShowFormAction",
+          "FormSettings": {
+           "$Type": "Forms$FormSettings",
+           "Form": "Shop.Settings_Overview",
+           "ParameterMappings": [
+            3
+           ]
+          }
+         }
+        }
+       ]
+      }
+     }
+    },
+    {
+     "type": "Microflows$Microflow",
+     "name": "NAV_Deep",
+     "data": {
+      "ObjectCollection": {
+       "$Type": "Microflows$MicroflowObjectCollection",
+       "Objects": [
+        3,
+        {
+         "$Type": "Microflows$ActionActivity",
+         "Action": {
+          "$Type": "Microflows$MicroflowCallAction",
+          "MicroflowCall": {
+           "$Type": "Microflows$MicroflowCall",
+           "Microflow": "Shop.L1",
+           "ParameterMappings": [
+            3
+           ]
+          }
+         }
+        }
+       ]
+      }
+     }
+    },
+    {
+     "type": "Microflows$Microflow",
+     "name": "L1",
+     "data": {
+      "ObjectCollection": {
+       "$Type": "Microflows$MicroflowObjectCollection",
+       "Objects": [
+        3,
+        {
+         "$Type": "Microflows$ActionActivity",
+         "Action": {
+          "$Type": "Microflows$MicroflowCallAction",
+          "MicroflowCall": {
+           "$Type": "Microflows$MicroflowCall",
+           "Microflow": "Shop.L2",
+           "ParameterMappings": [
+            3
+           ]
+          }
+         }
+        }
+       ]
+      }
+     }
+    },
+    {
+     "type": "Microflows$Microflow",
+     "name": "L2",
+     "data": {
+      "ObjectCollection": {
+       "$Type": "Microflows$MicroflowObjectCollection",
+       "Objects": [
+        3,
+        {
+         "$Type": "Microflows$ActionActivity",
+         "Action": {
+          "$Type": "Microflows$MicroflowCallAction",
+          "MicroflowCall": {
+           "$Type": "Microflows$MicroflowCall",
+           "Microflow": "Shop.L3",
+           "ParameterMappings": [
+            3
+           ]
+          }
+         }
+        }
+       ]
+      }
+     }
+    },
+    {
+     "type": "Microflows$Microflow",
+     "name": "L3",
+     "data": {
+      "ObjectCollection": {
+       "$Type": "Microflows$MicroflowObjectCollection",
+       "Objects": [
+        3,
+        {
+         "$Type": "Microflows$ActionActivity",
+         "Action": {
+          "$Type": "Microflows$MicroflowCallAction",
+          "MicroflowCall": {
+           "$Type": "Microflows$MicroflowCall",
+           "Microflow": "Shop.L4",
+           "ParameterMappings": [
+            3
+           ]
+          }
+         }
+        }
+       ]
+      }
+     }
+    },
+    {
+     "type": "Microflows$Microflow",
+     "name": "L4",
+     "data": {
+      "ObjectCollection": {
+       "$Type": "Microflows$MicroflowObjectCollection",
+       "Objects": [
+        3,
+        {
+         "$Type": "Microflows$ActionActivity",
+         "Action": {
+          "$Type": "Microflows$ShowFormAction",
+          "FormSettings": {
+           "$Type": "Forms$FormSettings",
+           "Form": "Shop.Deep_Page",
+           "ParameterMappings": [
+            3
+           ]
+          }
+         }
+        }
+       ]
+      }
+     }
+    },
+    {
+     "type": "Microflows$Microflow",
+     "name": "NAV_Service",
+     "data": {
+      "ObjectCollection": {
+       "$Type": "Microflows$MicroflowObjectCollection",
+       "Objects": [
+        3
+       ]
+      }
+     }
+    }
+   ]
+  }
+ ]
+}

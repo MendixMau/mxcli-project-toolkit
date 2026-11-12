@@ -1,0 +1,4 @@
+{"from": "replace-clean.json", "ops": [["set", "files", {
+  "javasource/myown/actions/Old.java": "package myown.actions;\nimport com.mendix.core.Core;\npublic class Old { void run() throws Exception { Core.retrieveXPathQuery(null, \"//MyOwn.Item\"); } }\n",
+  "javascriptsource/myown/actions/Clean.js": "export async function Clean() { console.log(\"ok\"); }\n",
+  "theme/web/main.scss": ".my-card { color: red; }\n"}]]}

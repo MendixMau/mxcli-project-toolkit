@@ -1,0 +1,3 @@
+# SYNTHETIC: written by hand to exercise every category; no candidate app held jQuery snippet content when this was made (see research/snippet-oidc/candidates.md)
+# snippet-real-scroll.json is REAL: the content of an HTML/JavaScript Snippet (content type JavaScript) from a public Marketplace sample app (content id 225845), 28 identical copies there; only the name was changed.
+# snippet-field-shape-synthetic.json is SYNTHETIC: written by hand in the shape seen in a real field app (content type JavaScript with jQuery, Refresh on context change = No, a nav click handler, a programmatic click on a hidden store button, a commented-out setInterval, a click handler on a container); never customer code.

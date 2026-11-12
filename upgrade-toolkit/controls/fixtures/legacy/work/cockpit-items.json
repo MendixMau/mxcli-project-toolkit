@@ -1,0 +1,115 @@
+{
+ "items": {
+  "runtime": {
+   "cells": {}
+  },
+  "cart-page": {
+   "name": "Cart page",
+   "sub": "3 pages",
+   "group": "app",
+   "loop": 1,
+   "problem": "The cart page uses a carousel that the new client does not have.",
+   "proposal": "Swap the carousel for the new one and keep the same buttons.",
+   "steps": [
+    "Replace the carousel",
+    "Test the cart pages old against new"
+   ],
+   "result": "Pages work. The choice still needs the app owner's OK.",
+   "help": "Approve the swap or ask for a rewrite.",
+   "learn": "",
+   "decisions": [
+    "D4"
+   ],
+   "cells": {
+    "triage": {
+     "status": "ok",
+     "label": "Found",
+     "steps": [
+      "The cart page holds a carousel that stops working on the new client."
+     ],
+     "late": false,
+     "deploy": false
+    },
+    "plan": {
+     "status": "you",
+     "label": "Assumed, needs your OK",
+     "steps": [
+      "Swap the carousel for the new one."
+     ],
+     "late": false,
+     "deploy": false
+    },
+    "upgrade": {
+     "status": "ok",
+     "label": "Swapped",
+     "steps": [
+      "The carousel was swapped."
+     ],
+     "late": false,
+     "deploy": false
+    },
+    "test": {
+     "status": "wait",
+     "label": "Pages pass, not one by one",
+     "steps": [
+      "Smoke passes."
+     ],
+     "late": false,
+     "deploy": false
+    }
+   }
+  },
+  "order-grid": {
+   "name": "Order grid",
+   "sub": "2 pages",
+   "group": "app",
+   "loop": 1,
+   "problem": "The order grid cannot show rows on the new client.",
+   "proposal": "Update the grid module.",
+   "steps": [
+    "Update the grid"
+   ],
+   "result": "Fixed. Screens pass.",
+   "help": "Nothing needed.",
+   "learn": "",
+   "cells": {
+    "triage": {
+     "status": "ok",
+     "label": "Found",
+     "steps": [
+      "The order grid shows no rows."
+     ],
+     "late": false,
+     "deploy": false
+    },
+    "plan": {
+     "status": "ok",
+     "label": "Decided during the run",
+     "steps": [
+      "Update the grid module."
+     ],
+     "late": false,
+     "deploy": false
+    },
+    "upgrade": {
+     "status": "ok",
+     "label": "Updated",
+     "steps": [
+      "Updated."
+     ],
+     "late": false,
+     "deploy": false
+    },
+    "test": {
+     "status": "ok",
+     "label": "Passes on new app",
+     "steps": [
+      "Pages match."
+     ],
+     "late": false,
+     "deploy": false
+    }
+   }
+  }
+ }
+}

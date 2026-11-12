@@ -1,0 +1,2 @@
+{"from": "base.json", "ops": [["set", "modules/2/module_roles", ["Viewer", "User", "Administrator"]], ["set", "modules/0/module_roles", ["Admin"]],
+  ["set", "security", {"user_roles": {"Clerk": ["Atlas_Core.Viewer", "Administration.Admin", "Atlas_Core.User"], "Boss": ["Atlas_Core.Administrator"]}, "admin": "Clerk"}]]}

@@ -1,0 +1,1 @@
+{"from": "replace-clean.json", "ops": [["set", "version", "10.24.9.82412"], ["set", "model_settings", {"UseOQLVersion2": true, "SslCertificateAlgorithm": "PKIX"}], ["set", "security", {"strict_page_url": true}]]}

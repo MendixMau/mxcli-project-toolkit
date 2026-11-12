@@ -1,0 +1,12 @@
+{"from": "replace-clean.json", "ops": [
+ ["append", "modules/0/pages/0/widgets", "DropdownContainer.widget.DropdownContainer"],
+ ["append", "modules/0/pages/0/widgets", "DropdownContainer.widget.DropdownContainer"],
+ ["append", "modules/0/pages/0/widgets", "Guarded.widget.Guarded"],
+ ["set", "widget_packages", {
+  "DropdownContainer.mpk": {"ids": ["DropdownContainer.widget.DropdownContainer"], "dojo": true, "version": "1.2.0",
+                            "js": "var n = ReactDOM.findDOMNode(this); n.focus();"},
+  "ListViewControls.mpk": {"ids": ["ListViewControls.widget.ListViewControls"], "dojo": true, "version": "1.3.16",
+                           "js": "ReactDOM.findDOMNode(ref)"},
+  "Guarded.mpk": {"ids": ["Guarded.widget.Guarded"], "version": "3.11.2",
+                  "js": "g=function(){var e=r.getInstance();return typeof e.setClickOutsideRef==\"function\"?e.setClickOutsideRef():t.findDOMNode(e)};import{unstable_batchedUpdates as k,findDOMNode as M}from\"react-dom\";"},
+  "Markdown.mpk": {"ids": ["com.mendix.widget.web.markdown.Markdown"], "version": "2.1.0", "js": "const el = ref.current;"}}]]}

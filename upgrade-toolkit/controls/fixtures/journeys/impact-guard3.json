@@ -1,0 +1,9 @@
+{"old": "m/guard3/App.mpr", "new": "m/guard3/App.mpr",
+ "_why": "T6R-3: two microflow homes whose page guard depends on data (impact_map.landing_widget, fixtures/models/guard3.json)",
+ "user_roles": {"admin": null, "guest": null, "all": ["Inspector", "Planner"]},
+ "roles": {
+  "Inspector": {"home_page": "", "home_microflow": "Shop.NAV_Inspector", "landing": null, "menu_visible": [], "menu_hidden": [],
+                "sign_out_item": null, "is_admin": false, "is_guest": false},
+  "Planner": {"home_page": "", "home_microflow": "Shop.NAV_Only", "landing": null, "menu_visible": [], "menu_hidden": [],
+              "sign_out_item": null, "is_admin": false, "is_guest": false}},
+ "candidates": {}, "changes": [], "login": {}, "auth": {}}

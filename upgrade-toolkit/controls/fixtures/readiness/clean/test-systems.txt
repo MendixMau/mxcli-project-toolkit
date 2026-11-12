@@ -1,0 +1,2 @@
+Payments https://pay.test.invalid # sandbox
+Shipping https://ship.test.invalid

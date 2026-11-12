@@ -1,0 +1,1 @@
+{"version": "10.24.16.96987", "languages": ["en_US"], "navigation": {"login_page": ""}, "modules": [{"name": "MyOwn", "docs": [{"type": "Microflows$Microflow", "name": "ACT_X", "data": {"Source": {"$Type": "Rest$ODataRemoteEntitySource"}}}]}]}

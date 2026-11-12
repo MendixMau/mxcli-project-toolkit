@@ -1,0 +1,14 @@
+Executing step 'Clean up'
+Cleaning up...
+ERROR: An error occurred while creating the deployment package.
+System.IO.IOException: No space left on device : '/run/work/DotNetZip-ngzdn3jh.tmp'
+   at System.IO.Strategies.OSFileStreamStrategy.Write(ReadOnlySpan`1 buffer)
+   at Ionic.Crc.CrcCalculatorStream.Write(Byte[] buffer, Int32 offset, Int32 count) in /_/src/Zlib/CRC32.cs:line 710
+   at Ionic.Zip.ZipEntry._WriteEntryData(Stream s) in /_/src/Zip/ZipEntry.Write.cs:line 1476
+   at Ionic.Zip.ZipEntry.Write(Stream s) in /_/src/Zip/ZipEntry.Write.cs:line 2186
+   at Ionic.Zip.ZipFile.Save() in /_/src/Zip/ZipFile.Save.cs:line 168
+   at Ionic.Zip.ZipFile.Save(String fileName) in /_/src/Zip/ZipFile.Save.cs:line 461
+   at Mendix.Modeler.Deployment.Mda.MdaPackageBuilder.BuildPackage(IProject project, String mdaFilePath, IProgressInfo info) in Mendix.Modeler.Deployment\Mda\MdaPackageBuilder.cs:line 30
+   at Mendix.Modeler.Deployment.CoreDeploymentWork.BuildDeploymentPackage(IProject project, String mdaFilePath, IProgressInfo info) in Mendix.Modeler.Deployment\CoreDeploymentWork.cs:line 182
+BUILD FAILED
+[heavy-lock] build-old rc=3 53s

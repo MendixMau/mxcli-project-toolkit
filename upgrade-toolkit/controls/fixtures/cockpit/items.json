@@ -1,0 +1,68 @@
+{
+ "items": {
+  "regression:overlay": {
+   "loop": "Proposed",
+   "problem": "A layer covers the checkout button after the page loads.",
+   "proposal": "Find the layer that stays on top and close it when the page is ready.",
+   "steps": [
+    "Find the layer.",
+    "Close it on page load.",
+    "Rerun the two clicks on old and new."
+   ],
+   "result": "Proposed.",
+   "help": "Nothing needed.",
+   "learn": "Triage lists layers that cover buttons.",
+   "key": "regression:overlay"
+  },
+  "payment-gateway": {
+   "name": "Payment gateway",
+   "sub": "test mode",
+   "group": "setup",
+   "triage_missed": true,
+   "cells": {
+    "test": {
+     "status": "wait",
+     "label": "Stand-in running",
+     "deploy": true,
+     "steps": [
+      "The shop talks to a stand-in gateway."
+     ]
+    }
+   },
+   "loop": "Trying",
+   "problem": "The real gateway cannot be reached from the test setup.",
+   "proposal": "Run a stand-in now and check the real gateway at deploy.",
+   "steps": [
+    "Start the stand-in.",
+    "Run the checkout journeys.",
+    "Keep the real check on the go-live list."
+   ],
+   "result": "Trying.",
+   "help": "Tell us which gateway production uses.",
+   "learn": "Triage now asks for payment systems."
+  }
+ },
+ "ready": {
+  "broker": {
+   "status": "bad",
+   "label": "Message broker missing",
+   "loop": "Found",
+   "problem": "No broker for the order events.",
+   "proposal": "Run a test broker next to both apps.",
+   "steps": [
+    "Start a test broker."
+   ],
+   "result": "Found.",
+   "help": "Nothing needed."
+  },
+  "files": {
+   "row": "payment-gateway"
+  }
+ },
+ "feed": [
+  {
+   "time": "2026-01-03T08:00:00Z",
+   "text": "Test broker started"
+  }
+ ]
+}

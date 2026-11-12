@@ -1,0 +1,4 @@
+| run id | app (code name) | app type | from → highest reached | builds 0 errors | starts | progress / gate verdict | regressions open | journeys (old-app pass/fail, coverage) | fixed in this run | still open / needs a person | date |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 20261014115448 | NOTIF | notification service | not recorded | yes | yes | progress not recorded · INVALID (exit 2) | 0 (journeys) | old app 172 pass / 68 fail; 0 regression(s); coverage 172/310 (55%) | not recorded | journeys INVALID | 2026-10-14 |
+| 20261022075034 | PR | purchase request | 10.24.0.73019 → 11.12.5 | yes | yes | 5 of 10 (50%) · FAIL (exit 1) | 1 | old app 107 pass / 31 fail; 0 regression(s); coverage 107/279 (38%) | 0 decisions logged (DECISIONS.md) | smoke NOT RUN; journeys FAIL; screens FAIL; release NOT RUN; owner sign-off pending | 2026-10-22 |

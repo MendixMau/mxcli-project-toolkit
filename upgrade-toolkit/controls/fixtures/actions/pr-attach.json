@@ -1,0 +1,116 @@
+{
+ "tool": "action_inventory.py",
+ "summary": {},
+ "summary_line": "",
+ "actions": [
+  {
+   "id": "WorkflowCommons.WorkflowAttachment_New.actionButton3",
+   "host": "WorkflowCommons.WorkflowAttachment_New",
+   "host_type": "Page",
+   "widget": "actionButton3",
+   "widget_type": "ActionButton",
+   "caption": "Save",
+   "action": "microflow",
+   "target": "WorkflowCommons.ACT_Attachment_Save_Admin",
+   "kind": "commit",
+   "effects": [
+    "commit"
+   ],
+   "path": [
+    {
+     "entry": "home Responsive (Administrator)",
+     "target": "PurchaseApprovals.Admin_Homepage",
+     "profile": "Responsive",
+     "profile_kind": "Responsive",
+     "via": "home"
+    },
+    {
+     "page": "PurchaseApprovals.Admin_Homepage"
+    },
+    {
+     "click": "container3",
+     "on": "PurchaseApprovals.Admin_Homepage",
+     "action": "open-page",
+     "id": "PurchaseApprovals.Admin_Homepage.container3"
+    },
+    {
+     "page": "PurchaseApprovals.Admin_Workflow_Overview"
+    },
+    {
+     "click": "dataGrid21",
+     "on": "PurchaseApprovals.Admin_Workflow_Overview",
+     "action": "microflow",
+     "id": "PurchaseApprovals.Admin_Workflow_Overview.dataGrid21",
+     "row": "dataGrid21",
+     "row_only": true
+    },
+    {
+     "page": "PurchaseApprovals.WorkflowDefinition_View"
+    },
+    {
+     "click": "actionButton19",
+     "on": "PurchaseApprovals.WorkflowDefinition_View",
+     "action": "open-workflow",
+     "id": "PurchaseApprovals.WorkflowDefinition_View.actionButton19",
+     "within": "dataGrid21"
+    },
+    {
+     "page": "PurchaseApprovals.Admin_Workflow_Instance_View"
+    },
+    {
+     "click": "actionButton7",
+     "on": "WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments_Admin",
+     "action": "microflow",
+     "id": "WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments_Admin.actionButton7",
+     "within": "s"
+    },
+    {
+     "page": "WorkflowCommons.WorkflowAttachment_New"
+    },
+    {
+     "click": "actionButton3",
+     "on": "WorkflowCommons.WorkflowAttachment_New",
+     "action": "microflow",
+     "id": "WorkflowCommons.WorkflowAttachment_New.actionButton3",
+     "shown_if": [
+      "actionButton3: module roles WorkflowCommons.Administrator"
+     ]
+    }
+   ],
+   "path_text": "as Administrator: home Responsive (Administrator) -> PurchaseApprovals.Admin_Homepage -> click container3 -> PurchaseApprovals.Admin_Workflow_Overview -> click dataGrid21 -> PurchaseApprovals.WorkflowDefinition_View -> click actionButton19 -> PurchaseApprovals.Admin_Workflow_Instance_View -> click actionButton7 -> WorkflowCommons.WorkflowAttachment_New -> click actionButton3",
+   "roles": [
+    "Administrator"
+   ],
+   "fields": [
+    {
+     "widget": "fileManager1",
+     "input": "file",
+     "attribute": null,
+     "attr_type": {
+      "type": "none"
+     },
+     "editable": "Always"
+    }
+   ],
+   "needs": [],
+   "todo": [],
+   "unknown": [],
+   "conditional": true,
+   "shown_if": [
+    "actionButton3: module roles WorkflowCommons.Administrator"
+   ],
+   "click": {},
+   "context": "WorkflowCommons.WorkflowAttachment",
+   "path_roles": [
+    "Administrator"
+   ],
+   "path_role": "Administrator",
+   "reach": [
+    "WorkflowCommons",
+    "WorkflowCommons.ACT_Attachment_Save_Admin",
+    "WorkflowCommons.WorkflowAttachment_New"
+   ],
+   "reach_unknown": []
+  }
+ ]
+}

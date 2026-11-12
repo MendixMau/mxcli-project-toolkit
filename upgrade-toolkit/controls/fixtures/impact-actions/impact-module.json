@@ -1,0 +1,1 @@
+{"tool": "impact_map.py", "changes": [{"kind": "module", "qn": "Shop", "module": "Shop", "detail": "2.0.0 -> 2.1.0", "severity": "medium"}]}

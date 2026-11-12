@@ -1,0 +1,22 @@
+[
+ {
+  "name": "Home.htmlOnly",
+  "content": "<div class=\"banner\"><b>Welcome</b></div>"
+ },
+ {
+  "name": "Home.log",
+  "content": "<script>console.log('hi'); var x = 1;</script>"
+ },
+ {
+  "name": "Home.fetch",
+  "content": "<script>$.post('/rest/log', {a: 1});</script>"
+ },
+ {
+  "name": "Home.toggle",
+  "content": "<script>jQuery(function(){ jQuery('#more').click(function(){ jQuery('.panel').toggle(); }); });</script>"
+ },
+ {
+  "name": "Order.form",
+  "content": "<script>$('#qty').val(1); $.post('/rest/order', {q: 1}); $('#when').select2();</script>"
+ }
+]

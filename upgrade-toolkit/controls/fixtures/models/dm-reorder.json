@@ -1,0 +1,3 @@
+{"from": "dm-old.json",
+ "ops": [["delete", "modules/0/entities/0/attributes/0"],
+         ["append", "modules/0/entities/0/attributes", {"name": "Status", "type": "String", "default": "Pending_Approval"}]]}

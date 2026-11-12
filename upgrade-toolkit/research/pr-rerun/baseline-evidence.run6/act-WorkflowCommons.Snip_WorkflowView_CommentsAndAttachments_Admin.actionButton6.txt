@@ -1,0 +1,7 @@
+journey: act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments_Admin.actionButton6
+role: Administrator
+old-app verdict: FAIL
+not_pass: ["FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > tab 'Comments and attachments': reached \".mx-name-actionButton6\" never appeared \u2014 screenshot act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments_Admin.actionButton6-step4-NOT-REACHED.png", "INVALID open PurchaseApprovals.Admin_Workflow_Instance_View > tab 'Comments and attachments': downstream rungs not reached; nothing measured"]
+cluster: H5
+reason: admin comment/attachment row buttons need a per-row verb scoped to the owning row; no click path in the old UI walk reaches them (engine item)
+confirmed: owner 2026-10-22

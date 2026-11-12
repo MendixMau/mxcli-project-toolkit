@@ -1,0 +1,2 @@
+{"from": "base.json", "ops": [["set", "modules/0/pages/0/layout", "MyFirstModule.Layout_App"],
+                              ["append", "modules/0/pages", {"name": "Account_Extra"}]]}

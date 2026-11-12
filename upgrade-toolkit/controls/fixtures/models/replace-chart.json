@@ -1,0 +1,1 @@
+{"from": "replace-clean.json", "ops": [["append", "modules/0/pages/0/widgets", "com.mendix.widget.custom.PieChart.PieChart"]]}

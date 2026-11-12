@@ -1,0 +1,9 @@
+{"version": "10.24.16.96987",
+ "modules": [
+  {"name": "Shop", "pages": [{"name": "Home", "refs": {"Microflow": "Shop.ACT_Old"}}],
+   "docs": [{"type": "JavaActions$JavaAction", "name": "DeleteExpired"},
+            {"type": "ScheduledEvents$ScheduledEvent", "name": "DeleteExpired", "data": {"Enabled": true, "Microflow": "Shop.SE_DeleteExpired"}},
+            {"type": "Microflows$Microflow", "name": "SE_DeleteExpired", "refs": {"JavaAction": "Shop.DeleteExpired"}},
+            {"type": "Microflows$Microflow", "name": "ACT_Old"}]},
+  {"name": "Vendor", "appstore": [1, "1.0.0"],
+   "docs": [{"type": "Microflows$Microflow", "name": "ACT_Gone"}]}]}

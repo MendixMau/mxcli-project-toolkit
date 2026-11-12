@@ -1,0 +1,14 @@
+{"version": "10.24.16.96987",
+ "modules": [
+  {"name": "Shop",
+   "layouts": [{"name": "Layout_Menu", "named": [["NavigationTree", "navigationTree1"]]}],
+   "pages": [{"name": "Inbox", "layout": "Shop.Layout_Menu",
+              "named": [{"type": "ListView", "name": "listView1",
+                         "children": [{"type": "DivContainer", "name": "T_ButtonContainer6"}]},
+                        {"type": "DivContainer", "name": "container3", "conditional": true,
+                         "children": [{"type": "Label", "name": "HiddenNote"}]},
+                        {"type": "Label", "name": "PageTitle", "text": "Task inbox"}]},
+             {"name": "Plain", "layout": "Shop.Layout_Menu",
+              "named": [{"type": "DivContainer", "name": "T_ButtonContainer6"}, ["Label", "PageTitle"]]}]}],
+ "navigation": {"homes": [{"role": "*", "page": "Shop.Inbox"}],
+                "menu": [{"caption": "Inbox", "page": "Shop.Inbox"}]}}

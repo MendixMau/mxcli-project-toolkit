@@ -1,0 +1,92 @@
+{
+ "rows": {
+  "modules": [
+   {
+    "name": "Widgetpack",
+    "sub": "1.4.0 → 2.0.0",
+    "status": "done",
+    "stages": {
+     "triage": {
+      "say": "Widgetpack draws the product cards. Mendix 11 needs version 2.",
+      "proof": [
+       {
+        "kind": "text",
+        "src": "work/localedits.json",
+        "how": "",
+        "text": "Widgetpack 1.4.0: no local edits",
+        "imgs": []
+       }
+      ]
+     },
+     "plan": {
+      "say": "Update to 2.0.0 after the convert.",
+      "why": "Version 1 does not load on the new client.",
+      "who": "The toolkit, by its standard rule.",
+      "options": [
+       "Stay on 1.4.0, which blocks the new client"
+      ],
+      "gap": false,
+      "proof": [
+       {
+        "kind": "decision",
+        "id": "D2",
+        "cells": [
+         "D2",
+         "Widgetpack target",
+         "2.0.0",
+         "newest fit"
+        ]
+       }
+      ]
+     },
+     "upgrade": {
+      "say": "Updated, build clean.",
+      "facts": [
+       "1 module",
+       "build PASS"
+      ],
+      "proof": [
+       {
+        "kind": "commit",
+        "h": "1111111",
+        "d": "2026-01-02",
+        "s": "step: Widgetpack 2.0.0 (stepupdate, idcheck PASS)"
+       }
+      ]
+     },
+     "test": {
+      "say": "The product pages open as before.",
+      "results": [
+       [
+        "Product cards on the home page",
+        "pass",
+        "same as the old app"
+       ]
+      ]
+     }
+    }
+   },
+   {
+    "name": "Themepack",
+    "sub": "3.0.0",
+    "status": "open",
+    "stages": {
+     "plan": {
+      "say": "Keep the styles for now.",
+      "why": "",
+      "who": "Assumed by the agent.",
+      "options": [],
+      "gap": true,
+      "proof": []
+     }
+    }
+   }
+  ],
+  "no-such-row": [
+   {
+    "name": "ignored",
+    "stages": {}
+   }
+  ]
+ }
+}

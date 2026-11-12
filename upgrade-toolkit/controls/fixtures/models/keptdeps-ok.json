@@ -1,0 +1,3 @@
+{"from": "keptdeps.json", "ops": [["delete", "modules/0/docs/1"],
+  ["set", "files", {"javasource/updconn/actions/Translate.java": "package updconn.actions;\n\nimport authmod.proxies.Credential;\n\npublic class Translate {}\n",
+                    "javasource/authmod/proxies/Credential.java": "package authmod.proxies;\npublic class Credential {}\n"}]]}

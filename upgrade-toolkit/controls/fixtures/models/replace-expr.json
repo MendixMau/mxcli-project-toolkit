@@ -1,0 +1,27 @@
+{
+ "version": "9.24.3.8044",
+ "modules": [
+  {
+   "name": "MyOwn",
+   "docs": [
+    {"type": "Microflows$Microflow", "name": "ACT_Submit", "data": {"ObjectCollection": {"$Type": "Microflows$MicroflowObjectCollection",
+     "Objects": [{"$Type": "Microflows$ActionActivity", "Action": {"$Type": "Microflows$CreateVariableAction",
+      "VariableName": "Seconds", "InitialValue": "secondsBetween($Response/createdDate, $Response/changedDate)"}},
+      {"$Type": "Microflows$ActionActivity", "Action": {"$Type": "Microflows$CommitAction", "CommitVariableName": "Response"}}]}}},
+    {"type": "Microflows$Microflow", "name": "ACT_Local", "data": {"ObjectCollection": {"$Type": "Microflows$MicroflowObjectCollection",
+     "Objects": [{"$Type": "Microflows$ActionActivity", "Action": {"$Type": "Microflows$CreateVariableAction",
+      "VariableName": "Copy", "InitialValue": "$Response/changedDateLocal"}}]}}}
+   ]
+  },
+  {
+   "name": "Atlas_Core",
+   "appstore": [117187, "4.1.0"]
+  }
+ ],
+ "files": {
+  "javasource/myown/actions/Clean.java": "package myown.actions;\npublic class Clean { }\n",
+  "javascriptsource/myown/actions/Clean.js": "export async function Clean() { console.log(\"ok\"); }\n",
+  "theme/web/main.scss": ".my-card { color: red; }\n"
+ },
+ "navigation": {"login_page": ""}
+}

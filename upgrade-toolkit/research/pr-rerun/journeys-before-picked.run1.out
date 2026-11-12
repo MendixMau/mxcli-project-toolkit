@@ -1,0 +1,413 @@
+data: psql: pgmap: 52 entities, 284 attributes, 74 associations (72 table storage, 2 column storage), 0 names cut at 63 bytes, 0 problems
+park: P02 after leg 1: 3 of 3 walked
+park: P02 after leg 2: 4 of 4 walked
+park: P02 after leg 3: 6 of 6 walked
+park: P02 after leg 4: 8 of 8 walked
+park: before Requester~data: assigned 14
+park: before Approver~data: assigned 0
+park: before PurchaseOrderCreator~data: assigned 3
+park: before Receiver~data: assigned 1
+park: before InvoiceProcessor~data: assigned 1
+park: before Administrator~data: assigned 0
+park: before Requester~last: assigned 0
+park: before Approver~last: assigned 0
+park: before PurchaseOrderCreator~last: assigned 0
+park: before Administrator~last: assigned 0
+== before-picked (:8080)
+  data psql: pgmap: 52 entities, 284 attributes, 74 associations (72 table storage, 2 column storage), 0 names cut at 63 bytes, 0 problems
+  park 21 of 21 walked (P02 after leg 1: 3/3, P02 after leg 2: 4/4, P02 after leg 3: 6/6, P02 after leg 4: 8/8); assigned Requester~data 14, Approver~data 0, PurchaseOrderCreator~data 3, Receiver~data 1, InvoiceProcessor~data 1, Administrator~data 0, Requester~last 0, Approver~last 0, PurchaseOrderCreator~last 0, Administrator~last 0
+  role Requester                login PASS    smoke_requester
+  role Approver                 login PASS    smoke_approver
+  role PurchaseOrderCreator     login PASS    smoke_purchaseordercreator
+  role Receiver                 login PASS    smoke_receiver
+  role InvoiceProcessor         login PASS    smoke_invoiceprocessor
+  role Administrator            login PASS    smoke_administrator
+  role Requester~data           login PASS    smoke_requester
+  role Approver~data            login PASS    smoke_approver
+  role PurchaseOrderCreator~data login PASS    smoke_purchaseordercreator
+  role Receiver~data            login PASS    smoke_receiver
+  role InvoiceProcessor~data    login PASS    smoke_invoiceprocessor
+  role Administrator~data       login PASS    smoke_administrator
+    data: query "SELECT COUNT(*) AS n FROM WorkflowCommons.WorkflowCommentHelper WHERE Content = 'U-1014053545-125'": pgmap: not translated: entity WorkflowCommons.Workfl
+  role Requester~last           login PASS    smoke_requester
+  role Approver~last            login PASS    smoke_approver
+  role PurchaseOrderCreator~last login PASS    smoke_purchaseordercreator
+  role Administrator~last       login PASS    smoke_administrator
+  PASS    act-PurchaseApprovals.MyRequests.actionButton2          
+  PASS    act-PurchaseApprovals.NewRequest_Step1.actionButton1    
+  PASS    act-PurchaseApprovals.NewRequest_Step1.actionButton5    
+  PASS    act-PurchaseApprovals.NewRequest_Step1.navigationList2  
+  PASS    act-PurchaseApprovals.NewRequest_Step1.navigationList2_2 
+  PASS    act-PurchaseApprovals.NewRequest_Step2.actionButton2    
+  PASS    act-PurchaseApprovals.NewRequest_Step2.actionButton3    
+  PASS    act-PurchaseApprovals.NewRequest_Step2.actionButton4    
+  PASS    act-PurchaseApprovals.NewRequest_Step2.navigationList2  
+  PASS    act-PurchaseApprovals.NewRequest_Step2.navigationList2_2 
+  PASS    act-PurchaseApprovals.NewRequest_Step3.actionButton1    
+  PASS    act-PurchaseApprovals.NewRequest_Step3.actionButton3    
+  PASS    act-PurchaseApprovals.NewRequest_Step3.navigationList2  
+  PASS    act-PurchaseApprovals.NewRequest_Step3.navigationList2_2 
+  PASS    act-PurchaseApprovals.ProductLine_NewEdit.actionButton1 
+  PASS    login-Requester                                         
+  PASS    menu_My_requests-Requester                              
+  PASS    proc-p01-01                                             
+  PASS    proc-p02-01                                             
+  PASS    login-Approver                                          
+  PASS    menu_Task_Inbox-Approver                                
+  PASS    proc-p02-02                                             
+  PASS    login-PurchaseOrderCreator                              
+  PASS    proc-p02-03                                             
+  PASS    login-Receiver                                          
+  PASS    proc-p02-04                                             
+  PASS    login-InvoiceProcessor                                  
+  FAIL    proc-p02-05                                             FAIL 27. Click "View": actions completed .mx-name-actionButton7 not visible
+  PASS    act-PurchaseApprovals.Admin_Homepage.container2         
+  PASS    act-PurchaseApprovals.Admin_Homepage.container3         
+  PASS    act-PurchaseApprovals.Admin_Homepage.container4         
+  PASS    act-PurchaseApprovals.Admin_Homepage.container7         
+  PASS    act-PurchaseApprovals.Admin_Homepage.container8         
+  PASS    act-PurchaseApprovals.Atlas_TopBar_Customized.container6 
+  PASS    act-PurchaseApprovals.Atlas_TopBar_Customized.image2    
+  PASS    act-WorkflowCommons.Snip_WorkflowDashboard_Header.actionButton2 
+  PASS    create-save                                             
+  PASS    login-Administrator                                     
+  PASS    menu_Home-Administrator                                 
+  FAIL    proc-p04-01                                             FAIL 4. Click "Add attachment": reached ".mx-name-fileManager1" never appeared — screenshot proc-p04-01-step5-NOT-REACHED.png; INVALID 4. Click "Add a
+  PASS    sign-out                                                
+  PASS    act-PurchaseApprovals.MyRequests.container6             
+  FAIL    act-PurchaseApprovals.NewRequest_Step1.container7       FAIL microflow 'container7' on PurchaseApprovals.NewRequest_Step1 (no-db-effect): actions completed .mx-name-container7 not visible
+  FAIL    act-PurchaseApprovals.NewRequest_Step3.container7       FAIL microflow 'container7' on PurchaseApprovals.NewRequest_Step3 (no-db-effect): actions completed .mx-name-container7 not visible
+  PASS    act-PurchaseApprovals.Attachment_NewEdit.actionButton1  
+  PASS    act-PurchaseApprovals.Attachments.actionButton2         
+  PASS    act-PurchaseApprovals.Attachments.container12           
+  PASS    act-PurchaseApprovals.Comments_TaskInbox.actionButton1  
+  FAIL    act-PurchaseApprovals.Comments_TaskInbox.actionButton17 FAIL open PurchaseApprovals.Task_Approver: reached ".mx-name-actionButton17" never appeared — screenshot act-PurchaseApprovals.Comments_TaskInbox.acti [shown only if actionButton17: $currentObject/System.owner = [%CurrentUser%]]
+  PASS    act-PurchaseApprovals.TaskInbox.actionButton11          
+  FAIL    act-PurchaseApprovals.TaskInbox.actionButton12          FAIL role home PurchaseApprovals.TaskInbox: reached ".mx-name-actionButton12" never appeared — screenshot act-PurchaseApprovals.TaskInbox.actionButton [shown only if actionButton12: $currentObject = empty]
+  PASS    act-PurchaseApprovals.TaskInbox.actionButton13          
+  PASS    act-PurchaseApprovals.TaskInbox.actionButton7           
+  FAIL    act-PurchaseApprovals.TaskInbox.actionButton8           FAIL role home PurchaseApprovals.TaskInbox > tab 'Open tasks': reached ".mx-name-actionButton8" never appeared — screenshot act-PurchaseApprovals.Task [shown only if actionButton8: $currentObject = empty]
+  PASS    act-PurchaseApprovals.TaskInbox.actionButton9           
+  PASS    act-PurchaseApprovals.TaskInbox.container20             
+  PASS    act-PurchaseApprovals.TaskInbox.container25             
+  FAIL    act-PurchaseApprovals.Task_Approver.actionButton10      FAIL microflow 'Reject' on PurchaseApprovals.Task_Approver (task-outcome): actions completed .mx-name-actionButton10 not visible [shown only if container6: $currentObject = [%CurrentUser%]; LayoutGridRow: $dataView13/PurchaseApprovals.Request_MendixSSOUser_FirstApprover != empty 
+and
+$dataView1/State = ]
+  FAIL    act-PurchaseApprovals.Task_Approver.actionButton11      FAIL microflow 'Approve' on PurchaseApprovals.Task_Approver (task-outcome): actions completed .mx-name-actionButton11 not visible [shown only if container6: $currentObject = [%CurrentUser%]; LayoutGridRow: $dataView13/PurchaseApprovals.Request_MendixSSOUser_FirstApprover != empty 
+and
+$dataView1/State = ]
+  PASS    act-PurchaseApprovals.Task_Approver.actionButton15      
+  FAIL    act-PurchaseApprovals.Task_Approver.actionButton19      FAIL open PurchaseApprovals.Task_Approver: reached ".mx-name-actionButton19" never appeared — screenshot act-PurchaseApprovals.Task_Approver.actionBut [shown only if LayoutGridRow: $dataView1/System.WorkflowUserTask_Assignees = empty; actionButton19: $dataView1/State = System.WorkflowUserTaskState.InProgress
+and 
+$dataView1/]
+  PASS    act-PurchaseApprovals.Task_Approver.actionButton8       
+  PASS    act-PurchaseApprovals.Task_Approver.actionButton9       
+  FAIL    act-WorkflowCommons.WorkflowCommentHelper_Edit.actionButton5 FAIL role home PurchaseApprovals.TaskInbox: reached ".mx-name-container25" never appeared — screenshot act-WorkflowCommons.WorkflowCommentHelper_Edit.
+  FAIL    act-PurchaseApprovals.ProductLine_Edit_POCreator.actionButton1 FAIL open PurchaseApprovals.ProductLine_Edit_POCreator: reached ".mx-name-dataView6" never appeared — screenshot act-PurchaseApprovals.ProductLine_Edi [shown only if actionButton2: $dataView1/State = System.WorkflowUserTaskState.InProgress]
+  FAIL    act-PurchaseApprovals.PurchaseOrder_Edit.actionButton1  FAIL open PurchaseApprovals.Task_POCreator: reached ".mx-name-actionButton5" never appeared — screenshot act-PurchaseApprovals.PurchaseOrder_Edit.acti [shown only if container6: $currentObject = [%CurrentUser%]; LayoutGridRow: $dataView1/State = System.WorkflowUserTaskState.InProgress and
+$dataView13/POState = PurchaseApprov]
+  PASS    act-PurchaseApprovals.Task_POCreator.actionButton1      
+  FAIL    act-PurchaseApprovals.Task_POCreator.actionButton11     FAIL microflow 'Decline' on PurchaseApprovals.Task_POCreator (task-outcome): actions completed .mx-name-actionButton11 not visible [shown only if container6: $currentObject = [%CurrentUser%]; LayoutGridRow: $dataView1/State = System.WorkflowUserTaskState.InProgress and
+$dataView13/POState = PurchaseApprov]
+  FAIL    act-PurchaseApprovals.Task_POCreator.actionButton12     FAIL microflow 'Decline' on PurchaseApprovals.Task_POCreator (task-outcome): actions completed .mx-name-actionButton12 not visible [shown only if container6: $currentObject = [%CurrentUser%]; LayoutGridRow: $dataView1/State = System.WorkflowUserTaskState.InProgress and
+$dataView13/POState = PurchaseApprov]
+  PASS    act-PurchaseApprovals.Task_POCreator.actionButton13     
+  FAIL    act-PurchaseApprovals.Task_POCreator.actionButton14     FAIL microflow 'Decline' on PurchaseApprovals.Task_POCreator (task-outcome): actions completed .mx-name-actionButton14 not visible [shown only if container6: $currentObject = [%CurrentUser%]; LayoutGridRow: $dataView1/State = System.WorkflowUserTaskState.InProgress and
+$dataView13/POState = PurchaseApprov]
+  PASS    act-PurchaseApprovals.Task_POCreator.actionButton15     
+  FAIL    act-PurchaseApprovals.Task_POCreator.actionButton19     FAIL open PurchaseApprovals.Task_POCreator: reached ".mx-name-actionButton19" never appeared — screenshot act-PurchaseApprovals.Task_POCreator.actionB [shown only if LayoutGridRow: $dataView1/System.WorkflowUserTask_Assignees = empty; actionButton19: $dataView1/State = System.WorkflowUserTaskState.InProgress
+and 
+$dataView1/]
+  PASS    act-PurchaseApprovals.Task_POCreator.actionButton2      
+  FAIL    act-PurchaseApprovals.Task_POCreator.actionButton5      FAIL open PurchaseApprovals.Task_POCreator: reached ".mx-name-actionButton5" never appeared — screenshot act-PurchaseApprovals.Task_POCreator.actionBu [shown only if container6: $currentObject = [%CurrentUser%]; LayoutGridRow: $dataView1/State = System.WorkflowUserTaskState.InProgress and
+$dataView13/POState = PurchaseApprov]
+  FAIL    act-PurchaseApprovals.Task_POCreator.actionButton9      FAIL microflow 'Finish' on PurchaseApprovals.Task_POCreator (task-outcome): actions completed .mx-name-actionButton9 not visible [shown only if container6: $currentObject = [%CurrentUser%]; LayoutGridRow: $dataView1/State = System.WorkflowUserTaskState.InProgress and
+$dataView13/POState = PurchaseApprov]
+  PASS    act-PurchaseApprovals.Vendor_Select.actionButton1       
+  PASS    act-PurchaseApprovals.Vendor_Select.actionButton3       
+  PASS    act-PurchaseApprovals.Vendor_Select.actionButton4       
+  FAIL    act-PurchaseApprovals.Vendor_Select.actionButton5       FAIL microflow 'Deselect' on PurchaseApprovals.Vendor_Select (no-db-effect): actions completed .mx-name-actionButton5 not visible [shown only if actionButton5: $dataView1/PurchaseApprovals.ProductLine_SelectedVendor = $currentObject]
+  PASS    act-PurchaseApprovals.ProductLine_Edit_Receiver.actionButton1 
+  FAIL    act-PurchaseApprovals.ProductLine_Edit_Receiver.actionButton2 FAIL microflow 'Save' on PurchaseApprovals.ProductLine_Edit_Receiver (commit): the run's own row: InvoiceNumber = U-1014053545-115 got 0, expected 1
+  PASS    act-PurchaseApprovals.ProductLine_Edit_Receiver.actionButton3 
+  PASS    act-PurchaseApprovals.ProductLine_Edit_Receiver.actionButton4 
+  PASS    act-PurchaseApprovals.Task_Receiver.actionButton15      
+  FAIL    act-PurchaseApprovals.Task_Receiver.actionButton19      FAIL open PurchaseApprovals.Task_Receiver: reached ".mx-name-actionButton19" never appeared — screenshot act-PurchaseApprovals.Task_Receiver.actionBut [shown only if LayoutGridRow: $dataView1/System.WorkflowUserTask_Assignees = empty; actionButton19: $dataView1/State = System.WorkflowUserTaskState.InProgress
+and 
+$dataView1/]
+  PASS    act-PurchaseApprovals.Task_Receiver.actionButton4       
+  FAIL    act-PurchaseApprovals.Task_Receiver.actionButton5       FAIL open PurchaseApprovals.Task_Receiver: reached ".mx-name-actionButton5" never appeared — screenshot act-PurchaseApprovals.Task_Receiver.actionButt [shown only if container1: $currentObject = [%CurrentUser%]; actionButton5: $dataGrid21/Status != PurchaseApprovals.ENUM_Receipt.Awaiting_delivery]
+  PASS    act-PurchaseApprovals.Task_Receiver.actionButton9       
+  FAIL    act-PurchaseApprovals.Task_InvoiceProcessor.actionButton15 FAIL role home PurchaseApprovals.TaskInbox: reached ".mx-name-container25" never appeared — screenshot act-PurchaseApprovals.Task_InvoiceProcessor.act
+  FAIL    act-PurchaseApprovals.Task_InvoiceProcessor.actionButton19 FAIL role home PurchaseApprovals.TaskInbox: reached ".mx-name-container25" never appeared — screenshot act-PurchaseApprovals.Task_InvoiceProcessor.act
+  FAIL    act-PurchaseApprovals.Task_InvoiceProcessor.actionButton9 FAIL role home PurchaseApprovals.TaskInbox: reached ".mx-name-container25" never appeared — screenshot act-PurchaseApprovals.Task_InvoiceProcessor.act
+  PASS    act-PurchaseApprovals.Admin_Workflow_Instance_View.actionButton1 
+  PASS    act-PurchaseApprovals.Admin_Workflow_Overview.dataGrid21 
+  PASS    act-PurchaseApprovals.MendixSSOUserOverview.actionButton1 
+  FAIL    act-PurchaseApprovals.MendixSSOUserOverview.grid1       FAIL open-page 'grid1' on PurchaseApprovals.MendixSSOUserOverview (open-page): reached ".mx-name-dataView6" never appeared — screenshot act-PurchaseAp
+  PASS    act-PurchaseApprovals.Product_Overview.actionButton1    
+  FAIL    act-PurchaseApprovals.Product_Overview.grid1            FAIL open-page 'grid1' on PurchaseApprovals.Product_Overview (open-page): reached ".mx-name-dataView6" never appeared — screenshot act-PurchaseApprova
+  PASS    act-PurchaseApprovals.Vendor_Overview.actionButton1     
+  FAIL    act-PurchaseApprovals.Vendor_Overview.grid1             FAIL open-page 'grid1' on PurchaseApprovals.Vendor_Overview (open-page): reached ".mx-name-dataView6" never appeared — screenshot act-PurchaseApproval
+  PASS    act-PurchaseApprovals.WorkflowDefinition_View.actionButton19 
+  PASS    act-PurchaseApprovals.WorkflowDefinition_View.dataGrid21 
+  FAIL    act-WorkflowCommons.Snip_AuditTrailViewer_Toolbar.actionButton1 FAIL open WorkflowCommons.DefaultWorkflowAdmin > tab 'Audit trail': actions completed .mx-name-tabPage5 not visible [shown only if container1: $Workflow/System.Workflow_ParentWorkflow != empty]
+  FAIL    act-WorkflowCommons.Snip_AuditTrailViewer_Toolbar.actionButton2 FAIL open WorkflowCommons.DefaultWorkflowAdmin > tab 'Audit trail': actions completed .mx-name-tabPage5 not visible [shown only if container1: $Workflow/System.Workflow_ParentWorkflow != empty]
+  FAIL    act-WorkflowCommons.Snip_AuditTrailViewer_Toolbar.actionButton3 FAIL open WorkflowCommons.DefaultWorkflowAdmin > tab 'Audit trail': actions completed .mx-name-tabPage5 not visible [shown only if container1: $Workflow/System.Workflow_ParentWorkflow != empty]
+  FAIL    act-WorkflowCommons.Snip_AuditTrailViewer_Toolbar.actionButton4 FAIL open WorkflowCommons.DefaultWorkflowAdmin > tab 'Audit trail': actions completed .mx-name-tabPage5 not visible [shown only if container1: $Workflow/System.Workflow_ParentWorkflow != empty]
+  FAIL    act-WorkflowCommons.Snip_AuditTrailViewer_Toolbar.actionButton5 FAIL open WorkflowCommons.DefaultWorkflowAdmin > tab 'Audit trail': actions completed .mx-name-tabPage5 not visible [shown only if container1: $Workflow/System.Workflow_ParentWorkflow != empty]
+  FAIL    act-WorkflowCommons.Snip_UserTaskView_Details.actionButton10 FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > tab 'Task details': reached ".mx-name-actionButton10" never appeared — screenshot act-Workf [shown only if LayoutGridRow: WorkflowCommons.UserTaskView.State in ['Created', 'InProgress', 'Paused', 'Failed']; actionButton10: $currentObject/CompletionType = System.Workf]
+  FAIL    act-WorkflowCommons.Snip_UserTaskView_Details.actionButton11 FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > tab 'Task details': reached ".mx-name-actionButton11" never appeared — screenshot act-Workf [shown only if LayoutGridRow: WorkflowCommons.UserTaskView.State in ['Created', 'InProgress', 'Paused', 'Failed']; actionButton11: System.WorkflowUserTask.CompletionType in [']
+  FAIL    act-WorkflowCommons.Snip_UserTaskView_Details.actionButton5 FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > tab 'Task details': reached ".mx-name-actionButton5" never appeared — screenshot act-Workfl [shown only if container1: WorkflowCommons.UserTaskView.State in ['Created', 'InProgress', 'Paused', 'Failed']; container10: $currentObject/System.WorkflowUserTask_TargetUsers]
+  PASS    act-WorkflowCommons.Snip_UserTaskView_Details.actionButton6 
+  PASS    act-WorkflowCommons.Snip_UserTaskView_Details.actionButton9 
+  FAIL    act-WorkflowCommons.Snip_WorkflowActivityRecord_Details.actionButton4 FAIL open WorkflowCommons.DefaultWorkflowAdmin: reached ".mx-name-actionButton4" never appeared — screenshot act-WorkflowCommons.Snip_WorkflowActivity [shown only if container1: $Workflow/System.Workflow_ParentWorkflow != empty; container10: System.WorkflowActivityRecord.ActivityType in ['UserTask', 'CallWorkflow', 'MultiInp]
+  INVALID act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments_Admin.actionButton1 INVALID microflow 'Submit' on WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments_Admin (commit): the run's own row: Content = U-1014053545-125 O
+  FAIL    act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments_Admin.actionButton16 FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > tab 'Comments and attachments': reached ".mx-name-actionButton16" never appeared — screensh [shown only if actionButton16: not(
+	toLowerCase(substring($currentObject/Name, length($currentObject/Name)-4, 4)) = 'jpeg' or
+	toLowerCase(substring($currentObject/Name, leng]
+  FAIL    act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments_Admin.actionButton17 FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > tab 'Comments and attachments': reached ".mx-name-actionButton17" never appeared — screensh [shown only if actionButton17: toLowerCase(substring($currentObject/Name, length($currentObject/Name)-4, 4)) = 'jpeg' or
+toLowerCase(substring($currentObject/Name, length($cur]
+  PASS    act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments_Admin.actionButton4 
+  FAIL    act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments_Admin.actionButton6 FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > tab 'Comments and attachments': reached ".mx-name-actionButton6" never appeared — screensho
+  PASS    act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments_Admin.actionButton7 
+  FAIL    act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments_Admin.listView6 FAIL open-page 'listView6' on WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments_Admin (open-page): actions completed listView6: no row to click
+  FAIL    act-WorkflowCommons.Snip_Workflow_ActivityTimelineOnly_Full.actionButton5 FAIL open WorkflowCommons.DefaultWorkflowAdmin: reached ".mx-name-actionButton5" never appeared — screenshot act-WorkflowCommons.Snip_Workflow_Activit [shown only if container1: $Workflow/System.Workflow_ParentWorkflow != empty; actionButton5: $currentObject/WorkflowCommons.TimelineViewer_Workflow != $Workflow]
+  PASS    act-WorkflowCommons.Snip_Workflow_Header.actionButton1  
+  PASS    act-WorkflowCommons.Snip_Workflow_MoreActions.actionButton19 
+  PASS    act-WorkflowCommons.UserTask_Assign.actionButton10      
+  FAIL    act-WorkflowCommons.UserTask_Assign.actionButton2       FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > tab 'Task details': reached ".mx-name-actionButton10" never appeared — screenshot act-Workf [shown only if LayoutGridRow: WorkflowCommons.UserTaskView.State in ['Created', 'InProgress', 'Paused', 'Failed']; actionButton10: $currentObject/CompletionType = System.Workf]
+  FAIL    act-WorkflowCommons.UserTask_Assign.actionButton7       FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > tab 'Task details': reached ".mx-name-actionButton10" never appeared — screenshot act-Workf [shown only if LayoutGridRow: WorkflowCommons.UserTaskView.State in ['Created', 'InProgress', 'Paused', 'Failed']; actionButton10: $currentObject/CompletionType = System.Workf]
+  FAIL    act-WorkflowCommons.UserTask_Assign.actionButton8       FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > tab 'Task details': reached ".mx-name-actionButton10" never appeared — screenshot act-Workf [shown only if LayoutGridRow: WorkflowCommons.UserTaskView.State in ['Created', 'InProgress', 'Paused', 'Failed']; actionButton10: $currentObject/CompletionType = System.Workf]
+  FAIL    act-WorkflowCommons.UserTask_Assign.actionButton9       FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > tab 'Task details': reached ".mx-name-actionButton10" never appeared — screenshot act-Workf [shown only if LayoutGridRow: WorkflowCommons.UserTaskView.State in ['Created', 'InProgress', 'Paused', 'Failed']; actionButton10: $currentObject/CompletionType = System.Workf]
+  PASS    act-WorkflowCommons.UserTask_Target.actionButton3       
+  PASS    act-WorkflowCommons.UserTask_Target.actionButton4       
+  FAIL    act-WorkflowCommons.WorkflowAttachment_New.actionButton3 FAIL open WorkflowCommons.WorkflowAttachment_New: reached ".mx-name-actionButton3" never appeared — screenshot act-WorkflowCommons.WorkflowAttachment_ [shown only if actionButton3: module roles WorkflowCommons.Administrator]
+  FAIL    act-WorkflowCommons.WorkflowAttachment_View.actionButton1 FAIL open WorkflowCommons.WorkflowAttachment_View: actions completed listView6: no row to click in .mx-name-listView6: the list is empty, a fixture ga
+  FAIL    act-WorkflowCommons.WorkflowAttachment_View.actionButton16 FAIL open WorkflowCommons.WorkflowAttachment_View: actions completed listView6: no row to click in .mx-name-listView6: the list is empty, a fixture ga [shown only if actionButton16: not(
+	toLowerCase(substring($currentObject/Name, length($currentObject/Name)-4, 4)) = 'jpeg' or
+	toLowerCase(substring($currentObject/Name, leng]
+  FAIL    act-WorkflowCommons.WorkflowAttachment_View.actionButton17 FAIL open WorkflowCommons.WorkflowAttachment_View: actions completed listView6: no row to click in .mx-name-listView6: the list is empty, a fixture ga [shown only if actionButton17: toLowerCase(substring($currentObject/Name, length($currentObject/Name)-4, 4)) = 'jpeg' or
+toLowerCase(substring($currentObject/Name, length($cur]
+  PASS    act-WorkflowCommons.WorkflowComment_Edit_Admin.actionButton5 
+  PASS    act-WorkflowCommons.Workflow_ActionConfirmation.actionButton2 
+  PASS    act-WorkflowCommons.Workflow_JumpTo_Options.actionButton1 
+  FAIL    act-PurchaseApprovals.NewRequest_Step1.actionButton3    FAIL open PurchaseApprovals.NewRequest_Step1: reached ".mx-name-actionButton3" never appeared — screenshot act-PurchaseApprovals.NewRequest_Step1.acti
+  FAIL    act-PurchaseApprovals.NewRequest_Step2.actionButton1    FAIL delete 'actionButton1' on PurchaseApprovals.NewRequest_Step2 (delete): reached ".mx-page" never appeared — screenshot act-PurchaseApprovals.NewRe
+  FAIL    act-PurchaseApprovals.NewRequest_Step3.actionButton4    FAIL open PurchaseApprovals.NewRequest_Step3: reached ".mx-name-actionButton4" never appeared — screenshot act-PurchaseApprovals.NewRequest_Step3.acti
+  PASS    act-PurchaseApprovals.Attachments.actionButton6         
+  FAIL    act-PurchaseApprovals.Comments_TaskInbox.actionButton16 FAIL microflow 'actionButton16' on PurchaseApprovals.Comments_TaskInbox (delete): actions completed .mx-name-actionButton16 not visible [shown only if actionButton16: $currentObject/System.owner = [%CurrentUser%]]
+  FAIL    act-PurchaseApprovals.Task_POCreator.actionButton10     FAIL microflow 'Create PO(s)' on PurchaseApprovals.Task_POCreator (delete): actions completed .mx-name-actionButton10 not visible [shown only if container6: $currentObject = [%CurrentUser%]; LayoutGridRow: $dataView1/State = System.WorkflowUserTaskState.InProgress and
+$dataView13/POState = PurchaseApprov]
+  PASS    act-PurchaseApprovals.MendixSSOUserOverview.actionButton2 
+  PASS    act-PurchaseApprovals.Product_Overview.actionButton2    
+  PASS    act-PurchaseApprovals.Vendor_Overview.actionButton2     
+  PASS    act-PurchaseApprovals.WorkflowDefinition_View.actionButton1 
+  PASS    act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments_Admin.actionButton3 
+  FAIL    act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments_Admin.actionButton8 FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > tab 'Comments and attachments': reached ".mx-name-actionButton8" never appeared — screensho
+  FAIL    act-WorkflowCommons.Snip_Workflow_MoreActions.actionButton13 FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > menu pop_upMenu5: reached ".mx-name-actionButton13" never appeared — screenshot act-Workflo [shown only if pop_upMenu5: $Workflow/State=System.WorkflowState.InProgress or 
+$Workflow/State=System.WorkflowState.Paused or 
+($Workflow/State=System.WorkflowState.Aborted a]
+  FAIL    act-WorkflowCommons.Snip_Workflow_MoreActions.actionButton14 FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > menu pop_upMenu5: reached ".mx-name-actionButton14" never appeared — screenshot act-Workflo [shown only if pop_upMenu5: $Workflow/State=System.WorkflowState.InProgress or 
+$Workflow/State=System.WorkflowState.Paused or 
+($Workflow/State=System.WorkflowState.Aborted a]
+  PASS    act-WorkflowCommons.Snip_Workflow_MoreActions.actionButton15 
+  FAIL    act-WorkflowCommons.Snip_Workflow_MoreActions.actionButton16 FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > menu pop_upMenu5: actions completed .mx-name-pop_upMenu5 not on screen and no .popupmenu-tr [shown only if pop_upMenu5: $Workflow/State=System.WorkflowState.InProgress or 
+$Workflow/State=System.WorkflowState.Paused or 
+($Workflow/State=System.WorkflowState.Aborted a]
+  FAIL    act-WorkflowCommons.Snip_Workflow_MoreActions.actionButton17 FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > menu pop_upMenu5: actions completed .mx-name-pop_upMenu5 not on screen and no .popupmenu-tr [shown only if pop_upMenu5: $Workflow/State=System.WorkflowState.InProgress or 
+$Workflow/State=System.WorkflowState.Paused or 
+($Workflow/State=System.WorkflowState.Aborted a]
+  FAIL    act-WorkflowCommons.Snip_Workflow_MoreActions.actionButton18 FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > menu pop_upMenu5: actions completed .mx-name-pop_upMenu5 not on screen and no .popupmenu-tr [shown only if pop_upMenu5: $Workflow/State=System.WorkflowState.InProgress or 
+$Workflow/State=System.WorkflowState.Paused or 
+($Workflow/State=System.WorkflowState.Aborted a]
+  FAIL    act-WorkflowCommons.Workflow_Retry_Options.actionButton1 FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > menu pop_upMenu5: actions completed .mx-name-pop_upMenu5 not on screen and no .popupmenu-tr [shown only if pop_upMenu5: $Workflow/State=System.WorkflowState.InProgress or 
+$Workflow/State=System.WorkflowState.Paused or 
+($Workflow/State=System.WorkflowState.Aborted a]
+  FAIL    act-WorkflowCommons.Workflow_Retry_Options.actionButton2 FAIL open PurchaseApprovals.Admin_Workflow_Instance_View > menu pop_upMenu5: actions completed .mx-name-pop_upMenu5 not on screen and no .popupmenu-tr [shown only if pop_upMenu5: $Workflow/State=System.WorkflowState.InProgress or 
+$Workflow/State=System.WorkflowState.Paused or 
+($Workflow/State=System.WorkflowState.Aborted a]
+  INVALID act-Administration.Account_Edit.saveButton1             skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-Administration.Account_Edit.microflowTrigger1       skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-Administration.Account_New.microflowButton1         skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-Administration.Account_Overview.actionButton3       skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-Administration.Account_Overview.actionButton4       skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-Administration.Account_Overview.actionButton1       skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-Administration.Account_Overview.actionButton2       skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-Administration.ActiveSessions.actionButton1         skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-Administration.ChangeMyPasswordForm.microflowButton1 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-Administration.ChangePasswordForm.microflowButton1  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-Administration.MyAccount.saveButton1                skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-Administration.MyAccount.microflowTrigger1          skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-FeedbackModule.ShareFeedback.actionButton4          skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach)
+  INVALID act-FeedbackModule.ShareFeedback.actionButton5          skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach)
+  INVALID act-FeedbackModule.ShareFeedback.actionButton1          skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach)
+  INVALID act-FeedbackModule.ShareFeedback.feedback_clear         skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach)
+  INVALID act-FeedbackModule.ShareFeedback.feedback_submit        skipped: action todo: external-call: RestCallAction; no-click-path (a non-click caller reaches it: entry_reach)
+  INVALID act-PurchaseApprovals.Admin_Workflow_InstanceOverview.actionButton1 skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach)
+  INVALID act-PurchaseApprovals.Admin_Workflow_InstanceOverview.actionButton19 skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach)
+  INVALID act-PurchaseApprovals.Admin_Workflow_InstanceOverview.dataGrid21 skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach)
+  INVALID act-PurchaseApprovals.Comments_MyRequests.actionButton1 skipped: action todo: no-click-path (no entry point reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-PurchaseApprovals.Comments_MyRequests.actionButton16 skipped: action todo: no-click-path (no entry point reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-PurchaseApprovals.Comments_MyRequests.actionButton17 skipped: action todo: no-click-path (no entry point reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-PurchaseApprovals.Product_Select.actionButton1      skipped: action todo: no-click-path (no entry point reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-PurchaseApprovals.Product_SelectVendors.actionButton1 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-PurchaseApprovals.UserRole_Select.actionButton1     skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-PurchaseApprovals.Vendor_SelectProduct.actionButton1 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.ManageTaskAssignments.actionButton14 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.ManageTaskAssignments.dataGrid23    skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.ManageTaskAssignments.dataGrid23_2  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.ManageTaskAssignments.actionButton5 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.ManageTaskAssignments.actionButton12 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.ManageTaskAssignments.actionButton16 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.ManageTaskAssignments.dataGrid25    skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.ManageTaskAssignments.dataGrid25_2  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.ManageTaskAssignments.actionButton20 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.MyInitiatedWorkflows.actionButton4  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.MyInitiatedWorkflows.gallery1       skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.MyInitiatedWorkflows.actionButton3  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.Snip_TaskCount_RefreshBTN.actionButton1 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.Snip_TaskDashboard_Header.dropDown2 skipped: action todo: combobox: the action fires on a change of combobox dropDown2; no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.Snip_TaskDashboard_Header.referenceSelector5 skipped: action todo: combobox: the action fires on a change of combobox referenceSelector5; no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.Snip_TaskDashboard_Header.referenceSelector6 skipped: action todo: combobox: the action fires on a change of combobox referenceSelector6; no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.Snip_TaskDashboard_Numbers.actionButton24 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.Snip_UserTask_Detail.actionButton1  skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-WorkflowCommons.Snip_UserTask_Detail.actionButton2  skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-WorkflowCommons.Snip_UserTask_Detail.actionButton7  skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-WorkflowCommons.Snip_UserTask_Detail.actionButton4  skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-WorkflowCommons.Snip_WorkflowDashboard_Header.dropDown3 skipped: action todo: combobox: the action fires on a change of combobox dropDown3
+  INVALID act-WorkflowCommons.Snip_WorkflowDashboard_Header.referenceSelector4 skipped: action todo: combobox: the action fires on a change of combobox referenceSelector4
+  INVALID act-WorkflowCommons.Snip_WorkflowDashboard_TaskNumbers.referenceSelector5 skipped: action todo: combobox: the action fires on a change of combobox referenceSelector5
+  INVALID act-WorkflowCommons.Snip_WorkflowDefinition_Actions.actionButton17 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.Snip_WorkflowDefinition_Actions.actionButton13 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.Snip_WorkflowDefinition_Actions.actionButton18 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.Snip_WorkflowDefinition_Actions.actionButton19 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.Snip_WorkflowJumpToDetails.referenceSelector2 skipped: action todo: combobox: the action fires on a change of combobox referenceSelector2
+  INVALID act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments.actionButton1 skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments.actionButton3 skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments.actionButton4 skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments.actionButton7 skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments.listView6 skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments.actionButton6 skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments.actionButton8 skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments.actionButton16 skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-WorkflowCommons.Snip_WorkflowView_CommentsAndAttachments.actionButton17 skipped: action todo: no-click-path (a non-click caller reaches it: entry_reach); no-role: no user role may open the page and run the action
+  INVALID act-WorkflowCommons.TaskAssignmentHelper_UserTask_Reassign.actionButton7 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskAssignmentHelper_UserTask_Reassign_TargetUserOptions.actionButton1 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskAssignmentHelper_UserTask_Reassign_TargetUserOptions.actionButton2 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskAssignmentHelper_UserTask_Retarget.actionButton7 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskAssignmentHelper_UserTask_Retarget_TargetUserOptions.actionButton1 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskAssignmentHelper_UserTask_Retarget_TargetUserOptions.actionButton2 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskAssignmentHelper_UserTask_Unassign_TargetUserOptions.actionButton1 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskAssignmentHelper_UserTask_Unassign_TargetUserOptions.actionButton2 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskDashboard.actionButton23        skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskDashboard.dataGrid24            skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskDashboard.dataGrid24_2          skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskDashboard.actionButton13        skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskDashboard.actionButton22        skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskDashboard.dataGrid23            skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskDashboard.dataGrid23_2          skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskDashboard.actionButton12        skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskDashboard.actionButton21        skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskDashboard.dataGrid22            skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskDashboard.dataGrid22_2          skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskDashboard.actionButton20        skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskDashboard.dataGrid21            skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskDashboard.dataGrid21_2          skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskInbox.actionButton23            skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskInbox.dataGrid24                skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskInbox.dataGrid24_2              skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskInbox.actionButton13            skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskInbox.actionButton22            skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskInbox.dataGrid23                skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskInbox.dataGrid23_2              skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskInbox.actionButton12            skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskInbox.actionButton21            skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskInbox.dataGrid22                skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.TaskInbox.dataGrid22_2              skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowAdminCenter.actionButton37  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowAdminCenter.actionButton15  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowAdminCenter.container21     skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowAdminCenter.actionButton20  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowAdminCenter.actionButton21  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowAdminCenter.container22     skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowAdminCenter.actionButton22  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowAdminCenter.actionButton23  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowAdminCenter.container20     skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowAdminCenter.actionButton18  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowAdminCenter.actionButton19  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowAdminCenter.container25     skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowAdminCenter.actionButton28  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowAdminCenter.actionButton29  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowAttachment_New.actionButton1 skipped: action todo: no-click-path (clicks reach the page, but not as a role allowed to run it)
+  INVALID act-WorkflowCommons.WorkflowDefinition_ActionConfirmation.actionButton2 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_CleanUp.actionButton1 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_CleanUp.actionButton3 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_CleanUp.actionButton4 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_Lock.actionButton3 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_Lock.actionButton2 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_Overview.container1 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_Overview.dataGrid21 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_Overview.dataGrid21_2 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_Unlock.actionButton1 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_Unlock.actionButton2 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_View.actionButton10 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_View.dataGrid22  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_View.dataGrid22_2 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_View.actionButton14 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_View.dataGrid23  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_View.dataGrid23_2 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_View.actionButton15 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_View.dataGrid24  skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.WorkflowDefinition_View.dataGrid24_2 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  INVALID act-WorkflowCommons.Workflow_WithdrawConfirmation.actionButton2 skipped: action todo: no-click-path (no entry point reaches it: entry_reach)
+  PASS    client_microflow:PurchaseApprovals.ACT_SaveComment_OnWorkflow todo closed by act-PurchaseApprovals.Attachment_NewEdit.actionButton1 (hand-written journey)
+  FAIL    client_microflow:PurchaseApprovals.CompleteRequest_InvoiceProcessor todo closed by act-PurchaseApprovals.Task_InvoiceProcessor.actionButton9 (hand-written journey)
+  PASS    client_microflow:PurchaseApprovals.CreateNewVendor_POCreator todo closed by act-PurchaseApprovals.Vendor_Select.actionButton3 (hand-written journey)
+  FAIL    client_microflow:PurchaseApprovals.CreatePurchaseOrder  todo closed by act-PurchaseApprovals.Task_POCreator.actionButton10 (hand-written journey)
+  PASS    client_microflow:PurchaseApprovals.DS_CommentsOnWorkflow todo closed by act-PurchaseApprovals.Attachment_NewEdit.actionButton1 (hand-written journey)
+  PASS    client_microflow:PurchaseApprovals.DS_GetOwnerOfComment todo closed by act-PurchaseApprovals.Attachment_NewEdit.actionButton1 (hand-written journey)
+  PASS    client_microflow:PurchaseApprovals.EditProductLine_Receiver todo closed by act-PurchaseApprovals.Task_Receiver.actionButton4 (hand-written journey)
+  FAIL    client_microflow:PurchaseApprovals.FinishRequest_POCreator todo closed by act-PurchaseApprovals.Task_POCreator.actionButton9 (hand-written journey)
+  PASS    client_microflow:PurchaseApprovals.ReceivedGoods_Receiver todo closed by act-PurchaseApprovals.Task_Receiver.actionButton9 (hand-written journey)
+  PASS    client_microflow:PurchaseApprovals.ShowProductNewEdit   todo closed by act-PurchaseApprovals.Task_POCreator.actionButton2 (hand-written journey)
+  PASS    client_microflow:PurchaseApprovals.ShowSelectVendorPage todo closed by act-PurchaseApprovals.Task_POCreator.actionButton1 (hand-written journey)
+  INVALID page:PurchaseApprovals.Admin_Workflow_InstanceOverview  todo: no menu item reaches it; needs a hand-written step from the page that opens it
+  PASS    page:PurchaseApprovals.Admin_Workflow_Instance_View     todo closed by act-PurchaseApprovals.Admin_Workflow_Instance_View.actionButton1 (hand-written journey)
+  FAIL    page:PurchaseApprovals.ProductLine_Edit_Receiver        todo closed by act-PurchaseApprovals.ProductLine_Edit_Receiver.actionButton2 (hand-written journey)
+  FAIL    page:PurchaseApprovals.PurchaseOrder_Edit               todo closed by act-PurchaseApprovals.PurchaseOrder_Edit.actionButton1 (hand-written journey)
+  PASS    page:PurchaseApprovals.Task_Approver                    todo closed by act-PurchaseApprovals.Attachment_NewEdit.actionButton1 (hand-written journey)
+  FAIL    page:PurchaseApprovals.Task_InvoiceProcessor            todo closed by act-PurchaseApprovals.Task_InvoiceProcessor.actionButton9 (hand-written journey)
+  FAIL    page:PurchaseApprovals.Task_POCreator                   todo closed by act-PurchaseApprovals.ProductLine_Edit_POCreator.actionButton1 (hand-written journey)
+  FAIL    page:PurchaseApprovals.Task_Receiver                    todo closed by act-PurchaseApprovals.ProductLine_Edit_Receiver.actionButton2 (hand-written journey)
+  PASS    page:PurchaseApprovals.Vendor_Select                    todo closed by act-PurchaseApprovals.Vendor_Select.actionButton1 (hand-written journey)
+  INFO    home:PurchaseApprovals.Admin_Homepage                   covered: role home walked by login-Administrator
+  INFO    home:PurchaseApprovals.MyRequests                       covered: role home walked by login-Requester
+  INFO    home:PurchaseApprovals.TaskInbox                        covered: role home walked by login-Approver
+  PASS    act-PurchaseApprovals.MendixSSOUserOverview.actionButton3 covered: closed by create-save
+  PASS    act-PurchaseApprovals.MendixSSOUser_NewEdit.actionButton1 covered: closed by create-save
+  PASS    act-PurchaseApprovals.Product_NewEdit.actionButton1     covered: closed by create-save
+  PASS    act-PurchaseApprovals.Product_Overview.actionButton3    covered: closed by create-save
+  PASS    act-PurchaseApprovals.Product_Select.actionButton3      covered: closed by create-save
+  PASS    act-PurchaseApprovals.Vendor_NewEdit.actionButton1      covered: closed by create-save
+  PASS    act-PurchaseApprovals.Vendor_Overview.actionButton3     covered: closed by create-save
+  INFO    client_microflow:PurchaseApprovals.RetrieveListOfComments unreachable: no menu item, home page or login page reaches it through any chain of callers: dead in the UI, report it
+  INFO    client_microflow:PurchaseApprovals.ShowWorkflowInstances unreachable: no menu item, home page or login page reaches it through any chain of callers: dead in the UI, report it
+  INFO    client_microflow:PurchaseApprovals.SubmitCommentRequester unreachable: no menu item, home page or login page reaches it through any chain of callers: dead in the UI, report it
+  INFO    page:WorkflowCommons.ManageTaskAssignments              unreachable: vendor page of module-pages:WorkflowCommons: no menu item, home page, login page, page URL or caller chain reaches it: dead in the UI, re
+  INFO    page:WorkflowCommons.MyInitiatedWorkflows               unreachable: vendor page of module-pages:WorkflowCommons: no menu item, home page, login page, page URL or caller chain reaches it: dead in the UI, re
+  INFO    page:WorkflowCommons.TaskAssignmentHelper_UserTask_Reassign_TargetUserOptions unreachable: vendor page of module-pages:WorkflowCommons: no menu item, home page, login page, page URL or caller chain reaches it: dead in the UI, re
+  INFO    page:WorkflowCommons.TaskAssignmentHelper_UserTask_Retarget_TargetUserOptions unreachable: vendor page of module-pages:WorkflowCommons: no menu item, home page, login page, page URL or caller chain reaches it: dead in the UI, re
+  INFO    page:WorkflowCommons.TaskAssignmentHelper_UserTask_Unassign_TargetUserOptions unreachable: vendor page of module-pages:WorkflowCommons: no menu item, home page, login page, page URL or caller chain reaches it: dead in the UI, re
+  INFO    page:WorkflowCommons.WorkflowAdminCenter                unreachable: vendor page of module-pages:WorkflowCommons: no menu item, home page, login page, page URL or caller chain reaches it: dead in the UI, re
+  INFO    page:WorkflowCommons.WorkflowDefinition_CleanUp         unreachable: vendor page of module-pages:WorkflowCommons: no menu item, home page, login page, page URL or caller chain reaches it: dead in the UI, re
+  INFO    page:WorkflowCommons.WorkflowDefinition_View            unreachable: vendor page of module-pages:WorkflowCommons: no menu item, home page, login page, page URL or caller chain reaches it: dead in the UI, re
+  INFO    page:WorkflowCommons.TaskAssignmentHelper_UserTask_Reassign unreachable: vendor page of module-pages:WorkflowCommons: no menu item, home page, login page, page URL or caller chain reaches it: dead in the UI, re
+  INFO    page:WorkflowCommons.TaskAssignmentHelper_UserTask_Retarget unreachable: vendor page of module-pages:WorkflowCommons: no menu item, home page, login page, page URL or caller chain reaches it: dead in the UI, re
+  INFO    page:WorkflowCommons.TaskDashboard                      unreachable: vendor page of module-pages:WorkflowCommons: no menu item, home page, login page, page URL or caller chain reaches it: dead in the UI, re
+  INFO    page:WorkflowCommons.TaskInbox                          unreachable: vendor page of module-pages:WorkflowCommons: no menu item, home page, login page, page URL or caller chain reaches it: dead in the UI, re
+  INFO    page:WorkflowCommons.WorkflowDefinition_CleanUp_Preview unreachable: vendor page of module-pages:WorkflowCommons: no menu item, home page, login page, page URL or caller chain reaches it: dead in the UI, re
+  INFO    page:WorkflowCommons.WorkflowDefinition_Overview        unreachable: vendor page of module-pages:WorkflowCommons: no menu item, home page, login page, page URL or caller chain reaches it: dead in the UI, re
+journeys: 110 PASS, 72 FAIL, 136 INVALID, 20 INFO (covered or unreachable, listed only)
+actions 280 found · 146 generated (134 todo: no-click-path 126, combobox 7, external-call 1) · 78 pass on baseline (68 defect) · - pass on new · - regression · coverage 78/280 (27%)
+processes 3 confirmed · 3 compiled · 0 invalid · 1 pass · 0 draft (not compiled)

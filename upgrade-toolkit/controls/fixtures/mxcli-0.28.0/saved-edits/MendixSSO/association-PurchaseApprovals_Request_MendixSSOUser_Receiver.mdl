@@ -1,0 +1,11 @@
+-- ASSOCIATION PurchaseApprovals.Request_MendixSSOUser_Receiver, as it stands in your project before the update.
+-- It belongs to another module, but reaches into MendixSSO, and replacing MendixSSO
+-- removes it along with the entity it points at.
+-- Replay with: mxcli exec <saved-edits>/MendixSSO/association-PurchaseApprovals_Request_MendixSSOUser_Receiver.mdl -p <project.mpr>
+-- Note: replaying creates it anew, with a new GUID. The runtime keys stored
+-- data on an element's GUID, so do not count on its existing links surviving.
+
+mdl 1;
+create or modify association PurchaseApprovals.Request_MendixSSOUser_Receiver
+from PurchaseApprovals.Request to MendixSSO.MendixSSOUser
+storage table;

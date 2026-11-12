@@ -1,0 +1,4 @@
+$old-var: 2px;
+@mixin old-mixin($a) { margin: $a; }
+.k { width: $old-var; }
+.a { @include old-mixin(1px); }

@@ -1,0 +1,4 @@
+{"role": "Administrator", "nav": {"group": null, "item": "Client Configuration"}, "newButton": "newButton1",
+ "fields": [{"widget": "textBox1", "value": "T2-${RUN_ID}"}, {"widget": "textArea1", "value": "client-${RUN_ID}"}],
+ "saveButton": "actionButton1", "entity": "EXFN_Authentication.ClientConfiguration", "ready": ".mx-page",
+ "textPresent": ["T2-${RUN_ID}"], "textAbsent": ["is required", "error"]}

@@ -1,0 +1,128 @@
+  PASS    act-EmployeeManagement.Employee_New.microflowButton1    
+  PASS    act-EmployeeManagement.Employee_Overview.actionButton1  
+  PASS    act-MasterData.Settings_Overview.actionButton9          
+  PASS    login-Administrator                                     
+  PASS    sign-out                                                
+  PASS    act-Inspection.Inspection_EnterSerialNumber.actionButton1 
+  PASS    act-Inspection.Inspection_EnterSerialNumber.container10 
+  PASS    act-Inspection.Inspection_EnterSerialNumber.container4  
+  PASS    act-Inspection.Inspection_EnterSerialNumber.staticImage4 
+  PASS    act-Inspection.Inspection_Overview.actionButton1        
+  PASS    act-Inspection.Inspection_ScanSerialNumber.barcodeScanner1 
+  FAIL    act-Inspection.Inspection_StartInspect.actionButton1    FAIL open Inspection.Inspection_StartInspect: reached ".mx-name-actionButton2" never appeared — screenshot act-Inspection.Inspection_StartInspect.acti
+  FAIL    act-Inspection.Inspection_StartInspect.actionButton2    FAIL open Inspection.Inspection_StartInspect: reached ".mx-name-actionButton2" never appeared — screenshot act-Inspection.Inspection_StartInspect.acti
+  FAIL    act-Inspection.Inspection_StartInspect.planview2        FAIL open Inspection.Inspection_StartInspect: reached ".mx-name-planview2" never appeared — screenshot act-Inspection.Inspection_StartInspect.planview
+  FAIL    act-MES_Application_Specific.Atlas_TopBar_Dark.container1 FAIL microflow 'container1' on MES_Application_Specific.Atlas_TopBar_Dark (no-db-effect): actions completed .mx-name-container1 not visible
+  PASS    login-Inspector                                         
+  FAIL    act-AIChatbotBedrock.Snippet_ChatContext_Interaction.btnDisabled FAIL open AIChatbotBedrock.ChatContext_PopUp: reached ".mx-name-btnDisabled" never appeared — screenshot act-AIChatbotBedrock.Snippet_ChatContext_Inte [shown only if container3: $Chat
+  FAIL    act-AIChatbotBedrock.Snippet_ChatContext_Interaction.btnSendMessage FAIL open AIChatbotBedrock.ChatContext_PopUp: reached ".mx-name-btnSendMessage" never appeared — screenshot act-AIChatbotBedrock.Snippet_ChatContext_I [shown only if container3: $C
+  FAIL    act-ConversationalUI.Snippet_Message_Sources.accordion1 FAIL open AIChatbotBedrock.ChatContext_PopUp: reached ".mx-name-accordion1" never appeared — screenshot act-ConversationalUI.Snippet_Message_Sources.a [shown only if accordion1: $Message/Role 
+  FAIL    act-Inspection.Task_NewEdit.actionButton1               FAIL open MasterData.Inspection_Review: reached ".mx-name-actionButton7" never appeared — screenshot act-Inspection.Task_NewEdit.actionButton1-step2-N [shown only if container4: $currentObject
+  PASS    act-MasterData.Dashboard_QualityManager.container5      
+  PASS    act-MasterData.Dashboard_QualityManager.container6      
+  FAIL    act-MasterData.Dashboard_QualityManager.planview3       FAIL role home MasterData.Dashboard_QualityManager: reached ".mx-name-planview3" never appeared — screenshot act-MasterData.Dashboard_QualityManager.p
+  FAIL    act-MasterData.Dashboard_QualityManager.planview4       FAIL role home MasterData.Dashboard_QualityManager: reached ".mx-name-planview4" never appeared — screenshot act-MasterData.Dashboard_QualityManager.p
+  PASS    act-MasterData.DefectType_NewEdit.actionButton1         
+  PASS    act-MasterData.DefectType_Overview.actionButton1        
+  FAIL    act-MasterData.DefectType_Overview.actionButton2        FAIL microflow 'Remove defect' on MasterData.DefectType_Overview (delete): actions completed confirm: the dialog is still open after clicking "Proceed [shown only if container5: $currentObject !
+  PASS    act-MasterData.DefectType_Overview.actionButton3        
+  PASS    act-MasterData.LocationType_DefectSelect.actionButton4  
+  PASS    act-MasterData.LocationType_NewEdit.actionButton3       
+  PASS    act-MasterData.LocationType_Overview.actionButton1      
+  FAIL    act-MasterData.LocationType_Overview.actionButton2      FAIL microflow 'Remove location type' on MasterData.LocationType_Overview (delete): actions completed confirm: the dialog is still open after clicking [shown only if container5: $currentObject !
+  PASS    act-MasterData.LocationType_Overview.actionButton3      
+  PASS    act-MasterData.LocationType_Overview.actionButton4      
+  PASS    act-MasterData.ProductView_NewEdit.actionButton2        
+  PASS    act-MasterData.ProductView_NewEdit.actionButton3        
+  PASS    act-MasterData.ProductView_NewEdit.actionButton4        
+  PASS    act-MasterData.ProductWizard_Step1_NewProduct.actionButton2 
+  PASS    act-MasterData.ProductWizard_Step2_ProductViews.actionButton2 
+  PASS    act-MasterData.ProductWizard_Step2_ProductViews.actionButton4 
+  PASS    act-MasterData.ProductWizard_Step2_ProductViews.actionButton6 
+  PASS    act-MasterData.Product_Edit.actionButton4               
+  PASS    act-MasterData.Product_Overview.actionButton1           
+  FAIL    act-MasterData.Product_Overview.actionButton2           FAIL microflow 'Remove product' on MasterData.Product_Overview (delete): actions completed confirm: the dialog is still open after clicking "Proceed" [shown only if container5: $currentObject !=
+  PASS    act-MasterData.Product_Overview.actionButton3           
+  FAIL    act-MasterData.SNIPPET_InspectionReview.actionButton1   FAIL open MasterData.Inspection_Review: reached ".mx-name-actionButton1" never appeared — screenshot act-MasterData.SNIPPET_InspectionReview.actionBut [shown only if container4: $currentObject
+  FAIL    act-MasterData.SNIPPET_InspectionReview.actionButton11  FAIL open MasterData.Inspection_Review: reached ".mx-name-actionButton11" never appeared — screenshot act-MasterData.SNIPPET_InspectionReview.actionBu [shown only if container4: $currentObject
+  FAIL    act-MasterData.SNIPPET_InspectionReview.actionButton12  FAIL open MasterData.Inspection_Review: reached ".mx-name-actionButton12" never appeared — screenshot act-MasterData.SNIPPET_InspectionReview.actionBu [shown only if container4: $currentObject
+  PASS    act-MasterData.SNIPPET_InspectionReview.actionButton2   
+  FAIL    act-MasterData.SNIPPET_InspectionReview.actionButton3   FAIL open MasterData.Inspection_Review: reached ".mx-name-actionButton3" never appeared — screenshot act-MasterData.SNIPPET_InspectionReview.actionBut [shown only if container9: $currentObject
+  FAIL    act-MasterData.SNIPPET_InspectionReview.actionButton4   FAIL open MasterData.Inspection_Review: reached ".mx-name-actionButton4" never appeared — screenshot act-MasterData.SNIPPET_InspectionReview.actionBut [shown only if container9: $currentObject
+  PASS    act-MasterData.SNIPPET_InspectionReview.actionButton5   
+  FAIL    act-MasterData.SNIPPET_InspectionReview.actionButton6   FAIL open MasterData.Inspection_Review: reached ".mx-name-actionButton6" never appeared — screenshot act-MasterData.SNIPPET_InspectionReview.actionBut [shown only if container4: $currentObject
+  FAIL    act-MasterData.SNIPPET_InspectionReview.actionButton7   FAIL open MasterData.Inspection_Review: reached ".mx-name-actionButton7" never appeared — screenshot act-MasterData.SNIPPET_InspectionReview.actionBut [shown only if container4: $currentObject
+  PASS    act-MasterData.SNIP_ChatContext_ChatbotButton.container3 
+  PASS    login-QualityManager                                    
+  PASS    act-AIChatbotBedrock.ConfigurationSelection_NewEdit.actionButton1 
+  PASS    act-AIChatbotBedrock.SNIP_ConfigurationSelection_Overview.actionButton2 
+  PASS    act-AIChatbotBedrock.SNIP_ConfigurationSelection_Overview.actionButton3 
+  PASS    act-AWSAuthentication.SNIPPET_AWSAuthentication_Settings.actionButton3 
+  PASS    act-AWSAuthentication.Settings_NewEdit.actionButton1    
+  PASS    act-EmployeeManagement.Employee_Edit.microflowButton1   
+  PASS    act-EmployeeManagement.Employee_Edit.microflowTrigger2  
+  PASS    act-EmployeeManagement.Employee_Overview.actionButton3  
+  FAIL    act-EmployeeManagement.Employee_Overview.dataGrid21     FAIL microflow 'dataGrid21' on EmployeeManagement.Employee_Overview (open-page): actions completed dataGrid21: 13 row element(s) render in .mx-name-da
+  FAIL    act-EmployeeManagement.Employee_Overview.dataGrid21_2   FAIL microflow 'dataGrid21' on EmployeeManagement.Employee_Overview (no-db-effect): actions completed dataGrid21: 13 row element(s) render in .mx-name
+  FAIL    act-Inspection.Inspection_Confirm.actionButton2         FAIL open Inspection.Inspection_SelectArea: actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGrid23 but none is a visible row or 
+  FAIL    act-Inspection.Inspection_Overview.dataGrid23           FAIL microflow 'dataGrid23' on Inspection.Inspection_Overview (create): actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGrid23 b
+  FAIL    act-Inspection.Inspection_Overview.dataGrid23_2         FAIL microflow 'dataGrid23' on Inspection.Inspection_Overview (no-db-effect): actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGr
+  PASS    act-Inspection.Inspection_Overview.dataGrid24           
+  FAIL    act-Inspection.Inspection_SelectArea.actionButton12     FAIL open Inspection.Inspection_SelectArea: actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGrid23 but none is a visible row or  [shown only if container10: $dataView1/Insp
+  FAIL    act-Inspection.Inspection_SelectArea.planview1          FAIL open Inspection.Inspection_SelectArea: actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGrid23 but none is a visible row or 
+  FAIL    act-Inspection.SNIPPET_Defect_ShowDefectImages_Edit.actionButton9 FAIL open Inspection.Inspection_SelectArea: actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGrid23 but none is a visible row or 
+  FAIL    act-AIChatbotBedrock.Snippet_ChatContext_ConversationalUI_Bubbles.events1 FAIL open AIChatbotBedrock.ChatContext_PopUp: reached ".mx-name-events1" never appeared — screenshot act-AIChatbotBedrock.Snippet_ChatContext_Conversa
+  FAIL    act-AIChatbotBedrock.Snippet_ChatContext_ConversationalUI_Bubbles.events1_2 FAIL open AIChatbotBedrock.ChatContext_PopUp: reached ".mx-name-events1" never appeared — screenshot act-AIChatbotBedrock.Snippet_ChatContext_Conversa
+  FAIL    act-ConversationalUI.Snippet_Message_Sources.actionButton4 FAIL open AIChatbotBedrock.ChatContext_PopUp: reached ".mx-name-actionButton4" never appeared — screenshot act-ConversationalUI.Snippet_Message_Source [shown only if accordion1: $Message/Ro
+  FAIL    act-MasterData.Dashboard_QualityManager.dataGrid23      FAIL microflow 'dataGrid23' on MasterData.Dashboard_QualityManager (create): actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGri
+  FAIL    act-MasterData.Dashboard_QualityManager.dataGrid24      FAIL microflow 'dataGrid24' on MasterData.Dashboard_QualityManager (create): actions completed dataGrid24: 5 row element(s) render in .mx-name-dataGri
+  PASS    act-MasterData.LocationType_DefectSelect.actionButton1  
+  FAIL    act-MasterData.LocationType_DefectSelect.actionButton2  FAIL microflow 'Remove' on MasterData.LocationType_DefectSelect (no-db-effect): actions completed .mx-name-actionButton2 is covered by .mx-underlay —  [shown only if actionButton2: $currentObj
+  PASS    act-MasterData.LocationType_Overview.actionButton6      
+  FAIL    act-MasterData.Location_NewEdit.actionButton1           FAIL open MasterData.ProductWizard_Step3_Locations: reached ".mx-name-marker2" never appeared — screenshot act-MasterData.Location_NewEdit.actionButto
+  PASS    act-MasterData.ProductWizard_Step2_ProductViews.actionButton1 
+  PASS    act-MasterData.ProductWizard_Step2_ProductViews.actionButton3 
+  FAIL    act-MasterData.ProductWizard_Step2_ProductViews.dataGrid21 FAIL microflow 'dataGrid21' on MasterData.ProductWizard_Step2_ProductViews (open-page): actions completed dataGrid21: 4 row element(s) render in .mx-n
+  FAIL    act-MasterData.ProductWizard_Step2_ProductViews.dataGrid21_2 FAIL microflow 'dataGrid21' on MasterData.ProductWizard_Step2_ProductViews (no-db-effect): actions completed dataGrid21: 4 row element(s) render in .m
+  PASS    act-MasterData.ProductWizard_Step3_Locations.actionButton4 
+  FAIL    act-MasterData.ProductWizard_Step3_Locations.marker2    FAIL open MasterData.ProductWizard_Step3_Locations: reached ".mx-name-marker2" never appeared — screenshot act-MasterData.ProductWizard_Step3_Location
+  FAIL    act-MasterData.ProductWizard_Step3_Locations.planview2  FAIL open MasterData.ProductWizard_Step3_Locations: reached ".mx-name-planview2" never appeared — screenshot act-MasterData.ProductWizard_Step3_Locati
+  PASS    act-AIChatbotBedrock.SNIP_ConfigurationSelection_Overview.actionButton1 
+  FAIL    act-AWSAuthentication.SNIPPET_AWSAuthentication_Settings.actionButton2 FAIL open MasterData.Settings_Overview via Settings > tab 'AWS authentification': reached ".mx-name-actionButton2" never appeared — screenshot act-AWS
+  PASS    act-Administration.ChangePasswordForm.microflowButton1  
+  PASS    act-DemoUserSwitcher.User_SelectDemoUser.gallery1       
+  PASS    act-EmployeeManagement.Employee_Overview.actionButton2  
+  PASS    act-MasterData.Settings_Overview.actionButton2          
+  PASS    act-MasterData.Settings_Overview.actionButton3          
+  FAIL    act-Inspection.Inspection_Confirm.actionButton1         FAIL open Inspection.Inspection_SelectArea: actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGrid23 but none is a visible row or 
+  FAIL    act-Inspection.Inspection_Confirm.actionButton10        FAIL open Inspection.Inspection_SelectArea: actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGrid23 but none is a visible row or 
+  FAIL    act-Inspection.Inspection_Confirm.actionButton11        FAIL open Inspection.Inspection_SelectArea: actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGrid23 but none is a visible row or 
+  FAIL    act-Inspection.Inspection_Confirm.actionButton12        FAIL open Inspection.Inspection_SelectArea: actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGrid23 but none is a visible row or 
+  FAIL    act-Inspection.Inspection_Confirm.actionButton3         FAIL open Inspection.Inspection_SelectArea: actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGrid23 but none is a visible row or 
+  FAIL    act-Inspection.Inspection_Confirm.actionButton4         FAIL open Inspection.Inspection_SelectArea: actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGrid23 but none is a visible row or 
+  FAIL    act-Inspection.Inspection_Confirm.actionButton8         FAIL open Inspection.Inspection_SelectArea: actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGrid23 but none is a visible row or 
+  FAIL    act-Inspection.Inspection_Confirm.container6            FAIL open Inspection.Inspection_SelectArea: actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGrid23 but none is a visible row or 
+  FAIL    act-Inspection.Inspection_Confirm.listView6             FAIL open Inspection.Inspection_SelectArea: actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGrid23 but none is a visible row or 
+  FAIL    act-Inspection.Inspection_SelectArea.actionButton1      FAIL open Inspection.Inspection_SelectArea: actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGrid23 but none is a visible row or 
+  FAIL    act-Inspection.Inspection_SelectArea.actionButton10     FAIL open Inspection.Inspection_SelectArea: actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGrid23 but none is a visible row or  [shown only if container10: $dataView1/Insp
+  FAIL    act-Inspection.Inspection_SelectArea.actionButton11     FAIL open Inspection.Inspection_SelectArea: actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGrid23 but none is a visible row or  [shown only if container10: $dataView1/Insp
+  FAIL    act-Inspection.Inspection_SelectArea.actionButton13     FAIL open Inspection.Inspection_SelectArea: actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGrid23 but none is a visible row or  [shown only if container10: $dataView1/Insp
+  FAIL    act-Inspection.Inspection_SelectArea.actionButton2      FAIL open Inspection.Inspection_SelectArea: actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGrid23 but none is a visible row or  [shown only if container10: $dataView1/Insp
+  FAIL    act-Inspection.Inspection_SelectArea.actionButton3      FAIL open Inspection.Inspection_SelectArea: actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGrid23 but none is a visible row or  [shown only if container10: $dataView1/Insp
+  FAIL    act-Inspection.Inspection_SelectArea.actionButton4      FAIL open Inspection.Inspection_SelectArea: actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGrid23 but none is a visible row or  [shown only if container10: $dataView1/Insp
+  FAIL    act-Inspection.Inspection_SelectArea.actionButton5      FAIL open Inspection.Inspection_SelectArea: actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGrid23 but none is a visible row or 
+  FAIL    act-Inspection.Inspection_SelectArea.actionButton6      FAIL open Inspection.Inspection_SelectArea: actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGrid23 but none is a visible row or  [shown only if container10: $dataView1/Insp
+  FAIL    act-Inspection.Inspection_SelectArea.actionButton7      FAIL open Inspection.Inspection_SelectArea: actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGrid23 but none is a visible row or  [shown only if container10: $dataView1/Insp
+  FAIL    act-Inspection.Inspection_SelectArea.actionButton8      FAIL open Inspection.Inspection_SelectArea: actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGrid23 but none is a visible row or  [shown only if container10: $dataView1/Insp
+  FAIL    act-Inspection.Inspection_SelectArea.container11        FAIL open Inspection.Inspection_SelectArea: actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGrid23 but none is a visible row or 
+  FAIL    act-Inspection.Inspection_SelectArea.container5         FAIL open Inspection.Inspection_SelectArea: actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGrid23 but none is a visible row or 
+  FAIL    act-Inspection.Inspection_SelectArea.container7         FAIL open Inspection.Inspection_SelectArea: actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGrid23 but none is a visible row or 
+  FAIL    act-Inspection.Inspection_SelectArea.container8         FAIL open Inspection.Inspection_SelectArea: actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGrid23 but none is a visible row or 
+  FAIL    act-Inspection.Inspection_SelectArea.marker2            FAIL open Inspection.Inspection_SelectArea: actions completed dataGrid23: 5 row element(s) render in .mx-name-dataGrid23 but none is a visible row or 
+  FAIL    act-AIChatbotBedrock.Snippet_ChatContext_Interaction.btnUseSuggestedUserPrompt FAIL open AIChatbotBedrock.ChatContext_PopUp: reached ".mx-name-btnUseSuggestedUserPrompt" never appeared — screenshot act-AIChatbotBedrock.Snippet_Ch [shown only if con
+  FAIL    act-MasterData.Location_NewEdit.actionButton3           FAIL open MasterData.ProductWizard_Step3_Locations: reached ".mx-name-marker2" never appeared — screenshot act-MasterData.Location_NewEdit.actionButto
+  PASS    act-MasterData.ProductWizard_Step2_ProductViews.actionButton5 
+  PASS    act-MasterData.SNIPPET_InspectionReview.container6      
+  FAIL    act-MasterData.SNIPPET_InspectionReview.listView6       FAIL microflow 'listView6' on MasterData.SNIPPET_InspectionReview (delete): actions completed listView6: no row to click in .mx-name-listView6: the li [shown only if LayoutGridRow: $InspectionHe
+journeys: 58 PASS, 68 FAIL, 68 INVALID
+actions 190 found · 122 generated (68 todo: no-click-path 65, external-call 2, no journey 1) · 54 pass on baseline (68 defect) · - pass on new · - regression · coverage 54/190 (28%)

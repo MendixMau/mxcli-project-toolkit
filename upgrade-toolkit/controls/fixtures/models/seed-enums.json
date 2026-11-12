@@ -1,0 +1,9 @@
+{"version": "10.24.16.96987",
+ "modules": [{"name": "Encryption", "appstore": [1011, "6.0.0"],
+              "entities": [{"name": "PGPCertificate", "attributes": [{"name": "CertificateType", "type": "Enumeration", "enum": "Encryption.CertificateType"},
+                                                                    {"name": "Reference"}]},
+                           {"name": "KeyFile", "generalization": "System.FileDocument"}],
+              "docs": [{"type": "Enumerations$Enumeration", "name": "CertificateType", "data": {"Values": [{"Name": "PublicKey"}, {"Name": "PrivateKey"}]}}]},
+             {"name": "MendixSSO", "appstore": [111349, "4.1.0"],
+              "entities": [{"name": "Token", "attributes": [{"name": "TokenType", "type": "Enumeration", "enum": "MendixSSO.TokenType"}]}],
+              "docs": [{"type": "Enumerations$Enumeration", "name": "TokenType", "data": {"Values": [{"Name": "REFRESH_TOKEN"}, {"Name": "ID_TOKEN"}]}}]}]}

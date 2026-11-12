@@ -1,0 +1,1 @@
+the Feedback tab is gone from every page of the app; shotdiff: lost feedback; SprintrFeedback 12.0.4 portals into targetContainerSelector and the vertical layout has no .mx-scrollcontainer-center

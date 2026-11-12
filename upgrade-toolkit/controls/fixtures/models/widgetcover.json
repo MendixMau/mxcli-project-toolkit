@@ -1,0 +1,10 @@
+{"version": "10.24.16.96987",
+ "modules": [{"name": "Shop",
+   "pages": [{"name": "Home_Overview", "widgets": ["com.mendix.widget.web.markdown.Markdown"]},
+             {"name": "Orders_Overview"},
+             {"name": "Inbox_Overview"},
+             {"name": "Viewer_Panel", "widgets": ["Viewer.widget.Viewer"]},
+             {"name": "Gone_Panel", "excluded": true, "widgets": ["Spare.widget.Spare"]}]}],
+ "widget_packages": {"Markdown.mpk": ["com.mendix.widget.web.markdown.Markdown"],
+                     "Viewer.mpk": {"ids": ["Viewer.widget.Viewer"], "version": "4.0.0"},
+                     "Spare.mpk": {"ids": ["Spare.widget.Spare"], "version": "1.0.0"}}}

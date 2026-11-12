@@ -1,0 +1,6 @@
+{"from": "maps-old.json",
+ "_why": "maps-new-arg.json after the repair.md row 12 fix (T2R3-8, B4T2-8, Opcenter save-fix.mdl): Save maps $currentObject inside the microflow-source data view dataView1 = INFO ($currentObject is that data view's object); the data view's own source call still maps the page parameter (outside the view, INFO); Phone_Edit unchanged",
+ "ops": [["set", "version", "10.24.26.12345"],
+         ["set", "modules/0/pages/0/named/0/datasource/mappings", [["ActualConfig", {"arg": "$ClientConfiguration"}]]],
+         ["set", "modules/0/pages/0/named/0/children/0/action/mappings", [["ClientConfiguration", {"arg": "$currentObject"}]]],
+         ["set", "modules/0/pages/1/named/0/children/0/action/mappings", [["UoM", {"arg": "$dataView6"}]]]]}

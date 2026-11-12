@@ -1,0 +1,16 @@
+worktree-merge fixture - provenance (captured 2026-11-12, Linux x86-64)
+
+Captured, never hand-written. mxcli v0.28.0, Mendix 11.13.0, fictional app LoanDesk.
+Setup: two git worktrees of one LoanDesk clone each added one module through numbered scripts
+(./bin/exec.sh): Planner (branch A: entity Task, microflow ACT_CreateTask, page Task_Overview,
+role Worker, menu item, role assignment) and Tickets (branch B: same shape). `mxcli fix hashes`
+was clean (exit 0, 396 units, 396 files) on each branch. A plain `git merge` of B into A
+conflicted on LoanDesk.mpr (and two shared units); the conflict was resolved by taking B's
+.mpr and units (--theirs), then committed.
+  fix-hashes-orphans-v0.28.0.txt   stdout+stderr of `mxcli fix hashes -p LoanDesk.mpr` after that
+                                   merge; the last line is the exit code ("exit 1"):
+                                   396 units indexed, 403 files, 7 ORPHAN (all Planner units), 0 mismatch, 0 missing.
+Same merge: `mx check` and the exec.sh mxbuild gate (bin/verify-model.sh) both reported 0 errors;
+`show modules` listed Tickets and not Planner (11 modules). Paths in the capture are repo-relative;
+nothing scrubbed.
+Used by skills/parallel-builds.md section 5. No test asserts on it yet.

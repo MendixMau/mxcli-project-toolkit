@@ -1,0 +1,13 @@
+WARNING: This is a vibe-coded PoC, alpha quality, use with caution.
+Checked 396 unit(s) in LoanDesk.mpr against 403 .mxunit file(s).
+  ORPHAN    mprcontents/0d/2b/0d2b8598-6b34-4744-a304-7212594f1e1f.mxunit [Forms$Page Task_Overview] (file, not indexed)
+  ORPHAN    mprcontents/22/98/2298ac0a-296d-4a6c-a244-46e9f38bb4ad.mxunit [Projects$Folder Logic] (file, not indexed)
+  ORPHAN    mprcontents/55/d9/55d946e2-4ad3-4b81-b476-64579adbe173.mxunit [Projects$ModuleSettings] (file, not indexed)
+  ORPHAN    mprcontents/5d/58/5d58c362-9606-4edf-8e8e-e83aab068c9f.mxunit [DomainModels$DomainModel] (file, not indexed)
+  ORPHAN    mprcontents/a5/0b/a50b5db9-7728-4382-858d-155fa1c82a1a.mxunit [Security$ModuleSecurity] (file, not indexed)
+  ORPHAN    mprcontents/c0/2b/c02b0bde-e5f3-41b6-ac76-4d36fc8a6dda.mxunit [Projects$ModuleImpl Planner] (file, not indexed)
+  ORPHAN    mprcontents/e9/22/e9220cc4-277c-484d-a83d-fbcd12cdf66f.mxunit [Microflows$Microflow ACT_CreateTask] (file, not indexed)
+
+0 mismatch(es), 0 missing file(s), 7 orphan file(s).
+Orphan files are not indexed by the .mpr; 'mxcli diag --check-units -p LoanDesk.mpr --fix' removes them.
+exit 1

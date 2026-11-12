@@ -177,8 +177,14 @@ fail_rc() { case "$1" in 0) echo 0 ;; *) echo 1 ;; esac; }
 # <verified> <exit>. Printed BEFORE a path's closing human lines, never as the last line of output.
 LINT_NEW=na
 result_line() { echo "MXTK-RESULT exec verdict=$1 applied=$2 verified=$3 lint_new=${LINT_NEW:-na} exit=$4"; }
-# After a restore attempt: the closing human line of the paths whose verdict needs RESTORED.
-restore_close() { if [ "${RESTORED:-0}" -eq 1 ]; then echo "  Rolled back: the model is as it was before this run."; else echo "  NOT rolled back: restore the model before the next exec (see above)."; fi; }
+# The closing human line of the paths whose verdict needs RESTORED. Three cases, because two of
+# these paths never attempt a restore (a partial run; mxbuild crashed with no baseline, where the
+# write is kept on purpose): telling the reader to "restore" there would contradict the text above.
+restore_close() {
+  if [ "${RESTORED:-0}" -eq 1 ]; then echo "  Rolled back: the model is as it was before this run."
+  elif [ "${RESTORE_TRIED:-0}" -eq 1 ]; then echo "  NOT rolled back: restore the model before the next exec (see above)."
+  else echo "  No rollback was attempted: the model holds what this run wrote (see above)."; fi
+}
 
 # ── Change class (advisory, added 2026-10-13) ────────────────────────────────
 # Tags each run `ui-only` or `logic`, so the run summary can say which TEST LANE applies

@@ -173,6 +173,9 @@ echo "== G: mxcli exec exits non-zero, gate passes: partial =="
 RC=$(MXCLI_EXEC_RC=3 run G ok,ok)
 [ "$RC" -eq 1 ] && kept && ok "exit 1, partial write kept" || bad "G rc=$RC" "$(tail -6 "$WORK/out.G")"
 res G "MXTK-RESULT exec verdict=partial applied=partial verified=yes lint_new=na exit=1"
+# No restore is attempted on this path, so the closing line must not tell the reader to restore.
+grep -q 'No rollback was attempted' "$WORK/out.G" && ! grep -q 'NOT rolled back: restore' "$WORK/out.G" \
+  && ok "G: closing line says no rollback was attempted" || bad "G: closing line" "$(tail -3 "$WORK/out.G")"
 
 echo "== H: the gate finds a new error and the restore itself fails: failed =="
 break_restore

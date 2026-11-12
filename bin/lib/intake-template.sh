@@ -37,6 +37,8 @@ an interview that never took place. Per conversion-runbook.md's interview protoc
 question is asked in chat and the turn ends to wait for the answer; unknowns the user hands
 back ("you decide") are recorded as ASSUMED in PROJECT.md rather than blocking Stage P.
 
+Question 16 (which kind of build) is asked FIRST, before Q1, at project birth; a project already past kickoff is not asked it.
+
 **These are the questions only the human can answer.** Anything derivable — where the source
 sits, what documents exist, which Mendix version the .mpr targets, whether prior analysis is
 present — is the agent's homework, brought back as "I found X, confirm?" rather than asked
@@ -167,6 +169,18 @@ _Not yet asked._ How to verify: ask the user; default is `balanced`. The trade-o
 - **high-quality**: checks every page after every change; slowest, maximum polish while building.
 Record it as `Pipeline mode:` in PROJECT.md (no line = balanced). The table is
 `skills/iterative-build-loop.md` § "Pipeline mode".
+
+## 16. Which kind of build — full (default) or POC?
+
+_Not yet asked._ Ask this FIRST, before Q1, at project birth only; the question is "Which kind of build?"
+- **Full build (Recommended)**: the staged pipeline with its gates; for anything that will be maintained or go live.
+- **POC build**: a demo-quality app fast: design first, one approval stop, a short must-have list; skips the stage
+  gates and the heavier checks, and hands over what a full build needs next. Proven on small apps only (`skills/poc-build.md`).
+
+Record it as `Build type: full | poc` in PROJECT.md, `CONFIRMED` (`ASSUMED` = full, only when the user said "you
+decide"; `Interview mode: auto` never picks `poc`). On `poc`: open `skills/poc-build.md` and follow it; the other
+intake questions are not asked (its Skipped list). A project already past kickoff is not asked: no line = `full`; if
+`--repair-intake` appended this question there, answer it `Unverified — how to verify: began before this question; no line = full`.
 MXTK_INTAKE_EOF
 }
 

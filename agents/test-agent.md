@@ -89,6 +89,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/walking-skeleton.md` | Stage 5 start, before the first module of any entry mode |
 | `skills/platform-link.md` | At project birth (before the first build script) and any time a model needs a platform home: creating the Team Server app, adopting an existing GitHub-born model into it without rewriting history, or deploying; also when the Platform SDK returns 403, git rejects the PAT, a deploy cannot be triggered from a PAT, or the app turns out to be a Free App |
 | `skills/deploy-to-sandbox.md` | Promoting an app to a deployed sandbox or cloud node, or before a customer tests a deployment |
+| `skills/poc-build.md` | POC, proof of concept, demo, pilot or quick build asked for, a demo this week, something clickable to show; or PROJECT.md says Build type: poc (experimental: designed-first, one human stop, not the nine stage gates) |
 <!-- ROUTING:END -->
 
 ## Before you start

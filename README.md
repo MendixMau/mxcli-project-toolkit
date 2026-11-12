@@ -690,6 +690,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | At project birth (before the first build script) and any time a model needs a platform home: creating the Team Server app, adopting an existing GitHub-born model into it without rewriting history, or deploying; also when the Platform SDK returns 403, git rejects the PAT, a deploy cannot be triggered from a PAT, or the app turns out to be a Free App | `skills/platform-link.md` |
 | Promoting an app to a deployed sandbox or cloud node, or before a customer tests a deployment — "it works locally" is not evidence about a deployment; also when a test suite fails only against the remote URL | `skills/deploy-to-sandbox.md` |
 | Dispatching any helper that drives the app, tests or UI: print the ports, reset/restart scripts, e2e helper libs, secret key names and screenshot folders once, and put "read it first" in the brief instead of letting each helper rediscover them (#701) | `project-bin/project-facts.sh` |
+| POC, proof of concept, demo, pilot or quick build asked for, a demo this week, something clickable to show; or PROJECT.md says Build type: poc (experimental: designed-first, one human stop, not the nine stage gates) | `skills/poc-build.md` |
 
 **Build · MDL — the language and tool reference**
 

@@ -8,6 +8,7 @@ Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templat
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
 **Release cycle (from 2026-09-19).** New lines land under `## Unreleased`, at the top. Every few
+- fix(design-reaches-app): **the CSS readers now normalise both stylesheets first and match whole classes (#670)**: a one-line `:root{--a:1;--b:2}` read as 1 token with `}` in its value, a minified built sheet as having no bare `:root`, a rule inside `@media` or a multi-line selector list was missed, and `var(--x, fallback)` did not count as using `--x`. All five fixed by one `normalise_css()` step (comments dropped, one selector/declaration/`}` per line, `;` inside `url(...)`/strings kept). On the field project's real sheets the design went from 10 to 38 tokens read and knobs bound from 12 to 37. **Can turn a project red:** class presence was a substring match, so `.card` counted as arrived when only `.card-header` existed; it is now a whole-class match, and a project that passed on that false reading can now report `0 of N design-system classes` (FAIL) or fewer classes arrived. No verdict names or exit codes changed — outside review of v2026.11.12
 days the maintainer cuts a release with `bin/cut-release.sh`: the `## Unreleased` heading becomes
 `## vYYYY.MM.DD`, master is tagged `vYYYY.MM.DD`, and a fresh empty `## Unreleased` opens. So the
 top section is always "what changed since the last release", a project reports the release it is

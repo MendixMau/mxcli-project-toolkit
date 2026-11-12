@@ -171,6 +171,56 @@ report() { printf 'FAIL  %s\n      %s\n' "$1" "$2"; VIOLATIONS=$((VIOLATIONS + 1
 warn()   { printf 'WARN  %s\n      %s\n' "$1" "$2"; WARNINGS=$((WARNINGS + 1)); }
 fault()  { printf 'FAULT %s\n      %s\n' "$1" "$2"; FAULTS=$((FAULTS + 1)); }
 
+# ── Normalise both stylesheets once (#670) ─────────────────────────────────────────────────
+# Every reader below is line-based and was written for a pretty-printed sheet: one declaration
+# per line, `:root {` alone on its line. A minified or one-line sheet (`:root{--a:1;--b:2}`)
+# read as ONE token whose value kept its `}`, and a minified built sheet as having no bare
+# :root at all — the report then printed denominators like "1 of 1" over almost nothing.
+# So: drop /* comments */, then put every selector (`sel {`), declaration (`prop: value;`) and
+# closing `}` on a line of its own. `;` `{` `}` inside (...) or "..." / '...' (url(data:...;base64,..)) do not
+# split; a multi-line selector list collapses onto one line; a rule inside @media gets its own
+# line. A sheet that was already one-declaration-per-line comes out with the same lines.
+normalise_css() {
+  awk '
+    function emit(s) { gsub(/[ \t\r]+/, " ", s); sub(/^ /, "", s); sub(/ $/, "", s); return s }
+    BEGIN { SPECIAL = "[/*\"(){};\\\\\047]"; buf = ""; depth = 0; q = ""; inc = 0 }
+    {
+      line = $0
+      if (!inc && q == "" && depth == 0 && line !~ SPECIAL) { buf = buf " " line; next }
+      n = length(line)
+      for (i = 1; i <= n; i++) {
+        c = substr(line, i, 1)
+        if (inc) { if (c == "*" && substr(line, i + 1, 1) == "/") { inc = 0; i++; buf = buf " " } continue }
+        if (q != "") {
+          buf = buf c
+          if (c == "\\") { buf = buf substr(line, i + 1, 1); i++ } else if (c == q) q = ""
+          continue
+        }
+        if (c == "/" && substr(line, i + 1, 1) == "*") { inc = 1; i++; continue }
+        if (c == "\"" || c == "\047") { q = c; buf = buf c; continue }
+        if (c == "\\") { buf = buf c substr(line, i + 1, 1); i++; continue }
+        if (c == "(") { depth++; buf = buf c; continue }
+        if (c == ")") { if (depth > 0) depth--; buf = buf c; continue }
+        if (depth == 0 && c == "{") { s = emit(buf); print (s == "" ? "{" : s " {"); buf = ""; continue }
+        if (depth == 0 && c == ";") { s = emit(buf); if (s != "") print s ";"; buf = ""; continue }
+        if (depth == 0 && c == "}") { s = emit(buf); if (s != "") print s; print "}"; buf = ""; continue }
+        buf = buf c
+      }
+      q = ""; buf = buf " "
+    }
+    END { s = emit(buf); if (s != "") print s }
+  ' "$1"
+}
+NORM_DIR="$(mktemp -d "${TMPDIR:-/tmp}/cdra.XXXXXX")"
+trap 'rm -rf "$NORM_DIR"' EXIT
+DESIGN_N="$NORM_DIR/design.css"; BUILT_N="$NORM_DIR/built.css"
+normalise_css "$DESIGN" > "$DESIGN_N"
+normalise_css "$BUILT" > "$BUILT_N"
+
+# A whole-class match: `.card` is present when `.card` is followed by a character that cannot
+# continue a class name, never when only `.card-header` exists (a substring match counted it).
+has_class() { grep -qE -- "$(printf '%s' "$2" | sed 's/\./\\./g')([^A-Za-z0-9_-]|\$)" "$1"; }
+
 # ── Pass 0: read the design system ──────────────────────────────────────────────────────────
 # Tokens: custom properties declared in a :root block. Values too, because a knob may be bound
 # by repeating the literal rather than by var() — still bound, and still correct.
@@ -179,15 +229,15 @@ TOKENS="$(awk '
   inroot && /^[[:space:]]*}/ { inroot = 0 }
   inroot && match($0, /--[a-z0-9-]+[[:space:]]*:/) {
     name = substr($0, RSTART, RLENGTH); sub(/[[:space:]]*:$/, "", name)
-    rest = substr($0, RSTART + RLENGTH); sub(/;.*$/, "", rest)
+    rest = substr($0, RSTART + RLENGTH); sub(/;[[:space:]]*$/, "", rest)
     gsub(/^[[:space:]]+|[[:space:]]+$/, "", rest)
     if (!(name in seen)) { seen[name] = 1; print name "\t" rest }
   }
-' "$DESIGN")"
+' "$DESIGN_N")"
 TOKEN_COUNT="$(printf '%s\n' "$TOKENS" | grep -c '^--' || true)"
 
 # Classes: any `.name` appearing at the head of a rule. Compound selectors contribute each.
-CLASSES="$(grep -oE '^[^{@}]*\{' "$DESIGN" \
+CLASSES="$(grep -oE '^[^{@}]*\{' "$DESIGN_N" \
   | grep -oE '\.[A-Za-z_-][A-Za-z0-9_-]*' | sort -u)"
 CLASS_COUNT="$(printf '%s\n' "$CLASSES" | grep -c '^\.' || true)"
 
@@ -211,7 +261,7 @@ BUILT_ROOT="$(awk '
     map[name] = rest
   }
   END { for (k in map) print k "\t" map[k] }
-' "$BUILT")"
+' "$BUILT_N")"
 
 # Themed palettes. A design system may keep its whole palette in scoped blocks,
 # `:root.theme-light { ... }`, `:root.theme-dark { ... }`, with no bare `:root` at all. Pass 1
@@ -227,21 +277,21 @@ scoped_root() {
     inscope && /^[[:space:]]*\}/ { inscope = 0; next }
     inscope && match($0, /--[a-zA-Z0-9-]+[[:space:]]*:/) {
       name = substr($0, RSTART, RLENGTH); sub(/[[:space:]]*:$/, "", name)
-      rest = substr($0, RSTART + RLENGTH); sub(/;.*$/, "", rest)
+      rest = substr($0, RSTART + RLENGTH); sub(/;[[:space:]]*$/, "", rest)
       gsub(/^[[:space:]]+|[[:space:]]+$/, "", rest)
       key = sel "\t" name; if (!(key in map)) order[++n] = key; map[key] = rest
     }
     END { for (i = 1; i <= n; i++) print order[i] "\t" map[order[i]] }
   ' "$1"
 }
-DESIGN_SCOPED="$(scoped_root "$DESIGN")"
-BUILT_SCOPED="$(scoped_root "$BUILT")"
+DESIGN_SCOPED="$(scoped_root "$DESIGN_N")"
+BUILT_SCOPED="$(scoped_root "$BUILT_N")"
 # Names the design declares in a bare `:root`; every other token is themed-only.
 DESIGN_BARE_NAMES="$(awk '
   /^[[:space:]]*:root[[:space:]]*\{[[:space:]]*$/ { inroot = 1; next }
   inroot && /^[[:space:]]*\}/ { inroot = 0; next }
   inroot && match($0, /--[a-zA-Z0-9-]+[[:space:]]*:/) { n = substr($0, RSTART, RLENGTH); sub(/[[:space:]]*:$/, "", n); print n }
-' "$DESIGN" | sort -u)"
+' "$DESIGN_N" | sort -u)"
 
 KNOB_TOTAL=0
 KNOB_BOUND=0
@@ -263,10 +313,12 @@ if [ -f "$CUSTOM_VARS" ]; then
     val="$(printf '%s\n' "$BUILT_ROOT" | awk -F'\t' -v k="$knob" '$1 == k { v = $2 } END { print v }')"
     [ -z "$val" ] && continue
     bound=0
+    vals="$(printf '%s' "$val" | tr -d ' ')"
     # (a) bound by reference
     while IFS="$(printf '\t')" read -r tname tval; do
       [ -z "$tname" ] && continue
-      case "$val" in *"var($tname)"*) bound=1; break ;; esac
+      # `var(--x)` and `var(--x, fallback)` both use --x
+      case "$vals" in *"var($tname)"*|*"var($tname,"*) bound=1; break ;; esac
       # (b) bound by repeating the literal. Only for values that look like a value, so an
       #     empty or inherit-ish token cannot mark every knob bound.
       if [ -n "$tval" ] && [ "${#tval}" -ge 3 ]; then
@@ -289,7 +341,7 @@ fi
 TOKENS_ARRIVED=0
 while IFS="$(printf '\t')" read -r tname tval; do
   [ -z "$tname" ] && continue
-  grep -qE -- "$tname[[:space:]]*:" "$BUILT" && TOKENS_ARRIVED=$((TOKENS_ARRIVED + 1))
+  grep -qE -- "$tname[[:space:]]*:" "$BUILT_N" && TOKENS_ARRIVED=$((TOKENS_ARRIVED + 1))
 done <<EOF
 $TOKENS
 EOF
@@ -347,7 +399,7 @@ EOF
 CLASSES_ARRIVED=0
 MISSING_CLASS_SAMPLE=""
 for cls in $CLASSES; do
-  if grep -qF -- "$cls" "$BUILT"; then
+  if has_class "$BUILT_N" "$cls"; then
     CLASSES_ARRIVED=$((CLASSES_ARRIVED + 1))
   elif [ "$(printf '%s' "$MISSING_CLASS_SAMPLE" | wc -w)" -lt 6 ]; then
     MISSING_CLASS_SAMPLE="$MISSING_CLASS_SAMPLE $cls"
@@ -389,7 +441,7 @@ if [ -n "$MDLSOURCE" ]; then
     | sed "s/.*'\\(.*\\)'/\\1/" | tr ' ' '\n' | grep -E '^[A-Za-z_-][A-Za-z0-9_-]*$' | sort -u)"
   for cls in $MODEL_CLASSES; do
     MODEL_CLASS_TOTAL=$((MODEL_CLASS_TOTAL + 1))
-    if ! grep -qF -- ".$cls" "$BUILT"; then
+    if ! has_class "$BUILT_N" ".$cls"; then
       MODEL_CLASS_MISSING=$((MODEL_CLASS_MISSING + 1))
       if [ "$(printf '%s' "$MODEL_MISSING_SAMPLE" | wc -w)" -lt 8 ]; then
         MODEL_MISSING_SAMPLE="$MODEL_MISSING_SAMPLE $cls"

@@ -1,0 +1,80 @@
+@media (min-width: 768px) {
+  .lead {
+    font-size: 21px;
+  }
+}
+@media (min-width: 768px) {
+  .container {
+    width: 750px;
+  }
+}
+:root {
+  /* ---- the one colour that defines the app --------------------------- */
+  --mxt-brand: #2F5D62;
+  --mxt-brand-hover: #244A4E;
+  --mxt-brand-ink: #FFFFFF;
+  /* text on a brand-filled surface */
+  /* ---- semantic status ----------------------------------------------- */
+  --mxt-success: #2E7D5B;
+  --mxt-warning: #B7791F;
+  --mxt-danger: #B4412F;
+  --mxt-info: #3B6EA5;
+  /* ---- surfaces and ink ----------------------------------------------- */
+  --mxt-ground: #F6F3EE;
+  /* the app background */
+  --mxt-surface: #FFFFFF;
+  /* cards, modals, panels */
+  --mxt-surface-alt: #FAF8F5;
+  /* striped rows, subtle fills */
+  --mxt-surface-hover: #F1EEE8;
+  --mxt-surface-selected: #E6EFEF;
+  --mxt-ink: #1E2A32;
+  --mxt-ink-muted: #56636C;
+  --mxt-ink-faint: #8A949B;
+  --mxt-line: #E4DED5;
+  /* ---- the navigation rail -------------------------------------------- */
+  --mxt-rail: #243138;
+  --mxt-rail-line: #34454D;
+  --mxt-rail-ink: #BCC8CD;
+  --mxt-rail-ink-active: #FFFFFF;
+  /* ---- status pill tones ---------------------------------------------- */
+  --mxt-tint-ok: #E3F1EA;
+  --mxt-tone-ok: #1F5C41;
+  --mxt-tint-warn: #FBEFD9;
+  --mxt-tone-warn: #7A4E0C;
+  --mxt-tint-risk: #F8E4DF;
+  --mxt-tone-risk: #8A2E1F;
+  --mxt-tint-info: #E3ECF5;
+  --mxt-tone-info: #274D78;
+  --mxt-tint-neutral: #ECE9E3;
+  /* ---- shape, density, elevation --------------------------------------- */
+  --mxt-radius: 8px;
+  --mxt-radius-lg: 14px;
+  --mxt-row-height: 56px;
+  --mxt-control-height: 40px;
+  --mxt-shadow: 0 1px 2px rgba(30,42,50,.06), 0 4px 14px rgba(30,42,50,.06);
+  --mxt-focus-halo: 0 0 0 3px rgba(15, 110, 107, 0.16);
+  /* ---- type ------------------------------------------------------------ */
+  --mxt-font: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mxt-font-heading: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mxt-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --mxt-font-size: 15px;
+  --mxt-line-height: 1.5;
+}
+    Cards
+========================================================================== */
+.card, .mx-layoutgrid > .row.cards > .col,
+.mx-layoutgrid > .row.cards > [class*=col-], .mx-layoutgrid.cards > .row > .col,
+.mx-layoutgrid.cards > .row > [class*=col-] {
+  border: var(--card-border);
+  border-radius: var(--card-border-radius);
+  background-color: var(--card-bg);
+  overflow: hidden;
+  position: relative;
+  padding: var(--card-padding);
+  box-shadow: var(--card-shadow);
+  margin-bottom: var(--card-margin-bottom);
+}
+.card-body {
+  padding: var(--spacing-large);
+}

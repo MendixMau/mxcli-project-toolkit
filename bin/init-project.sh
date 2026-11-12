@@ -200,7 +200,7 @@ Gate mode: check
 Pipeline mode: balanced
 Build type: full
 
-<!-- Build type (intake Q16, asked first; no line = full): full | poc. poc = skills/poc-build.md. -->
+<!-- Build type (intake Q16, asked FIRST at kickoff; this line is only the default until it is answered; no line = full): full | poc. poc = skills/poc-build.md. -->
 
 <!-- Pipeline mode (intake Q15; no line = balanced): high-speed = per row the exec gate only;
      balanced = plus one LOOK at 1280 of a changed page; high-quality = journeys + LOOK at 390 and

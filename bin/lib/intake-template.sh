@@ -37,6 +37,8 @@ an interview that never took place. Per conversion-runbook.md's interview protoc
 question is asked in chat and the turn ends to wait for the answer; unknowns the user hands
 back ("you decide") are recorded as ASSUMED in PROJECT.md rather than blocking Stage P.
 
+Question 16 (which kind of build) is asked FIRST, before Q1, at project birth; a project already past kickoff is not asked it.
+
 **These are the questions only the human can answer.** Anything derivable — where the source
 sits, what documents exist, which Mendix version the .mpr targets, whether prior analysis is
 present — is the agent's homework, brought back as "I found X, confirm?" rather than asked

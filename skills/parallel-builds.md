@@ -7,13 +7,13 @@
 
 ## 1. When, and when not
 
-Use it when branches must run side by side for days; not for a small app. Parallel authors gained no speed (figures above), only 5 integration defects against 7.
+Use it when branches must run side by side for days; not for a small app. Parallel authors gained no speed (figures above), only fewer integration defects: 5 with a private copy per author, 7 without.
 
 ## 2. Set up
 
 1. One worktree and one branch per builder from one base commit.
 2. Copy the untracked `mxcli` binary into each fresh worktree; `exec.sh` works unchanged.
-3. Port ledger in `PROJECT.md`: per worktree an app port, admin port, `--serve-port` (mxbuild) and `--db-type hsqldb`. Never defaults 8080, 8090, 6543. *Fails when:* builder B's `run --local` on the default ports stops builder A's app, or both write one database. A running app costs about 0.5 GB and boots in 28 s; a built worktree is about 400 MB.
+3. Port ledger in `PROJECT.md`: per worktree an app port, admin port, `--serve-port` (mxbuild) and its own database per worktree (`--db-type hsqldb`, or a separate Postgres database; only hsqldb was run in our test). Never defaults 8080, 8090, 6543. *Fails when:* builder B's `run --local` on the default ports stops builder A's app, or both write one database. A running app costs about 0.5 GB and boots in 28 s; a built worktree is about 400 MB.
 4. One script number block per branch (A 20-29, B 30-39, merge scripts 90 up).
 5. Name one owner for shared parts (navigation, security, theme) and one for cross-page flows and the shell (failure: a list does not refresh after another page's popup submit).
 
@@ -40,7 +40,7 @@ Pick the path (one app per run):
    5. Replay in number order through `exec.sh`, `--commit-first` between scripts (without it the second script stops on "uncommitted model changes"). A failing or not rerun-safe script: stop, check out the target, then `git branch -D <merge-branch>`; fix the script on its own branch.
    6. Section 5. Pass: `git checkout <target>; git merge --ff-only <merge-branch>`.
 
-   On ORPHAN lines never run `mxcli diag --check-units --fix` (section 6). Check out the target and delete the merge branch.
+   On ORPHAN lines see step 5.1 and section 6. Check out the target and delete the merge branch.
 3. **Studio Pro** "Merge Changes Here", a person at the screen. `mx merge` leaves CE0137 on any unit changed on both sides; clearing it needs Studio Pro.
 
 Merge scripts for units both sides touched (menu, role assignments) take numbers in the 90 block.
@@ -60,6 +60,6 @@ On a failure, check out the target, then `git branch -D <merge-branch>` (the tar
 
 `mxcli diag --check-units --fix` on a suspect merge: it deletes unindexed files, which is the lost module.
 
-Team Server push after a merge: `teamserver-alignment.md`.
+Team Server push after a merge: the field reports an extra step (the settings unit's ContentsHash, #741 item 7) that `teamserver-alignment.md` does not cover yet and this skill did not test. Unverified here; do not rely on this skill for the push. For what it does cover: `teamserver-alignment.md`.
 
 **Done when:** N of N branches merged; `fix hashes` exit 0; N of N modules listed; menu and role assignments checked by eye; build gate 0 errors; rollback tag still present, target not moved before the check passed; ledger rows released.

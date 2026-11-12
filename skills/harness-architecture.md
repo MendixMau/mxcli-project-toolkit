@@ -119,6 +119,10 @@ Every instrument's entire contract with its orchestrator is **an exit code plus 
 | **1** | measured, wrong — the thing is broken | `fail` / finding |
 | **2** | **the instrument did not run** | `fault` |
 
+`project-bin/exec.sh` has more codes (4, 5) whose meaning is its own, so it also prints one
+`MXTK-RESULT exec verdict=... applied=... verified=... lint_new=... exit=...` line per run
+(verdicts in its header): branch on `verdict=`, not on a code you must look up. Never the last line.
+
 `fault` is **absent**, not amber. Amber means "ran, degraded". "The test could not run" and "the
 feature is broken" go to different people, and blending them is how a week gets spent debugging a
 page that was never reached.

@@ -18,6 +18,7 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 `docs/RELEASE-PROCESS.md` §8.
 
 ## Unreleased
+- new(exec): **`exec.sh` prints one `MXTK-RESULT exec verdict=<applied|applied-lint|applied-unverified|partial|restored|failed|refused> applied= verified= lint_new= exit=` line on every path that reached a verdict, before the closing lines, so an orchestrator reads the outcome without knowing that exit 4 means "applied, lint only"**; no exit code or existing line changes; new fixture `tests/wave2/test-exec-result-line.sh` — outside review of v2026.11.12
 
 ## v2026.11.12
 - new(parallel-builds): **`skills/parallel-builds.md`, an optional reference outside the pipeline (experimental tier, no stage map, no agent stub; used only when the user asks): several builders on one app in git worktrees, and how to merge their branches without losing a module (#741)**: a plain `git merge` of the model left one branch's units unregistered and both build gates reported 0 errors; the skill sets up worktrees (ports, database, number blocks, owners), forbids the plain merge, names the merge paths per CLI version, and checks `mxcli fix hashes`, `show modules` and the shared units before the build gate; forbids `diag --check-units --fix` after a suspect merge; a field run, 2026-11, lost a 63-unit module. Verbatim `fix hashes` capture under `tests/wave2/fixtures/worktree-merge/`. Guard script, exec.sh merge mode and lint delta are not built — field reports #741 and #744; LoanDesk worktree merge test

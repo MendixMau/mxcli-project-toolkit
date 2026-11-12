@@ -77,7 +77,7 @@ RUN=$(cd "$RUN" && pwd)
 REPO=$(cd "$(dirname "$0")/../../.." && pwd)
 TK=$HOME/Mendix/mxcli-project-toolkit/upgrade-toolkit
 MXCLI=$RUN/tools/mxcli-linux
-MXCLI_SRC=${MXCLI_SRC:-/home/user/mendixlabs/mxcli}
+MXCLI_SRC=${MXCLI_SRC:-/opt/mendixlabs/mxcli}
 # default: 78bdfa5, the build the pipeline ran on. v0.28.0 is blocked (SETUP.md, "Known problem of v0.28.0")
 MXCLI_REF=${MXCLI_REF:-78bdfa51a2e0a84b971093ebd7b6b82e7596c950}
 MXCLI_VER=$MXCLI_REF; [[ $MXCLI_REF =~ ^[0-9a-f]{40}$ ]] && MXCLI_VER=${MXCLI_REF:0:7}   # a full commit id reports as its 7-digit form

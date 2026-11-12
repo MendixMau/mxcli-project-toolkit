@@ -5766,13 +5766,13 @@ ctl customer-names-tracked-toolkit-pass 0 'customer-names: (clean|no private lis
 # internal domain) and exported with the licence; the public sandbox.mxapps.io of the release notes passes. Mini repo.
 xp_repo() {  # $1 dir, $2 text of the one exported step file
   mkdir -p $1/upgrade-toolkit/bin $1/upgrade-toolkit/steps
-  cp $B/export-public.sh $B/private_names.sh $1/upgrade-toolkit/bin/
+  cp $B/export-public.sh $B/private_names.sh $B/private_hosts.sh $1/upgrade-toolkit/bin/
   cp $TK/PUBLIC-README.md $TK/PUBLIC-LICENSE $1/upgrade-toolkit/
   printf '%s\n' "$2" > $1/upgrade-toolkit/steps/x.md
   git -C $1 init -q && git -C $1 add -A && git -C $1 -c user.email=ctl@example.invalid -c user.name=ctl commit -qm x
 }
 xp_repo $T/xp-catch "constant https://acme-accp.mendix""cloud.com/odata/v1"   # split, so this file passes the check
-xp_repo $T/xp-pass 'license check for sandbox.mxapps.io domain, advisory on cert-portal.siemens.com'
+xp_repo $T/xp-pass 'license check for sandbox.mxapps.io domain, advisory on advisories.example-vendor.com'
 UPG_PRIVATE_NAMES=$T/cn-names.txt ctl export-public-host-catch 1 'REFUSED: real deployment or internal hostnames' 'steps/x\.md:1:acme-accp\.mendixcloud\.com' -- bash $T/xp-catch/upgrade-toolkit/bin/export-public.sh $T/xp-out-catch
 UPG_PRIVATE_NAMES=$T/cn-names.txt ctl export-public-sandbox-pass 0 '^export .* Not pushed\.$' '!REFUSED' -- bash $T/xp-pass/upgrade-toolkit/bin/export-public.sh $T/xp-out-pass
 ctl export-public-licence-pass 0 'Apache License' -- head -3 $T/xp-out-pass/LICENSE
@@ -5847,7 +5847,7 @@ ctl pipeline-runlog-wired-pass 0 '^  record_runlog \|\| true$' 'STEP:-\}" = gate
 # the header and three real rows of FIELD-RUNS.md as they were with 12 columns.
 TM=$T/timing; mkdir -p $TM; GS=$here/fixtures/runlog/gate-summary.run6.md
 { sed -n '/^say() /p;/^quoted() /p;/^now_utc() /p;/^TIMING_STEP=/p' $B/cloud/upgrade-pipeline.sh
-  for f in nj_add rerun_cmd nj_flush timing_open timing_close cleanup run_step; do sed -n "/^$f() {/,/^}/p" $B/cloud/upgrade-pipeline.sh; done; } > $TM/fn.sh
+  for f in nj_add rerun_cmd nj_flush timing_open timing_close cleanup run_step decisions_apply; do sed -n "/^$f() {/,/^}/p" $B/cloud/upgrade-pipeline.sh; done; } > $TM/fn.sh
 cat > $TM/h.sh <<'HEOF'
 # h.sh WORK TIMES STEP...: run_step for each STEP the way main does, stub steps, a clock from the TIMES list
 set -Eeu
@@ -5857,7 +5857,7 @@ WORK=$1; TIMES=$2; shift 2
 date() { local n; n=$(cat "$WORK/.tick" 2> /dev/null || echo 0); n=$((n + 1)); echo "$n" > "$WORK/.tick"; sed -n "${n}p" "$TIMES"; }
 mkdir -p "$WORK/state" "$WORK/logs"
 ONLY=""; FROM=""; DRY=${DRY:-0}; NJ_TMP="$WORK/state/nj.tmp"; NJ_CODE=0; RUN=$WORK; SOURCE=10.24.0.1; TARGET=11.12.5; ARGS_ORIG=(); SELF=pipeline; STEP=""; LOG=$WORK/logs/x.log; APPS_UP=()
-mxcli_pin() { :; }; proposal_recheck() { :; }
+mxcli_pin() { :; }; proposal_recheck() { :; }; cockpit_regen() { :; }
 step_build() { if [ -n "${STUB_FAIL:-}" ] && [ ! -f "$WORK/fixed" ]; then false; fi; }
 step_journeys() { if [ ! -f "$WORK/fixed" ]; then nj_add 11 "journeys" "stub stop"; fi; }
 trap cleanup EXIT
@@ -5880,7 +5880,7 @@ cat > $TM/times-b.txt <<'EOF'
 2026-10-20T12:17:00Z
 2026-10-20T12:17:00Z
 EOF
-tmrun() { FN=$TM/fn.sh bash $TM/h.sh "$@"; echo "rc=$?"; }
+tmrun() { FN=$TM/fn.sh B=$B bash $TM/h.sh "$@"; echo "rc=$?"; }
 # A: build ok, journeys stops (exit 11) after 8 minutes; the person fixes it; 3 hours after the stop the pipeline runs again
 tmrun $TM/wa $TM/times-a.txt build journeys > /dev/null 2>&1
 cp $TM/wa/state/timing.tsv $TM/wa-first.tsv
@@ -6626,7 +6626,7 @@ ctl cockpit-steps-rows-pass 0 '^page rc=0$' "^groups: \['app', 'steps', 'setup',
 ctl cockpit-steps-drawer-shows-the-record-pass 0 '^S-2 found: The new React client cannot run the snippet widget' '^S-2 proposed: Keep every script' '^S-2 why: Same behaviour as today' '^S-2 who: Assumed by the agent\. It needs your OK\.$' '^S-2 other options: 2$' \
   "^S-2 commits: \['2222222', '3333333'\]$" "^S-2 tests: \[\('Click through pages', 'pass'\), \('User journeys', 'pass'\), \('Screens', 'pass'\)\]$" '^S-2 proof behind toggle: 3$' '^S-1 who: Approved by Ana on 2026-01-02\.$' '^S-1 commits: 1 \| tests: 2$' 'JS skips the old plan box for step rows: True' -- $CK matrix-steps-drawer
 ctl cockpit-steps-no-test-shows-a-gap-not-a-pass-catch 0 "^S-3 test: \[\['Linked checks', 'gap', 'No check is linked to this step, so nothing tested it\.'\]\] wait$" -- $CK matrix-steps-drawer
-ctl cockpit-steps-assumed-step-in-open-topics-catch 0 "\('Your call', 'jQuery scripts on the React client: Needs your OK', 'you'\)" "\('Coverage', 'Themepack styles: Test gap', 'agent'\)" '^routine step in open band: False$' '^you tile: [0-9]+ \| S-2 kind: owner \| S-3 kind: testgap$' -- $CK matrix-steps-band
+ctl cockpit-steps-assumed-step-in-open-topics-catch 0 "\('Your call', 'jQuery scripts on the React client', 'you'\)" "\('Coverage', 'Themepack styles: Test gap', 'agent'\)" '^routine step in open band: False$' '^you tile: [0-9]+ \| S-2 kind: owner \| S-3 kind: testgap$' -- $CK matrix-steps-band
 ctl cockpit-steps-missing-file-falls-back-pass 0 '^page rc=0$' '^step rows: 0$' "^groups: \['app', 'setup', 'golive'\]$" '^steps file flag: False$' "^old trail used: \['modules'\]$" "^damage notice: \[\]$" '^signoff meta: \[.4 choices were assumed by the agent.\]$' -- $CK matrix-steps-none
 ctl cockpit-steps-malformed-file-caught-catch 0 '^page rc=0$' '^step rows: 0$' '^steps file flag: False$' "^old trail used: \['modules'\]$" 'The step records are damaged \(line 3 is not an event\), so this page shows the older inputs\.' '^signoff meta: \[.4 choices were assumed by the agent.\]$' -- $CK matrix-steps-bad
 ctl cockpit-steps-incomplete-record-caught-catch 0 '^page rc=0$' '^step rows: 0$' 'The step records are damaged \(step S-1 is incomplete\)' -- $CK matrix-steps-incomplete
@@ -6729,15 +6729,15 @@ gtrail() {   # gtrail LABEL MODE [GATE_*=v ...]: a work folder (MODE ok | notest
   [ $mode = nodrow ] && printf '# Agent decisions\n\n| id | decision |\n|---|---|\n| D1 | Moved the cart scripts |\n' > "$W/AGENT-DECISIONS.md"
   local extra=""; [ $mode = notest ] && extra="--skip rest=no_rest_service"
   gcase "$label" "$@" WORK=$W WIDGETS_APP=$GI $extra > "$GI/gt-$label.out" 2>&1; local rc=$?
-  grep -E '^\| 13 \| trail \|' "$W/gate$label/gate-summary.md" | cut -c1-170; grep -oE '^gate: (PASS|FAIL|INVALID)' "$GI/gt-$label.out"; echo "gate rc=$rc"
+  grep -E '^\| 14 \| trail \|' "$W/gate$label/gate-summary.md" | cut -c1-170; grep -oE '^gate: (PASS|FAIL|INVALID)' "$GI/gt-$label.out"; echo "gate rc=$rc"
 }
-ctl gate-trail-complete-pass 0 '^\| 13 \| trail \| PASS \| 0 \| trail: complete, 1 steps' '^gate: PASS' '^gate rc=0$' -- gtrail gt1 ok
-ctl gate-trail-missing-test-warns-catch 0 '^\| 13 \| trail \| NOT RUN \| - \| WARNING: trail: 1 gap' '^gate: PASS' '^gate rc=0$' -- gtrail gt2 notest
-ctl gate-trail-unnamed-d-row-warns-catch 0 '^\| 13 \| trail \| NOT RUN \| - \| WARNING: trail: ' '^gate: PASS' '^gate rc=0$' -- gtrail gt3 nodrow
+ctl gate-trail-complete-pass 0 '^\| 14 \| trail \| PASS \| 0 \| trail: complete, 1 steps' '^gate: PASS' '^gate rc=0$' -- gtrail gt1 ok
+ctl gate-trail-missing-test-warns-catch 0 '^\| 14 \| trail \| NOT RUN \| - \| WARNING: trail: 1 gap' '^gate: PASS' '^gate rc=0$' -- gtrail gt2 notest
+ctl gate-trail-unnamed-d-row-warns-catch 0 '^\| 14 \| trail \| NOT RUN \| - \| WARNING: trail: ' '^gate: PASS' '^gate rc=0$' -- gtrail gt3 nodrow
 ctl gate-trail-optional-never-fails-pass 0 '^gate: PASS' '!^gate: (FAIL|INVALID)' '^gate rc=0$' -- gtrail gt4 notest
-ctl gate-trail-required-switch-invalid-catch 0 '^\| 13 \| trail \| INVALID \|' '^gate: INVALID' '^gate rc=2$' -- gtrail gt5 notest TRAIL_REQUIRED=1
-ctl gate-trail-required-complete-pass 0 '^\| 13 \| trail \| PASS \|' '^gate: PASS' '^gate rc=0$' -- gtrail gt6 ok TRAIL_REQUIRED=1
-ctl gate-trail-no-step-file-not-run-pass 0 '^\| 13 \| trail \| NOT RUN \| - \| no step records in this run' '^gate: PASS' '^gate rc=0$' -- gtrail gt7 nofile
+ctl gate-trail-required-switch-invalid-catch 0 '^\| 14 \| trail \| INVALID \|' '^gate: INVALID' '^gate rc=2$' -- gtrail gt5 notest TRAIL_REQUIRED=1
+ctl gate-trail-required-complete-pass 0 '^\| 14 \| trail \| PASS \|' '^gate: PASS' '^gate rc=0$' -- gtrail gt6 ok TRAIL_REQUIRED=1
+ctl gate-trail-no-step-file-not-run-pass 0 '^\| 14 \| trail \| NOT RUN \| - \| no step records in this run' '^gate: PASS' '^gate rc=0$' -- gtrail gt7 nofile
 ctl steps-legacy-import-fixture-pass 0 '^rc=0$' '^steps: 12$' '^assumed: 7 approved: 5 none: 0$' '^all events source legacy: True$' -- $SC legacy-import
 ctl steps-legacy-rerun-adds-nothing-pass 0 '^lines before: +148 after: +148$' -- $SC legacy-rerun
 ctl steps-legacy-jquery-assumed-step-catch 0 'jQuery scripts moved into JavaScript actions \| assumed by agent source legacy' -- $SC legacy-jquery

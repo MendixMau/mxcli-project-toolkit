@@ -40,7 +40,7 @@ MendixSSO module (RA-16, not this entry).
 
 Template Grid: in the apps read (Snowflake Showcase, Team Leave Tracker, Test Buddy) it occurs only inside the Atlas page templates
 (`Atlas_Web_Content.SelectWithTemplateGrid_Select` and its tablet twin), never on an app page, so no swap target there. Old Charts (Mendix
-charts 1.x to 3.x, widget ids `com.mendix.widget.custom.*`): Team Leave Tracker (9.24.23) holds 11 on `SiemensUIResources.Charts`. Dropdown
-Container: Team Leave Tracker, `SiemensUIResources.Widgets_Overview` (5). DropdownDivConverter is in the package list of Workplace
+charts 1.x to 3.x, widget ids `com.mendix.widget.custom.*`): Team Leave Tracker (9.24.23) holds 11 on `UIResources.Charts`. Dropdown
+Container: Team Leave Tracker, `UIResources.Widgets_Overview` (5). DropdownDivConverter is in the package list of Workplace
 Manager (118349) and HisenseStarter (257332), use on a page not verified. None of these was converted or swapped: the screen comparison needs a
 built and running old and new app, and the container had 2 GB free.

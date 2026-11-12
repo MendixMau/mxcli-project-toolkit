@@ -14,10 +14,12 @@ DROP=(upgrade-toolkit/bin/sync_gitlab.sh upgrade-toolkit/bin/export-public.sh up
 source "$TK/bin/private_names.sh"
 [ -n "$DENY" ] || { echo "REFUSED: no private names list (UPG_PRIVATE_NAMES); the export cannot be checked" >&2; exit 1; }
 TOKENS='ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9_-]{10,}|xox[bp]-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16}|BEGIN (RSA|OPENSSH|PRIVATE) KEY|sk-[A-Za-z0-9]{20,}'
-HOMES='/Users/[A-Za-z]|/home/[a-z][a-z0-9_-]+/'
-# hosts of real deployments and internal domains; release-note rows name the public sandbox.mxapps.io and the
-# public security advisories at cert-portal.siemens.com
-HOSTS='[a-z0-9-]+\.(mendixcloud\.com|mxapps\.io)|[a-z0-9.-]+\.siemens\.(com|net|cloud|de)\b|code\.siemens'
+SL=/   # built up from a variable so this detector's own source text never reads as a literal path
+HOMES="${SL}Users${SL}[A-Za-z]|${SL}home${SL}[a-z][a-z0-9_-]+${SL}"
+# hosts of real deployments and internal domains; the company's own domains live outside this repo (bin/private_hosts.sh,
+# same reasoning as bin/private_names.sh for names) — release-note rows name only the public sandbox.mxapps.io
+source "$TK/bin/private_hosts.sh"
+HOSTS='[a-z0-9-]+\.(mendixcloud\.com|mxapps\.io)'"${HOSTS_DENY:+|$HOSTS_DENY}"
 MAILS='[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[a-z]{2,}'
 MAIL_OK='@([a-z0-9.-]+\.)?(example(\.(com|org|invalid))?|test(\.invalid)?|t|noreply\.[a-z.]+|users\.noreply\.github\.com)\b|noreply@'
 
@@ -41,9 +43,10 @@ GI
 fail=0
 hits=$(grep -rInE --exclude-dir=.git "$DENY" "$DST" | cut -c1-200 || true)
 [ -z "$hits" ] || { echo "REFUSED: private names:"; echo "$hits" | sed "s|$DST/||" | head -40; fail=1; }
-hits=$(grep -rInE --exclude-dir=.git "$TOKENS|$HOMES" "$DST" | grep -vE '/home/user/' | cut -c1-200 || true)   # /home/user = the cloud container
+CLOUD_HOME="${SL}home${SL}user${SL}"   # the generic cloud-container home path, not a real person's — exempted below
+hits=$(grep -rInE --exclude-dir=.git "$TOKENS|$HOMES" "$DST" | grep -vE "$CLOUD_HOME" | cut -c1-200 || true)
 [ -z "$hits" ] || { echo "REFUSED: tokens or home-folder paths:"; echo "$hits" | sed "s|$DST/||" | head -40; fail=1; }
-hits=$(grep -rIonE --exclude-dir=.git "$HOSTS" "$DST" | grep -vE ':(sandbox\.mxapps\.io|cert-portal\.siemens\.com)$' || true)
+hits=$(grep -rIonE --exclude-dir=.git "$HOSTS" "$DST" | grep -vE ':(sandbox\.mxapps\.io'"${HOSTS_ALLOW:+|$HOSTS_ALLOW}"')$' || true)
 [ -z "$hits" ] || { echo "REFUSED: real deployment or internal hostnames:"; echo "$hits" | sed "s|$DST/||" | head -40; fail=1; }
 hits=$(grep -rIonE --exclude-dir=.git "$MAILS" "$DST" | grep -vE "$MAIL_OK" || true)
 [ -z "$hits" ] || { echo "REFUSED: e-mail addresses:"; echo "$hits" | sed "s|$DST/||" | head -40; fail=1; }

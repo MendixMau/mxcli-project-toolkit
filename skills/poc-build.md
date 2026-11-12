@@ -11,13 +11,13 @@
 
 **Not a speed setting.** `Pipeline mode: high-speed` is the existing way to make a NORMAL build faster; a POC build is a different shape of build.
 
-**Question moments:** after the build-type answer, ONE message with the prototype question AND the three design questions (step 1; the three apply only if the prototype answer is Nothing); then exactly one stop, the approval (step 4), which ends the turn. The build type was asked at kickoff.
+**Question moments:** after the build-type answer, ONE message with the prototype question AND the three design questions (step 1; the three apply only if the prototype answer is Nothing), and wait for the reply; then exactly one more stop, the approval (step 4), which ends the turn. The build type was asked at kickoff.
 
 ## Order (nothing else)
 
 Design artifacts (design system, wireframes, clickable prototype) → one **APPROVAL STOP** → only then model work: security, theme, walking skeleton, pages, journey, hand-over.
 
-1. **Design questions** (per `skills/interview-protocol.md` §3; ONE message, then stop): "Do you have a prototype or a design?" plus, for the Nothing case, the three questions below, so the answer can be a single reply.
+1. **Design questions** (per `skills/interview-protocol.md` §3; ONE message, then end the turn and wait for the reply): "Do you have a prototype or a design?" plus, for the Nothing case, the three questions below, so the answer can be a single reply.
    - **Prototype or design supplied:** reproduce it (`mxcli theme create <name> --from <css>`, `theme apply`; bundled `migrate-design-prototype`). Steps 2 and 3 still run in reduced form: the prototype IS the wireframe set; run the buildability pass on it; the stop (step 4) is on the prototype plus the list of deviations Mendix forces.
    - **Brand guide only:** tokens from the brand → design system → hi-fi wireframes (step 2) → buildability (step 3) → stop (step 4).
    - **Nothing:** the three short questions already asked in that same message (one reply answers them), then continue as the brand-guide path: who uses it and on what device; look and feel: **calm enterprise** (muted, one accent), **bold modern** (strong colour, large type) or **dense data** (compact, small type); the one screen to impress. These replace the branding interview (`skills/design-artifacts.md` Step 0b); then build its Steps 0a and 1.

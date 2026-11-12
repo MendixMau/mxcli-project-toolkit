@@ -156,7 +156,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Any session that will push a model to Mendix Team Server, and BEFORE telling the user a Team Server push is blocked — which remote is authoritative, settle-then-push order, and the four checks that have to fail first | `skills/teamserver-alignment.md` | mdl?,gate,review? | 5,6,7 | baseline |
 | Promoting an app to a deployed sandbox or cloud node, or before a customer tests a deployment — "it works locally" is not evidence about a deployment; also when a test suite fails only against the remote URL | `skills/deploy-to-sandbox.md` | all | 7 | ondemand |
 | Dispatching any helper that drives the app, tests or UI: print the ports, reset/restart scripts, e2e helper libs, secret key names and screenshot folders once, and put "read it first" in the brief instead of letting each helper rediscover them (#701) | `project-bin/project-facts.sh` | lead | 4,5 | ondemand |
-| Two or more builders or branches changing one app at the same time, a git worktree for a Mendix app, or merging model branches, or a module vanished after a merge — before the first `git worktree add`, and before any merge that touches the .mpr | `skills/parallel-builds.md` | lead | 5,6 | ondemand |
+| Two or more builders, or more than one agent building on the same repo, or branches changing one app at the same time, a git worktree for a Mendix app, or merging model branches, or a module vanished after a merge — before the first `git worktree add`, and before any merge that touches the .mpr | `skills/parallel-builds.md` | lead | 5,6 | ondemand |
 
 #### Build · MDL — the language and tool reference
 

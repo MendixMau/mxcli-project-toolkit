@@ -13,9 +13,14 @@ out="$(bash "$CK" "$T" 2>&1)"; rc=$?
 [ $rc -eq 3 ] && ok "T1 fresh stub exits 3" || bad "T1 rc=$rc"
 echo "$out" | grep -q "UNFILLED mdl-agent" && echo "$out" | grep -q "APP_PURPOSE" && ok "T2 names the slots" || bad "T2 $out"
 echo "$out" | grep -Eq "UNFILLED mdl-agent: [0-9]+ occurrence\(s\) of [0-9]+ slot\(s\) — " && ok "T2b wording counts occurrences vs unique slots" || bad "T2b $out"
-# fill every real slot, keep the DOUBLE_BRACE prose
+# fill every single-line slot, keep the DOUBLE_BRACE prose; the shipped stub's one slot that wraps
+# over four lines (PROJECT_LOCAL_SOURCES_OF_TRUTH) must still be counted (it used to be missed)
 f="$T/.claude/agents/mdl-agent.md"
 sed -E '/DOUBLE_BRACE/!s/\{\{[^}]*\}\}/filled/g' "$f" > "$f.n" && mv "$f.n" "$f"
+out="$(bash "$CK" "$T" 2>&1)"; rc=$?
+[ $rc -eq 3 ] && echo "$out" | grep -q "UNFILLED mdl-agent: 1 occurrence(s) of 1 slot(s) — PROJECT_LOCAL_SOURCES_OF_TRUTH" \
+  && ok "T6 a slot wrapped over several lines is counted (and the prose '{{' on line 11 does not swallow it)" || bad "T6 rc=$rc $out"
+perl -0777 -pi -e 's/\{\{PROJECT_LOCAL_SOURCES_OF_TRUTH.*?\}\}/filled/s' "$f"
 out="$(bash "$CK" "$T" 2>&1)"; rc=$?
 [ $rc -eq 0 ] && echo "$out" | grep -q "mdl-agent: filled" && ok "T3 filled stub exits 0 (DOUBLE_BRACE prose ignored)" || bad "T3 rc=$rc $out"
 out="$(bash "$CK" "$T" nosuch 2>&1)"; rc=$?

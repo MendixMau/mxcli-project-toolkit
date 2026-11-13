@@ -125,6 +125,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/learned-constants-and-secrets.md` | Adding a constant, installing a marketplace module, deploying to a new environment, or needing a Mendix PAT |
 | `project-bin/constants-audit.sh` | Before any first deploy to a new environment, and after installing or updating any marketplace module |
 | `skills/poc-build.md` | POC, proof of concept, demo, pilot or quick build asked for, a demo this week, something clickable to show; or PROJECT.md says Build type: poc (experimental: designed-first, one human stop, not the nine stage gates) |
+| `project-bin/demo-login-tiles.sh` | After creating or changing demo users, before a local demo or test round, and before an app leaves the machine (--remove) |
 | `project-bin/ts-sync.sh` | Sharing the project with a colleague on Mendix Team Server while the build loop stays on GitHub |
 <!-- ROUTING:END -->
 

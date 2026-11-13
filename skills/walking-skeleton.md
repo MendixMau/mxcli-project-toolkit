@@ -33,7 +33,7 @@ project convention splits security out.
 | 1 | One persistent entity, 2–3 attributes | The real central noun, not `Foo`. Using a throwaway name means the skeleton gets deleted, and with it the evidence. |
 | 2 | One microflow that changes state | Must write to the database (create or commit), so the data rung has something to assert. |
 | 3 | The smallest screen set that lets the action happen — usually an overview with a "New" button plus the form it opens | Built through `ui-preflight-pages.md`, on the app's owned layout; passes `project-bin/check-page-shell.sh`. This is the first place the design system is tested. |
-| 4 | One navigation item + one module role + one user role + one demo user | The journey logs in as the demo user and clicks the nav item. Admin-only reachability is a fail. |
+| 4 | One navigation item + one module role + one user role + one demo user | The journey logs in as the demo user and clicks the nav item. Admin-only reachability is a fail. Run `bin/demo-login-tiles.sh` once the demo user exists (sign-in tiles on localhost). |
 | 5 | One journey | Log in → click nav → fill the form → run the action → assert the row exists (OQL or SQL). Playwright via the project's harness, or `mxcli playwright verify`. |
 | 6 | One screenshot of the page, kept | `docs/looks/00-skeleton.png`, judged with the four `ui-loop.md` questions. |
 

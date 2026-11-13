@@ -1,0 +1,6 @@
+mdl 1;
+-- Security first (POC step 5): the scaffold ships with security Off ("Login FAILED"). Production + demo users.
+alter app security ( SecurityLevel: PRODUCTION, EnableDemoUsers: TRUE );
+create or modify demo user 'host1' ( Password: 'demo-pw-r1', UserRoles: (Host) );
+create or modify demo user 'host2' ( Password: 'demo-pw-r1', UserRoles: (Host) );
+create or modify demo user 'reception1' ( Password: 'demo-pw-r1', UserRoles: (Reception) );

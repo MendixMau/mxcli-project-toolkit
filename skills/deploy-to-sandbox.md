@@ -37,6 +37,8 @@ prerequisite, never a substitute, and never a reason to skip.
 
 ## Step 1 — enumerate what the deployment does NOT have
 
+**Before building a package or deploying:** run `bin/demo-login-tiles.sh --remove`, then `bin/demo-login-tiles.sh --check --strict` must exit 0 (the tiles' password file is static content any host can fetch).
+
 Before touching the harness, list what the target lacks relative to localhost. Do not guess it;
 read the platform's own docs and probe. For a Mendix **Free App Sandbox** the answer is large:
 
@@ -193,7 +195,7 @@ handing a URL to a customer, check separately:
   first — a secret in git history survives deleting the file. This is a rotation decision, not a
   deletion one.
 - **Demo passwords on a public URL.** A seeded admin password committed in the model is fine on
-  localhost and is a public administrative login on an internet-facing sandbox.
+  localhost and is a public administrative login on an internet-facing sandbox. Run `bin/demo-login-tiles.sh --remove` first (it deletes the local sign-in tiles' password file).
 - **Tokens you cannot reissue.** If the only way to mint an API/MCP token is a script in somebody's
   scratch directory, the capability does not survive the session. Promote the issuer into the repo
   before it is part of a handover.

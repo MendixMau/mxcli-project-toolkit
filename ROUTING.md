@@ -158,6 +158,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Dispatching any helper that drives the app, tests or UI: print the ports, reset/restart scripts, e2e helper libs, secret key names and screenshot folders once, and put "read it first" in the brief instead of letting each helper rediscover them (#701) | `project-bin/project-facts.sh` | lead | 4,5 | ondemand |
 | The user explicitly asks to build in parallel git worktrees, or to merge model branches — optional reference, not part of the pipeline; the default stays one writer per .mpr (`dispatching.md`) | `skills/parallel-builds.md` | lead | - | experimental |
 | POC, proof of concept, demo, pilot or quick build asked for, a demo this week, something clickable to show; or PROJECT.md says Build type: poc (experimental: designed-first, one human stop, not the nine stage gates) | `skills/poc-build.md` | lead,ba,architect,mdl,test,gate,review | - | ondemand |
+| After creating or changing demo users, before a local demo or test round, and before an app leaves the machine (--remove) — puts one click-to-sign-in tile per demo user on the sign-in page, on localhost only; the passwords live in a git-ignored file, never in the page | `project-bin/demo-login-tiles.sh` | lead,mdl | 5 | ondemand |
 
 #### Build · MDL — the language and tool reference
 

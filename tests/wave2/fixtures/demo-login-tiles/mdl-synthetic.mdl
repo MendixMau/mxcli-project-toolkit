@@ -1,0 +1,17 @@
+mdl 1;
+-- SYNTHETIC, NOT CAPTURED: statement shapes no local project's scripts use (multi-line, deprecated
+-- clause form with two roles, quoted role, a quote and "--" and ";" inside a password, drop/re-create,
+-- a block comment). The grammar is from `mxcli syntax security demo-user`. Passwords are fake.
+create or modify demo user 'multi.line'
+(
+  Password: 'Pa--ss;word''s',   -- comment after the password
+  UserRoles: (Alpha,
+              "Beta Role")
+);
+create demo user 'old.form' password 'Old-Pass-1!' entity Administration.Account (Alpha, Gamma);
+create demo user 'gone' ( Password: 'Gone-1!', UserRoles: (Alpha) );
+drop demo user 'gone';
+create demo user 'back' ( Password: 'First-1!', UserRoles: (Alpha) );
+drop demo user if exists 'back';
+create or modify demo user 'back' ( Password: 'Second-1!', UserRoles: (Gamma) );
+/* create demo user 'commented' ( Password: 'x', UserRoles: (Alpha) ); */

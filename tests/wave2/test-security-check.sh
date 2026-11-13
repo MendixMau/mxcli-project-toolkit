@@ -367,6 +367,11 @@ S5=$(grep '^SEC005	' "$W/acc.r.good" | cut -f2)
 grep -v '^SEC005	' "$W/acc.r.good" > "$ACCR"; printf 'SEC005\t%s\n' "$S5" >> "$ACCR"
 run "$PR" base --approve --reason "fixture r: should refuse"
 chk "P1 a reasonless SEC005 line: --approve refuses (1), names the line, records nothing" '[ "$RC" = 1 ] && has "REFUSED" && has "no reason, accepts nothing: [SEC005] Strict mode is disabled" && [ "$(grep -c "	approve	" "$PR/docs/security/approvals.tsv")" = 1 ]'
+# P1b a reason of only spaces (and one of only a tab) is no reason either
+grep -v '^SEC005	' "$W/acc.r.good" > "$ACCR"; printf 'SEC005\t%s\t   \n' "$S5" >> "$ACCR"
+run "$PR" base --approve --reason "fixture r: spaces-only reason"
+chk "P1b a spaces-only reason: --approve refuses (1) and names the line" '[ "$RC" = 1 ] && has "REFUSED" && has "no reason, accepts nothing: [SEC005] Strict mode is disabled"'
+grep -v '^SEC005	' "$W/acc.r.good" > "$ACCR"; printf 'SEC005\t%s\n' "$S5" >> "$ACCR"
 # an old --approve would have recorded this list's checksum; simulate that record by hand
 printf '2026-01-01\taccept\tfixture\thand-recorded\t%s\n' "$(tr -d '\r' < "$ACCR" | cksum | awk '{print $1}')" >> "$PR/docs/security/approvals.tsv"
 run "$PR" base --json

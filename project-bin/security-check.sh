@@ -367,7 +367,8 @@ fi
 
 accepted_pairs() {  # the first two columns of the accepted list, as rule<TAB>key lines
   # a line accepts a finding only with a rule id, an element AND a non-empty reason
-  awk -F'\t' '!/^[ \t]*#/ && NF>=3 && $1!="" && $3!="" { print $1 "\t" $2 }' "$ACC_N"
+  # A reason of only spaces or tabs is no reason: trim before testing.
+  awk -F'\t' '!/^[ \t]*#/ && NF>=3 && $1!="" { r=$3; gsub(/^[ \t]+|[ \t]+$/,"",r); if (r!="") print $1 "\t" $2 }' "$ACC_N"
 }
 accepted_pairs | LC_ALL=C sort -u > "$TMP/acc.pairs"
 # classify every non-comment line of the accepted list: ok / stale / noreason / badrule
@@ -377,7 +378,8 @@ classify_accepted() {  # -> status<TAB>rule<TAB>element<TAB>reason, one per line
     FILENAME==ARGV[1] { known[$1]=1; next }
     FILENAME==ARGV[2] { cur[$1 "\t" $2]=1; next }
     /^[ \t]*#/ || /^[ \t]*$/ { next }
-    { st = ($1 !~ re || !($1 in known)) ? "badrule" : (NF<3 || $3=="") ? "noreason" : (($1 "\t" $2) in cur) ? "ok" : "stale"
+    { r = (NF>=3) ? $3 : ""; gsub(/^[ \t]+|[ \t]+$/,"",r)
+      st = ($1 !~ re || !($1 in known)) ? "badrule" : (r=="") ? "noreason" : (($1 "\t" $2) in cur) ? "ok" : "stale"
       print st "\t" $1 "\t" $2 "\t" $3 }' "$TMP/listed.ids" "$FIND_ALL" "$ACC_N"
 }
 classify_accepted > "$TMP/acc.cls"

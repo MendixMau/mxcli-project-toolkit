@@ -24,7 +24,7 @@ Bank pages and their data-source microflows · `m1b` new persistent entity with 
 `m6a` new module role Auditor (reads Attempt, sees Team) mapped to no user role ·
 `m8bare` Learner's read on Attempt removed (the model no longer builds; read-only commands still work).
 
-Checked before commit: grep for home paths, e-mail addresses, URLs, hostnames, IPs and the word USI found
+Checked before commit: grep for home paths, e-mail addresses, URLs, hostnames, IPs and company names found
 nothing. The only proper nouns are the fictional app's own (ToeicBuddy, LoanDesk.mpr as the file name,
 MxAdmin = Mendix's default admin user name, demo user names learner1/trainer1).
 

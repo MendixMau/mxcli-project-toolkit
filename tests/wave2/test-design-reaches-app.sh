@@ -243,5 +243,75 @@ out="$(run "$d")"
 hasnt "a descendant selector is not the root theme block" "$out" "tokens valued   9 of 9"
 has   "the descendant block counts as built absent"       "$out" "carry the design's value"
 
+# ── 12. CSS layout must not change the reading (#670) ──────────────────────────────────────
+# Golden input is REAL (see CAPTURE.md, "#670 captures"): real-ds.css is a design stylesheet with
+# several tokens per line, real-built-excerpt.css is verbatim line ranges of a compiled theme
+# (bare :root with the design's tokens, a multi-line selector list `.card, ...`, two rules
+# inside @media, and `.card-body`). The old readers saw 10 of the design's 38 tokens.
+real() {  # $1 name  $2 design  $3 built  [$4 "two" for the app/ layout]
+  d="$TMP/$1"; rm -rf "$d"; mkdir -p "$d/design" "$d/deployment/web" "$d/theme/web"
+  cp "$2" "$d/design/ds.css"; cp "$3" "$d/deployment/web/theme.compiled.css"
+  cp "$FIX/real-custom-variables.scss" "$d/theme/web/custom-variables.scss"
+  if [ "${4:-}" = "two" ]; then
+    mkdir -p "$d/app"; mv "$d/theme" "$d/deployment" "$d/app/"; : > "$d/app/App.mpr"
+  fi
+  printf '%s' "$d"
+}
+summ() { printf '%s\n' "$1" | grep -E '^(knobs bound|tokens arrived|tokens valued|classes arrived)'; }
+tr '\n' ' ' < "$FIX/real-ds.css"            > "$TMP/min-ds.css"
+tr '\n' ' ' < "$FIX/real-built-excerpt.css" > "$TMP/min-built.css"
+
+d="$(real realml "$FIX/real-ds.css" "$FIX/real-built-excerpt.css")"
+base="$(summ "$(run "$d")")"
+has   "real sheets: every design token is counted, several per line" "$base" "tokens arrived  32 of 38"
+has   "real sheets: values compared with the \`}\` gone"             "$base" "tokens valued   30 of 38"
+has   "real sheets: knobs bound through var() are counted"          "$base" "knobs bound     31 of 46"
+has   "real sheets: whole-class count"                              "$base" "classes arrived 1 of 66"
+
+# The same two sheets with every newline removed (one line each, comments left in) must read
+# identically: nothing in the numbers may depend on how the CSS is laid out.
+d="$(real realmin "$TMP/min-ds.css" "$TMP/min-built.css")"
+check "one-line design + one-line built read as the multi-line pair" "$(summ "$(run "$d")")" "$base"
+check "one-line pair exits like the multi-line pair"                 "$(code "$d")" "$(code "$(real realml2 "$FIX/real-ds.css" "$FIX/real-built-excerpt.css")")"
+
+# Both layouts: the same real pair with the app under app/ (.mpr present).
+d="$(real realtwo "$FIX/real-ds.css" "$FIX/real-built-excerpt.css" two)"
+check "two-tree reads the real pair like the single tree" "$(summ "$(run "$d")")" "$base"
+has   "two-tree names the built sheet under app/"          "$(run "$d")" "built stylesheet app/deployment/web/theme.compiled.css"
+
+# Small synthetic twins for the individual faults; the real pair above is the golden input.
+mini() {  # $1 name  $2 design css  $3 built css
+  d="$(project "$1" "" true)"; printf '%s' "$2" > "$d/design/ds.css"; printf '%s' "$3" > "$d/deployment/web/theme.compiled.css"; printf '%s' "$d"
+}
+# fault 1: a one-line :root; the value must not keep its `}`; a later rule's --leak is no token
+d="$(mini oneline ':root{--a:1px;--b:2px;--c:3px}.x{--leak:9px}' ':root{--a:1px;--b:2px;--c:3px}')"
+out="$(run "$d")"
+has   "one-line :root declares 3 tokens, not 1"        "$out" "tokens arrived  3 of 3"
+has   "values compare without a trailing brace"        "$out" "tokens valued   3 of 3"
+# fault 2: minified built sheet still has its bare :root
+d="$(mini minbuilt ':root{--brand-primary:#111111}' ':root{--brand-primary:#111111}.x{color:red}')"
+has   "minified built sheet: bare :root is found, knob bound by literal" "$(run "$d")" "knobs bound     1 of 4"
+# fault 3: .card is not arrived because .card-header is
+d="$(mini wholeclass '.card{a:b}.hdr{a:b}' '.card-header{a:b}.hdr{a:b}')"
+out="$(run "$d")"
+has   ".card is NOT counted by .card-header"           "$out" "classes arrived 1 of 2"
+has   "names the missing class"                        "$out" "Absent: .card"
+d="$(mini wholeclass2 '.card{a:b}.hdr{a:b}' '.card, .x > .y{a:b}.hdr:hover{a:b}')"
+has   "a class inside a selector list / pseudo still counts" "$(run "$d")" "classes arrived 2 of 2"
+# fault 4: multi-line selector list, rule inside @media
+d="$(mini media '@media (min-width: 1px) {
+  .m1 { a: b }
+}
+.ml-a,
+.ml-b { a: b }' '.m1{a:b}.ml-a{a:b}.ml-b{a:b}')"
+has   "rules in @media and multi-line selector lists are read" "$(run "$d")" "classes arrived 3 of 3"
+# fault 5: var(--x, fallback) uses --x
+d="$(mini fallback ':root{--t1:#abcdef}' ':root{--brand-primary:var(--t1, #fff);--font-size-default:var( --nope , 1px)}')"
+has   "var(--t1, fallback) counts as bound to --t1"    "$(run "$d")" "knobs bound     1 of 4"
+# a model class: whole-class match against the built sheet
+d="$(mini modelcls '.a{a:b}' '.a{a:b}.card-header{a:b}')"
+mkdir -p "$d/mdlsource"; printf "Class: 'card'\n" > "$d/mdlsource/p.mdl"
+has   "model class .card is not defined by .card-header" "$(run "$d")" "1 of 1 classes the MODEL asks for are not defined"
+
 printf '\n%s passed, %s failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1

@@ -1,1 +1,0 @@
-fixture symptom on the overview page after the step

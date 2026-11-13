@@ -1,2 +1,0 @@
-# release_impact T6R-5 controls: MendixSSO by name (mendixsso.md)
-MendixSSO 4.0.2 -> 9.5.0

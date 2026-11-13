@@ -1,5 +1,0 @@
-# Java class clashes
-
-```
-none
-```

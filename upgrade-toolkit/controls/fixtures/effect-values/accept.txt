@@ -1,2 +1,0 @@
-# the planted zero is accepted in this control
-Shop.Item.Qty # reason given: planted zero, control only

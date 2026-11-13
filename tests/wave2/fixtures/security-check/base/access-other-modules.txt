@@ -1,0 +1,95 @@
+Access rules for Administration.Account:
+
+Rule 1: Administration.Administrator
+  Rights: create, read, write, delete
+  Default member access: None
+  Administration.Account.FullName: ReadWrite
+  Administration.Account.Email: ReadWrite
+  Administration.Account.IsLocalUser: ReadOnly
+
+Rule 2: Administration.User
+  Rights: read
+  Default member access: ReadOnly
+  Administration.Account.FullName: ReadOnly
+  Administration.Account.Email: ReadOnly
+  Administration.Account.IsLocalUser: None
+
+Rule 3: Administration.User
+  Rights: read, write
+  Default member access: None
+  Administration.Account.FullName: ReadWrite
+  Administration.Account.Email: None
+  Administration.Account.IsLocalUser: None
+  where '[id=''[%CurrentUser%]'']'
+
+Access rules for Administration.AccountPasswordData:
+
+Rule 1: Administration.Administrator, Administration.User
+  Rights: read, write
+  Default member access: ReadWrite
+  Administration.AccountPasswordData.OldPassword: ReadWrite
+  Administration.AccountPasswordData.NewPassword: ReadWrite
+  Administration.AccountPasswordData.ConfirmPassword: ReadWrite
+  Administration.AccountPasswordData_Account: ReadOnly
+
+Access rules for Atlas_Web_Content.LoginContext:
+
+Rule 1: Atlas_Web_Content.Administrator, Atlas_Web_Content.Anonymous, Atlas_Web_Content.User
+  Rights: create, read, write, delete
+  Default member access: None
+  Atlas_Web_Content.LoginContext.Username: ReadWrite
+  Atlas_Web_Content.LoginContext.Password: ReadWrite
+  Atlas_Web_Content.LoginContext.RememberMe: ReadWrite
+  Atlas_Web_Content.LoginContext.ValidationMessage: ReadWrite
+
+Access rules for FeedbackModule.Feedback:
+
+Rule 1: FeedbackModule.User
+  Rights: create, read, write, delete
+  Default member access: ReadWrite
+  FeedbackModule.Feedback.Subject: ReadWrite
+  FeedbackModule.Feedback.Description: ReadWrite
+  FeedbackModule.Feedback.SubmitterUUID: ReadWrite
+  FeedbackModule.Feedback.SubmitterEmail: ReadWrite
+  FeedbackModule.Feedback.SubmitterDisplayName: ReadWrite
+  FeedbackModule.Feedback.ImageB64: ReadWrite
+  FeedbackModule.Feedback.ActiveUserRoles: ReadWrite
+  FeedbackModule.Feedback.PageName: ReadWrite
+  FeedbackModule.Feedback.Browser: ReadWrite
+  FeedbackModule.Feedback.EnvironmentURL: ReadWrite
+  FeedbackModule.Feedback.ScreenshotName: ReadWrite
+  FeedbackModule.Feedback.AppID: ReadWrite
+  FeedbackModule.Feedback.Priority: ReadWrite
+  FeedbackModule.Feedback.ScreenWidth: ReadWrite
+  FeedbackModule.Feedback.ScreenHeight: ReadWrite
+  FeedbackModule.Feedback._showEmail: ReadWrite
+
+Access rules for FeedbackModule.ResponseHelper:
+
+Rule 1: FeedbackModule.User
+  Rights: read
+  Default member access: None
+  FeedbackModule.ResponseHelper.URL: ReadOnly
+
+Access rules for NanoflowCommons.Geolocation:
+
+Rule 1: NanoflowCommons.User
+  Rights: create, read, write, delete
+  Default member access: ReadWrite
+  NanoflowCommons.Geolocation.Timestamp: ReadWrite
+  NanoflowCommons.Geolocation.Latitude: ReadWrite
+  NanoflowCommons.Geolocation.Longitude: ReadWrite
+  NanoflowCommons.Geolocation.Altitude: ReadWrite
+  NanoflowCommons.Geolocation.Accuracy: ReadWrite
+  NanoflowCommons.Geolocation.AltitudeAccuracy: ReadWrite
+  NanoflowCommons.Geolocation.Heading: ReadWrite
+  NanoflowCommons.Geolocation.Speed: ReadWrite
+
+Access rules for NanoflowCommons.Position:
+
+Rule 1: NanoflowCommons.User
+  Rights: create, read, write, delete
+  Default member access: ReadWrite
+  NanoflowCommons.Position.Latitude: ReadWrite
+  NanoflowCommons.Position.Longitude: ReadWrite
+

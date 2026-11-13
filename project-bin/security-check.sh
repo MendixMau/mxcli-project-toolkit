@@ -14,10 +14,19 @@
 # been told about (SEC003 demo users at Production, SEC005 strict mode off), because exec.sh's lint
 # ratchet is silent until a baseline exists. This script is that pair of checks, and nothing more.
 #
-# AN AGENT RUNS THE CHECK; A PERSON APPROVES. `--approve` and `--accept` record a decision that a
-# role may see or do something. They are denied to agents in the project's .claude/settings.json
-# by bin/install-claude-permissions.sh (the same pattern as `bin/file-bugs.sh --file`): an agent
-# that approves its own access change has not been checked by anything.
+# AN AGENT RUNS THE CHECK; A PERSON APPROVES. `--approve`, `--accept` and `--accept-file` record a
+# decision that a role may see or do something. This is a GUARD RAIL, not a lock: the permission
+# rules bin/install-claude-permissions.sh writes into .claude/settings.json stop an agent from
+# running those commands and from editing the approved/accepted files directly (the same pattern
+# as `bin/file-bugs.sh --file`); a checksum per decision in docs/security/approvals.tsv makes a
+# hand-copied approval or a hand-appended acceptance fail the next check; and the approved files
+# are committed, so a person reviews every change in git. A person with a shell can still edit
+# files and the checksum log together - the review in git is what catches that.
+#
+# WHAT "CLEAN" COVERS (R5): this check covers new security lint findings and changes to the
+# recorded access facts (roles, pages, microflows, entity and attribute rights, row restrictions,
+# project security settings); it does not cover published REST/OData services and their roles,
+# nanoflow or workflow access, or which roles a user role may assign.
 #
 # WHAT IT READS (read-only: no exec, no write to the .mpr; `mxcli lint` and `show ...`/`describe ...`
 # only):
@@ -36,7 +45,11 @@
 # FILES (under the project root; with MXTK_SECURITY_OUT=<dir> all four live in <dir> instead):
 #   docs/security/access-snapshot.txt   the current snapshot (rewritten on every run)
 #   docs/security/access-approved.txt   the snapshot a person approved (written by --approve only)
-#   docs/security/approvals.tsv         date, reason, checksum - appended by --approve
+#   docs/security/approvals.tsv         date, kind, who, reason, checksum - one row per --approve /
+#                                       --accept / --accept-file; the checksum is of the file that
+#                                       decision wrote, and the next check verifies it
+#   docs/security/accept-template.tsv   written on a first run: every NEW finding with an EMPTY
+#                                       reason column, to edit and hand to --accept-file
 #   .claude/loop/security-accepted.tsv  accepted findings: rule id, message key, reason, date
 #   .claude/loop/security-check.last    verdict/counts/date/model fingerprint of the last check, so
 #                                       bin/gate-check.sh can print one advisory line without running
@@ -50,6 +63,10 @@
 #       <element> is the finding's message, or any part of it that matches exactly one current
 #       finding of that rule (the check prints the full command for every new finding).
 #       There is no "accept all": each finding is a separate, reasoned decision.
+#   bin/security-check.sh --accept-file <path>
+#       <path> is tab-separated, one line per finding: rule id, element, reason. Every line needs a
+#       non-empty reason and must match exactly one current finding; if any line does not, nothing
+#       is accepted and the bad lines are named. A first run writes the template.
 #
 # Exit codes: 0 clean (no NEW security finding, snapshot equals the approved copy)
 #             1 a NEW security finding, or the snapshot differs from the approved copy
@@ -57,8 +74,11 @@
 #             3 nothing approved yet (first run): lists every current finding and the snapshot
 #               summary and names the command that records the approval. NEVER 0: silence before a
 #               baseline exists is the defect this script answers.
+#             1 also: the approved copy or the accepted list does not match the checksum its
+#               --approve / --accept recorded (verdict approval-mismatch)
 #             4 the instrument could not run (no mxcli, no/unreadable model, a failing command, an
-#               unrecognised report format). NEVER 0.
+#               unrecognised report or dump format, the project's security lint rules not
+#               installed). NEVER 0.
 #
 # Output contract: one line `MXTK-RESULT security verdict=<clean|new-findings|access-changed|
 #   not-approved|could-not-run> new=<N> access_changes=<N> exit=<code>` is printed BEFORE the
@@ -76,7 +96,7 @@
 # Field run: a fictional English-practice test app (Mendix 11.13, mxcli v0.28), 2026-11-13; see
 # the commit that shipped this script for the measured output and timings.
 #
-# Requires: bash 3.2+, awk, sed, sort, comm, mktemp, cksum. No python.
+# Requires: bash 3.2+, awk, sed, sort, comm, mktemp, cksum, tr. No python.
 
 set -u
 
@@ -89,8 +109,38 @@ SELF_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # (create/delete granted in an access rule) and CONV007 (unconstrained read/write) are the
 # convention rules that name access mistakes. One place; change it here, nowhere else.
 SECURITY_RULES_RE='^(SEC[0-9]+|MPR007|CONV006|CONV007)$'
+# REQUIRED RULES: SEC004-SEC009, SEC014, CONV006 and CONV007 are Starlark rules that exist only when the
+# project has .claude/lint-rules/ ; without it `mxcli lint` reports far fewer findings and a
+# "clean" result would be false. The check refuses (exit 4) unless `mxcli lint --list-rules` names
+# every id below. One place; change it here, nowhere else.
+SECURITY_REQUIRED_RULES="SEC001 SEC003 SEC004 SEC005 SEC007 SEC010 MPR007 CONV006 CONV007"
+# A few plain words after each rule id, checked against `mxcli lint --list-rules` (mxcli v0.28).
+# An id that is not here prints with no description rather than a wrong one.
+rule_desc() {
+  case "$1" in
+    SEC001) echo "data with no access rules" ;;
+    SEC002) echo "password policy too weak" ;;
+    SEC003) echo "demo users on at production level" ;;
+    SEC004) echo "guest (anonymous) access is on" ;;
+    SEC005) echo "strict security mode is off" ;;
+    SEC006) echo "personal-data attributes without access rules" ;;
+    SEC007) echo "readable without signing in" ;;
+    SEC008) echo "personal data readable in every row" ;;
+    SEC009) echo "large entity with no attribute-level read limits" ;;
+    SEC010) echo "a role can open a page but not read its data" ;;
+    SEC014) echo "an external role can write controlled members" ;;
+    MPR007) echo "a navigation page no role may open, or a role that cannot open its home page" ;;
+    CONV006) echo "create or delete rights in an access rule" ;;
+    CONV007) echo "a role can read or change every row" ;;
+    *) echo "" ;;
+  esac
+}
+rule_label() {  # rule_label <id> -> "ID" or "ID (description)"
+  local d; d=$(rule_desc "$1")
+  if [ -n "$d" ]; then printf '%s (%s)' "$1" "$d"; else printf '%s' "$1"; fi
+}
 
-JSON=0; MODE=check; REASON=""; HAVE_REASON=0; ACC_RULE=""; ACC_ELEM=""
+JSON=0; MODE=check; REASON=""; HAVE_REASON=0; ACC_RULE=""; ACC_ELEM=""; ACC_FILE=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --json) JSON=1 ;;
@@ -99,6 +149,10 @@ while [ $# -gt 0 ]; do
       [ "$MODE" = check ] || { echo "security-check: --approve and --accept cannot be combined" >&2; exit 2; }
       [ $# -ge 3 ] || { echo "security-check: --accept needs <rule-id> <element>" >&2; exit 2; }
       MODE=accept; ACC_RULE="$2"; ACC_ELEM="$3"; shift 2 ;;
+    --accept-file)
+      [ "$MODE" = check ] || { echo "security-check: --approve, --accept and --accept-file cannot be combined" >&2; exit 2; }
+      [ $# -ge 2 ] || { echo "security-check: --accept-file needs a <path>" >&2; exit 2; }
+      MODE=acceptfile; ACC_FILE="$2"; shift ;;
     --reason) [ $# -ge 2 ] || { echo "security-check: --reason needs a value" >&2; exit 2; }; REASON="$2"; HAVE_REASON=1; shift ;;
     -h|--help) sed -n '2,/^set -u/p' "${BASH_SOURCE[0]}" | sed '$d'; exit 0 ;;
     *) echo "security-check: unknown argument '$1' (try --help)" >&2; exit 2 ;;
@@ -109,6 +163,8 @@ REASON=$(printf '%s' "$REASON" | tr '\t\r\n' '   ' | sed 's/^ *//; s/ *$//')
 case "$MODE" in
   approve|accept)
     [ -n "$REASON" ] || { echo "security-check: --$MODE needs --reason \"<who decided, and why>\" - a decision with no reason is not recorded." >&2; exit 2; } ;;
+  acceptfile) [ "$HAVE_REASON" = 0 ] || { echo "security-check: --accept-file takes the reason from each line of the file; --reason is not used with it" >&2; exit 2; }
+              [ -f "$ACC_FILE" ] || { echo "security-check: --accept-file: no such file: $ACC_FILE" >&2; exit 2; } ;;
   check) [ "$HAVE_REASON" = 0 ] || { echo "security-check: --reason only goes with --approve or --accept" >&2; exit 2; } ;;
 esac
 if [ "$MODE" = accept ]; then
@@ -129,6 +185,7 @@ else
   SNAPDIR="$ROOT/docs/security"; ACC="$ROOT/.claude/loop/security-accepted.tsv"; STATE="$ROOT/.claude/loop/security-check.last"
 fi
 SNAP="$SNAPDIR/access-snapshot.txt"; APPROVED="$SNAPDIR/access-approved.txt"; APPROVALS="$SNAPDIR/approvals.tsv"
+TEMPLATE="$SNAPDIR/accept-template.tsv"
 
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/security-check.XXXXXX") || { echo "security-check: cannot make a temp dir" >&2; exit 4; }
 cleanup() { rm -rf "$TMP"; }
@@ -197,24 +254,46 @@ fi
 NOISE='^(WARNING: |Using project|Connected to: |Loading cached catalog|Loading catalog|.? ?Catalog ready|✓ Catalog ready)'
 mx() {
   local raw="$TMP/raw.$$" r
-  "$MXCLI" -p "$MPR" -c "$1" > "$raw" 2>&1; r=$?
+  "$MXCLI" -p "$MPR" -c "$1" 2>&1 | tr -d '\r' > "$raw"; r=${PIPESTATUS[0]}
   grep -v -E "$NOISE" "$raw" > "$2"
+  # a failing command whose whole output was banner: keep the raw text so the message can show it
+  if [ "$r" -ne 0 ] && [ ! -s "$2" ]; then cp "$raw" "$2"; fi
   rm -f "$raw"
   return $r
 }
+first_lines() {  # first_lines <file>: the first 3 non-empty, non-banner lines (all lines if only banner), on one line
+  local t; t=$(grep -v '^[[:space:]]*$' "$1" | grep -v -E "$NOISE")
+  [ -n "$t" ] || t=$(grep -v '^[[:space:]]*$' "$1")
+  printf '%s\n' "$t" | head -3 | tr '\n' ' ' | sed 's/[[:space:]]*$//' | cut -c1-300
+}
 mx_or_die() {  # mx_or_die <command> <outfile>
-  mx "$1" "$2" || could_not_run "'$1' failed: $(tail -2 "$2" | tr '\n' ' ' | cut -c1-200)"
+  local r=0
+  mx "$1" "$2" || r=$?
+  [ "$r" -eq 0 ] || could_not_run "'$1' failed (mxcli exit $r): $(first_lines "$2")"
 }
 
 # --- 1. lint findings -----------------------------------------------------------------------
 # Parse the text report. A finding line is: <indent><symbol> <message> [RULE-ID]; its detail lines
 # start with "at" or "→". Output: rule<TAB>message, all findings; the count is checked against the
 # report's own total.
+# 1a. The security rules must be installed, or the lint run below reports far fewer findings and
+# a clean result would be false. Required ids are listed by `mxcli lint --list-rules`.
+LR="$TMP/listrules.txt"
+"$MXCLI" lint --list-rules -p "$MPR" 2>&1 | tr -d '\r' > "$LR"; lr_rc=${PIPESTATUS[0]}
+sed -n 's/^[[:space:]]*\([A-Z][A-Z0-9-]*[0-9]\)[[:space:]]*(.*/\1/p' "$LR" | LC_ALL=C sort -u > "$TMP/listed.ids"
+[ -s "$TMP/listed.ids" ] || could_not_run "'mxcli lint --list-rules' listed no rules (exit $lr_rc): $(first_lines "$LR")"
+missing_rules=""
+for rr in $SECURITY_REQUIRED_RULES; do
+  LC_ALL=C grep -qxF "$rr" "$TMP/listed.ids" || missing_rules="$missing_rules $rr"
+done
+[ -z "$missing_rules" ] || could_not_run "the project's security lint rules are not installed - not listed by mxcli lint:${missing_rules}. Without them a clean result would be false. Run 'mxcli init' in the project folder (the toolkit's bin/sync-project.sh <project-root> does this and restores the toolkit's rule fixes), then run this check again."
+
 LINT_RAW="$TMP/lint.raw"
-"$MXCLI" lint -p "$MPR" > "$LINT_RAW" 2>&1; lint_rc=$?
+"$MXCLI" lint -p "$MPR" 2>&1 | tr -d '\r' > "$LINT_RAW"; lint_rc=${PIPESTATUS[0]}
 if grep -q '^No issues found' "$LINT_RAW"; then total_reported=0
 else total_reported=$(sed -n 's/^\([0-9][0-9]*\) issues\{0,1\}:.*/\1/p' "$LINT_RAW" | tail -1); fi
-[ -n "$total_reported" ] || could_not_run "mxcli lint produced no recognisable report (exit $lint_rc): $(grep -v -E "$NOISE" "$LINT_RAW" | tail -2 | tr '\n' ' ' | cut -c1-200)"
+[ -n "$total_reported" ] || { grep -v -E "$NOISE" "$LINT_RAW" > "$TMP/lint.msg"; [ -s "$TMP/lint.msg" ] || cp "$LINT_RAW" "$TMP/lint.msg"
+  could_not_run "mxcli lint produced no recognisable report (exit $lint_rc): $(first_lines "$TMP/lint.msg")"; }
 awk '
   /^[ \t]+[^ \t]+[ \t]/ {
     line=$0; sub(/[ \t]+$/, "", line)
@@ -231,14 +310,72 @@ parsed_n=$(wc -l < "$TMP/lint.parsed" | tr -d ' ')
   || could_not_run "parsed $parsed_n findings from the lint report but it states $total_reported: the report format changed, so a clean result could not be trusted"
 LC_ALL=C awk -F'\t' -v re="$SECURITY_RULES_RE" '$1 ~ re' "$TMP/lint.parsed" | LC_ALL=C sort -u > "$FIND_ALL"
 
+# Windows line endings: everything read from the approved and accepted files is compared as a
+# normalised copy (no CR); the user's files are never rewritten.
+norm_copy() { if [ -f "$1" ]; then tr -d '\r' < "$1" > "$2"; else : > "$2"; fi; }
+cksum_norm() { tr -d '\r' < "$1" | cksum | awk '{print $1}'; }
+ACC_N="$TMP/accepted.n"; APPROVED_N="$TMP/approved.n"
+norm_copy "$ACC" "$ACC_N"; norm_copy "$APPROVED" "$APPROVED_N"
+
+# Who decided: the git user name, else $USER, else "unknown". No e-mail address.
+who_am_i() {
+  local w; w=$(git -C "$ROOT" config user.name 2>/dev/null | head -1)
+  [ -n "$w" ] || w="${USER:-}"
+  [ -n "$w" ] || w="unknown"
+  printf '%s' "$w" | tr '\t\r\n' '   '
+}
+record_decision() {  # record_decision <approve|accept> <reason> <file whose checksum is recorded>
+  mkdir -p "$SNAPDIR" 2>/dev/null
+  [ -f "$APPROVALS" ] || printf '# date\tkind\twho\treason\tcksum of the file this decision wrote (approved copy / accepted list) - appended by security-check.sh; verified on every check\n' > "$APPROVALS"
+  printf '%s\t%s\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%d)" "$1" "$(who_am_i)" "$2" "$(cksum_norm "$3")" >> "$APPROVALS"
+}
+last_cksum() {  # last_cksum <kind>: checksum on the latest approvals row of that kind ("" if none)
+  [ -f "$APPROVALS" ] || return 0
+  awk -F'\t' -v k="$1" '!/^#/ && $2==k { c=$5 } END { print c }' "$APPROVALS" | tr -d '\r'
+}
+# R4: the approved copy and the accepted list must be what --approve / --accept last wrote.
+INTEGRITY_MSG=""
+if [ -f "$APPROVED" ]; then
+  [ "$(last_cksum approve)" = "$(cksum_norm "$APPROVED")" ] && [ -n "$(last_cksum approve)" ] \
+    || INTEGRITY_MSG="the approved copy was not written by --approve: ask the person who approves access to run it again ($APPROVED does not match the checksum in $APPROVALS)."
+fi
+if [ -z "$INTEGRITY_MSG" ]; then
+  if [ -f "$ACC" ]; then
+    [ -n "$(last_cksum accept)" ] && [ "$(last_cksum accept)" = "$(cksum_norm "$ACC")" ] \
+      || INTEGRITY_MSG="the accepted list was not written by --accept: ask the person who approves access to review it (git diff) and, if it is right, run --accept again ($ACC does not match the checksum in $APPROVALS)."
+  elif [ -n "$(last_cksum accept)" ]; then
+    INTEGRITY_MSG="the accepted list $ACC is missing but $APPROVALS records acceptances: restore it from git, or ask the person who approves access."
+  fi
+fi
+if [ -n "$INTEGRITY_MSG" ] && [ "$MODE" != approve ]; then
+  if [ "$MODE" != check ]; then echo "security-check: $INTEGRITY_MSG Nothing was recorded." >&2; exit 1; fi
+  write_state approval-mismatch 0 0
+  if [ "$JSON" = 1 ]; then
+    printf '{"verdict":"approval-mismatch","exit":1,"error":"%s","new_findings":[],"access_changes":[],"counts":{"new":0,"access_changes":0}}\n' "$(jesc "$INTEGRITY_MSG")"
+    emit_result approval-mismatch 0 0 1
+  else
+    echo "security-check: $(basename "$MPR")"
+    echo
+    echo "APPROVAL NOT TRUSTED - $INTEGRITY_MSG"
+    emit_result approval-mismatch 0 0 1
+    echo "Not clean. Nothing was compared: a person must look at this first."
+  fi
+  exit 1
+fi
+
 accepted_pairs() {  # the first two columns of the accepted list, as rule<TAB>key lines
-  [ -f "$ACC" ] || return 0
-  awk -F'\t' '!/^[ \t]*#/ && NF>=2 && $1!="" { print $1 "\t" $2 }' "$ACC"
+  awk -F'\t' '!/^[ \t]*#/ && NF>=2 && $1!="" { print $1 "\t" $2 }' "$ACC_N"
 }
 accepted_pairs | LC_ALL=C sort -u > "$TMP/acc.pairs"
 LC_ALL=C comm -23 "$FIND_ALL" "$TMP/acc.pairs" > "$FIND_NEW"
 
 shq() { printf '%s' "$1" | sed 's/[\\"$`]/\\&/g'; }   # for the printed, copy-pasteable accept command
+list_findings() {  # list_findings <file of rule<TAB>msg>: "  [RULE - words] message" (no words for an id not in the table)
+  while IFS="$(printf '\t')" read -r r m; do
+    d=$(rule_desc "$r")
+    if [ -n "$d" ]; then printf '  [%s - %s] %s\n' "$r" "$d" "$m"; else printf '  [%s] %s\n' "$r" "$m"; fi
+  done < "$1"
+}
 print_accept_cmds() {  # print_accept_cmds <file of rule<TAB>msg>
   awk -F'\t' '{ print $1 "\t" $2 }' "$1" | while IFS="$(printf '\t')" read -r r m; do
     printf '      bin/security-check.sh --accept %s "%s" --reason "<why this is acceptable>"\n' "$r" "$(shq "$m")"
@@ -267,8 +404,56 @@ if [ "$MODE" = accept ]; then
   mkdir -p "${ACC%/*}" 2>/dev/null || { echo "security-check: cannot create ${ACC%/*}" >&2; exit 4; }
   [ -f "$ACC" ] || printf '# rule\tfinding (lint message)\treason accepted\tdate - security-check.sh --accept; one decision per line, commit this file\n' > "$ACC"
   printf '%s\t%s\t%s\t%s\n' "$r" "$m" "$REASON" "$(date -u +%Y-%m-%d)" >> "$ACC"
+  record_decision accept "$REASON" "$ACC"
   echo "security-check: accepted [$r] $m"
   echo "  reason: $REASON"
+  echo "  recorded in $ACC - commit it. Re-run bin/security-check.sh for the verdict."
+  exit 0
+fi
+
+# --- --accept-file: many reasoned decisions, all or nothing ----------------------------------------
+if [ "$MODE" = acceptfile ]; then
+  tr -d '\r' < "$ACC_FILE" > "$TMP/af.in"
+  : > "$TMP/af.ok"; : > "$TMP/af.bad"; ln=0; seen=""
+  while IFS="$(printf '\t')" read -r r m rs || [ -n "$r" ]; do
+    ln=$((ln+1))
+    case "$r" in ""|"#"*) continue ;; esac
+    rs=$(printf '%s' "$rs" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+    if [ -z "$rs" ]; then echo "  line $ln: [$r] has no reason - a decision with no reason is not recorded" >> "$TMP/af.bad"; continue; fi
+    if ! printf '%s' "$r" | grep -Eq "$SECURITY_RULES_RE" || [ -z "$m" ]; then echo "  line $ln: '$r' is not a security rule id with an element" >> "$TMP/af.bad"; continue; fi
+    : > "$TMP/af.cand"
+    # an element equal to a whole finding message (what the template holds) names exactly that finding
+    if LC_ALL=C grep -qxF "$(printf '%s\t%s' "$r" "$m")" "$FIND_ALL"; then printf '%s\t%s\n' "$r" "$m" > "$TMP/af.cand"
+    else
+      while IFS="$(printf '\t')" read -r fr fm; do
+        [ "$fr" = "$r" ] || continue
+        case "$fm" in *"$m"*) printf '%s\t%s\n' "$fr" "$fm" >> "$TMP/af.cand" ;; esac
+      done < "$FIND_ALL"
+    fi
+    cn=$(wc -l < "$TMP/af.cand" | tr -d ' ')
+    if [ "$cn" = 0 ]; then echo "  line $ln: no current $r finding contains '$m'" >> "$TMP/af.bad"; continue; fi
+    if [ "$cn" -gt 1 ]; then echo "  line $ln: '$m' matches $cn $r findings - be more specific" >> "$TMP/af.bad"; continue; fi
+    IFS="$(printf '\t')" read -r fr fm < "$TMP/af.cand"
+    key="${fr}|${fm}"
+    case "$seen" in *"||$key||"*) echo "  line $ln: [$fr] $fm is listed twice" >> "$TMP/af.bad"; continue ;; esac
+    seen="$seen||$key||"
+    printf '%s\t%s\t%s\n' "$fr" "$fm" "$rs" >> "$TMP/af.ok"
+  done < "$TMP/af.in"
+  nok=$(wc -l < "$TMP/af.ok" | tr -d ' ')
+  if [ -s "$TMP/af.bad" ]; then
+    echo "security-check: --accept-file: NOTHING was accepted. Fix these lines in $ACC_FILE:" >&2
+    cat "$TMP/af.bad" >&2; exit 2
+  fi
+  [ "$nok" -gt 0 ] || { echo "security-check: --accept-file: $ACC_FILE has no finding lines. Nothing accepted." >&2; exit 2; }
+  mkdir -p "${ACC%/*}" 2>/dev/null || { echo "security-check: cannot create ${ACC%/*}" >&2; exit 4; }
+  [ -f "$ACC" ] || printf '# rule\tfinding (lint message)\treason accepted\tdate - security-check.sh --accept; one decision per line, commit this file\n' > "$ACC"
+  added=0
+  while IFS="$(printf '\t')" read -r r m rs; do
+    if LC_ALL=C grep -qxF "$(printf '%s\t%s' "$r" "$m")" "$TMP/acc.pairs"; then echo "  already accepted: [$r] $m"; continue; fi
+    printf '%s\t%s\t%s\t%s\n' "$r" "$m" "$rs" "$(date -u +%Y-%m-%d)" >> "$ACC"; added=$((added+1))
+  done < "$TMP/af.ok"
+  record_decision accept "--accept-file: $added finding(s), reason per finding in the accepted list" "$ACC"
+  echo "security-check: accepted $added finding(s) from $ACC_FILE (each with its own reason)"
   echo "  recorded in $ACC - commit it. Re-run bin/security-check.sh for the verdict."
   exit 0
 fi
@@ -301,6 +486,7 @@ while IFS= read -r ur; do
   [ -n "$ur" ] || continue
   case "$ur" in *[!A-Za-z0-9_]*) cmd="describe user role '$ur'" ;; *) cmd="describe user role $ur" ;; esac
   mx_or_die "$cmd" "$TMP/o.dur"
+  grep -q 'create or modify user role' "$TMP/o.dur" || could_not_run "'$cmd' has no 'create or modify user role' statement - format changed: $(first_lines "$TMP/o.dur")"
   flat=$(tr '\n' ' ' < "$TMP/o.dur")
   case "$flat" in *ModuleRoles:*) ml=${flat#*ModuleRoles:}; ml=${ml#*\(}; ml=${ml%%\)*} ;; *) ml="" ;; esac
   printf '%s\n' "$ml" | tr ',' '\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | grep -v '^$' | while IFS= read -r mr; do
@@ -335,6 +521,8 @@ fi
 # page and microflow access, from the project-wide security matrix
 mx_or_die "show security matrix" "$TMP/o.sm"
 grep -q '^Security Matrix' "$TMP/o.sm" || could_not_run "'show security matrix' has no 'Security Matrix' heading - format changed"
+grep -q '^## Page Access' "$TMP/o.sm" && grep -q '^## Microflow Access' "$TMP/o.sm" \
+  || could_not_run "'show security matrix' lacks its '## Page Access' and '## Microflow Access' sections - format changed, so page and microflow access would go unchecked"
 awk '
   /^## Microflow Access/ { sec="microflow-access"; verb="execute"; next }
   /^## Page Access/      { sec="page-access"; verb="open"; next }
@@ -351,6 +539,8 @@ tbl_rows "$TMP/o.en" '^\| *Entity ' | grep -v '^System\.' | LC_ALL=C sort -u > "
 while IFS= read -r ent; do
   [ -n "$ent" ] || continue
   mx_or_die "show access on $ent" "$TMP/o.ac"
+  awk 'NF { print; exit }' "$TMP/o.ac" | grep -Eq '^(Access rules for |No access rules on )' \
+    || could_not_run "'show access on $ent' starts with neither 'Access rules for' nor 'No access rules on' - format changed: $(first_lines "$TMP/o.ac")"
   awk -v E="$ent" '
     function rights_norm(s,   c, a, i, out, w) {
       c=split(s, a, /, */); out=""
@@ -359,6 +549,7 @@ while IFS= read -r ent; do
       for (i=1;i<=c;i++) if (a[i]!="create" && a[i]!="read" && a[i]!="write" && a[i]!="delete" && a[i]!="") out = out (out==""?"":",") a[i]
       return out
     }
+    function trim(x) { gsub(/^[ \t]+|[ \t]+$/, "", x); return x }
     function flush(   r, m) {
       if (!inrule) return
       for (r=1; r<=nroles; r++) {
@@ -368,13 +559,20 @@ while IFS= read -r ent; do
       }
       inrule=0
     }
+    # Nothing is dropped: a line this parser does not know becomes an entity-raw fact, so an
+    # unknown line CHANGES the snapshot instead of vanishing. A line after "where" that is not a
+    # known line is the rest of the row restriction and is recorded as part of it.
+    /^[ \t]*$/ { inwhere=0; next }
     /^No access rules on / { print "entity-no-rules\t" E "\tyes"; next }
-    /^Rule [0-9]+: /      { flush(); inrule=1; s=$0; sub(/^Rule [0-9]+: /, "", s); nroles=split(s, roles, /, */); rt=""; def=""; xp=""; nmem=0; next }
-    inrule && /^  Rights: /                { s=$0; sub(/^  Rights: /, "", s); rt=s; next }
-    inrule && /^  Default member access: / { s=$0; sub(/^  Default member access: /, "", s); def=s; next }
-    inrule && /^  where /                  { s=$0; sub(/^  where /, "", s); xp=s; next }
+    /^Access rules for /   { flush(); inwhere=0; next }
+    /^Rule [0-9]+: /      { flush(); inrule=1; inwhere=0; s=$0; sub(/^Rule [0-9]+: /, "", s); hdr=s; nroles=split(s, roles, /, */); rt=""; def=""; xp=""; nmem=0; next }
+    inrule && /^  Rights: /                { inwhere=0; s=$0; sub(/^  Rights: /, "", s); rt=s; next }
+    inrule && /^  Default member access: / { inwhere=0; s=$0; sub(/^  Default member access: /, "", s); def=s; next }
+    inrule && /^  where /                  { s=$0; sub(/^  where /, "", s); xp=s; inwhere=1; next }
     inrule && /^  [A-Za-z0-9_.]+: (ReadOnly|ReadWrite|None)$/ {
-      s=$0; sub(/^  /, "", s); i=index(s, ": "); nmem++; mem[nmem]=substr(s, 1, i-1); acc[nmem]=substr(s, i+2); next }
+      inwhere=0; s=$0; sub(/^  /, "", s); i=index(s, ": "); nmem++; mem[nmem]=substr(s, 1, i-1); acc[nmem]=substr(s, i+2); next }
+    inrule && inwhere { xp = xp " <NL> " trim($0); next }
+    { l=$0; gsub(/\t/, " ", l); print "entity-raw\t" E "\t" (inrule ? hdr : "-") "\t" l "\tyes" }
     END { flush() }' "$TMP/o.ac" >> "$REC"
 done < "$TMP/ent.names"
 
@@ -391,9 +589,8 @@ summary_counts() {  # one line per record kind
 # --- --approve ------------------------------------------------------------------------------
 if [ "$MODE" = approve ]; then
   cp "$SNAP" "$APPROVED.tmp" && mv "$APPROVED.tmp" "$APPROVED" || { echo "security-check: cannot write $APPROVED" >&2; exit 4; }
-  sum=$(cksum < "$APPROVED" | awk '{print $1}')
-  [ -f "$APPROVALS" ] || printf '# date\treason\tcksum of access-approved.txt - appended by security-check.sh --approve\n' > "$APPROVALS"
-  printf '%s\t%s\t%s\n' "$(date -u +%Y-%m-%d)" "$REASON" "$sum" >> "$APPROVALS"
+  sum=$(cksum_norm "$APPROVED")
+  record_decision approve "$REASON" "$APPROVED"
   nrec=$(grep -vc '^#' "$APPROVED")
   echo "security-check: access snapshot approved ($nrec facts) -> $APPROVED"
   echo "  reason: $REASON"
@@ -404,7 +601,7 @@ if [ "$MODE" = approve ]; then
   if [ "$nnew" -gt 0 ]; then
     echo
     echo "$nnew security finding(s) are still NEW (not accepted). Approving the snapshot does not accept them:"
-    awk -F'\t' '{ print "  [" $1 "] " $2 }' "$FIND_NEW"
+    list_findings "$FIND_NEW"
     echo "Accept each one you agree with (a person runs these):"
     print_accept_cmds "$FIND_NEW"
   fi
@@ -472,6 +669,7 @@ translate_changes() {  # translate_changes <approved> <current> -> sentences on 
         else if (kind=="page-access") out(f[3] " can now OPEN page " f[2])
         else if (kind=="microflow-access") out(f[3] " can now EXECUTE microflow " f[2])
         else if (kind=="entity-no-rules") out("entity " f[2] " has NO access rules")
+        else if (kind=="entity-raw") out("access rule line on " f[2] " (rule for " f[3] ") not understood by this check, now present: " f[4])
         else if (kind=="entity-rights") { ruleevt[f[2] "\t" f[3] "\t" f[4]]=1; out(f[3] " can now " words(nv) " " f[2] " (" rowtxt(f[4]) ")") }
         else if (kind=="entity-default") { }
         else if (kind=="member-access") { if (!((f[2] "\t" f[3] "\t" f[4]) in ruleevt) && nv!="None") out(f[3] " can now " (nv=="ReadWrite"?"WRITE ":"READ ") f[5]) }
@@ -487,6 +685,7 @@ translate_changes() {  # translate_changes <approved> <current> -> sentences on 
         else if (kind=="page-access") out(f[3] " can no longer open page " f[2])
         else if (kind=="microflow-access") out(f[3] " can no longer execute microflow " f[2])
         else if (kind=="entity-no-rules") out("entity " f[2] " no longer reports missing access rules")
+        else if (kind=="entity-raw") out("access rule line on " f[2] " (rule for " f[3] ") not understood by this check, no longer present: " f[4])
         else if (kind=="entity-rights") { ruleevt[f[2] "\t" f[3] "\t" f[4]]=1; out(f[3] " lost its rule on " f[2] " (" rowtxt(f[4]) "; was " words(ov) ")") }
         else if (kind=="entity-default") { }
         else if (kind=="member-access") { if (!((f[2] "\t" f[3] "\t" f[4]) in ruleevt) && ov!="None") out(f[3] " lost access to " f[5] " (was " ov ")") }
@@ -499,17 +698,17 @@ if [ ! -f "$APPROVED" ]; then
   verdict=not-approved; rc=3; NEWN=$(wc -l < "$FIND_NEW" | tr -d ' '); ACCN=0
 else
   NEWN=$(wc -l < "$FIND_NEW" | tr -d ' ')
-  if cmp -s "$APPROVED" "$SNAP"; then ACCN=0
+  if cmp -s "$APPROVED_N" "$SNAP"; then ACCN=0
   else
-    translate_changes "$APPROVED" "$SNAP" > "$CHG"
+    translate_changes "$APPROVED_N" "$SNAP" > "$CHG"
     ACCN=$(wc -l < "$CHG" | tr -d ' ')
     if [ "$ACCN" = 0 ]; then
-      diff "$APPROVED" "$SNAP" | grep -E '^[<>]' | head -40 > "$CHG"
+      diff "$APPROVED_N" "$SNAP" | grep -E '^[<>]' | head -40 > "$CHG"
       ACCN=$(wc -l < "$CHG" | tr -d ' ')
     fi
   fi
   if [ "$NEWN" -gt 0 ]; then verdict=new-findings; rc=1
-  elif ! cmp -s "$APPROVED" "$SNAP"; then verdict=access-changed; rc=1
+  elif ! cmp -s "$APPROVED_N" "$SNAP"; then verdict=access-changed; rc=1
   else verdict=clean; rc=0; fi
 fi
 write_state "$verdict" "$NEWN" "$ACCN"
@@ -541,13 +740,19 @@ if [ "$verdict" = not-approved ]; then
   if [ "$tot" = 0 ]; then echo "  (none)"; else
     while IFS="$TAB" read -r r m; do
       if LC_ALL=C grep -qxF "$(printf '%s\t%s' "$r" "$m")" "$TMP/acc.pairs"; then t="accepted"; else t="NEW"; fi
-      printf '  [%s] %s  (%s)\n' "$r" "$m" "$t"
+      d=$(rule_desc "$r")
+      if [ -n "$d" ]; then printf '  [%s - %s] %s  (%s)\n' "$r" "$d" "$m" "$t"; else printf '  [%s] %s  (%s)\n' "$r" "$m" "$t"; fi
     done < "$FIND_ALL"
   fi
   if [ "$NEWN" -gt 0 ]; then
     echo
     echo "A person accepts each finding they agree with (an agent must not):"
     print_accept_cmds "$FIND_NEW"
+  fi
+  if [ "$NEWN" -gt 0 ]; then
+    { printf '# security-check --accept-file template: rule<TAB>finding<TAB>reason. Fill in a reason for each finding you accept, delete the lines you do not, then:  bin/security-check.sh --accept-file <this file>\n'
+      awk -F'\t' '{ print $1 "\t" $2 "\t" }' "$FIND_NEW"; } > "$TEMPLATE" 2>/dev/null \
+      && echo "To accept many at once: a person fills in the reason column of $TEMPLATE (left EMPTY on purpose) and runs bin/security-check.sh --accept-file $TEMPLATE"
   fi
   echo
   echo "Access snapshot written to $SNAP - what it holds:"
@@ -563,7 +768,7 @@ fi
 if [ "$NEWN" -gt 0 ]; then
   echo
   echo "NEW security finding(s): $NEWN (of $tot; the rest are accepted)"
-  awk -F'\t' '{ print "  [" $1 "] " $2 }' "$FIND_NEW"
+  list_findings "$FIND_NEW"
   echo "  A person accepts a finding they agree with:"
   print_accept_cmds "$FIND_NEW"
 fi
@@ -575,7 +780,8 @@ if [ "$ACCN" -gt 0 ]; then
 fi
 emit_result "$verdict" "$NEWN" "$ACCN" "$rc"
 case "$verdict" in
-  clean) echo "Clean: $tot security finding(s), all accepted; the access snapshot equals the approved copy." ;;
-  *) echo "Not clean. An agent reports this and stops; only a person accepts or approves." ;;
+  clean) echo "Clean: $tot security finding(s), all accepted; the access snapshot equals the approved copy."
+         echo "This check covers new security lint findings and changes to the recorded access facts (roles, pages, microflows, entity and attribute rights, row restrictions, project security settings); it does not cover published REST/OData services and their roles, nanoflow or workflow access, or which roles a user role may assign." ;;
+  *) echo "Not clean. What is wrong is listed above; a person decides whether to fix it or approve it." ;;
 esac
 exit "$rc"

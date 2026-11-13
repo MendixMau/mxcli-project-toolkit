@@ -1,0 +1,122 @@
+Security Matrix:
+
+## Entity Access
+
+### Atlas_Web_Content.LoginContext
+  Atlas_Web_Content.Administrator, Atlas_Web_Content.Anonymous, Atlas_Web_Content.User: CRWD
+
+### Administration.Account
+  Administration.Administrator: CRWD
+  Administration.User: R
+  Administration.User: RW
+
+### Administration.AccountPasswordData
+  Administration.Administrator, Administration.User: RW
+
+### FeedbackModule.ResponseHelper
+  FeedbackModule.User: R
+
+### FeedbackModule.Feedback
+  FeedbackModule.User: CRWD
+
+### NanoflowCommons.Geolocation
+  NanoflowCommons.User: CRWD
+
+### NanoflowCommons.Position
+  NanoflowCommons.User: CRWD
+
+### ToeicBuddy.QuestionSet
+  ToeicBuddy.Learner, ToeicBuddy.Trainer: R
+  ToeicBuddy.Trainer: CRWD
+
+### ToeicBuddy.Question
+  ToeicBuddy.Learner: R
+  ToeicBuddy.Trainer: CRWD
+
+### ToeicBuddy.Attempt
+  ToeicBuddy.Learner: R
+  ToeicBuddy.Trainer: R
+
+### ToeicBuddy.Flashcard
+  ToeicBuddy.Learner: R
+  ToeicBuddy.Trainer: CRWD
+
+### ToeicBuddy.PracticeStep
+  ToeicBuddy.Learner, ToeicBuddy.Trainer: CRWD
+
+### ToeicBuddy.SetTile
+  ToeicBuddy.Learner, ToeicBuddy.Trainer: CRWD
+
+### ToeicBuddy.Stat
+  ToeicBuddy.Learner, ToeicBuddy.Trainer: CRWD
+
+### ToeicBuddy.BankState
+  ToeicBuddy.Learner, ToeicBuddy.Trainer: CRWD
+
+### ToeicBuddy.CardStep
+  ToeicBuddy.Learner, ToeicBuddy.Trainer: CRWD
+
+### ToeicBuddy.Who
+  ToeicBuddy.Learner, ToeicBuddy.Trainer: CRWD
+
+## Microflow Access
+
+  Administration.NewWebServiceAccount: Administration.Administrator
+  Administration.NewAccount: Administration.Administrator
+  Administration.SaveNewAccount: Administration.Administrator
+  Administration.ShowPasswordForm: Administration.Administrator
+  Administration.ChangePassword: Administration.Administrator
+  Administration.ShowMyPasswordForm: Administration.Administrator, Administration.User
+  Administration.ManageMyAccount: Administration.User
+  Administration.ChangeMyPassword: Administration.Administrator, Administration.User
+  FeedbackModule.PopulateUserAttributes: FeedbackModule.User
+  FeedbackModule.SUB_Feedback_SendToServer: FeedbackModule.User
+  FeedbackModule.VAL_Feedback: FeedbackModule.User
+  ToeicBuddy.DS_Who: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.Util_Band: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.Util_BuildStat: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.DS_Stat: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.DS_Tiles: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.Util_MakeStep: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.ACT_StartSet: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.ACT_Pick: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.ACT_Next: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.DS_CardStep: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.ACT_CardFlip: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.ACT_CardMove: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.DS_Team: ToeicBuddy.Trainer
+  ToeicBuddy.DS_Bank: ToeicBuddy.Trainer
+  ToeicBuddy.ACT_Retire: ToeicBuddy.Trainer
+  ToeicBuddy.ACT_Restore: ToeicBuddy.Trainer
+  ToeicBuddy.ACT_SaveQuestion: ToeicBuddy.Trainer
+  ToeicBuddy.DS_SetsState: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.Util_DemoAttempt: ToeicBuddy.Trainer
+  ToeicBuddy.ACT_DemoReset: ToeicBuddy.Trainer
+
+## Page Access
+
+  Administration.Account_Overview: Administration.Administrator
+  Administration.Account_New: Administration.Administrator
+  Administration.Account_Edit: Administration.Administrator
+  Administration.ScheduledEvents: Administration.Administrator
+  Administration.ActiveSessions: Administration.Administrator
+  Administration.RuntimeInstances: Administration.Administrator
+  FeedbackModule.PopupSuccess_Logo: FeedbackModule.User
+  FeedbackModule.PopupFailure_Logo: FeedbackModule.User
+  FeedbackModule.ShareFeedback_Logo: FeedbackModule.User
+  FeedbackModule.ShareFeedback: FeedbackModule.User
+  FeedbackModule.PopupSuccess: FeedbackModule.User
+  FeedbackModule.PopupFailure: FeedbackModule.User
+  MyFirstModule.Home_Web: MyFirstModule.User
+  ToeicBuddy.Practice: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.QuestionEdit: ToeicBuddy.Trainer
+  ToeicBuddy.Sets: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.Flashcards: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.Team: ToeicBuddy.Trainer
+  ToeicBuddy.Bank: ToeicBuddy.Trainer
+  ToeicBuddy.Home: ToeicBuddy.Learner, ToeicBuddy.Trainer
+
+## Workflow Access
+
+(workflow access is controlled through triggering microflows and UserTask targeting, not document-level roles)
+

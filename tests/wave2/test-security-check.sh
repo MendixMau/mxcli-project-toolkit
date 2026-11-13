@@ -26,7 +26,11 @@ FX="$TOOLKIT/tests/wave2/fixtures/security-check"
 PASS=0; FAIL=0
 ok()  { PASS=$((PASS+1)); printf '  ok   %s\n' "$1"; }
 bad() { FAIL=$((FAIL+1)); printf '  FAIL %s\n' "$1"; }
-has() { printf '%s' "$OUT" | grep -qF -- "$1"; }
+# has() looks at the output with the plain words after a rule id removed ("[SEC003 - words]" -> "[SEC003]");
+# hasraw() looks at it as printed.
+strip_desc() { sed -E 's/^(  \[[A-Z0-9]+) - [^]]*\]/\1]/'; }
+has() { printf '%s\n' "$OUT" | strip_desc | grep -qF -- "$1"; }
+hasraw() { printf '%s' "$OUT" | grep -qF -- "$1"; }
 chk() { if eval "$2"; then ok "$1"; else bad "$1"; printf '%s\n' "$OUT" | head -25 | sed 's/^/       | /'; fi; }
 
 [ -f "$SUBJ" ] || { echo "FAIL subject not found: $SUBJ"; echo "PASS=0 FAIL=1"; exit 1; }
@@ -45,15 +49,17 @@ mkproj() {  # mkproj <name> <single|two>: an installed project, bin/ copies, emp
 # run <project> <scenario> [args...] — sets OUT (stdout+stderr) and RC
 run() {
   local p="$1" sc="$2"; shift 2
-  OUT=$(cd "$p" && env -u PROJECT_ROOT -u MPR_FILE MXCLI="$FX/mxcli-stub.sh" SECX_DIR="$FX/$sc" SECX_BASE="$FX/base" \
+  case "$sc" in /*) ;; *) sc="$FX/$sc" ;; esac
+  OUT=$(cd "$p" && env -u PROJECT_ROOT -u MPR_FILE MXCLI="$FX/mxcli-stub.sh" SECX_DIR="$sc" SECX_BASE="$FX/base" \
         bash "$p/bin/security-check.sh" "$@" 2>&1); RC=$?
 }
 last_line() { printf '%s\n' "$OUT" | tail -1; }
 accept_all() {  # accept every finding the human output lists as NEW: lines "  [RULE] message"
   local p="$1" sc="$2" line r m n=0
-  printf '%s\n' "$OUT" | grep -E '^  \[[A-Z0-9]+\] ' | sed 's/  (NEW)$//; s/  (accepted)$//' | while IFS= read -r line; do
+  case "$sc" in /*) ;; *) sc="$FX/$sc" ;; esac
+  printf '%s\n' "$OUT" | strip_desc | grep -E '^  \[[A-Z0-9]+\] ' | sed 's/  (NEW)$//; s/  (accepted)$//' | while IFS= read -r line; do
     r=${line#  \[}; r=${r%%\]*}; m=${line#*\] }
-    (cd "$p" && env -u PROJECT_ROOT -u MPR_FILE MXCLI="$FX/mxcli-stub.sh" SECX_DIR="$FX/$sc" SECX_BASE="$FX/base" \
+    (cd "$p" && env -u PROJECT_ROOT -u MPR_FILE MXCLI="$FX/mxcli-stub.sh" SECX_DIR="$sc" SECX_BASE="$FX/base" \
        bash "$p/bin/security-check.sh" --accept "$r" "$m" --reason "test: accepted in the fixture" >/dev/null 2>&1)
   done
 }
@@ -137,6 +143,7 @@ chk "D9 the diff names the problem in a sentence, not a raw dump" '! has "< enti
 echo "-- E could not run"
 OUT=$(cd "$P" && env -u PROJECT_ROOT -u MPR_FILE MXCLI="$FX/mxcli-stub.sh" SECX_DIR="$FX/base" SECX_BASE="$FX/base" SECX_FAIL=1 bash "$P/bin/security-check.sh" 2>&1); RC=$?
 chk "E1 mxcli failing exits 4, never 0" '[ "$RC" = 4 ]'
+chk "E1b S1: the could-not-run message shows what mxcli printed" 'has "failed to connect: mpr file not found"'
 chk "E2 RESULT says could-not-run" 'has "verdict=could-not-run" && has "exit=4"'
 chk "E3 state file records could-not-run (so gate-check cannot read it as clean)" 'grep -q "^verdict=could-not-run" "$P/.claude/loop/security-check.last"'
 OUT=$(cd "$P" && env -u PROJECT_ROOT -u MPR_FILE MXCLI="$W/no-such-mxcli" bash "$P/bin/security-check.sh" 2>&1); RC=$?
@@ -209,6 +216,112 @@ chk "I6 last result new-findings: the note says so and gives the counts, exit co
 chk "I7 a stage query stays quiet" '! "$GCT" "$GP" 0 2>&1 | grep -q "access check"'
 OUT="$("$GCT" --closeout "$GP" 0 2>&1)"
 chk "I8 --closeout carries the same line" 'has "last access check (bin/security-check.sh) was new-findings"'
+
+
+echo "-- J review round: R1 lint rules installed"
+OUT=$(cd "$P" && env -u PROJECT_ROOT -u MPR_FILE MXCLI="$FX/mxcli-stub.sh" SECX_LISTRULES="$FX/list-rules-no-starlark.txt" SECX_DIR="$FX/base" SECX_BASE="$FX/base" bash "$P/bin/security-check.sh" 2>&1); RC=$?
+chk "J1 the Starlark security rules absent from --list-rules: could-not-run (4), never 0" '[ "$RC" = 4 ] && has "verdict=could-not-run"'
+chk "J1b the message names the missing ids and the command that installs them" 'has "SEC004" && has "CONV006" && has "CONV007" && has "mxcli init" && ! has "SEC001 SEC003"'
+OUT=$(cd "$P" && env -u PROJECT_ROOT -u MPR_FILE MXCLI="$FX/mxcli-stub.sh" SECX_DIR="$FX/base" SECX_BASE="$FX/base" bash "$P/bin/security-check.sh" 2>&1); RC=$?
+chk "J1c with the rules listed (real capture) the same project is not blocked" '[ "$RC" != 4 ]'
+chk "J1d the capture lists every required id (independent grep)" 'for i in SEC001 SEC003 SEC004 SEC005 SEC007 SEC010 MPR007 CONV006 CONV007; do grep -q "^  $i (" "$FX/list-rules.txt" || exit 1; done; ! grep -q "^  SEC004 (" "$FX/list-rules-no-starlark.txt"'
+
+echo "-- K R2 row restriction on two lines; unknown lines; dump shape"
+mkscen() {  # mkscen <name> <sed-script on dump.txt>: a scenario = base lint + an edited copy of the CAPTURED dump
+  mkdir -p "$W/sc/$1"; cp "$FX/base/lint.txt" "$W/sc/$1/lint.txt"; sed "$2" "$FX/base/dump.txt" > "$W/sc/$1/dump.txt"
+}
+WH="  where '\[ToeicBuddy.Attempt_User = ''\[%CurrentUser%\]'']'"
+mkscen two1 "s/^$WH\$/  where '[ToeicBuddy.Attempt_User = ''[%CurrentUser%]'']\n  and Active = true'/"
+mkscen two2 "s/^$WH\$/  where '[ToeicBuddy.Attempt_User = ''[%CurrentUser%]'']\n  or true()'/"
+chk "K0 the two-line scenario really has the restriction on two lines" 'grep -q "^  or true()" "$W/sc/two2/dump.txt" && grep -q "^  and Active = true" "$W/sc/two1/dump.txt"'
+PK="$(mkproj k single)"
+run "$PK" "$W/sc/two1" >/dev/null; run "$PK" "$W/sc/two1" --approve --reason "fixture k"; accept_all "$PK" "$W/sc/two1"; run "$PK" "$W/sc/two1"
+chk "K1 two-line restriction approved, rerun clean (0)" '[ "$RC" = 0 ]'
+chk "K1b the second line is in the snapshot" 'grep -q "Active = true" "$PK/docs/security/access-snapshot.txt"'
+run "$PK" "$W/sc/two2"
+chk "K2 only line 2 changed (widened to or true()): exit 1, access change named" '[ "$RC" = 1 ] && has "ACCESS CHANGED" && has "true()"'
+mkscen unk "s/^  Rights: read\$/  Rights: read\n  Frobnicate: yes/"
+run "$PK" "$W/sc/unk"
+chk "K3 an unknown line inside an access rule changes the snapshot (exit 1), never vanishes" '[ "$RC" = 1 ] && has "not understood by this check" && has "Frobnicate: yes"'
+chk "K3b it is recorded verbatim as an entity-raw fact" 'grep -q "^entity-raw	ToeicBuddy.Attempt	.*	  Frobnicate: yes	yes" "$PK/docs/security/access-snapshot.txt"'
+mkscen shape1 's/^Access rules for ToeicBuddy.Attempt:$/Rules of ToeicBuddy.Attempt:/'
+run "$PK" "$W/sc/shape1"; chk "K4 show access with neither expected first line: could-not-run (4)" '[ "$RC" = 4 ] && has "ToeicBuddy.Attempt"'
+mkscen shape2 's/create or modify user role Learner/define role Learner/'
+run "$PK" "$W/sc/shape2"; chk "K5 describe user role without its create or modify statement: 4" '[ "$RC" = 4 ] && has "create or modify user role"'
+mkscen shape3 's/^## Page Access/## Pages/'
+run "$PK" "$W/sc/shape3"; chk "K6 matrix without its Page Access section: 4" '[ "$RC" = 4 ] && has "Page Access"'
+mkscen shape4 's/^## Microflow Access/## Microflows/'
+run "$PK" "$W/sc/shape4"; chk "K7 matrix without its Microflow Access section: 4" '[ "$RC" = 4 ]'
+chk "K8 the real unfiltered matrix capture has both sections (what the shape check expects)" 'grep -q "^## Page Access" "$FX/base/security-matrix-unfiltered.txt" && grep -q "^## Microflow Access" "$FX/base/security-matrix-unfiltered.txt"'
+OUT=$(cd "$PK" && env -u PROJECT_ROOT -u MPR_FILE MXCLI="$FX/mxcli-stub.sh" SECX_DIR="$FX/base" SECX_BASE="$FX/base" SECX_FAILCMD="show demo users" bash "$PK/bin/security-check.sh" 2>&1); RC=$?
+chk "K9 S1: a failing command shows its exit code and what mxcli printed" '[ "$RC" = 4 ] && has "(mxcli exit 1): Error: the model could not be read"'
+
+echo "-- L R3 Windows line endings"
+PL="$(mkproj l single)"
+run "$PL" base >/dev/null; run "$PL" base --approve --reason "fixture l"; accept_all "$PL" base; run "$PL" base
+chk "L0 baseline clean first" '[ "$RC" = 0 ]'
+sed 's/$/\r/' "$PL/docs/security/access-approved.txt" > "$W/appr.crlf"; cp "$W/appr.crlf" "$PL/docs/security/access-approved.txt"
+sed 's/$/\r/' "$PL/.claude/loop/security-accepted.tsv" > "$W/acc.crlf"; cp "$W/acc.crlf" "$PL/.claude/loop/security-accepted.tsv"
+cp "$PL/docs/security/access-approved.txt" "$W/appr.before"
+run "$PL" base
+chk "L1 approved and accepted files with CRLF still give a clean result" '[ "$RC" = 0 ] && has "verdict=clean new=0 access_changes=0"'
+chk "L2 the user files were not rewritten" 'cmp -s "$W/appr.before" "$PL/docs/security/access-approved.txt" && cmp -s "$W/acc.crlf" "$PL/.claude/loop/security-accepted.tsv"'
+run "$PL" m3
+chk "L3 a real change is still reported with CRLF files (and not hundreds of them)" '[ "$RC" = 1 ] && has "can now see ALL rows of ToeicBuddy.Attempt" && [ "$(printf "%s\n" "$OUT" | grep -c "^  - ")" -lt 10 ]'
+
+echo "-- M R4 approval written by --approve only"
+PM="$(mkproj m single)"
+run "$PM" base >/dev/null; run "$PM" base --approve --reason "fixture m"; accept_all "$PM" base; run "$PM" base
+chk "M0 baseline clean" '[ "$RC" = 0 ]'
+run "$PM" m3 >/dev/null; cp "$PM/docs/security/access-snapshot.txt" "$PM/docs/security/access-approved.txt"
+run "$PM" m3
+chk "M1 snapshot hand-copied over the approved file: exit 1, plain message" '[ "$RC" = 1 ] && has "the approved copy was not written by --approve: ask the person who approves access to run it again" && has "verdict=approval-mismatch"'
+run "$PM" m3 --json
+chk "M1b --json carries the same verdict" 'has "\"verdict\":\"approval-mismatch\""'
+run "$PM" m3 --approve --reason "fixture m re-approved by the person"
+run "$PM" m3
+chk "M2 after a real --approve the approved copy is trusted again (only the lint findings remain)" '[ "$RC" = 1 ] && ! has "approval-mismatch" && has "verdict=new-findings"'
+PM2="$(mkproj m2 single)"
+run "$PM2" base >/dev/null; run "$PM2" base --approve --reason "fixture m2"; accept_all "$PM2" base
+printf 'SEC005\tStrict mode is disabled\tadded by hand\t2026-01-01\n' >> "$PM2/.claude/loop/security-accepted.tsv"
+run "$PM2" base
+chk "M3 a line appended to the accepted list by hand: exit 1, plain message" '[ "$RC" = 1 ] && has "the accepted list was not written by --accept"'
+run "$PM2" base --accept SEC003 "Demo users" --reason "x"
+chk "M4 --accept refuses to bless a hand-edited list" '[ "$RC" = 1 ]'
+PM3="$(mkproj m3 single)"
+run "$PM3" base >/dev/null; run "$PM3" base --approve --reason "fixture m3"; rm -f "$PM3/docs/security/approvals.tsv"; run "$PM3" base
+chk "M5 approved copy with no approvals row: exit 1" '[ "$RC" = 1 ] && has "was not written by --approve"'
+
+echo "-- N S2 who, S3 wording, S4 --accept-file, S5 words, R5 sentence"
+PN="$(mkproj n single)"; (cd "$PN" && git init -q && git config user.name "Test Approver" && git config user.email "nobody@example.invalid") >/dev/null 2>&1
+run "$PN" base
+chk "N1 first run writes the accept template, reason column EMPTY, and says so in one line" '[ "$RC" = 3 ] && [ -f "$PN/docs/security/accept-template.tsv" ] && has "accept-template.tsv" && awk -F"\t" "!/^#/ { n++; if (NF!=3 || \$3!=\"\") bad=1 } END { exit (bad || n!=16) }" "$PN/docs/security/accept-template.tsv"'
+chk "N1b S5: the first-run listing puts plain words after the id" 'hasraw "[SEC003 - demo users on at production level] Demo users" && hasraw "[SEC005 - strict security mode is off]" && hasraw "[SEC010 - a role can open a page but not read its data]" && hasraw "[CONV007 - a role can read or change every row]"'
+run "$PN" base --approve --reason "fixture n"
+grep -v '^#' "$PN/docs/security/accept-template.tsv" | awk -F'\t' '{ print $1 "\t" $2 "\tfixture reason for " NR }' > "$W/filled.tsv"
+head -3 "$PN/docs/security/accept-template.tsv" | grep -v '^#' > "$W/partial.tsv"
+run "$PN" base --accept-file "$PN/docs/security/accept-template.tsv"
+chk "N2 the unedited template (empty reasons) is refused, nothing accepted, bad lines named" '[ "$RC" = 2 ] && has "NOTHING was accepted" && has "line 2:" && [ ! -e "$PN/.claude/loop/security-accepted.tsv" ]'
+{ cat "$W/filled.tsv"; printf 'CONV007\tno such finding text\tbecause\n'; } > "$W/mixed.tsv"
+run "$PN" base --accept-file "$W/mixed.tsv"
+chk "N3 one bad line (matches nothing) blocks the whole file; that line is named" '[ "$RC" = 2 ] && has "line 17:" && has "no such finding text" && [ ! -e "$PN/.claude/loop/security-accepted.tsv" ]'
+printf 'CONV007\tunconstrained READ\tbecause\n' > "$W/amb.tsv"
+run "$PN" base --accept-file "$W/amb.tsv"
+chk "N4 an ambiguous element is refused" '[ "$RC" = 2 ] && has "matches" && has "be more specific"'
+run "$PN" base --accept-file "$W/filled.tsv" --reason x
+chk "N5 --reason with --accept-file is a usage error" '[ "$RC" = 2 ]'
+run "$PN" base --accept-file "$W/filled.tsv"
+chk "N6 the filled file accepts all 16 findings, each with its own reason and date" '[ "$RC" = 0 ] && [ "$(grep -vc "^#" "$PN/.claude/loop/security-accepted.tsv")" = 16 ] && grep -q "fixture reason for 16" "$PN/.claude/loop/security-accepted.tsv"'
+run "$PN" base
+chk "N7 rerun is clean (0): the accept-file decision carries a valid checksum" '[ "$RC" = 0 ] && has "verdict=clean"'
+chk "N8 S2: approvals.tsv has a who column with the git user name and no e-mail address" 'grep -q "	approve	Test Approver	fixture n	" "$PN/docs/security/approvals.tsv" && grep -q "	accept	Test Approver	" "$PN/docs/security/approvals.tsv" && ! grep -q "@" "$PN/docs/security/approvals.tsv"'
+chk "N9 R5: the clean output says in one sentence what it does not cover" 'has "does not cover published REST/OData services and their roles, nanoflow or workflow access, or which roles a user role may assign"'
+chk "N10 S3: not-clean wording is gone; the new line is on a changed run" '! has "An agent reports this and stops"'
+run "$PN" m3
+chk "N11 S3: the not-clean line reads for a person" 'has "Not clean. What is wrong is listed above; a person decides whether to fix it or approve it."'
+PU="$(mkproj u single)"
+OUT=$(cd "$PU" && env -u PROJECT_ROOT -u MPR_FILE GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 USER=fixture-user MXCLI="$FX/mxcli-stub.sh" SECX_DIR="$FX/base" SECX_BASE="$FX/base" bash "$PU/bin/security-check.sh" --approve --reason "fixture u" 2>&1); RC=$?
+chk "N12 S2: without a git user the account name is recorded" '[ "$RC" = 0 ] && grep -q "	approve	fixture-user	fixture u	" "$PU/docs/security/approvals.tsv"'
 
 echo
 echo "PASS=$PASS FAIL=$FAIL"

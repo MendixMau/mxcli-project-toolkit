@@ -2438,9 +2438,13 @@ check_build_ready() {
   # tr joins each file's lines first so a placeholder wrapped over several lines counts (#509);
   # per file, and the body excludes `{`, so the `'{{'` quoted in prose on line 11 of every stub
   # cannot run on to a later slot's `}}` (see bin/lib/placeholders.sh).
+  # A slot longer than 80 characters (a wrapped one carries its whole hint text) is printed as
+  # {{NAME…}} so the failure line stays readable; shorter slots print unchanged.
   remaining=$(for _af in "$agents_dir"/*.md; do
                 [ -f "$_af" ] && sed 's/{{DOUBLE_BRACE}}//g' "$_af" 2>/dev/null | tr '\n' ' '; echo
-              done | grep -o '{{[^{}]*}}' | sort -u | tr '\n' ' ')
+              done | grep -o '{{[^{}]*}}' | sort -u \
+                   | awk '{ if (length($0) > 80) { n=$0; sub(/^\{\{/, "", n); sub(/[^A-Za-z0-9_].*$/, "", n); print "{{" n "…}}" } else print }' \
+                   | tr '\n' ' ')
   if [ -n "$missing_agents" ]; then
     echo "  ✗ missing agent(s):$missing_agents — run bin/init-agents.sh"
     fails=$((fails+1))

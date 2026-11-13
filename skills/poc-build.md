@@ -57,6 +57,8 @@ STILL BINDING in a POC build: access rules and grants in the same script that cr
 | 11 | Every empty state seen in the browser once (the no-data demo user, or a filter that returns none); a state no role can reach is marked "not reachable" in the hand-over | Empty states were built and never seen |
 | 12 | Demo data clean at hand-over: no journey leftovers on the main screen | Random-named test rows under the designed screen |
 
+Before hand-over, run `bin/security-check.sh`: show the person its security findings and `docs/security/access-snapshot.txt`, and record their approval (`--approve --reason`, `--accept` per finding; an agent never approves). Every role gets at least one "must be refused" journey step that reads or writes another user's data, not only a forbidden page; *failure: the journey caught a role reaching forbidden pages, not a role reading every other user's rows.*
+
 Row 3: `System.owner` cannot be set from a microflow; give the entity an association to `System.User`, filter on that association `= '[%CurrentUser%]'`, seed that (`bin/bug-lookup.sh owner` first).
 
 ## Done when

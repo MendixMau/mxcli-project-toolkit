@@ -65,6 +65,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `project-bin/check-design-portability.sh` | Before porting ds.css into SCSS, and at the Stage-3 gate |
 | `skills/module-review.md` | Is the module done? Reviewing any module before calling it done |
 | `project-bin/context-pack.sh` | Dispatching a build step to a helper |
+| `project-bin/security-check.sh` | Before hand-over, before calling a module security-ready, or after any change to roles, access rules or project security |
 | `bug-logs/mxcli-bugs.md` | Reading a whole class of tool defects (a retest, a new mxcli release, an audit) |
 | `skills/cloud-dev-environment.md` | Setting up or resuming an mxcli project in a cloud/ephemeral container |
 | `skills/decompose-app.md` | Splitting an existing Mendix monolith into several apps |

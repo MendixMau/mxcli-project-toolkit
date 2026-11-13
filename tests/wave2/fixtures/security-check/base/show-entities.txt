@@ -1,0 +1,65 @@
+WARNING: This is a vibe-coded PoC, alpha quality, use with caution.
+| Entity                              | Type           | Extends             | Attrs | Assocs | Validations | Indexes | Events | AccessRules |
+|-------------------------------------|----------------|---------------------|-------|--------|-------------|---------|--------|-------------|
+| Administration.Account              | Persistent     | System.User         | 3     | 1      | 0           | 0       | 0      | 3           |
+| Administration.AccountPasswordData  | Non-Persistent |                     | 3     | 1      | 0           | 0       | 0      | 1           |
+| Atlas_Web_Content.LoginContext      | Non-Persistent |                     | 4     | 0      | 0           | 0       | 0      | 1           |
+| FeedbackModule.Feedback             | Non-Persistent |                     | 16    | 0      | 0           | 0       | 0      | 1           |
+| FeedbackModule.ResponseHelper       | Non-Persistent |                     | 1     | 0      | 0           | 0       | 0      | 1           |
+| NanoflowCommons.Geolocation         | Non-Persistent |                     | 8     | 0      | 0           | 0       | 0      | 1           |
+| NanoflowCommons.Position            | Non-Persistent |                     | 2     | 0      | 0           | 0       | 0      | 1           |
+| System.ConsumedODataConfiguration   | Non-Persistent |                     | 6     | 1      | 0           | 0       | 0      | 0           |
+| System.Error                        | System         |                     | -     | -      | -           | -       | -      | -           |
+| System.Error                        | Non-Persistent |                     | 3     | 0      | 0           | 0       | 0      | 0           |
+| System.FileDocument                 | System         |                     | -     | -      | -           | -       | -      | -           |
+| System.FileDocument                 | Persistent     |                     | 6     | 0      | 0           | 0       | 0      | 0           |
+| System.HttpHeader                   | Non-Persistent |                     | 2     | 2      | 0           | 0       | 0      | 0           |
+| System.HttpMessage                  | System         |                     | -     | -      | -           | -       | -      | -           |
+| System.HttpMessage                  | Non-Persistent |                     | 2     | 1      | 0           | 0       | 0      | 0           |
+| System.HttpRequest                  | Non-Persistent | System.HttpMessage  | 1     | 0      | 0           | 0       | 0      | 0           |
+| System.HttpResponse                 | Non-Persistent | System.HttpMessage  | 2     | 0      | 0           | 0       | 0      | 0           |
+| System.Image                        | Persistent     | System.FileDocument | 2     | 0      | 0           | 0       | 0      | 0           |
+| System.Language                     | Persistent     |                     | 2     | 1      | 0           | 0       | 0      | 0           |
+| System.ODataResponse                | Non-Persistent |                     | 1     | 0      | 0           | 0       | 0      | 0           |
+| System.Paging                       | Non-Persistent |                     | 5     | 0      | 0           | 0       | 0      | 0           |
+| System.ProcessedQueueTask           | Persistent     |                     | 19    | 0      | 0           | 0       | 0      | 0           |
+| System.QueuedTask                   | Persistent     |                     | 17    | 0      | 0           | 0       | 0      | 0           |
+| System.ScheduledEventInformation    | Persistent     |                     | 5     | 1      | 0           | 0       | 0      | 0           |
+| System.Session                      | Persistent     |                     | 3     | 1      | 0           | 0       | 0      | 0           |
+| System.SoapFault                    | Non-Persistent | System.Error        | 5     | 0      | 0           | 0       | 0      | 0           |
+| System.SynchronizationError         | Persistent     |                     | 4     | 1      | 0           | 0       | 0      | 0           |
+| System.SynchronizationErrorFile     | Persistent     | System.FileDocument | 0     | 1      | 0           | 0       | 0      | 0           |
+| System.TaskQueueToken               | Persistent     |                     | 3     | 0      | 0           | 0       | 0      | 0           |
+| System.TimeZone                     | Persistent     |                     | 3     | 1      | 0           | 0       | 0      | 0           |
+| System.TokenInformation             | Persistent     |                     | 3     | 1      | 0           | 0       | 0      | 0           |
+| System.User                         | Persistent     |                     | 9     | 18     | 0           | 0       | 0      | 0           |
+| System.User                         | System         |                     | -     | -      | -           | -       | -      | -           |
+| System.UserReportInfo               | Persistent     |                     | 2     | 1      | 0           | 0       | 0      | 0           |
+| System.UserRole                     | Persistent     |                     | 3     | 3      | 0           | 0       | 0      | 0           |
+| System.Workflow                     | Persistent     |                     | 10    | 7      | 0           | 0       | 0      | 0           |
+| System.WorkflowActivityDetails      | Non-Persistent |                     | 4     | 3      | 0           | 0       | 0      | 0           |
+| System.WorkflowActivityRecord       | Non-Persistent |                     | 17    | 9      | 0           | 0       | 0      | 0           |
+| System.WorkflowCurrentActivity      | Non-Persistent |                     | 1     | 4      | 0           | 0       | 0      | 0           |
+| System.WorkflowDefinition           | Persistent     |                     | 4     | 3      | 0           | 0       | 0      | 0           |
+| System.WorkflowEndedUserTask        | Persistent     |                     | 9     | 6      | 0           | 0       | 0      | 0           |
+| System.WorkflowEndedUserTaskOutcome | Persistent     |                     | 2     | 2      | 0           | 0       | 0      | 0           |
+| System.WorkflowEvent                | Non-Persistent |                     | 2     | 1      | 0           | 0       | 0      | 0           |
+| System.WorkflowGroup                | Persistent     |                     | 2     | 4      | 0           | 0       | 0      | 0           |
+| System.WorkflowJumpToDetails        | Non-Persistent |                     | 1     | 2      | 0           | 0       | 0      | 0           |
+| System.WorkflowRecord               | Non-Persistent |                     | 8     | 4      | 0           | 0       | 0      | 0           |
+| System.WorkflowUserTask             | Persistent     |                     | 8     | 7      | 0           | 0       | 0      | 0           |
+| System.WorkflowUserTaskDefinition   | Persistent     |                     | 2     | 4      | 0           | 0       | 0      | 0           |
+| System.WorkflowUserTaskOutcome      | Persistent     |                     | 2     | 2      | 0           | 0       | 0      | 0           |
+| System.XASInstance                  | Persistent     |                     | 5     | 1      | 0           | 0       | 0      | 0           |
+| ToeicBuddy.Attempt                  | Persistent     |                     | 7     | 1      | 0           | 0       | 0      | 2           |
+| ToeicBuddy.BankState                | Non-Persistent |                     | 1     | 0      | 0           | 0       | 0      | 1           |
+| ToeicBuddy.CardStep                 | Non-Persistent |                     | 7     | 1      | 0           | 0       | 0      | 1           |
+| ToeicBuddy.Flashcard                | Persistent     |                     | 4     | 1      | 1           | 0       | 0      | 2           |
+| ToeicBuddy.PracticeStep             | Non-Persistent |                     | 22    | 2      | 0           | 0       | 0      | 1           |
+| ToeicBuddy.Question                 | Persistent     |                     | 12    | 3      | 5           | 0       | 0      | 2           |
+| ToeicBuddy.QuestionSet              | Persistent     |                     | 5     | 3      | 1           | 0       | 0      | 2           |
+| ToeicBuddy.SetTile                  | Non-Persistent |                     | 7     | 1      | 0           | 0       | 0      | 1           |
+| ToeicBuddy.Stat                     | Non-Persistent |                     | 7     | 0      | 0           | 0       | 0      | 1           |
+| ToeicBuddy.Who                      | Non-Persistent |                     | 2     | 0      | 0           | 0       | 0      | 1           |
+
+(60 entities)

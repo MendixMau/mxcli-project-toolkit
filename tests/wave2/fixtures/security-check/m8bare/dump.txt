@@ -1,0 +1,322 @@
+## project security
+Security Level: Production
+Check Security: true
+Strict Mode: false
+Demo Users Enabled: true
+Guest Access: false
+Admin User: MxAdmin
+User Roles: 4
+Demo Users: 5
+
+Password Policy:
+  Minimum Length: 12
+  Require Digit: true
+  Require Mixed Case: true
+  Require Symbol: false
+## user roles
+mdl 1;
+create or modify user role Administrator (
+  ModuleRoles: (System.Administrator, Administration.Administrator, MyFirstModule.User, ToeicBuddy.Trainer, ToeicBuddy.Learner),
+  ManageAllRoles: true,
+  CheckSecurity: true
+);
+mdl 1;
+create or modify user role User (
+  ModuleRoles: (Administration.User, FeedbackModule.User, System.User, MyFirstModule.User, ToeicBuddy.Learner),
+  CheckSecurity: true
+);
+mdl 1;
+create or modify user role Learner (
+  ModuleRoles: (ToeicBuddy.Learner, System.User),
+  Description: 'Factory staff practising English',
+  CheckSecurity: true
+);
+mdl 1;
+create or modify user role Trainer (
+  ModuleRoles: (ToeicBuddy.Trainer, ToeicBuddy.Learner, System.User),
+  Description: 'Trainer: manages questions, sees progress',
+  CheckSecurity: true
+);
+## module roles
+| Qualified Name     | Module     | Role    | Description                                              |
+|--------------------|------------|---------|----------------------------------------------------------|
+| ToeicBuddy.Learner | ToeicBuddy | Learner | Practises questions and flashcards, sees own progress    |
+| ToeicBuddy.Trainer | ToeicBuddy | Trainer | Also manages questions and sees every learner's progress |
+
+(2 module roles)
+## demo users
+| User Name          | User Roles    |
+|--------------------|---------------|
+| demo_administrator | Administrator |
+| demo_user          | User          |
+| learner1           | Learner       |
+| learner2           | Learner       |
+| trainer1           | Trainer       |
+
+(5 demo users)
+## security matrix (ToeicBuddy + anonymous-capable)
+Security Matrix:
+
+## Entity Access
+
+### Atlas_Web_Content.LoginContext
+  Atlas_Web_Content.Administrator, Atlas_Web_Content.Anonymous, Atlas_Web_Content.User: CRWD
+
+### Administration.Account
+
+### Administration.AccountPasswordData
+
+### FeedbackModule.ResponseHelper
+
+### FeedbackModule.Feedback
+
+### NanoflowCommons.Geolocation
+
+### NanoflowCommons.Position
+
+### ToeicBuddy.QuestionSet
+  ToeicBuddy.Learner, ToeicBuddy.Trainer: R
+  ToeicBuddy.Trainer: CRWD
+
+### ToeicBuddy.Question
+  ToeicBuddy.Learner: R
+  ToeicBuddy.Trainer: CRWD
+
+### ToeicBuddy.Attempt
+  ToeicBuddy.Trainer: R
+
+### ToeicBuddy.Flashcard
+  ToeicBuddy.Learner: R
+  ToeicBuddy.Trainer: CRWD
+
+### ToeicBuddy.PracticeStep
+  ToeicBuddy.Learner, ToeicBuddy.Trainer: CRWD
+
+### ToeicBuddy.SetTile
+  ToeicBuddy.Learner, ToeicBuddy.Trainer: CRWD
+
+### ToeicBuddy.Stat
+  ToeicBuddy.Learner, ToeicBuddy.Trainer: CRWD
+
+### ToeicBuddy.BankState
+  ToeicBuddy.Learner, ToeicBuddy.Trainer: CRWD
+
+### ToeicBuddy.CardStep
+  ToeicBuddy.Learner, ToeicBuddy.Trainer: CRWD
+
+### ToeicBuddy.Who
+  ToeicBuddy.Learner, ToeicBuddy.Trainer: CRWD
+
+## Microflow Access
+
+  ToeicBuddy.DS_Who: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.Util_Band: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.Util_BuildStat: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.DS_Stat: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.DS_Tiles: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.Util_MakeStep: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.ACT_StartSet: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.ACT_Pick: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.ACT_Next: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.DS_CardStep: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.ACT_CardFlip: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.ACT_CardMove: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.DS_Team: ToeicBuddy.Trainer
+  ToeicBuddy.DS_Bank: ToeicBuddy.Trainer
+  ToeicBuddy.ACT_Retire: ToeicBuddy.Trainer
+  ToeicBuddy.ACT_Restore: ToeicBuddy.Trainer
+  ToeicBuddy.ACT_SaveQuestion: ToeicBuddy.Trainer
+  ToeicBuddy.DS_SetsState: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.Util_DemoAttempt: ToeicBuddy.Trainer
+  ToeicBuddy.ACT_DemoReset: ToeicBuddy.Trainer
+
+## Page Access
+
+  ToeicBuddy.Practice: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.QuestionEdit: ToeicBuddy.Trainer
+  ToeicBuddy.Sets: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.Flashcards: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  ToeicBuddy.Team: ToeicBuddy.Trainer
+  ToeicBuddy.Bank: ToeicBuddy.Trainer
+  ToeicBuddy.Home: ToeicBuddy.Learner, ToeicBuddy.Trainer
+
+## Workflow Access
+
+(workflow access is controlled through triggering microflows and UserTask targeting, not document-level roles)
+
+## access rules per entity
+Access rules for ToeicBuddy.Attempt:
+
+Rule 1: ToeicBuddy.Trainer
+  Rights: read
+  Default member access: ReadOnly
+  ToeicBuddy.Attempt.ChosenIndex: ReadOnly
+  ToeicBuddy.Attempt.IsCorrect: ReadOnly
+  ToeicBuddy.Attempt.AnsweredAt: ReadOnly
+  ToeicBuddy.Attempt_Question: ReadOnly
+  ToeicBuddy.Attempt_User: ReadOnly
+  ToeicBuddy.Attempt.SetName: ReadOnly
+  ToeicBuddy.Attempt.StemShort: ReadOnly
+  ToeicBuddy.Attempt.ResultText: ReadOnly
+  ToeicBuddy.Attempt.ResultClass: ReadOnly
+
+Access rules for ToeicBuddy.BankState:
+
+Rule 1: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  Rights: create, read, write, delete
+  Default member access: ReadWrite
+  ToeicBuddy.BankState.Message: ReadWrite
+
+Access rules for ToeicBuddy.CardStep:
+
+Rule 1: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  Rights: create, read, write, delete
+  Default member access: ReadWrite
+  ToeicBuddy.CardStep.Position: ReadWrite
+  ToeicBuddy.CardStep.Total: ReadWrite
+  ToeicBuddy.CardStep.Flipped: ReadWrite
+  ToeicBuddy.CardStep.CountText: ReadWrite
+  ToeicBuddy.CardStep.Term: ReadWrite
+  ToeicBuddy.CardStep.Meaning: ReadWrite
+  ToeicBuddy.CardStep.Example: ReadWrite
+  ToeicBuddy.CardStep_Flashcard: ReadWrite
+
+Access rules for ToeicBuddy.Flashcard:
+
+Rule 1: ToeicBuddy.Learner
+  Rights: read
+  Default member access: ReadOnly
+  ToeicBuddy.Flashcard.Term: ReadOnly
+  ToeicBuddy.Flashcard.Meaning: ReadOnly
+  ToeicBuddy.Flashcard.Example: ReadOnly
+  ToeicBuddy.Flashcard.Seq: ReadOnly
+
+Rule 2: ToeicBuddy.Trainer
+  Rights: create, read, write, delete
+  Default member access: ReadWrite
+  ToeicBuddy.Flashcard.Term: ReadWrite
+  ToeicBuddy.Flashcard.Meaning: ReadWrite
+  ToeicBuddy.Flashcard.Example: ReadWrite
+  ToeicBuddy.Flashcard.Seq: ReadWrite
+
+Access rules for ToeicBuddy.PracticeStep:
+
+Rule 1: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  Rights: create, read, write, delete
+  Default member access: ReadWrite
+  ToeicBuddy.PracticeStep.SetName: ReadWrite
+  ToeicBuddy.PracticeStep.Position: ReadWrite
+  ToeicBuddy.PracticeStep.Total: ReadWrite
+  ToeicBuddy.PracticeStep.Chosen: ReadWrite
+  ToeicBuddy.PracticeStep.Answered: ReadWrite
+  ToeicBuddy.PracticeStep.Finished: ReadWrite
+  ToeicBuddy.PracticeStep.ResultTitle: ReadWrite
+  ToeicBuddy.PracticeStep.ResultText: ReadWrite
+  ToeicBuddy.PracticeStep.Message: ReadWrite
+  ToeicBuddy.PracticeStep.ProgressClass: ReadWrite
+  ToeicBuddy.PracticeStep.Stem: ReadWrite
+  ToeicBuddy.PracticeStep.Passage: ReadWrite
+  ToeicBuddy.PracticeStep.OptionA: ReadWrite
+  ToeicBuddy.PracticeStep.OptionB: ReadWrite
+  ToeicBuddy.PracticeStep.OptionC: ReadWrite
+  ToeicBuddy.PracticeStep.OptionD: ReadWrite
+  ToeicBuddy.PracticeStep.ClassA: ReadWrite
+  ToeicBuddy.PracticeStep.ClassB: ReadWrite
+  ToeicBuddy.PracticeStep.ClassC: ReadWrite
+  ToeicBuddy.PracticeStep.ClassD: ReadWrite
+  ToeicBuddy.PracticeStep.CountText: ReadWrite
+  ToeicBuddy.PracticeStep.FinishText: ReadWrite
+  ToeicBuddy.PracticeStep_Question: ReadWrite
+  ToeicBuddy.PracticeStep_QuestionSet: ReadWrite
+
+Access rules for ToeicBuddy.Question:
+
+Rule 1: ToeicBuddy.Learner
+  Rights: read
+  Default member access: ReadOnly
+  ToeicBuddy.Question.Stem: ReadOnly
+  ToeicBuddy.Question.Passage: ReadOnly
+  ToeicBuddy.Question.OptionA: ReadOnly
+  ToeicBuddy.Question.OptionB: ReadOnly
+  ToeicBuddy.Question.OptionC: ReadOnly
+  ToeicBuddy.Question.OptionD: ReadOnly
+  ToeicBuddy.Question.CorrectIndex: ReadOnly
+  ToeicBuddy.Question.Explanation: ReadOnly
+  ToeicBuddy.Question.Seq: ReadOnly
+  ToeicBuddy.Question.IsActive: ReadOnly
+  ToeicBuddy.Question_QuestionSet: ReadOnly
+  ToeicBuddy.Question.SetName: ReadOnly
+  ToeicBuddy.Question.AddedByTrainer: ReadOnly
+
+Rule 2: ToeicBuddy.Trainer
+  Rights: create, read, write, delete
+  Default member access: ReadWrite
+  ToeicBuddy.Question.Stem: ReadWrite
+  ToeicBuddy.Question.Passage: ReadWrite
+  ToeicBuddy.Question.OptionA: ReadWrite
+  ToeicBuddy.Question.OptionB: ReadWrite
+  ToeicBuddy.Question.OptionC: ReadWrite
+  ToeicBuddy.Question.OptionD: ReadWrite
+  ToeicBuddy.Question.CorrectIndex: ReadWrite
+  ToeicBuddy.Question.Explanation: ReadWrite
+  ToeicBuddy.Question.Seq: ReadWrite
+  ToeicBuddy.Question.IsActive: ReadWrite
+  ToeicBuddy.Question_QuestionSet: ReadWrite
+  ToeicBuddy.Question.SetName: ReadWrite
+  ToeicBuddy.Question.AddedByTrainer: ReadWrite
+
+Access rules for ToeicBuddy.QuestionSet:
+
+Rule 1: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  Rights: read
+  Default member access: ReadOnly
+  ToeicBuddy.QuestionSet.Name: ReadOnly
+  ToeicBuddy.QuestionSet.Area: ReadOnly
+  ToeicBuddy.QuestionSet.Icon: ReadOnly
+  ToeicBuddy.QuestionSet.Seq: ReadOnly
+  ToeicBuddy.QuestionSet.IsActive: ReadOnly
+
+Rule 2: ToeicBuddy.Trainer
+  Rights: create, read, write, delete
+  Default member access: ReadWrite
+  ToeicBuddy.QuestionSet.Name: ReadWrite
+  ToeicBuddy.QuestionSet.Area: ReadWrite
+  ToeicBuddy.QuestionSet.Icon: ReadWrite
+  ToeicBuddy.QuestionSet.Seq: ReadWrite
+  ToeicBuddy.QuestionSet.IsActive: ReadWrite
+
+Access rules for ToeicBuddy.SetTile:
+
+Rule 1: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  Rights: create, read, write, delete
+  Default member access: ReadWrite
+  ToeicBuddy.SetTile.SetName: ReadWrite
+  ToeicBuddy.SetTile.Icon: ReadWrite
+  ToeicBuddy.SetTile.Total: ReadWrite
+  ToeicBuddy.SetTile.Done: ReadWrite
+  ToeicBuddy.SetTile.Area: ReadWrite
+  ToeicBuddy.SetTile.CountText: ReadWrite
+  ToeicBuddy.SetTile.ProgressClass: ReadWrite
+  ToeicBuddy.SetTile_QuestionSet: ReadWrite
+
+Access rules for ToeicBuddy.Stat:
+
+Rule 1: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  Rights: create, read, write, delete
+  Default member access: ReadWrite
+  ToeicBuddy.Stat.LearnerName: ReadWrite
+  ToeicBuddy.Stat.Answered: ReadWrite
+  ToeicBuddy.Stat.Correct: ReadWrite
+  ToeicBuddy.Stat.AccuracyText: ReadWrite
+  ToeicBuddy.Stat.EstimateText: ReadWrite
+  ToeicBuddy.Stat.ProgressClass: ReadWrite
+  ToeicBuddy.Stat.Greeting: ReadWrite
+
+Access rules for ToeicBuddy.Who:
+
+Rule 1: ToeicBuddy.Learner, ToeicBuddy.Trainer
+  Rights: create, read, write, delete
+  Default member access: ReadWrite
+  ToeicBuddy.Who.NameText: ReadWrite
+  ToeicBuddy.Who.RoleText: ReadWrite
+

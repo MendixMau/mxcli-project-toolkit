@@ -53,6 +53,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/image-transcription.md` | Images to read listed by images-to-md or the documents index |
 | `skills/mendix-best-practices-index.md` | Asked "is there a Mendix best practice for this", or mapping a lint rule that rose in the ratchet back to the practice and the skill that prevents it |
 | `project-bin/check-design-portability.sh` | Before porting ds.css into SCSS, and at the Stage-3 gate |
+| `project-bin/security-check.sh` | Before hand-over, before calling a module security-ready, or after any change to roles, access rules or project security |
 | `bug-logs/mxcli-bugs.md` | Reading a whole class of tool defects (a retest, a new mxcli release, an audit) |
 | `skills/cloud-dev-environment.md` | Setting up or resuming an mxcli project in a cloud/ephemeral container |
 | `skills/coverage-ledger.md` | Building the Stage 4 coverage ledger |

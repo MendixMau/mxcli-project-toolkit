@@ -214,6 +214,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 
 | Always relevant for | Load this | Agent(s) | Stage(s) | Tier |
 |---|---|---|---|---|
+| Before hand-over, before calling a module security-ready, or after any change to roles, access rules or project security — security lint findings and the who-can-see-what snapshot, each compared with what a person accepted; exits 3 on a first run, never 0; a person runs --approve/--accept | `project-bin/security-check.sh` | mdl,gate,test,review | 5,6 | ondemand |
 | Creating any entity, or calling a module security-ready — entity and grants land in one script, and ready means SHOW SECURITY MATRIX proves it | `skills/security-is-not-a-later-script.md` | mdl?,gate,review | 5 | baseline |
 
 #### Verify — does it work

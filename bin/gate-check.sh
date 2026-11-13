@@ -178,6 +178,37 @@ bugs_unfiled_line() {
   return 0
 }
 
+# Access check (project bin/security-check.sh): one advisory line on a full run and at --closeout,
+# same footing as bugs_unfiled_line: never a stage verdict, never an exit code (guard rule 7).
+# Reads only the tiny state file the script writes (.claude/loop/security-check.last) - gate-check
+# never runs mxcli. A result recorded for an older model is reported as stale, not as clean.
+# Without the script in the project: silent.
+security_check_line() {
+  local d="$PROJECT_DIR" last v n a m cur
+  last="$d/.claude/loop/security-check.last"
+  [ -f "$d/bin/security-check.sh" ] || return 0
+  if [ ! -f "$d/docs/security/access-approved.txt" ]; then
+    echo "note: no approved access snapshot yet - run bin/security-check.sh (who can see and do what, plus security findings); a person approves it with --approve --reason"
+    return 0
+  fi
+  if [ ! -f "$last" ]; then
+    echo "note: no recorded access check - run bin/security-check.sh"; return 0
+  fi
+  v="$(sed -n 's/^verdict=//p' "$last" | head -1)"; n="$(sed -n 's/^new=//p' "$last" | head -1)"
+  a="$(sed -n 's/^access_changes=//p' "$last" | head -1)"; m="$(sed -n 's/^model=//p' "$last" | head -1)"
+  if [ "$v" != clean ]; then
+    echo "note: last access check (bin/security-check.sh) was $v (new findings ${n:-?}, access changes ${a:-?}) - run it again and show the person the result"
+    return 0
+  fi
+  if [ -n "$m" ] && [ -f "$d/bin/model-stamp.sh" ]; then
+    cur="$(PROJECT_ROOT="$d" bash "$d/bin/model-stamp.sh" fingerprint 2>/dev/null | head -1 | tr -d '\r')"
+    if [ -n "$cur" ] && [ "$cur" != "$m" ]; then
+      echo "note: the last clean access check is for an older model - re-run bin/security-check.sh"
+    fi
+  fi
+  return 0
+}
+
 # Machine preflight receipt — informational only, on full runs only (stage queries run inside
 # agent loops and hooks and must stay quiet). bin/doctor.sh writes the receipt; a missing one
 # means nobody ever checked whether the mxbuild gate can even run on this machine, which is
@@ -185,6 +216,7 @@ bugs_unfiled_line() {
 # line never affects a verdict or an exit code: a machine check is not a stage gate.
 if [ -z "$REQUESTED_STAGE" ]; then
   bugs_unfiled_line
+  security_check_line
   _DOCTOR_RECEIPT="$PROJECT_DIR/.claude/.doctor-receipt"
   if [ -f "$_DOCTOR_RECEIPT" ]; then
     case "$(cat "$_DOCTOR_RECEIPT" 2>/dev/null)" in
@@ -4357,6 +4389,7 @@ if [ "$CLOSEOUT" = "1" ]; then
     . "$TOOLKIT_DIR/bin/lib/closeout.sh"
     MXTK_CLOSEOUT_VERDICT="$_co_verdict" mxtk_closeout_report "$PROJECT_DIR" "$REQUESTED_STAGE" "$REGISTER"
     _bl="$(bugs_unfiled_line)"; [ -n "$_bl" ] && printf '\n%s\n' "${_bl#note: }"
+    _bl="$(security_check_line)"; [ -n "$_bl" ] && printf '\n%s\n' "${_bl#note: }"
   else
     echo "closeout: FAULT — bin/lib/closeout.sh missing from $TOOLKIT_DIR; nothing was emitted (this is the checker failing, not the project)" >&2
   fi

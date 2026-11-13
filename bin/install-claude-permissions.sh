@@ -206,7 +206,11 @@ DENY=(
   "Bash(*file-bugs.py*--all*)"
   "Bash(*file-bugs.sh*--import*)"
   "Bash(*file-bugs.py*--import*)"
+  "Bash(*security-check.sh*--approve*)"
+  "Bash(*security-check.sh*--accept*)"
 )
+# `security-check.sh --approve` / `--accept` record that a role may see or do something: a person's
+# decision, like `file-bugs.sh --file`. An agent runs the plain check; it never approves its own change.
 # `file-bugs.sh --auto` is deliberately NOT denied, and needs no rule of its own: `bin/*.sh:*`
 # above already allows it. It posts only in a project whose PROJECT.md has the person's line
 # `Bug filing: auto`, only rows that pass the redaction scan, and never without a deny list —

@@ -58,7 +58,7 @@ $names
 EOF
   [ "$leak" -eq 0 ] && ok "$LAY: no user name in login.html ($nn names checked)" || bad "$LAY: user name in page"
   grep -q 'learner1' "$PAGE" && bad "$LAY: learner1 in page"
-  grep -Fq '"u":"host1","p":"Visitors2026Demo"' "$DATA" && ok "$LAY: later statement wins (host1 password from file S)" || bad "$LAY: later-wins" "$(cut -c1-60 "$DATA")"
+  grep -Fq '"u":"host1","p":"demo-pw-s1"' "$DATA" && ok "$LAY: later statement wins (host1 password from file S)" || bad "$LAY: later-wins" "$(cut -c1-60 "$DATA")"
   grep -q '"u":"demo_user"' "$DATA" && bad "$LAY: dropped scaffold user present" || ok "$LAY: dropped users absent"
   grep -Fxq "/$REL" "$R/.gitignore" && ok "$LAY: data file listed in .gitignore (/$REL)" || bad "$LAY: gitignore" "$(cat "$R/.gitignore" 2>&1)"
   grep -q 'DEMO-LOGIN-BEGIN -->' "$PAGE" && grep -q 'DEMO-LOGIN-END -->' "$PAGE" && ok "$LAY: markers inserted" || bad "$LAY: markers"
@@ -107,7 +107,7 @@ for LAY in single two; do
   out="$(runit "$R")"; rc=$?
   [ $rc -eq 0 ] && cmp -s "$TP" "$DP" && cmp -s "$TD" "$DD" && grep -q 'DEMO-LOGIN-BEGIN -->' "$DP" && ok "$LAY: (a) both pages patched identically, both data files written" || bad "$LAY: (a) deployed" "$out"
   echo "$out" | grep -q 'the running app was updated.*browser reload is enough' && ok "$LAY: (a) says the running app was updated, reload is enough" || bad "$LAY: (a) message" "$out"
-  grep -q 'learner\|host1\|Visitors' "$DP" && bad "$LAY: (a) credentials in deployed page"
+  grep -q 'learner\|host1\|demo-pw' "$DP" && bad "$LAY: (a) credentials in deployed page"
   cp "$TP" "$WORK/dp1-t"; cp "$DP" "$WORK/dp1-d"; cp "$DD" "$WORK/dd1"
   out="$(runit "$R")"
   cmp -s "$WORK/dp1-t" "$TP" && cmp -s "$WORK/dp1-d" "$DP" && cmp -s "$WORK/dd1" "$DD" && ok "$LAY: (a) second run is a no-op in both places" || bad "$LAY: (a) second run" "$out"

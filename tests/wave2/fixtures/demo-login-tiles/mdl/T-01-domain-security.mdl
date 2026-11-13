@@ -132,6 +132,6 @@ alter user role Administrator add module roles (PracticeApp.Trainer, PracticeApp
 
 -- Security level: said in chat before running (the scaffold starts with security Off).
 alter app security ( SecurityLevel: PRODUCTION, EnableDemoUsers: true );
-create or modify demo user 'learner1' ( Password: 'Demo-Pass-1!', UserRoles: (Learner) );
-create or modify demo user 'learner2' ( Password: 'Demo-Pass-2!', UserRoles: (Learner) );
-create or modify demo user 'trainer1' ( Password: 'Demo-Trainer-1!', UserRoles: (Trainer) );
+create or modify demo user 'learner1' ( Password: 'demo-pw-t1', UserRoles: (Learner) );
+create or modify demo user 'learner2' ( Password: 'demo-pw-t2', UserRoles: (Learner) );
+create or modify demo user 'trainer1' ( Password: 'demo-pw-t3', UserRoles: (Trainer) );

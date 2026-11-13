@@ -16,7 +16,7 @@ create or replace navigation Responsive
   menu item 'Catalogue admin' ( OnClick: show page LoanDesk.CatalogueAdmin )
 };
 
-create demo user 'engineer' ( Password: 'Engineer12345', UserRoles: (Engineer) );
-create demo user 'manager' ( Password: 'Manager12345', UserRoles: (LabManager) );
+create demo user 'engineer' ( Password: 'demo-pw-c1', UserRoles: (Engineer) );
+create demo user 'manager' ( Password: 'demo-pw-c2', UserRoles: (LabManager) );
 alter app security ( SecurityLevel: production );
 alter app security ( EnableDemoUsers: true );

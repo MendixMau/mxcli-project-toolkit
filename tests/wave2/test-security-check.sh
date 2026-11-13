@@ -29,8 +29,9 @@ bad() { FAIL=$((FAIL+1)); printf '  FAIL %s\n' "$1"; }
 # has() looks at the output with the plain words after a rule id removed ("[SEC003 - words]" -> "[SEC003]");
 # hasraw() looks at it as printed.
 strip_desc() { sed -E 's/^(  \[[A-Z0-9]+) - [^]]*\]/\1]/'; }
-has() { printf '%s\n' "$OUT" | strip_desc | grep -qF -- "$1"; }
-hasraw() { printf '%s' "$OUT" | grep -qF -- "$1"; }
+# here-strings, not `printf | grep -q`: under pipefail an early grep exit can fail a passing check
+has() { local s; s=$(strip_desc <<<"$OUT"); grep -qF -- "$1" <<<"$s"; }
+hasraw() { grep -qF -- "$1" <<<"$OUT"; }
 chk() { if eval "$2"; then ok "$1"; else bad "$1"; printf '%s\n' "$OUT" | head -25 | sed 's/^/       | /'; fi; }
 
 [ -f "$SUBJ" ] || { echo "FAIL subject not found: $SUBJ"; echo "PASS=0 FAIL=1"; exit 1; }
@@ -202,7 +203,7 @@ NP="$W/nobin"; mkdir -p "$NP"; printf '# PROJECT.md\n\n## Current stage\n' > "$N
 OUT="$("$GCT" --no-html "$NP" 2>&1)"; RC_NO=$?
 chk "I1 a project without the script: gate-check prints no access note" '! has "access"'
 OUT="$("$GCT" --no-html "$GP" 2>&1)"; RC_A=$?
-chk "I2 script installed, nothing approved: one note naming the command" '[ "$(printf "%s\n" "$OUT" | grep -c "^note: no approved access snapshot yet - run bin/security-check.sh")" = 1 ]'
+chk "I2 script installed, nothing approved: one note naming the command" '[ "$(grep -c "^note: no approved access snapshot yet - run bin/security-check.sh" <<<"$OUT")" = 1 ]'
 chk "I3 the note changes no exit code" '[ "$RC_A" = "$RC_NO" ]'
 run "$GP" base >/dev/null; run "$GP" base --approve --reason "fixture gate" >/dev/null; run "$GP" base >/dev/null; accept_all "$GP" base; run "$GP" base
 OUT="$("$GCT" --no-html "$GP" 2>&1)"
@@ -213,9 +214,17 @@ chk "I5 the model changed since the clean result: reported as older, not clean" 
 run "$GP" m3 >/dev/null
 OUT="$("$GCT" --no-html "$GP" 2>&1)"; RC_B=$?
 chk "I6 last result new-findings: the note says so and gives the counts, exit code unchanged" 'has "note: last access check (bin/security-check.sh) was new-findings (new findings 1, access changes 1)" && [ "$RC_B" = "$RC_NO" ]'
-chk "I7 a stage query stays quiet" '! "$GCT" "$GP" 0 2>&1 | grep -q "access check"'
+chk "I7 a stage query stays quiet" 'o7=$("$GCT" "$GP" 0 2>&1); ! grep -q "access check" <<<"$o7"'
 OUT="$("$GCT" --closeout "$GP" 0 2>&1)"
 chk "I8 --closeout carries the same line" 'has "last access check (bin/security-check.sh) was new-findings"'
+GQ="$(mkproj gateq single)"; cp "$BIN_SRC/model-stamp.sh" "$GQ/bin/"; printf '# PROJECT.md\n\n## Current stage\n' > "$GQ/PROJECT.md"
+run "$GQ" base >/dev/null; run "$GQ" base --approve --reason "fixture gate q" >/dev/null; accept_all "$GQ" base; run "$GQ" base
+OUT="$("$GCT" --no-html "$GQ" 2>&1)"; RC_Q1=$?
+chk "I9 clean and fresh: no access note (baseline for the next case)" '[ "$RC" = 0 ] && ! has "access check"'
+rm -f "$GQ/bin/model-stamp.sh"
+OUT="$("$GCT" --no-html "$GQ" 2>&1)"; RC_Q2=$?
+chk "I10 no model fingerprint available: the note says freshness is unknown, with the date" 'has "note: last clean access check 20" && has "freshness unknown - re-run bin/security-check.sh"'
+chk "I11 that note changes no exit code" '[ "$RC_Q1" = "$RC_Q2" ]'
 
 
 echo "-- J review round: R1 lint rules installed"
@@ -267,7 +276,7 @@ run "$PL" base
 chk "L1 approved and accepted files with CRLF still give a clean result" '[ "$RC" = 0 ] && has "verdict=clean new=0 access_changes=0"'
 chk "L2 the user files were not rewritten" 'cmp -s "$W/appr.before" "$PL/docs/security/access-approved.txt" && cmp -s "$W/acc.crlf" "$PL/.claude/loop/security-accepted.tsv"'
 run "$PL" m3
-chk "L3 a real change is still reported with CRLF files (and not hundreds of them)" '[ "$RC" = 1 ] && has "can now see ALL rows of ToeicBuddy.Attempt" && [ "$(printf "%s\n" "$OUT" | grep -c "^  - ")" -lt 10 ]'
+chk "L3 a real change is still reported with CRLF files (and not hundreds of them)" '[ "$RC" = 1 ] && has "can now see ALL rows of ToeicBuddy.Attempt" && [ "$(grep -c "^  - " <<<"$OUT")" -lt 10 ]'
 
 echo "-- M R4 approval written by --approve only"
 PM="$(mkproj m single)"
@@ -293,7 +302,7 @@ run "$PM3" base >/dev/null; run "$PM3" base --approve --reason "fixture m3"; rm 
 chk "M5 approved copy with no approvals row: exit 1" '[ "$RC" = 1 ] && has "was not written by --approve"'
 
 echo "-- N S2 who, S3 wording, S4 --accept-file, S5 words, R5 sentence"
-PN="$(mkproj n single)"; (cd "$PN" && git init -q && git config user.name "Test Approver" && git config user.email "nobody@example.invalid") >/dev/null 2>&1
+PN="$(mkproj n single)"; (cd "$PN" && git init -q && git config user.name "Test Approver" && git config user.email "nobody@example.com") >/dev/null 2>&1
 run "$PN" base
 chk "N1 first run writes the accept template, reason column EMPTY, and says so in one line" '[ "$RC" = 3 ] && [ -f "$PN/docs/security/accept-template.tsv" ] && has "accept-template.tsv" && awk -F"\t" "!/^#/ { n++; if (NF!=3 || \$3!=\"\") bad=1 } END { exit (bad || n!=16) }" "$PN/docs/security/accept-template.tsv"'
 chk "N1b S5: the first-run listing puts plain words after the id" 'hasraw "[SEC003 - demo users on at production level] Demo users" && hasraw "[SEC005 - strict security mode is off]" && hasraw "[SEC010 - a role can open a page but not read its data]" && hasraw "[CONV007 - a role can read or change every row]"'
@@ -322,6 +331,32 @@ chk "N11 S3: the not-clean line reads for a person" 'has "Not clean. What is wro
 PU="$(mkproj u single)"
 OUT=$(cd "$PU" && env -u PROJECT_ROOT -u MPR_FILE GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 USER=fixture-user MXCLI="$FX/mxcli-stub.sh" SECX_DIR="$FX/base" SECX_BASE="$FX/base" bash "$PU/bin/security-check.sh" --approve --reason "fixture u" 2>&1); RC=$?
 chk "N12 S2: without a git user the account name is recorded" '[ "$RC" = 0 ] && grep -q "	approve	fixture-user	fixture u	" "$PU/docs/security/approvals.tsv"'
+
+echo "-- O second review: the remedy, the template, the name"
+chk "O1 M4's refusal names --approve as the way to re-confirm" 'run "$PM2" base --accept SEC003 "Demo users" --reason "x"; has "--approve"'
+PO="$(mkproj o single)"
+run "$PO" base >/dev/null; run "$PO" base --approve --reason "fixture o"; accept_all "$PO" base; run "$PO" base
+chk "O2 baseline clean" '[ "$RC" = 0 ]'
+printf 'SEC005\tStrict mode is disabled\tmerged in from the other branch\t2026-01-02\nSEC003\tDemo users are enabled at Production security level\tmerged too\t2026-01-02\n' >> "$PO/.claude/loop/security-accepted.tsv"
+run "$PO" base
+chk "O3 a merged accepted list (two lines appended): exit 1, approval-mismatch, message names --approve" '[ "$RC" = 1 ] && has "verdict=approval-mismatch" && has "bin/security-check.sh --approve --reason"'
+run "$PO" base --accept-file "$W/filled.tsv"
+chk "O4 --accept-file on the mismatched list keeps refusing (1) and names --approve" '[ "$RC" = 1 ] && has "--approve"'
+run "$PO" base --approve --reason "fixture o: merged list reviewed in git"
+chk "O5 --approve shows the accepted list it confirms, and exits 0" '[ "$RC" = 0 ] && has "Accepted findings you are confirming" && has "merged in from the other branch"'
+chk "O6 approvals.tsv now has a fresh approve row and a fresh accept row" '[ "$(grep -c "re-confirmed by --approve" "$PO/docs/security/approvals.tsv")" = 1 ] && [ "$(grep -c "	approve	" "$PO/docs/security/approvals.tsv")" = 2 ]'
+run "$PO" base
+chk "O7 the next check is clean (0)" '[ "$RC" = 0 ] && has "verdict=clean"'
+PT="$(mkproj t single)"
+run "$PT" base >/dev/null
+printf '# keep\nSEC003\tDemo users are enabled at Production security level\tmy half-written reason\n' > "$PT/docs/security/accept-template.tsv"
+run "$PT" base
+chk "O8 a template a person is filling in survives a second first run, and one line says so" '[ "$RC" = 3 ] && grep -q "my half-written reason" "$PT/docs/security/accept-template.tsv" && has "Kept your existing" && has "delete it to get a fresh one"'
+rm -f "$PT/docs/security/accept-template.tsv"; run "$PT" base
+chk "O9 with the template deleted a fresh one is written" '[ "$(grep -vc "^#" "$PT/docs/security/accept-template.tsv")" = 16 ]'
+PE="$(mkproj e single)"; (cd "$PE" && git init -q && git config user.name "someone@example.com") >/dev/null 2>&1
+OUT=$(cd "$PE" && env -u PROJECT_ROOT -u MPR_FILE GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 USER=fixture-user MXCLI="$FX/mxcli-stub.sh" SECX_DIR="$FX/base" SECX_BASE="$FX/base" bash "$PE/bin/security-check.sh" --approve --reason "fixture e" 2>&1); RC=$?
+chk "O10 a git user.name holding an @ is not recorded; the account name is" '[ "$RC" = 0 ] && grep -q "	approve	fixture-user	" "$PE/docs/security/approvals.tsv" && ! grep -q "@" "$PE/docs/security/approvals.tsv"'
 
 echo
 echo "PASS=$PASS FAIL=$FAIL"

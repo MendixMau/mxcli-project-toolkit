@@ -320,7 +320,9 @@ norm_copy "$ACC" "$ACC_N"; norm_copy "$APPROVED" "$APPROVED_N"
 # Who decided: the git user name, else $USER, else "unknown". No e-mail address.
 who_am_i() {
   local w; w=$(git -C "$ROOT" config user.name 2>/dev/null | head -1)
-  [ -n "$w" ] || w="${USER:-}"
+  case "$w" in *@*) w="" ;; esac   # an e-mail address is never recorded
+  case "${USER:-}" in *@*) USER_NAME="" ;; *) USER_NAME="${USER:-}" ;; esac
+  [ -n "$w" ] || w="$USER_NAME"
   [ -n "$w" ] || w="unknown"
   printf '%s' "$w" | tr '\t\r\n' '   '
 }
@@ -337,18 +339,18 @@ last_cksum() {  # last_cksum <kind>: checksum on the latest approvals row of tha
 INTEGRITY_MSG=""
 if [ -f "$APPROVED" ]; then
   [ "$(last_cksum approve)" = "$(cksum_norm "$APPROVED")" ] && [ -n "$(last_cksum approve)" ] \
-    || INTEGRITY_MSG="the approved copy was not written by --approve: ask the person who approves access to run it again ($APPROVED does not match the checksum in $APPROVALS)."
+    || INTEGRITY_MSG="the approved copy was not written by --approve: ask the person who approves access to run it again - after reading the changes in git, bin/security-check.sh --approve --reason \"<who approved, and why>\" re-confirms it ($APPROVED does not match the checksum in $APPROVALS)."
 fi
 if [ -z "$INTEGRITY_MSG" ]; then
   if [ -f "$ACC" ]; then
     [ -n "$(last_cksum accept)" ] && [ "$(last_cksum accept)" = "$(cksum_norm "$ACC")" ] \
-      || INTEGRITY_MSG="the accepted list was not written by --accept: ask the person who approves access to review it (git diff) and, if it is right, run --accept again ($ACC does not match the checksum in $APPROVALS)."
+      || INTEGRITY_MSG="the accepted list was not written by --accept (for example after a git merge of two lists): ask the person who approves access to review it (git diff) and, if it is right, re-confirm it with bin/security-check.sh --approve --reason \"<who approved, and why>\" ($ACC does not match the checksum in $APPROVALS)."
   elif [ -n "$(last_cksum accept)" ]; then
-    INTEGRITY_MSG="the accepted list $ACC is missing but $APPROVALS records acceptances: restore it from git, or ask the person who approves access."
+    INTEGRITY_MSG="the accepted list $ACC is missing but $APPROVALS records acceptances: restore it from git, or ask the person who approves access to re-confirm with bin/security-check.sh --approve --reason \"<who approved, and why>\"."
   fi
 fi
 if [ -n "$INTEGRITY_MSG" ] && [ "$MODE" != approve ]; then
-  if [ "$MODE" != check ]; then echo "security-check: $INTEGRITY_MSG Nothing was recorded." >&2; exit 1; fi
+  if [ "$MODE" != check ]; then echo "security-check: $INTEGRITY_MSG Nothing was recorded; --approve is the way to re-confirm." >&2; exit 1; fi
   write_state approval-mismatch 0 0
   if [ "$JSON" = 1 ]; then
     printf '{"verdict":"approval-mismatch","exit":1,"error":"%s","new_findings":[],"access_changes":[],"counts":{"new":0,"access_changes":0}}\n' "$(jesc "$INTEGRITY_MSG")"
@@ -591,6 +593,13 @@ if [ "$MODE" = approve ]; then
   cp "$SNAP" "$APPROVED.tmp" && mv "$APPROVED.tmp" "$APPROVED" || { echo "security-check: cannot write $APPROVED" >&2; exit 4; }
   sum=$(cksum_norm "$APPROVED")
   record_decision approve "$REASON" "$APPROVED"
+  if [ -f "$ACC" ]; then
+    # --approve re-confirms the accepted list too (a merged list has no matching checksum otherwise):
+    # show what is being confirmed, then record its checksum.
+    echo "Accepted findings you are confirming with this approval ($ACC):"
+    grep -v '^[[:space:]]*#' "$ACC_N" | awk -F'\t' 'NF>=3 { print "  [" $1 "] " $2 "  - reason: " $3 }'
+    record_decision accept "re-confirmed by --approve: $REASON" "$ACC"
+  fi
   nrec=$(grep -vc '^#' "$APPROVED")
   echo "security-check: access snapshot approved ($nrec facts) -> $APPROVED"
   echo "  reason: $REASON"
@@ -749,7 +758,9 @@ if [ "$verdict" = not-approved ]; then
     echo "A person accepts each finding they agree with (an agent must not):"
     print_accept_cmds "$FIND_NEW"
   fi
-  if [ "$NEWN" -gt 0 ]; then
+  if [ "$NEWN" -gt 0 ] && [ -e "$TEMPLATE" ]; then
+    echo "Kept your existing $TEMPLATE (delete it to get a fresh one)."
+  elif [ "$NEWN" -gt 0 ]; then
     { printf '# security-check --accept-file template: rule<TAB>finding<TAB>reason. Fill in a reason for each finding you accept, delete the lines you do not, then:  bin/security-check.sh --accept-file <this file>\n'
       awk -F'\t' '{ print $1 "\t" $2 "\t" }' "$FIND_NEW"; } > "$TEMPLATE" 2>/dev/null \
       && echo "To accept many at once: a person fills in the reason column of $TEMPLATE (left EMPTY on purpose) and runs bin/security-check.sh --accept-file $TEMPLATE"

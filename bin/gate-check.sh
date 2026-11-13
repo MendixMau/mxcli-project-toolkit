@@ -200,11 +200,14 @@ security_check_line() {
     echo "note: last access check (bin/security-check.sh) was $v (new findings ${n:-?}, access changes ${a:-?}) - run it again and show the person the result"
     return 0
   fi
+  cur=""
   if [ -n "$m" ] && [ -f "$d/bin/model-stamp.sh" ]; then
     cur="$(PROJECT_ROOT="$d" bash "$d/bin/model-stamp.sh" fingerprint 2>/dev/null | head -1 | tr -d '\r')"
-    if [ -n "$cur" ] && [ "$cur" != "$m" ]; then
-      echo "note: the last clean access check is for an older model - re-run bin/security-check.sh"
-    fi
+  fi
+  if [ -z "$cur" ]; then
+    echo "note: last clean access check $(sed -n 's/^date=//p' "$last" | head -1 | cut -c1-10); freshness unknown - re-run bin/security-check.sh"
+  elif [ "$cur" != "$m" ]; then
+    echo "note: the last clean access check is for an older model - re-run bin/security-check.sh"
   fi
   return 0
 }

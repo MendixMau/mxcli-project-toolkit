@@ -1,0 +1,37 @@
+# Demo build: a small brain made from a pinned slice of the PUBLIC Mendix docs, so every note, source and score can be shared.
+#   git clone https://github.com/mendix/docs ~/mendix-docs && git -C ~/mendix-docs checkout 97856cea
+#   export MENDIX_DOCS=~/mendix-docs
+#   cd brain-kit/example && export BRAINKIT_CONFIG=$PWD/brain.yaml
+#   python3 ../bin/ingest.py && python3 ../bin/classify.py && python3 ../bin/shortlist.py
+#   for t in security performance rest-integration; do ../bin/build-topic.sh $t; done
+# A real company brain is built the same way from internal exports. This demo only shows the method: a brain built from public
+# docs adds little an agent does not already know, which is why novelty_rule below is looser than the default.
+
+paths: {brain: brain, work: work}
+audience: Mendix developers and coding agents
+
+topics:
+  security: app and module security, user roles, access rules, entity access, anonymous users, password policy, security headers
+  performance: slow pages and microflows, query and retrieve performance, best-practice recommender rules, performance tooling
+  rest-integration: consuming and publishing REST services, JSON structures, import and export mappings, authentication of REST calls
+
+applies_to: [general]
+novelty_rule: >-
+  Keep concrete, actionable facts a developer can act on: rules, limits, settings and their defaults, version-bound behaviour,
+  traps and their fixes. Drop marketing, introductions and navigation text.
+deny_terms: [mxcli]
+
+sources:
+  - name: mendix-docs
+    path: $MENDIX_DOCS/content/en/docs/refguide
+    include:
+      - modeling/security/**/*.md
+      - modeling/best-practices/app-performance/**/*.md
+      - mendix-ai-assistance/best-practice-recommender/performance-best-practices.md
+      - modeling/integration/rest-services/**/*.md
+    url_base: https://docs.mendix.com
+    layer: baseline
+    min_words: 120
+
+thresholds: {faith: 0.90, find: 0.80}
+budget_usd: 6

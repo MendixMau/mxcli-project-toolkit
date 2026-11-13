@@ -10,6 +10,7 @@ The skill that routes here is `skills/build-company-brain.md`.
 | **Understand the method** (11 steps, lessons from other brains, how to use, test and improve one) | [`METHOD.md`](METHOD.md) |
 | **Start a brain by hand** (empty repo with AGENTS.md, ROUTING.md, note templates) | [`template/`](template/) + `bin/gate.py` |
 | **Build a brain from your exports** (harvest, classify, shortlist, compact, keywords, gate, repair) | `bin/` + [`brain.yaml.example`](brain.yaml.example) |
+| **See a finished one** (built from the public Mendix docs, every artefact shareable; its own README says how to update it) | [`example/`](example/) |
 
 ## Start by hand (path B)
 

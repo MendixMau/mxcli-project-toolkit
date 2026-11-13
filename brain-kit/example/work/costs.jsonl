@@ -1,0 +1,18 @@
+{"date": "2026-11-04 15:57", "step": "classify", "usd": 0.002, "tokens": {"haiku": [8839, 874]}, "documents": 2}
+{"date": "2026-11-04 15:57", "step": "classify", "usd": 0.03, "tokens": {"haiku": [121827, 18978]}, "documents": 37}
+{"date": "2026-11-04 16:00", "step": "compact performance", "usd": 0.486, "tokens": {"opus": [18254, 16975]}, "documents": 5}
+{"date": "2026-11-04 16:00", "step": "keywords performance", "usd": 0.0, "tokens": {}}
+{"date": "2026-11-04 16:01", "step": "gate performance lint,faith,find", "usd": 1.19, "tokens": {"sonnet": [232691, 21857], "haiku": [509347, 21920]}}
+{"date": "2026-11-04 16:02", "step": "gate performance lint,faith,find", "usd": 0.04, "tokens": {"haiku": [667732, 25596]}}
+{"date": "2026-11-04 16:02", "step": "fix performance", "usd": 0.144, "tokens": {"opus": [15961, 792]}}
+{"date": "2026-11-04 16:03", "step": "gate performance lint,faith", "usd": 0.074, "tokens": {"sonnet": [15958, 996]}}
+{"date": "2026-11-04 16:05", "step": "compact security", "usd": 0.414, "tokens": {"opus": [18875, 13154]}, "documents": 10}
+{"date": "2026-11-04 16:05", "step": "keywords security", "usd": 0.0, "tokens": {}}
+{"date": "2026-11-04 16:06", "step": "gate security lint,faith,find", "usd": 0.593, "tokens": {"sonnet": [97102, 16758], "haiku": [595285, 22864]}}
+{"date": "2026-11-04 16:06", "step": "fix security", "usd": 0.189, "tokens": {"opus": [17388, 2492]}}
+{"date": "2026-11-04 16:07", "step": "gate security lint,faith,find", "usd": 0.131, "tokens": {"sonnet": [17344, 3111], "haiku": [578381, 21812]}}
+{"date": "2026-11-04 16:09", "step": "compact rest-integration", "usd": 0.712, "tokens": {"opus": [45600, 17365]}, "documents": 20}
+{"date": "2026-11-04 16:09", "step": "keywords rest-integration", "usd": 0.0, "tokens": {}}
+{"date": "2026-11-04 16:10", "step": "gate rest-integration lint,faith,find", "usd": 0.877, "tokens": {"sonnet": [153430, 21971], "haiku": [698220, 26913]}}
+{"date": "2026-11-04 16:11", "step": "fix rest-integration", "usd": 0.223, "tokens": {"opus": [21885, 2416]}}
+{"date": "2026-11-04 16:12", "step": "gate rest-integration lint,faith,find", "usd": 0.157, "tokens": {"sonnet": [21822, 2908], "haiku": [731540, 29784]}}

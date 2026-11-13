@@ -29,10 +29,15 @@ case "$cmd" in
   "show demo users") sect "demo users" ;;
   "show security matrix") sect "security matrix" ;;
   "show entities")
-    cat "$SECX_BASE/show-entities.txt"
-    grep '^No access rules on ' "$D" | sed 's/^No access rules on //' | while IFS= read -r e; do
+    # Synthetic rows (see CAPTURE.md) go INSIDE the table, and the table's own "(N entities)" footer is
+    # raised to match, as real mxcli output would be: the script checks rows against that count.
+    extra=$(grep '^No access rules on ' "$D" | sed 's/^No access rules on //' | while IFS= read -r e; do
       grep -q "| $e " "$SECX_BASE/show-entities.txt" || printf '| %-35s | Persistent     |                     | 1     | 0      | 0           | 0       | 0      | 0           |\n' "$e"
-    done ;;
+    done)
+    n=$(printf '%s' "$extra" | grep -c . || true)
+    awk -v extra="$extra" -v n="$n" '
+      /^\([0-9]+ entities\)$/ { if (n > 0) print extra; c = $1; sub(/^\(/, "", c); printf "(%d entities)\n", c + n; next }
+      { print }' "$SECX_BASE/show-entities.txt" ;;
   "show access on "*)
     e=${cmd#show access on }
     { sect "access rules per entity"; echo; cat "$SECX_BASE/access-other-modules.txt"; } | awk -v e="$e" '

@@ -257,6 +257,10 @@ mkscen shape1 's/^Access rules for ToeicBuddy.Attempt:$/Rules of ToeicBuddy.Atte
 run "$PK" "$W/sc/shape1"; chk "K4 show access with neither expected first line: could-not-run (4)" '[ "$RC" = 4 ] && has "ToeicBuddy.Attempt"'
 mkscen shape2 's/create or modify user role Learner/define role Learner/'
 run "$PK" "$W/sc/shape2"; chk "K5 describe user role without its create or modify statement: 4" '[ "$RC" = 4 ] && has "create or modify user role"'
+# K5b: the captured user-roles table with its footer count raised by one (rows no longer match)
+mkdir -p "$W/basefoot"; cp "$FX/base/"* "$W/basefoot/"; sed 's/^(4 user roles)$/(5 user roles)/' "$FX/base/show-user-roles.txt" > "$W/basefoot/show-user-roles.txt"
+OUT=$(cd "$PK" && env -u PROJECT_ROOT -u MPR_FILE MXCLI="$FX/mxcli-stub.sh" SECX_DIR="$FX/base" SECX_BASE="$W/basefoot" bash "$PK/bin/security-check.sh" 2>&1); RC=$?
+chk "K5b a table whose rows do not match its own footer count: could-not-run (4), never an emptier snapshot" '[ "$RC" = 4 ] && has "show user roles"'
 mkscen shape3 's/^## Page Access/## Pages/'
 run "$PK" "$W/sc/shape3"; chk "K6 matrix without its Page Access section: 4" '[ "$RC" = 4 ] && has "Page Access"'
 mkscen shape4 's/^## Microflow Access/## Microflows/'

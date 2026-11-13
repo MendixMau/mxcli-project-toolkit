@@ -483,7 +483,13 @@ tbl_rows() {  # tbl_rows <file> <header-regex>: first column of each data row; 3
   # The header regex reaches awk through -v, which processes escape sequences: gawk turns "\|" into a
   # bare "|" (alternation, matches every row) where mawk keeps it. Callers therefore write [|], never \|.
   if grep -Eq "$2" "$1"; then
-    awk -F'|' -v h="$2" '/^\|/ && $0 !~ /^\|[-| ]+\|?$/ && $0 !~ h { v=$2; gsub(/^[ \t]+|[ \t]+$/, "", v); if (v != "") print v }' "$1"
+    # Count the rows against the table's own footer ("(4 user roles)"): a parse that silently drops
+    # rows would otherwise give an empty list, an emptier snapshot, and a clean verdict (seen under gawk).
+    _tr_rows=$(awk -F'|' -v h="$2" '/^\|/ && $0 !~ /^\|[-| ]+\|?$/ && $0 !~ h { v=$2; gsub(/^[ \t]+|[ \t]+$/, "", v); if (v != "") print v }' "$1")
+    _tr_foot=$(sed -n 's/^(\([0-9][0-9]*\) .*/\1/p' "$1" | tail -1)
+    _tr_n=$(printf '%s' "$_tr_rows" | grep -c . || true)
+    if [ -n "$_tr_foot" ] && [ "$_tr_foot" != "$_tr_n" ]; then return 3; fi
+    [ -z "$_tr_rows" ] || printf '%s\n' "$_tr_rows"
     return 0
   fi
   grep -Eqi '^\(0 |no [a-z ]+(found|defined)|^$' "$1" && return 0
@@ -554,7 +560,8 @@ awk '
 # entities: rights, row restriction text, attribute rights - per rule, per role
 mx_or_die "show entities" "$TMP/o.en"
 grep -Eq '^\| *Entity ' "$TMP/o.en" || could_not_run "'show entities' is not the table this parser was written against"
-tbl_rows "$TMP/o.en" '^[|] *Entity ' | grep -v '^System\.' | LC_ALL=C sort -u > "$TMP/ent.names"
+tbl_rows "$TMP/o.en" '^[|] *Entity ' > "$TMP/ent.all"; [ $? -ne 3 ] || could_not_run "'show entities' is not the table this parser was written against (rows do not match its own count)"
+grep -v '^System\.' "$TMP/ent.all" | LC_ALL=C sort -u > "$TMP/ent.names" || true
 while IFS= read -r ent; do
   [ -n "$ent" ] || continue
   mx_or_die "show access on $ent" "$TMP/o.ac"

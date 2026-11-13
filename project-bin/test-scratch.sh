@@ -394,6 +394,12 @@ else
   echo "→ test-scratch: ${#FILES[@]} test files → ${#CALLS[@]} boot(s)$( [ "$ONE_BOOT" != 1 ] && echo ' (--per-file)')"
 fi
 
+# Build reuse (mxcli with --reuse-build): in the warm copy, a run whose project files, test microflows and
+# mxcli are byte-for-byte what the previous run built skips the injection and mxbuild (about 45 s of 65 s).
+# mxcli decides by content hash; a changed model or test file builds as usual. Never on --cold.
+REUSE=()
+if [ "$CACHE" = 1 ] && [ "${MXTK_TEST_REUSE_BUILD:-1}" = 1 ] && "$MXCLI" test --help 2>&1 | grep -q -- '--reuse-build'; then REUSE=(--reuse-build); fi
+
 # 4. Run. An in-progress marker in the copy says a run started and did not end: the next run builds cold.
 [ "$CACHE" = 1 ] && date +%s > "$SCRATCH/.mxcli/test-scratch.running"
 RC=0; _n=0
@@ -404,7 +410,7 @@ for _call in "${CALLS[@]}"; do
   rm -f "$SCRATCH/deployment/model.mda"
   while IFS= read -r _f; do [ -n "$_f" ] && _args+=("$_f"); done <<<"$_call"
   echo "→ $(basename "$MXCLI") test ${_args[@]+"${_args[@]}"} ${REST[@]+"${REST[@]}"} -p $SCRATCH/$MPR_NAME   (ports $PORTS locked$( [ "${#CALLS[@]}" -gt 1 ] && echo "; boot $_n of ${#CALLS[@]}" ))"
-  ( cd "$SCRATCH" && "$MXCLI" test ${_args[@]+"${_args[@]}"} ${REST[@]+"${REST[@]}"} -p "$SCRATCH/$MPR_NAME" )
+  ( cd "$SCRATCH" && "$MXCLI" test ${_args[@]+"${_args[@]}"} ${REST[@]+"${REST[@]}"} ${REUSE[@]+"${REUSE[@]}"} -p "$SCRATCH/$MPR_NAME" )
   _rc=$?
   [ "$_rc" -gt "$RC" ] && RC=$_rc
 done

@@ -81,6 +81,8 @@ somewhere the script does not look — write an inbox entry by hand. Record the 
 `PROJECT.md` → `## Decisions` → `Cutover — learnings harvested:` (the PR link, or "nothing to
 harvest" with a sentence on why).
 
+If a full `bin/gate-check.sh` run or `--closeout` prints "N toolkit/mxcli bug(s) logged but not filed", run `bin/file-bugs.sh --auto` (or `--links`): `--auto` only posts when `PROJECT.md` has `Bug filing: auto`, otherwise it shows what it would file. `--file` is human-only.
+
 ## Skip Rule
 
 Per `checkpoint-template.md`: this checkpoint may only be skipped if all three answers are already recorded `CONFIRMED` in `PROJECT.md`. Being a `✋` gate, it never auto-skips on `ASSUMED` values.

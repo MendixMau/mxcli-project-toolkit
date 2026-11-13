@@ -5,6 +5,9 @@
 #   ./bin/demo-login-tiles.sh --remove         (alias --no-demo) empty the block, delete the data file:
 #                                              the step BEFORE an app leaves the machine
 #   ./bin/demo-login-tiles.sh --check          0 = safe (no tiles, or data file ignored and untracked)
+#   ./bin/demo-login-tiles.sh --check --strict (alias --predeploy) 0 ONLY when there are no tiles at all: exit 1 whenever a
+#                                              data file exists in theme/web or deployment/web, or the block is not empty.
+#                                              Run it, after --remove, BEFORE building a package or deploying.
 #   options: --host <name>                     one extra host that shows tiles (phone demo through a tunnel)
 #            --crew <port>=<user1,user2,...>   repeatable: that port shows only these users
 #            --model-users <file>              a saved `show demo users` table instead of asking mxcli
@@ -21,7 +24,9 @@
 # and clicks loginButton: Mendix's own login.js does the sign-in. The page holds NO name or password.
 # Crew: with no --crew / .claude/loop/demo-crew.tsv (lines: port<TAB>user1,user2) every port shows every
 # user; with a crew, a port that is listed shows only its users, a port that is not listed shows all.
-# The data file is plain JavaScript in the web folder: run --remove before the app leaves the machine.
+# HONESTLY: the loader never requests the data file on a non-local host, BUT the file is static content. If it is in the
+# theme or deployed web folder when the app is packaged or deployed, anyone who knows its address can read every demo
+# user name and password from any host. That is why --remove and then --check --strict come before a deploy.
 # DEPLOYED COPY: `mxcli run --watch` does not re-sync theme/web, so when deployment/web/login.html exists (beside the
 # .mpr, either layout) the same block and data file are written there too (a running app needs only a browser
 # reload); --remove and --check cover it as well; without a deployed folder the tiles appear at the next start.
@@ -40,17 +45,19 @@ set -uo pipefail
 _sd="${0%/*}"; [ "$_sd" != "$0" ] || _sd=.
 . "$_sd/_common.sh"
 
-MODE=patch; EXTRA_HOST=""; MODEL_USERS=""; CREW_ARGS=""
+MODE=patch; STRICT=0; EXTRA_HOST=""; MODEL_USERS=""; CREW_ARGS=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --remove|--no-demo) MODE=remove; shift ;;
     --check) MODE=check; shift ;;
+    --strict) STRICT=1; shift ;;
+    --predeploy) MODE=check; STRICT=1; shift ;;
     --host) EXTRA_HOST="${2:-}"; shift 2 || { echo "usage: --host needs a name" >&2; exit 2; } ;;
     --crew) [ -n "${2:-}" ] || { echo "usage: --crew <port>=<user1,user2,...>" >&2; exit 2; }
             CREW_ARGS="$CREW_ARGS
 $2"; shift 2 ;;
     --model-users) MODEL_USERS="${2:-}"; shift 2 || exit 2 ;;
-    -h|--help) sed -n 2,37p "$0"; exit 0 ;;
+    -h|--help) sed -n 2,43p "$0"; exit 0 ;;
     *) echo "usage: demo-login-tiles.sh [--remove|--check] [--host <name>] [--crew <port>=<users>]..." >&2; exit 2 ;;
   esac
 done
@@ -101,12 +108,16 @@ if [ "$MODE" = check ]; then
     [ -n "$d_" ] || continue
     if [ -f "$d_" ]; then
       present=1
+      [ "$STRICT" -eq 1 ] && { echo "STRICT FAIL: $r_ exists (demo user names and passwords as a static file that ships with the app; run bin/demo-login-tiles.sh --remove)"; bad=1; }
       if is_tracked "$r_"; then echo "CHECK FAIL: $r_ is tracked by git (it holds passwords): git rm --cached it"; bad=1
       elif ! is_ignored "$r_"; then echo "CHECK FAIL: $r_ exists and is not git-ignored (it holds passwords): run bin/demo-login-tiles.sh to add it to .gitignore"; bad=1; fi
     fi
     if [ -n "$pg_" ] && blk="$(find_block "$pg_")"; then
       set -- $blk
-      [ "$(( $2 - $1 ))" -gt 1 ] && present=1
+      if [ "$(( $2 - $1 ))" -gt 1 ]; then
+        present=1
+        [ "$STRICT" -eq 1 ] && { echo "STRICT FAIL: the demo block in ${pg_#"$PROJECT_ROOT"/} is not empty (run bin/demo-login-tiles.sh --remove)"; bad=1; }
+      fi
       if sed -n "$(($1+1)),$(($2-1))p" "$pg_" | grep -Eq '__DEMO_LOGIN__[[:space:]]*=[[:space:]]*[{[]|"p"[[:space:]]*:[[:space:]]*"'; then
         echo "CHECK FAIL: the block in ${pg_#"$PROJECT_ROOT"/} contains credentials"; bad=1
       fi
@@ -173,6 +184,11 @@ install_page() {  # install_page <page>: keep the original when nothing changed 
 
 # --- --remove -----------------------------------------------------------------------------------------
 if [ "$MODE" = remove ]; then
+  for pg_ in "$PAGE" "$DEP_PAGE"; do
+    [ -n "$pg_" ] || continue
+    rcb=0; find_block "$pg_" >/dev/null || rcb=$?
+    [ "$rcb" -ne 2 ] || cant "${pg_#"$PROJECT_ROOT"/} has a broken marker pair (need exactly one $BEGIN_M before one $END_M); fix it by hand, then re-run --remove"
+  done
   changed=0
   if [ -f "$DATA" ]; then rm -f "$DATA"; echo "removed $REL"; changed=1; fi
   [ -n "$DEP_DATA" ] && [ -f "$DEP_DATA" ] && { rm -f "$DEP_DATA"; echo "removed $DEP_REL"; changed=1; }
@@ -219,18 +235,18 @@ function qstr(s, i,   q, v, c) {
   QEND = i; return v
 }
 function stmt(s,   t, low, rest, n, i, c, nt, k, name, pw, roles, d, j, haspw) {
-  t = s; gsub(/[ \t\r]+/, " ", t); sub(/^ /, "", t); low = tolower(t)
-  if (match(low, /^create (or modify )?demo user /)) d = "C"
-  else if (match(low, /^drop demo user (if exists )?/)) d = "D"
+  t = s; sub(/^[ \t\r]+/, "", t); low = tolower(t)   # whitespace is squeezed NOWHERE: a quoted password keeps every space and tab
+  if (match(low, /^create[ \t\r]+(or[ \t\r]+modify[ \t\r]+)?demo[ \t\r]+user[ \t\r]+/)) d = "C"
+  else if (match(low, /^drop[ \t\r]+demo[ \t\r]+user[ \t\r]+(if[ \t\r]+exists[ \t\r]+)?/)) d = "D"
   else return
   rest = substr(t, RLENGTH + 1)
   nt = 0; n = length(rest); i = 1
   while (i <= n) {
     c = substr(rest, i, 1)
-    if (c == " ") { i++; continue }
+    if (c == " " || c == "\t" || c == "\r") { i++; continue }
     if (c == sq || c == dq) { nt++; TT[nt] = "S"; TV[nt] = qstr(rest, i); i = QEND + 1; continue }
     if (c ~ /[(),:;]/) { nt++; TT[nt] = "P"; TV[nt] = c; i++; continue }
-    k = i; while (k <= n && substr(rest, k, 1) !~ /[ (),:;'"]/) k++
+    k = i; while (k <= n && substr(rest, k, 1) !~ /[ \t\r(),:;'"]/) k++
     nt++; TT[nt] = "W"; TV[nt] = substr(rest, i, k - i); i = k
   }
   if (nt < 1 || TT[1] != "S") return
@@ -252,7 +268,7 @@ function stmt(s,   t, low, rest, n, i, c, nt, k, name, pw, roles, d, j, haspw) {
         if (TT[j] != "P") roles = roles (roles == "" ? "" : ",") TV[j]
     }
   }
-  if (!haspw) { print "W\t" name; return }
+  if (!haspw) { print "W\037" name; return }
   if (!(name in SEEN) || ALIVE[name] == 0) { ORD[++no] = name }   # (re)created after a drop: new position
   SEEN[name] = 1; ALIVE[name] = 1; PW[name] = pw; RL[name] = roles
 }
@@ -275,15 +291,16 @@ FNR == 1 { buf = ""; inq = ""; inb = 0 }
   }
   buf = buf " "
 }
-END { for (i = 1; i <= no; i++) { nm = ORD[i]; if (ALIVE[nm] == 1 && !(nm in PRINTED)) { PRINTED[nm] = 1; print "U\t" nm "\t" PW[nm] "\t" RL[nm] } } }
+END { for (i = 1; i <= no; i++) { nm = ORD[i]; if (ALIVE[nm] == 1 && !(nm in PRINTED)) { PRINTED[nm] = 1; print "U\037" nm "\037" PW[nm] "\037" RL[nm] } } }
 AWK
-grep '^W	' "$TMP/users.raw" | while IFS="$(printf '\t')" read -r _ nm; do echo "WARN: demo user '$nm' has no parseable password in the scripts; skipped" >&2; done
-grep '^U	' "$TMP/users.raw" > "$TMP/users.tsv" || : > "$TMP/users.tsv"
+US=$'\037'   # field separator for the user list: a password may hold a tab
+grep "^W$US" "$TMP/users.raw" | while IFS="$US" read -r _ nm; do echo "WARN: demo user '$nm' has no parseable password in the scripts; skipped" >&2; done
+grep "^U$US" "$TMP/users.raw" > "$TMP/users.tsv" || : > "$TMP/users.tsv"
 NUSERS="$(wc -l < "$TMP/users.tsv" | tr -d ' ')"
 [ "$NUSERS" -gt 0 ] || cant "no demo users found in the $(wc -l < "$TMP/files" | tr -d ' ') *.mdl file(s) under mdlsource/ (create demo user '<name>' (Password: '<pw>', UserRoles: (<Role>)); )"
 echo "$NUSERS demo users found:"
 TAB="$(printf '\t')"
-while IFS="$TAB" read -r _ nm _ rl; do printf '  %s  (%s)\n' "$nm" "${rl:-no role}"; done < "$TMP/users.tsv"
+while IFS="$US" read -r _ nm _ rl; do printf '  %s  (%s)\n' "$nm" "${rl:-no role}"; done < "$TMP/users.tsv"
 
 # --- model comparison (warn only) -------------------------------------------------------------------------
 MU="$TMP/model-users.txt"; have_model=0
@@ -294,7 +311,7 @@ elif [ -n "$MPR" ]; then
 fi
 if [ "$have_model" -eq 1 ]; then
   grep -E '^[[:space:]]*\|' "$MU" | tr -d '\r' | sed 's/^[[:space:]]*|//; s/|[[:space:]]*$//' | awk -F'|' '{gsub(/^ +| +$/,"",$1); print $1}' | grep -v -E '^(User Name|-+)$' | LC_ALL=C sort -u > "$TMP/model.names"
-  cut -f2 "$TMP/users.tsv" | LC_ALL=C sort -u > "$TMP/script.names"
+  cut -d"$US" -f2 "$TMP/users.tsv" | LC_ALL=C sort -u > "$TMP/script.names"
   comm -23 "$TMP/script.names" "$TMP/model.names" | while IFS= read -r n; do echo "WARN: '$n' is in the scripts but not in the model (scripts not applied yet?); its tile would fail"; done
   comm -13 "$TMP/script.names" "$TMP/model.names" | while IFS= read -r n; do echo "WARN: '$n' is in the model but in no script; no tile for it"; done
 else
@@ -310,7 +327,7 @@ while read -r port users; do
   case "$port" in ''|*[!0-9]*) echo "usage: crew port '$port' is not a number" >&2; exit 2 ;; esac
   [ -n "$users" ] || { echo "usage: crew for port $port lists no users" >&2; exit 2; }
   echo "$users" | tr ',' '\n' | while IFS= read -r cu; do
-    cut -f2 "$TMP/users.tsv" | grep -Fxq -- "$cu" || echo "WARN: crew for port $port names '$cu', who is in no script"
+    cut -d"$US" -f2 "$TMP/users.tsv" | grep -Fxq -- "$cu" || echo "WARN: crew for port $port names '$cu', who is in no script"
   done
   printf '%s\t%s\n' "$port" "$users"
 done < "$TMP/crew.txt" > "$TMP/crew.last"
@@ -324,7 +341,7 @@ jsesc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/</\\u003c/g'; }
   echo 'window.__DEMO_LOGIN__ = {'
   echo ' "users": ['
   n=0
-  while IFS="$TAB" read -r _ nm pw rl; do
+  while IFS="$US" read -r _ nm pw rl; do
     n=$((n+1)); roles=""
     if [ -n "$rl" ]; then
       OLDIFS="$IFS"; IFS=','; for r in $rl; do roles="$roles${roles:+,}\"$(jsesc "$r")\""; done; IFS="$OLDIFS"
@@ -423,12 +440,27 @@ cat > "$TMP/block.tpl" <<'BLOCK'
 BLOCK
 tpl="$(cat "$TMP/block.tpl")"; printf '%s\n' "${tpl/__EXTRA_HOSTS__/$HOSTS}" > "$TMP/block.html"
 
-# --- write: .gitignore, data file, page -----------------------------------------------------------------------
-if [ -f "$GITIGNORE" ] && grep -Fxq "/$REL" "$GITIGNORE"; then :; else
+# --- write: .gitignore first (verified by git itself), then data file, page ----------------------------------
+# A matching line in .gitignore proves nothing (a later "!" negation defeats it): only `git check-ignore` is trusted.
+ensure_ignored() {  # ensure_ignored <rel> -- stops with exit 3 BEFORE any data file is written when the path is not ignored
+  local rel="$1"
+  if ! git -C "$PROJECT_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+    echo "note: $PROJECT_ROOT is not a git repository, so nothing can be committed; .gitignore left alone"; return 0
+  fi
+  is_ignored "$rel" && return 0
   { [ -s "$GITIGNORE" ] && [ -n "$(tail -c1 "$GITIGNORE")" ] && printf '\n'
-    printf '# demo-login-tiles.sh: local demo sign-in data (holds passwords)\n/%s\n' "$REL"; } >> "$GITIGNORE"
-  echo "added /$REL to .gitignore"
+    printf '# demo-login-tiles.sh: local demo sign-in data (holds passwords)\n/%s\n' "$rel"; } 2>/dev/null >> "$GITIGNORE"
+  is_ignored "$rel" || cant "could not get $rel git-ignored (is .gitignore writable, and not negated by a later '!' line?) -- refusing to write a password file git would commit"
+  echo "added /$rel to .gitignore"
+}
+dep_ok=0; dst=0
+if [ -n "$DEP_PAGE" ]; then
+  find_block "$DEP_PAGE" >/dev/null || dst=$?
+  dep_ok=1; for id in loginForm usernameInput passwordInput loginButton loginMessage; do grep -Eq "id=[\"']$id[\"']" "$DEP_PAGE" || dep_ok=0; done
+  if [ "$dst" -eq 2 ] || { [ "$dst" -eq 1 ] && ! grep -q '</form>' "$DEP_PAGE"; }; then dep_ok=0; fi
 fi
+ensure_ignored "$REL"
+[ "$dep_ok" -eq 1 ] && ensure_ignored "$DEP_REL"
 if [ -f "$DATA" ] && cmp -s "$TMP/data.js" "$DATA"; then echo "$REL unchanged"; else cp "$TMP/data.js" "$DATA"; echo "wrote $REL"; fi
 if [ "$bstate" -eq 0 ]; then
   splice "$PAGE" "$TMP/block.html"; where="between the existing markers"
@@ -438,15 +470,9 @@ fi
 if install_page "$PAGE"; then echo "patched ${PAGE#"$PROJECT_ROOT"/} ($where)"; else echo "${PAGE#"$PROJECT_ROOT"/} unchanged"; fi
 # the deployed copy: the same result, so a RUNNING app shows the tiles after a browser reload
 if [ -n "$DEP_PAGE" ]; then
-  dst=0; find_block "$DEP_PAGE" >/dev/null || dst=$?
-  dok=1; for id in loginForm usernameInput passwordInput loginButton loginMessage; do grep -Eq "id=[\"']$id[\"']" "$DEP_PAGE" || dok=0; done
-  if [ "$dst" -eq 2 ] || [ "$dok" -eq 0 ] || { [ "$dst" -eq 1 ] && ! grep -q '</form>' "$DEP_PAGE"; }; then
+  if [ "$dep_ok" -eq 0 ]; then
     echo "note: ${DEP_PAGE#"$PROJECT_ROOT"/} is not a usable sign-in page (ids or markers); left alone, tiles appear after the next app start"
   else
-    if ! is_ignored "$DEP_REL" && ! { [ -f "$GITIGNORE" ] && grep -Fxq "/$DEP_REL" "$GITIGNORE"; }; then
-      { [ -s "$GITIGNORE" ] && [ -n "$(tail -c1 "$GITIGNORE")" ] && printf '\n'; printf '/%s\n' "$DEP_REL"; } >> "$GITIGNORE"
-      echo "added /$DEP_REL to .gitignore (deployment/ was not ignored)"
-    fi
     if [ -f "$DEP_DATA" ] && cmp -s "$TMP/data.js" "$DEP_DATA"; then :; else cp "$TMP/data.js" "$DEP_DATA"; fi
     if [ "$dst" -eq 0 ]; then splice "$DEP_PAGE" "$TMP/block.html"; else insert_after_form "$DEP_PAGE" "$TMP/block.html"; fi
     install_page "$DEP_PAGE" || :

@@ -1,28 +1,28 @@
 mdl 1;
--- TOEIC Buddy: domain model, roles, access rules (entities and their grants live in ONE script),
+-- Practice App: domain model, roles, access rules (entities and their grants live in ONE script),
 -- project security level Production, demo users.
 
-create module ToeicBuddy;
+create module PracticeApp;
 
-create enumeration ToeicBuddy.Area (
+create enumeration PracticeApp.Area (
   Reading 'Reading',
   Workplace 'By department'
 );
 
-create module role ToeicBuddy.Learner description 'Practises questions and flashcards, sees own progress';
-create module role ToeicBuddy.Trainer description 'Also manages questions and sees every learner''s progress';
+create module role PracticeApp.Learner description 'Practises questions and flashcards, sees own progress';
+create module role PracticeApp.Trainer description 'Also manages questions and sees every learner''s progress';
 
-/** A set of questions a learner can practise (a TOEIC part or a department pack). */
-create persistent entity ToeicBuddy.QuestionSet (
+/** A set of questions a learner can practise (an exam part or a department pack). */
+create persistent entity PracticeApp.QuestionSet (
   Name: String(100) not null error message 'A set needs a name',
-  Area: Enumeration(ToeicBuddy.Area),
+  Area: Enumeration(PracticeApp.Area),
   Icon: String(10),
   Seq: Integer default 0,
   IsActive: Boolean default true
 );
 
-/** One multiple-choice question, loaded from the TOEIC Buddy source. */
-create persistent entity ToeicBuddy.Question (
+/** One multiple-choice question, loaded from the Practice App source. */
+create persistent entity PracticeApp.Question (
   Stem: String(1000) not null error message 'The question text is required',
   Passage: String(unlimited),
   OptionA: String(500) not null error message 'Option A is required',
@@ -36,14 +36,14 @@ create persistent entity ToeicBuddy.Question (
 );
 
 /** One answer given by one learner. */
-create persistent entity ToeicBuddy.Attempt (
+create persistent entity PracticeApp.Attempt (
   ChosenIndex: Integer,
   IsCorrect: Boolean default false,
   AnsweredAt: DateTime
 );
 
 /** A vocabulary card. */
-create persistent entity ToeicBuddy.Flashcard (
+create persistent entity PracticeApp.Flashcard (
   Term: String(200) not null,
   Meaning: String(500),
   Example: String(500),
@@ -51,7 +51,7 @@ create persistent entity ToeicBuddy.Flashcard (
 );
 
 /** The question currently on screen (per learner, not stored). */
-create non-persistent entity ToeicBuddy.PracticeStep (
+create non-persistent entity PracticeApp.PracticeStep (
   SetName: String(100),
   Position: Integer,
   Total: Integer,
@@ -65,18 +65,18 @@ create non-persistent entity ToeicBuddy.PracticeStep (
 );
 
 /** A set tile on the practice menu. */
-create non-persistent entity ToeicBuddy.SetTile (
+create non-persistent entity PracticeApp.SetTile (
   SetName: String(100),
   Icon: String(10),
   Total: Integer,
   Done: Integer,
-  Area: Enumeration(ToeicBuddy.Area),
+  Area: Enumeration(PracticeApp.Area),
   CountText: String(100),
   ProgressClass: String(20)
 );
 
 /** Progress numbers: one for the home page, one per learner on the team page. */
-create non-persistent entity ToeicBuddy.Stat (
+create non-persistent entity PracticeApp.Stat (
   LearnerName: String(200),
   Answered: Integer default 0,
   Correct: Integer default 0,
@@ -86,52 +86,52 @@ create non-persistent entity ToeicBuddy.Stat (
   Greeting: String(200)
 );
 
-create non-persistent entity ToeicBuddy.BankState (
+create non-persistent entity PracticeApp.BankState (
   Message: String(300)
 );
 
-create non-persistent entity ToeicBuddy.CardStep (
+create non-persistent entity PracticeApp.CardStep (
   Position: Integer,
   Total: Integer,
   Flipped: Boolean default false,
   CountText: String(50)
 );
 
-create non-persistent entity ToeicBuddy.Who (
+create non-persistent entity PracticeApp.Who (
   NameText: String(200),
   RoleText: String(50)
 );
 
-create association ToeicBuddy.Question_QuestionSet from ToeicBuddy.Question to ToeicBuddy.QuestionSet on delete cascade;
-create association ToeicBuddy.Attempt_Question from ToeicBuddy.Attempt to ToeicBuddy.Question on delete cascade;
-create association ToeicBuddy.Attempt_User from ToeicBuddy.Attempt to System.User;
-create association ToeicBuddy.PracticeStep_Question from ToeicBuddy.PracticeStep to ToeicBuddy.Question;
-create association ToeicBuddy.PracticeStep_QuestionSet from ToeicBuddy.PracticeStep to ToeicBuddy.QuestionSet;
-create association ToeicBuddy.SetTile_QuestionSet from ToeicBuddy.SetTile to ToeicBuddy.QuestionSet;
-create association ToeicBuddy.CardStep_Flashcard from ToeicBuddy.CardStep to ToeicBuddy.Flashcard;
+create association PracticeApp.Question_QuestionSet from PracticeApp.Question to PracticeApp.QuestionSet on delete cascade;
+create association PracticeApp.Attempt_Question from PracticeApp.Attempt to PracticeApp.Question on delete cascade;
+create association PracticeApp.Attempt_User from PracticeApp.Attempt to System.User;
+create association PracticeApp.PracticeStep_Question from PracticeApp.PracticeStep to PracticeApp.Question;
+create association PracticeApp.PracticeStep_QuestionSet from PracticeApp.PracticeStep to PracticeApp.QuestionSet;
+create association PracticeApp.SetTile_QuestionSet from PracticeApp.SetTile to PracticeApp.QuestionSet;
+create association PracticeApp.CardStep_Flashcard from PracticeApp.CardStep to PracticeApp.Flashcard;
 
 -- Access rules, same script as the entities.
-grant read * on entity ToeicBuddy.QuestionSet to ToeicBuddy.Learner, ToeicBuddy.Trainer;
-grant create, delete, write * on entity ToeicBuddy.QuestionSet to ToeicBuddy.Trainer;
-grant read * on entity ToeicBuddy.Question to ToeicBuddy.Learner;
-grant create, delete, read *, write * on entity ToeicBuddy.Question to ToeicBuddy.Trainer;
-grant read * on entity ToeicBuddy.Attempt to ToeicBuddy.Learner where [ToeicBuddy.Attempt_User = '[%CurrentUser%]'];
-grant read * on entity ToeicBuddy.Attempt to ToeicBuddy.Trainer;
-grant read * on entity ToeicBuddy.Flashcard to ToeicBuddy.Learner;
-grant create, delete, read *, write * on entity ToeicBuddy.Flashcard to ToeicBuddy.Trainer;
-grant create, delete, read *, write * on entity ToeicBuddy.PracticeStep to ToeicBuddy.Learner, ToeicBuddy.Trainer;
-grant create, delete, read *, write * on entity ToeicBuddy.SetTile to ToeicBuddy.Learner, ToeicBuddy.Trainer;
-grant create, delete, read *, write * on entity ToeicBuddy.Stat to ToeicBuddy.Learner, ToeicBuddy.Trainer;
-grant create, delete, read *, write * on entity ToeicBuddy.BankState to ToeicBuddy.Learner, ToeicBuddy.Trainer;
-grant create, delete, read *, write * on entity ToeicBuddy.CardStep to ToeicBuddy.Learner, ToeicBuddy.Trainer;
-grant create, delete, read *, write * on entity ToeicBuddy.Who to ToeicBuddy.Learner, ToeicBuddy.Trainer;
+grant read * on entity PracticeApp.QuestionSet to PracticeApp.Learner, PracticeApp.Trainer;
+grant create, delete, write * on entity PracticeApp.QuestionSet to PracticeApp.Trainer;
+grant read * on entity PracticeApp.Question to PracticeApp.Learner;
+grant create, delete, read *, write * on entity PracticeApp.Question to PracticeApp.Trainer;
+grant read * on entity PracticeApp.Attempt to PracticeApp.Learner where [PracticeApp.Attempt_User = '[%CurrentUser%]'];
+grant read * on entity PracticeApp.Attempt to PracticeApp.Trainer;
+grant read * on entity PracticeApp.Flashcard to PracticeApp.Learner;
+grant create, delete, read *, write * on entity PracticeApp.Flashcard to PracticeApp.Trainer;
+grant create, delete, read *, write * on entity PracticeApp.PracticeStep to PracticeApp.Learner, PracticeApp.Trainer;
+grant create, delete, read *, write * on entity PracticeApp.SetTile to PracticeApp.Learner, PracticeApp.Trainer;
+grant create, delete, read *, write * on entity PracticeApp.Stat to PracticeApp.Learner, PracticeApp.Trainer;
+grant create, delete, read *, write * on entity PracticeApp.BankState to PracticeApp.Learner, PracticeApp.Trainer;
+grant create, delete, read *, write * on entity PracticeApp.CardStep to PracticeApp.Learner, PracticeApp.Trainer;
+grant create, delete, read *, write * on entity PracticeApp.Who to PracticeApp.Learner, PracticeApp.Trainer;
 
-create user role Learner (ModuleRoles: (ToeicBuddy.Learner, System.User), Description: 'Factory staff practising English');
-create user role Trainer (ModuleRoles: (ToeicBuddy.Trainer, ToeicBuddy.Learner, System.User), Description: 'Trainer: manages questions, sees progress');
-alter user role Administrator add module roles (ToeicBuddy.Trainer, ToeicBuddy.Learner);
+create user role Learner (ModuleRoles: (PracticeApp.Learner, System.User), Description: 'Factory staff practising English');
+create user role Trainer (ModuleRoles: (PracticeApp.Trainer, PracticeApp.Learner, System.User), Description: 'Trainer: manages questions, sees progress');
+alter user role Administrator add module roles (PracticeApp.Trainer, PracticeApp.Learner);
 
 -- Security level: said in chat before running (the scaffold starts with security Off).
 alter app security ( SecurityLevel: PRODUCTION, EnableDemoUsers: true );
-create or modify demo user 'learner1' ( Password: 'Toeic-Buddy-1!', UserRoles: (Learner) );
-create or modify demo user 'learner2' ( Password: 'Toeic-Buddy-2!', UserRoles: (Learner) );
-create or modify demo user 'trainer1' ( Password: 'Toeic-Trainer-1!', UserRoles: (Trainer) );
+create or modify demo user 'learner1' ( Password: 'Demo-Pass-1!', UserRoles: (Learner) );
+create or modify demo user 'learner2' ( Password: 'Demo-Pass-2!', UserRoles: (Learner) );
+create or modify demo user 'trainer1' ( Password: 'Demo-Trainer-1!', UserRoles: (Trainer) );

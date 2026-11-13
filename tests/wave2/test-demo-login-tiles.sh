@@ -121,13 +121,54 @@ for LAY in single two; do
   # deployment/ NOT ignored: the deployed data file gets its own ignore line
   printf '' > "$R/.gitignore"; ( cd "$R" && git add -A && git -c user.email=t@t -c user.name=t commit -q -m noign ) >/dev/null 2>&1
   out="$(runit "$R")"
-  grep -Fxq "/${DD#$R/}" "$R/.gitignore" && echo "$out" | grep -q 'deployment/ was not ignored' && ok "$LAY: deployment/ not ignored -> deployed data file added to .gitignore" || bad "$LAY: deployed gitignore" "$out"
+  grep -Fxq "/${DD#$R/}" "$R/.gitignore" && echo "$out" | grep -q 'to .gitignore' && ok "$LAY: deployment/ not ignored -> deployed data file added to .gitignore" || bad "$LAY: deployed gitignore" "$out"
   runit "$R" --remove >/dev/null
 
   R="$(mk nodep-$LAY $LAY $FX/mdl/R-20-security-level.mdl)"; APP="$R"; [ "$LAY" = two ] && APP="$R/app"
   out="$(runit "$R")"; rc=$?
   [ $rc -eq 0 ] && [ ! -e "$APP/deployment" ] && grep -q 'DEMO-LOGIN-BEGIN -->' "$APP/theme/web/login.html" && echo "$out" | grep -q 'no deployed web folder: the tiles appear after the next app start' && ok "$LAY: (c) no deployed folder: only theme files change, message says so" || bad "$LAY: (c)" "$out"
 done
+
+echo "-- whitespace inside a quoted password is kept byte-exact (synthetic)"
+R="$(mk ws single)"; P="$(printf '  lead  dbl\tTab trail  ')"
+printf "create demo user 'ws.user' ( Password: '%s', UserRoles: (Alpha) );\n" "$P" > "$R/mdlsource/ws.mdl"
+out="$(runit "$R")"; D="$R/theme/web/demo-login.local.js"
+grep -Fq -- "\"p\":\"$P\"" "$D" && ok "password with leading/trailing/double spaces and a tab round-trips byte-exact" || bad "whitespace password changed" "$(grep ws.user "$D" | od -c | head -4)"
+
+echo "-- .gitignore must really ignore the data file, or nothing is written"
+R="$(mk gi1 single $FX/mdl/R-20-security-level.mdl)"; mkdir "$R/.gitignore"; cp "$R/theme/web/login.html" "$WORK/gi1.html"
+out="$(runit "$R")"; rc=$?
+[ $rc -eq 3 ] && [ ! -e "$R/theme/web/demo-login.local.js" ] && cmp -s "$WORK/gi1.html" "$R/theme/web/login.html" && ! echo "$out" | grep -q '^added' && ok ".gitignore unwritable (a directory): exit 3, no data file, page untouched, no 'added' line" || bad "gi dir rc $rc" "$out"
+R="$(mk gi2 single $FX/mdl/R-20-security-level.mdl)"; printf '/theme/web/demo-login.local.js\n!/theme/web/demo-login.local.js\n' > "$R/.gitignore"
+out="$(runit "$R")"; rc=$?
+git -C "$R" check-ignore -q -- theme/web/demo-login.local.js && [ $rc -eq 0 ] && echo "$out" | grep -q '^added' && ok "a matching line defeated by a later ! negation is not trusted: the line is re-added and git then says ignored" || bad "gi negation repair rc $rc" "$out"
+R="$(mk gi2b single $FX/mdl/R-20-security-level.mdl)"; printf '!demo-login.local.js\n' > "$R/theme/web/.gitignore"
+out="$(runit "$R")"; rc=$?
+[ $rc -eq 3 ] && [ ! -e "$R/theme/web/demo-login.local.js" ] && ok "a nested .gitignore negation the append cannot beat: exit 3, no data file" || bad "gi nested negation rc $rc" "$out"
+R="$(mk gi3 single $FX/mdl/R-20-security-level.mdl)"; mkdir -p "$R/deployment/web"; cp "$FX/login.html" "$R/deployment/web/login.html"
+printf '/theme/web/demo-login.local.js\n' > "$R/.gitignore"; printf '!demo-login.local.js\n' > "$R/deployment/web/.gitignore"
+out="$(runit "$R")"; rc=$?
+[ $rc -eq 3 ] && [ ! -e "$R/theme/web/demo-login.local.js" ] && [ ! -e "$R/deployment/web/demo-login.local.js" ] && ok "deployed location not ignorable: exit 3 BEFORE the theme data file is written either" || bad "gi deployed rc $rc" "$out"
+R="$(mk gi4 single $FX/mdl/R-20-security-level.mdl)"; rm -rf "$R/.git"
+out="$(runit "$R")"; rc=$?
+[ $rc -eq 0 ] && echo "$out" | grep -q 'not a git repository' && [ -e "$R/theme/web/demo-login.local.js" ] && ok "not a git repository: one line saying so, continues" || bad "no git rc $rc" "$out"
+
+echo "-- --check --strict / --predeploy"
+R="$(mk st single $FX/mdl/R-20-security-level.mdl)"; runit "$R" >/dev/null
+out="$(runit "$R" --check)"; rc=$?; [ $rc -eq 0 ] && ok "plain --check 0 with tiles present (ignored, untracked)" || bad "plain check rc $rc" "$out"
+out="$(runit "$R" --check --strict)"; rc=$?
+[ $rc -eq 1 ] && echo "$out" | grep -q 'STRICT FAIL: theme/web/demo-login.local.js exists' && echo "$out" | grep -q 'STRICT FAIL: the demo block in theme/web/login.html is not empty' && ok "--check --strict: exit 1, names the data file and the block" || bad "strict rc $rc" "$out"
+out="$(runit "$R" --predeploy)"; rc=$?; [ $rc -eq 1 ] && ok "--predeploy alias: exit 1" || bad "predeploy rc $rc" "$out"
+rm "$R/theme/web/demo-login.local.js"; out="$(runit "$R" --predeploy)"; rc=$?
+[ $rc -eq 1 ] && echo "$out" | grep -q 'block in theme/web/login.html is not empty' && ok "--strict: exit 1 on a non-empty block alone" || bad "strict block-only rc $rc" "$out"
+runit "$R" >/dev/null; runit "$R" --remove >/dev/null
+out="$(runit "$R" --check --strict)"; rc=$?; [ $rc -eq 0 ] && echo "$out" | grep -q 'no tiles' && ok "--strict after --remove: exit 0" || bad "strict after remove rc $rc" "$out"
+
+echo "-- --remove refuses damaged markers like the patch run"
+R="$(mk dm single $FX/mdl/R-20-security-level.mdl)"; runit "$R" >/dev/null
+grep -v 'DEMO-LOGIN-END -->' "$R/theme/web/login.html" > "$WORK/dm.html"; cp "$WORK/dm.html" "$R/theme/web/login.html"
+out="$(runit "$R" --remove)"; rc=$?
+[ $rc -eq 3 ] && echo "$out" | grep -q 'broken marker pair' && cmp -s "$WORK/dm.html" "$R/theme/web/login.html" && [ -e "$R/theme/web/demo-login.local.js" ] && ok "--remove on damaged markers: exit 3, nothing changed" || bad "remove damaged rc $rc" "$out"
 
 echo "-- parser, synthetic shapes"
 R="$(mk syn single "$FX/mdl-synthetic.mdl")"; out="$(runit "$R")"; D="$R/theme/web/demo-login.local.js"

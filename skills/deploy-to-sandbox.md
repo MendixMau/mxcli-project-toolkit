@@ -37,6 +37,8 @@ prerequisite, never a substitute, and never a reason to skip.
 
 ## Step 1 — enumerate what the deployment does NOT have
 
+**Before building a package or deploying:** run `bin/demo-login-tiles.sh --remove`, then `bin/demo-login-tiles.sh --check --strict` must exit 0 (the tiles' password file is static content any host can fetch).
+
 Before touching the harness, list what the target lacks relative to localhost. Do not guess it;
 read the platform's own docs and probe. For a Mendix **Free App Sandbox** the answer is large:
 

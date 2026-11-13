@@ -71,16 +71,21 @@
 # answers, else local; MXTK_APP_LANE=local / --local force local. What the lane now does before and
 # while starting:
 #   1. DATABASE — RUN_LOCAL_DB in stack.conf, one of
-#        auto        (default) Postgres answers on RUN_LOCAL_DB_HOST (default 127.0.0.1:5432): pass no
-#                    database option, exactly as before. Nothing answers there: --db-type hsqldb, the
-#                    runtime's built-in file database (no server; data under <project>/deployment/data/
-#                    database/hsqldb/), so a project that never had a local database still starts.
-#        postgresql  never switch: no option; the Postgres must answer, else exit 4 naming it.
-#        ensure      add --ensure-db: mxcli creates the local Postgres role + database if missing.
-#        hsqldb      always --db-type hsqldb.
-#      RUN_LOCAL_DB_HOST, when set, is also passed as --db-host. The line "database: ..." says which ran.
+#        auto        (default) NEVER switches database by itself: no database option, no TCP probe,
+#                    arguments byte-identical to before. A project on Postgres 5433 or a remote host works
+#                    through the model's own settings. If the start then fails with "database not
+#                    reachable", the script prints the two explicit choices below.
+#        postgresql  no option; the Postgres must answer on RUN_LOCAL_DB_HOST (host:port, default
+#                    127.0.0.1:5432), else exit 4 naming it. RUN_LOCAL_DB_HOST is passed as --db-host.
+#        ensure      add --ensure-db: mxcli creates the local Postgres role + database if missing
+#                    (RUN_LOCAL_DB_HOST probed and passed as for postgresql, but never blocks).
+#        hsqldb      --db-type hsqldb, the built-in file database (no server; data under
+#                    <project>/deployment/data/database/hsqldb/, SEPARATE from any Postgres data). Used
+#                    ONLY when set explicitly.
+#      A non-default mode is warned about and published to stack.env as LOCAL_DB=<mode>.
+#      The line "database: ..." says which ran.
 #   2. PROBE — the JDK the model needs (21 up to Mendix 11.13, 25 from 11.14; find_java / JAVA_HOME) and,
-#      when Postgres is the database, that it answers. Missing → exit 4 naming exactly what, before any
+#      when RUN_LOCAL_DB=postgresql, that it answers. Missing → exit 4 naming exactly what, before any
 #      build is started. Never an automatic switch to the container lane: that is a decision.
 #   3. SPLIT MODEL — a model stored as mprcontents/ is snapshotted first with snapshot-mpr.sh (the same
 #      rotating .mpr-snapshots/ exec.sh uses) and its unit count is compared after the start; a drop
@@ -127,8 +132,8 @@
 #
 #   APP_PORTS="8080 8081"                                # fallback scan list; ownership beats it
 #   RUN_LOCAL_SERVE_PORT=6644                            # local lane's mxbuild port (default: first free from 6543)
-#   RUN_LOCAL_DB=auto                                    # local lane database: auto | postgresql | ensure | hsqldb
-#   RUN_LOCAL_DB_HOST=127.0.0.1:5432                     # Postgres host:port to probe (and pass as --db-host when set)
+#   RUN_LOCAL_DB=auto                                    # local lane database: auto (model's own settings) | postgresql | ensure | hsqldb (explicit only)
+#   RUN_LOCAL_DB_HOST=127.0.0.1:5432                     # Postgres host:port for postgresql/ensure (probed; passed as --db-host); ignored by auto
 #   JAEGER_PORT=16686                                    # OTel collector UI (optional)
 #   MOCK_HEALTH_URL="http://localhost:3001/api/health"   # set to enable the mock rung
 #   MOCK_PORT=3001
@@ -467,6 +472,7 @@ publish_stack_env() {
     echo "APP_OWNERSHIP=${3:-unknown}"
     echo "APP_SOURCE=${4:-unknown}"
     [ -n "$MOCK_PORT" ] && echo "MOCK_PORT=$MOCK_PORT"
+    [ -n "${LOCAL_DB_MODE:-}" ] && echo "LOCAL_DB=$LOCAL_DB_MODE"
     [ "$2" -eq 0 ] && echo "JAEGER_PORT=$JAEGER_PORT" || echo "JAEGER_PORT="
   } > "$STACK_ENV"
 }
@@ -837,20 +843,25 @@ if [ $APP_FOUND -ne 0 ]; then
     _blocked() { bad "INSTRUMENT BLOCKED — local lane: $1"; shift; for _l in "$@"; do echo "  $_l"; done
       echo "  Not falling back to a container on its own — that is your decision (MXTK_APP_LANE=container)."
       echo "  Record the run as INSTRUMENT BLOCKED, not as a failure."; exit 4; }
-    _JH="$(find_java 2>/dev/null || true)"; _JW=21; command -v _mxtk_java_want >/dev/null 2>&1 && _JW="$(_mxtk_java_want)"; _JM=""
-    if [ -n "$_JH" ] && [ -x "$_JH/bin/java" ]; then
-      _JM="$("$_JH/bin/java" -version 2>&1 | sed -n 's/.* version "\([0-9][0-9]*\)[".].*/\1/p' | head -1)"
+    _JE="$(find_java_exe 2>/dev/null || true)"; _JW=21; command -v _mxtk_java_want >/dev/null 2>&1 && _JW="$(_mxtk_java_want)"; _JM=""
+    if [ -n "$_JE" ] && [ -x "$_JE" ]; then
+      # first run of digits in the version token: "21-ea", "21.0.2", "25", "1.8.0_392" all read; unreadable -> warn, go on
+      _JV="$("$_JE" -version 2>&1 | sed -n 's/.* version "\([^"]*\)".*/\1/p' | head -1)"
+      _JM="$(printf '%s' "$_JV" | sed -n 's/^[^0-9]*\([0-9][0-9]*\).*/\1/p')"
+      [ -n "$_JM" ] || warn "could not read the Java version from '$_JE -version' — not blocking; this model needs JDK $_JW"
     fi
-    [ -n "$_JM" ] || _blocked "no JDK found (this model needs JDK $_JW)." \
+    [ -n "$_JE" ] && [ -x "$_JE" ] || _blocked "no JDK found (this model needs JDK $_JW)." \
       "→ Install JDK $_JW and put it on PATH, or set JAVA_HOME (toolkit.env), then re-run."
-    [ "$_JM" -ge "$_JW" ] 2>/dev/null || _blocked "JDK $_JM found, this model needs JDK $_JW ($_JH)." \
+    [ -z "$_JM" ] || [ "$_JM" -ge "$_JW" ] 2>/dev/null || _blocked "JDK $_JM found, this model needs JDK $_JW ($_JE)." \
       "→ Install JDK $_JW or point JAVA_HOME at it (toolkit.env), then re-run."
     _DBM="${RUN_LOCAL_DB:-auto}"; _DBH="${RUN_LOCAL_DB_HOST:-127.0.0.1:5432}"; _DBARGS=""
     case "$_DBM" in
       auto|postgresql|ensure|hsqldb) ;;
       *) echo "RUN_LOCAL_DB takes auto, postgresql, ensure or hsqldb (stack.conf)" >&2; exit 2 ;;
     esac
-    _pg_up() { local h="${_DBH%:*}" p="${_DBH##*:}" w=0 rc pid
+    # TCP probe of host:port (port 5432 when RUN_LOCAL_DB_HOST names only a host). Only for postgresql / ensure.
+    _pg_up() { local h="${_DBH%:*}" p="${_DBH##*:}" w=0 pid
+      case "$_DBH" in *:*) ;; *) h="$_DBH"; p=5432 ;; esac
       h="${h#[}"; h="${h%]}"
       ( exec 3<>"/dev/tcp/$h/$p" ) 2>/dev/null & pid=$!
       while kill -0 "$pid" 2>/dev/null; do
@@ -859,15 +870,19 @@ if [ $APP_FOUND -ne 0 ]; then
       wait "$pid"; }
     _DBUSED=""
     case "$_DBM" in
-      hsqldb)     _DBARGS="--db-type hsqldb"; _DBUSED="hsqldb (RUN_LOCAL_DB=hsqldb)" ;;
-      ensure)     _DBARGS="--ensure-db";      _DBUSED="postgresql, created if missing (RUN_LOCAL_DB=ensure)" ;;
+      auto)       _DBUSED="the model's own settings (RUN_LOCAL_DB=auto: no database option passed, nothing switched)" ;;
+      hsqldb)     _DBARGS="--db-type hsqldb"; _DBUSED="hsqldb, the built-in file database (RUN_LOCAL_DB=hsqldb; its data is separate from any Postgres data)" ;;
+      ensure)     _DBARGS="--ensure-db";      _DBUSED="postgresql, created if missing (RUN_LOCAL_DB=ensure)"
+                  _pg_up || warn "nothing answers on $_DBH yet — --ensure-db will try to provision it" ;;
       postgresql) _pg_up || _blocked "RUN_LOCAL_DB=postgresql but nothing answers on $_DBH." \
                     "→ Start Postgres, or RUN_LOCAL_DB=ensure to have mxcli provision it, or RUN_LOCAL_DB=hsqldb."
                   _DBUSED="postgresql on $_DBH (RUN_LOCAL_DB=postgresql)" ;;
-      auto)       if _pg_up; then _DBUSED="postgresql on $_DBH (answers; the database must already exist, or RUN_LOCAL_DB=ensure)"
-                  else _DBARGS="--db-type hsqldb"; _DBUSED="hsqldb, the built-in file database (no Postgres answers on $_DBH; RUN_LOCAL_DB=postgresql to require one)"; fi ;;
     esac
-    [ -z "${RUN_LOCAL_DB_HOST:-}" ] || case "$_DBARGS" in *hsqldb*) ;; *) _DBARGS="$_DBARGS --db-host $RUN_LOCAL_DB_HOST" ;; esac
+    if [ "$_DBM" != auto ]; then
+      LOCAL_DB_MODE="$_DBM"
+      warn "local database mode: RUN_LOCAL_DB=$_DBM (set in .claude/loop/stack.conf; published as LOCAL_DB=$_DBM in stack.env)"
+    fi
+    [ -z "${RUN_LOCAL_DB_HOST:-}" ] || case "$_DBM" in ensure|postgresql) _DBARGS="$_DBARGS --db-host $RUN_LOCAL_DB_HOST" ;; esac
     # A split model is snapshotted first, with the script exec.sh uses (one mechanism, one rotation).
     if [ "$_U0" -gt 0 ]; then
       if [ -f "$(dirname "${BASH_SOURCE[0]}")/snapshot-mpr.sh" ]; then
@@ -885,7 +900,12 @@ if [ $APP_FOUND -ne 0 ]; then
     LOCAL_RC=$?
     if [ $LOCAL_RC -ne 0 ]; then
       bad "mxcli run --local failed (rc=$LOCAL_RC) — see $LOCAL_LOG"; tail -20 "$LOCAL_LOG"
-      case "$_DBARGS" in *hsqldb*) ;; *) echo "  A missing database is the usual cause: set RUN_LOCAL_DB=ensure (mxcli creates it) or RUN_LOCAL_DB=hsqldb in .claude/loop/stack.conf." ;; esac
+      if grep -q "database not reachable" "$LOCAL_LOG" 2>/dev/null; then
+        echo "  The database is not reachable. Nothing was switched for you. Choose one in .claude/loop/stack.conf:"
+        echo "    RUN_LOCAL_DB=hsqldb   the built-in file database; starts with no Postgres; its data is SEPARATE from any Postgres data"
+        echo "    RUN_LOCAL_DB=ensure   create the local Postgres role and database (Postgres must be running)"
+        echo "  Or start the Postgres this model expects."
+      fi
       exit 1
     fi
     _U1=$(find "$MODEL_DIR/mprcontents" -name '*.mxunit' 2>/dev/null | wc -l | tr -d ' ')

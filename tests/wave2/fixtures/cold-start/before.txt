@@ -14,7 +14,7 @@ failed: database not reachable at 127.0.0.1:5432: dial tcp 127.0.0.1:5432: conne
     Detecting project version...
       Mendix version: 11.13.0
     Ensuring MxBuild and runtime are available...
-      MxBuild 11.13.0 already cached at /root/.mxcli/mxbuild/11.13.0/modeler/mxbuild
+      MxBuild 11.13.0 already cached at <home>/.mxcli/mxbuild/11.13.0/modeler/mxbuild
     Error: database not reachable at 127.0.0.1:5432: dial tcp 127.0.0.1:5432: connect: connection refused
       Pass --ensure-db to provision it, or start Postgres and create the 'fixture' database (user "mendix").
   A missing database is the usual cause: it must exist before the first run (createdb, or --db-type hsqldb).

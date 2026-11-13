@@ -1,0 +1,13 @@
+── Test stack: Fixture ──────────────────────────────────
+  [32m✓[0m Studio Pro not running
+  [31m✗[0m App not serving on any of: 8531
+  [33m![0m Jaeger DOWN on :1 — Trace assertions unavailable (UI+Data still fine)
+  [32m✓[0m No mock API configured (set MOCK_HEALTH_URL in .claude/loop/stack.conf if this project has one)
+  [32m✓[0m split model (411 units) snapshotted to .mpr-snapshots/ before the start
+→ App is down. Starting it without a container: mxcli run --local --watch --detach (:8531, admin :8532, build :6577)...
+  database: hsqldb, the built-in file database (no Postgres answers on 127.0.0.1:5432; RUN_LOCAL_DB=postgresql to require one)
+  [32m✓[0m App serving on :8531 in 46s (ownership verified, run-local) — --watch keeps it current
+────────────────────────────────────────────────────────
+READY — ports published to .claude/loop/stack.env; the e2e config reads them automatically
+  app    :8531  (ownership verified, run-local)
+  jaeger DOWN — Trace assertions will not run

@@ -20,7 +20,12 @@
 # Bash 3.2 + POSIX sed/grep. Never fails: an unreadable file is skipped.
 
 _mxtk_slots() {   # $1=file → one slot name per line
-  sed 's/{{DOUBLE_BRACE}}//g' "$1" 2>/dev/null | grep -o '{{[^}]*}}' \
+  # tr joins the lines first: a slot whose text wraps onto a second line is still ONE slot
+  # (mdl-agent's PROJECT_LOCAL_SOURCES_OF_TRUTH is four lines long; the per-line grep missed it).
+  # The body excludes `{` too: line 11 of every agent stub quotes a bare `'{{'` in prose, and
+  # once lines are joined that `{{` would otherwise run on to the next real slot's `}}`,
+  # swallowing every slot in between.
+  sed 's/{{DOUBLE_BRACE}}//g' "$1" 2>/dev/null | tr '\n' ' ' | grep -o '{{[^{}]*}}' \
     | sed -e 's/^{{ *//' -e 's/[^A-Za-z0-9_].*$//' -e 's/}}$//'
 }
 

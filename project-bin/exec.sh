@@ -36,6 +36,29 @@
 #   5  applied, but UNVERIFIED: the gate ran and did not check the model (mxbuild exited
 #      non-zero with no model problem), or ALLOW_UNVERIFIED=1 skipped it. The write is kept with
 #      no verification stamp; run ./bin/verify-model.sh before the next exec or commit.
+# MXTK-RESULT (one greppable line, so an orchestrator need not learn each script's exit codes):
+#   MXTK-RESULT exec verdict=<word> applied=<yes|no|partial|unknown> verified=<yes|no|skipped> lint_new=<N|unknown|blind|skipped|na> exit=<code>
+# Printed once on every path that reached a verdict, BEFORE that path's closing human lines, so it
+# is never the last line of output (the last line stays the one documented above). Built by
+# result_line() only. verdict words:
+#   applied              exit 0   kept; gate passed (verified=yes)
+#   applied-lint         exit 4 (1 under `Lint gate: hard`)   kept; gate passed; lint rose or blind
+#   applied-unverified   exit 5   kept; the gate could not check the model (verified=no)
+#   partial              exit 1   mxcli exec failed part-way and the statements before it are live (applied=partial)
+#   restored             exit 1   NOT kept: a failed gate, a failed or refused --patch, rolled back (applied=no)
+#   failed               exit 1   NOT kept as intended but the rollback did not run (applied=unknown): restore by hand
+#   refused              exit 1   a guard stopped it before anything was written (applied=no, verified=skipped)
+# verified: yes = the gate passed; no = it ran or could not run and did not pass; skipped = never reached.
+# lint_new: <N> = findings new this script when lint measured them (0 = clean). Otherwise one word:
+#   unknown  lint rose vs baseline but the rise could not be itemised (no Python / the diff failed)
+#   blind    lint could not run or measure (a blind rule, reverted rules, lint-gate fault, no baseline)
+#   skipped  lint was skipped (SKIP_LINT) or bin/lint-gate.sh is not installed
+#   na       lint never ran on this path (a refusal, a restored write, a --patch)
+# NO LINE: exit 2 (usage error), a missing .mpr, and any abort under `set -e` before a verdict
+# (for example a failing snapshot step) print no MXTK-RESULT line. Read "no MXTK-RESULT line" as
+# "no verdict reached", never as success. The line goes to STDOUT; some refusal text goes to
+# STDERR, so capture both streams (2>&1) when reading a run.
+# Restore failed (partial or gate path): verdict=failed applied=unknown on BOTH paths.
 # Until 2026-10-20, 4 was 1 and 5 was 0: in one field build 57 of 58 clean builds exited 1 on a
 # lint rise, agents learned to ignore 1, and 10 UNVERIFIED runs exiting 0 read as success.
 # A PARTIAL run, or a --patch script that failed, used to pass the script's own exit code
@@ -150,6 +173,18 @@ fi
 # A failed script's own exit code becomes 1: passed through, its 2 would read as "nothing
 # touched" and its 4 or 5 as "applied" (see Exit codes above).
 fail_rc() { case "$1" in 0) echo 0 ;; *) echo 1 ;; esac; }
+# MXTK-RESULT (see the header): the one place that builds the line. result_line <verdict> <applied>
+# <verified> <exit>. Printed BEFORE a path's closing human lines, never as the last line of output.
+LINT_NEW=na
+result_line() { echo "MXTK-RESULT exec verdict=$1 applied=$2 verified=$3 lint_new=${LINT_NEW:-na} exit=$4"; }
+# The closing human line of the paths whose verdict needs RESTORED. Three cases, because two of
+# these paths never attempt a restore (a partial run; mxbuild crashed with no baseline, where the
+# write is kept on purpose): telling the reader to "restore" there would contradict the text above.
+restore_close() {
+  if [ "${RESTORED:-0}" -eq 1 ]; then echo "  Rolled back: the model is as it was before this run."
+  elif [ "${RESTORE_TRIED:-0}" -eq 1 ]; then echo "  NOT rolled back: restore the model before the next exec (see above)."
+  else echo "  No rollback was attempted: the model holds what this run wrote (see above)."; fi
+}
 
 # ── Change class (advisory, added 2026-10-13) ────────────────────────────────
 # Tags each run `ui-only` or `logic`, so the run summary can say which TEST LANE applies
@@ -733,6 +768,7 @@ if [ "$PATCH_MODE" != "1" ]; then
         echo "$_scan_out"
         case "${MXTK_SCAN_OVERRIDE:-}" in
           ""|1|true|yes)
+            result_line refused no skipped 1
             echo ""
             echo "✗ STOP-row scan: refusing exec on a blocking rule. NOTHING was locked, snapshotted or written."
             echo "  Each line above names its learned-mdl-preflight.md row and the rewrite. Fix the script."
@@ -767,6 +803,7 @@ if [ "$PATCH_MODE" != "1" ] && [ -x "$PROJECT_ROOT/bin/row-groups.sh" ]; then
   if [ "$_rg_rc" = 1 ]; then
     echo "$_rg_out"
     if [ -z "${MXTK_ROWS_OVERRIDE:-}" ]; then
+      result_line refused no skipped 1
       echo "✗ Row-group gate: refusing exec. NOTHING was locked, snapshotted or written."
       echo "  See the groups: bin/row-groups.sh. Override with a reason: MXTK_ROWS_OVERRIDE=\"<why>\" ./bin/exec.sh $SCRIPT"
       log_build "🚫 blocked" "row-group gate: $(printf '%s' "$_rg_out" | head -1 | tr '|' '/' | cut -c1-200) — nothing written"
@@ -806,6 +843,7 @@ if [ -f "$MPR.lock" ]; then
   SP_PID=$(grep -oE '"ProcessId":[0-9]+' "$MPR.lock" 2>/dev/null | grep -oE '[0-9]+' || true)
   if [ -n "$SP_PID" ] && kill -0 "$SP_PID" 2>/dev/null; then
     SP_OPEN=1
+    [ "$FORCE" = "1" ] || result_line refused no skipped 1
     echo "✗ Studio Pro has $NAME open (lock PID $SP_PID alive) — refusing exec (split-brain corruption risk)."
     echo "  → Close the project in Studio Pro (or quit SP), then re-run."
     echo "    Override (NOT recommended): FORCE_EXEC=1 ./bin/exec.sh $SCRIPT"
@@ -878,6 +916,7 @@ for _try in 1 2 3 4 5 6; do
     _age=""
     case "$_hsince" in ''|*[!0-9]*) ;; *) _age=" for $(( ${EPOCHSECONDS:-$(date +%s)} - _hsince ))s" ;; esac
     [ "$_hrest" = "$_held" ] && _hscript="?"
+    result_line refused no skipped 1
     echo "✗ Another session holds this project's exec lock (PID $_hpid, running$_age, script: $_hscript)."
     echo "  → Wait for it to finish, then re-run. Nothing was written."
     echo "    (A dead holder is detected and taken over automatically — no manual rm is ever needed.)"
@@ -890,6 +929,7 @@ for _try in 1 2 3 4 5 6; do
   fi
 done
 if [ "$LOCK_TAKEN" != 1 ]; then
+  result_line refused no skipped 1
   echo "✗ Could not take the exec lock $LOCK after 6 attempts — another session keeps re-taking it."
   echo "  → Wait for the other exec to finish, then re-run. Nothing was written."
   exit 1
@@ -914,6 +954,7 @@ MODEL_PATHS="$MPR"
 $MODEL_DIR/mprcontents"
 commit_model_first() {
   if [ "$SP_OPEN" = 1 ]; then
+    result_line refused no skipped 1
     echo "✗ --commit-first refused: Studio Pro holds $NAME (PID $SP_PID). Its in-memory model is not"
     echo "  what is on disk, so a commit now would record a state nobody is looking at."
     echo "  → Save and close the project in Studio Pro, then re-run. Nothing was committed or executed."
@@ -931,6 +972,7 @@ commit_model_first() {
   [ "$_other" -gt 0 ] && echo "  ($_other other staged path(s) stay staged and are NOT part of this commit.)"
   if ! git add -- $MODEL_PATHS; then
     IFS="$_IFS"; set +f
+    result_line refused no skipped 1
     echo "✗ --commit-first: git add of the model paths failed — nothing was committed or executed."
     log_build "🚫 blocked" "--commit-first: git add failed"
     return 1
@@ -940,6 +982,7 @@ commit_model_first() {
         -- $MODEL_PATHS 2>&1)"; then
     IFS="$_IFS"; set +f
     printf '%s\n' "$_cout" | sed 's/^/    /'
+    result_line refused no skipped 1
     echo "✗ --commit-first: git commit was refused — nothing was executed. The model paths are left staged."
     echo "  If the model-stamp hook refused it: ./bin/verify-model.sh (one mxbuild, stamps a clean model),"
     echo "  then re-run with --commit-first."
@@ -956,6 +999,7 @@ if [ -n "$MPR_DIRTY" ] && [ "$COMMIT_FIRST" = 1 ]; then
   MPR_DIRTY=$(git status --porcelain "$MPR" "$MODEL_DIR/mprcontents" 2>/dev/null | grep -v "^$" || true)
 fi
 if [ -n "$MPR_DIRTY" ]; then
+  [ "$FORCE" = "1" ] || result_line refused no skipped 1
   echo "✗ Uncommitted model changes — refusing exec to prevent snapshot regression."
   echo ""
   echo "$MPR_DIRTY" | sed 's/^/    /'
@@ -1130,6 +1174,7 @@ if [ "$PATCH_MODE" != "1" ] && [ -f "$SCRIPT" ] && [ -n "$_MKT_LIB" ] \
     FAIL)
       echo "Marketplace installs: FAIL — $_mkt_nt"
       if [ -z "${MXTK_MKT_OVERRIDE:-}" ]; then
+        result_line refused no skipped 1
         echo ""
         echo "✗ Marketplace install gate: refusing this domain-model script. NOTHING was snapshotted or written."
         echo "  A confirmed fit-gap Buy is not in the model. Install it first (brd-to-build-plan.md Step 0),"
@@ -1226,10 +1271,11 @@ run_lint_gate() {
   }
   if [ -n "${SKIP_LINT:-}" ]; then
     LINT_DETAIL="lint SKIPPED (SKIP_LINT=$SKIP_LINT)"
+    LINT_NEW=skipped
     echo "  ⚠ lint ratchet skipped: SKIP_LINT=$SKIP_LINT"; return
   fi
   if [ ! -x "$PROJECT_ROOT/bin/lint-gate.sh" ]; then
-    LINT_RC=2; LINT_DETAIL="lint not installed (bin/lint-gate.sh missing — sync-project.sh installs it)"
+    LINT_RC=2; LINT_NEW=skipped; LINT_DETAIL="lint not installed (bin/lint-gate.sh missing — sync-project.sh installs it)"
     echo "  ⚠ $LINT_DETAIL"; return
   fi
   echo "→ Running lint ratchet (bin/lint-gate.sh, read-only)..."
@@ -1267,6 +1313,10 @@ run_lint_gate() {
   # visible only on a failing run, because the capture above is shown only then. Always echo it.
   [ -z "$_L_SEC014" ] || printf '%s' "$_L_SEC014"
   case "$LINT_RC" in
+    0) LINT_NEW=0 ;;   # a rise sets the real count in its own branch below
+    2|3) LINT_NEW=blind ;;   # could not run / not measured; a blind rise (LINT_RC 1 -> 3) is set below
+  esac
+  case "$LINT_RC" in
     0) LINT_DETAIL="lint unchanged vs baseline"; echo "  ✓ lint: no rule rose vs baseline" ;;
     1) # Rule ids are matched as [A-Z][A-Z0-9-]*[0-9]+, not [A-Z]+[0-9]+: mxcli's built-in
        # rules include hyphenated ids (MDL-FLOW01), and the old pattern dropped them from every
@@ -1275,7 +1325,7 @@ run_lint_gate() {
        if [ "$_L_BLIND_STOCK" = 1 ]; then
          # `mxcli init` re-seeded the toolkit rules (#264): lint-gate did not lint. Logging this
          # as a rise blamed the next script for CONV010 26 -> 169 on flows it never touched.
-         LINT_RC=3
+         LINT_RC=3; LINT_NEW=blind
          LINT_DETAIL="lint BLIND: rules reverted to stock (${_reverted:-see output}) — run sync-project.sh; delta not attributable"
          echo "  ✗ lint: toolkit rules reverted to stock (${_reverted:-see output}) — not linted, not a rise"
          sed -n '/^!! LINT RULES REVERTED TO STOCK/,/^BLIND/p' "$_lo" | head -16 | sed 's/^/    /'
@@ -1283,7 +1333,7 @@ run_lint_gate() {
          # A rule the project edited moved since the baseline (#524): mxcli's session-start
          # refresh re-seeded stock over it, or someone changed it. Not linted, not a rise.
          _projrev="$_L_PROJREV"
-         LINT_RC=3
+         LINT_RC=3; LINT_NEW=blind
          LINT_DETAIL="lint BLIND: project-edited rule(s) changed since the baseline (${_projrev:-see output}) — git checkout, or re-baseline; delta not attributable"
          echo "  ✗ lint: project-edited lint rule(s) changed since the baseline (${_projrev:-see output}) — not linted, not a rise"
          sed -n '/^!! PROJECT-EDITED LINT RULE/,/^BLIND/p' "$_lo" | head -16 | sed 's/^/    /'
@@ -1291,7 +1341,7 @@ run_lint_gate() {
          # lint-gate exits 1 for PASS-BLIND too. Logging that as "ROSE: see output" made a rule
          # that inspected nothing look like a rise with no rule named — 20 such rows in two
          # field apps whose toolkit CONV020 (now MXTK-UX003) shipped unconfigured (#229). It is an instrument fault.
-         LINT_RC=3
+         LINT_RC=3; LINT_NEW=blind
          LINT_DETAIL="lint BLIND: ${_blind:-a rule} inspected nothing (instrument fault, not a rise)"
          echo "  ✗ lint: nothing rose, but ${_blind:-a rule} could not read the model — a clean count means nothing"
          sed -n '/^!! A RULE COULD NOT READ/,/^$/p' "$_lo" | head -12 | sed 's/^/    /'
@@ -1337,6 +1387,7 @@ PY
          _thisnew=$([ -n "$_thispyexe" ] && "$_thispyexe" -c "$_thispy" "$PROJECT_ROOT/.claude/loop")
          _first="${_thisnew%%$'\n'*}"; _thisn="${_first%% *}"; _rest="${_first#* }"; _thisc="${_rest%% *}"
          if [ -z "$_thisnew" ]; then
+           LINT_NEW=unknown
            _noadv=1   # undiffed rise: keep prev-exec as is, or the next exec reads these as old debt
            # No Python, or the diff failed: never read that as "0 new". Report the rise vs baseline.
            LINT_DETAIL="lint rose: ${_rules:-see output} (per-script diff unavailable)"
@@ -1344,10 +1395,12 @@ PY
            sed -n '/^FAIL/,$p' "$_lo" | head -60 | sed 's/^/    /'
          elif [ "${_thisn:-0}" = 0 ]; then
            LINT_RC=0
+           LINT_NEW=0
            LINT_DETAIL="lint: 0 new this script (baseline debt: ${_rules:-see lint-last.json})"
            echo "  ✓ lint: this script added no finding (older debt vs baseline unchanged)"
          else
          # "lint rose" stays the wording, as before this change (metrics and readers key on it).
+         LINT_NEW="$_thisn"
          LINT_DETAIL="lint rose: +${_thisn} new or unfixed (${_thisc:-0} carried from earlier execs): ${_rest#* }"
          echo "  ✗ lint: ${_thisn} finding(s) new this script or still unfixed from an earlier one — read each one:"
          case "$_thisnew" in *$'\n'*) printf '%s\n' "${_thisnew#*$'\n'}" ;; esac
@@ -1433,6 +1486,7 @@ elif [ "${SKIP_CHECK:-0}" != "1" ] && [ -n "$PMXCLI" ]; then
   "$PMXCLI" check "$SCRIPT" -p "$MPR" --references 2>&1 | tee "$_co"; _crc=${PIPESTATUS[0]}
   if [ "$_crc" -ne 0 ]; then
     _why="$(check_refusal_reason "$_co")"; rm -f "$_co"
+    result_line refused no skipped 1
     echo ""
     echo "  ✗ mxcli check failed — refusing to exec. NOTHING was written to the model."
     echo "    Fix the script, or re-run with SKIP_CHECK=1 if you know why the parser is wrong."
@@ -1534,6 +1588,7 @@ if [ ! -x "$MXBUILD" ] || [ ! -x "$JAVA_EXE" ]; then
     [ -x "$MXBUILD" ]  || echo "    mxbuild not found/executable: ${MXBUILD:-<none>}   (set MXBUILD_PATH=)" >&2
     [ -x "$JAVA_EXE" ] || echo "    java not found/executable:    ${JAVA_EXE:-<none>}  (set JAVA_HOME=)" >&2
   else
+    result_line refused no skipped 1
     echo "" >&2
     echo "✗ REFUSING to exec: the mxbuild gate cannot run on this machine, so nothing could verify the write." >&2
     [ -x "$MXBUILD" ]  || echo "    mxbuild not found/executable: ${MXBUILD:-<none>}   (MXBUILD_PATH= overrides; bin/doctor.sh --install <project> downloads it)" >&2
@@ -2041,6 +2096,8 @@ if [ "$PATCH_MODE" = "1" ]; then
       log_build "❌ patch failed" "script exit $EXEC_STATUS — NOT rolled back (restore did not run)"
     fi
     rm -f "$HV_BASE"
+    if [ "$RESTORED" -eq 1 ]; then result_line restored no skipped 1; else result_line failed unknown skipped 1; fi
+    restore_close
     exit "$(fail_rc "$EXEC_STATUS")"
   fi
   if [ "$HV_ON" = "1" ]; then
@@ -2128,6 +2185,8 @@ EOF_HV
       else
         log_build "❌ patch refused" "$_hv_detail — NOT rolled back (restore did not run)"
       fi
+      if [ "$RESTORED" -eq 1 ]; then result_line restored no skipped 1; else result_line failed unknown skipped 1; fi
+      restore_close
       exit 1
     fi
     rm -f "$HV_BASE" "$HV_POST"
@@ -2462,6 +2521,8 @@ if [ "$PATCH_MODE" = "1" ] && [ "$GATE_STATE" != "pass" ] && [ "$RESTORE_TRIED" 
   else
     log_build "❌ patch unverified" "gate $GATE_STATE — NOT rolled back (restore did not run)"
   fi
+  if [ "$RESTORED" -eq 1 ]; then result_line restored no no 1; else result_line failed unknown no 1; fi
+  restore_close
   exit 1
 fi
 
@@ -2532,6 +2593,11 @@ if [ "$EXEC_STATUS" -ne 0 ]; then
   if [ -x ./bin/model-stamp.sh ]; then
     ./bin/model-stamp.sh clear >/dev/null 2>&1 || true
   fi
+  _pv=no; [ "$GATE_STATE" != pass ] || _pv=yes
+  if [ "$RESTORED" -eq 1 ]; then result_line restored no "$_pv" "$(fail_rc "$EXEC_STATUS")"
+  elif [ "$RESTORE_TRIED" -eq 1 ]; then result_line failed unknown "$_pv" "$(fail_rc "$EXEC_STATUS")"   # same as the gate-fail path
+  else result_line partial partial "$_pv" "$(fail_rc "$EXEC_STATUS")"; fi
+  restore_close
   exit "$(fail_rc "$EXEC_STATUS")"
 fi
 
@@ -2565,6 +2631,8 @@ if [ "$GATE_STATE" = "pass" ] && [ "${_gk_mode:-}" = "check" ]; then
 fi
 
 if [ "$GATE_STATE" = "fail" ]; then
+  if [ "$RESTORED" -eq 1 ]; then result_line restored no no 1; else result_line failed unknown no 1; fi
+  restore_close
   exit 1
 fi
 
@@ -2727,12 +2795,14 @@ if [ "$GATE_STATE" != "pass" ]; then
   echo "    Nothing has verified the model, and it carries no verification stamp: the commit"
   echo "    hook will refuse it until ./bin/verify-model.sh has run the gate over it."
   log_build "⚠️ applied, UNVERIFIED" "gate $GATE_STATE${MXB_WHY:+ (mxbuild exit ${MXBUILD_EXIT:-?}: $MXB_WHY)} — model not verified"
+  result_line applied-unverified yes no 5
   echo "applied, UNVERIFIED (exit 5): run ./bin/verify-model.sh before the next exec; do not re-apply this script"
   exit 5
 fi
 
 # Lint only: the write is kept and the gate passed, so the code is 4, never 1 (see Exit codes).
 if [ "$LINT_RC" -eq 3 ]; then
+  result_line applied-lint yes yes 4
   echo ""
   echo "✗ Script applied and mxbuild is clean, but a LINT RULE IS BLIND — this is not a pass."
   echo "  $LINT_DETAIL"
@@ -2759,14 +2829,17 @@ if [ "$LINT_RC" -eq 1 ]; then
   esac
   case "$_lgm" in hard|soft|default|"") ;; *) echo "note: 'Lint gate: $_lgm' not recognised (hard | default)" ;; esac
   if [ "$_lgm" = hard ]; then
+    result_line applied-lint yes yes 1
     echo "gate passed, LINT ROSE under 'Lint gate: hard' (exit 1: write kept, do not re-apply)"
     exit 1
   fi
+  result_line applied-lint yes yes 4
   echo "gate passed, lint only (exit 4: LINT ROSE; write kept, do not re-apply)"
   exit 4
 fi
 
 echo ""
+result_line applied yes yes 0
 echo "✓ Script applied to $MPR_BASE."
 echo ""
 _EL=$(( ${EPOCHSECONDS:-$(date +%s)} - _T0 ))

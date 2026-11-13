@@ -67,3 +67,14 @@ Measured there on 2026-09-28, with the built sheet passed by hand and nothing el
 The 35 declarations include some that name no knob the built bare `:root` defines; those
 drop out of the denominator. The "before" verdict is the defect: a pass that read nothing,
 reported as clean.
+
+## #670 captures (2026-11)
+
+`real-ds.css`, `real-built-excerpt.css` and `real-custom-variables.scss` come from a fictional
+visitor-pass test app (a throwaway test project, 2026-11), copied unedited. `real-ds.css` is its
+`design/ds.css` whole (131 lines, several `--token:value;` per line). `real-custom-variables.scss`
+is its `theme/web/custom-variables.scss` whole. `real-built-excerpt.css` is verbatim line ranges of
+its `deployment/web/theme.compiled.css` (974 KB, too large to commit), concatenated in this order,
+no edits: lines 6376-6380 (`@media` + `.lead`), 6718-6722 (`@media` + `.container`), 3397-3449
+(a bare `:root` carrying the design's tokens), 18118-18131 (the multi-line selector list
+`.card, .mx-layoutgrid > ...`), 26662-26664 (`.card-body`).

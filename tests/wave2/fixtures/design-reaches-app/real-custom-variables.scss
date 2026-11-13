@@ -1,0 +1,676 @@
+// Theme options
+$brand-logo: false;
+$font-family-import: false;
+$form-input-style: default;
+$btn-bordered: false; // Default value false, set to true if you want this effect
+
+:root {
+  /* Brand Colors */
+  --brand-primary: #264ae5;
+  --brand-success: #16aa16;
+  --brand-warning: #cd8501;
+  --brand-danger: #EA3337;
+  --brand-default: color-mix(in srgb, var(--brand-primary) 10%, #e7e7e9);
+  --gray: #B8BABF;
+
+//   /* Hover Color Variants */
+//   --brand-default-hover: var(--brand-default-100);
+//   --brand-primary-hover: var(--brand-primary-700);
+//   --brand-success-hover: var(--brand-success-700);
+//   --brand-warning-hover: var(--brand-warning-700);
+//   --brand-danger-hover: var(--brand-danger-700);
+
+//   /* Brand Logo */
+//   --brand-logo-height: 24px;
+//   --brand-logo-width: 32px;
+//   --brand-gradient: linear-gradient(to bottom, var(--brand-primary-900), var(--brand-primary-700));
+
+//   /* Default Font Size & Color */
+//   --font-size-default: 14px;
+//   --font-color-default: var(--gray-900);
+//   --font-color-contrast: var(--color-base);
+
+//   /* Global Border */
+//   --border-color-default: var(--brand-default-300);
+//   --border-radius-s: 4px;
+//   --border-radius-m: 8px;
+//   --border-radius-l: 12px;
+//   --border-radius-default: var(--border-radius-s);
+//   --border-width-thin: 1px;
+//   --border-width-medium: 2px;
+//   --border-width-thick: 3px;
+//   --border-width-default: var(--border-width-thin);
+//   --border-default: var(--border-width-default) solid var(--border-color-default);
+
+//   /* Focus indicators for accessibility */
+//   --focus-outline: 2px solid var(--form-input-border-focus-color);
+//   --focus-outline-offset: 2px;
+
+//   /* Topbar */
+//   --topbar-bg: linear-gradient(to bottom, var(--brand-primary-500), var(--brand-primary-600));
+//   --topbar-minimalheight: 48px;
+//   --topbar-border-color: var(--border-color-default);
+
+//   /* Sidebar */
+//   --sidebar-bg: linear-gradient(to bottom, var(--brand-primary-600), var(--brand-primary-700));
+
+//   /* Topbar mobile */
+//   --m-header-height: 45px;
+//   --m-header-bg: var(--topbar-bg);
+//   --m-header-color: var(--font-color-contrast);
+//   --m-header-title-size: 16px;
+
+//   /* Navbar Brand Name */
+//   --navbar-brand-name: var(--font-color-default);
+
+//   /* Background Colors */
+//   --bg-color: var(--brand-default-100);
+//   --bg-color-secondary: var(--color-base);
+
+//   /* Default Link Color */
+//   --link-color: var(--brand-primary);
+//   --link-hover-color: var(--brand-primary-400);
+
+//   /* Font Family */
+//   --font-family-base: "Poppins", sans-serif;
+
+//   /* Font Sizes */
+//   --font-size-large: 18px;
+//   --font-size-small: 12px;
+
+//   /* Font Weights */
+//   --font-weight-light: 300;
+//   --font-weight-normal: 400;
+//   --font-weight-semibold: 600;
+//   --font-weight-bold: 700;
+
+//   /* Header Font Sizes */
+//   --font-size-h1: 34px;
+//   --font-size-h2: 26px;
+//   --font-size-h3: 24px;
+//   --font-size-h4: 16px;
+//   --font-size-h5: var(--font-size-default);
+//   --font-size-h6: 12px;
+
+//   /* Header Font Weight */
+//   --font-weight-header: var(--font-weight-semibold);
+
+//   /* Line Height */
+//   --line-height-base: 1.428571429;
+
+//   /* Header Margin */
+//   --font-header-margin: 0 0 8px 0;
+
+//   /* Font Colors */
+//   --font-color-detail: var(--brand-primary-700);
+//   --font-color-header: var(--brand-primary-800);
+
+//   /* Navigation */
+//   --navigation-item-height: unset;
+//   --navigation-item-padding: var(--spacing-medium);
+//   --navigation-border-radius: var(--border-radius-m);
+//   --navigation-scrollbar-color: rgba(255, 255, 255, 0.5) transparent;
+
+//   --navigation-font-size: var(--font-size-default);
+//   --navigation-sub-font-size: var(--font-size-small);
+//   --navigation-glyph-size: 20px;
+
+//   --navigation-color: var(--font-color-contrast);
+//   --navigation-color-hover: var(--font-color-contrast);
+//   --navigation-color-active: var(--font-color-contrast);
+
+//   --navigation-sub-color: var(--navigation-color);
+//   --navigation-sub-color-hover: var(--navigation-color-hover);
+//   --navigation-sub-color-active: var(--navigation-color-active);
+
+//   /* Sidebar Navigation */
+//   --navigation-bg: var(--topbar-bg);
+//   --navigation-bg-hover: rgba(0, 0, 0, 0.2);
+//   --navigation-bg-active: rgba(0, 0, 0, 0.3);
+
+//   --navigation-sub-bg: rgba(0, 0, 0, 0.2);
+//   --navigation-sub-bg-hover: var(--navigation-bg-hover);
+//   --navigation-sub-bg-active: var(--navigation-bg-active);
+
+//   --navigation-border-color: var(--navigation-bg-hover);
+
+//   --navsidebar-bg: var(--sidebar-bg);
+//   --navsidebar-bg-hover: var(--navigation-bg-hover);
+//   --navsidebar-bg-active: var(--navigation-bg-active);
+
+//   --navsidebar-sub-bg: rgba(0, 0, 0, 0.2);
+//   --navsidebar-sub-bg-hover: var(--navigation-bg-hover);
+//   --navsidebar-sub-bg-active: var(--navigation-bg-active);
+//   --navsidebar-sub-bg-header: rgba(0, 0, 0, 0.2);
+//   --navsidebar-sub-bg-collapsed: var(--brand-primary-700);
+
+//   --navsidebar-border-color: var(--border-color-default);
+//   --navsidebar-border-radius: var(--navigation-border-radius);
+//   --navsidebar-shadow: 0 0 4px rgb(0 0 0 / 14%), 2px 4px 8px rgb(0 0 0 / 28%);
+
+//   --navsidebar-font-size: var(--font-size-default);
+//   --navsidebar-sub-font-size: var(--font-size-small);
+//   --navsidebar-glyph-size: 20px;
+
+//   --navsidebar-color: var(--navigation-color);
+//   --navsidebar-color-hover: var(--navigation-color-hover);
+//   --navsidebar-color-active: var(--navigation-color-active);
+
+//   --navsidebar-sub-color: var(--navigation-color);
+//   --navsidebar-sub-color-hover: var(--navigation-color-hover);
+//   --navsidebar-sub-color-active: var(--navigation-color-active);
+
+//   --navsidebar-width-closed: 48px;
+//   --navsidebar-width-open: 232px;
+//   --navsidebar-toggle-size: 32px;
+
+//   --navsidebar-icon-height: 48px;
+//   --navsidebar-icon-width: 48px;
+//   --navsidebar-animation-duration: 250ms;
+//   --navsidebar-animation-function: ease-in;
+
+//   /* Topbar Navigation */
+//   --navtopbar-font-size: var(--font-size-small);
+//   --navtopbar-sub-font-size: var(--font-size-small);
+//   --navtopbar-glyph-size: 1.2em;
+
+//   --navtopbar-bg: var(--topbar-bg);
+//   --navtopbar-bg-hover: var(--navigation-bg-hover);
+//   --navtopbar-bg-active: var(--navigation-bg-active);
+//   --navtopbar-color: var(--navigation-color);
+//   --navtopbar-color-hover: var(--navigation-color-hover);
+//   --navtopbar-color-active: var(--navigation-color-active);
+
+//   --navtopbar-sub-bg: var(--navtopbar-bg);
+//   --navtopbar-sub-bg-hover: var(--navtopbar-bg-hover);
+//   --navtopbar-sub-bg-active: var(--navtopbar-bg-active);
+//   --navtopbar-sub-color: var(--navigation-color);
+//   --navtopbar-sub-color-hover: var(--navigation-color-hover);
+//   --navtopbar-sub-color-active: var(--navigation-color-active);
+
+//   --navtopbar-border-color: var(--topbar-border-color);
+//   --navtopbar-border-radius: var(--navigation-border-radius);
+
+//     /* Shadows */
+//   --shadow-color-border: var(--border-color-default);
+//   --shadow-color: var(--brand-default-300);
+//   --shadow-small: 0 2px 4px 0;
+//   --shadow-medium: 0 4px 6px 0;
+//   --shadow-large: 0 8px 10px 0;
+
+//   /* Form Inputs */
+//   --form-label-color: var(--font-color-default);
+//   --form-label-size: var(--font-size-default);
+//   --form-label-weight: var(--font-weight-normal);
+//   --form-label-gutter: 8px;
+
+//   --form-input-height: auto;
+//   --form-input-padding-y: 8px;
+//   --form-input-padding-x: 8px;
+//   --form-input-static-padding-y: 8px;
+//   --form-input-static-padding-x: 0;
+//   --form-input-font-size: var(--form-label-size);
+//   --form-input-line-height: var(--line-height-base);
+//   --form-input-border-radius: 6px;
+  
+//   --form-input-bg: var(--color-base);
+//   --form-input-bg-focus: var(--color-base);
+//   --form-input-bg-hover: var(--color-base);
+//   --form-input-bg-disabled: var(--bg-color);
+//   --form-input-color: var(--font-color-default);
+//   --form-input-focus-color: var(--form-input-color);
+//   --form-input-disabled-color: var(--gray-700);
+//   --form-input-placeholder-color: var(--gray-600);
+//   --form-input-border-color: var(--brand-default);
+//   --form-input-border-focus-color: var(--brand-primary);
+//   --form-input-border-hover-color: color-mix(in srgb, var(--form-input-border-color), var(--form-input-border-focus-color) 50%);
+
+//   --form-input-static-border-color: var(--gray-200);
+
+//   --form-group-margin-bottom: 16px;
+//   --form-group-gutter: 16px;
+
+//     /* Buttons */
+//   --btn-font-size: var(--font-size-default);
+//   --btn-border-radius: var(--border-radius-default);
+
+//   --btn-default-bg: var(--color-base);
+//   --btn-primary-bg: var(--brand-primary-600);
+//   --btn-success-bg: var(--brand-success-600);
+//   --btn-warning-bg: var(--brand-warning-600);
+//   --btn-danger-bg: var(--brand-danger-600);
+
+//   --btn-default-border-color: var(--brand-default);
+//   --btn-primary-border-color: var(--brand-primary-600);
+//   --btn-success-border-color: var(--brand-success-600);
+//   --btn-warning-border-color: var(--brand-warning-600);
+//   --btn-danger-border-color: var(--brand-danger-600);
+
+//   --btn-default-color: var(--brand-primary);
+//   --btn-primary-color: var(--font-color-contrast);
+//   --btn-success-color: var(--font-color-contrast);
+//   --btn-warning-color: var(--font-color-contrast);
+//   --btn-danger-color: var(--font-color-contrast);
+
+//   --btn-default-icon-color: var(--gray);
+
+//   --btn-default-bg-hover: var(--brand-default-hover);
+//   --btn-primary-bg-hover: var(--brand-primary-hover);
+//   --btn-success-bg-hover: var(--brand-success-hover);
+//   --btn-warning-bg-hover: var(--brand-warning-hover);
+//   --btn-danger-bg-hover: var(--brand-danger-hover);
+//   --btn-link-bg-hover: var(--brand-default-hover);
+
+//   --btn-default-bg-active: var(--brand-default-300);
+//   --btn-primary-bg-active: var(--brand-primary-500);
+//   --btn-success-bg-active: var(--brand-success-500);
+//   --btn-warning-bg-active: var(--brand-warning-500);
+//   --btn-danger-bg-active: var(--brand-danger-500);
+//   --btn-link-bg-active: var(--brand-default-500);
+
+//   /* Header */
+//   --header-min-height: 240px;
+//   --header-bg-color: var(--brand-primary);
+//   --header-bgimage-filter: brightness(60%);
+//   --header-text-color: var(--color-base);
+//   --header-text-color-detail: rgba(0, 0, 0, 0.2);
+
+//   /* Grid */
+//   --grid-border-color: var(--border-color-default);
+
+//   --grid-bg: transparent;
+//   --grid-bg-header: transparent;
+//   --grid-bg-hover: var(--brand-default-hover);
+//   --grid-bg-selected: var(--brand-default);
+//   --grid-bg-selected-hover: var(--brand-default-600);
+//   --grid-bg-striped: var(--brand-default-50);
+//   --grid-footer-bg: var(--brand-default);
+
+//   --grid-selected-color: var(--font-color-default);
+
+//   --grid-paging-bg: transparent;
+//   --grid-paging-bg-hover: transparent;
+//   --grid-paging-border-color: transparent;
+//   --grid-paging-border-color-hover: transparent;
+//   --grid-paging-color: var(--gray-300);
+//   --grid-paging-color-hover: var(--brand-primary);
+
+//   /* Tabs */
+//   --tabs-color: var(--font-color-default);
+//   --tabs-color-active: var(--font-color-detail);
+//   --tabs-lined-color-active: var(--font-color-detail);
+
+//   --tabs-lined-border-width: 3px;
+//   --tabs-border-color: var(--border-color-default);
+//   --tabs-lined-border-color: var(--brand-primary);
+//   --tabs-bg: transparent;
+//   --tabs-bg-pills: var(--brand-default-200);
+//   --tabs-bg-hover: var(--brand-default-300);
+//   --tabs-bg-active: var(--brand-primary-600);
+
+//   /* Modal */
+//   --modal-header-bg: transparent;
+//   --modal-header-border-color: var(--border-color-default);
+//   --modal-header-color: var(--font-color-header);
+//   --modal-body-bg: var(--bg-color-secondary);
+//   --modal-footer-bg: var(--bg-color-secondary);
+
+//   /* Data View */
+//   --dataview-controls-bg: inherit;
+//   --dataview-controls-border-color: var(--border-color-default);
+//   --dataview-controls-alignment: left;
+
+//   --dataview-emptymessage-bg: var(--bg-color);
+//   --dataview-emptymessage-color: var(--font-color-default);
+
+//   /* Cards */
+//   --card-shadow: var(--shadow-small) var(--shadow-color);
+//   --card-border: var(--border-default);
+//   --card-border-radius: var(--border-radius-m);
+//   --card-padding: var(--spacing-large);
+//   --card-margin-bottom: var(--spacing-smaller);
+//   --card-bg: var(--bg-color-secondary);
+
+//   /* Alerts */
+//   --alert-primary-bg: var(--brand-primary-50);
+//   --alert-success-bg: var(--brand-success-50);
+//   --alert-warning-bg: var(--brand-warning-50);
+//   --alert-danger-bg: var(--brand-danger-50);
+
+//   --alert-primary-color: var(--brand-primary-700);
+//   --alert-success-color: var(--brand-success-700);
+//   --alert-warning-color: var(--brand-warning-700);
+//   --alert-danger-color: var(--brand-danger-700);
+
+//   --alert-primary-border-color: var(--brand-primary-600);
+//   --alert-success-border-color: var(--brand-success-600);
+//   --alert-warning-border-color: var(--brand-warning-600);
+//   --alert-danger-border-color: var(--brand-danger-600);
+
+//   /* Wizard */
+//   --wizard-step-height: 48px;
+//   --wizard-step-number-size: 64px;
+//   --wizard-step-number-font-size: var(--font-size-h3);
+
+//   --wizard-default-bg: var(--color-base);
+//   --wizard-default-color: var(--color-base);
+//   --wizard-default-step-color: var(--font-color-default);
+//   --wizard-default-border-color: var(--border-color-default);
+
+//   --wizard-active-bg: var(--brand-primary-200);
+//   --wizard-active-color: var(--brand-primary-700);
+//   --wizard-active-step-color: var(--brand-primary-700);
+//   --wizard-active-border-color: var(--brand-primary-700);
+
+//   --wizard-visited-bg: var(--brand-success-200);
+//   --wizard-visited-color: var(--brand-success-700);
+//   --wizard-visited-step-color: var(--brand-success-700);
+//   --wizard-visited-border-color: var(--brand-success-700);
+
+//   /* Labels */
+//   --label-default-bg: var(--brand-default);
+//   --label-primary-bg: var(--brand-primary-600);
+//   --label-success-bg: var(--brand-success-600);
+//   --label-warning-bg: var(--brand-warning-600);
+//   --label-danger-bg: var(--brand-danger-600);
+
+//   --label-default-border-color: var(--brand-default-600);
+//   --label-primary-border-color: var(--brand-primary-600);
+//   --label-success-border-color: var(--brand-success-600);
+//   --label-warning-border-color: var(--brand-warning-600);
+//   --label-danger-border-color: var(--brand-danger-600);
+
+//   --label-default-color: var(--font-color-default);
+//   --label-primary-color: var(--color-base);
+//   --label-success-color: var(--color-base);
+//   --label-warning-color: var(--color-base);
+//   --label-danger-color: var(--color-base);
+
+//   /* Groupbox */
+//   --groupbox-default-bg: var(--brand-default);
+//   --groupbox-primary-bg: var(--brand-primary-600);
+//   --groupbox-success-bg: var(--brand-success-600);
+//   --groupbox-warning-bg: var(--brand-warning-600);
+//   --groupbox-danger-bg: var(--brand-danger-600);
+//   --groupbox-white-bg: var(--color-base-600);
+
+//   --groupbox-default-color: var(--font-color-default);
+//   --groupbox-primary-color: var(--font-color-contrast);
+//   --groupbox-success-color: var(--font-color-contrast);
+//   --groupbox-warning-color: var(--font-color-contrast);
+//   --groupbox-danger-color: var(--font-color-contrast);
+//   --groupbox-white-color: var(--font-color-default);
+
+//   /* Callouts */
+//   --callout-primary-color: var(--brand-primary-600);
+//   --callout-default-color: var(--font-color-default);
+//   --callout-success-color: var(--brand-success-700);
+//   --callout-warning-color: var(--brand-warning-700);
+//   --callout-danger-color: var(--brand-danger-600);
+
+//   --callout-primary-bg: var(--brand-primary-100);
+//   --callout-default-bg: var(--gray-50);
+//   --callout-success-bg: var(--brand-success-100);
+//   --callout-warning-bg: var(--brand-warning-100);
+//   --callout-danger-bg: var(--brand-danger-100);
+
+//   /* Timeline */
+//   --timeline-icon-color: var(--brand-primary);
+//   --timeline-border-color: var(--border-color-default);
+//   --timeline-event-time-color: var(--brand-primary);
+//   --timeline-icon-size: 18px;
+//   --timeline-image-size: 36px;
+//   --timeline-grouping-size: 120px;
+//   --timeline-grouping-border-radius: 30px;
+//   --timeline-grouping-border-color: var(--timeline-border-color);
+
+//   /* Accordion */
+//   --accordion-header-default-bg: var(--bg-color-secondary);
+//   --accordion-header-default-bg-hover: var(--brand-default-hover);
+//   --accordion-header-default-color: var(--font-color-header);
+//   --accordion-default-border-color: var(--border-color-default);
+//   --accordion-bg-striped: var(--brand-default-200);
+//   --accordion-bg-striped-hover: var(--brand-default-hover);
+
+//   --accordion-header-primary-bg: var(--brand-primary-600);
+//   --accordion-header-secondary-bg: var(--bg-color-secondary);
+//   --accordion-header-success-bg: var(--brand-success-600);
+//   --accordion-header-warning-bg: var(--brand-warning-600);
+//   --accordion-header-danger-bg: var(--brand-danger-600);
+
+//   --accordion-header-primary-bg-hover: var(--brand-primary-hover);
+//   --accordion-header-secondary-bg-hover: var(---brand-default-hover);
+//   --accordion-header-success-bg-hover: var(--brand-success-hover);
+//   --accordion-header-warning-bg-hover: var(--brand-warning-hover);
+//   --accordion-header-danger-bg-hover: var(--brand-danger-hover);
+
+//   --accordion-header-primary-color: var(--font-color-contrast);
+//   --accordion-header-secondary-color: var(--brand-primary);
+//   --accordion-header-success-color: var(--font-color-contrast);
+//   --accordion-header-warning-color: var(--font-color-contrast);
+//   --accordion-header-danger-color: var(--font-color-contrast);
+
+//   --accordion-primary-border-color: var(--brand-primary);
+//   --accordion-secondary-border-color: var(--gray-200);
+//   --accordion-success-border-color: var(--brand-success);
+//   --accordion-warning-border-color: var(--brand-warning);
+//   --accordion-danger-border-color: var(--brand-danger);
+
+//   /* Spacing */
+//   --spacing-none: 0px;
+//   --spacing-smallest: 2px;
+//   --spacing-smaller: 4px;
+//   --spacing-small: 8px;
+//   --spacing-medium: 16px;
+
+//   --t-spacing-medium: 16px;
+//   --m-spacing-medium: 16px;
+
+//   --spacing-large: 24px;
+//   --t-spacing-large: 24px;
+//   --m-spacing-large: 16px;
+
+//   --spacing-larger: 32px;
+//   --spacing-largest: 48px;
+
+//   --layout-spacing-top: 24px;
+//   --layout-spacing-right: 24px;
+//   --layout-spacing-bottom: 24px;
+//   --layout-spacing-left: 24px;
+
+//   --t-layout-spacing-top: 24px;
+//   --t-layout-spacing-right: 24px;
+//   --t-layout-spacing-bottom: 24px;
+//   --t-layout-spacing-left: 24px;
+
+//   --m-layout-spacing-top: 16px;
+//   --m-layout-spacing-right: 16px;
+//   --m-layout-spacing-bottom: 16px;
+//   --m-layout-spacing-left: 16px;
+
+//   --layout-spacing: var(--layout-spacing-top) var(--layout-spacing-right) var(--layout-spacing-bottom) var(--layout-spacing-left);
+//   --m-layout-spacing: var(--m-layout-spacing-top) var(--m-layout-spacing-right) var(--m-layout-spacing-bottom) var(--m-layout-spacing-left);
+//   --t-layout-spacing: var(--t-layout-spacing-top) var(--t-layout-spacing-right) var(--t-layout-spacing-bottom) var(--t-layout-spacing-left);
+
+//   --gutter-size: var(--spacing-medium);
+
+//   --padding-table-cell-top: 8px;
+//   --padding-table-cell-bottom: 8px;
+//   --padding-table-cell-left: 8px;
+//   --padding-table-cell-right: 8px;
+
+//   /* Brand Variants */
+//   --btn-inverse-bg: var(--brand-primary-400);
+//   --btn-info-bg: var(--brand-primary-300);
+//   --btn-inverse-border-color: var(--brand-primary-400);
+//   --btn-info-border-color: var(--brand-primary-300);
+
+//   --btn-inverse-color: var(--color-base);
+//   --btn-info-color: var(--color-base);
+
+//   --btn-inverse-bg-hover: var(--brand-primary-300);
+//   --btn-info-bg-hover: var(--brand-primary-300);
+
+//   /* Alerts */
+//   --alert-info-bg: var(--brand-primary-50);
+//   --alert-info-color: var(--brand-primary-600);
+//   --alert-info-border-color: var(--brand-primary);
+
+//   /* Labels */
+//   --label-info-bg: var(--brand-primary-300);
+//   --label-inverse-bg: var(--brand-primary-600);
+
+//   --label-info-border-color: var(--brand-primary-300);
+//   --label-inverse-border-color: var(--brand-primary-600);
+
+//   --label-info-color: var(--color-base);
+//   --label-inverse-color: var(--color-base);
+
+//   /* Groupbox */
+//   --groupbox-inverse-bg: var(--brand-primary-600);
+//   --groupbox-info-bg: var(--brand-primary-300);
+
+//   --groupbox-inverse-color: var(--color-base);
+//   --groupbox-info-color: var(--color-base);
+
+//   /* Callouts */
+//   --callout-info-color: var(--brand-primary-300);
+//   --callout-info-bg: var(--brand-primary-50);
+
+//   --screen-xs: #{$screen-xs};
+//   --screen-sm: #{$screen-sm};
+//   --screen-md: #{$screen-md};
+//   --screen-lg: #{$screen-lg};
+//   --screen-xl: #{$screen-xl};
+//   --screen-xxl: #{$screen-xxl};
+
+//   /* Legacy variables */
+//   --gray-lighter: var(--gray-50);
+//   --gray-light: var(--gray-300);
+//   --gray-primary: var(--gray-200);
+//   --gray-dark: var(--gray-700);
+//   --gray-darker: var(--gray-800);
+
+//   /* Color variations */
+//   --color-default-darker: var(--gray-700);
+//   --color-default-dark: var(--gray-600);
+//   --color-default-light: var(--gray-100);
+//   --color-default-lighter: var(--gray-50);
+
+//   --color-primary-darker: var(--brand-primary-700);
+//   --color-primary-dark: var(--brand-primary-600);
+//   --color-primary-light: var(--brand-primary-100);
+//   --color-primary-lighter: var(--brand-primary-50);
+
+//   --color-success-darker: var(--brand-success-700);
+//   --color-success-dark: var(--brand-success-600);
+//   --color-success-light: var(--brand-success-100);
+//   --color-success-lighter: var(--brand-success-50);
+
+//   --color-warning-darker: var(--brand-warning-700);
+//   --color-warning-dark: var(--brand-warning-600);
+//   --color-warning-light: var(--brand-warning-100);
+//   --color-warning-lighter: var(--brand-warning-50);
+
+//   --color-danger-darker: var(--brand-danger-700);
+//   --color-danger-dark: var(--brand-danger-600);
+//   --color-danger-light: var(--brand-danger-100);
+//   --color-danger-lighter: var(--brand-danger-50);
+
+//   --grid-padding-top: 16px;
+//   --grid-padding-right: 16px;
+//   --grid-padding-bottom: 16px;
+//   --grid-padding-left: 16px;
+
+//   --listview-padding-top: 16px;
+//   --listview-padding-right: 16px;
+//   --listview-padding-bottom: 16px;
+//   --listview-padding-left: 16px;
+}
+
+
+//== Media queries breakpoints
+//## Define the breakpoints at which your layout will change, adapting to different screen sizes.
+// $screen-xs: 480px;
+// $screen-sm: 576px;
+// $screen-md: 768px;
+// $screen-lg: 992px;
+// $screen-xl: 1200px;
+// $screen-xxl: 1400px;
+
+// Ensures backwards compatibility. Set to false if the theme variables is not using CSS variables (e.g. --brand-primary).
+$use-css-variables: true;
+@import "../../themesource/atlas_core/web/variables";
+
+// mxcli:theme:begin frontdesk v1 — generated by `mxcli theme apply`; edit outside this block
+// Layer 1 — the Frontdesk palette. This is the file to edit.
+//
+// These are the theme's own semantic tokens. The next file down
+// (_mxcli-frontdesk.scss) maps them onto the ~60 Atlas variables that Atlas
+// components, form controls and the brand-aware pluggable widgets (Switch,
+// Slider, ProgressBar, BadgeButton) actually read — so changing --mxt-brand
+// here re-brands the entire app, with no per-widget CSS.
+//
+// The values below are the LIGHT palette, which is Frontdesk's default. The dark
+// palette lives beside the light-to-Atlas mapping in _mxcli-frontdesk.scss.
+//
+// Mendix 11 Atlas is CSS-custom-property-first, so these are `:root`
+// declarations rather than SCSS `!default` variables. This file is imported
+// once per module, so it must hold declarations only — never rules.
+
+:root {
+  /* ---- the one colour that defines the app --------------------------- */
+  --mxt-brand: #2F5D62;
+  --mxt-brand-hover: #244A4E;
+  --mxt-brand-ink: #FFFFFF; /* text on a brand-filled surface */
+
+  /* ---- semantic status ----------------------------------------------- */
+  --mxt-success: #2E7D5B;
+  --mxt-warning: #B7791F;
+  --mxt-danger: #B4412F;
+  --mxt-info: #3B6EA5;
+
+  /* ---- surfaces and ink ----------------------------------------------- */
+  --mxt-ground: #F6F3EE; /* the app background */
+  --mxt-surface: #FFFFFF; /* cards, modals, panels */
+  --mxt-surface-alt: #FAF8F5; /* striped rows, subtle fills */
+  --mxt-surface-hover: #F1EEE8;
+  --mxt-surface-selected: #E6EFEF;
+  --mxt-ink: #1E2A32;
+  --mxt-ink-muted: #56636C;
+  --mxt-ink-faint: #8A949B;
+  --mxt-line: #E4DED5;
+
+  /* ---- the navigation rail -------------------------------------------- */
+  --mxt-rail: #243138;
+  --mxt-rail-line: #34454D;
+  --mxt-rail-ink: #BCC8CD;
+  --mxt-rail-ink-active: #FFFFFF;
+
+  /* ---- status pill tones ---------------------------------------------- */
+  --mxt-tint-ok: #E3F1EA;
+  --mxt-tone-ok: #1F5C41;
+  --mxt-tint-warn: #FBEFD9;
+  --mxt-tone-warn: #7A4E0C;
+  --mxt-tint-risk: #F8E4DF;
+  --mxt-tone-risk: #8A2E1F;
+  --mxt-tint-info: #E3ECF5;
+  --mxt-tone-info: #274D78;
+  --mxt-tint-neutral: #ECE9E3;
+
+  /* ---- shape, density, elevation --------------------------------------- */
+  --mxt-radius: 8px;
+  --mxt-radius-lg: 14px;
+  --mxt-row-height: 56px;
+  --mxt-control-height: 40px;
+  --mxt-shadow: 0 1px 2px rgba(30,42,50,.06), 0 4px 14px rgba(30,42,50,.06);
+  --mxt-focus-halo: 0 0 0 3px rgba(15, 110, 107, 0.16);
+
+  /* ---- type ------------------------------------------------------------ */
+  --mxt-font: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mxt-font-heading: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mxt-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --mxt-font-size: 15px;
+  --mxt-line-height: 1.5;
+}
+// mxcli:theme:end frontdesk 5b70ac3b9d7edcf7

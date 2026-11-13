@@ -21,7 +21,10 @@
 # and clicks loginButton: Mendix's own login.js does the sign-in. The page holds NO name or password.
 # Crew: with no --crew / .claude/loop/demo-crew.tsv (lines: port<TAB>user1,user2) every port shows every
 # user; with a crew, a port that is listed shows only its users, a port that is not listed shows all.
-# The data file is plain JavaScript in the deployed web folder: run --remove before the app leaves the machine.
+# The data file is plain JavaScript in the web folder: run --remove before the app leaves the machine.
+# DEPLOYED COPY: `mxcli run --watch` does not re-sync theme/web, so when deployment/web/login.html exists (beside the
+# .mpr, either layout) the same block and data file are written there too (a running app needs only a browser
+# reload); --remove and --check cover it as well; without a deployed folder the tiles appear at the next start.
 #
 # The model is asked (`show demo users`) only to WARN when scripts and model disagree. A password is never
 # printed: output lists names and roles only.
@@ -47,7 +50,7 @@ while [ $# -gt 0 ]; do
             CREW_ARGS="$CREW_ARGS
 $2"; shift 2 ;;
     --model-users) MODEL_USERS="${2:-}"; shift 2 || exit 2 ;;
-    -h|--help) sed -n 2,34p "$0"; exit 0 ;;
+    -h|--help) sed -n 2,37p "$0"; exit 0 ;;
     *) echo "usage: demo-login-tiles.sh [--remove|--check] [--host <name>] [--crew <port>=<users>]..." >&2; exit 2 ;;
   esac
 done
@@ -63,15 +66,23 @@ PAGE=""
 for d in "$APPDIR" "$PROJECT_ROOT"; do [ -f "$d/theme/web/login.html" ] && { PAGE="$d/theme/web/login.html"; break; }; done
 if [ -n "$PAGE" ]; then DATA="${PAGE%/*}/demo-login.local.js"; else DATA="$APPDIR/theme/web/demo-login.local.js"; fi
 REL="${DATA#"$PROJECT_ROOT"/}"
+# the deployed web folder of a built app (a running app serves THIS copy, not theme/web)
+DEPDIR=""
+for d in "$APPDIR" "$PROJECT_ROOT"; do [ -d "$d/deployment/web" ] && { DEPDIR="$d/deployment/web"; break; }; done
+DEP_PAGE=""; DEP_DATA=""; DEP_REL=""
+if [ -n "$DEPDIR" ]; then
+  DEP_DATA="$DEPDIR/demo-login.local.js"; DEP_REL="${DEP_DATA#"$PROJECT_ROOT"/}"
+  [ -f "$DEPDIR/login.html" ] && DEP_PAGE="$DEPDIR/login.html"
+fi
 GITIGNORE="$PROJECT_ROOT/.gitignore"
 
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/demo-tiles.XXXXXX")"; trap 'rm -rf "$TMP"' EXIT
 cant() { echo "demo-login-tiles: $* -- nothing was changed." >&2; exit 3; }
 
-is_tracked() { [ -n "$(git -C "$PROJECT_ROOT" ls-files -- "$REL" 2>/dev/null)" ]; }
+is_tracked() { [ -n "$(git -C "$PROJECT_ROOT" ls-files -- "${1:-$REL}" 2>/dev/null)" ]; }
 is_ignored() {
-  if git -C "$PROJECT_ROOT" rev-parse --git-dir >/dev/null 2>&1; then git -C "$PROJECT_ROOT" check-ignore -q -- "$REL" 2>/dev/null
-  else [ -f "$GITIGNORE" ] && grep -Fxq "/$REL" "$GITIGNORE"; fi
+  if git -C "$PROJECT_ROOT" rev-parse --git-dir >/dev/null 2>&1; then git -C "$PROJECT_ROOT" check-ignore -q -- "${1:-$REL}" 2>/dev/null
+  else [ -f "$GITIGNORE" ] && grep -Fxq "/${1:-$REL}" "$GITIGNORE"; fi
 }
 
 # --- locate the block: prints "begin end" line numbers, rc 0 found, 1 absent, 2 malformed -----------
@@ -85,20 +96,24 @@ find_block() {
 # --- --check ----------------------------------------------------------------------------------------
 if [ "$MODE" = check ]; then
   bad=0; present=0
-  if [ -f "$DATA" ]; then
-    present=1
-    if is_tracked; then echo "CHECK FAIL: $REL is tracked by git (it holds passwords): git rm --cached it"; bad=1
-    elif ! is_ignored; then echo "CHECK FAIL: $REL exists and is not git-ignored (it holds passwords): run bin/demo-login-tiles.sh to add it to .gitignore"; bad=1; fi
-  fi
-  if [ -n "$PAGE" ] && blk="$(find_block "$PAGE")"; then
-    set -- $blk
-    [ "$(( $2 - $1 ))" -gt 1 ] && present=1
-    if sed -n "$(($1+1)),$(($2-1))p" "$PAGE" | grep -Eq '__DEMO_LOGIN__[[:space:]]*=[[:space:]]*[{[]|"p"[[:space:]]*:[[:space:]]*"'; then
-      echo "CHECK FAIL: the block in ${PAGE#"$PROJECT_ROOT"/} contains credentials"; bad=1
+  for pair in "$DATA|$REL|$PAGE" "$DEP_DATA|$DEP_REL|$DEP_PAGE"; do
+    d_="${pair%%|*}"; r_="${pair#*|}"; pg_="${r_#*|}"; r_="${r_%%|*}"
+    [ -n "$d_" ] || continue
+    if [ -f "$d_" ]; then
+      present=1
+      if is_tracked "$r_"; then echo "CHECK FAIL: $r_ is tracked by git (it holds passwords): git rm --cached it"; bad=1
+      elif ! is_ignored "$r_"; then echo "CHECK FAIL: $r_ exists and is not git-ignored (it holds passwords): run bin/demo-login-tiles.sh to add it to .gitignore"; bad=1; fi
     fi
-  fi
+    if [ -n "$pg_" ] && blk="$(find_block "$pg_")"; then
+      set -- $blk
+      [ "$(( $2 - $1 ))" -gt 1 ] && present=1
+      if sed -n "$(($1+1)),$(($2-1))p" "$pg_" | grep -Eq '__DEMO_LOGIN__[[:space:]]*=[[:space:]]*[{[]|"p"[[:space:]]*:[[:space:]]*"'; then
+        echo "CHECK FAIL: the block in ${pg_#"$PROJECT_ROOT"/} contains credentials"; bad=1
+      fi
+    fi
+  done
   if [ "$bad" -eq 0 ]; then
-    [ "$present" -eq 1 ] && echo "demo-login-tiles --check: tiles present; data file is git-ignored and not tracked" || echo "demo-login-tiles --check: no tiles"
+    [ "$present" -eq 1 ] && echo "demo-login-tiles --check: tiles present; data file(s) git-ignored and not tracked" || echo "demo-login-tiles --check: no tiles"
     exit 0
   fi
   exit 1
@@ -151,27 +166,27 @@ insert_after_form() {  # insert_after_form <page> <blockfile>
     [ "$nonl" -eq 1 ] && break
   done < "$page"
 }
-install_page() {  # keep the original when nothing changed (mtime, bytes)
-  if cmp -s "$TMP/page.new" "$PAGE"; then return 1; fi
-  cp "$TMP/page.new" "$PAGE"; return 0
+install_page() {  # install_page <page>: keep the original when nothing changed (mtime, bytes)
+  if cmp -s "$TMP/page.new" "$1"; then return 1; fi
+  cp "$TMP/page.new" "$1"; return 0
 }
 
 # --- --remove -----------------------------------------------------------------------------------------
 if [ "$MODE" = remove ]; then
   changed=0
   if [ -f "$DATA" ]; then rm -f "$DATA"; echo "removed $REL"; changed=1; fi
-  # a build copies theme/web into deployment/web: the passwords must not stay behind in that copy
-  for dd in "$APPDIR/deployment/web/demo-login.local.js" "$PROJECT_ROOT/deployment/web/demo-login.local.js"; do
-    [ -f "$dd" ] && { rm -f "$dd"; echo "removed ${dd#"$PROJECT_ROOT"/}"; changed=1; }
-  done
-  if [ -n "$PAGE" ] && blk="$(find_block "$PAGE")"; then
-    set -- $blk
-    if [ "$(( $2 - $1 ))" -gt 1 ]; then
-      splice "$PAGE" -
-      install_page && { echo "emptied the demo block in ${PAGE#"$PROJECT_ROOT"/} (markers kept)"; changed=1; }
+  [ -n "$DEP_DATA" ] && [ -f "$DEP_DATA" ] && { rm -f "$DEP_DATA"; echo "removed $DEP_REL"; changed=1; }
+  for pg_ in "$PAGE" "$DEP_PAGE"; do
+    [ -n "$pg_" ] || continue
+    if blk="$(find_block "$pg_")"; then
+      set -- $blk
+      if [ "$(( $2 - $1 ))" -gt 1 ]; then
+        splice "$pg_" -
+        install_page "$pg_" && { echo "emptied the demo block in ${pg_#"$PROJECT_ROOT"/} (markers kept)"; changed=1; }
+      fi
     fi
-  fi
-  [ "$changed" -eq 1 ] && echo "demo sign-in tiles removed. Rebuild/redeploy so deployment/web drops the copy too." || echo "demo-login-tiles --remove: nothing to remove"
+  done
+  [ "$changed" -eq 1 ] && echo "demo sign-in tiles removed (a browser reload is enough on a running app)." || echo "demo-login-tiles --remove: nothing to remove"
   exit 0
 fi
 
@@ -183,6 +198,7 @@ done
 bstate=0; find_block "$PAGE" >/dev/null || bstate=$?
 [ "$bstate" -ne 2 ] || cant "${PAGE#"$PROJECT_ROOT"/} has a broken marker pair (need exactly one $BEGIN_M before one $END_M)"
 if [ "$bstate" -eq 1 ]; then grep -q '</form>' "$PAGE" || cant "no markers and no </form> to place them after"; fi
+if [ -n "$DEP_DATA" ] && is_tracked "$DEP_REL"; then cant "$DEP_REL is already tracked by git and would put passwords in history. Run: git rm --cached $DEP_REL  (then re-run)"; fi
 if is_tracked; then cant "$REL is already tracked by git and would put passwords in history. Run: git rm --cached $REL  (then re-run)"; fi
 
 # --- the demo users --------------------------------------------------------------------------------------
@@ -419,7 +435,25 @@ if [ "$bstate" -eq 0 ]; then
 else
   insert_after_form "$PAGE" "$TMP/block.html"; where="new markers after the sign-in form's closing </form>"
 fi
-if install_page; then echo "patched ${PAGE#"$PROJECT_ROOT"/} ($where)"; else echo "${PAGE#"$PROJECT_ROOT"/} unchanged"; fi
-echo "a running app serves the old page until it is rebuilt/restarted"
+if install_page "$PAGE"; then echo "patched ${PAGE#"$PROJECT_ROOT"/} ($where)"; else echo "${PAGE#"$PROJECT_ROOT"/} unchanged"; fi
+# the deployed copy: the same result, so a RUNNING app shows the tiles after a browser reload
+if [ -n "$DEP_PAGE" ]; then
+  dst=0; find_block "$DEP_PAGE" >/dev/null || dst=$?
+  dok=1; for id in loginForm usernameInput passwordInput loginButton loginMessage; do grep -Eq "id=[\"']$id[\"']" "$DEP_PAGE" || dok=0; done
+  if [ "$dst" -eq 2 ] || [ "$dok" -eq 0 ] || { [ "$dst" -eq 1 ] && ! grep -q '</form>' "$DEP_PAGE"; }; then
+    echo "note: ${DEP_PAGE#"$PROJECT_ROOT"/} is not a usable sign-in page (ids or markers); left alone, tiles appear after the next app start"
+  else
+    if ! is_ignored "$DEP_REL" && ! { [ -f "$GITIGNORE" ] && grep -Fxq "/$DEP_REL" "$GITIGNORE"; }; then
+      { [ -s "$GITIGNORE" ] && [ -n "$(tail -c1 "$GITIGNORE")" ] && printf '\n'; printf '/%s\n' "$DEP_REL"; } >> "$GITIGNORE"
+      echo "added /$DEP_REL to .gitignore (deployment/ was not ignored)"
+    fi
+    if [ -f "$DEP_DATA" ] && cmp -s "$TMP/data.js" "$DEP_DATA"; then :; else cp "$TMP/data.js" "$DEP_DATA"; fi
+    if [ "$dst" -eq 0 ]; then splice "$DEP_PAGE" "$TMP/block.html"; else insert_after_form "$DEP_PAGE" "$TMP/block.html"; fi
+    install_page "$DEP_PAGE" || :
+    echo "the running app was updated (${DEP_PAGE#"$PROJECT_ROOT"/}, $DEP_REL): a browser reload is enough"
+  fi
+else
+  echo "no deployed web folder: the tiles appear after the next app start"
+fi
 if [ -n "$EXTRA_HOST" ]; then echo "tiles also show on host $EXTRA_HOST"; fi
 exit 0

@@ -98,6 +98,37 @@ EOF
   runit "$R" --remove >/dev/null
 done
 
+for LAY in single two; do
+  echo "-- deployed web folder, layout: $LAY"
+  R="$(mk dep-$LAY $LAY $FX/mdl/R-20-security-level.mdl)"; APP="$R"; [ "$LAY" = two ] && APP="$R/app"
+  mkdir -p "$APP/deployment/web"; cp "$FX/login.html" "$APP/deployment/web/login.html"; printf '/deployment/\n' > "$R/.gitignore"
+  ( cd "$R" && git add -A && git -c user.email=t@t -c user.name=t commit -q -m dep ) >/dev/null 2>&1
+  TP="$APP/theme/web/login.html"; TD="$APP/theme/web/demo-login.local.js"; DP="$APP/deployment/web/login.html"; DD="$APP/deployment/web/demo-login.local.js"
+  out="$(runit "$R")"; rc=$?
+  [ $rc -eq 0 ] && cmp -s "$TP" "$DP" && cmp -s "$TD" "$DD" && grep -q 'DEMO-LOGIN-BEGIN -->' "$DP" && ok "$LAY: (a) both pages patched identically, both data files written" || bad "$LAY: (a) deployed" "$out"
+  echo "$out" | grep -q 'the running app was updated.*browser reload is enough' && ok "$LAY: (a) says the running app was updated, reload is enough" || bad "$LAY: (a) message" "$out"
+  grep -q 'learner\|host1\|Visitors' "$DP" && bad "$LAY: (a) credentials in deployed page"
+  cp "$TP" "$WORK/dp1-t"; cp "$DP" "$WORK/dp1-d"; cp "$DD" "$WORK/dd1"
+  out="$(runit "$R")"
+  cmp -s "$WORK/dp1-t" "$TP" && cmp -s "$WORK/dp1-d" "$DP" && cmp -s "$WORK/dd1" "$DD" && ok "$LAY: (a) second run is a no-op in both places" || bad "$LAY: (a) second run" "$out"
+  out="$(runit "$R" --check)"; rc=$?; [ $rc -eq 0 ] && ok "$LAY: (a) --check 0 (deployment/ ignored)" || bad "$LAY: (a) check" "$out"
+  ( cd "$R" && git add -f "${DD#$R/}" && git -c user.email=t@t -c user.name=t commit -q -m leak ) >/dev/null 2>&1
+  out="$(runit "$R" --check)"; rc=$?; [ $rc -eq 1 ] && echo "$out" | grep -q 'deployment/web/demo-login.local.js is tracked' && ok "$LAY: (a) --check 1 when the DEPLOYED data file is tracked" || bad "$LAY: (a) tracked deployed rc $rc" "$out"
+  ( cd "$R" && git rm -q --cached "${DD#$R/}" && git -c user.email=t@t -c user.name=t commit -q -m unleak ) >/dev/null 2>&1
+  out="$(runit "$R" --remove)"; rc=$?
+  [ $rc -eq 0 ] && [ ! -e "$TD" ] && [ ! -e "$DD" ] && ! grep -q 'demoLogin\|demo-login.local.js' "$TP" "$DP" && ok "$LAY: (b) --remove empties both pages and deletes both data files" || bad "$LAY: (b) remove" "$out"
+  out="$(runit "$R" --check)"; echo "$out" | grep -q 'no tiles' && ok "$LAY: (b) --check after remove: no tiles" || bad "$LAY: (b) check" "$out"
+  # deployment/ NOT ignored: the deployed data file gets its own ignore line
+  printf '' > "$R/.gitignore"; ( cd "$R" && git add -A && git -c user.email=t@t -c user.name=t commit -q -m noign ) >/dev/null 2>&1
+  out="$(runit "$R")"
+  grep -Fxq "/${DD#$R/}" "$R/.gitignore" && echo "$out" | grep -q 'deployment/ was not ignored' && ok "$LAY: deployment/ not ignored -> deployed data file added to .gitignore" || bad "$LAY: deployed gitignore" "$out"
+  runit "$R" --remove >/dev/null
+
+  R="$(mk nodep-$LAY $LAY $FX/mdl/R-20-security-level.mdl)"; APP="$R"; [ "$LAY" = two ] && APP="$R/app"
+  out="$(runit "$R")"; rc=$?
+  [ $rc -eq 0 ] && [ ! -e "$APP/deployment" ] && grep -q 'DEMO-LOGIN-BEGIN -->' "$APP/theme/web/login.html" && echo "$out" | grep -q 'no deployed web folder: the tiles appear after the next app start' && ok "$LAY: (c) no deployed folder: only theme files change, message says so" || bad "$LAY: (c)" "$out"
+done
+
 echo "-- parser, synthetic shapes"
 R="$(mk syn single "$FX/mdl-synthetic.mdl")"; out="$(runit "$R")"; D="$R/theme/web/demo-login.local.js"
 echo "$out" | grep -q '^3 demo users found' && ok "syn: 3 users (multi-line, deprecated form, re-created); dropped and commented-out ones absent" || bad "syn count" "$out"

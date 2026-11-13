@@ -1,0 +1,8 @@
+Captured 2026-11-13 from local fictional demo apps (throwaway demo passwords; no company, person, host or path in any file; grepped for /home, /Users, e-mail, URLs: none).
+login.html            verbatim theme/web/login.html of a POC app built from the stock mxcli scaffold (identical bytes in a second POC app, `diff` empty)
+mdl/T-01-domain-security.mdl   verbatim mdlsource/01-domain-security.mdl of POC app T:  `create or modify demo user` single-line, 3 users
+mdl/R-20-security-level.mdl    verbatim mdlsource/20-security-level.mdl of POC app R:  `create or modify`, 3 users, same password
+mdl/S-02-security-production.mdl  verbatim, POC app S: `drop demo user` x2, `create demo user ... Entity: ..., UserRoles:`, host1..3 / reception1..2
+C-excerpt-lines-41-62.mdl      verbatim lines 41-62 of mdlsource/05_nav_security_seed.mdl of POC app C: drop of the scaffold users, `create demo user`, a navigation block between
+show-demo-users.txt   verbatim `mxcli -p <app>.mpr -c "show demo users"` of POC app T (mxcli of 2026-11-12): table + "(5 demo users)", no passwords
+mdl-synthetic.mdl     NOT a capture: shapes no local project uses (multi-line, deprecated clause form, quoting). Labelled as synthetic in its own header.

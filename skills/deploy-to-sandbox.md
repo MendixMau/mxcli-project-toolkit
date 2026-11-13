@@ -193,7 +193,7 @@ handing a URL to a customer, check separately:
   first — a secret in git history survives deleting the file. This is a rotation decision, not a
   deletion one.
 - **Demo passwords on a public URL.** A seeded admin password committed in the model is fine on
-  localhost and is a public administrative login on an internet-facing sandbox.
+  localhost and is a public administrative login on an internet-facing sandbox. Run `bin/demo-login-tiles.sh --remove` first (it deletes the local sign-in tiles' password file).
 - **Tokens you cannot reissue.** If the only way to mint an API/MCP token is a script in somebody's
   scratch directory, the capability does not survive the session. Promote the issuer into the repo
   before it is part of a handover.

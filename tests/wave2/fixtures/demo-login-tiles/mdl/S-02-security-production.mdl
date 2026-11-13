@@ -1,0 +1,10 @@
+mdl 1;
+-- Security to Production, demo users per role plus users with no data.
+alter app security ( SecurityLevel: production, EnableDemoUsers: true );
+drop demo user 'demo_user';
+drop demo user 'demo_administrator';
+create demo user 'host1' ( Password: 'Visitors2026Demo', Entity: Administration.Account, UserRoles: (Host) );
+create demo user 'host3' ( Password: 'Visitors2026Demo', Entity: Administration.Account, UserRoles: (Host) );
+create demo user 'host2' ( Password: 'Visitors2026Demo', Entity: Administration.Account, UserRoles: (Host) );
+create demo user 'reception1' ( Password: 'Visitors2026Demo', Entity: Administration.Account, UserRoles: (Reception) );
+create demo user 'reception2' ( Password: 'Visitors2026Demo', Entity: Administration.Account, UserRoles: (Reception) );

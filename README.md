@@ -691,6 +691,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Promoting an app to a deployed sandbox or cloud node, or before a customer tests a deployment — "it works locally" is not evidence about a deployment; also when a test suite fails only against the remote URL | `skills/deploy-to-sandbox.md` |
 | Dispatching any helper that drives the app, tests or UI: print the ports, reset/restart scripts, e2e helper libs, secret key names and screenshot folders once, and put "read it first" in the brief instead of letting each helper rediscover them (#701) | `project-bin/project-facts.sh` |
 | POC, proof of concept, demo, pilot or quick build asked for, a demo this week, something clickable to show; or PROJECT.md says Build type: poc (experimental: designed-first, one human stop, not the nine stage gates) | `skills/poc-build.md` |
+| After creating or changing demo users, before a local demo or test round, and before an app leaves the machine (--remove) — puts one click-to-sign-in tile per demo user on the sign-in page, on localhost only; the passwords live in a git-ignored file, never in the page | `project-bin/demo-login-tiles.sh` |
 
 **Build · MDL — the language and tool reference**
 

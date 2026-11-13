@@ -1,0 +1,22 @@
+
+drop demo user 'demo_user';
+drop demo user 'demo_administrator';
+drop user role User;
+alter user role Administrator add module roles (LoanDesk.LabManager);
+create user role Engineer ( ModuleRoles: (LoanDesk.Engineer, System.User) );
+create user role LabManager ( ModuleRoles: (LoanDesk.LabManager, System.User) );
+
+create or replace navigation Responsive
+  home page LoanDesk.Catalogue
+  home page LoanDesk.Inbox for LabManager
+{
+  menu item 'Catalogue' ( OnClick: show page LoanDesk.Catalogue )
+  menu item 'My requests' ( OnClick: show page LoanDesk.MyRequests )
+  menu item 'Inbox' ( OnClick: show page LoanDesk.Inbox )
+  menu item 'Catalogue admin' ( OnClick: show page LoanDesk.CatalogueAdmin )
+};
+
+create demo user 'engineer' ( Password: 'Engineer12345', UserRoles: (Engineer) );
+create demo user 'manager' ( Password: 'Manager12345', UserRoles: (LabManager) );
+alter app security ( SecurityLevel: production );
+alter app security ( EnableDemoUsers: true );

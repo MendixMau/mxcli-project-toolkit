@@ -1,0 +1,9 @@
+| User Name          | User Roles    |
+|--------------------|---------------|
+| demo_administrator | Administrator |
+| demo_user          | User          |
+| learner1           | Learner       |
+| learner2           | Learner       |
+| trainer1           | Trainer       |
+
+(5 demo users)

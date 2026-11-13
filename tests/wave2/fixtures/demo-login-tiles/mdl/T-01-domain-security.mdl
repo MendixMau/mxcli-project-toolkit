@@ -1,0 +1,137 @@
+mdl 1;
+-- TOEIC Buddy: domain model, roles, access rules (entities and their grants live in ONE script),
+-- project security level Production, demo users.
+
+create module ToeicBuddy;
+
+create enumeration ToeicBuddy.Area (
+  Reading 'Reading',
+  Workplace 'By department'
+);
+
+create module role ToeicBuddy.Learner description 'Practises questions and flashcards, sees own progress';
+create module role ToeicBuddy.Trainer description 'Also manages questions and sees every learner''s progress';
+
+/** A set of questions a learner can practise (a TOEIC part or a department pack). */
+create persistent entity ToeicBuddy.QuestionSet (
+  Name: String(100) not null error message 'A set needs a name',
+  Area: Enumeration(ToeicBuddy.Area),
+  Icon: String(10),
+  Seq: Integer default 0,
+  IsActive: Boolean default true
+);
+
+/** One multiple-choice question, loaded from the TOEIC Buddy source. */
+create persistent entity ToeicBuddy.Question (
+  Stem: String(1000) not null error message 'The question text is required',
+  Passage: String(unlimited),
+  OptionA: String(500) not null error message 'Option A is required',
+  OptionB: String(500) not null error message 'Option B is required',
+  OptionC: String(500),
+  OptionD: String(500),
+  CorrectIndex: Integer not null error message 'Say which option is right (1 to 4)',
+  Explanation: String(1500) not null error message 'The explanation is required',
+  Seq: Integer default 0,
+  IsActive: Boolean default true
+);
+
+/** One answer given by one learner. */
+create persistent entity ToeicBuddy.Attempt (
+  ChosenIndex: Integer,
+  IsCorrect: Boolean default false,
+  AnsweredAt: DateTime
+);
+
+/** A vocabulary card. */
+create persistent entity ToeicBuddy.Flashcard (
+  Term: String(200) not null,
+  Meaning: String(500),
+  Example: String(500),
+  Seq: Integer default 0
+);
+
+/** The question currently on screen (per learner, not stored). */
+create non-persistent entity ToeicBuddy.PracticeStep (
+  SetName: String(100),
+  Position: Integer,
+  Total: Integer,
+  Chosen: Integer default 0,
+  Answered: Boolean default false,
+  Finished: Boolean default false,
+  ResultTitle: String(100),
+  ResultText: String(1500),
+  Message: String(300),
+  ProgressClass: String(20)
+);
+
+/** A set tile on the practice menu. */
+create non-persistent entity ToeicBuddy.SetTile (
+  SetName: String(100),
+  Icon: String(10),
+  Total: Integer,
+  Done: Integer,
+  Area: Enumeration(ToeicBuddy.Area),
+  CountText: String(100),
+  ProgressClass: String(20)
+);
+
+/** Progress numbers: one for the home page, one per learner on the team page. */
+create non-persistent entity ToeicBuddy.Stat (
+  LearnerName: String(200),
+  Answered: Integer default 0,
+  Correct: Integer default 0,
+  AccuracyText: String(20),
+  EstimateText: String(100),
+  ProgressClass: String(20),
+  Greeting: String(200)
+);
+
+create non-persistent entity ToeicBuddy.BankState (
+  Message: String(300)
+);
+
+create non-persistent entity ToeicBuddy.CardStep (
+  Position: Integer,
+  Total: Integer,
+  Flipped: Boolean default false,
+  CountText: String(50)
+);
+
+create non-persistent entity ToeicBuddy.Who (
+  NameText: String(200),
+  RoleText: String(50)
+);
+
+create association ToeicBuddy.Question_QuestionSet from ToeicBuddy.Question to ToeicBuddy.QuestionSet on delete cascade;
+create association ToeicBuddy.Attempt_Question from ToeicBuddy.Attempt to ToeicBuddy.Question on delete cascade;
+create association ToeicBuddy.Attempt_User from ToeicBuddy.Attempt to System.User;
+create association ToeicBuddy.PracticeStep_Question from ToeicBuddy.PracticeStep to ToeicBuddy.Question;
+create association ToeicBuddy.PracticeStep_QuestionSet from ToeicBuddy.PracticeStep to ToeicBuddy.QuestionSet;
+create association ToeicBuddy.SetTile_QuestionSet from ToeicBuddy.SetTile to ToeicBuddy.QuestionSet;
+create association ToeicBuddy.CardStep_Flashcard from ToeicBuddy.CardStep to ToeicBuddy.Flashcard;
+
+-- Access rules, same script as the entities.
+grant read * on entity ToeicBuddy.QuestionSet to ToeicBuddy.Learner, ToeicBuddy.Trainer;
+grant create, delete, write * on entity ToeicBuddy.QuestionSet to ToeicBuddy.Trainer;
+grant read * on entity ToeicBuddy.Question to ToeicBuddy.Learner;
+grant create, delete, read *, write * on entity ToeicBuddy.Question to ToeicBuddy.Trainer;
+grant read * on entity ToeicBuddy.Attempt to ToeicBuddy.Learner where [ToeicBuddy.Attempt_User = '[%CurrentUser%]'];
+grant read * on entity ToeicBuddy.Attempt to ToeicBuddy.Trainer;
+grant read * on entity ToeicBuddy.Flashcard to ToeicBuddy.Learner;
+grant create, delete, read *, write * on entity ToeicBuddy.Flashcard to ToeicBuddy.Trainer;
+grant create, delete, read *, write * on entity ToeicBuddy.PracticeStep to ToeicBuddy.Learner, ToeicBuddy.Trainer;
+grant create, delete, read *, write * on entity ToeicBuddy.SetTile to ToeicBuddy.Learner, ToeicBuddy.Trainer;
+grant create, delete, read *, write * on entity ToeicBuddy.Stat to ToeicBuddy.Learner, ToeicBuddy.Trainer;
+grant create, delete, read *, write * on entity ToeicBuddy.BankState to ToeicBuddy.Learner, ToeicBuddy.Trainer;
+grant create, delete, read *, write * on entity ToeicBuddy.CardStep to ToeicBuddy.Learner, ToeicBuddy.Trainer;
+grant create, delete, read *, write * on entity ToeicBuddy.Who to ToeicBuddy.Learner, ToeicBuddy.Trainer;
+
+create user role Learner (ModuleRoles: (ToeicBuddy.Learner, System.User), Description: 'Factory staff practising English');
+create user role Trainer (ModuleRoles: (ToeicBuddy.Trainer, ToeicBuddy.Learner, System.User), Description: 'Trainer: manages questions, sees progress');
+alter user role Administrator add module roles (ToeicBuddy.Trainer, ToeicBuddy.Learner);
+
+-- Security level: said in chat before running (the scaffold starts with security Off).
+alter app security ( SecurityLevel: PRODUCTION, EnableDemoUsers: true );
+create or modify demo user 'learner1' ( Password: 'Toeic-Buddy-1!', UserRoles: (Learner) );
+create or modify demo user 'learner2' ( Password: 'Toeic-Buddy-2!', UserRoles: (Learner) );
+create or modify demo user 'trainer1' ( Password: 'Toeic-Trainer-1!', UserRoles: (Trainer) );

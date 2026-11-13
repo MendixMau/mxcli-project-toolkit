@@ -480,6 +480,8 @@ TAB="$(printf '\t')"
 REC="$TMP/records"; : > "$REC"
 
 tbl_rows() {  # tbl_rows <file> <header-regex>: first column of each data row; 3 = not a table, not empty
+  # The header regex reaches awk through -v, which processes escape sequences: gawk turns "\|" into a
+  # bare "|" (alternation, matches every row) where mawk keeps it. Callers therefore write [|], never \|.
   if grep -Eq "$2" "$1"; then
     awk -F'|' -v h="$2" '/^\|/ && $0 !~ /^\|[-| ]+\|?$/ && $0 !~ h { v=$2; gsub(/^[ \t]+|[ \t]+$/, "", v); if (v != "") print v }' "$1"
     return 0
@@ -497,7 +499,7 @@ awk -F': ' '/^[^ \t].*: / || /^[ \t]+[A-Za-z ]+: / { k=$1; v=substr($0, index($0
 
 # user roles
 mx_or_die "show user roles" "$TMP/o.ur"
-tbl_rows "$TMP/o.ur" '^\| *Name ' > "$TMP/ur.names"; [ $? -ne 3 ] || could_not_run "'show user roles' is not the table this parser was written against"
+tbl_rows "$TMP/o.ur" '^[|] *Name ' > "$TMP/ur.names"; [ $? -ne 3 ] || could_not_run "'show user roles' is not the table this parser was written against"
 : > "$TMP/mr.mapped"
 while IFS= read -r ur; do
   [ -n "$ur" ] || continue
@@ -518,7 +520,7 @@ LC_ALL=C sort -u "$TMP/mr.mapped" > "$TMP/mr.mapped.s"
 
 # module roles (every module at once) and which of them no user role holds
 mx_or_die "show module roles" "$TMP/o.mr"
-tbl_rows "$TMP/o.mr" '^\| *Qualified Name ' > "$TMP/mr.names"; [ $? -ne 3 ] || could_not_run "'show module roles' is not the table this parser was written against"
+tbl_rows "$TMP/o.mr" '^[|] *Qualified Name ' > "$TMP/mr.names"; [ $? -ne 3 ] || could_not_run "'show module roles' is not the table this parser was written against"
 while IFS= read -r mr; do
   [ -n "$mr" ] || continue
   printf 'module-role\t%s\tdefined\n' "$mr" >> "$REC"
@@ -552,7 +554,7 @@ awk '
 # entities: rights, row restriction text, attribute rights - per rule, per role
 mx_or_die "show entities" "$TMP/o.en"
 grep -Eq '^\| *Entity ' "$TMP/o.en" || could_not_run "'show entities' is not the table this parser was written against"
-tbl_rows "$TMP/o.en" '^\| *Entity ' | grep -v '^System\.' | LC_ALL=C sort -u > "$TMP/ent.names"
+tbl_rows "$TMP/o.en" '^[|] *Entity ' | grep -v '^System\.' | LC_ALL=C sort -u > "$TMP/ent.names"
 while IFS= read -r ent; do
   [ -n "$ent" ] || continue
   mx_or_die "show access on $ent" "$TMP/o.ac"

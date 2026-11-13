@@ -366,9 +366,22 @@ if [ -n "$INTEGRITY_MSG" ] && [ "$MODE" != approve ]; then
 fi
 
 accepted_pairs() {  # the first two columns of the accepted list, as rule<TAB>key lines
-  awk -F'\t' '!/^[ \t]*#/ && NF>=2 && $1!="" { print $1 "\t" $2 }' "$ACC_N"
+  # a line accepts a finding only with a rule id, an element AND a non-empty reason
+  awk -F'\t' '!/^[ \t]*#/ && NF>=3 && $1!="" && $3!="" { print $1 "\t" $2 }' "$ACC_N"
 }
 accepted_pairs | LC_ALL=C sort -u > "$TMP/acc.pairs"
+# classify every non-comment line of the accepted list: ok / stale / noreason / badrule
+classify_accepted() {  # -> status<TAB>rule<TAB>element<TAB>reason, one per line
+  # a rule id is real only if it is in the security set AND mxcli lists it (SEC999 has the shape, not the rule)
+  awk -F'\t' -v re="$SECURITY_RULES_RE" '
+    FILENAME==ARGV[1] { known[$1]=1; next }
+    FILENAME==ARGV[2] { cur[$1 "\t" $2]=1; next }
+    /^[ \t]*#/ || /^[ \t]*$/ { next }
+    { st = ($1 !~ re || !($1 in known)) ? "badrule" : (NF<3 || $3=="") ? "noreason" : (($1 "\t" $2) in cur) ? "ok" : "stale"
+      print st "\t" $1 "\t" $2 "\t" $3 }' "$TMP/listed.ids" "$FIND_ALL" "$ACC_N"
+}
+classify_accepted > "$TMP/acc.cls"
+STALEN=$(awk -F'\t' '$1=="stale"' "$TMP/acc.cls" | wc -l | tr -d ' ')
 LC_ALL=C comm -23 "$FIND_ALL" "$TMP/acc.pairs" > "$FIND_NEW"
 
 shq() { printf '%s' "$1" | sed 's/[\\"$`]/\\&/g'; }   # for the printed, copy-pasteable accept command
@@ -590,6 +603,14 @@ summary_counts() {  # one line per record kind
 
 # --- --approve ------------------------------------------------------------------------------
 if [ "$MODE" = approve ]; then
+  if [ -f "$ACC" ]; then
+    BADN=$(awk -F'\t' '$1=="noreason" || $1=="badrule"' "$TMP/acc.cls" | wc -l | tr -d ' ')
+    if [ "$BADN" -gt 0 ]; then
+      echo "security-check: --approve REFUSED: the accepted list ($ACC) has $BADN line(s) that must be fixed or deleted first; nothing was recorded:" >&2
+      awk -F'\t' '$1=="noreason" { print "  no reason, accepts nothing: [" $2 "] " $3 } $1=="badrule" { print "  not a security rule id: [" $2 "] " $3 }' "$TMP/acc.cls" >&2
+      exit 1
+    fi
+  fi
   cp "$SNAP" "$APPROVED.tmp" && mv "$APPROVED.tmp" "$APPROVED" || { echo "security-check: cannot write $APPROVED" >&2; exit 4; }
   sum=$(cksum_norm "$APPROVED")
   record_decision approve "$REASON" "$APPROVED"
@@ -597,7 +618,9 @@ if [ "$MODE" = approve ]; then
     # --approve re-confirms the accepted list too (a merged list has no matching checksum otherwise):
     # show what is being confirmed, then record its checksum.
     echo "Accepted findings you are confirming with this approval ($ACC):"
-    grep -v '^[[:space:]]*#' "$ACC_N" | awk -F'\t' 'NF>=3 { print "  [" $1 "] " $2 "  - reason: " $3 }'
+    awk -F'\t' '$1=="ok" { print "  accepts a current finding: [" $2 "] " $3 "  - reason: " $4 }
+                 $1=="stale" { print "  matches no current finding (stale): [" $2 "] " $3 "  - reason: " $4 }' "$TMP/acc.cls"
+    [ "$STALEN" -eq 0 ] || echo "  $STALEN stale line(s) kept: they accept nothing today."
     record_decision accept "re-confirmed by --approve: $REASON" "$ACC"
   fi
   nrec=$(grep -vc '^#' "$APPROVED")
@@ -789,6 +812,7 @@ if [ "$ACCN" -gt 0 ]; then
   sed 's/^/  - /' "$CHG"
   echo "  If this is intended, a person approves it:  bin/security-check.sh --approve --reason \"<who approved, and why>\""
 fi
+[ "$STALEN" -eq 0 ] || echo "$STALEN accepted line(s) match no current finding (stale)"
 emit_result "$verdict" "$NEWN" "$ACCN" "$rc"
 case "$verdict" in
   clean) echo "Clean: $tot security finding(s), all accepted; the access snapshot equals the approved copy."

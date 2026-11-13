@@ -358,6 +358,28 @@ PE="$(mkproj e single)"; (cd "$PE" && git init -q && git config user.name "someo
 OUT=$(cd "$PE" && env -u PROJECT_ROOT -u MPR_FILE GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 USER=fixture-user MXCLI="$FX/mxcli-stub.sh" SECX_DIR="$FX/base" SECX_BASE="$FX/base" bash "$PE/bin/security-check.sh" --approve --reason "fixture e" 2>&1); RC=$?
 chk "O10 a git user.name holding an @ is not recorded; the account name is" '[ "$RC" = 0 ] && grep -q "	approve	fixture-user	" "$PE/docs/security/approvals.tsv" && ! grep -q "@" "$PE/docs/security/approvals.tsv"'
 
+echo "-- P third review: --approve shows every accepted line, a reasonless line accepts nothing"
+PR="$(mkproj r single)"; ACCR="$PR/.claude/loop/security-accepted.tsv"
+run "$PR" base >/dev/null; run "$PR" base --approve --reason "fixture r"; accept_all "$PR" base; run "$PR" base
+chk "P0 baseline clean" '[ "$RC" = 0 ]'
+cp "$ACCR" "$W/acc.r.good"
+S5=$(grep '^SEC005	' "$W/acc.r.good" | cut -f2)
+grep -v '^SEC005	' "$W/acc.r.good" > "$ACCR"; printf 'SEC005\t%s\n' "$S5" >> "$ACCR"
+run "$PR" base --approve --reason "fixture r: should refuse"
+chk "P1 a reasonless SEC005 line: --approve refuses (1), names the line, records nothing" '[ "$RC" = 1 ] && has "REFUSED" && has "no reason, accepts nothing: [SEC005] Strict mode is disabled" && [ "$(grep -c "	approve	" "$PR/docs/security/approvals.tsv")" = 1 ]'
+# an old --approve would have recorded this list's checksum; simulate that record by hand
+printf '2026-01-01\taccept\tfixture\thand-recorded\t%s\n' "$(tr -d '\r' < "$ACCR" | cksum | awk '{print $1}')" >> "$PR/docs/security/approvals.tsv"
+run "$PR" base --json
+chk "P2 even with a matching checksum, the reasonless line accepts nothing: SEC005 still counts as new" 'has "\"new\":1" && has "Strict mode is disabled"'
+{ cat "$W/acc.r.good"; printf 'SEC999\tjunk\tbecause\n'; } > "$ACCR"
+run "$PR" base --approve --reason "fixture r: junk id"
+chk "P3 a junk rule id line: --approve refuses (1) and names it" '[ "$RC" = 1 ] && has "not a security rule id: [SEC999] junk"'
+{ cat "$W/acc.r.good"; printf 'SEC005\tStrict mode was disabled in an older model\tstale but reasoned\t2026-01-01\n'; } > "$ACCR"
+run "$PR" base --approve --reason "fixture r: stale line shown and allowed"
+chk "P4 a stale line is shown, counted, allowed (0)" '[ "$RC" = 0 ] && has "matches no current finding (stale): [SEC005] Strict mode was disabled in an older model" && has "1 stale line(s) kept"'
+run "$PR" base
+chk "P5 the normal check reports the stale line in one line and stays clean (0)" '[ "$RC" = 0 ] && has "1 accepted line(s) match no current finding (stale)" && has "verdict=clean"'
+
 echo
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

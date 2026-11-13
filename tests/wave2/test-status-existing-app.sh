@@ -231,7 +231,10 @@ case "$n" in *final-look*) ok "T9c hand-written stage line: final-look stays in 
 # proven skeleton and fills the stub slots — both are what a real Stage 6 project has.
 printf '\nSkeleton proven 2026-10-13\n' >> "$P9/PROJECT.md"
 for _f in "$P9"/.claude/agents/*.md "$P9/CLAUDE.local.md"; do
-  [ -f "$_f" ] && sed -E 's/\{\{[^}]*\}\}/filled/g' "$_f" > "$_f.new" && mv "$_f.new" "$_f"
+  # -0: the whole file at once, so a slot that wraps over several lines is filled too (a per-line
+  # sed left the four-line PROJECT_LOCAL_SOURCES_OF_TRUTH slot open, and since wrapped slots are
+  # counted the stub rule then rightly kept NEXT).
+  [ -f "$_f" ] && perl -0pe 's/\{\{[^{}]*\}\}/filled/g' "$_f" > "$_f.new" && mv "$_f.new" "$_f"
 done
 setline "$P9" "$(printf '%s' "$DERIVED" | sed -E 's/Stage P — Kickoff/Stage 6 — Verify/; s/gates passed: [^(]*/gates passed: P-5, Stage 2 re-opened /')"
 case "$(stage_of "$P9")" in *"Stage 6"*"Stage 2"*"(derived by gate-check"*) : ;; *) bad "T9d setup" "$(stage_of "$P9")";; esac

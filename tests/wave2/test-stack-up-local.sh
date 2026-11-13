@@ -496,10 +496,14 @@ P="$(mkcold t23b)"; printf 'RUN_LOCAL_DB=postgresql\nRUN_LOCAL_DB_HOST="127.0.0.
 OUT="$(runl "$P")"; RC=$?
 printf '%s' "$(cat "$P/mxcli.args" 2>/dev/null)" | grep -q -- "--db-host 127.0.0.1:$APP" && ok "postgresql probes the configured port (not 5432) and passes --db-host" || bad "rc=$RC args: $(cat "$P/mxcli.args" 2>&1)" "$OUT"
 
-echo "== T24: JDK probe — too old and none block (exit 4); 21-ea and unreadable do not =="
-P="$(mkcold t24)"; mkdir -p "$WORK/jdk17/bin"; printf '#!/bin/sh\necho '"'"'openjdk version "17.0.9" 2023-10-17'"'"' >&2\n' > "$WORK/jdk17/bin/java"; chmod +x "$WORK/jdk17/bin/java"
+echo "== T24: JDK probe — only 'no JDK at all' blocks (exit 4); too old, 21-ea and unreadable start =="
+P="$(mkcold t24)"; touch "$P/pg"; mkdir -p "$WORK/jdk17/bin"; printf '#!/bin/sh\necho '"'"'openjdk version "17.0.9" 2023-10-17'"'"' >&2\n' > "$WORK/jdk17/bin/java"; chmod +x "$WORK/jdk17/bin/java"
 OUT="$( (export JAVA_HOME="$WORK/jdk17"; runl "$P") )"; RC=$?
-[ "$RC" -eq 4 ] && printf '%s' "$OUT" | grep -q "JDK 17 found, this model needs JDK 21" && [ ! -f "$P/mxcli.args" ] && ok "exit 4: JDK 17 found, JDK 21 needed; mxcli not started" || bad "rc=$RC" "$OUT"
+[ "$RC" -eq 0 ] && [ -f "$P/mxcli.args" ] && printf '%s' "$OUT" | grep -q "JDK 17 found; this toolkit expects JDK 21 for this model version; continuing" \
+  && ok "JDK 17 vs expected 21: warns and the start proceeds" || bad "JDK 17 (rc=$RC)" "$OUT"
+P="$(mkcold t24m10)"; touch "$P/pg"
+OUT="$( (export JAVA_HOME="$WORK/jdk17" MXTK_MODEL_VERSION=10.24.0; runl "$P") )"; RC=$?
+[ "$RC" -eq 0 ] && [ -f "$P/mxcli.args" ] && printf '%s' "$OUT" | grep -q "JDK 17 found" && ok "Mendix 10.24.0 model + JDK 17: not blocked, start proceeds (warns)" || bad "Mendix 10 + JDK 17 (rc=$RC)" "$OUT"
 mkdir -p "$WORK/jdkea/bin"; printf '#!/bin/sh\necho '"'"'openjdk version "21-ea" 2026-09-15'"'"' >&2\n' > "$WORK/jdkea/bin/java"; chmod +x "$WORK/jdkea/bin/java"
 P="$(mkcold t24ea)"; touch "$P/pg"
 OUT="$( (export JAVA_HOME="$WORK/jdkea"; runl "$P") )"; RC=$?

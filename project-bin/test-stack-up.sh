@@ -84,9 +84,11 @@
 #                    ONLY when set explicitly.
 #      A non-default mode is warned about and published to stack.env as LOCAL_DB=<mode>.
 #      The line "database: ..." says which ran.
-#   2. PROBE — the JDK the model needs (21 up to Mendix 11.13, 25 from 11.14; find_java / JAVA_HOME) and,
-#      when RUN_LOCAL_DB=postgresql, that it answers. Missing → exit 4 naming exactly what, before any
-#      build is started. Never an automatic switch to the container lane: that is a decision.
+#   2. PROBE — a JDK must exist (find_java / JAVA_HOME): none found → exit 4 naming it, before any build is
+#      started. A JDK older than the toolkit expects for the model's Mendix version (21 up to 11.13, 25 from
+#      11.14; _mxtk_java_want says 21 for Mendix 9/10 too) or an unreadable version only WARNS and the start
+#      proceeds — mxcli gives the real verdict. With RUN_LOCAL_DB=postgresql the server must answer, else
+#      exit 4. Never an automatic switch to the container lane: that is a decision.
 #   3. SPLIT MODEL — a model stored as mprcontents/ is snapshotted first with snapshot-mpr.sh (the same
 #      rotating .mpr-snapshots/ exec.sh uses) and its unit count is compared after the start; a drop
 #      is reported with the restore commands. Not reproduced with v0.28 (see the lane block below).
@@ -848,12 +850,11 @@ if [ $APP_FOUND -ne 0 ]; then
       # first run of digits in the version token: "21-ea", "21.0.2", "25", "1.8.0_392" all read; unreadable -> warn, go on
       _JV="$("$_JE" -version 2>&1 | sed -n 's/.* version "\([^"]*\)".*/\1/p' | head -1)"
       _JM="$(printf '%s' "$_JV" | sed -n 's/^[^0-9]*\([0-9][0-9]*\).*/\1/p')"
-      [ -n "$_JM" ] || warn "could not read the Java version from '$_JE -version' — not blocking; this model needs JDK $_JW"
+      [ -n "$_JM" ] || warn "could not read the Java version from '$_JE -version' — continuing; this toolkit expects JDK $_JW for this model version"
     fi
     [ -n "$_JE" ] && [ -x "$_JE" ] || _blocked "no JDK found (this model needs JDK $_JW)." \
       "→ Install JDK $_JW and put it on PATH, or set JAVA_HOME (toolkit.env), then re-run."
-    [ -z "$_JM" ] || [ "$_JM" -ge "$_JW" ] 2>/dev/null || _blocked "JDK $_JM found, this model needs JDK $_JW ($_JE)." \
-      "→ Install JDK $_JW or point JAVA_HOME at it (toolkit.env), then re-run."
+    [ -z "$_JM" ] || [ "$_JM" -ge "$_JW" ] 2>/dev/null || warn "JDK $_JM found; this toolkit expects JDK $_JW for this model version; continuing ($_JE)"
     _DBM="${RUN_LOCAL_DB:-auto}"; _DBH="${RUN_LOCAL_DB_HOST:-127.0.0.1:5432}"; _DBARGS=""
     case "$_DBM" in
       auto|postgresql|ensure|hsqldb) ;;
@@ -901,7 +902,11 @@ if [ $APP_FOUND -ne 0 ]; then
     if [ $LOCAL_RC -ne 0 ]; then
       bad "mxcli run --local failed (rc=$LOCAL_RC) — see $LOCAL_LOG"; tail -20 "$LOCAL_LOG"
       if grep -q "database not reachable" "$LOCAL_LOG" 2>/dev/null; then
-        echo "  The database is not reachable. Nothing was switched for you. Choose one in .claude/loop/stack.conf:"
+        case "$_DBM" in
+          auto)       echo "  The database is not reachable. Nothing was switched for you. Choose one in .claude/loop/stack.conf:" ;;
+          ensure)     echo "  The database is still not reachable with RUN_LOCAL_DB=ensure (is Postgres running on ${RUN_LOCAL_DB_HOST:-127.0.0.1:5432}?). Choose one in .claude/loop/stack.conf:" ;;
+          *)          echo "  The database is not reachable with RUN_LOCAL_DB=$_DBM. Choose one in .claude/loop/stack.conf:" ;;
+        esac
         echo "    RUN_LOCAL_DB=hsqldb   the built-in file database; starts with no Postgres; its data is SEPARATE from any Postgres data"
         echo "    RUN_LOCAL_DB=ensure   create the local Postgres role and database (Postgres must be running)"
         echo "  Or start the Postgres this model expects."

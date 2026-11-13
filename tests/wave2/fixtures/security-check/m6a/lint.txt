@@ -1,0 +1,495 @@
+WARNING: This is a vibe-coded PoC, alpha quality, use with caution.
+Connected to: LoanDesk.mpr (Mendix 11.13.0)
+Loading cached catalog (built 1s ago, full mode)...
+✓ Catalog ready (from cache)
+(no module)
+-----------
+  ⚠ Demo users are enabled at Production security level [SEC003]
+      at ProjectSecurity
+      → ALTER APP SECURITY ( EnableDemoUsers: FALSE )
+
+  ℹ Module role 'MyFirstModule.User' is mapped to 2 user roles: Administrator, User. Each module role should map to exactly one user role. [CONV008]
+      at ProjectSecurity
+      → Review the user role assignments for 'MyFirstModule.User' and ensure a 1:1 mapping
+
+  ℹ Module role 'ToeicBuddy.Trainer' is mapped to 2 user roles: Administrator, Trainer. Each module role should map to exactly one user role. [CONV008]
+      at ProjectSecurity
+      → Review the user role assignments for 'ToeicBuddy.Trainer' and ensure a 1:1 mapping
+
+  ℹ Module role 'ToeicBuddy.Learner' is mapped to 4 user roles: Administrator, User, Learner, Trainer. Each module role should map to exactly one user role. [CONV008]
+      at ProjectSecurity
+      → Review the user role assignments for 'ToeicBuddy.Learner' and ensure a 1:1 mapping
+
+  ℹ Module role 'System.User' is mapped to 3 user roles: User, Learner, Trainer. Each module role should map to exactly one user role. [CONV008]
+      at ProjectSecurity
+      → Review the user role assignments for 'System.User' and ensure a 1:1 mapping
+
+  ⚠ Strict mode is disabled. This weakens XPath constraint enforcement and is relevant to CVE-2023-23835. [SEC005]
+      at ProjectSecurity
+      → Enable it with: ALTER PROJECT SECURITY STRICT MODE ON; (or in Studio Pro under Project Security).
+
+MyFirstModule
+-------------
+  ℹ Layout 'App_Default' has no documentation. [QUAL002]
+      at MyFirstModule.MyFirstModule.App_Default
+      → Describe the layout's intended use and its placeholders.
+
+  ℹ Page 'Home_Web' does not end with a recognized suffix (_NewEdit, _View, _Overview, _Select, _Details, _Dashboard) [CONV003]
+      at MyFirstModule.MyFirstModule.Home_Web
+      → Rename the page to include a suffix indicating its purpose, e.g., 'Home_Web_Overview'
+
+  ℹ Page 'Home_Web' has no documentation. [QUAL002]
+      at MyFirstModule.MyFirstModule.Home_Web
+      → Describe what the page shows and who reaches it.
+
+  ℹ Image collection 'Images' has no documentation. [QUAL002]
+      at MyFirstModule.MyFirstModule.Images
+      → Describe what the collection is for and where its images are used.
+
+  ℹ Microflow 'MyFirstLogic' should start with a standard prefix (ACT_, SUB_, DS_, VAL_, SCH_, IVK_, OCH_) [CUSTOM002]
+      at MyFirstModule.MyFirstModule.MyFirstLogic
+
+  ℹ Microflow 'MyFirstLogic' is not called from anywhere. [QUAL004]
+      at MyFirstModule.MyFirstModule.MyFirstLogic
+      → Remove if unused, rename with ACT_/SCH_ prefix if it's an entry point, or add its prefix to rules.QUAL004.options.entry_point_prefixes in lint-config.yaml.
+
+ToeicBuddy
+----------
+  ⚠ Microflow 'ToeicBuddy.ACT_DemoReset' has a Commit action inside a loop. This causes N+1 database operations. [CONV011]
+      at ToeicBuddy.ACT_DemoReset
+      → Move the commit outside the loop, or collect objects in a list and commit once after the loop
+
+  ℹ Data grid 'dgRecent' on page ToeicBuddy.Home lists ToeicBuddy.Attempt, which user roles 'User', 'Learner' may read only through an XPath-constrained rule — it renders just the rows the constraint allows [SEC010]
+      at ToeicBuddy.Home
+      → Intended if the list is meant to be row-scoped; otherwise grant an unconstrained READ to a module role those user roles hold
+
+  ℹ CONTAINER 'barFill' in ToeicBuddy.Home is empty — valid and it renders, but probably unintended [MPR006]
+      at ToeicBuddy.Home
+      → Remove the container, or give it the content it was meant to hold
+
+  ℹ CONTAINER 'qBarFill' in ToeicBuddy.Practice is empty — valid and it renders, but probably unintended [MPR006]
+      at ToeicBuddy.Practice
+      → Remove the container, or give it the content it was meant to hold
+
+  ⚠ DataView 'dvQ' contains input fields but is not inside a layout grid — label and input widths only render correctly inside a layoutgrid [MPR010]
+      at ToeicBuddy.QuestionEdit
+      → Wrap dataview 'dvQ' in `layoutgrid { row { column (desktopwidth: autofill) { … } } }`
+
+  ℹ CONTAINER 'tBarFill' in ToeicBuddy.Sets is empty — valid and it renders, but probably unintended [MPR006]
+      at ToeicBuddy.Sets
+      → Remove the container, or give it the content it was meant to hold
+
+  ℹ CONTAINER 't2BarFill' in ToeicBuddy.Sets is empty — valid and it renders, but probably unintended [MPR006]
+      at ToeicBuddy.Sets
+      → Remove the container, or give it the content it was meant to hold
+
+  ℹ Module 'ToeicBuddy' keeps all 37 of its documents (27 microflows, 7 pages, 1 enumerations, and more) in the module root and has no folders. [CONV018]
+      at ToeicBuddy.ToeicBuddy
+      → Group the documents into folders by feature or by type — `mxcli -p <app.mpr> -c "show structure in ToeicBuddy"` to see the current layout, then MOVE documents into folders. Set CONV018.options.max_root_documents in .claude/lint-config.yaml if a flat module is intended here.
+
+  ⚠ ACT_ microflow 'ACT_CardFlip' contains 1 business-logic activities (ChangeObjectAction). Delegate them to a SUB_ microflow. [CONV010]
+      at ToeicBuddy.ToeicBuddy.ACT_CardFlip
+      → Extract the ChangeObjectAction into one or more SUB_ microflows and call them from 'ACT_CardFlip', leaving only page/message/download actions here.
+
+  ⚠ ACT_ microflow 'ACT_CardMove' contains 4 business-logic activities (ChangeVariableAction, RetrieveAction, ChangeObjectAction). Delegate them to a SUB_ microflow. [CONV010]
+      at ToeicBuddy.ToeicBuddy.ACT_CardMove
+      → Extract the ChangeVariableAction, RetrieveAction, ChangeObjectAction into one or more SUB_ microflows and call them from 'ACT_CardMove', leaving only page/message/download actions here.
+
+  ⚠ 'ACT_CardMove' has 2 decision(s) with no caption of their own (empty, or still the condition expression). [UX002]
+      at ToeicBuddy.ToeicBuddy.ACT_CardMove
+      → Give each decision a caption written as the question it answers: `@caption 'Already approved?'` before the IF in MDL, or the Caption field in Studio Pro.
+
+  ⚠ ACT_ microflow 'ACT_DemoReset' contains 7 business-logic activities (RetrieveAction, DeleteObjectAction, LoopedActivity). Delegate them to a SUB_ microflow. [CONV010]
+      at ToeicBuddy.ToeicBuddy.ACT_DemoReset
+      → Extract the RetrieveAction, DeleteObjectAction, LoopedActivity into one or more SUB_ microflows and call them from 'ACT_DemoReset', leaving only page/message/download actions here.
+
+  ⚠ 'ACT_DemoReset' has 1 decision(s) with no caption of their own (empty, or still the condition expression). [UX002]
+      at ToeicBuddy.ToeicBuddy.ACT_DemoReset
+      → Give each decision a caption written as the question it answers: `@caption 'Already approved?'` before the IF in MDL, or the Caption field in Studio Pro.
+
+  ℹ Microflow 'ACT_DemoReset' has 16 top-level objects (max: 15). Split into sub-microflows. [CONV009]
+      at ToeicBuddy.ToeicBuddy.ACT_DemoReset
+      → Extract logical sections into SUB_ microflows to keep each at or under 15 objects
+
+  ⚠ ACT_ microflow 'ACT_Next' contains 9 business-logic activities (RetrieveAction, ListOperationAction, AggregateListAction, ChangeObjectAction). Delegate them to a SUB_ microflow. [CONV010]
+      at ToeicBuddy.ToeicBuddy.ACT_Next
+      → Extract the RetrieveAction, ListOperationAction, AggregateListAction, ChangeObjectAction into one or more SUB_ microflows and call them from 'ACT_Next', leaving only page/message/download actions here.
+
+  ⚠ 'ACT_Next' has 1 decision(s) with no caption of their own (empty, or still the condition expression). [UX002]
+      at ToeicBuddy.ToeicBuddy.ACT_Next
+      → Give each decision a caption written as the question it answers: `@caption 'Already approved?'` before the IF in MDL, or the Caption field in Studio Pro.
+
+  ⚠ 'ACT_Pick' has 1 decision(s) with no caption of their own (empty, or still the condition expression). [UX002]
+      at ToeicBuddy.ToeicBuddy.ACT_Pick
+      → Give each decision a caption written as the question it answers: `@caption 'Already approved?'` before the IF in MDL, or the Caption field in Studio Pro.
+
+  ⚠ ACT_ microflow 'ACT_Pick' contains 6 business-logic activities (ChangeObjectAction, RetrieveAction, CommitObjectsAction, CreateObjectAction). Delegate them to a SUB_ microflow. [CONV010]
+      at ToeicBuddy.ToeicBuddy.ACT_Pick
+      → Extract the ChangeObjectAction, RetrieveAction, CommitObjectsAction, CreateObjectAction into one or more SUB_ microflows and call them from 'ACT_Pick', leaving only page/message/download actions here.
+
+  ⚠ 'ACT_Pick' is triggered from a page and commits/imports/deletes data, but gives no outcome signal at all. [MXTK-UX003]
+      at ToeicBuddy.ToeicBuddy.ACT_Pick
+      → Add a Show Message (type Information -- 'Success' silently degrades to Information) stating what completed. If the work is handed to an async integration, say it was submitted, not that it arrived.
+
+  ⚠ ACT_ microflow 'ACT_Restore' contains 3 business-logic activities (ChangeObjectAction, CommitObjectsAction). Delegate them to a SUB_ microflow. [CONV010]
+      at ToeicBuddy.ToeicBuddy.ACT_Restore
+      → Extract the ChangeObjectAction, CommitObjectsAction into one or more SUB_ microflows and call them from 'ACT_Restore', leaving only page/message/download actions here.
+
+  ⚠ 'ACT_Restore' is triggered from a page and commits/imports/deletes data, but gives no outcome signal at all. [MXTK-UX003]
+      at ToeicBuddy.ToeicBuddy.ACT_Restore
+      → Add a Show Message (type Information -- 'Success' silently degrades to Information) stating what completed. If the work is handed to an async integration, say it was submitted, not that it arrived.
+
+  ℹ Microflow 'ACT_Restore' has no documentation. [QUAL002]
+      at ToeicBuddy.ToeicBuddy.ACT_Restore
+      → Add a description explaining what this microflow does and when it should be called.
+
+  ⚠ 'ACT_Retire' is triggered from a page and commits/imports/deletes data, but gives no outcome signal at all. [MXTK-UX003]
+      at ToeicBuddy.ToeicBuddy.ACT_Retire
+      → Add a Show Message (type Information -- 'Success' silently degrades to Information) stating what completed. If the work is handed to an async integration, say it was submitted, not that it arrived.
+
+  ⚠ 'ACT_Retire' has 1 decision(s) with no caption of their own (empty, or still the condition expression). [UX002]
+      at ToeicBuddy.ToeicBuddy.ACT_Retire
+      → Give each decision a caption written as the question it answers: `@caption 'Already approved?'` before the IF in MDL, or the Caption field in Studio Pro.
+
+  ⚠ ACT_ microflow 'ACT_Retire' contains 7 business-logic activities (RetrieveAction, AggregateListAction, ChangeObjectAction, CommitObjectsAction). Delegate them to a SUB_ microflow. [CONV010]
+      at ToeicBuddy.ToeicBuddy.ACT_Retire
+      → Extract the RetrieveAction, AggregateListAction, ChangeObjectAction, CommitObjectsAction into one or more SUB_ microflows and call them from 'ACT_Retire', leaving only page/message/download actions here.
+
+  ℹ Microflow 'ACT_SaveQuestion' has 33 top-level objects (max: 15). Split into sub-microflows. [CONV009]
+      at ToeicBuddy.ToeicBuddy.ACT_SaveQuestion
+      → Extract logical sections into SUB_ microflows to keep each at or under 15 objects
+
+  ⚠ 'ACT_SaveQuestion' has 9 decision(s) with no caption of their own (empty, or still the condition expression). [UX002]
+      at ToeicBuddy.ToeicBuddy.ACT_SaveQuestion
+      → Give each decision a caption written as the question it answers: `@caption 'Already approved?'` before the IF in MDL, or the Caption field in Studio Pro.
+
+  ⚠ ACT_ microflow 'ACT_SaveQuestion' contains 20 business-logic activities (ValidationFeedbackAction, ChangeVariableAction, RetrieveAction, ListOperationAction, ChangeObjectAction, CommitObjectsAction). Delegate them to a SUB_ microflow. [CONV010]
+      at ToeicBuddy.ToeicBuddy.ACT_SaveQuestion
+      → Extract the ValidationFeedbackAction, ChangeVariableAction, RetrieveAction, ListOperationAction, ChangeObjectAction, CommitObjectsAction into one or more SUB_ microflows and call them from 'ACT_SaveQuestion', leaving only page/message/download actions here.
+
+  ⚠ Microflow 'ACT_SaveQuestion' has 33 activities (max: 25). Consider splitting into smaller microflows. [QUAL003]
+      at ToeicBuddy.ToeicBuddy.ACT_SaveQuestion
+      → Extract logical sections into SUB_ microflows. This improves readability, testability, and reusability.
+
+  ⚠ 'ACT_StartSet' has 1 decision(s) with no caption of their own (empty, or still the condition expression). [UX002]
+      at ToeicBuddy.ToeicBuddy.ACT_StartSet
+      → Give each decision a caption written as the question it answers: `@caption 'Already approved?'` before the IF in MDL, or the Caption field in Studio Pro.
+
+  ⚠ ACT_ microflow 'ACT_StartSet' contains 6 business-logic activities (RetrieveAction, AggregateListAction, ListOperationAction). Delegate them to a SUB_ microflow. [CONV010]
+      at ToeicBuddy.ToeicBuddy.ACT_StartSet
+      → Extract the RetrieveAction, AggregateListAction, ListOperationAction into one or more SUB_ microflows and call them from 'ACT_StartSet', leaving only page/message/download actions here.
+
+  ⚠ 'ASU_Seed' has 1 decision(s) with no caption of their own (empty, or still the condition expression). [UX002]
+      at ToeicBuddy.ToeicBuddy.ASU_Seed
+      → Give each decision a caption written as the question it answers: `@caption 'Already approved?'` before the IF in MDL, or the Caption field in Studio Pro.
+
+  ℹ Microflow 'ASU_Seed' should start with a standard prefix (ACT_, SUB_, DS_, VAL_, SCH_, IVK_, OCH_) [CUSTOM002]
+      at ToeicBuddy.ToeicBuddy.ASU_Seed
+
+  ℹ Enumeration 'Area' does not start with ENUM_ prefix [CONV004]
+      at ToeicBuddy.ToeicBuddy.Area
+      → Rename to 'ENUM_Area'
+
+  ℹ Enumeration 'Area' has no documentation. [QUAL002]
+      at ToeicBuddy.ToeicBuddy.Area
+      → Describe what the enumeration models, especially where the values map to something external.
+
+  ⚠ Entity 'Attempt' has no business key. Add a UNIQUE NOT NULL attribute for cross-system identification. [ARCH003]
+      at ToeicBuddy.ToeicBuddy.Attempt
+      → Add an attribute like 'AttemptCode or ExternalID' with UNIQUE and NOT NULL constraints. Example: Code: String(50) NOT NULL UNIQUE
+
+  ℹ Entity 'ToeicBuddy.Attempt' has unconstrained READ access for role 'ToeicBuddy.Auditor' - all rows are accessible [CONV007]
+      at ToeicBuddy.ToeicBuddy.Attempt
+      → Add an XPath constraint to limit which rows 'ToeicBuddy.Auditor' can READ on 'Attempt'
+
+  ℹ Entity 'ToeicBuddy.Attempt' has unconstrained READ access for role 'ToeicBuddy.Trainer' - all rows are accessible [CONV007]
+      at ToeicBuddy.ToeicBuddy.Attempt
+      → Add an XPath constraint to limit which rows 'ToeicBuddy.Trainer' can READ on 'Attempt'
+
+  ℹ Page 'Bank' has no documentation. [QUAL002]
+      at ToeicBuddy.ToeicBuddy.Bank
+      → Describe what the page shows and who reaches it.
+
+  ℹ Page 'Bank' does not end with a recognized suffix (_NewEdit, _View, _Overview, _Select, _Details, _Dashboard) [CONV003]
+      at ToeicBuddy.ToeicBuddy.Bank
+      → Rename the page to include a suffix indicating its purpose, e.g., 'Bank_Overview'
+
+  ℹ Entity 'BankState' has no documentation. [QUAL002]
+      at ToeicBuddy.ToeicBuddy.BankState
+      → Add a description explaining the entity's purpose and what data it represents.
+
+  ℹ Entity 'CardStep' has no documentation. [QUAL002]
+      at ToeicBuddy.ToeicBuddy.CardStep
+      → Add a description explaining the entity's purpose and what data it represents.
+
+  ℹ Boolean attribute 'CardStep.Flipped' should start with Is, Has, Can, Should, Was, or Will [CONV001]
+      at ToeicBuddy.ToeicBuddy.CardStep
+      → Rename to 'IsFlipped' or another appropriate prefix (Has, Can, Should, Was, Will)
+
+  ⚠ 'DS_SetsState' has 1 decision(s) with no caption of their own (empty, or still the condition expression). [UX002]
+      at ToeicBuddy.ToeicBuddy.DS_SetsState
+      → Give each decision a caption written as the question it answers: `@caption 'Already approved?'` before the IF in MDL, or the Caption field in Studio Pro.
+
+  ⚠ ToeicBuddy.DS_Team runs 1 per-row call inside a loop: 'RetrieveAction' (database retrieve). [LOOP001]
+      at ToeicBuddy.ToeicBuddy.DS_Team
+      → Retrieve the list once before the loop and use FIND/FILTER on it; collect objects to delete into a list and delete it after the loop; batch REST/Java calls or move them to a sub-flow that takes the whole list.
+
+  ⚠ ToeicBuddy.DS_Tiles runs 2 per-row calls inside a loop: 'RetrieveAction' (database retrieve), 'RetrieveAction' (database retrieve). [LOOP001]
+      at ToeicBuddy.ToeicBuddy.DS_Tiles
+      → Retrieve the list once before the loop and use FIND/FILTER on it; collect objects to delete into a list and delete it after the loop; batch REST/Java calls or move them to a sub-flow that takes the whole list.
+
+  ⚠ 'DS_Who' has 1 decision(s) with no caption of their own (empty, or still the condition expression). [UX002]
+      at ToeicBuddy.ToeicBuddy.DS_Who
+      → Give each decision a caption written as the question it answers: `@caption 'Already approved?'` before the IF in MDL, or the Caption field in Studio Pro.
+
+  ⚠ Entity 'ToeicBuddy.Flashcard' grants CREATE (ToeicBuddy.Trainer); DELETE (ToeicBuddy.Trainer). Use a microflow to enforce business logic. [CONV006]
+      at ToeicBuddy.ToeicBuddy.Flashcard
+      → Remove the CREATE and DELETE rights and implement a microflow (ACT_) with security checks
+
+  ⚠ Entity 'Flashcard' has no business key. Add a UNIQUE NOT NULL attribute for cross-system identification. [ARCH003]
+      at ToeicBuddy.ToeicBuddy.Flashcard
+      → Add an attribute like 'FlashcardCode or ExternalID' with UNIQUE and NOT NULL constraints. Example: Code: String(50) NOT NULL UNIQUE
+
+  ℹ Attribute 'Flashcard.Seq' has default value '0'. Use a BCR_ microflow to set defaults instead. [CONV002]
+      at ToeicBuddy.ToeicBuddy.Flashcard
+      → Remove the default value and set it in a Before Create (BCR_) microflow for 'Flashcard'
+
+  ℹ Entity 'ToeicBuddy.Flashcard' has unconstrained WRITE access for role 'ToeicBuddy.Trainer' - all rows are accessible [CONV007]
+      at ToeicBuddy.ToeicBuddy.Flashcard
+      → Add an XPath constraint to limit which rows 'ToeicBuddy.Trainer' can WRITE on 'Flashcard'
+
+  ℹ Entity 'ToeicBuddy.Flashcard' has unconstrained READ access for role 'ToeicBuddy.Trainer' - all rows are accessible [CONV007]
+      at ToeicBuddy.ToeicBuddy.Flashcard
+      → Add an XPath constraint to limit which rows 'ToeicBuddy.Trainer' can READ on 'Flashcard'
+
+  ℹ Entity 'ToeicBuddy.Flashcard' has unconstrained READ access for role 'ToeicBuddy.Learner' - all rows are accessible [CONV007]
+      at ToeicBuddy.ToeicBuddy.Flashcard
+      → Add an XPath constraint to limit which rows 'ToeicBuddy.Learner' can READ on 'Flashcard'
+
+  ℹ Entity 'ToeicBuddy.Flashcard' has 1 validation rule(s). Use VAL_ microflows for validation logic instead. [CONV015]
+      at ToeicBuddy.ToeicBuddy.Flashcard
+      → Replace entity validation rules with a VAL_Flashcard microflow for explicit, testable validation
+
+  ℹ Page 'Flashcards' has no documentation. [QUAL002]
+      at ToeicBuddy.ToeicBuddy.Flashcards
+      → Describe what the page shows and who reaches it.
+
+  ℹ Page 'Flashcards' does not end with a recognized suffix (_NewEdit, _View, _Overview, _Select, _Details, _Dashboard) [CONV003]
+      at ToeicBuddy.ToeicBuddy.Flashcards
+      → Rename the page to include a suffix indicating its purpose, e.g., 'Flashcards_Overview'
+
+  ℹ Page 'Home' has no documentation. [QUAL002]
+      at ToeicBuddy.ToeicBuddy.Home
+      → Describe what the page shows and who reaches it.
+
+  ℹ Page 'Home' does not end with a recognized suffix (_NewEdit, _View, _Overview, _Select, _Details, _Dashboard) [CONV003]
+      at ToeicBuddy.ToeicBuddy.Home
+      → Rename the page to include a suffix indicating its purpose, e.g., 'Home_Overview'
+
+  ℹ Layout 'Layout_Main' has no documentation. [QUAL002]
+      at ToeicBuddy.ToeicBuddy.Layout_Main
+      → Describe the layout's intended use and its placeholders.
+
+  ℹ Page 'Practice' has no documentation. [QUAL002]
+      at ToeicBuddy.ToeicBuddy.Practice
+      → Describe what the page shows and who reaches it.
+
+  ℹ Page 'Practice' does not end with a recognized suffix (_NewEdit, _View, _Overview, _Select, _Details, _Dashboard) [CONV003]
+      at ToeicBuddy.ToeicBuddy.Practice
+      → Rename the page to include a suffix indicating its purpose, e.g., 'Practice_Overview'
+
+  ⚠ Entity 'PracticeStep' has 22 attributes (max: 10). Consider splitting into smaller entities. [DESIGN001]
+      at ToeicBuddy.ToeicBuddy.PracticeStep
+      → Extract related attributes into separate entities with associations, or use entity generalization.
+
+  ℹ Boolean attribute 'PracticeStep.Answered' should start with Is, Has, Can, Should, Was, or Will [CONV001]
+      at ToeicBuddy.ToeicBuddy.PracticeStep
+      → Rename to 'IsAnswered' or another appropriate prefix (Has, Can, Should, Was, Will)
+
+  ℹ Boolean attribute 'PracticeStep.Finished' should start with Is, Has, Can, Should, Was, or Will [CONV001]
+      at ToeicBuddy.ToeicBuddy.PracticeStep
+      → Rename to 'IsFinished' or another appropriate prefix (Has, Can, Should, Was, Will)
+
+  ℹ Attribute 'PracticeStep.Chosen' has default value '0'. Use a BCR_ microflow to set defaults instead. [CONV002]
+      at ToeicBuddy.ToeicBuddy.PracticeStep
+      → Remove the default value and set it in a Before Create (BCR_) microflow for 'PracticeStep'
+
+  ⚠ Entity 'ToeicBuddy.Question' grants CREATE (ToeicBuddy.Trainer); DELETE (ToeicBuddy.Trainer). Use a microflow to enforce business logic. [CONV006]
+      at ToeicBuddy.ToeicBuddy.Question
+      → Remove the CREATE and DELETE rights and implement a microflow (ACT_) with security checks
+
+  ⚠ Entity 'Question' has no business key. Add a UNIQUE NOT NULL attribute for cross-system identification. [ARCH003]
+      at ToeicBuddy.ToeicBuddy.Question
+      → Add an attribute like 'QuestionCode or ExternalID' with UNIQUE and NOT NULL constraints. Example: Code: String(50) NOT NULL UNIQUE
+
+  ℹ Boolean attribute 'Question.AddedByTrainer' should start with Is, Has, Can, Should, Was, or Will [CONV001]
+      at ToeicBuddy.ToeicBuddy.Question
+      → Rename to 'IsAddedByTrainer' or another appropriate prefix (Has, Can, Should, Was, Will)
+
+  ℹ Attribute 'Question.Seq' has default value '0'. Use a BCR_ microflow to set defaults instead. [CONV002]
+      at ToeicBuddy.ToeicBuddy.Question
+      → Remove the default value and set it in a Before Create (BCR_) microflow for 'Question'
+
+  ℹ Entity 'ToeicBuddy.Question' has unconstrained READ access for role 'ToeicBuddy.Learner' - all rows are accessible [CONV007]
+      at ToeicBuddy.ToeicBuddy.Question
+      → Add an XPath constraint to limit which rows 'ToeicBuddy.Learner' can READ on 'Question'
+
+  ℹ Entity 'ToeicBuddy.Question' has unconstrained READ access for role 'ToeicBuddy.Trainer' - all rows are accessible [CONV007]
+      at ToeicBuddy.ToeicBuddy.Question
+      → Add an XPath constraint to limit which rows 'ToeicBuddy.Trainer' can READ on 'Question'
+
+  ℹ Entity 'ToeicBuddy.Question' has unconstrained WRITE access for role 'ToeicBuddy.Trainer' - all rows are accessible [CONV007]
+      at ToeicBuddy.ToeicBuddy.Question
+      → Add an XPath constraint to limit which rows 'ToeicBuddy.Trainer' can WRITE on 'Question'
+
+  ℹ Entity 'ToeicBuddy.Question' has 5 validation rule(s). Use VAL_ microflows for validation logic instead. [CONV015]
+      at ToeicBuddy.ToeicBuddy.Question
+      → Replace entity validation rules with a VAL_Question microflow for explicit, testable validation
+
+  ⚠ Entity 'Question' has 12 attributes (max: 10). Consider splitting into smaller entities. [DESIGN001]
+      at ToeicBuddy.ToeicBuddy.Question
+      → Extract related attributes into separate entities with associations, or use entity generalization.
+
+  ℹ Page 'QuestionEdit' does not end with a recognized suffix (_NewEdit, _View, _Overview, _Select, _Details, _Dashboard) [CONV003]
+      at ToeicBuddy.ToeicBuddy.QuestionEdit
+      → Rename the page to include a suffix indicating its purpose, e.g., 'QuestionEdit_Overview'
+
+  ℹ Page 'QuestionEdit' has no documentation. [QUAL002]
+      at ToeicBuddy.ToeicBuddy.QuestionEdit
+      → Describe what the page shows and who reaches it.
+
+  ℹ Entity 'ToeicBuddy.QuestionSet' has unconstrained READ access for role 'ToeicBuddy.Trainer' - all rows are accessible [CONV007]
+      at ToeicBuddy.ToeicBuddy.QuestionSet
+      → Add an XPath constraint to limit which rows 'ToeicBuddy.Trainer' can READ on 'QuestionSet'
+
+  ℹ Entity 'ToeicBuddy.QuestionSet' has unconstrained READ access for role 'ToeicBuddy.Trainer' - all rows are accessible [CONV007]
+      at ToeicBuddy.ToeicBuddy.QuestionSet
+      → Add an XPath constraint to limit which rows 'ToeicBuddy.Trainer' can READ on 'QuestionSet'
+
+  ⚠ Entity 'ToeicBuddy.QuestionSet' grants CREATE (ToeicBuddy.Trainer); DELETE (ToeicBuddy.Trainer). Use a microflow to enforce business logic. [CONV006]
+      at ToeicBuddy.ToeicBuddy.QuestionSet
+      → Remove the CREATE and DELETE rights and implement a microflow (ACT_) with security checks
+
+  ℹ Attribute 'QuestionSet.Seq' has default value '0'. Use a BCR_ microflow to set defaults instead. [CONV002]
+      at ToeicBuddy.ToeicBuddy.QuestionSet
+      → Remove the default value and set it in a Before Create (BCR_) microflow for 'QuestionSet'
+
+  ℹ Entity 'ToeicBuddy.QuestionSet' has 1 validation rule(s). Use VAL_ microflows for validation logic instead. [CONV015]
+      at ToeicBuddy.ToeicBuddy.QuestionSet
+      → Replace entity validation rules with a VAL_QuestionSet microflow for explicit, testable validation
+
+  ℹ Entity 'ToeicBuddy.QuestionSet' has unconstrained READ access for role 'ToeicBuddy.Learner' - all rows are accessible [CONV007]
+      at ToeicBuddy.ToeicBuddy.QuestionSet
+      → Add an XPath constraint to limit which rows 'ToeicBuddy.Learner' can READ on 'QuestionSet'
+
+  ℹ Entity 'ToeicBuddy.QuestionSet' has unconstrained WRITE access for role 'ToeicBuddy.Trainer' - all rows are accessible [CONV007]
+      at ToeicBuddy.ToeicBuddy.QuestionSet
+      → Add an XPath constraint to limit which rows 'ToeicBuddy.Trainer' can WRITE on 'QuestionSet'
+
+  ⚠ Entity 'QuestionSet' has no business key. Add a UNIQUE NOT NULL attribute for cross-system identification. [ARCH003]
+      at ToeicBuddy.ToeicBuddy.QuestionSet
+      → Add an attribute like 'QuestionSetCode or ExternalID' with UNIQUE and NOT NULL constraints. Example: Code: String(50) NOT NULL UNIQUE
+
+  ℹ Microflow 'Seed_Card' should start with a standard prefix (ACT_, SUB_, DS_, VAL_, SCH_, IVK_, OCH_) [CUSTOM002]
+      at ToeicBuddy.ToeicBuddy.Seed_Card
+
+  ℹ Microflow 'Seed_Cards' has no documentation. [QUAL002]
+      at ToeicBuddy.ToeicBuddy.Seed_Cards
+      → Add a description explaining what this microflow does and when it should be called.
+
+  ⚠ 'Seed_Cards' has 15 top-level activities, no annotation and no documentation. [UX002]
+      at ToeicBuddy.ToeicBuddy.Seed_Cards
+      → Add `@annotation '...'` before the first activity saying what the flow does and for whom, or a /** ... */ documentation block before CREATE MICROFLOW.
+
+  ℹ Microflow 'Seed_Cards' should start with a standard prefix (ACT_, SUB_, DS_, VAL_, SCH_, IVK_, OCH_) [CUSTOM002]
+      at ToeicBuddy.ToeicBuddy.Seed_Cards
+
+  ℹ Microflow 'Seed_Finance' should start with a standard prefix (ACT_, SUB_, DS_, VAL_, SCH_, IVK_, OCH_) [CUSTOM002]
+      at ToeicBuddy.ToeicBuddy.Seed_Finance
+
+  ℹ Microflow 'Seed_Finance' has no documentation. [QUAL002]
+      at ToeicBuddy.ToeicBuddy.Seed_Finance
+      → Add a description explaining what this microflow does and when it should be called.
+
+  ℹ Microflow 'Seed_Part5' should start with a standard prefix (ACT_, SUB_, DS_, VAL_, SCH_, IVK_, OCH_) [CUSTOM002]
+      at ToeicBuddy.ToeicBuddy.Seed_Part5
+
+  ℹ Microflow 'Seed_Part5' has no documentation. [QUAL002]
+      at ToeicBuddy.ToeicBuddy.Seed_Part5
+      → Add a description explaining what this microflow does and when it should be called.
+
+  ⚠ 'Seed_Part5' has 10 top-level activities, no annotation and no documentation. [UX002]
+      at ToeicBuddy.ToeicBuddy.Seed_Part5
+      → Add `@annotation '...'` before the first activity saying what the flow does and for whom, or a /** ... */ documentation block before CREATE MICROFLOW.
+
+  ℹ Microflow 'Seed_Q' should start with a standard prefix (ACT_, SUB_, DS_, VAL_, SCH_, IVK_, OCH_) [CUSTOM002]
+      at ToeicBuddy.ToeicBuddy.Seed_Q
+
+  ℹ Microflow 'Seed_Scm' has no documentation. [QUAL002]
+      at ToeicBuddy.ToeicBuddy.Seed_Scm
+      → Add a description explaining what this microflow does and when it should be called.
+
+  ℹ Microflow 'Seed_Scm' should start with a standard prefix (ACT_, SUB_, DS_, VAL_, SCH_, IVK_, OCH_) [CUSTOM002]
+      at ToeicBuddy.ToeicBuddy.Seed_Scm
+
+  ℹ Page 'Sets' has no documentation. [QUAL002]
+      at ToeicBuddy.ToeicBuddy.Sets
+      → Describe what the page shows and who reaches it.
+
+  ℹ Page 'Sets' does not end with a recognized suffix (_NewEdit, _View, _Overview, _Select, _Details, _Dashboard) [CONV003]
+      at ToeicBuddy.ToeicBuddy.Sets
+      → Rename the page to include a suffix indicating its purpose, e.g., 'Sets_Overview'
+
+  ℹ Attribute 'Stat.Answered' has default value '0'. Use a BCR_ microflow to set defaults instead. [CONV002]
+      at ToeicBuddy.ToeicBuddy.Stat
+      → Remove the default value and set it in a Before Create (BCR_) microflow for 'Stat'
+
+  ℹ Attribute 'Stat.Correct' has default value '0'. Use a BCR_ microflow to set defaults instead. [CONV002]
+      at ToeicBuddy.ToeicBuddy.Stat
+      → Remove the default value and set it in a Before Create (BCR_) microflow for 'Stat'
+
+  ℹ Page 'Team' has no documentation. [QUAL002]
+      at ToeicBuddy.ToeicBuddy.Team
+      → Describe what the page shows and who reaches it.
+
+  ℹ Page 'Team' does not end with a recognized suffix (_NewEdit, _View, _Overview, _Select, _Details, _Dashboard) [CONV003]
+      at ToeicBuddy.ToeicBuddy.Team
+      → Rename the page to include a suffix indicating its purpose, e.g., 'Team_Overview'
+
+  ℹ Snippet 'UserBar' does not start with SNIPPET_ prefix [CONV005]
+      at ToeicBuddy.ToeicBuddy.UserBar
+      → Rename to 'SNIPPET_UserBar'
+
+  ℹ Snippet 'UserBar' has no documentation. [QUAL002]
+      at ToeicBuddy.ToeicBuddy.UserBar
+      → Describe what the snippet renders and what context it expects, since it is reused across pages.
+
+  ℹ Microflow 'Util_Band' should start with a standard prefix (ACT_, SUB_, DS_, VAL_, SCH_, IVK_, OCH_) [CUSTOM002]
+      at ToeicBuddy.ToeicBuddy.Util_Band
+
+  ⚠ 'Util_Band' has 4 decision(s) with no caption of their own (empty, or still the condition expression). [UX002]
+      at ToeicBuddy.ToeicBuddy.Util_Band
+      → Give each decision a caption written as the question it answers: `@caption 'Already approved?'` before the IF in MDL, or the Caption field in Studio Pro.
+
+  ℹ Microflow 'Util_BuildStat' should start with a standard prefix (ACT_, SUB_, DS_, VAL_, SCH_, IVK_, OCH_) [CUSTOM002]
+      at ToeicBuddy.ToeicBuddy.Util_BuildStat
+
+  ⚠ 'Util_BuildStat' has 3 decision(s) with no caption of their own (empty, or still the condition expression). [UX002]
+      at ToeicBuddy.ToeicBuddy.Util_BuildStat
+      → Give each decision a caption written as the question it answers: `@caption 'Already approved?'` before the IF in MDL, or the Caption field in Studio Pro.
+
+  ℹ Microflow 'Util_DemoAttempt' should start with a standard prefix (ACT_, SUB_, DS_, VAL_, SCH_, IVK_, OCH_) [CUSTOM002]
+      at ToeicBuddy.ToeicBuddy.Util_DemoAttempt
+
+  ⚠ 'Util_DemoAttempt' has 2 decision(s) with no caption of their own (empty, or still the condition expression). [UX002]
+      at ToeicBuddy.ToeicBuddy.Util_DemoAttempt
+      → Give each decision a caption written as the question it answers: `@caption 'Already approved?'` before the IF in MDL, or the Caption field in Studio Pro.
+
+  ℹ Microflow 'Util_MakeStep' should start with a standard prefix (ACT_, SUB_, DS_, VAL_, SCH_, IVK_, OCH_) [CUSTOM002]
+      at ToeicBuddy.ToeicBuddy.Util_MakeStep
+
+  ℹ Entity 'Who' has no documentation. [QUAL002]
+      at ToeicBuddy.ToeicBuddy.Who
+      → Add a description explaining the entity's purpose and what data it represents.
+
+124 issues: 0 errors, 43 warnings, 81 info

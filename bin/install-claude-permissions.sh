@@ -206,7 +206,21 @@ DENY=(
   "Bash(*file-bugs.py*--all*)"
   "Bash(*file-bugs.sh*--import*)"
   "Bash(*file-bugs.py*--import*)"
+  "Bash(*security-check.sh*--approve*)"
+  "Bash(*security-check.sh*--accept*)"
+  "Bash(*security-check.sh*--accept-file*)"
+  "Edit(/docs/security/access-approved.txt)"
+  "Edit(/docs/security/approvals.tsv)"
+  "Edit(/.claude/loop/security-accepted.tsv)"
 )
+# `security-check.sh --approve` / `--accept` / `--accept-file` record that a role may see or do
+# something: a person's decision, like `file-bugs.sh --file`. An agent runs the plain check; it never
+# approves its own change. The three `Edit(...)` entries stop the Edit/Write tools from changing the
+# approved copy, the checksum log and the accepted list directly. There is no earlier Edit/Write deny
+# in this script; the form follows its `Edit(/**)` allow (`/` anchors at the project root). A Bash
+# redirect or `cp` cannot be denied without also denying `cat`, so a hand-copied approval is caught
+# by the checksum security-check.sh verifies on every run, and by review of the files in git.
+# This is a guard rail, not a lock.
 # `file-bugs.sh --auto` is deliberately NOT denied, and needs no rule of its own: `bin/*.sh:*`
 # above already allows it. It posts only in a project whose PROJECT.md has the person's line
 # `Bug filing: auto`, only rows that pass the redaction scan, and never without a deny list —

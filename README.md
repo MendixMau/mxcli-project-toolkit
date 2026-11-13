@@ -742,6 +742,12 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Changing anything a published contract exposes — an entity, attribute, microflow or service behind a published OData, REST or business event service — in an app that another app consumes: before exec and before merge, run bin/contract-check.sh check (and --impact <app>:<Module.Element>) over the system registry; mxcli impact/refs do not see OData exposure | `bin/contract-check.sh` |
 | Adding a constant, installing a marketplace module, deploying to a new environment, or needing a Mendix PAT — where an encryption key, API credential, endpoint or access token gets its value, why a free node has only one channel, and why a token missing from the files you grepped is not missing | `skills/learned-constants-and-secrets.md` |
 
+**Build · Security**
+
+| Task | Skill to load |
+|---|---|
+| Before hand-over, before calling a module security-ready, or after any change to roles, access rules or project security — security lint findings and the who-can-see-what snapshot, each compared with what a person accepted; exits 3 on a first run, never 0; a person runs --approve/--accept | `project-bin/security-check.sh` |
+
 **Verify — does it work**
 
 | Task | Skill to load |

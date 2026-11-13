@@ -1,0 +1,9 @@
+WARNING: This is a vibe-coded PoC, alpha quality, use with caution.
+| Name          | Module Roles | Manage All | Check Security |
+|---------------|--------------|------------|----------------|
+| Administrator | 5            | Yes        | Yes            |
+| User          | 5            | No         | Yes            |
+| Learner       | 2            | No         | Yes            |
+| Trainer       | 3            | No         | Yes            |
+
+(4 user roles)

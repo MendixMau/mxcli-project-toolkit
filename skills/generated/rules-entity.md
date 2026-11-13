@@ -208,6 +208,8 @@ Field run (mxcli v0.26.0): eight failed gates, grants written for the page's own
 6. Does the built model match the module brief's security table — and if not deliberately,
    is the deviation written down?
 
+Before hand-over, `bin/security-check.sh` flags changed access and new security findings; a person approves them.
+
 ## On `create`/`delete` and lint rule CONV006
 
 CONV006 discourages granting create/delete in access rules. It targets **persistent**

@@ -85,6 +85,12 @@ EXPECTED_DENY=(
   "Bash(*file-bugs.py*--all*)"
   "Bash(*file-bugs.sh*--import*)"
   "Bash(*file-bugs.py*--import*)"
+  "Bash(*security-check.sh*--approve*)"
+  "Bash(*security-check.sh*--accept*)"
+  "Bash(*security-check.sh*--accept-file*)"
+  "Edit(/docs/security/access-approved.txt)"
+  "Edit(/docs/security/approvals.tsv)"
+  "Edit(/.claude/loop/security-accepted.tsv)"
 )
 SESSION_HOOK="bash bin/session-check.sh || true"
 

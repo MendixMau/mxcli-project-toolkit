@@ -107,6 +107,7 @@ commands that run at every step: `docs/pipeline-walks.html`.
 | **Greenfield** | Just an idea or a plan | P (light), 0, 5, 6 |
 | **Change an existing app** | A live `.mpr` you add to or alter | P, 0 to 6 per change |
 | **À la carte assurance** | Audit or a test net only | none |
+| **Upgrade the Mendix version** | An app must move to a newer Mendix version (9, 10, 11) | separate toolkit, see [docs/upgrade-toolkit.md](docs/upgrade-toolkit.md) |
 
 The agent proposes the mode at kickoff; you confirm it.
 

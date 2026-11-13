@@ -2453,18 +2453,17 @@ check_build_ready() {
     echo "  ✗ agent(s) still have unfilled placeholders: ${remaining}— complete them (agent-roles.md)"
     fails=$((fails+1))
   else
-    # A placeholder whose description spans lines (`{{NAME — prose…` on one line, `…}}` on a
-    # later one — mdl-agent's PROJECT_LOCAL_SOURCES_OF_TRUTH is four lines long) never matched
-    # the per-line grep above, so a stub with it untouched read "no unfilled placeholders"
-    # (#509). WARN, not FAIL: every project scaffolded before this check would flip to FAIL on
-    # a line nobody was ever told about; whether it should block is a maintainer call.
+    # Decision (maintainer, 2026-11-13, supersedes the #509 warning): an unfilled multi-line
+    # placeholder FAILs build-ready, like any other unfilled slot. The joined-lines count above
+    # already catches it; this perl scan is kept only for the one shape that count cannot match,
+    # a slot whose own text contains a single `{` (the count's body is `[^{}]*`).
     local multi=""
     multi=$(sed 's/{{DOUBLE_BRACE}}//g' "$agents_dir"/*.md 2>/dev/null \
             | perl -0777 -ne 'while (/\{\{([A-Z][A-Z0-9_]+)[^}\n]*\n.*?\}\}/sg) { print "{{$1…}}\n" }' 2>/dev/null \
             | sort -u | tr '\n' ' ')
     if [ -n "$multi" ]; then
-      echo "  ✓ all 6 agents present, no single-line placeholders"
-      echo "  ⚠ multi-line placeholder(s) still unfilled: ${multi}— complete them (agent-roles.md); WARN only, not counted as a FAIL"
+      echo "  ✗ agent(s) still have unfilled multi-line placeholders: ${multi}— complete them (agent-roles.md)"
+      fails=$((fails+1))
     else
       echo "  ✓ all 6 agents present, no unfilled placeholders"
     fi

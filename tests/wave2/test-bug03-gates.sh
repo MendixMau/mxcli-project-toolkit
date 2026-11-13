@@ -363,6 +363,7 @@ echo "== T18: build-ready names a multi-line {{PLACEHOLDER}} left in an agent st
 # The real templates: mdl-agent.md carries PROJECT_LOCAL_SOURCES_OF_TRUTH over four lines. The
 # per-line grep never saw it, so an untouched stub read "no unfilled placeholders". Counted as a
 # FAIL like any other unfilled slot since the joined-lines count (was a WARN while only the perl scan saw it).
+# Decision: an unfilled multi-line placeholder fails build-ready (maintainer, 2026-11-13; supersedes the #509 warning).
 TK="$(cd "$(dirname "$GATE")/.." && pwd)"
 P="$(mkproj t18)"; mkdir -p "$P/.claude/agents"
 for a in ba-agent architect-agent mdl-agent gate-agent test-agent review-agent; do

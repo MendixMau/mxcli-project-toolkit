@@ -1,9 +1,10 @@
-# Demo recording polish — 60 fps capture, a visible cursor, eased scrolling, zoom afterwards
+# Demo recording polish — 60 fps capture, a visible cursor, eased scrolling, a still full-page camera
 
 **Applies to:** any project that records a demo film with Playwright (see `record-demo-video.md`)
 **Purpose:** making a recorded walkthrough look produced rather than captured: smooth motion, a
-pointer the viewer can follow, scrolling that glides, and a camera that pushes in where a page is
-dense. The style is the one Screen Studio made familiar.
+pointer the viewer can follow, scrolling that glides, and a camera that stays still on the full
+page. A highlight points at what the narration names; a zoom is the rare exception for text that
+is unreadable at full page.
 **Helpers:** `project-tests/e2e/demo-polish.js` (installed as `tests/e2e/demo-polish.js`), with
 its selftest `demo-polish.selftest.js`. No dependencies beyond Playwright and ffmpeg.
 **Source:** field run on a three-app Mendix demo, 2026-10-15. One read-only scene was recorded
@@ -31,8 +32,9 @@ usual scripts:
 - scroll with `scrollIntoView({behavior:'smooth'})`, which has the browser's duration and curve
   and cannot be tuned, or with raw `mouse.wheel` jumps, which teleport;
 - show no pointer, so a click is a page that changes for no visible reason;
-- have no way to zoom. A 1920 px dashboard shown at 1920 px is unreadable on a laptop screen,
-  and even more so on a phone.
+- have no way to zoom after the take. A few 1920 px pages carry text that is unreadable on a
+  laptop screen, and more so on a phone. The answer is a rare, small zoom, not a camera that
+  moves all the time (see Camera rules).
 
 ## The method
 
@@ -58,7 +60,7 @@ await rec.stop();                          // frames/*.jpg + frames.json + event
 - **The screencast ignores `deviceScaleFactor`.** Measured: with `deviceScaleFactor: 2` alone,
   the frames are 1920x1080, in both the headless shell and new headless. Only the launch flag
   `--force-device-scale-factor=2` (`polish.launchArgs(2)`) makes it send 3840x2160 frames.
-  Without the flag, a 1.75x zoom upscales a 1097 px crop to 1920 px and the text goes soft.
+  Without the flag, a 1.4x zoom upscales a 1371 px crop to 1920 px and the text goes soft.
   `frames.json` records `meta.frameSize`. Check it.
 - The capture starts when you call `startCapture`, so the take starts on the app. The clapper
   board in `record-demo-video.md` rule 1 is only needed for `recordVideo`.
@@ -74,13 +76,13 @@ await rec.stop();                          // frames/*.jpg + frames.json + event
 | `moveTo(page, x, y)` | drawn arrow cursor glides on a slightly bowed cubic Bezier; the real pointer lands at the end, so hover states are real | 500–900 ms per move by distance; arrow 30 px tall at 1080p |
 | `click(page, loc, {zoom, park})` | scroll if needed → glide → pause → ripple → real `mouse.click` → park | pause 150–250 ms; ripple: a dark 4 px ring with a white halo, 0→60 px over 450 ms, opacity held near 0.9 to half-way, then 0. The zoom region is measured **after** the click, once the target is visible. Then the cursor parks (`park: false` to stay) |
 | `park(page, {near})` | rests the cursor beside `near` (the next target), or in the nearest side gutter, 32 px in from the edge | 800 ms glide, 450 ms after a click |
-| `focus(page, loc)` | a camera note without a click: "this region is worth a zoom" | — |
+| `focus(page, loc)` | a camera note without a click: "this region may earn a zoom" (the planner decides; most become a highlight only) | — |
 | `bottomPad(page, px)` | tells the scroller a fixed caption band covers the bottom px, so "center" means the visible area | — |
 
 The cursor is a DOM overlay at the top z-index with `pointer-events:none`. It is captured at 2x,
-like everything else, so it stays sharp under a 1.75x zoom.
+like everything else, so it stays sharp under a 1.4x zoom.
 
-### 3. Zoom afterwards, never in the page
+### 3. Camera afterwards, never in the page
 
 The recorder does not zoom. It logs `{t, kind, bbox}` for every click, focus and scroll to
 `events.json`. `render()` plans the camera from that log and draws every output frame on a
@@ -109,26 +111,46 @@ Why afterwards:
 
 ### Camera rules (enforced by the planner, checked by the selftest)
 
+The owner's feedback on our films was a camera "continuously zooming ... very hard to follow".
+The rule is therefore: **every shot shows the full page and the camera stays still.** Attention
+is steered by a highlight, not by the camera.
+
+1. **Highlight first.** What the narration names gets the existing outline or spotlight for
+   **2-4 s**, on the full page. That is the default for every beat, including every note the
+   planner declines to zoom.
+2. **Zoom only where text is unreadable at full page** (a dense table's cells, a small status
+   chip, a KPI footnote), never to add drama, never on a click or a navigation.
+3. **At most 2 zooms per take (film), at most 1.4x.** Notes beyond the budget are not zoomed.
+4. **A zoom never opens a shot** (the first 1.5 s of a take are the full page), and **every take
+   ends at 1x**.
+5. **Prefer a short crossfade to a static crop over a glide or push-in.** The renderer here can
+   only push in (it has no crossfade yet), so the push-in is kept short (500 ms in, 600 ms out)
+   and, by rules 3 and 4, rare.
+
 | Rule | Value |
 |---|---|
-| Zoom | fit the **element itself** with 8% padding per side, **capped at 1.75x**; a region that only earns < 1.25x gets **no** zoom (a full-width grid is not "dense", it is wide) |
-| Push-in | starts 400 ms before the click, lasts 700 ms, easeInOutCubic |
+| Zoom | fit the **element itself** with 8% padding per side, **capped at 1.4x** (`KNOBS.zoomMax`); a region that only earns < 1.15x (`zoomMin`) gets **no** zoom and stays a highlight (a full-width grid is not "dense", it is wide) |
+| Budget | `KNOBS.maxZooms` = **2 per take**, first notes in time order win; a skipped note does not use budget |
+| Never opens a shot | the push-in starts no earlier than `KNOBS.openMs` = 1.5 s into the take |
+| Push-in | starts 400 ms before the note, lasts 500 ms, easeInOutCubic |
 | Hold | at least 2 s after the last note, or until the narration line ends (`say` → `holdUntil`) |
-| Zoom-out | 800 ms |
-| One zoom per shot | notes less than 2.5 s apart merge into one shot framing all of them |
+| Zoom-out | 600 ms |
+| One zoom per shot | notes less than 2.5 s apart merge into one shot framing all of them (counts as one zoom) |
 | No cursor-follow | the camera holds still while the cursor moves inside the shot |
 | Boundaries | the camera must be back at 1x **before** the next scroll or unzoomed cursor move starts; a shot that cannot hold 800 ms before then is dropped, not squeezed |
 | Centred or nothing | the target's centre must land within 0.5 ± 0.2 of the zoomed frame (`shots.json` records `u`, `v`). Near a frame edge the camera clamps and the target slides off-centre, and a lower zoom only widens the rect and makes that worse, so an edge target gets no zoom |
-| Cut targets | a target partly outside the frame is clipped to what shows and never zoomed past 1.25x |
+| Cut targets | a target partly outside the frame is clipped to what shows and never zoomed past 1.15x |
 | Narration holds | a line playing when the shot starts, or starting during it, keeps the shot until the line ends (bounded by the next scroll or move) |
 | Ends zoomed out | every take ends at 1x; a note too close to the end is dropped |
 
-Dropped notes are listed in `shots.json` → `skipped` with the reason. Read them: a note that
-never zoomed is a decision the planner made for you.
+Notes without a zoom are listed in `shots.json` → `skipped` with the reason and
+`highlightOnly: true`: `zoom budget`, `zoom opens the shot`, `region too large to earn a zoom`,
+`target at the frame edge`, and the timing reasons. Read them: each one is a beat that needs its
+highlight in the recording script, because the camera will not carry it.
 
-`zoom: true` on a click frames a region of at least 960x540 around the click (~1.7x), not the
-bare button: a 1.75x push-in on a 140 px button is a close-up of a button. Pass a Locator to
-frame a specific card or grid instead: the grid, not the pane around it, or a short grid
+`zoom: true` on a click frames a region of at least 1280x720 around the click (~1.3x, never past
+1.4x), not the bare button: a push-in on a 140 px button is a close-up of a button. Pass a Locator
+to frame a specific card or grid instead: the grid, not the pane around it, or a short grid
 leaves the bottom of the zoom empty.
 
 ## Cursor and outline
@@ -141,10 +163,16 @@ leaves the bottom of the zoom empty.
 
 ## Where to zoom
 
-- Zoom where the viewer must **read** something small: a KPI row, a filter on a grid, a status
-  chip, a table's first rows. Don't zoom on navigation or on a page's first appearance.
-- Aim for one or two zooms a minute. A camera that zooms on every click feels nervous.
+Highlight first; zoom last.
+
+- **Default is no zoom.** Show the full page, keep the camera still, and point at what the line
+  names with the outline or spotlight for 2-4 s. Most dashboards read fine at full page.
+- Zoom only where the viewer must **read** something that is unreadable at full page: a table's
+  small cells, a status chip, a footnote. At most 2 per take, max 1.4x.
+- Never zoom on navigation, on a page's first appearance, or to open a shot. A take starts and
+  ends at 1x.
 - Never zoom over a page that is about to change. Click → navigate is a 1x moment.
+- Do not zoom on every click. A camera that zooms often feels nervous and is hard to follow.
 
 ## Verify — the numbers and the stills
 
@@ -156,7 +184,7 @@ for t in 3 9 15 21; do ffmpeg -y -loglevel error -ss $t -i take.mp4 -frames:v 1 
 ```
 
 Look at five stills: mid-scroll, cursor plus ripple, each zoomed hold, the cursor at rest, and the last frame
-(must be at 1x). Things to look for: a zoom framing the wrong area (the region moved after the
+(must be at 1x). Things to look for: more than 2 zooms or one past 1.4x, a zoom in the first 1.5 s, a zoom framing the wrong area (the region moved after the
 note), a zoomed target off-centre (`u`/`v` in `shots.json`), a cursor resting on content or a tooltip, the caption band doubled (`keepBottom` missing), soft text
 (`frameSize` is 1920 wide, so the launch flag is missing).
 
@@ -186,8 +214,8 @@ Read it honestly:
 - **Zooms show neighbours cut at the frame edge.** The target is whole and centred, but slivers
   of the cards beside it are cut by the frame. That is what a zoom is; it is not a framing error.
 - **Edge cards get no zoom.** In this app the facts card and the footprint card sit against a
-  frame edge. A 1.75x zoom put the facts card off-centre in the first round, so both became
-  point-at beats with an outline.
+  frame edge. A zoom put the facts card off-centre in the first round, so both became
+  point-at beats with an outline. That is now the model for every beat (highlight first).
 - **The ripple is deliberately neutral.** An orange ripple vanished against an orange highlight
   outline the recorder already drew. Keep the ripple's colour away from any highlight colour.
 - **Re-framing really is a re-render.** A planner bug (a narration hold logged 1 s before the
@@ -202,11 +230,11 @@ Read it honestly:
 | `toDataURL` "Tainted canvases may not be exported" | compositor page loads frames over file:// | serve them over `page.route` (the helper does) |
 | The zoom shows the page after it scrolled away | camera hold crossed a scroll | the planner treats scroll starts as boundaries; log scrolls through `scrollTo`, not raw `mouse.wheel` |
 | Caption band appears twice or zoomed | bottom band zoomed with the page | `render(..., {keepBottom: <band px>})` |
-| A planned zoom never happened | region too wide (< 1.25x) or no room to hold before the next move | read `shots.json` → `skipped` |
+| A planned zoom never happened | region too wide (< 1.15x), the budget of 2 was used, it would open the shot, or no room to hold before the next move | read `shots.json` → `skipped`; that beat is a highlight |
 | Stutter despite "60 fps" in ffprobe | the container is 60/1, the source painted less often | `stats` gap p90; lower JPEG quality or the DSF if p90 is far above 16.7 ms |
 | `scrollTo` does nothing | the element's scroll container is not `window` and has no overflow | the helper walks up to the first scrollable ancestor; check the page really scrolls |
 | Ripple invisible in the take | ripple colour equals a highlight outline on the same element, or opacity faded out within the first frames | `KNOBS.rippleColor` contrasting with every highlight; keep opacity up to mid-animation |
 | `boundingBox` timeout on a zoom Locator | the region (a tab pane, a dialog) is hidden until the click | the helper measures the region after the click and waits up to 5 s for it to be visible |
-| The first zoom is cut short | a zoom note at t≈0, or a scroll right after it | give the scene ~1.5 s at 1x first and about 3.5 s after the note before the next scroll |
+| The first zoom is cut short or skipped (`zoom opens the shot`) | a zoom note in the first ~1.9 s, or a scroll right after it | the first beat is a highlight on the full page; keep a zoom note about 3.5 s clear of the next scroll |
 | A zoom slid off-centre against a frame edge | the camera clamps at the edge; lowering the zoom widens the rect and makes it worse | the planner skips targets outside the centre band (`centreBand`); make the beat a point-at, or pick an element away from the edge |
 | A zoom held 2 s although the line runs on | the narration hold was logged before the push-in started | fixed: any line playing at the shot's start holds it; re-render the take |

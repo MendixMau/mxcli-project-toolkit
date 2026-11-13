@@ -63,7 +63,28 @@
 #
 # Exit codes: 0 = required stack is up · 1 = not up and could not fix · 2 = usage/env error ·
 #             4 = instrument blocked: the port `mxcli run --local` needs is held by another process
-#                 (named with its pid, never stopped) — record it as blocked, not as a test failure
+#                 (named with its pid, never stopped), OR the local lane's JDK / selected Postgres is
+#                 missing (named; no silent fall-back to a container) — record it as blocked, not as a
+#                 test failure
+#
+# LOCAL LANE, COLD START (mxcli v0.28 `run --local`). Lane rules are unchanged: container when a runtime
+# answers, else local; MXTK_APP_LANE=local / --local force local. What the lane now does before and
+# while starting:
+#   1. DATABASE — RUN_LOCAL_DB in stack.conf, one of
+#        auto        (default) Postgres answers on RUN_LOCAL_DB_HOST (default 127.0.0.1:5432): pass no
+#                    database option, exactly as before. Nothing answers there: --db-type hsqldb, the
+#                    runtime's built-in file database (no server; data under <project>/deployment/data/
+#                    database/hsqldb/), so a project that never had a local database still starts.
+#        postgresql  never switch: no option; the Postgres must answer, else exit 4 naming it.
+#        ensure      add --ensure-db: mxcli creates the local Postgres role + database if missing.
+#        hsqldb      always --db-type hsqldb.
+#      RUN_LOCAL_DB_HOST, when set, is also passed as --db-host. The line "database: ..." says which ran.
+#   2. PROBE — the JDK the model needs (21 up to Mendix 11.13, 25 from 11.14; find_java / JAVA_HOME) and,
+#      when Postgres is the database, that it answers. Missing → exit 4 naming exactly what, before any
+#      build is started. Never an automatic switch to the container lane: that is a decision.
+#   3. SPLIT MODEL — a model stored as mprcontents/ is snapshotted first with snapshot-mpr.sh (the same
+#      rotating .mpr-snapshots/ exec.sh uses) and its unit count is compared after the start; a drop
+#      is reported with the restore commands. Not reproduced with v0.28 (see the lane block below).
 #
 # PORT HELD BEFORE RUN --LOCAL (#262, field run 2026-10-10). Studio Pro had started its own runtime on
 # the app/admin ports a run --local restart needed. mxcli failed with "Authentication failed" (the
@@ -106,6 +127,8 @@
 #
 #   APP_PORTS="8080 8081"                                # fallback scan list; ownership beats it
 #   RUN_LOCAL_SERVE_PORT=6644                            # local lane's mxbuild port (default: first free from 6543)
+#   RUN_LOCAL_DB=auto                                    # local lane database: auto | postgresql | ensure | hsqldb
+#   RUN_LOCAL_DB_HOST=127.0.0.1:5432                     # Postgres host:port to probe (and pass as --db-host when set)
 #   JAEGER_PORT=16686                                    # OTel collector UI (optional)
 #   MOCK_HEALTH_URL="http://localhost:3001/api/health"   # set to enable the mock rung
 #   MOCK_PORT=3001
@@ -810,20 +833,65 @@ if [ $APP_FOUND -ne 0 ]; then
     if [ -z "$_LS" ]; then
       for _p in $(seq 6543 6599); do mxtk_port_holder "$_p" >/dev/null 2>&1 || { _LS=$_p; break; }; done
     fi
+    # --- what the local lane needs, probed BEFORE anything is built (exit 4, never a silent container) ---
+    _blocked() { bad "INSTRUMENT BLOCKED — local lane: $1"; shift; for _l in "$@"; do echo "  $_l"; done
+      echo "  Not falling back to a container on its own — that is your decision (MXTK_APP_LANE=container)."
+      echo "  Record the run as INSTRUMENT BLOCKED, not as a failure."; exit 4; }
+    _JH="$(find_java 2>/dev/null || true)"; _JW=21; command -v _mxtk_java_want >/dev/null 2>&1 && _JW="$(_mxtk_java_want)"; _JM=""
+    if [ -n "$_JH" ] && [ -x "$_JH/bin/java" ]; then
+      _JM="$("$_JH/bin/java" -version 2>&1 | sed -n 's/.* version "\([0-9][0-9]*\)[".].*/\1/p' | head -1)"
+    fi
+    [ -n "$_JM" ] || _blocked "no JDK found (this model needs JDK $_JW)." \
+      "→ Install JDK $_JW and put it on PATH, or set JAVA_HOME (toolkit.env), then re-run."
+    [ "$_JM" -ge "$_JW" ] 2>/dev/null || _blocked "JDK $_JM found, this model needs JDK $_JW ($_JH)." \
+      "→ Install JDK $_JW or point JAVA_HOME at it (toolkit.env), then re-run."
+    _DBM="${RUN_LOCAL_DB:-auto}"; _DBH="${RUN_LOCAL_DB_HOST:-127.0.0.1:5432}"; _DBARGS=""
+    case "$_DBM" in
+      auto|postgresql|ensure|hsqldb) ;;
+      *) echo "RUN_LOCAL_DB takes auto, postgresql, ensure or hsqldb (stack.conf)" >&2; exit 2 ;;
+    esac
+    _pg_up() { local h="${_DBH%:*}" p="${_DBH##*:}" w=0 rc pid
+      h="${h#[}"; h="${h%]}"
+      ( exec 3<>"/dev/tcp/$h/$p" ) 2>/dev/null & pid=$!
+      while kill -0 "$pid" 2>/dev/null; do
+        [ "$w" -ge 3 ] && { kill "$pid" 2>/dev/null; return 1; }; sleep 1; w=$((w + 1))
+      done
+      wait "$pid"; }
+    _DBUSED=""
+    case "$_DBM" in
+      hsqldb)     _DBARGS="--db-type hsqldb"; _DBUSED="hsqldb (RUN_LOCAL_DB=hsqldb)" ;;
+      ensure)     _DBARGS="--ensure-db";      _DBUSED="postgresql, created if missing (RUN_LOCAL_DB=ensure)" ;;
+      postgresql) _pg_up || _blocked "RUN_LOCAL_DB=postgresql but nothing answers on $_DBH." \
+                    "→ Start Postgres, or RUN_LOCAL_DB=ensure to have mxcli provision it, or RUN_LOCAL_DB=hsqldb."
+                  _DBUSED="postgresql on $_DBH (RUN_LOCAL_DB=postgresql)" ;;
+      auto)       if _pg_up; then _DBUSED="postgresql on $_DBH (answers; the database must already exist, or RUN_LOCAL_DB=ensure)"
+                  else _DBARGS="--db-type hsqldb"; _DBUSED="hsqldb, the built-in file database (no Postgres answers on $_DBH; RUN_LOCAL_DB=postgresql to require one)"; fi ;;
+    esac
+    [ -z "${RUN_LOCAL_DB_HOST:-}" ] || case "$_DBARGS" in *hsqldb*) ;; *) _DBARGS="$_DBARGS --db-host $RUN_LOCAL_DB_HOST" ;; esac
+    # A split model is snapshotted first, with the script exec.sh uses (one mechanism, one rotation).
+    if [ "$_U0" -gt 0 ]; then
+      if [ -f "$(dirname "${BASH_SOURCE[0]}")/snapshot-mpr.sh" ]; then
+        bash "$(dirname "${BASH_SOURCE[0]}")/snapshot-mpr.sh" >/dev/null 2>&1 \
+          && ok "split model ($_U0 units) snapshotted to .mpr-snapshots/ before the start" \
+          || warn "snapshot-mpr.sh failed — starting WITHOUT a snapshot of the $_U0-unit split model"
+      else warn "no snapshot-mpr.sh beside this script — starting without a snapshot of the $_U0-unit split model"; fi
+    fi
     echo "→ App is down. Starting it without a container: mxcli run --local --watch --detach (:$_LA, admin :$_LM, build :${_LS:-6543})..."
     [ "$_DK" = 3 ] || echo "  (no container runtime answered; the local lane needs none)"
+    echo "  database: $_DBUSED"
     T0=$(date +%s)
-    "$MXCLI" run --local --watch --detach -p "$MPR" --app-port "$_LA" --admin-port "$_LM" ${_LS:+--serve-port "$_LS"} >"$LOCAL_LOG" 2>&1
+    # shellcheck disable=SC2086
+    "$MXCLI" run --local --watch --detach -p "$MPR" --app-port "$_LA" --admin-port "$_LM" ${_LS:+--serve-port "$_LS"} $_DBARGS >"$LOCAL_LOG" 2>&1
     LOCAL_RC=$?
     if [ $LOCAL_RC -ne 0 ]; then
       bad "mxcli run --local failed (rc=$LOCAL_RC) — see $LOCAL_LOG"; tail -20 "$LOCAL_LOG"
-      echo "  A missing database is the usual cause: it must exist before the first run (createdb, or --db-type hsqldb)."
+      case "$_DBARGS" in *hsqldb*) ;; *) echo "  A missing database is the usual cause: set RUN_LOCAL_DB=ensure (mxcli creates it) or RUN_LOCAL_DB=hsqldb in .claude/loop/stack.conf." ;; esac
       exit 1
     fi
     _U1=$(find "$MODEL_DIR/mprcontents" -name '*.mxunit' 2>/dev/null | wc -l | tr -d ' ')
     if [ "$_U0" -gt 0 ] && [ "$_U1" -lt "$_U0" ]; then
       warn "this mxcli consolidated the split model ($_U0 → $_U1 mprcontents units): a build artifact."
-      warn "  → never commit it; restore with: git checkout -- $(basename "$MPR") mprcontents/"
+      warn "  → never commit it; restore with: git checkout -- $(basename "$MPR") mprcontents/   (or the newest .mpr-snapshots/ copy)"
     fi
     if prove_app; then
       APP_FOUND=0; record_served

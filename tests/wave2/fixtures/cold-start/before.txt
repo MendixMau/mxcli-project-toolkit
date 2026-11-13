@@ -1,0 +1,20 @@
+── Test stack: Fixture ──────────────────────────────────
+  [32m✓[0m Studio Pro not running
+  [31m✗[0m App not serving on any of: 8531
+  [33m![0m Jaeger DOWN on :1 — Trace assertions unavailable (UI+Data still fine)
+  [32m✓[0m No mock API configured (set MOCK_HEALTH_URL in .claude/loop/stack.conf if this project has one)
+→ App is down. Starting it without a container: mxcli run --local --watch --detach (:8531, admin :8532, build :6577)...
+  [31m✗[0m mxcli run --local failed (rc=1) — see <scratch>/Fixture-run-local.log
+WARNING: This is a vibe-coded PoC, alpha quality, use with caution.
+failed: database not reachable at 127.0.0.1:5432: dial tcp 127.0.0.1:5432: connect: connection refused
+  last lines of .mxcli/run.log:
+    WARNING: This is a vibe-coded PoC, alpha quality, use with caution.
+    Warning: git branch "main" has no upstream. Studio Pro 11.13 fails to open a project in this state ("Unable to find 'system' property in 'system'"). Before opening it in Studio Pro, run: git push -u origin main
+    Configuration "Default" sets no constant values; using each constant's default.
+    Detecting project version...
+      Mendix version: 11.13.0
+    Ensuring MxBuild and runtime are available...
+      MxBuild 11.13.0 already cached at /root/.mxcli/mxbuild/11.13.0/modeler/mxbuild
+    Error: database not reachable at 127.0.0.1:5432: dial tcp 127.0.0.1:5432: connect: connection refused
+      Pass --ensure-db to provision it, or start Postgres and create the 'fixture' database (user "mendix").
+  A missing database is the usual cause: it must exist before the first run (createdb, or --db-type hsqldb).

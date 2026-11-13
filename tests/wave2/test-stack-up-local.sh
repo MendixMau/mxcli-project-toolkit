@@ -27,6 +27,15 @@
 # and keeps a themed Mendix index; --local with a stubbed mxcli passes --serve-port and is proven by
 # its handshake; --local with no mxcli names the missing mxcli.
 #
+# T20-T27 (local lane cold start): RUN_LOCAL_DB — auto picks hsqldb when no Postgres answers and passes no
+# database option when one does (today's behaviour); ensure / hsqldb / postgresql are explicit; a missing
+# JDK or an unreachable required Postgres exits 4 before mxcli is called; a split model is snapshotted
+# with snapshot-mpr.sh and a unit-count drop is reported with the restore. Captures under
+# fixtures/cold-start/: before.txt / after.txt are the real runs of this script on a copy of a real
+# split-model project with no database (mxcli v0.28.0, project name and paths scrubbed), the stub mxcli
+# fails with the very line before.txt captured unless a database option is given; java-version-21.txt is
+# a real `java -version` (proxy options removed). The stub JDK of every other case answers with it.
+#
 # usage: test-stack-up-local.sh /path/to/test-stack-up.sh
 # No pipefail: every assertion is `printf '%s' "$OUT" | grep -q …`, and grep -q exits on the first match —
 # with pipefail the printf's SIGPIPE on a long $OUT then failed a passing assertion (seen on T2).
@@ -53,6 +62,13 @@ bad() { FAIL=$((FAIL+1)); printf '  FAIL %s\n' "$1"; [ -n "${2:-}" ] && printf '
 mkdir -p "$WORK/stubs"
 for t in docker podman; do printf '#!/bin/sh\nexit 1\n' > "$WORK/stubs/$t"; chmod +x "$WORK/stubs/$t"; done
 export PATH="$WORK/stubs:$PATH"
+# A JDK that answers like the real one (fixtures/cold-start/java-version-21.txt), so the lane's JDK probe
+# does not depend on the machine running the fixture.
+COLD="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fixtures/cold-start"
+mkdir -p "$WORK/jdk21/bin"
+{ printf '#!/bin/sh\ncat >&2 <<'"'"'JV'"'"'\n'; cat "$COLD/java-version-21.txt"; printf 'JV\n'; } > "$WORK/jdk21/bin/java"
+chmod +x "$WORK/jdk21/bin/java"
+export JAVA_HOME="$WORK/jdk21"
 unset PROJECT_ROOT MPR_FILE STACK_ENV STACK_CONF SERVED_FILE
 
 # --- the fake app -------------------------------------------------------------------------
@@ -413,6 +429,84 @@ else
   [ "$RC" -ne 0 ] && printf '%s' "$OUT" | grep -q "no mxcli found" && ! printf '%s' "$OUT" | grep -q "Docker/Podman" \
     && ok "exit $RC, names the missing mxcli" || bad "wrong no-mxcli message (rc=$RC)" "$OUT"
 fi
+
+# --- cold-start lane (T20-T27) --------------------------------------------------------------------
+# A stub mxcli that behaves like v0.28 on a project with no database: it fails with the captured line
+# unless a database option (--db-type hsqldb / --ensure-db) is given. $2 = extra behaviour: collapse.
+mkcold() { # name  -> project with the cold-start stub; echoes root
+  local P; P="$(mkproj "$1" root)"
+  cat > "$P/mxcli" <<EOF3
+#!/usr/bin/env bash
+printf '%s\n' "\$*" > "$P/mxcli.args"
+case " \$* " in *" --db-type hsqldb "*|*" --ensure-db "*) ;; *) grep '^failed:' "$COLD/before.txt" >&2; exit 1 ;; esac
+[ -f "$P/collapse" ] && rm -f "$P/mprcontents/"*.mxunit
+mpr=""; while [ \$# -gt 0 ]; do [ "\$1" = -p ] && { mpr="\$2"; shift; }; shift; done
+d="\$(cd "\$(dirname "\$mpr")" && pwd)"; mkdir -p "\$d/.mxcli"
+sed -e 's/^  "pid": [0-9]*/  "pid": $WATCH_PID/' -e 's/^  "appPort": [0-9]*/  "appPort": $APP/' \\
+    -e 's/^  "adminPass": "[^"]*"/  "adminPass": "$ADMIN_MARK"/' "$GOLDEN" > "\$d/.mxcli/run-local.json"
+EOF3
+  chmod +x "$P/mxcli"; echo "$P"
+}
+CLOSED=1   # a TCP port nothing listens on (port 1, as stack.conf above already assumes for APP_PORTS)
+runl() { (cd "$1" && LOGDIR="$WORK" bash bin/test-stack-up.sh --local 2>&1); }
+
+echo "== T20: no database yet, no Postgres -> auto starts on hsqldb and says so =="
+P="$(mkcold t20)"; printf 'RUN_LOCAL_DB_HOST="127.0.0.1:%s"\n' "$CLOSED" >> "$P/.claude/loop/stack.conf"
+OUT="$(runl "$P")"; RC=$?
+case "$(cat "$P/mxcli.args" 2>/dev/null)" in *"--db-type hsqldb"*) ok "mxcli given --db-type hsqldb" ;; *) bad "no hsqldb option: $(cat "$P/mxcli.args" 2>&1)" "$OUT" ;; esac
+printf '%s' "$OUT" | grep -q "database: hsqldb" && ok "output names the database used" || bad "database not named" "$OUT"
+[ "$RC" -eq 0 ] && ok "exit 0" || bad "rc=$RC" "$OUT"
+
+echo "== T21: Postgres answers -> no database option, exactly today's call =="
+P="$(mkcold t21)"; printf 'RUN_LOCAL_DB_HOST="127.0.0.1:%s"\n' "$APP" >> "$P/.claude/loop/stack.conf"
+OUT="$(runl "$P")"; RC=$?
+ARGS="$(cat "$P/mxcli.args" 2>/dev/null)"
+case "$ARGS" in *hsqldb*|*ensure-db*) bad "a database option was added: $ARGS" ;; *"--db-host 127.0.0.1:$APP"*) ok "no db-type / ensure option (only the --db-host the conf set)" ;; *) bad "unexpected args: $ARGS" ;; esac
+printf '%s' "$OUT" | grep -q "database: postgresql" && ok "output names postgresql" || bad "postgresql not named" "$OUT"
+printf '%s' "$OUT" | grep -q "database not reachable" && ok "the stub's real captured failure line is reported (database missing, as before)" || bad "missing-db failure not shown (rc=$RC)" "$OUT"
+printf '%s' "$OUT" | grep -q "RUN_LOCAL_DB=ensure" && ok "the hint names RUN_LOCAL_DB" || bad "hint does not name RUN_LOCAL_DB" "$OUT"
+
+echo "== T22: RUN_LOCAL_DB=ensure -> --ensure-db =="
+P="$(mkcold t22)"; printf 'RUN_LOCAL_DB=ensure\nRUN_LOCAL_DB_HOST="127.0.0.1:%s"\n' "$CLOSED" >> "$P/.claude/loop/stack.conf"
+OUT="$(runl "$P")"; RC=$?
+case "$(cat "$P/mxcli.args" 2>/dev/null)" in *"--ensure-db"*"--db-host 127.0.0.1:$CLOSED"*) ok "mxcli given --ensure-db (and the configured --db-host)" ;; *) bad "args: $(cat "$P/mxcli.args" 2>&1)" "$OUT" ;; esac
+[ "$RC" -eq 0 ] && ok "exit 0 even though nothing answers yet (ensure provisions it)" || bad "rc=$RC" "$OUT"
+
+echo "== T23: RUN_LOCAL_DB=postgresql and nothing answers -> exit 4, mxcli never called =="
+P="$(mkcold t23)"; printf 'RUN_LOCAL_DB=postgresql\nRUN_LOCAL_DB_HOST="127.0.0.1:%s"\n' "$CLOSED" >> "$P/.claude/loop/stack.conf"
+OUT="$(runl "$P")"; RC=$?
+[ "$RC" -eq 4 ] && printf '%s' "$OUT" | grep -q "INSTRUMENT BLOCKED — local lane: RUN_LOCAL_DB=postgresql but nothing answers on 127.0.0.1:$CLOSED" \
+  && [ ! -f "$P/mxcli.args" ] && ok "exit 4, names the database, mxcli not started" || bad "rc=$RC" "$OUT"
+printf '%s' "$OUT" | grep -q "Not falling back to a container" && ok "says it does not fall back on its own" || bad "no fall-back statement" "$OUT"
+
+echo "== T24: JDK too old / not a JDK -> exit 4 naming it =="
+P="$(mkcold t24)"; mkdir -p "$WORK/jdk17/bin"; printf '#!/bin/sh\necho '"'"'openjdk version "17.0.9" 2023-10-17'"'"' >&2\n' > "$WORK/jdk17/bin/java"; chmod +x "$WORK/jdk17/bin/java"
+OUT="$( (export JAVA_HOME="$WORK/jdk17"; runl "$P") )"; RC=$?
+[ "$RC" -eq 4 ] && printf '%s' "$OUT" | grep -q "JDK 17 found, this model needs JDK 21" && [ ! -f "$P/mxcli.args" ] && ok "exit 4: JDK 17 found, JDK 21 needed; mxcli not started" || bad "rc=$RC" "$OUT"
+mkdir -p "$WORK/nojdk/bin"; printf '#!/bin/sh\nexit 0\n' > "$WORK/nojdk/bin/java"; chmod +x "$WORK/nojdk/bin/java"
+OUT="$( (export JAVA_HOME="$WORK/nojdk"; runl "$P") )"; RC=$?
+[ "$RC" -eq 4 ] && printf '%s' "$OUT" | grep -q "no JDK found (this model needs JDK 21)" && ok "exit 4: an unreadable java is 'no JDK found'" || bad "rc=$RC" "$OUT"
+
+echo "== T25: split model -> snapshot-mpr.sh runs before the start (both layouts) =="
+for L in root app; do
+  P="$(mkcold t25$L)"; [ "$L" = app ] && { P="$(mkproj t25app app)"; cp "$WORK/t20/mxcli" "$P/mxcli"; sed -i.bak "s#$WORK/t20#$P#g" "$P/mxcli" 2>/dev/null; rm -f "$P/mxcli.bak"; }
+  cp "$(dirname "$SRC")/snapshot-mpr.sh" "$P/bin/" 2>/dev/null || { echo "  [skip] no snapshot-mpr.sh beside the script"; break; }
+  printf 'RUN_LOCAL_DB=hsqldb\n' >> "$P/.claude/loop/stack.conf"
+  OUT="$(runl "$P")"; RC=$?
+  snaps="$(ls "$P/.mpr-snapshots" 2>/dev/null | grep -c '^[0-9]')"
+  [ "$snaps" -ge 1 ] && printf '%s' "$OUT" | grep -q "split model (1 units) snapshotted" && ok "$L: snapshot taken, announced" || bad "$L: no snapshot (rc=$RC, $snaps)" "$OUT"
+done
+
+echo "== T26: units gone after the start -> reported with the restore =="
+P="$(mkcold t26)"; printf 'RUN_LOCAL_DB=hsqldb\n' >> "$P/.claude/loop/stack.conf"; touch "$P/collapse"
+OUT="$(runl "$P")"
+printf '%s' "$OUT" | grep -q "consolidated the split model (1 → 0" && printf '%s' "$OUT" | grep -q "git checkout -- Fixture.mpr mprcontents/" \
+  && ok "drop reported with the restore command" || bad "collapse not reported" "$OUT"
+
+echo "== T27: bad RUN_LOCAL_DB -> usage error, exit 2 =="
+P="$(mkcold t27)"; printf 'RUN_LOCAL_DB=mysql\n' >> "$P/.claude/loop/stack.conf"
+OUT="$(runl "$P")"; RC=$?
+[ "$RC" -eq 2 ] && ok "exit 2" || bad "rc=$RC" "$OUT"
 
 echo
 echo "stack-up-local: $PASS passed, $FAIL failed"

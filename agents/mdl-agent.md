@@ -71,6 +71,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/mendix-service-seam.md` | Wiring a service seam between two Mendix apps |
 | `skills/microflow-loop-antipatterns.md` | Reading what loop bodies do (LOOP_TQ, deferred commit, nested loop, REST in loop, transaction control per item, scheduled-event reachability) from described MDL; the catalog holds top-level activities only and cannot see inside a loop |
 | `skills/rehost-app.md` | Rehosting an existing Mendix .mpr into a fresh app |
+| `skills/marketplace-catalogue.md` | Writing a fit-gap row, or about to hand-build an LLM call, AI agent, embeddings, SSO, Kafka/events, PDF, Excel import/export, encryption, chart or e-mail capability: which Marketplace component covers it and when Build is acceptable |
 | `skills/iterative-build-loop.md` | An exec.sh guard refused a write (not a permission prompt), or building a module with mxcli |
 | `skills/mdl-cookbook-microflows.md` | Writing MDL microflow scripts |
 | `skills/build/mdl/oneshot-mdl-method.md` | Writing a single MDL script that takes a project from nothing to a working vertical slice |

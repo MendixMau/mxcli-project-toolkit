@@ -22,6 +22,15 @@ and configure the marked constants — **after** running `mxcli init`, never bef
 | `txt002_non_iso_date_in_user_text.star` | TXT002 — user-visible text holding a non-ISO literal date (10/12/2026, 12 Oct 2026) or a day/month format pattern (dd MMM, MM/dd); blind to format strings inside expressions | no. ISO dates are a toolkit opinion, not a Mendix rule: if the display standard is not ISO, the user may opt out (`rules: TXT002: enabled: false`), see "Opting out of a rule" |
 | `ui001_widget_layout_traps.star` | UI001 — a list view inside a Data grid 2 column (its own "Load more" / "No items found" in every cell); an inline `width` on an Atlas input without `flex` (ignored) | `DATAGRID_TYPES`, `LISTVIEW_TYPES`, `INPUT_TYPES` (widget_type vocabulary: probe first) |
 | `sec014_external_role_write.star` | SEC014 — an external user role (partner, customer, portal) that can write every member, a state enumeration (`Status`, `State`, …), an audit attribute (`…At` / `…By`) or the association its own XPath uses for ownership: the client API lets it skip the approval microflow | **yes, required**, in `.claude/lint-config.yaml`: `rules: SEC014: options: external_roles: "Partner, Customer"` (one text, not a YAML list), or `"none"`. Until it is set the rule reports nothing and `bin/sync-project.sh` prints a NOTE on every sync; a list, a blank value or an unknown role is a `_rule` finding |
+| `mxtk_ai001_genai_without_commons.star` | MXTK-AI001 — an LLM / GenAI endpoint (a `/converse` or `chat/completions` URL, an OpenAI / Anthropic / Bedrock host or SDK, a GenAI-named constant, REST service or Java action) in the app's own modules while GenAI Commons is absent: the capability belongs on the Marketplace GenAI stack (`skills/marketplace-catalogue.md`). Reads constants, constant values, consumed REST services and operations, Java action names/docs and jar dependencies — never Java source or a URL typed into a microflow's REST call | no. A deliberate hand-built call is a fit-gap row with its reason, and switching the rule off is the user's decision ("Opting out of a rule") |
+
+`mxtk_ai001` first field run (2026-11-13, mxcli 0.31.0, scratch copies of four Mendix 11 apps,
+catalog FULL): 0 findings on all four as built (none uses an LLM); a positive control adding one
+constant holding a Bedrock `/converse` URL to a copy gave exactly 1 finding on that constant. The
+module graph (`module_dependencies()`) lists Marketplace modules while `modules()` does not; that
+is how the rule sees GenAI Commons. Unit cases: `tests/lint-rules/test-ai001-rule.sh` (8; the
+harness gained `modules`, `module_dependencies`, `constants`, `constant_values`, `rest_clients`,
+`rest_operations`, `java_actions` and `jar_dependencies` mocks).
 
 `err001` and `loop001` first field count (2026-10-12, mxcli 0.26.0, 21-module Mendix 11.12 model,
 876 microflows): ERR001 8 (3 true, 5 debatable — flows that return an error payload instead of

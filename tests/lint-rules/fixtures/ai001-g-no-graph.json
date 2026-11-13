@@ -1,0 +1,2 @@
+{"modules":[{"name":"Sales"}],
+ "constants":[{"name":"LlmEndpoint","qualified_name":"Sales.LlmEndpoint","module_name":"Sales","default_value":"https://api.openai.com/v1/chat/completions"}]}

@@ -252,6 +252,12 @@ empty-states, KPI tiles — that is **not** applied to the page you just reviewe
 page uses a plain equivalent, record a reuse gap citing the exact gallery section. A plain-text
 status column next to a built badge component passes every mechanical check and is still wrong.
 
+The same question for Marketplace components: open the module's Java actions and REST calls.
+Each one doing what a `marketplace-catalogue.md` entry covers (an LLM call, SSO, PDF, Excel,
+encryption) needs a fit-gap row that buys it or says why not. Lint rule MXTK-AI001 sees GenAI
+constants, REST services and Java action names, never the Java source or a URL typed into a
+REST call activity: read those.
+
 ### 4f. Cross-check against what was actually asked for (high value, optional)
 
 Spawn `ba-agent` in the background while you review, to report with intended-vs-built citations:

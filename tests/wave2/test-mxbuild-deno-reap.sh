@@ -33,7 +33,8 @@ COMMON="${1:?usage: $0 project-bin/_common.sh}"
 COMMON="$(cd "$(dirname "$COMMON")" && pwd)/$(basename "$COMMON")"
 case "${OSTYPE:-}" in msys*|cygwin*|win*) echo "SKIP: Git Bash (the reap is skipped there by design)"; exit 0 ;; esac
 command -v ps >/dev/null 2>&1 || { echo "SKIP: no ps"; exit 0; }
-SLEEP_BIN="$(command -v sleep)"; [ -x "$SLEEP_BIN" ] || { echo "SKIP: no sleep binary"; exit 0; }
+[ -x "$(command -v sleep)" ] || { echo "SKIP: no sleep binary"; exit 0; }
+. "$(dirname "$0")/fake-proc.sh"
 
 T="$(mktemp -d "${TMPDIR:-/tmp}/mxtk-deno-reap.XXXXXX")"
 # At exit: stop each fake deno this fixture started, by its recorded pid, and only while that pid
@@ -47,6 +48,7 @@ cleanup() {
   rm -rf "$T"
 }
 trap cleanup EXIT
+fake_proc_init "$T"
 PASS=0; FAIL=0
 ok()   { PASS=$((PASS + 1)); echo "  ok    $*"; }
 fail() { FAIL=$((FAIL + 1)); echo "  FAIL  $*"; }
@@ -57,14 +59,14 @@ alive() { local s; s="$(ps -o stat= -p "$1" 2>/dev/null)"; [ -n "$s" ] && case "
 gone_within() { local i=0; while alive "$1"; do [ "$i" -ge 30 ] && return 1; sleep 0.1; i=$((i + 1)); done; return 0; }
 
 DENO_DIR="$T/mx/modeler/tools/deno/linux-x64"; mkdir -p "$DENO_DIR"
-cp "$SLEEP_BIN" "$DENO_DIR/deno"; chmod +x "$DENO_DIR/deno"
+fake_proc_make "$DENO_DIR/deno"
 FOREIGN_DIR="$T/other/modeler/tools/deno/linux-x64"; mkdir -p "$FOREIGN_DIR"
-cp "$SLEEP_BIN" "$FOREIGN_DIR/deno"; chmod +x "$FOREIGN_DIR/deno"
+fake_proc_make "$FOREIGN_DIR/deno"
 mkdir -p "$T/jdk/bin"; printf '#!/bin/sh\nexit 0\n' > "$T/jdk/bin/java"; chmod +x "$T/jdk/bin/java"
 # The stub: start the helper (stdout inherited, as the real one does), optionally linger, exit.
 cat > "$T/mx/modeler/mxbuild" <<'MXB'
 #!/usr/bin/env bash
-"$FAKE_DENO" 600 < /dev/null &
+"$FAKE_DENO" ${FAKE_PRE:-} 600 < /dev/null &
 echo $! > "$DENO_PIDFILE"
 [ -z "${STUB_LINGER:-}" ] || sleep "$STUB_LINGER"
 echo "stub mxbuild done"
@@ -75,10 +77,10 @@ mkdir -p "$T/proj"; : > "$T/proj/App.mpr"
 
 run_in() {  # run_in <extra env, may be empty> <body>
   env -i PATH="$PATH" HOME="$T" PROJECT_ROOT="$T/proj" JAVA_HOME="$T/jdk" MXBUILD_PATH="$T/mx/modeler/mxbuild" \
-    FAKE_DENO="$DENO_DIR/deno" ${1:+$1} bash -c "set -u; source '$COMMON'; $2"
+    FAKE_DENO="$DENO_DIR/deno" FAKE_PRE="$FAKE_PRE" ${1:+$1} bash -c "set -u; source '$COMMON'; $2"
 }
 start_foreign() {  # start_foreign <pidfile> — a deno this fixture owns, outside any build
-  "$FOREIGN_DIR/deno" 600 < /dev/null > /dev/null 2>&1 &
+  "$FOREIGN_DIR/deno" ${FAKE_PRE:-} 600 < /dev/null > /dev/null 2>&1 &
   echo $! > "$1"
 }
 
@@ -108,7 +110,7 @@ alive "$FB" && ok "R2: the foreign deno is still untouched" || fail "R2: the for
 # ── R3: exit 137 is named ───────────────────────────────────────────────────
 echo "== R3: an OOM-killed gate says so, with the orphan count =="
 # One real orphan the message can count: parent gone, as after a killed mxbuild.
-( "$DENO_DIR/deno" 600 < /dev/null > /dev/null 2>&1 & echo $! > "$T/orphan.pid" )
+( "$DENO_DIR/deno" ${FAKE_PRE:-} 600 < /dev/null > /dev/null 2>&1 & echo $! > "$T/orphan.pid" )
 ERR=$(run_in "DENO_PIDFILE=$T/r3.pid STUB_RC=137" "mxtk_mxbuild_error_count '$T/proj/App.mpr' 0 >/dev/null; printf 'WHY=%s\n' \"\$MXTK_MXBUILD_WHY\"" 2>&1)
 case "$ERR" in
   *"build killed for lack of memory: "[1-9]*" orphaned deno processes hold "*" GB — run bin/doctor.sh --cleanup"*) ok "R3: the plain OOM message is printed, with a non-zero orphan count" ;;
@@ -138,7 +140,7 @@ mxtk_reaped '$T/mx/modeler/mxbuild' > /dev/null 2>&1 < /dev/null
 echo caller-carried-on
 R5
 set -m
-env -i PATH="$PATH" HOME="$T" PROJECT_ROOT="$T/proj" FAKE_DENO="$DENO_DIR/deno" DENO_PIDFILE="$T/r5.pid" STUB_LINGER=30 \
+env -i PATH="$PATH" HOME="$T" PROJECT_ROOT="$T/proj" FAKE_DENO="$DENO_DIR/deno" FAKE_PRE="$FAKE_PRE" DENO_PIDFILE="$T/r5.pid" STUB_LINGER=30 \
   bash "$T/r5.sh" > "$T/r5.out" 2>&1 &
 G=$!
 set +m

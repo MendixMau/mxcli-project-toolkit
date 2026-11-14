@@ -119,7 +119,8 @@ is steered by a highlight, not by the camera.
    **2-4 s**, on the full page. That is the default for every beat, including every note the
    planner declines to zoom.
 2. **Zoom only where text is unreadable at full page** (a dense table's cells, a small status
-   chip, a KPI footnote), never to add drama, never on a click or a navigation.
+   chip, a KPI footnote), never to add drama. No zoom by default on a click or a navigation:
+   `click(..., {zoom:true})` is opt-in and counts against the budget of 2 zooms (rule 3).
 3. **At most 2 zooms per take (film), at most 1.4x.** Notes beyond the budget are not zoomed.
 4. **A zoom never opens a shot** (the first 1.5 s of a take are the full page), and **every take
    ends at 1x**.
@@ -146,7 +147,9 @@ is steered by a highlight, not by the camera.
 Notes without a zoom are listed in `shots.json` → `skipped` with the reason and
 `highlightOnly: true`: `zoom budget`, `zoom opens the shot`, `region too large to earn a zoom`,
 `target at the frame edge`, and the timing reasons. Read them: each one is a beat that needs its
-highlight in the recording script, because the camera will not carry it.
+highlight in the recording script, because the camera will not carry it. The outline or spotlight
+on the element is drawn by the project's own recording script; this helper only plans the camera
+and does not draw it.
 
 `zoom: true` on a click frames a region of at least 1280x720 around the click (~1.3x, never past
 1.4x), not the bare button: a push-in on a 140 px button is a close-up of a button. Pass a Locator

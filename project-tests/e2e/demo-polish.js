@@ -206,7 +206,7 @@ function mapper(meta) {
 }
 
 // Shots: full page by default; at most maxZooms zooms per take, none past zoomMax, none opening the take, every take ends at 1x.
-// A note that gets no zoom (too wide, edge, budget, opens the shot) stays a highlight: listed in skipped with highlightOnly.
+// A note that gets no zoom (too wide, edge, timing, budget, opens the shot) stays a highlight: listed in skipped with highlightOnly.
 function shots(meta, events, k = {}) {
   k = {...KNOBS, ...k}; const {toOut, len} = mapper(meta), V = meta.viewport, kb = k.keepBottom || 0, vis = (V.height - kb) / V.height;
   // with a kept bottom band only the area above it shows the zoomed picture, so frame inside that area
@@ -234,7 +234,7 @@ function shots(meta, events, k = {}) {
     // Centred or nothing: near a frame edge the camera rect clamps and the target slides off-centre. A lower zoom only
     // widens the rect and makes that worse, so a target that cannot sit near the middle is not zoomed at all.
     const u = (cx - rect.x) / w, v = (cy - rect.y) / (h * vis);
-    if (Math.abs(u - .5) > k.centreBand || Math.abs(v - .5) > k.centreBand) { skipped.push({t: s.firstT, why: 'target at the frame edge: cannot be centred', u: +u.toFixed(2), v: +v.toFixed(2)}); continue; }
+    if (Math.abs(u - .5) > k.centreBand || Math.abs(v - .5) > k.centreBand) { skipped.push({t: s.firstT, why: 'target at the frame edge: cannot be centred', highlightOnly: true, u: +u.toFixed(2), v: +v.toFixed(2)}); continue; }
     const prevB = bounds.filter(x => x.end <= s.firstT).pop(), nextB = bounds.find(x => x.t > s.lastT);
     let a = Math.max(prevEnd, prevB ? prevB.end : 0, s.firstT - k.leadMs), b = a + k.inMs;
     let hold = Math.max(s.lastT + k.holdMs, b + k.holdMs, s.until || 0);
@@ -243,7 +243,7 @@ function shots(meta, events, k = {}) {
     const limit = Math.min(len, nextB ? nextB.t : len);
     let c = hold, d = c + k.outMs;
     if (d > limit) { d = limit; c = d - k.outMs; }
-    if (c - b < k.minHoldMs) { skipped.push({t: s.firstT, why: nextB && nextB.t < len ? 'next scroll or move comes too soon to hold' : 'no room to zoom out before the end', holdMs: Math.round(c - b)}); continue; }
+    if (c - b < k.minHoldMs) { skipped.push({t: s.firstT, why: nextB && nextB.t < len ? 'next scroll or move comes too soon to hold' : 'no room to zoom out before the end', highlightOnly: true, holdMs: Math.round(c - b)}); continue; }
     if (a < k.openMs) { skipped.push({t: s.firstT, why: 'zoom opens the shot', highlightOnly: true, startMs: Math.round(a)}); continue; }
     if (res.length >= k.maxZooms) { skipped.push({t: s.firstT, why: 'zoom budget', highlightOnly: true, budget: k.maxZooms}); continue; }
     res.push({z: +z.toFixed(3), rect, a, b, c, d, u: +u.toFixed(2), v: +v.toFixed(2)}); prevEnd = d;

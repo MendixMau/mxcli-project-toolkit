@@ -113,6 +113,11 @@ const scroll = (t, ms = 800) => ({t: T0 + t + ms, t0: T0 + t, t1: T0 + t + ms, k
   ok('every take ends at 1x', all.shots.every(x => x.d <= all.len) && P.camera(all.shots, V, all.len).w === V.width, all);
   ok('never more than 2 zooms per take', all.shots.length <= 2, all); }
 
+// 8b. every skipped note, whatever the reason, is highlight-only
+{ const all = [P.shots(meta(60000), [5000, 12000, 20000, 30000, 40000, 58000].map(t => focus(t))), P.shots(meta(20000), [focus(300)]), P.shots(meta(20000), [{t: 5000, box: {x: 0, y: 0, w: V.width, h: V.height}}])];
+  const sk = all.flatMap(r => r.skipped);
+  ok('every skipped note carries highlightOnly: true', sk.length > 0 && sk.every(x => x.highlightOnly === true), sk); }
+
 // 9. camera(): full frame outside shots, the shot rect while holding, eased in between
 { const {shots} = P.shots(meta(20000), [focus(5000)]), s = shots[0];
   const at = o => P.camera(shots, V, o);

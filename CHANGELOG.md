@@ -18,6 +18,7 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 `docs/RELEASE-PROCESS.md` §8.
 
 ## Unreleased
+- fix(gitignore): **`bin/init-project.sh`, `bin/sync-project.sh` and `project-bin/model-stamp.sh` no longer add an entry a CRLF `.gitignore` already has, and append in the file's own line ending**: `grep -qE '^/?x/?$'` missed `x\r` (init-project re-appended `sources/`, `.mxtk/`, `.claude/settings.local.json` and the progress-report cache on every run), and sync-project/model-stamp wrote LF lines into a CRLF file (mixed endings). One helper, `mxtk_gitignore_ensure` (`bin/lib/gitignore-ensure.sh`, copy in `project-bin/_common.sh` for installed scripts); LF files get the same bytes as before; new `tests/wave2/test-gitignore-crlf.sh` — follow-up to the snapshot-mpr fix, 2026-11
 
 ## v2026.11.14
 - fix(snapshot-mpr): **`project-bin/snapshot-mpr.sh` no longer adds `/.mpr-snapshots/` a second time to a CRLF `.gitignore`, and appends in the file's own line ending**: the match missed `/.mpr-snapshots/\r`, so every Windows-made repo got the 3-line block again with LF endings (mixed endings, duplicate entry); new fixture `tests/wave2/test-snapshot-gitignore.sh` — field run, 2026-11

@@ -127,8 +127,8 @@ chk "cleanup (no tty): says nothing was stopped" "$WORK/clean.out" "nothing was 
 chk "cleanup (no tty): prints the command" "$WORK/clean.out" "kill 2665 8592 8824 28379\$"
 
 # 5. kill path on real throw-away processes: no tty, 'n' and 'y' at a pty. A bystander must survive.
-D="$WORK/fake/modeler/tools/deno/linux-x64"; mkdir -p "$D"; cp "$(command -v sleep)" "$D/deno"; cp "$(command -v sleep)" "$WORK/bystander"
-"$D/deno" 300 & P1=$!; "$D/deno" 300 & P2=$!; "$WORK/bystander" 300 & PB=$!; SPAWNED="$P1 $P2 $PB"
+D="$WORK/fake/modeler/tools/deno/linux-x64"; mkdir -p "$D"; . "$(dirname "$0")/fake-proc.sh"; fake_proc_init "$WORK"; fake_proc_make "$D/deno"; fake_proc_make "$WORK/bystander"
+"$D/deno" ${FAKE_PRE:-} 300 & P1=$!; "$D/deno" ${FAKE_PRE:-} 300 & P2=$!; "$WORK/bystander" ${FAKE_PRE:-} 300 & PB=$!; SPAWNED="$P1 $P2 $PB"
 sleep 1
 # alive: a killed child of this shell stays a zombie until waited for; a zombie is dead for our purposes
 alive() { kill -0 "$1" 2>/dev/null && case "$(/bin/ps -o stat= -p "$1" 2>/dev/null)" in Z*|"") return 1 ;; *) return 0 ;; esac; }

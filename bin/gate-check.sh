@@ -2574,20 +2574,27 @@ check_build_ready() {
   #    the judgement is skills/marketplace-catalogue.md). An unattended build skipped Stage 3 and
   #    hand-built, in Java, an LLM call the Marketplace GenAI modules provide; item 6 above reads
   #    only Buys, so a project with NO fit-gap passed it as PENDING. Not owed: joined above Stage
-  #    3, or Stage 3 waived / excused by entry mode while no fit-gap exists. A fit-gap that exists
-  #    is always read. `--waive artifact/fit-gap --reason "..."` excuses it, never by deleting rows.
-  #    Field run 2026-11-14 on 2 toolkit-built apps (scratch copies, neither had a fit-gap): item 7
-  #    FAILed on both with the 'no architecture/fit-gap.md ... Write it before Stage 5' line, build-ready
-  #    exit 1; after `--waive artifact/fit-gap --reason` on one it read 'Fit-gap: WAIVED', exit 1 from
+  #    3, or Stage 3 waived / excused by entry mode, or `Build type: poc` (skills/poc-build.md: no
+  #    stage gates), while no fit-gap exists. A fit-gap that exists is always read.
+  #    `--waive artifact/fit-gap --reason "..."` excuses it, never by deleting rows.
+  #    ADVISORY: reported with a warning marker and NEVER counted in `fails`, until one real
+  #    project has passed it with a real fit-gap; then make it blocking in its own PR.
+  #    Field run 2026-11-14 on 2 toolkit-built apps (scratch copies; both are POC builds with no
+  #    fit-gap): item 7 read 'not owed - Build type: poc' on both. With the build type edited to
+  #    `full` in the copies it printed the ADVISORY 'no architecture/fit-gap.md' line on both and the
+  #    fail count stayed 2 (other items); waived it read 'Fit-gap: WAIVED'. Exit 1 each time, from
   #    the other items. The has-a-fit-gap case was fixture-only: no real app had one.
-  local fg_path fg_w=""
+  local fg_path fg_w="" bt_raw
   fg_path="$(resolve_artifact_nonempty "architecture/fit-gap.md")"
+  bt_raw="$(reg_field "build type" 2>/dev/null || true)"
   if [ -n "$ADOPTED_AT" ] && [ "$(stage_rank "$ADOPTED_AT")" -gt "$(stage_rank 3)" ]; then
     echo "  ✓ Fit-gap: not owed — project joined the toolkit at stage $ADOPTED_AT"
   elif fg_w="$(artifact_waived fit-gap)"; then
     echo "  ✓ Fit-gap: WAIVED — $fg_w"
   elif [ -z "$fg_path" ] && fg_w="$(stage_waiver 3)" && [ "${fg_w%%|*}" != "noreason" ]; then
     echo "  ✓ Fit-gap: not owed — ${fg_w#*|}"
+  elif [ -z "$fg_path" ] && case "$(printf '%s' "$bt_raw" | tr '[:upper:]' '[:lower:]')" in poc|poc[!a-z]*) true ;; *) false ;; esac; then
+    echo "  ✓ Fit-gap: not owed — Build type: poc (skills/poc-build.md) and no fit-gap exists"
   else
     if ! type mxtk_fitgap_review >/dev/null 2>&1; then
       # shellcheck source=lib/marketplace-check.sh
@@ -2598,8 +2605,7 @@ check_build_ready() {
       if [ "$MXTK_FG_STATUS" = PASS ]; then
         echo "  ✓ Fit-gap: $MXTK_FG_NOTE"
       else
-        echo "  ✗ Fit-gap: $MXTK_FG_NOTE. Not owed here? gate-check.sh <project> --waive artifact/fit-gap --reason \"...\""
-        fails=$((fails+1))
+        echo "  ⚠ Fit-gap: ADVISORY — $MXTK_FG_NOTE (not counted as a FAIL for now). Not owed here? gate-check.sh <project> --waive artifact/fit-gap --reason \"...\""
       fi
     else
       echo "  ⚠ Fit-gap: NOT CHECKED — bin/lib/marketplace-check.sh missing from $TOOLKIT_DIR (not counted as a FAIL)"

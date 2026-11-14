@@ -22,6 +22,9 @@
 #   F12 two-tree layout (app/App.mpr)                -> same verdict as F4
 #   F14 Build row with an ACCIDENTAL keyword ("custom chart widget") -> ✗ naming `charts`; the same
 #       row with a one-sentence "Marketplace: ... not used because ..." reason -> ✓
+#   F14c Build row saying only "Marketplace: not used because ..." (no component) -> ✓
+#   F15 `Build type: poc`: no fit-gap -> not owed; with a fit-gap -> still read; `full` -> not exempt
+#   Item 7 is ADVISORY (⚠, never counted in the fails total) until a real project has passed it.
 #   F13 marketplace line is untouched: the item is printed after "Marketplace:" and Stage 5 is
 #       not changed by it (gate-check <p> 5 never prints "Fit-gap:")
 # Keep bash-3.2 compatible.
@@ -63,13 +66,19 @@ echo "== F1: no fit-gap =="
 P1="$(mkproj f1 root requirements-driven)"
 OUT="$(gc "$P1" build-ready)"; RC=$?
 L="$(fg_line "$OUT")"
-case "$L" in "  ✗ Fit-gap: no architecture/fit-gap.md, so no Marketplace review was made. Write it before Stage 5: one row per capability"*marketplace-catalogue.md*"--waive artifact/fit-gap"*) ok "missing file is a FAIL saying what to write" ;; *) bad "F1: $L" ;; esac
-[ "$RC" -ne 0 ] && ok "build-ready exits non-zero" || bad "F1: build-ready exited 0"
+case "$L" in "  ⚠ Fit-gap: ADVISORY — no architecture/fit-gap.md, so no Marketplace review was made. Write it before Stage 5: one row per capability"*marketplace-catalogue.md*"--waive artifact/fit-gap"*) ok "missing file is a FAIL saying what to write" ;; *) bad "F1: $L" ;; esac
+# ADVISORY: item 7 must not raise the fails count. Same project once waived has the same count.
+nfail() { printf '%s\n' "$1" | sed -n 's/^BUILD-READY: FAIL — \([0-9][0-9]*\) item.*/\1/p' | head -1; }
+N1="$(nfail "$OUT")"; N1="${N1:-0}"
+Pw="$(mkproj f1w root requirements-driven)"; gc --waive artifact/fit-gap --reason "advisory comparison" "$Pw" >/dev/null
+NW="$(nfail "$(gc "$Pw" build-ready)")"; NW="${NW:-0}"
+[ "$N1" = "$NW" ] && ok "missing fit-gap does not change the build-ready fail count ($N1 = $NW with item 7 waived)" || bad "F1: fails $N1 vs waived $NW"
+printf '%s\n' "$OUT" | grep -q 'BUILD-READY: FAIL — .*Fit' && bad "F1: summary names the fit-gap" || ok "summary does not count it"
 
 echo "== F2: no verdict column =="
 P="$(mkproj f2 root - '| Capability | Mendix approach |' '|---|---|' '| CRUD | Data Grid 2 |')"
 L="$(fg_line "$(gc "$P" build-ready)")"
-case "$L" in "  ✗ Fit-gap: fit-gap.md has no table with a Verdict column"*) ok "no verdict column -> FAIL" ;; *) bad "F2: $L" ;; esac
+case "$L" in "  ⚠ Fit-gap: ADVISORY — fit-gap.md has no table with a Verdict column"*) ok "no verdict column -> FAIL" ;; *) bad "F2: $L" ;; esac
 
 echo "== F3: unrecognised verdict =="
 P="$(mkproj f3 root - "$HDR" "$SEP" "$NATIVE" '| Reporting | tbd | **TBD** | — |')"
@@ -79,7 +88,7 @@ case "$L" in *"no recognised verdict, line 4 (\"tbd\")"*) ok "TBD verdict named 
 echo "== F4: hand-built LLM call =="
 P4="$(mkproj f4 root - "$HDR" "$SEP" "$NATIVE" "$LLM")"
 L="$(fg_line "$(gc "$P4" build-ready)")"
-case "$L" in "  ✗ Fit-gap:"*"line 4 (genai-llm: GenAI Commons,"*"Marketplace: <component> not used because"*) ok "catalogued Build without reason -> FAIL naming the component" ;; *) bad "F4: $L" ;; esac
+case "$L" in "  ⚠ Fit-gap: ADVISORY —"*"line 4 (genai-llm: GenAI Commons,"*"Marketplace: <component> not used because"*) ok "catalogued Build without reason -> FAIL naming the component" ;; *) bad "F4: $L" ;; esac
 
 echo "== F5: the same Build with a Marketplace reason =="
 P="$(mkproj f5 root - "$HDR" "$SEP" "$NATIVE" '| Triage summary by LLM | Java action | **Build** | Marketplace: GenAI Commons needs Mendix 10.24+, this app is pinned lower |')"
@@ -118,12 +127,28 @@ L="$(fg_line "$(gc "$P" build-ready)")"
 case "$L" in "  ✓ Fit-gap: not owed — greenfield entry mode"*) ok "greenfield, no fit-gap: not owed" ;; *) bad "F11a: $L" ;; esac
 P="$(mkproj f11b root greenfield "$HDR" "$SEP" "$LLM")"
 L="$(fg_line "$(gc "$P" build-ready)")"
-case "$L" in "  ✗ Fit-gap:"*genai-llm*) ok "greenfield with a fit-gap: still read" ;; *) bad "F11b: $L" ;; esac
+case "$L" in "  ⚠ Fit-gap: ADVISORY —"*genai-llm*) ok "greenfield with a fit-gap: still read" ;; *) bad "F11b: $L" ;; esac
 
 echo "== F12: two-tree layout =="
 P="$(mkproj f12 app - "$HDR" "$SEP" "$NATIVE" "$LLM")"
 L="$(fg_line "$(gc "$P" build-ready)")"
-case "$L" in "  ✗ Fit-gap:"*"line 4 (genai-llm"*) ok "app/App.mpr: same verdict" ;; *) bad "F12: $L" ;; esac
+case "$L" in "  ⚠ Fit-gap: ADVISORY —"*"line 4 (genai-llm"*) ok "app/App.mpr: same verdict" ;; *) bad "F12: $L" ;; esac
+
+echo "== F14c: Build row naming only the word Marketplace (no component) =="
+P="$(mkproj f14c root - "$HDR" "$SEP" '| Gauge on the dashboard | custom chart widget | **Build** | Marketplace: not used because it has no dial gauge |')"
+L="$(fg_line "$(gc "$P" build-ready)")"
+case "$L" in "  ✓ Fit-gap:"*) ok "the word Marketplace alone is the reason" ;; *) bad "F14c: $L" ;; esac
+
+echo "== F15: Build type: poc =="
+P="$(mkproj f15 root -)"; printf '\nBuild type: poc\n' >> "$P/PROJECT.md"
+L="$(fg_line "$(gc "$P" build-ready)")"
+case "$L" in "  ✓ Fit-gap: not owed — Build type: poc"*) ok "poc, no fit-gap: not owed" ;; *) bad "F15a: $L" ;; esac
+P="$(mkproj f15b root - "$HDR" "$SEP" "$LLM")"; printf '\nBuild type: poc\n' >> "$P/PROJECT.md"
+L="$(fg_line "$(gc "$P" build-ready)")"
+case "$L" in "  ⚠ Fit-gap: ADVISORY —"*genai-llm*) ok "poc WITH a fit-gap: still read" ;; *) bad "F15b: $L" ;; esac
+P="$(mkproj f15c root -)"; printf '\nBuild type: full\n' >> "$P/PROJECT.md"
+L="$(fg_line "$(gc "$P" build-ready)")"
+case "$L" in "  ⚠ Fit-gap: ADVISORY — no architecture"*) ok "Build type: full is not exempt" ;; *) bad "F15c: $L" ;; esac
 
 echo "== F13: placement, and no stage verdict changes =="
 OUT="$(gc "$P4" build-ready)"
@@ -134,7 +159,7 @@ printf '%s\n' "$OUT" | grep -q 'Fit-gap:' && bad "F13: stage 5 run printed a Fit
 echo "== F14: accidental keyword in a Build row =="
 P="$(mkproj f14 root - "$HDR" "$SEP" '| Gauge on the dashboard | custom chart widget | **Build** | needs a dial, not a bar |')"
 L="$(fg_line "$(gc "$P" build-ready)")"
-case "$L" in "  ✗ Fit-gap:"*"(charts:"*) ok "short keyword in a Build row asks for the reason (FAIL)" ;; *) bad "F14a: $L" ;; esac
+case "$L" in "  ⚠ Fit-gap: ADVISORY —"*"(charts:"*) ok "short keyword in a Build row asks for the reason (FAIL)" ;; *) bad "F14a: $L" ;; esac
 P="$(mkproj f14b root - "$HDR" "$SEP" '| Gauge on the dashboard | custom chart widget | **Build** | Marketplace: Charts not used because it has no dial gauge |')"
 L="$(fg_line "$(gc "$P" build-ready)")"
 case "$L" in "  ✓ Fit-gap:"*) ok "the same row with a one-sentence reason passes" ;; *) bad "F14b: $L" ;; esac

@@ -28,8 +28,8 @@ token accounting, no tool-calling contract and no upgrade path; replacing it cos
 4. **Not in the table is not "nothing exists".** Search the Marketplace for the capability anyway
    (`mxcli marketplace search "<capability>"`) and record what you found in the row.
 
-`gate-check.sh <project> build-ready` refuses Stage 5 when `architecture/fit-gap.md` is missing,
-has no Verdict column, has a row with no recognised verdict, or has a Build for a capability
+`gate-check.sh <project> build-ready` reports (advisory for now, not counted as a FAIL) when
+`architecture/fit-gap.md` is missing (not owed under `Build type: poc`), has no Verdict column, has a row with no recognised verdict, or has a Build for a capability
 matched by `bin/lib/marketplace-catalogue.tsv` (this table's keywords) that names neither the
 component nor the word "Marketplace". It checks only that the review was written; whether the
 verdict is right is this skill's judgement and the Stage 3 sign-off's.
@@ -76,7 +76,7 @@ needs them.
   row count is not smaller), and
 - every row whose capability is in the table above is Buy, or names the component and the reason,
   and
-- `gate-check.sh <project> build-ready` prints `✓ Fit-gap`.
+- `gate-check.sh <project> build-ready` prints `✓ Fit-gap` (not the advisory `⚠ Fit-gap`).
 
 ## Related
 

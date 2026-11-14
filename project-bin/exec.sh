@@ -379,6 +379,8 @@ fi
 #   a Url property on a page (create header, `set Url = ...`) → page URL (route table)
 # Watch-safe (the ONLY statements reported `watch can apply this`, ui-loop.md's left column):
 #   ALTER PAGE / ALTER SNIPPET, CREATE [OR ...] SNIPPET, CREATE OR REPLACE|MODIFY PAGE (no Url).
+#   ...unless the statement sets a widget action (restart) or a data source / microflow word /
+#   quoted property key (unknown) — #738: the runtime registers actions at boot.
 # Read-only heads (SHOW, DESCRIBE, ...) are neutral. Any other statement — CREATE ASSOCIATION,
 # CREATE ENUMERATION, ALTER ENTITY ... MODIFY, a Java action, a constant, navigation, DROP PAGE,
 # UPDATE WIDGETS — is on neither column and prints `unknown — restart if behaviour looks stale`
@@ -401,7 +403,10 @@ mxtk_watch_compat() {  # $1 = MDL script; prints "restart\t<reasons>" | "unknown
       if (!(label in cnt)) { order[++nlab] = label; first[label] = nr }
       cnt[label]++
     }
-    BEGIN { depth = 0; inblock = 0; indollar = 0; cur_page = 0; nlab = 0; maybe = ""; unk = ""; nunk = 0 }
+    BEGIN { depth = 0; inblock = 0; indollar = 0; cur_page = 0; nlab = 0; maybe = ""; unk = ""; nunk = 0
+      cur_ui = 0; ui_unk = 0
+      re_act = "(^|[^a-z0-9_])(action|onclick|on_click|onchange|onenter|onleave|call)([^a-z0-9_]|$)"
+      re_ds  = "(^|[^a-z0-9_])(datasource|microflow|nanoflow)([^a-z0-9_]|$)|\047\047[ \t]*[:=]" }
     {
       lex_line($0)
       t = clean; gsub(/^[ \t]+/, "", t)
@@ -412,6 +417,7 @@ mxtk_watch_compat() {  # $1 = MDL script; prints "restart\t<reasons>" | "unknown
           j = 2; if (v == "CREATE" && w[2] == "OR") j = 4
           o1 = w[j]; o2 = w[j+1]; o3 = w[j+2]
           cur_page = ((v == "CREATE" || v == "ALTER") && o1 == "PAGE")
+          cur_ui = ((v == "CREATE" || v == "ALTER") && (o1 == "PAGE" || o1 == "SNIPPET")); ui_unk = 0
           attr = 0
           if (v == "ALTER" && o1 == "ENTITY") for (k = 3; k <= n; k++) if (w[k] == "ADD") { attr = 1; break }
           if ((v == "CREATE" || v == "DROP") && o1 == "MICROFLOW")
@@ -449,6 +455,19 @@ mxtk_watch_compat() {  # $1 = MDL script; prints "restart\t<reasons>" | "unknown
       # A Url property on a page: the create header `(..., Url: ...)` or `set Url = ...` in an
       # ALTER PAGE body. The identifier must stand alone, so ImageUrl never matches.
       if (cur_page && clean ~ /(^|[^A-Za-z0-9_])Url[ \t]*[:=]/) add("page URL added or changed (route table)", NR)
+      # A widget action or data source inside a page/snippet statement (#738). Only the plain
+      # caption/class/visibility edits are on the ui-loop.md watch column; the runtime registers each
+      # action at boot (restart), and a data source or a quoted property key is not on that column
+      # (unknown). Strings are blanked by the lexer, so a caption saying "action" never counts.
+      if (cur_ui) {
+        lc = tolower(clean)
+        if (lc ~ re_act) add("widget action changed (the runtime registers actions at boot)", NR)
+        else if (!ui_unk && lc ~ re_ds) {
+          ui_unk = 1
+          if (nunk < 3) { h = t; if (length(h) > 50) h = substr(h, 1, 50) "..."; unk = unk (nunk++ ? "; " : "") "line " NR ": " h " (action/data source/unlisted property)" }
+          else nunk++
+        }
+      }
     }
     END {
       if (nlab > 0) {

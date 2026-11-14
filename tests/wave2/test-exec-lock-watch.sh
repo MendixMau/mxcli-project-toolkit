@@ -307,7 +307,9 @@ expect "$GAL/00-module.mdl"           "restart needed" "module/user role"       
 expect "$GAL/90-gallery-home.mdl"     "restart needed" "new page"                       "plain create page (90-gallery-home)"
 expect "$PFM/bind-contract-alter.mdl" "watch can apply this" "" "alter page set ImageUrl — not a page Url (bind-contract-alter)"
 expect "$GAL/13-badges-chips.mdl"     "watch can apply this" "" "create snippet (13-badges-chips)"
-expect "$AG/agent-snippet.example.mdl" "watch can apply this" "" "create or modify snippet with comments (agent-snippet)"
+# #738: a snippet whose widget takes a microflow data source is not on ui-loop.md's watch column
+# (the runtime registers microflows/actions at boot) — unknown, no longer "watch can apply this".
+expect "$AG/agent-snippet.example.mdl" "unknown" "data source" "create or modify snippet with a microflow DataSource (agent-snippet) is unknown (#738)"
 # Statements no shipped script contains, taken verbatim from where a real run recorded them.
 grep -m1 -oE 'alter entity M\.Item add attribute Flag: Boolean;' \
   "$TOOLKIT/bug-logs/pending-github-issues/exec-non-transactional-silent-skip.md" > "$WORK/attr.mdl"
@@ -351,6 +353,27 @@ expect "$WORK/const.mdl" "$UNK" "create constant" "create constant"
     "$TOOLKIT/bug-logs/pending-github-issues/rename-page-renames-folder.md"; cat "$PFM/bind-contract-alter.mdl"; } > "$WORK/movefolder.mdl"
 grep -q '^move page' "$WORK/movefolder.mdl" && expect "$WORK/movefolder.mdl" "watch can apply this" "" "move page ... to folder + alter page is not 'unknown'" \
   || bad "golden 'move page ... to folder' line not found"
+
+# #738: widget action / data source edits inside ALTER PAGE|SNIPPET. Goldens: the issue's own repro
+# (verbatim from the issue body), bug102's ALTER PAGE ... SET DataSource, and the ALTER form the
+# rest-integration skill documents (grepped out of those files). NOT RUN: the runtime half
+# (restart needed after an action change) rests on the issue's report; no Mendix app was run.
+printf "mdl 1;\nalter page BugRepro.SomePage { set ('action': call microflow BugRepro.ACT_Save) on swOn; };\n" > "$WORK/act738.mdl"
+expect "$WORK/act738.mdl" "restart needed" "widget action changed" "alter page set ('action': call microflow ...) (issue #738 repro, verbatim)"
+awk '/^ALTER PAGE M.Tasks/{p=1} p{print} p&&/^\} ON/{exit}' \
+  "$TOOLKIT/bug-logs/pending-github-issues/bug102-alter-page-set-datasource-datagrid-silent-noop.md" > "$WORK/ds102.mdl"
+[ -s "$WORK/ds102.mdl" ] && expect "$WORK/ds102.mdl" "$UNK" "data source" "alter page set DataSource = DATABASE ... (bug102, verbatim) is unknown" \
+                         || bad "golden bug102 ALTER PAGE block not found"
+grep -m1 -oE 'alter page … \{ set DataSource = microflow … on dgRoutes \}' "$TOOLKIT/skills/rest-integration-first-time-right.md" >/dev/null \
+  && printf "alter page Mod.Route_List { set DataSource = microflow Mod.DS_Routes on dgRoutes }\n" > "$WORK/dsmf.mdl" \
+  && expect "$WORK/dsmf.mdl" "$UNK" "data source" "alter page set DataSource = microflow (shape from rest-integration skill)" \
+  || bad "golden 'set DataSource = microflow' shape not found in rest-integration-first-time-right.md"
+printf "alter page Shop.P { set Action = MICROFLOW Shop.ACT_Save on btnSave }\n" > "$WORK/act2.mdl"
+expect "$WORK/act2.mdl" "restart needed" "widget action changed" "alter page set Action = MICROFLOW ... (SET Action form in the mxcli ALTER PAGE help, bug155 patch)"
+grep -m1 -oE "SET 'Row size' = 'Small' ON lvOrders" "$TOOLKIT/bug-logs/submitted-prs/mxcli/2026-09-28-alter-page-set-rendermode/0001-fix-pages-ALTER-PAGE-SNIPPET-SET-RenderMode-on-a-dyn.patch" | sed 's/^/alter snippet Shop.S { /; s/$/ }/' > "$WORK/quotedkey.mdl"
+expect "$WORK/quotedkey.mdl" "$UNK" "unlisted property" "alter snippet with a quoted property key is unknown, not watch-safe"
+# What stays watch-safe: the plain edits ui-loop.md lists (captions, classes, ImageUrl).
+expect "$PFM/alter-multiline-alter.mdl" "watch can apply this" "" "alter page set (Caption, ButtonStyle) multi-line stays watch-safe (alter-multiline-alter)"
 
 echo "-- watch-compat in a real run"
 cp "$GAL/05-demo-data.mdl" "$P/mdlsource/demo.mdl"

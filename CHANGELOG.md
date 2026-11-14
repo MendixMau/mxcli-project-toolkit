@@ -18,6 +18,8 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 `docs/RELEASE-PROCESS.md` §8.
 
 ## Unreleased
+- fix(journey-runner): **Step headers, check lines and action labels now show the seed value instead of `{{seed}}` (#668).** Display resolves placeholders like execution does; an unknown placeholder stays visible as written. Stored check names stay raw because `report-normalize.js` matches on them — field run, 2026-11
+- fix(journey-runner): **A `row:` step finds list items rendered as plain elements carrying `mx-name-index-N` (#665).** Fallback only when the usual row selector finds nothing, and only for an index-carrying element that contains the target widget (Mendix puts that class on every widget in a list, so it is no row marker on its own) — field run, 2026-11
 
 ## v2026.11.14
 - fix(snapshot-mpr): **`project-bin/snapshot-mpr.sh` no longer adds `/.mpr-snapshots/` a second time to a CRLF `.gitignore`, and appends in the file's own line ending**: the match missed `/.mpr-snapshots/\r`, so every Windows-made repo got the 3-line block again with LF endings (mixed endings, duplicate entry); new fixture `tests/wave2/test-snapshot-gitignore.sh` — field run, 2026-11

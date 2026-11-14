@@ -115,7 +115,7 @@ function runnerRecord(rung, name, verdict, detail, req, evidenceStrength) {
   if (evidenceStrength) row.evidenceStrength = evidenceStrength;
   results.push(row);
   const mark = { PASS: '\x1b[32mPASS\x1b[0m', FAIL: '\x1b[31mFAIL\x1b[0m', INVALID: '\x1b[33mINVL\x1b[0m' }[verdict];
-  console.log(`  ${mark} [${rung}] ${name}${text ? '  — ' + text : ''}`);
+  console.log(`  ${mark} [${rung}] ${shown(name)}${text ? '  — ' + text : ''}`);
 }
 // Adapter so otel.js's reporter signature (name, ok, detail) can write into `record`.
 const otelReporter = (req) => (name, ok, detail) =>
@@ -141,6 +141,13 @@ function resolveSeeds(j) {
 }
 const subst = (v, vars) =>
   typeof v === 'string' ? v.replace(/\{\{(\w+)\}\}/g, (m, k) => (k in vars ? vars[k] : m)) : v;
+// #668: what is DISPLAYED (console step header and check lines, the walk's action labels) resolves
+// seed placeholders the same way execution does; a placeholder with no seed stays visible as written.
+// DISPLAY ONLY: the stored `name` of a result row and a walk step stays raw, because report-normalize.js
+// matches rows to the journey contract by that exact string.
+let displayVars = {};
+const shown = s => String(subst(s, displayVars));
+const setDisplayVars = v => { displayVars = v || {}; };
 
 // ── Step actions ────────────────────────────────────────────────────────────
 // A small, closed vocabulary addressed by Mendix widget name, not raw CSS — the
@@ -180,11 +187,12 @@ async function shoot(page, name) {
 
 function describeAct(a, vars) {
   const v = x => String(subst(x, vars));
+  const lab = a.label !== undefined ? v(a.label) : a.label;
   switch (a.do) {
     case 'nav':      return { verb: 'Navigate', target: [a.group, a.item].filter(Boolean).join(' › '), selector: null };
-    case 'click':    return { verb: 'Click', target: (a.label || a.widget) + (a.row !== undefined ? ` in the row "${v(a.row)}"` : ''), selector: `.mx-name-${a.widget}` };
-    case 'fill':     return { verb: 'Type', target: `"${v(a.value)}" into ${a.label || a.widget}`, selector: `.mx-name-${a.widget}` };
-    case 'combobox': return { verb: 'Select', target: `"${v(a.match)}" in ${a.label || a.widget}`, selector: `.mx-name-${a.widget}` };
+    case 'click':    return { verb: 'Click', target: (lab || a.widget) + (a.row !== undefined ? ` in the row "${v(a.row)}"` : ''), selector: `.mx-name-${a.widget}` };
+    case 'fill':     return { verb: 'Type', target: `"${v(a.value)}" into ${lab || a.widget}`, selector: `.mx-name-${a.widget}` };
+    case 'combobox': return { verb: 'Select', target: `"${v(a.match)}" in ${lab || a.widget}`, selector: `.mx-name-${a.widget}` };
     case 'wait':     return { verb: 'Wait', target: `${a.ms || 0}ms`, selector: null };
     case 'back':     return { verb: 'Browser Back', target: '', selector: null };
     case 'offline':  return { verb: 'Go offline', target: 'browser network', selector: null };
@@ -377,20 +385,32 @@ async function act(page, a, vars, note) {
 // them (React grids) still match. No row → throw; two or more → throw "ambiguous", never a pick.
 // Neither field → the old first-match locator, unchanged.
 const ROW_SEL = ':is(tr, [role="row"], .mx-listview-item, .mx-templategrid-item)';
+// #665 fallback, used ONLY when ROW_SEL finds no row that says the text: list items rendered as plain
+// elements carrying `mx-name-index-N`. Mendix puts that class on every widget inside a repeated
+// context, so it is NOT a row marker by itself — matching it bare would make a cell widget "the
+// innermost row" and hide the real one. Hence the `:has(target)` filter: only an index-carrying
+// element that contains the widget being acted on can be the row. Never consulted when ROW_SEL hits.
+const ROW_INDEX_SEL = '[class*="mx-name-index-"]';
+const rowHits = (rows, text) => rows.evaluateAll((els, t) => {
+  const esc = t.replace(/\s+/g, ' ').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`(?:^|[^\\p{L}\\p{N}])${esc}(?:[^\\p{L}\\p{N}]|$)`, 'u');
+  const says = e => [e, ...e.querySelectorAll('*')]
+    .some(n => re.test(String(n.innerText != null && n.innerText !== '' ? n.innerText : n.textContent || '').replace(/\s+/g, ' ').trim()));
+  const m = els.filter(says);
+  return els.map((e, i) => (m.includes(e) && !m.some(o => o !== e && e.contains(o))) ? i : -1).filter(i => i >= 0);
+}, text).catch(() => []);
 async function scopedWidget(page, a, vars = {}) {
   let base = page;
   if (a.in) base = page.locator(`.mx-name-${a.in}`).first();
   if (a.row !== undefined) {
     const text = String(subst(a.row, vars));
-    const rows = base.locator(ROW_SEL);
-    const hits = await rows.evaluateAll((els, t) => {
-      const esc = t.replace(/\s+/g, ' ').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const re = new RegExp(`(?:^|[^\\p{L}\\p{N}])${esc}(?:[^\\p{L}\\p{N}]|$)`, 'u');
-      const says = e => [e, ...e.querySelectorAll('*')]
-        .some(n => re.test(String(n.innerText != null && n.innerText !== '' ? n.innerText : n.textContent || '').replace(/\s+/g, ' ').trim()));
-      const m = els.filter(says);
-      return els.map((e, i) => (m.includes(e) && !m.some(o => o !== e && e.contains(o))) ? i : -1).filter(i => i >= 0);
-    }, text).catch(() => []);
+    let rows = base.locator(ROW_SEL);
+    let hits = await rowHits(rows, text);
+    if (!hits.length) {
+      const alt = base.locator(`${ROW_INDEX_SEL}:has(.mx-name-${a.widget})`);
+      const altHits = await rowHits(alt, text);
+      if (altHits.length) { rows = alt; hits = altHits; }
+    }
     const where = a.in ? ` in .mx-name-${a.in}` : '';
     if (!hits.length) throw new Error(`no row${where} says "${text}"`);
     if (hits.length > 1) throw new Error(`ambiguous: ${hits.length} rows${where} say "${text}"`);
@@ -1005,6 +1025,7 @@ async function runJourney(page, j) {
   console.log(`\n=== JOURNEY ${j.id} — ${j.title || ''}`);
   console.log(`    persona: ${j.persona || cfg.user}   requirements: ${(j.requirement || []).join(', ') || '(none declared)'}`);
 
+  displayVars = {};
   const seeded = resolveSeeds(j);
   if (!seeded.ok) {
     record('data', `${j.id}: seeds resolved`, 'INVALID',
@@ -1014,6 +1035,7 @@ async function runJourney(page, j) {
     return;
   }
   const vars = seeded.vars;
+  displayVars = vars;
   if (Object.keys(vars).length) console.log(`    seeds: ${JSON.stringify(vars)}`);
 
   // Baselines for every declared data effect, captured BEFORE the journey runs.
@@ -1032,7 +1054,7 @@ async function runJourney(page, j) {
   walks.push(walk);
 
   for (const [i, step] of j.steps.entries()) {
-    console.log(`\n  --- step ${i + 1}/${j.steps.length}: ${step.name}`);
+    console.log(`\n  --- step ${i + 1}/${j.steps.length}: ${shown(step.name)}`);
     const req = (step.requirement || j.requirement || []).join(', ');
     const t0 = Date.now();
     const from = results.length;   // every check recorded from here belongs to this step
@@ -1749,7 +1771,7 @@ module.exports = {
   traceRung, controlMutants, forbiddenSample, probeApp, appGate, flagAppDown, LIVENESS_SKEW_MS,
   resolveDevice, runDevice, contextOptions, deviceLabel, judgeDevice, networkVerb, setNetwork, isOffline,
   ensureOnline, networkEndRow, resolveGeolocation, applyGeolocation, clearGeolocation, stepGeolocation,
-  act, describeAct, pseudoTexts, pseudoVerdict, scopedWidget,
+  act, describeAct, shown, setDisplayVars, pseudoTexts, pseudoVerdict, scopedWidget,
   // For fixtures that walk a journey in a real browser against a stand-in page (#564).
   runJourney, results,
   journeyTimeoutMs, raceTimeout, timeoutRows,

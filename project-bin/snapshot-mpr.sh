@@ -38,15 +38,18 @@ MODEL_DIR="$(find_model_dir)" || exit 1
 if [ -d "$PROJECT_ROOT/.git" ] || [ -f "$PROJECT_ROOT/.git" ]; then
   GI="$PROJECT_ROOT/.gitignore"
   _gitxt=""; [ ! -f "$GI" ] || IFS= read -r -d '' _gitxt < "$GI" || true   # grep -qE '^/?\.mpr-snapshots/?$', in-shell
-  _nl=$'\n'
+  _nl=$'\n'; _eol="$_nl"
+  # A Windows-made .gitignore is CRLF: match with the CRs stripped (else `/.mpr-snapshots/\r` is
+  # missed and the block lands twice), and append in the file's own line ending.
+  case "$_gitxt" in *$'\r'*) _eol=$'\r\n'; _gitxt="${_gitxt//$'\r'/}" ;; esac
   if ! { [ -f "$GI" ] && [[ "$_nl$_gitxt$_nl" =~ $_nl/?\.mpr-snapshots/?$_nl ]]; }; then
     # Never fatal: this runs under set -e BEFORE the snapshot, and exec.sh calls it bare — an
     # unwritable .gitignore must not stop the snapshot (CLAUDE.md guard rule 7).
     if {
-      if [ -f "$GI" ] && [ -s "$GI" ] && [ -n "$(tail -c 1 "$GI")" ]; then printf '\n'; fi
-      printf '# Pre-exec model snapshots (project-bin/snapshot-mpr.sh). A full .mpr + mprcontents\n'
-      printf '# copy per exec, five kept. Never committed: it is the client model, several times over.\n'
-      printf '/.mpr-snapshots/\n'
+      if [ -f "$GI" ] && [ -s "$GI" ] && [ -n "$(tail -c 1 "$GI")" ]; then printf '%s' "$_eol"; fi
+      printf '# Pre-exec model snapshots (project-bin/snapshot-mpr.sh). A full .mpr + mprcontents%s' "$_eol"
+      printf '# copy per exec, five kept. Never committed: it is the client model, several times over.%s' "$_eol"
+      printf '/.mpr-snapshots/%s' "$_eol"
     } >> "$GI" 2>/dev/null; then
       printf 'snapshot-mpr: added /.mpr-snapshots/ to .gitignore (it was not ignored).\n' >&2
     else

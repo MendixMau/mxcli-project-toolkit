@@ -1,0 +1,14 @@
+/work/My App
+/work/My
+App/mxcli
+run
+--local
+--watch
+--admin-port
+8091
+--serve-port
+8082
+-p
+/work/My
+App/My
+App.mpr

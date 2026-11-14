@@ -336,6 +336,7 @@ def rollup(steps):
 # Cut the file into phases: a Phase heading opens one, the next heading at the same level or
 # higher closes it. Deeper sub-headings (per-step `####` sections) stay inside the phase.
 phases, warnings = [], []
+covered = set()   # line indexes inside some Phase section; a claims: block outside all of them is orphaned
 i = 0
 while i < len(lines):
     h = HEADING.match(lines[i])
@@ -348,11 +349,13 @@ while i < len(lines):
     if n: name, note = n.group(1).strip(), n.group(2).strip()
     label = "Phase " + pid
     body = []
+    start = i
     i += 1
     while i < len(lines):
         a = ANY_HEADING.match(lines[i])
         if a and len(lines[i]) - len(lines[i].lstrip("#")) <= level: break
         body.append(lines[i]); i += 1
+    covered.update(range(start, i))
 
     steps, claims, claims_note = [], None, None
     tables_seen = 0
@@ -429,6 +432,20 @@ while i < len(lines):
         warnings.append("%s: no row table under this heading, steps are empty" % label)
     phases.append({"id": pid, "name": name, "note": note, "state": rollup(steps),
                    "steps": steps, "claims": claims, "claimsNote": claims_note})
+
+# A claims: block under a later heading (`## Row details`) is outside every phase body, so it was
+# never attached to a phase and nothing said so (#682). Claims are per phase, so say it, not guess.
+# Lines inside a fenced code block are examples, not claims.
+fence, heading = False, None
+for k, ln in enumerate(lines):
+    if ln.strip().startswith("```"):
+        fence = not fence; continue
+    if fence: continue
+    if ANY_HEADING.match(ln): heading = ln.strip()
+    if k not in covered and CLAIMS.match(ln):
+        warnings.append("line %d%s: claims: block is not under a Phase heading, so it is not attached to any "
+                        "phase (move it into the phase section)"
+                        % (k + 1, " (under '%s')" % heading if heading else ""))
 
 if not phases:
     sys.exit(3)

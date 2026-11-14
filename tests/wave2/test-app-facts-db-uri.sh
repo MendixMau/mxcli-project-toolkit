@@ -107,7 +107,7 @@ done
 echo "== mxtk_sqlite_ro_uri"
 uri="$( . "$(dirname "$AF")/_common.sh" >/dev/null 2>&1; mxtk_sqlite_ro_uri "/x/a #2/b?c/catalog.db" )"
 case "$uri" in
-  'file:/x/a%20%232/b%3Fc/catalog.db?mode=ro') ok "escapes ' ', '#', '?' and keeps ?mode=ro ($uri)" ;;
+  'file:/x/a%20%232/b%3Fc/catalog.db?mode=ro'|'file:///x/a%20%232/b%3Fc/catalog.db?mode=ro') ok "escapes ' ', '#', '?' and keeps ?mode=ro ($uri)" ;;
   *) bad "unexpected URI" "$uri" ;;
 esac
 

@@ -1,0 +1,5 @@
+{"modules":[{"name":"Sales"}],
+ "module_dependencies":[{"source_module":"Sales","target_module":"System","ref_kind":"association","edges":3}],
+ "constants":[{"name":"OpenAIApiKey","qualified_name":"Sales.OpenAIApiKey","module_name":"Sales","default_value":""},
+              {"name":"Ballmer","qualified_name":"Sales.Ballmer","module_name":"Sales","default_value":"Gallmo"}],
+ "java_actions":[{"name":"JA_CallLlm","qualified_name":"Sales.JA_CallLlm","module_name":"Sales","documentation":""}]}

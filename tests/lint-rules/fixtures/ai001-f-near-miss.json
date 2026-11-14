@@ -1,0 +1,5 @@
+{"modules":[{"name":"Sales"}],
+ "module_dependencies":[{"source_module":"Sales","target_module":"System","ref_kind":"association","edges":3}],
+ "constants":[{"name":"AlgorithmMode","qualified_name":"Sales.AlgorithmMode","module_name":"Sales","default_value":"fast"},
+              {"name":"MxGenAIConnectorKeyName","qualified_name":"Sales.MxGenAIConnectorKeyName","module_name":"Sales","default_value":"conversation","description":"Openair weather feed; conversely see Allmode."}],
+ "rest_operations":[{"name":"Conversations","service_qualified_name":"Sales.Chat","module_name":"Sales","path":"/conversations/{id}"}]}

@@ -18,6 +18,7 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 `docs/RELEASE-PROCESS.md` §8.
 
 ## Unreleased
+- fix(exec): **`exec.sh --watch-compat` no longer calls an `ALTER PAGE`/`ALTER SNIPPET` (or create/replace of one) that sets a widget action watch-safe (#738)**: a statement with an action, on-click/on-change/on-enter/on-leave or `call microflow` now reports `restart needed: widget action changed`, and one with a data source, a microflow/nanoflow word or a quoted property key reports `unknown`, never `watch can apply this`; plain caption/class/visibility edits are unchanged. The runtime half (a changed action needing a restart) was NOT RUN here and rests on the issue's report; the data-source and quoted-key cases are unverified and classified not-safe. Fixture cases in `test-exec-lock-watch.sh` (the agent-snippet example, with a microflow DataSource, is now `unknown`) — field run, 2026-11
 
 ## v2026.11.14
 - fix(snapshot-mpr): **`project-bin/snapshot-mpr.sh` no longer adds `/.mpr-snapshots/` a second time to a CRLF `.gitignore`, and appends in the file's own line ending**: the match missed `/.mpr-snapshots/\r`, so every Windows-made repo got the 3-line block again with LF endings (mixed endings, duplicate entry); new fixture `tests/wave2/test-snapshot-gitignore.sh` — field run, 2026-11

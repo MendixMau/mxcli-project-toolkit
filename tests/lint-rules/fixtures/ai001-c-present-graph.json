@@ -1,0 +1,3 @@
+{"modules":[{"name":"Sales"}],
+ "module_dependencies":[{"source_module":"Sales","target_module":"System","ref_kind":"association","edges":3},{"source_module":"AgentCommons","target_module":"GenAICommons","ref_kind":"call","edges":40}],
+ "constants":[{"name":"LlmEndpoint","qualified_name":"Sales.LlmEndpoint","module_name":"Sales","default_value":"https://bedrock-runtime.eu-central-1.amazonaws.com/model/m1/converse"}]}

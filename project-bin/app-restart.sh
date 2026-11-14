@@ -42,8 +42,8 @@
 # On Windows, `taskkill /PID <pid> /T` — the same tree, by pid.
 #
 # HOW IT RESTARTS "THE SAME WAY": the argv and working directory of the recorded process —
-# /proc/<pid>/cmdline + cwd on Linux (exact), `ps -o args=` + lsof cwd on macOS (whitespace-split:
-# pass --cmd if an argument held a space). Windows processes do not expose their command line to
+# /proc/<pid>/cmdline + cwd on Linux (exact), `ps -o args=` + lsof cwd on macOS only when nothing is remembered
+# (whitespace-split, refused if a path holds a space, never written to start.cmd — #737). Windows processes do not expose their command line to
 # Git Bash, so there --cmd is needed the first time. Every successful restart remembers the
 # command in .claude/loop/app-restart/start.cmd (self-gitignored, machine-local), so the next one
 # — or one after the app died — needs no --cmd. It must be an `mxcli run --local` command; this
@@ -335,22 +335,36 @@ if [ "$MODE" = client ]; then
 fi
 
 # ── 2. How it was started ───────────────────────────────────────────────────
-ARGV=(); START_CWD=""; HOW=""
+ARGV=(); START_CWD=""; HOW=""; PS_DERIVED=0
 if [ -n "$CMD_OVERRIDE" ]; then
   ARGV=(bash -c "$CMD_OVERRIDE"); START_CWD="$PROJECT_ROOT"; HOW="--cmd"
 elif [ "$ALIVE" = 1 ] && [ -r "/proc/$PID/cmdline" ]; then
   while IFS= read -r -d '' _a; do ARGV+=("$_a"); done < "/proc/$PID/cmdline"
   START_CWD="$(readlink "/proc/$PID/cwd" 2>/dev/null || true)"; HOW="/proc/$PID/cmdline"
-elif [ "$ALIVE" = 1 ] && [ "$(mxtk_platform)" = macos ]; then
+elif [ "$ALIVE" = 1 ] && [ "$(mxtk_platform)" = macos ] && [ ! -f "$REC" ]; then
+  # Last resort, only with nothing remembered (#737: this used to run BEFORE start.cmd and then
+  # overwrote a good start.cmd). `ps` joins argv with spaces, so it is lossy: refuse when a path
+  # we know of holds whitespace, and never write what it returned to start.cmd.
+  for _p in "$PROJECT_ROOT" "$MPR"; do
+    case "$_p" in *[[:space:]]*) refuse "this app's start command cannot be read back exactly on macOS: a path holds a space ($_p)." \
+      "→ Pass it once: ./bin/app-restart.sh --cmd './mxcli run --local --watch -p \"<project>.mpr\"'" \
+      "  (the exact command you started it with; it is remembered for the next restart)" ;; esac
+  done
   # shellcheck disable=SC2207
-  ARGV=($(ps -o args= -p "$PID" 2>/dev/null))
+  ARGV=($(ps -o args= -p "$PID" 2>/dev/null)); PS_DERIVED=1
   START_CWD="$(lsof -a -p "$PID" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1)"
-  HOW="ps -o args= (whitespace-split — pass --cmd if an argument held a space)"
+  case "$START_CWD" in *[[:space:]]*) refuse "this app's working directory holds a space ($START_CWD); \`ps\` cannot give its start command back exactly." \
+    "→ Pass it once: ./bin/app-restart.sh --cmd '<the exact start command>'" ;; esac
+  HOW="ps -o args= (whitespace-split, never remembered — pass --cmd if an argument held a space)"
 fi
 if [ ${#ARGV[@]} -eq 0 ] && [ -f "$REC" ]; then
   START_CWD="$(head -1 "$REC")"
   while IFS= read -r _a; do ARGV+=("$_a"); done < <(sed '1d' "$REC")
   HOW="remembered from the last restart ($REC)"
+  # A start.cmd written by the pre-#737 macOS code holds the argv split at spaces: its first element
+  # is then a path that does not exist. Say so instead of letting nohup fail 240 s later.
+  case "${ARGV[0]:-}" in */*) [ -x "${ARGV[0]}" ] || [ -x "${START_CWD:-.}/${ARGV[0]}" ] || refuse "the remembered start command in $REC is not runnable: ${ARGV[0]} does not exist (an older version split it at a space)." \
+    "→ Pass it once: ./bin/app-restart.sh --cmd '<the exact start command>' (this replaces the remembered one)" ;; esac
 fi
 [ -d "${START_CWD:-/nonexistent}" ] || START_CWD="$PROJECT_ROOT"
 if [ ${#ARGV[@]} -eq 0 ]; then
@@ -447,7 +461,7 @@ else
 fi
 disown 2>/dev/null || true
 echo "  ✓ started (log: $LOG)"
-if [ "$HOW" != "remembered from the last restart ($REC)" ]; then
+if [ "$HOW" != "remembered from the last restart ($REC)" ] && [ "$PS_DERIVED" != 1 ]; then
   mkdir -p "$REC_DIR" && { [ -f "$REC_DIR/.gitignore" ] || printf '*\n' > "$REC_DIR/.gitignore"; }
   { printf '%s\n' "$START_CWD"; printf '%s\n' "${ARGV[@]}"; } > "$REC" 2>/dev/null || true
 fi

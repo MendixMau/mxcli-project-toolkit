@@ -385,11 +385,12 @@ async function act(page, a, vars, note) {
 // them (React grids) still match. No row → throw; two or more → throw "ambiguous", never a pick.
 // Neither field → the old first-match locator, unchanged.
 const ROW_SEL = ':is(tr, [role="row"], .mx-listview-item, .mx-templategrid-item)';
-// #665 fallback, used ONLY when ROW_SEL finds no row that says the text: list items rendered as plain
-// elements carrying `mx-name-index-N`. Mendix puts that class on every widget inside a repeated
-// context, so it is NOT a row marker by itself — matching it bare would make a cell widget "the
-// innermost row" and hide the real one. Hence the `:has(target)` filter: only an index-carrying
-// element that contains the widget being acted on can be the row. Never consulted when ROW_SEL hits.
+// #665 fallback, used ONLY when ROW_SEL finds no row that says the text. The pluggable List view renders
+// each item as `<li class="mx-name-index-N">` (no `.mx-listview-item`; read from the compiled widget of a
+// demo app's deployed client, not a saved page). The class may also sit on widgets inside a repeated
+// context, so it is not a row marker by itself: the `:has(target)` filter keeps only an index-carrying
+// element that contains the widget being acted on, so a cell widget can never be "the innermost row".
+// Never consulted when ROW_SEL hits.
 const ROW_INDEX_SEL = '[class*="mx-name-index-"]';
 const rowHits = (rows, text) => rows.evaluateAll((els, t) => {
   const esc = t.replace(/\s+/g, ' ').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

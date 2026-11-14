@@ -224,9 +224,12 @@ _MXTK_MDL_LEX='
         c = substr(line, i, 1); c2 = substr(line, i, 2)
         if (inblock)   { if (c2 == "*/") { inblock = 0; i += 2 } else i++; continue }
         if (indollar)  { if (c2 == "$$") { indollar = 0; i += 2 } else i++; continue }
+        if (instr)     { if (c == "\047") { instr = 0; clean = clean "\047\047" } i++; continue }
         if (c2 == "/*") { inblock = 1; i += 2; continue }
         if (c2 == "$$") { indollar = 1; i += 2; continue }
         if (c2 == "--" || c2 == "//") break
+        if (c == "\047" && strcarry) { instr = 1; i++; continue }   # watch-compat only (#738): the string
+                                                   # may run over the line break; a doubled quote is close+open
         if (c == "\047") {                        # a string literal: blanked, so a caption that
           i++                                      # says "create microflow" is not a statement
           while (i <= n && substr(line, i, 1) != "\047") i++
@@ -404,8 +407,10 @@ mxtk_watch_compat() {  # $1 = MDL script; prints "restart\t<reasons>" | "unknown
       cnt[label]++
     }
     BEGIN { depth = 0; inblock = 0; indollar = 0; cur_page = 0; nlab = 0; maybe = ""; unk = ""; nunk = 0
-      cur_ui = 0; ui_unk = 0
-      re_act = "(^|[^a-z0-9_])(action|onclick|on_click|onchange|onenter|onleave|call)([^a-z0-9_]|$)"
+      cur_ui = 0; ui_unk = 0; strcarry = 1; instr = 0
+      # action: the word must be a property (Action: / Action =), so an attribute or widget named
+      # Action stays watch-safe; call: only `call <word>` (call microflow/nanoflow), so `on call` does too.
+      re_act = "(^|[^a-z0-9_])(action[ \t]*[:=]|(onclick|on_click|onchange|onenter|onleave)([^a-z0-9_]|$)|call[ \t]+[a-z])"
       re_ds  = "(^|[^a-z0-9_])(datasource|microflow|nanoflow)([^a-z0-9_]|$)|\047\047[ \t]*[:=]" }
     {
       lex_line($0)
@@ -477,6 +482,7 @@ mxtk_watch_compat() {  # $1 = MDL script; prints "restart\t<reasons>" | "unknown
         }
         printf "restart\t%s\n", s; exit
       }
+      if (instr) { unk = unk (nunk++ ? "; " : "") "an unterminated string swallowed the rest of the script" }
       if (nunk > 0) { printf "unknown\t%s%s\n", unk, (nunk > 3 ? " (+" (nunk - 3) " more)" : ""); exit }
       if (maybe != "") { printf "watch\tunless the page is new: create or replace/modify page, %s\n", maybe; exit }
       printf "watch\t\n"

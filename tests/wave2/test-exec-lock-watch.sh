@@ -374,6 +374,23 @@ grep -m1 -oE "SET 'Row size' = 'Small' ON lvOrders" "$TOOLKIT/bug-logs/submitted
 expect "$WORK/quotedkey.mdl" "$UNK" "unlisted property" "alter snippet with a quoted property key is unknown, not watch-safe"
 # What stays watch-safe: the plain edits ui-loop.md lists (captions, classes, ImageUrl).
 expect "$PFM/alter-multiline-alter.mdl" "watch can apply this" "" "alter page set (Caption, ButtonStyle) multi-line stays watch-safe (alter-multiline-alter)"
+# #738 review: words inside strings, comments and names never classify. These inputs are the
+# reviewer's reproductions (hand-written, not captured): the claim is "stays watch", not a parse.
+neg() {  # $1 label  $2 MDL text (printf format)
+  printf "$2" > "$WORK/neg.mdl"; expect "$WORK/neg.mdl" "watch can apply this" "" "stays watch: $1"
+}
+neg "caption string spanning two lines"  "alter page M.P {\n  set Caption = 'Multi\nline action call' on btn1;\n};\n"
+neg "multi-line string holding call microflow / Action: / onclick" "alter page M.P {\n  set Caption = 'Multi\nline Action: x call microflow M.X onclick' on btn1;\n};\n"
+neg "caption 'Call customer'"            "alter page M.P { set Caption = 'Call customer' on btn }\n"
+neg "Caption: 'Take action'"             "alter page M.P { replace t with { textbox t1 (Caption: 'Take action') } }\n"
+neg "widgets btnAction, callLog, microflowLabel" "alter page M.P { set Caption = 'x' on btnAction\n set Class = 'y' on callLog\n set Caption = 'z' on microflowLabel }\n"
+neg "comments -- // /* */ with action/call" "alter page M.P {\n -- action call here\n // call microflow X\n /* onclick\n action */\n set Caption = 'x' on b }\n"
+neg "doubled quote 'it''s an action'"    "alter page M.P { set Caption = 'it''s an action' on b }\n"
+neg "doubled quote across a line break" "alter page M.P { set Caption = 'it''s\nan action call' on b }\n"
+neg "attribute named Action"            "alter page M.P { set Attribute: Action on b }\n"
+neg "widget named call"                 "alter page M.P { set Caption = 'x' on call\n}\n"
+printf "alter page M.P {\n set Caption = 'never closed\n set Class = 'x' on b;\n" > "$WORK/open.mdl"
+expect "$WORK/open.mdl" "$UNK" "unterminated" "a string that never closes is unknown, never watch-safe"
 
 echo "-- watch-compat in a real run"
 cp "$GAL/05-demo-data.mdl" "$P/mdlsource/demo.mdl"

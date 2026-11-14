@@ -62,9 +62,13 @@ _MKT_COMMON="${MXTK_COMMON_SH:-$_MKT_LIB_DIR/../../project-bin/_common.sh}"
 # A table's verdict column is found in its FIRST row (the header): "Verdict", "Decision", or a
 # slash list naming Buy ("Build/Buy/Config/Gap"); the "...approach..." column holds the package.
 # A table with no such header is not a fit-gap table and is skipped.
+# With a second argument "rows" it prints, instead of the Buy lines, one line per data row:
+#   row        <line> <verdict> <text>   verdict: the cell's first word, lower case, markup
+#                                        stripped ("" when empty); text: the whole row, lower case
+# (the same header rule, so mxtk_fitgap_review reads exactly the tables this function reads).
 mxtk_mkt_buys() {
   [ -s "$1" ] || { printf 'parsed\t0\t0\n'; return 0; }
-  tr -d '\r' < "$1" | awk -F'|' '
+  tr -d '\r' < "$1" | awk -F'|' -v mode="${2:-buys}" '
     function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
     function bare(s) { s = tolower(s); gsub(/[*_`]/, "", s); return trim(s) }
     function tick(s,   t) { if (match(s, /`[^`]+`/)) { t = substr(s, RSTART + 1, RLENGTH - 2)
@@ -86,6 +90,8 @@ mxtk_mkt_buys() {
       if (!vcol) next
       nrow++
       v = bare($vcol)
+      if (mode == "rows") { w = v; sub(/[^a-z].*$/, "", w); t = tolower($0); gsub(/\t/, " ", t)
+        print "row\t" NR "\t" w "\t" t; next }
       if (v != "buy") { if (v ~ /(^|[^a-z])buy([^a-z]|$)/) print "unresolved\t-\t" NR; next }
       name = ""
       if (acol) name = tick($acol)
@@ -310,6 +316,69 @@ EOF
     _mkt_c PASS "$n_ok of $scoped confirmed Buy installed$tail$fnote"; return 0
   fi
   _mkt_c FAIL "$n_ok of $scoped confirmed Buy installed$tail; NOT INSTALLED:${missing%,} — install: $cmds; then mxcli marketplace install <content-id> -p $(basename "$mpr") for each (a widget-only package lands as widgets/<Name>.mpk instead; brd-to-build-plan.md Step 0), or gate-check.sh --waive marketplace/<Name> --reason \"...\"$fnote"
+  return 0
+}
+
+# mxtk_fitgap_review <fit-gap path or ""> [catalogue.tsv] — was the Stage 3 Marketplace review
+# written at all? Sets MXTK_FG_STATUS (PASS/FAIL) and MXTK_FG_NOTE; prints nothing.
+#
+# WHY. An unattended build skipped Stage 3 entirely — no fit-gap, no blueprint — and then
+# hand-wrote an LLM call in Java against a GenAI REST endpoint where the project's own
+# instructions named the Marketplace GenAI modules. The runbook asked for "Marketplace calls
+# made" at the Stage 3 gate; nothing read it. The JUDGEMENT (which component, is Build
+# justified) is skills/marketplace-catalogue.md's; this only checks the review exists:
+#   FAIL  no fit-gap file; no table with a Verdict / Decision column; a row whose verdict is
+#         not one of Native, Config, Buy, Build, Workaround, Gap; a Build or Workaround row
+#         whose text matches a catalogue capability (marketplace-catalogue.tsv keywords) and
+#         names neither the word "Marketplace" nor one of that entry's components.
+#   PASS  otherwise. It reads one file and one TSV: no mxcli, no model, so it never PENDINGs.
+# Never blocks writing the fit-gap (guard rule 7); called by gate-check.sh build-ready only.
+mxtk_fitgap_review() {
+  local fg="$1" cat="${2:-$_MKT_LIB_DIR/marketplace-catalogue.tsv}" rows parsed n_tab n_row
+  local what='one row per capability the requirements name, columns | Capability | Mendix approach | Verdict | Reason |, the Verdict one of Native, Config, Buy, Build, Workaround or Gap; check each capability against skills/marketplace-catalogue.md and, for a Build where it lists a component, say in the row why not (architecture-blueprint.md Step 4)'
+  MXTK_FG_STATUS=FAIL; MXTK_FG_NOTE=""
+  if [ -z "$fg" ] || [ ! -s "$fg" ]; then
+    MXTK_FG_NOTE="no architecture/fit-gap.md, so no Marketplace review was made. Write it before Stage 5: $what"
+    return 0
+  fi
+  rows="$(mxtk_mkt_buys "$fg" rows)"
+  parsed="$(printf '%s\n' "$rows" | awk -F'\t' '$1=="parsed"{print $2 " " $3}')"
+  n_tab="${parsed%% *}"; n_row="${parsed##* }"
+  if [ "${n_tab:-0}" -eq 0 ] || [ "${n_row:-0}" -eq 0 ]; then
+    MXTK_FG_NOTE="${fg##*/} has no table with a Verdict column holding a row. Write $what"
+    return 0
+  fi
+  local found
+  found="$(printf '%s\n' "$rows" | awk -F'\t' -v cat="$cat" '
+    BEGIN { while ((getline l < cat) > 0) { if (l ~ /^#/ || l == "") continue
+              split(l, f, "\t"); n++; id[n] = f[1]; kw[n] = "(^|[^a-z0-9])(" f[2] ")([^a-z0-9]|$)"
+              names[n] = f[3] } }
+    function alnum(s) { s = tolower(s); gsub(/[^a-z0-9]/, "", s); return s }
+    $1 != "row" { next }
+    $3 !~ /^(native|config|buy|build|workaround|gap)$/ { bad = bad sep $2 " (\"" ($3 == "" ? "empty" : $3) "\")"; sep = ", "; next }
+    $3 != "build" && $3 != "workaround" { next }
+    { t = $4; ta = alnum(t)
+      if (t ~ /marketplace/) next
+      for (i = 1; i <= n; i++) { if (t !~ kw[i]) continue
+        k = split(names[i], c, ","); hit = 0
+        for (j = 1; j <= k; j++) if (index(ta, alnum(c[j]))) hit = 1
+        if (!hit) { nr = nr nsep $2 " (" id[i] ": " names[i] ")"; nsep = "; " }
+        break } }
+    END { printf "%s\t%s\n", bad, nr }')"
+  local badv="${found%%$'\t'*}" noreason="${found#*$'\t'}" rel="${fg##*/}"
+  if [ -n "$badv" ]; then
+    MXTK_FG_NOTE="$rel row(s) with no recognised verdict, line $badv: the Verdict cell starts with Native, Config, Buy, Build, Workaround or Gap"
+  fi
+  if [ -n "$noreason" ]; then
+    MXTK_FG_NOTE="${MXTK_FG_NOTE:+$MXTK_FG_NOTE; }$rel Build row(s) for a capability the Marketplace catalogue covers, with no reason, line $noreason: make it Buy, or write in the row \"Marketplace: <component> not used because ...\" (skills/marketplace-catalogue.md)"
+  fi
+  [ -n "$MXTK_FG_NOTE" ] && return 0
+  MXTK_FG_STATUS=PASS
+  if [ ! -r "$cat" ]; then
+    MXTK_FG_NOTE="$n_row row(s) in $n_tab verdict table(s) of $rel, every verdict recognised; Build reasons NOT checked: no catalogue at $cat"
+    return 0
+  fi
+  MXTK_FG_NOTE="$n_row row(s) in $n_tab verdict table(s) of $rel, every verdict recognised, every catalogued Build gives a reason"
   return 0
 }
 

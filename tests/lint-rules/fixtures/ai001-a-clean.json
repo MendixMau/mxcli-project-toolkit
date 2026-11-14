@@ -1,0 +1,5 @@
+{"modules":[{"name":"Sales"}],
+ "module_dependencies":[{"source_module":"Sales","target_module":"System","ref_kind":"association","edges":3},{"source_module":"Sales","target_module":"CommunityCommons","ref_kind":"call","edges":1}],
+ "constants":[{"name":"HubBaseUrl","qualified_name":"Sales.HubBaseUrl","module_name":"Sales","default_value":"http://127.0.0.1:8081/rest/orchestration/v1"}],
+ "rest_clients":[{"name":"HubApi","qualified_name":"Sales.HubApi","module_name":"Sales","base_url":"https://hub.example.test/rest/v1"}],
+ "rest_operations":[{"name":"GetCase","service_qualified_name":"Sales.HubApi","module_name":"Sales","path":"/cases/{id}"}]}

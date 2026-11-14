@@ -1,0 +1,9 @@
+{"modules":[{"name":"Sales"},{"name":"Triage"}],
+ "module_dependencies":[{"source_module":"Sales","target_module":"System","ref_kind":"association","edges":3}],
+ "constants":[{"name":"ModelEndpoint","qualified_name":"Triage.ModelEndpoint","module_name":"Triage","default_value":""}],
+ "constant_values":[{"constant":"Triage.ModelEndpoint","configuration":"Default","value":"https://api.anthropic.com/v1/messages"}],
+ "rest_clients":[{"name":"ModelApi","qualified_name":"Triage.ModelApi","module_name":"Triage","base_url":"https://api.openai.com"}],
+ "rest_operations":[{"name":"Complete","service_qualified_name":"Triage.ModelApi","module_name":"Triage","path":"/v1/chat/completions"},
+                    {"name":"Embed","service_qualified_name":"Triage.EmbedApi","module_name":"Triage","path":"/v1/embeddings"}],
+ "java_actions":[{"name":"JA_CallLlm","qualified_name":"Triage.JA_CallLlm","module_name":"Triage","documentation":"Posts the prompt to the GenAI endpoint and returns the text."}],
+ "jar_dependencies":[{"module_name":"Triage","group_id":"com.anthropic","artifact_id":"anthropic-java","version":"2.0.0","coordinate":"com.anthropic:anthropic-java:2.0.0","is_included":true}]}

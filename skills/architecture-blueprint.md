@@ -295,6 +295,8 @@ rebuild it here. Same source-of-truth/render rule as Steps 3b/3c: the markdown i
 
 The build-vs-buy-vs-workaround decision, one row per source capability. **This is where marketplace review lives** — reviewing marketplace for modules that (partly) match scope is a fit-gap decision, not a separate phase.
 
+**Look every capability up in `marketplace-catalogue.md` first.** A capability it lists is Buy by default; a Build or Workaround for one names the component and the reason in the row (`Marketplace: <component> not used because ...`). `gate-check.sh <project> build-ready` refuses Stage 5 with no `fit-gap.md`, with a row whose verdict is not in the vocabulary below, or with such a Build that gives no reason. A fourth column `Reason` is the usual place for it.
+
 | Source capability | Mendix approach | Verdict | Open issue? |
 |---|---|---|---|
 | e.g. CRUD grid | Data Grid 2 (native) | **Native** | — |

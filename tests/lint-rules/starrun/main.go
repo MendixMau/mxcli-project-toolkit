@@ -101,6 +101,43 @@ type fixture struct {
 	UserRoles    []map[string]any            `json:"user_roles"`
 	RoleMappings []map[string]any            `json:"role_mappings"`
 	Options      map[string]any              `json:"options"`
+	// MXTK-AI001 (lint-rules/mxtk_ai001_genai_without_commons.star)
+	Modules        []map[string]any `json:"modules"`
+	ModuleDeps     []map[string]any `json:"module_dependencies"`
+	Constants      []map[string]any `json:"constants"`
+	ConstantValues []map[string]any `json:"constant_values"`
+	RestClients    []map[string]any `json:"rest_clients"`
+	RestOperations []map[string]any `json:"rest_operations"`
+	JavaActions    []map[string]any `json:"java_actions"`
+	JarDeps        []map[string]any `json:"jar_dependencies"`
+}
+
+// Projections read from mxcli mdl/linter (starlark.go, starlark_catalog_tables.go,
+// starlark_graph.go) at v0.31.0. java_action's `parameters` list is not mocked.
+var moduleFields = fields{s: []string{"id", "name", "domain_model_documentation"}}
+var moduleDepFields = fields{s: []string{"source_module", "target_module", "ref_kind"}, i: []string{"edges"}}
+var constantFields = fields{
+	s: []string{"id", "name", "qualified_name", "module_name", "folder", "description", "default_value"},
+	b: []string{"exposed_to_client"},
+}
+var constantValueFields = fields{s: []string{"constant", "configuration", "value"}}
+var restClientFields = fields{
+	s: []string{"id", "name", "qualified_name", "module_name", "folder", "base_url", "auth_scheme", "documentation"},
+	i: []string{"operation_count"},
+}
+var restOperationFields = fields{
+	s: []string{"id", "service_id", "service_qualified_name", "name", "http_method", "path", "response_type", "module_name"},
+	b: []string{"has_body"},
+	i: []string{"parameter_count", "timeout"},
+}
+var javaActionFields = fields{
+	s: []string{"id", "name", "qualified_name", "module_name", "folder", "documentation", "description",
+		"export_level", "return_type"},
+	i: []string{"parameter_count"},
+}
+var jarDepFields = fields{
+	s: []string{"module_name", "group_id", "artifact_id", "version", "coordinate"},
+	b: []string{"is_included"},
 }
 
 // Projection field lists with their zero values. Order does not matter to Starlark.
@@ -227,12 +264,20 @@ func main() {
 	}
 
 	predeclared := starlark.StringDict{
-		"struct":       starlark.NewBuiltin("struct", starlarkstruct.Make),
-		"widgets":      noArgs("widgets", list("widget", widgetFields, fx.Widgets)),
-		"microflows":   noArgs("microflows", list("microflow", microflowFields, fx.Microflows)),
-		"pages":        noArgs("pages", list("page", pageFields, fx.Pages)),
-		"entities":     noArgs("entities", list("entity", entityFields, fx.Entities)),
-		"associations": noArgs("associations", list("association", associationFields, fx.Associations)),
+		"struct":              starlark.NewBuiltin("struct", starlarkstruct.Make),
+		"modules":             noArgs("modules", list("module", moduleFields, fx.Modules)),
+		"module_dependencies": noArgs("module_dependencies", list("module_dependency", moduleDepFields, fx.ModuleDeps)),
+		"constants":           noArgs("constants", list("constant", constantFields, fx.Constants)),
+		"constant_values":     noArgs("constant_values", list("constant_value", constantValueFields, fx.ConstantValues)),
+		"rest_clients":        noArgs("rest_clients", list("rest_client", restClientFields, fx.RestClients)),
+		"rest_operations":     noArgs("rest_operations", list("rest_operation", restOperationFields, fx.RestOperations)),
+		"java_actions":        noArgs("java_actions", list("java_action", javaActionFields, fx.JavaActions)),
+		"jar_dependencies":    noArgs("jar_dependencies", list("jar_dependency", jarDepFields, fx.JarDeps)),
+		"widgets":             noArgs("widgets", list("widget", widgetFields, fx.Widgets)),
+		"microflows":          noArgs("microflows", list("microflow", microflowFields, fx.Microflows)),
+		"pages":               noArgs("pages", list("page", pageFields, fx.Pages)),
+		"entities":            noArgs("entities", list("entity", entityFields, fx.Entities)),
+		"associations":        noArgs("associations", list("association", associationFields, fx.Associations)),
 		"permissions_for": starlark.NewBuiltin("permissions_for", func(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 			var q string
 			if err := starlark.UnpackArgs(b.Name(), args, kwargs, "entity_qualified_name", &q); err != nil {

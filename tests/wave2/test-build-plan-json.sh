@@ -397,6 +397,34 @@ cp "$P11/architecture/build-plan.md" "$P11B/architecture/build-plan.md"
 bash "$SCRIPT" "$P11B" --refresh >/dev/null 2>&1
 [ ! -f "$P11B/architecture/build-plan.json" ] && ok "T11 --refresh does not create a json when there is none" || bad "T11 --refresh created build-plan.json"
 
+# ── T12: a claims: block under a later heading is warned about, not silently dropped (#682) ──
+# Phase 1 is the T2 plan's own Phase 1 section (rows and heading as in P1); its claims block is
+# moved under a later `## Row details` heading, the shape the issue reported.
+P12="$(new_project orphanclaims)"
+cat > "$P12/architecture/build-plan.md" <<'MD'
+# Build Plan — Sample
+
+### Phase 1 — Home + Reading *(built — round B1)*
+
+| # | Kind | Step | Produces/Proves | Depends on | Skills | State |
+|---|---|---|---|---|---|---|
+| 1.1 | BRIEF | check module brief | brief covers both | 0.2 | module-brief | **built** |
+
+## Row details
+
+### 1.1 check module brief
+
+claims:
+```
+  /useCases/* (2)          [F001]
+```
+MD
+bash "$SCRIPT" "$P12" --json --quiet >/dev/null 2>&1
+J12="$P12/architecture/build-plan.json"
+[ "$(q "$J12" 'd["phases"][0]["claims"]')" = "None" ] && [ "$(q "$J12" 'len(d["phases"][0]["steps"])')" = "1" ] && ok "T12 orphan claims block: phase claims and steps unchanged (nothing guessed)" || bad "T12 phase" "$(q "$J12" 'd["phases"][0]')"
+[ "$(q "$J12" 'len(d["warnings"]) == 1 and "claims: block is not under a Phase heading" in d["warnings"][0] and "1.1 check module brief" in d["warnings"][0]')" = "True" ] && ok "T12 one warning names the orphan claims block and the heading it sits under" || bad "T12 warnings" "$(q "$J12" 'd["warnings"]')"
+[ "$(q "$J1" 'any("not under a Phase heading" in w for w in d["warnings"])')" = "False" ] && ok "T12 the real-shape plan (claims inside phases, a fenced example outside) draws no orphan warning" || bad "T12 false positive" "$(q "$J1" 'd["warnings"]')"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL   ($WORK)"
 [ "$FAIL" -eq 0 ]

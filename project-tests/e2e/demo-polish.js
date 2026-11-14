@@ -1,6 +1,6 @@
 'use strict';
 // demo-polish.js — polished demo capture for Playwright: smooth 60 fps, a visible cursor with a click ripple,
-// eased scrolling, and a camera that zooms in on dense moments AFTER the take (Screen Studio style).
+// eased scrolling, and a camera that holds the full page and zooms (rarely, max 1.4x) AFTER the take.
 //
 //   const polish = require('./demo-polish');
 //   const ctx = await browser.newContext({viewport:{width:1920,height:1080}, deviceScaleFactor:2});
@@ -37,15 +37,17 @@ const KNOBS = {
   rippleColor: 'rgba(17,24,39,.95)', rippleFill: 'rgba(17,24,39,.18)',  // dark ring, white halo (in the overlay)
   scrollMs: px => clamp(400 + 0.5 * px, 600, 1400),
   afterScrollMs: [400, 600],
-  zoomMax: 1.75, zoomMin: 1.25, // never past 1.75; a region that only earns < 1.25 gets no zoom at all
+  zoomMax: 1.4, zoomMin: 1.15,  // never past 1.4; a region that only earns < 1.15 is a highlight, not a zoom
+  maxZooms: 2,                  // zoom budget per take; notes beyond it are skipped ('zoom budget') and stay highlight-only
+  openMs: 1500,                 // a zoom never opens a shot: the push-in starts no earlier than this, the first beat is full page
   zoomPad: .08,                 // padding around the framed element, as a share of its size per side
   centreBand: .2,               // the target's centre must land within 0.5 +- this of the zoomed frame, or no zoom
   parkInsetPx: 32,              // between actions the cursor rests this far in from the side edge, never mid-content
   parkMs: 800, parkAfterMs: 450,
   leadMs: 400,                  // push-in starts this long before the click
-  inMs: 700, holdMs: 2000, outMs: 800,
+  inMs: 500, holdMs: 2000, outMs: 600,   // short push-in and zoom-out: a rare move, not a glide
   mergeMs: 2500,                // camera notes closer than this share one shot
-  clickRegion: [960, 540],      // zoom:true on a click frames at least this much around it (~1.7x), not the bare button
+  clickRegion: [1280, 720],     // zoom:true on a click frames at least this much around it (~1.3x, never past zoomMax), not the bare button
   minHoldMs: 800,               // a shot that cannot hold this long before the next scroll/move is dropped, not squeezed
 };
 
@@ -203,7 +205,8 @@ function mapper(meta) {
   return {toOut, toWall, len};
 }
 
-// Shots: one zoom per shot, notes closer than mergeMs merged, nothing overlaps, every take ends zoomed out.
+// Shots: full page by default; at most maxZooms zooms per take, none past zoomMax, none opening the take, every take ends at 1x.
+// A note that gets no zoom (too wide, edge, timing, budget, opens the shot) stays a highlight: listed in skipped with highlightOnly.
 function shots(meta, events, k = {}) {
   k = {...KNOBS, ...k}; const {toOut, len} = mapper(meta), V = meta.viewport, kb = k.keepBottom || 0, vis = (V.height - kb) / V.height;
   // with a kept bottom band only the area above it shows the zoomed picture, so frame inside that area
@@ -221,17 +224,17 @@ function shots(meta, events, k = {}) {
   for (const n of notes) {
     const last = out[out.length - 1];
     if (last && n.t - last.lastT < k.mergeMs && fit(union(last.box, n.box)) >= k.zoomMin) { last.box = union(last.box, n.box); last.lastT = n.t; if (n.until) last.until = Math.max(last.until || 0, n.until); continue; }
-    if (fit(n.box) < k.zoomMin) { skipped.push({t: n.t, why: 'region too large to earn a zoom', fit: +fit(n.box).toFixed(2)}); continue; }
+    if (fit(n.box) < k.zoomMin) { skipped.push({t: n.t, why: 'region too large to earn a zoom', highlightOnly: true, fit: +fit(n.box).toFixed(2)}); continue; }
     out.push({firstT: n.t, lastT: n.t, box: n.box, until: n.until});
   }
   let prevEnd = 0; const res = [];
   for (const s of out) {
-    const z = clamp(fit(s.box), k.zoomMin, s.box.cut ? k.zoomMin : k.zoomMax), cx = s.box.x + s.box.width / 2, cy = s.box.y + s.box.height / 2;
+    const z = Math.min(k.zoomMax, clamp(fit(s.box), k.zoomMin, s.box.cut ? k.zoomMin : k.zoomMax)), cx = s.box.x + s.box.width / 2, cy = s.box.y + s.box.height / 2;
     const w = V.width / z, h = V.height / z, rect = {x: clamp(cx - w / 2, 0, V.width - w), y: clamp(cy - h * vis / 2, 0, V.height - kb - h * vis), w, h};
     // Centred or nothing: near a frame edge the camera rect clamps and the target slides off-centre. A lower zoom only
     // widens the rect and makes that worse, so a target that cannot sit near the middle is not zoomed at all.
     const u = (cx - rect.x) / w, v = (cy - rect.y) / (h * vis);
-    if (Math.abs(u - .5) > k.centreBand || Math.abs(v - .5) > k.centreBand) { skipped.push({t: s.firstT, why: 'target at the frame edge: cannot be centred', u: +u.toFixed(2), v: +v.toFixed(2)}); continue; }
+    if (Math.abs(u - .5) > k.centreBand || Math.abs(v - .5) > k.centreBand) { skipped.push({t: s.firstT, why: 'target at the frame edge: cannot be centred', highlightOnly: true, u: +u.toFixed(2), v: +v.toFixed(2)}); continue; }
     const prevB = bounds.filter(x => x.end <= s.firstT).pop(), nextB = bounds.find(x => x.t > s.lastT);
     let a = Math.max(prevEnd, prevB ? prevB.end : 0, s.firstT - k.leadMs), b = a + k.inMs;
     let hold = Math.max(s.lastT + k.holdMs, b + k.holdMs, s.until || 0);
@@ -240,7 +243,9 @@ function shots(meta, events, k = {}) {
     const limit = Math.min(len, nextB ? nextB.t : len);
     let c = hold, d = c + k.outMs;
     if (d > limit) { d = limit; c = d - k.outMs; }
-    if (c - b < k.minHoldMs) { skipped.push({t: s.firstT, why: nextB && nextB.t < len ? 'next scroll or move comes too soon to hold' : 'no room to zoom out before the end', holdMs: Math.round(c - b)}); continue; }
+    if (c - b < k.minHoldMs) { skipped.push({t: s.firstT, why: nextB && nextB.t < len ? 'next scroll or move comes too soon to hold' : 'no room to zoom out before the end', highlightOnly: true, holdMs: Math.round(c - b)}); continue; }
+    if (a < k.openMs) { skipped.push({t: s.firstT, why: 'zoom opens the shot', highlightOnly: true, startMs: Math.round(a)}); continue; }
+    if (res.length >= k.maxZooms) { skipped.push({t: s.firstT, why: 'zoom budget', highlightOnly: true, budget: k.maxZooms}); continue; }
     res.push({z: +z.toFixed(3), rect, a, b, c, d, u: +u.toFixed(2), v: +v.toFixed(2)}); prevEnd = d;
   }
   return {shots: res, skipped, len};

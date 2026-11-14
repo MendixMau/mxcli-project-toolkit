@@ -33,6 +33,7 @@ has no Verdict column, has a row with no recognised verdict, or has a Build for 
 matched by `bin/lib/marketplace-catalogue.tsv` (this table's keywords) that names neither the
 component nor the word "Marketplace". It checks only that the review was written; whether the
 verdict is right is this skill's judgement and the Stage 3 sign-off's.
+A Build row that hit a keyword by accident ("custom chart widget" matches `charts`) is not wrong: it passes once it carries a one-sentence `Marketplace: <component> not used because <reason>`.
 
 Bad row (refused):
 
@@ -49,6 +50,8 @@ Names are the Marketplace titles; the module name in backticks is what `SHOW MOD
 **"verify in Marketplace"** means the toolkit has not confirmed the exact module name, its current
 version or its Mendix version floor: search for it before writing the Buy row, and never copy a
 version number from here.
+
+Names not verified against the live Marketplace; confirm each with `mxcli marketplace search` before relying on it.
 
 | id | Capability | Component(s) | Use when | Build is acceptable when |
 |---|---|---|---|---|

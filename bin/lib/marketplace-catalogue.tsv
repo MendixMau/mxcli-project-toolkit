@@ -2,6 +2,7 @@
 # to spot a fit-gap Build row for a capability a standard Marketplace component covers.
 # The judgement (when to use it, when Build is acceptable) is skills/marketplace-catalogue.md;
 # every id here is an entry there, and the names are the ones that skill lists. Edit both together.
+# Names not verified against the live Marketplace; confirm each with `mxcli marketplace search` before relying on it.
 #
 # TAB-separated: id <TAB> keywords (ERE alternation, lower case, matched as whole words in the
 # lower-cased row) <TAB> component names (comma list; a row naming any of them, or the word

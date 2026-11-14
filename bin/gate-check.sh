@@ -2576,6 +2576,10 @@ check_build_ready() {
   #    only Buys, so a project with NO fit-gap passed it as PENDING. Not owed: joined above Stage
   #    3, or Stage 3 waived / excused by entry mode while no fit-gap exists. A fit-gap that exists
   #    is always read. `--waive artifact/fit-gap --reason "..."` excuses it, never by deleting rows.
+  #    Field run 2026-11-14 on 2 toolkit-built apps (scratch copies, neither had a fit-gap): item 7
+  #    FAILed on both with the 'no architecture/fit-gap.md ... Write it before Stage 5' line, build-ready
+  #    exit 1; after `--waive artifact/fit-gap --reason` on one it read 'Fit-gap: WAIVED', exit 1 from
+  #    the other items. The has-a-fit-gap case was fixture-only: no real app had one.
   local fg_path fg_w=""
   fg_path="$(resolve_artifact_nonempty "architecture/fit-gap.md")"
   if [ -n "$ADOPTED_AT" ] && [ "$(stage_rank "$ADOPTED_AT")" -gt "$(stage_rank 3)" ]; then

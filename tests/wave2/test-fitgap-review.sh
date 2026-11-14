@@ -20,6 +20,8 @@
 #   F10 --adopt 5                                    -> ✓ not owed
 #   F11 greenfield, no fit-gap -> ✓ not owed; greenfield WITH a bad fit-gap -> ✗ (a file is read)
 #   F12 two-tree layout (app/App.mpr)                -> same verdict as F4
+#   F14 Build row with an ACCIDENTAL keyword ("custom chart widget") -> ✗ naming `charts`; the same
+#       row with a one-sentence "Marketplace: ... not used because ..." reason -> ✓
 #   F13 marketplace line is untouched: the item is printed after "Marketplace:" and Stage 5 is
 #       not changed by it (gate-check <p> 5 never prints "Fit-gap:")
 # Keep bash-3.2 compatible.
@@ -128,6 +130,14 @@ OUT="$(gc "$P4" build-ready)"
 printf '%s\n' "$OUT" | awk '/^  [^ ]+ Marketplace:/{m=NR} /^  [^ ]+ Fit-gap:/{f=NR} END{exit !(m && f && f > m)}' && ok "printed after the Marketplace item" || bad "F13 order: $(printf '%s\n' "$OUT" | grep -nE 'Marketplace:|Fit-gap:')"
 OUT="$(gc "$P4" 5)"
 printf '%s\n' "$OUT" | grep -q 'Fit-gap:' && bad "F13: stage 5 run printed a Fit-gap line" || ok "stage 5 run does not evaluate it"
+
+echo "== F14: accidental keyword in a Build row =="
+P="$(mkproj f14 root - "$HDR" "$SEP" '| Gauge on the dashboard | custom chart widget | **Build** | needs a dial, not a bar |')"
+L="$(fg_line "$(gc "$P" build-ready)")"
+case "$L" in "  ✗ Fit-gap:"*"(charts:"*) ok "short keyword in a Build row asks for the reason (FAIL)" ;; *) bad "F14a: $L" ;; esac
+P="$(mkproj f14b root - "$HDR" "$SEP" '| Gauge on the dashboard | custom chart widget | **Build** | Marketplace: Charts not used because it has no dial gauge |')"
+L="$(fg_line "$(gc "$P" build-ready)")"
+case "$L" in "  ✓ Fit-gap:"*) ok "the same row with a one-sentence reason passes" ;; *) bad "F14b: $L" ;; esac
 
 echo ""
 echo "test-fitgap-review: $PASS passed, $FAIL failed"

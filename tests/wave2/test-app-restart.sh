@@ -331,6 +331,85 @@ has "names what is missing" "$OUT" "no mxtest_left"
 has "names the remedy" "$OUT" "sync-project.sh"
 hasnt "no command-not-found mid-run" "$OUT" "command not found"
 
+echo "-- #737: arguments with spaces survive the stored start.cmd (Linux/Git Bash path) and the macOS ps path never overwrites it"
+# NOT RUN ON MACOS: the macOS branch is exercised on Linux by shimming mxtk_platform, hiding /proc and
+# putting a `ps`/`lsof` that join argv with spaces first on PATH (as BSD ps does). The shim output is
+# modelled, not captured from a Mac; the real-ps run still needs a macOS field run.
+SP="$WORK/proj sp"; SPORT=$(( PORT + 300 )); mkapp "$SP" "$SPORT"
+SREC="$SP/.claude/loop/app-restart/start.cmd"
+SHIM="$WORK/shim"; mkdir -p "$SHIM"
+cat > "$SHIM/ps" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = "-o" ] && [ "${2:-}" = "args=" ] && [ "${3:-}" = "-p" ]; then tr '\0' ' ' < "/proc/$4/cmdline" | sed 's/ $//'; echo; exit 0; fi
+exec /bin/ps "$@"
+SH
+cat > "$SHIM/lsof" <<'SH'
+#!/usr/bin/env bash
+while [ $# -gt 0 ]; do [ "$1" = "-p" ] && { pid="$2"; break; }; shift; done
+echo "p$pid"; echo "n$(readlink "/proc/$pid/cwd")"
+SH
+chmod +x "$SHIM/ps" "$SHIM/lsof"
+macos_restart() {  # $1 = project dir; rest = args. Same script, platform forced to macos, no /proc.
+  sed 's|^mxtk_platform() {|mxtk_platform() { echo macos; return; }\nmxtk_platform_real() {|' "$1/bin/_common.sh" > "$1/bin/_common.sh.new" && mv "$1/bin/_common.sh.new" "$1/bin/_common.sh"
+  sed 's|/proc/\$PID/cmdline|/nonexistent/$PID/cmdline|g' "$1/bin/app-restart.sh" > "$1/bin/app-restart.sh.new" && mv "$1/bin/app-restart.sh.new" "$1/bin/app-restart.sh" && chmod +x "$1/bin/app-restart.sh"
+  ( cd "$1" && shift && PATH="$SHIM:$PATH" FAKE_GOLDEN="$GOLDEN" LOGDIR="$WORK" ./bin/app-restart.sh "$@" ) 2>&1
+}
+start_app "$SP" && ok "[setup] stand-in app (spaced dir) wrote its record" || bad "[setup] stand-in app never became ready"
+KILL_LIST="$KILL_LIST $(hs_pid "$SP") $(cat "$SP/.fakechild" 2>/dev/null)"
+SPCMD="./mxcli run --local --watch -p \"$SP/Fixture.mpr\" --constant 'Mod.Note=a b'"
+OUT="$(restart "$SP" --timeout 30 --cmd "$SPCMD")"; RC=$?
+KILL_LIST="$KILL_LIST $(hs_pid "$SP") $(cat "$SP/.fakechild" 2>/dev/null)"
+[ "$RC" -eq 0 ] && ok "[setup] --cmd with a spaced path started the app" || bad "[setup] exit $RC: $(printf '%s' "$OUT" | tail -3)"
+EXPECT="$(printf '%s\n' run --local --watch -p "$SP/Fixture.mpr" --constant 'Mod.Note=a b')"
+[ "$(cat "$SP/.fakeargv" 2>/dev/null)" = "$EXPECT" ] && ok "the started app got every argument intact" || bad "argv: $(cat "$SP/.fakeargv" 2>/dev/null)"
+[ "$(sed -n '1p' "$SREC" 2>/dev/null)" = "$SP" ] && [ "$(sed -n '4p' "$SREC" 2>/dev/null)" = "$SPCMD" ] && ok "start.cmd: cwd on line 1, the whole spaced command on one line" || bad "start.cmd: $(cat "$SREC" 2>/dev/null)"
+cp "$SREC" "$WORK/sp.good"
+
+echo "-- #737: Linux restart replays the remembered spaced command (dead pid)"
+D="$(hs_pid "$SP")"; kill -KILL "$D" "$(cat "$SP/.fakechild" 2>/dev/null)" 2>/dev/null; sleep 0.5
+OUT="$(restart "$SP" --timeout 30)"; RC=$?
+KILL_LIST="$KILL_LIST $(hs_pid "$SP") $(cat "$SP/.fakechild" 2>/dev/null)"
+[ "$RC" -eq 0 ] && ok "exit 0" || bad "exit $RC: $(printf '%s' "$OUT" | tail -3)"
+[ "$(cat "$SP/.fakeargv" 2>/dev/null)" = "$EXPECT" ] && ok "replayed intact" || bad "replayed argv: $(cat "$SP/.fakeargv" 2>/dev/null)"
+
+echo "-- #737 (macOS branch, shimmed): a live app + remembered start.cmd → start.cmd wins and is left byte-identical"
+OUT="$(macos_restart "$SP" --timeout 30)"; RC=$?
+KILL_LIST="$KILL_LIST $(hs_pid "$SP") $(cat "$SP/.fakechild" 2>/dev/null)"
+[ "$RC" -eq 0 ] && ok "exit 0" || bad "exit $RC: $(printf '%s' "$OUT" | tail -3)"
+has "read it from start.cmd, not ps" "$OUT" "remembered from the last restart"
+cmp -s "$SREC" "$WORK/sp.good" && ok "start.cmd unchanged" || bad "start.cmd was rewritten: $(cat "$SREC")"
+[ "$(cat "$SP/.fakeargv" 2>/dev/null)" = "$EXPECT" ] && ok "restarted with every argument intact" || bad "argv: $(cat "$SP/.fakeargv" 2>/dev/null)"
+
+echo "-- #737 (macOS branch, shimmed): live app, nothing remembered, a path with a space → refuse naming --cmd, app untouched"
+rm -rf "$SP/.claude/loop/app-restart"; CUR="$(hs_pid "$SP")"
+OUT="$(macos_restart "$SP" --timeout 10)"; RC=$?
+[ "$RC" -eq 3 ] && ok "exit 3" || bad "exit $RC: $(printf '%s' "$OUT" | tail -3)"
+has "points at --cmd" "$OUT" "--cmd"
+has "says why" "$OUT" "a path holds a space"
+alive "$CUR" && ok "the app is still running" || bad "the app was stopped"
+[ -f "$SREC" ] && bad "a start.cmd was written" || ok "no start.cmd written"
+
+echo "-- #737 (macOS branch, shimmed): live app, nothing remembered, no whitespace anywhere → ps is used, never written to start.cmd"
+NS="$WORK/nsp"; mkapp "$NS" $(( PORT + 301 )); start_app "$NS" && ok "[setup] app started" || bad "[setup] app never ready"
+KILL_LIST="$KILL_LIST $(hs_pid "$NS") $(cat "$NS/.fakechild" 2>/dev/null)"
+OUT="$(macos_restart "$NS" --timeout 30)"; RC=$?
+KILL_LIST="$KILL_LIST $(hs_pid "$NS") $(cat "$NS/.fakechild" 2>/dev/null)"
+[ "$RC" -eq 0 ] && ok "exit 0" || bad "exit $RC: $(printf '%s' "$OUT" | tail -3)"
+has "used ps" "$OUT" "ps -o args="
+[ -f "$NS/.claude/loop/app-restart/start.cmd" ] && bad "a ps-derived argv was written to start.cmd" || ok "start.cmd not written from ps"
+
+echo "-- #737: a start.cmd written by the old code (argv split at the space, captured in the issue) → reported, not replayed"
+OLDREC="$TOOLKIT/tests/wave2/fixtures/app-restart/start.cmd.pre737-split"
+D="$(hs_pid "$SP")"; kill -KILL "$D" "$(cat "$SP/.fakechild" 2>/dev/null)" 2>/dev/null; sleep 0.5
+mkdir -p "$SP/.claude/loop/app-restart"; cp "$OLDREC" "$SREC"
+OUT="$(restart "$SP" --timeout 10)"; RC=$?
+[ "$RC" -eq 3 ] && ok "exit 3, no 240 s wait" || bad "exit $RC: $(printf '%s' "$OUT" | tail -3)"
+has "says the remembered command is not runnable" "$OUT" "not runnable"
+has "points at --cmd" "$OUT" "--cmd"
+OUT="$(restart "$SP" --timeout 30 --cmd "$SPCMD")"; RC=$?
+KILL_LIST="$KILL_LIST $(hs_pid "$SP") $(cat "$SP/.fakechild" 2>/dev/null)"
+[ "$RC" -eq 0 ] && cmp -s "$SREC" "$WORK/sp.good" && ok "--cmd replaces it with the intact command" || bad "exit $RC; start.cmd: $(cat "$SREC")"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

@@ -1,0 +1,5 @@
+start.cmd.pre737-split — verbatim capture of `cat .claude/loop/app-restart/start.cmd` pasted in
+issue #737 (field report, macOS, project dir '/work/My App', paths already redacted by the reporter):
+the file the pre-fix code wrote after a `ps -o args=` restart. Used as-is to prove such a file is
+reported, not replayed. The macOS `ps` itself was NOT captured (no macOS here); test-app-restart.sh
+shims `ps`/`lsof` on Linux for the macOS branch and says so.

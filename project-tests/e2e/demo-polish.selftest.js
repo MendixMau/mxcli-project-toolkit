@@ -113,10 +113,17 @@ const scroll = (t, ms = 800) => ({t: T0 + t + ms, t0: T0 + t, t1: T0 + t + ms, k
   ok('every take ends at 1x', all.shots.every(x => x.d <= all.len) && P.camera(all.shots, V, all.len).w === V.width, all);
   ok('never more than 2 zooms per take', all.shots.length <= 2, all); }
 
-// 8b. every skipped note, whatever the reason, is highlight-only
-{ const all = [P.shots(meta(60000), [5000, 12000, 20000, 30000, 40000, 58000].map(t => focus(t))), P.shots(meta(20000), [focus(300)]), P.shots(meta(20000), [{t: 5000, box: {x: 0, y: 0, w: V.width, h: V.height}}])];
-  const sk = all.flatMap(r => r.skipped);
-  ok('every skipped note carries highlightOnly: true', sk.length > 0 && sk.every(x => x.highlightOnly === true), sk); }
+// 8b. every skip reason in the planner is listed AND highlight-only (one well-formed fixture per reason, asserted by reason name)
+{ const wide = {x: 64, y: 400, width: 1792, height: 300}, edge = {x: 1456, y: 327, width: 400, height: 170};
+  const cases = [
+    ['frame edge',      /frame edge/,          P.shots(meta(20000), [focus(5000, edge)])],
+    ['too soon',        /too soon/,            P.shots(meta(20000), [focus(5000), scroll(5900)])],
+    ['region too large', /region too large/,   P.shots(meta(20000), [focus(5000, wide)])],
+    ['opens the shot',  /opens the shot/,      P.shots(meta(20000), [focus(300)])],
+    ['zoom budget',     /^zoom budget$/,       P.shots(meta(50000), [5000, 15000, 25000, 35000].map(t => focus(t)))]];
+  for (const [name, re, r] of cases) {
+    const hit = r.skipped.filter(x => re.test(x.why));
+    ok(`skip reason "${name}" is listed and highlightOnly === true`, hit.length > 0 && hit.every(x => x.highlightOnly === true), r.skipped); } }
 
 // 9. camera(): full frame outside shots, the shot rect while holding, eased in between
 { const {shots} = P.shots(meta(20000), [focus(5000)]), s = shots[0];

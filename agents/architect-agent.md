@@ -66,6 +66,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/module-dependency-review.md` | Judging module tangles, bidirectional pairs, cohesion and hubs from analysis/app-facts/dependencies.json; stock graph_module_* views split names on the first dot and are not trusted |
 | `skills/microflow-loop-antipatterns.md` | Reading what loop bodies do (LOOP_TQ, deferred commit, nested loop, REST in loop, transaction control per item, scheduled-event reachability) from described MDL; the catalog holds top-level activities only and cannot see inside a loop |
 | `skills/architecture-blueprint.md` | Diagramming target architecture |
+| `skills/marketplace-catalogue.md` | Writing a fit-gap row, or about to hand-build an LLM call, AI agent, embeddings, SSO, Kafka/events, PDF, Excel import/export, encryption, chart or e-mail capability: which Marketplace component covers it and when Build is acceptable |
 | `skills/modularize-domain.md` | Deciding module boundaries before "create module" |
 | `skills/design-artifacts.md` | Designing the brand and ONE ANNOTATED WIREFRAME PER SCREEN before building pages |
 | `skills/process-map.md` | At Stage 2 close (draft, before the questions are raised) and again after the wireframes (Stage 3 re-render), when a reviewer cannot tell where the open questions and ASSUMED decisions fit: one swimlane map per process, each step on its wireframe, every question pinned to a step (project-bin/process-map.js validate, anchor, build) |

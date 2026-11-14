@@ -171,7 +171,7 @@ MXTK_PROJECT_BIN_NOINSTALL="report-disposition-check.sh coverage-check-all.sh ts
 # project that re-runs init loses these fixes and its lint gate goes quietly blind. Re-running
 # sync-project.sh restores them; lint-rules/STOCK-HASHES.txt is what lets it tell a
 # reverted-to-stock file (safe to restore) from one a project deliberately tuned (hands off).
-MXTK_LINT_RULES="conv010_act_microflow_content.star data_change_microflows.star entity_business_key.star conv009_max_microflow_objects.star ux001_confirm_before_destructive.star ux002_decisions_captioned.star err001_error_swallowed.star loop001_expensive_action_in_loop.star perf001_generalization_depth.star perf002_nested_data_widgets.star perf004_npe_system_user_assoc.star txt001_build_words_in_user_text.star txt002_non_iso_date_in_user_text.star ui001_widget_layout_traps.star sec014_external_role_write.star"
+MXTK_LINT_RULES="conv010_act_microflow_content.star data_change_microflows.star entity_business_key.star conv009_max_microflow_objects.star ux001_confirm_before_destructive.star ux002_decisions_captioned.star err001_error_swallowed.star loop001_expensive_action_in_loop.star perf001_generalization_depth.star perf002_nested_data_widgets.star perf004_npe_system_user_assoc.star txt001_build_words_in_user_text.star txt002_non_iso_date_in_user_text.star ui001_widget_layout_traps.star sec014_external_role_write.star mxtk_ai001_genai_without_commons.star"
 # MXTK_LINT_RULES_STOCK — the subset of MXTK_LINT_RULES that `mxcli init` ALSO seeds, i.e. the
 # only files lint-rules/STOCK-HASHES.txt can ever hold a hash for. The ux001/ux002 rules are
 # toolkit-authored: init never writes them, so no stock hash can exist and a coverage check

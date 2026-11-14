@@ -70,6 +70,12 @@ them; a row still stamped `auto-mode` counts whatever its status says.
 Failure this replaces: an unattended run produced every Stage 3–4 artifact, then FAILed both
 gates by design with nothing saying so (#624).
 
+**No question stays "Not yet asked" under `auto`.** It gets its recommended default, recorded
+`ASSUMED` as above. The intake's Marketplace question defaults to *"use the catalogued Marketplace
+component for each capability (`marketplace-catalogue.md`); Build only with a reason in the
+fit-gap row"*, written to `PROJECT.md`. Failure: an unattended run left it unasked, skipped the
+fit-gap, and hand-wrote in Java an LLM call the GenAI modules provide.
+
 ### Exec approval is a separate knob
 
 `bin/exec-approval.sh <project-dir>` resolves `ask` or `auto` for exec-style writes — a

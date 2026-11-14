@@ -1,0 +1,22 @@
+# marketplace-catalogue.tsv — the keywords bin/lib/marketplace-check.sh (mxtk_fitgap_review) uses
+# to spot a fit-gap Build row for a capability a standard Marketplace component covers.
+# The judgement (when to use it, when Build is acceptable) is skills/marketplace-catalogue.md;
+# every id here is an entry there, and the names are the ones that skill lists. Edit both together.
+# Names not verified against the live Marketplace; confirm each with `mxcli marketplace search` before relying on it.
+#
+# TAB-separated: id <TAB> keywords (ERE alternation, lower case, matched as whole words in the
+# lower-cased row) <TAB> component names (comma list; a row naming any of them, or the word
+# "Marketplace", has given its reason).
+#
+# Keep keywords specific: a hit only asks the row for one sentence, but a hit on an ordinary
+# word ("agent" as in call-centre agent, "graph", "prompt") asks it of rows that never needed it.
+genai-llm	llms?|large language models?|genai|gen ai|generative ai|chat ?completions?|completions api|openai|azure openai|anthropic|claude|bedrock|gpt(-?[0-9][a-z0-9.]*)?|converse|text generation|summari[sz]e with ai	GenAI Commons,GenAICommons,Mendix Cloud GenAI,MxGenAIConnector,OpenAI Connector,Amazon Bedrock Connector
+genai-agent	ai agents?|llm agents?|agentic|tool calling|function calling|tool use|mcp (client|server)	Agent Commons,AgentCommons,GenAI Commons,GenAICommons,MCP Client
+genai-knowledge	embeddings?|vector (store|search|database|db)|knowledge base|rag|retrieval[- ]augmented|semantic search|pgvector	PgVector Knowledge Base,PgVectorKnowledgeBase,Mendix Cloud GenAI,MxGenAIConnector,GenAI Commons,GenAICommons
+sso-oidc	sso|single sign[- ]on|oidc|openid( connect)?|oauth ?2?(\.0)? login|keycloak|entra id|azure ad|okta|saml	OIDC SSO,OIDC,SAML
+events-kafka	kafka|business events?|event broker|publish[/ -]subscribe|pub/sub|event[- ]driven	Business Events,BusinessEvents,Kafka Connector
+document-generation	pdf|pdfs|document generation|generated? (a )?(letter|document|report)s?	Document Generation,DocumentGeneration
+excel	excel|xlsx|xls|spreadsheet (import|export|upload|download)	Excel Importer,ExcelImporter,Excel Exporter,XLSReport,Data Importer,DataImporter
+encryption	encrypt|encrypts|encrypted|encryption|decrypt|decryption	Encryption
+charts	charts?|bar chart|line chart|pie chart|time series chart	Charts
+email	e-?mail (send|sending|inbox|receive|receiving|notification)s?|send(ing)? e-?mails?|smtp|imap	Email Connector,EmailConnector,Email Module with Templates

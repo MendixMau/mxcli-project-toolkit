@@ -225,8 +225,9 @@ Type with a human-like per-character delay and click with an animated
 cursor-move-then-press helper — instant `fill()` and `click()` read as a
 machine. Inject a visible cursor: a click with no visible pointer is invisible
 on playback. `demo-recording-polish.md` has the tested helpers (a drawn cursor
-on a Bezier path, a click ripple, eased scrolling, 60 fps capture and a zoom
-rendered after the take) and the numbers behind each knob.
+on a Bezier path, a click ripple, eased scrolling, 60 fps capture and a still
+full-page camera: a highlight points at what the narration names, and at most 2 small zooms
+(max 1.4x) are rendered after the take) and the numbers behind each knob.
 
 ### 6. Show scrolling
 
@@ -526,7 +527,7 @@ be sorted.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Film looks janky: smeared text, stepping motion, no pointer, an unreadable dense page | `recordVideo` encodes 25 fps vp8 at 1 Mbit/s; no cursor; no zoom | `demo-recording-polish.md` — 2x screencast at 60 fps, drawn cursor, eased scroll, zoom afterwards |
+| Film looks janky: smeared text, stepping motion, no pointer, an unreadable dense page | `recordVideo` encodes 25 fps vp8 at 1 Mbit/s; no cursor; no way to enlarge small text | `demo-recording-polish.md` — 2x screencast at 60 fps, drawn cursor, eased scroll, full-page camera with highlights, rare zoom afterwards |
 | First ~20s blank | `recordVideo` starts at context creation; cold runtime | Rule 1 — warm up, clapper board, trim |
 | Frame 0 still blank after trimming the measured lead-in | Playwright's video timeline does not track wall-clock time | Rule 1 — trim from the clapper, never from the clock |
 | Clapper never found in the recording even though it painted in the DOM | Chromium's screencast submits frames on compositor activity, not on a timer; an idle page with one style change can submit zero new frames | Rule 1 — force rasters with `page.screenshot()` across the hold |

@@ -401,6 +401,89 @@ find_sp_app() {
   fi
 }
 
+# ---------------------------------------------------------------------------
+# mxtk_runtime_gaps <runtime-dir> — what a cached Mendix runtime lacks. Prints one missing item
+# per line and returns 1 when anything is missing; prints nothing and returns 0 when complete.
+#
+# WHY (#692, field run 2026-11). `mxcli test --local` died with NoClassDefFoundError
+# org/osgi/service/event/EventHandler: the cache under ~/.mxcli/runtime/<v>/runtime had
+# launcher/runtimelauncher.jar (the only file mxcli checks) but no bundles/org.osgi*.jar.
+# "Complete" here = the launcher jar, a bundles/ directory, and an org.osgi*.jar in it: the file
+# the field run found missing plus what the launcher is started from. Golden layout:
+# tests/wave2/fixtures/runtime-layout-11.13.0.txt (a real cached runtime). Stat calls only, no
+# forks. This is NOT mxcli's validator, only the check the toolkit can make from outside.
+# ---------------------------------------------------------------------------
+mxtk_runtime_gaps() {
+  local d="$1" f found=0 rc=0
+  [ -f "$d/launcher/runtimelauncher.jar" ] || { echo "launcher/runtimelauncher.jar"; rc=1; }
+  if [ -d "$d/bundles" ]; then
+    for f in "$d"/bundles/org.osgi*.jar; do [ -e "$f" ] && { found=1; break; }; done
+    [ "$found" = 1 ] || { echo "bundles/org.osgi*.jar"; rc=1; }
+  else
+    echo "bundles/"; rc=1
+  fi
+  return $rc
+}
+
+# mxtk_runtime_problems [<mendix-version>] — which cached runtimes are incomplete. Looks at
+# ~/.mxcli/runtime/<v>/runtime and ~/.mxcli/mxbuild/<v>/runtime (the link mxcli also resolves; it
+# can point at the same deficient runtime). With a version only that one is checked, without
+# every cached one. Prints "<dir>|<missing, comma separated>"; returns 1 if any. Complete or
+# absent caches: no output, returns 0. Never blocks anything: callers warn.
+mxtk_runtime_problems() {
+  local ver="${1:-}" root="${MXTK_MXCLI_HOME:-$HOME/.mxcli}" d gaps rc=0 kind
+  for kind in runtime mxbuild; do
+    for d in "$root/$kind"/${ver:-*}/runtime; do
+      [ -d "$d" ] || continue
+      gaps="$(mxtk_runtime_gaps "$d")" && continue
+      printf '%s|%s\n' "$d" "$(printf '%s' "$gaps" | tr '\n' ',' | sed 's/,$//; s/,/, /g')"
+      rc=1
+    done
+  done
+  return $rc
+}
+
+# mxtk_sp_runtime [<mendix-version>] — a COMPLETE Studio Pro runtime, if one is installed. macOS
+# only: the issue names <Studio Pro app>/Contents/runtime; no Windows or Linux location is named
+# anywhere, so those print nothing rather than a guessed path. With a version, only an app whose
+# name carries it.
+mxtk_sp_runtime() {
+  local ver="${1:-}" app
+  [ "${MXTK_PLATFORM:-$(mxtk_platform)}" = macos ] || return 1
+  while IFS= read -r app; do
+    [ -n "$app" ] || continue
+    case "$app" in *"$ver"*) ;; *) continue ;; esac
+    if [ -d "$app/Contents/runtime" ] && mxtk_runtime_gaps "$app/Contents/runtime" >/dev/null; then
+      printf '%s\n' "$app/Contents/runtime"; return 0
+    fi
+  done <<SPLIST
+$(mxtk_sp_list 2>/dev/null)
+SPLIST
+  return 1
+}
+
+# mxtk_runtime_report <mendix-version> <prefix> — print the message for mxtk_runtime_problems, each
+# line starting with <prefix>; returns 1 when it printed, 0 (silent) when nothing is wrong. Names
+# every incomplete runtime and what it lacks, the matching Studio Pro runtime when there is one,
+# and the repair. It repairs nothing itself and the caller carries on.
+mxtk_runtime_report() {
+  local ver="${1:-}" pre="$2" probs sp d g
+  probs="$(mxtk_runtime_problems "$ver")" && return 0
+  sp="$(mxtk_sp_runtime "$ver" || true)"
+  printf '%s\n' "$probs" | while IFS='|' read -r d g; do
+    printf '%s incomplete Mendix runtime: %s\n%s   missing: %s\n' "$pre" "$d" "$pre" "$g"
+  done
+  printf '%s mxcli accepts a runtime on launcher/runtimelauncher.jar alone, so a local test run can die at\n' "$pre"
+  printf '%s startup (NoClassDefFoundError org/osgi/...) with no test verdict (#692). Repair, not done for you:\n' "$pre"
+  if [ -n "$sp" ]; then
+    printf '%s   matching complete Studio Pro runtime: %s\n' "$pre" "$sp"
+    printf '%s   mv <dir above> <dir above>.incomplete && ln -s "%s" <dir above>\n' "$pre" "$sp"
+  else
+    printf '%s   rm -rf <dir above>, then: mxcli setup mxbuild -p <app>.mpr   (UNVERIFIED that it fetches the runtime)\n' "$pre"
+  fi
+  return 1
+}
+
 # mxtk_sp_list — every installed Studio Pro root, one per line, unsorted (find_sp_app
 # picks the newest; find_mxbuild first looks for the one matching the model's version).
 mxtk_sp_list() {

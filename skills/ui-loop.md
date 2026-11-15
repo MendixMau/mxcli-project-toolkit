@@ -199,7 +199,7 @@ diagnosis rounds spent on "defects" that were a stale runtime (#284, #275, #285)
 
 | Watch applies it (~4 s reload) | Watch does NOT apply it — restart the app |
 |---|---|
-| `ALTER PAGE` / `ALTER SNIPPET` edits to an existing page: widgets, captions, classes, visibility (not a widget action: restart; not a data source: unknown) | a microflow created, dropped, or dropped and recreated — the old body keeps serving |
+| `ALTER PAGE` / `ALTER SNIPPET` edits to an existing page: widgets, captions, classes, visibility | a microflow created, dropped, or dropped and recreated — the old body keeps serving |
 | a new or changed snippet | a new attribute (stored or calculated), a new entity |
 | `create or replace page` of a page that already exists | a GRANT / REVOKE, a new module role or user role |
 | | a new page (`create page`), or a page that gets a `Url` — the route table predates it and the deep link lands on Home |

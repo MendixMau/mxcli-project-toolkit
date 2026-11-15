@@ -1774,7 +1774,7 @@ module.exports = {
   ensureOnline, networkEndRow, resolveGeolocation, applyGeolocation, clearGeolocation, stepGeolocation,
   act, describeAct, shown, setDisplayVars, pseudoTexts, pseudoVerdict, scopedWidget,
   // For fixtures that walk a journey in a real browser against a stand-in page (#564).
-  runJourney, results,
+  runJourney, results, walks,
   journeyTimeoutMs, raceTimeout, timeoutRows,
   record, runnerRecord, freezeRecords,
 };

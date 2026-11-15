@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test-gitignore-crlf.sh — the .gitignore appenders (bin/init-project.sh, bin/sync-project.sh,
-# project-bin/model-stamp.sh, via mxtk_gitignore_has/_ensure) match a CRLF entry, never duplicate
+# project-bin/model-stamp.sh, bin/doctor.sh, via mxtk_gitignore_has/_ensure) match a CRLF entry, never duplicate
 # it, and append in the file's own line ending. Follow-up to test-snapshot-gitignore.sh.
 #
 # Usage: bash tests/wave2/test-gitignore-crlf.sh      (no argument: it tests the toolkit it lives in)
@@ -102,6 +102,45 @@ printf 'index v2\n' > "$P/App.mpr"; printf 'unit\n' > "$P/mprcontents/aa/one.mxu
 ( cd "$P" && PROJECT_ROOT="$P" bash bin/model-stamp.sh write pass test >/dev/null 2>&1 )
 { [ "$(nmatch "$P/.gitignore" '\.claude/\.model-verified')" = 1 ] && [ "$(ncrlf "$P/.gitignore")" = "$(nlines "$P/.gitignore")" ]; } \
   && ok "entry once after two writes, every line CRLF" || bad "model-stamp: $(od -c "$P/.gitignore" | head -6)"
+
+echo "== doctor.sh --quick <project> (receipt, toolkit.env, session-cache entries) on a CRLF .gitignore"
+dr() { ( cd "$1" && HOME="$WORK/home" bash "$TOOLKIT/bin/doctor.sh" --quick --no-docker "$1" </dev/null >"$WORK/doctor.out" 2>&1 ); }
+dentries() { for e in '\.claude/\.doctor-receipt' '\.claude/toolkit\.env' '\.claude/progress-report-sessions\.txt'; do nmatch "$1" "$e"; done | tr '\n' ' '; }
+P="$WORK/doc-crlf"; mkdir -p "$P"; ( cd "$P" && git init -q . 2>/dev/null ); printf 'node_modules/\r\nbuild/\r\n' > "$P/.gitignore"
+dr "$P"
+{ [ "$(dentries "$P/.gitignore")" = "1 1 1 " ] && [ "$(ncrlf "$P/.gitignore")" = "$(nlines "$P/.gitignore")" ]; } \
+  && ok "three entries added once, every line CRLF" || bad "doctor CRLF: $(od -c "$P/.gitignore" | head -8)"
+grep -q "added /.claude/.doctor-receipt to the project's .gitignore — the receipt is machine-local" "$WORK/doctor.out" \
+  && ok "the append is still announced, same words" || bad "doctor announcement changed"
+cp "$P/.gitignore" "$WORK/before"; dr "$P"
+cmp -s "$WORK/before" "$P/.gitignore" && ok "second run: .gitignore byte-identical (no duplicates)" || bad "doctor rerun changed the file"
+# A rerun cannot test the "(added" note: git check-ignore then says "ignored" and the block is skipped.
+# Here every entry IS in the file but a later negation makes git report it NOT ignored, so doctor reaches
+# each block, the helper finds the line present and writes nothing: no note, bytes unchanged.
+P="$WORK/doc-negated"; mkdir -p "$P"; ( cd "$P" && git init -q . 2>/dev/null )
+printf 'build/\n/.claude/.doctor-receipt\n/.claude/toolkit.env\n/.claude/progress-report-sessions.txt\n!/.claude/.doctor-receipt\n!/.claude/toolkit.env\n!/.claude/progress-report-sessions.txt\n' > "$P/.gitignore"
+cp "$P/.gitignore" "$WORK/before"; dr "$P"
+grep -q "(added " "$WORK/doctor.out" && bad "entry already present (negated): doctor printed an '(added' note" || ok "entry already present: no '(added' note"
+cmp -s "$WORK/before" "$P/.gitignore" && ok "entry already present: .gitignore bytes unchanged" || bad "entry already present: .gitignore changed"
+
+P="$WORK/doc-crlf-nonl"; mkdir -p "$P"; ( cd "$P" && git init -q . 2>/dev/null ); printf 'node_modules/\r\nbuild/' > "$P/.gitignore"
+dr "$P"
+{ [ "$(dentries "$P/.gitignore")" = "1 1 1 " ] && [ "$(ncrlf "$P/.gitignore")" = "$(nlines "$P/.gitignore")" ]; } \
+  && ok "CRLF, no trailing newline: every line CRLF" || bad "doctor CRLF nonl: $(od -c "$P/.gitignore" | head -8)"
+
+# LF byte-identity: the expected bytes are what the old printf '\n# c\n/e\n' appends produced
+# (captured from the pre-change doctor.sh run on this same input, 2026-11-15).
+P="$WORK/doc-lf"; mkdir -p "$P"; ( cd "$P" && git init -q . 2>/dev/null ); printf 'node_modules/\nbuild/\n' > "$P/.gitignore"
+dr "$P"
+EXP="$(printf 'node_modules/\nbuild/\n\n# Machine-local toolkit marker (doctor.sh preflight receipt)\n/.claude/.doctor-receipt\n\n# Machine-local tool locations (bin/doctor.sh / project-bin/_common.sh)\n/.claude/toolkit.env\n\n# Machine-local progress report session cache (absolute session-log paths)\n/.claude/progress-report-sessions.txt\nEND')"
+[ "$(cat "$P/.gitignore"; echo END)" = "$EXP" ] && ok "LF file: bytes identical to the old appends" || bad "doctor LF: $(od -c "$P/.gitignore" | head -8)"
+cp "$P/.gitignore" "$WORK/before"; dr "$P"
+cmp -s "$WORK/before" "$P/.gitignore" && ok "LF second run: no duplicates" || bad "doctor LF rerun changed the file"
+
+P="$WORK/doc-lf-nonl"; mkdir -p "$P"; ( cd "$P" && git init -q . 2>/dev/null ); printf 'build/' > "$P/.gitignore"
+dr "$P"
+[ "$(sed -n 1,3p "$P/.gitignore" | tr '\n' '|')" = 'build/|# Machine-local toolkit marker (doctor.sh preflight receipt)|/.claude/.doctor-receipt|' ] \
+  && ok "LF, no trailing newline: line completed, no extra blank (as before)" || bad "doctor LF nonl: $(od -c "$P/.gitignore" | head -4)"
 
 echo "== $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

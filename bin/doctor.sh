@@ -100,6 +100,21 @@ if [ "${2:-}" = "--property-sets-apply-step" ]; then
 fi
 
 TOOLKIT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# CRLF-safe .gitignore appends (mxtk_gitignore_has / _ensure). doctor.sh always runs from the toolkit
+# clone (it also sources lib/portable.sh unconditionally), so bin/lib/ is always reachable.
+. "$TOOLKIT_ROOT/bin/lib/gitignore-ensure.sh"
+# gi_add <entry> <comment> — append "# comment" + entry to the project's .gitignore unless the entry is
+# already a line there, in the file's own line ending. 0 = appended, 1 = already listed, 2 = not writable.
+# The blank separator line is what the old printf wrote; it is skipped when the file's last line was
+# unterminated (the old code's leading "\n" only completed that line), so LF files get identical bytes.
+gi_add() {
+  local _f="$PROJECT_DIR/.gitignore"
+  if [ -s "$_f" ] && [ -n "$(tail -c 1 "$_f")" ]; then
+    mxtk_gitignore_ensure "$_f" "$1" "$2" "$1"
+  else
+    mxtk_gitignore_ensure "$_f" "$1" '' "$2" "$1"
+  fi
+}
 PROJECT_DIR=""
 INSTALL=0
 ASSUME_YES=0
@@ -347,8 +362,7 @@ ps_write_receipt() {
     printf 'mxcli: %s\n' "$PS_VER"
   } > "$(ps_receipt)" 2>/dev/null || true
   if [ -d "$PROJECT_DIR/.git" ] && ! git -C "$PROJECT_DIR" check-ignore -q .claude/.property-sets-receipt 2>/dev/null; then
-    printf '\n# Machine-local toolkit marker (doctor.sh property-set check)\n/.claude/.property-sets-receipt\n' \
-      >> "$PROJECT_DIR/.gitignore" 2>/dev/null \
+    gi_add /.claude/.property-sets-receipt '# Machine-local toolkit marker (doctor.sh property-set check)' \
       && note "(added /.claude/.property-sets-receipt to the project's .gitignore — the receipt is machine-local)"
   fi
 }
@@ -2419,23 +2433,20 @@ if [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ]; then
   # trips clean-tree hooks on an untracked file doctor itself wrote (field case: a stop
   # hook demanding it be committed, 2026-09-02).
   if [ -d "$PROJECT_DIR/.git" ] && ! git -C "$PROJECT_DIR" check-ignore -q .claude/.doctor-receipt 2>/dev/null; then
-    printf '\n# Machine-local toolkit marker (doctor.sh preflight receipt)\n/.claude/.doctor-receipt\n' \
-      >> "$PROJECT_DIR/.gitignore" 2>/dev/null || true
-    note "(added /.claude/.doctor-receipt to the project's .gitignore — the receipt is machine-local)"
+    gi_add /.claude/.doctor-receipt '# Machine-local toolkit marker (doctor.sh preflight receipt)' \
+      && note "(added /.claude/.doctor-receipt to the project's .gitignore — the receipt is machine-local)"
   fi
   # toolkit.env holds this machine's paths — never something to commit.
   if [ -d "$PROJECT_DIR/.git" ] && ! git -C "$PROJECT_DIR" check-ignore -q .claude/toolkit.env 2>/dev/null; then
-    printf '\n# Machine-local tool locations (bin/doctor.sh / project-bin/_common.sh)\n/.claude/toolkit.env\n' \
-      >> "$PROJECT_DIR/.gitignore" 2>/dev/null || true
-    note "(added /.claude/toolkit.env to the project's .gitignore — it holds this machine's paths)"
+    gi_add /.claude/toolkit.env '# Machine-local tool locations (bin/doctor.sh / project-bin/_common.sh)' \
+      && note "(added /.claude/toolkit.env to the project's .gitignore — it holds this machine's paths)"
   fi
   # The progress report's session cache holds absolute session-log paths (user name, session ids).
   # -e, not -d: in a git worktree .git is a file. --no-index: a tracked file is never "ignored" otherwise,
   # and the line would be appended again on every run.
   if [ -e "$PROJECT_DIR/.git" ] && ! git -C "$PROJECT_DIR" check-ignore -q --no-index .claude/progress-report-sessions.txt 2>/dev/null; then
-    printf '\n# Machine-local progress report session cache (absolute session-log paths)\n/.claude/progress-report-sessions.txt\n' \
-      >> "$PROJECT_DIR/.gitignore" 2>/dev/null || true
-    note "(added /.claude/progress-report-sessions.txt to the project's .gitignore — the cache is machine-local)"
+    gi_add /.claude/progress-report-sessions.txt '# Machine-local progress report session cache (absolute session-log paths)' \
+      && note "(added /.claude/progress-report-sessions.txt to the project's .gitignore — the cache is machine-local)"
   fi
   if [ -e "$PROJECT_DIR/.git" ] && git -C "$PROJECT_DIR" ls-files --error-unmatch .claude/progress-report-sessions.txt >/dev/null 2>&1; then
     note "(.claude/progress-report-sessions.txt is already tracked by git; untrack it with: git rm --cached .claude/progress-report-sessions.txt)"

@@ -114,7 +114,14 @@ grep -q "added /.claude/.doctor-receipt to the project's .gitignore — the rece
   && ok "the append is still announced, same words" || bad "doctor announcement changed"
 cp "$P/.gitignore" "$WORK/before"; dr "$P"
 cmp -s "$WORK/before" "$P/.gitignore" && ok "second run: .gitignore byte-identical (no duplicates)" || bad "doctor rerun changed the file"
-grep -q "(added " "$WORK/doctor.out" && bad "second run printed an '(added' note though nothing was added" || ok "second run: no '(added' note (first run printed it, above)"
+# A rerun cannot test the "(added" note: git check-ignore then says "ignored" and the block is skipped.
+# Here every entry IS in the file but a later negation makes git report it NOT ignored, so doctor reaches
+# each block, the helper finds the line present and writes nothing: no note, bytes unchanged.
+P="$WORK/doc-negated"; mkdir -p "$P"; ( cd "$P" && git init -q . 2>/dev/null )
+printf 'build/\n/.claude/.doctor-receipt\n/.claude/toolkit.env\n/.claude/progress-report-sessions.txt\n!/.claude/.doctor-receipt\n!/.claude/toolkit.env\n!/.claude/progress-report-sessions.txt\n' > "$P/.gitignore"
+cp "$P/.gitignore" "$WORK/before"; dr "$P"
+grep -q "(added " "$WORK/doctor.out" && bad "entry already present (negated): doctor printed an '(added' note" || ok "entry already present: no '(added' note"
+cmp -s "$WORK/before" "$P/.gitignore" && ok "entry already present: .gitignore bytes unchanged" || bad "entry already present: .gitignore changed"
 
 P="$WORK/doc-crlf-nonl"; mkdir -p "$P"; ( cd "$P" && git init -q . 2>/dev/null ); printf 'node_modules/\r\nbuild/' > "$P/.gitignore"
 dr "$P"

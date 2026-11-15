@@ -61,6 +61,7 @@ AGENTS="$MXTK_AGENTS"
 # silently revert a rule to stock, and the two rules that matter report a clean pass when
 # stock. See bin/lib/install-lint-rules.sh for the full classification.
 . "$SCRIPT_DIR/lib/install-lint-rules.sh"
+. "$SCRIPT_DIR/lib/gitignore-ensure.sh"   # CRLF-safe .gitignore appends
 
 # The intake.md template — the same one init-project.sh writes from. This file used to carry
 # its own hand-kept copy of Q9 under a comment reading "MUST stay byte-identical to Q9 in
@@ -1641,12 +1642,18 @@ if [ "$WIRED" -eq 1 ] && [ -e "$PROJECT_DIR/.git" ] \
    && ! git -C "$PROJECT_DIR" check-ignore -q --no-index .claude/progress-report-sessions.txt 2>/dev/null; then
   if [ "$DRY_RUN" -eq 1 ]; then
     echo "Would add: /.claude/progress-report-sessions.txt to .gitignore (machine-local cache)"
+    CHANGES=$((CHANGES + 1))
   else
-    if [ -s "$PROJECT_DIR/.gitignore" ] && [ -n "$(tail -c 1 "$PROJECT_DIR/.gitignore")" ]; then printf '\n' >> "$PROJECT_DIR/.gitignore"; fi
-    printf '\n# Machine-local progress report session cache (absolute session-log paths)\n/.claude/progress-report-sessions.txt\n' >> "$PROJECT_DIR/.gitignore"
-    echo "Added: /.claude/progress-report-sessions.txt to .gitignore (machine-local cache)"
+    # rc 1 = the entry is already a line of the file (e.g. CRLF) yet git reports it not ignored
+    # (a later `!` line, or a git that does not strip the CR): appending a duplicate would not help.
+    _gi_rc=0
+    mxtk_gitignore_ensure "$PROJECT_DIR/.gitignore" /.claude/progress-report-sessions.txt '' '# Machine-local progress report session cache (absolute session-log paths)' '/.claude/progress-report-sessions.txt' || _gi_rc=$?
+    case "$_gi_rc" in
+      0) echo "Added: /.claude/progress-report-sessions.txt to .gitignore (machine-local cache)"; CHANGES=$((CHANGES + 1)) ;;
+      1) echo "Note: /.claude/progress-report-sessions.txt is already in .gitignore but git does not treat it as ignored — check for a later '!' line or the file's line endings." ;;
+      *) warn "could not write $PROJECT_DIR/.gitignore — add /.claude/progress-report-sessions.txt to it yourself." ;;
+    esac
   fi
-  CHANGES=$((CHANGES + 1))
 fi
 if [ "$WIRED" -eq 1 ] && [ -e "$PROJECT_DIR/.git" ] \
    && git -C "$PROJECT_DIR" ls-files --error-unmatch .claude/progress-report-sessions.txt >/dev/null 2>&1; then

@@ -224,9 +224,12 @@ _MXTK_MDL_LEX='
         c = substr(line, i, 1); c2 = substr(line, i, 2)
         if (inblock)   { if (c2 == "*/") { inblock = 0; i += 2 } else i++; continue }
         if (indollar)  { if (c2 == "$$") { indollar = 0; i += 2 } else i++; continue }
+        if (instr)     { if (c == "\047") { instr = 0; clean = clean "\047\047" } i++; continue }
         if (c2 == "/*") { inblock = 1; i += 2; continue }
         if (c2 == "$$") { indollar = 1; i += 2; continue }
         if (c2 == "--" || c2 == "//") break
+        if (c == "\047" && strcarry) { instr = 1; i++; continue }   # watch-compat only (#738): the string
+                                                   # may run over the line break; a doubled quote is close+open
         if (c == "\047") {                        # a string literal: blanked, so a caption that
           i++                                      # says "create microflow" is not a statement
           while (i <= n && substr(line, i, 1) != "\047") i++
@@ -379,6 +382,8 @@ fi
 #   a Url property on a page (create header, `set Url = ...`) → page URL (route table)
 # Watch-safe (the ONLY statements reported `watch can apply this`, ui-loop.md's left column):
 #   ALTER PAGE / ALTER SNIPPET, CREATE [OR ...] SNIPPET, CREATE OR REPLACE|MODIFY PAGE (no Url).
+#   ...unless an ALTER PAGE/SNIPPET makes a widget call a microflow/nanoflow (restart) or sets a
+#   microflow/nanoflow data source (unknown) — #738: the runtime registers actions at boot.
 # Read-only heads (SHOW, DESCRIBE, ...) are neutral. Any other statement — CREATE ASSOCIATION,
 # CREATE ENUMERATION, ALTER ENTITY ... MODIFY, a Java action, a constant, navigation, DROP PAGE,
 # UPDATE WIDGETS — is on neither column and prints `unknown — restart if behaviour looks stale`
@@ -401,7 +406,13 @@ mxtk_watch_compat() {  # $1 = MDL script; prints "restart\t<reasons>" | "unknown
       if (!(label in cnt)) { order[++nlab] = label; first[label] = nr }
       cnt[label]++
     }
-    BEGIN { depth = 0; inblock = 0; indollar = 0; cur_page = 0; nlab = 0; maybe = ""; unk = ""; nunk = 0 }
+    BEGIN { depth = 0; inblock = 0; indollar = 0; cur_page = 0; nlab = 0; maybe = ""; unk = ""; nunk = 0
+      cur_ui = 0; ui_unk = 0; strcarry = 1; instr = 0
+      # Only an ALTER that makes a widget CALL a microflow/nanoflow (Action/OnClick/OnChange/... = [call]
+      # microflow|nanoflow; a quoted key such as set (\047action\047: ...) is blanked by the lexer, so
+      # `\047\047` stands for it). close_page, show_page, save_changes... stay watch-safe, as do names.
+      re_act = "((^|[^a-z0-9_])(action|onclick|on_click|onchange|onenter|onleave)|\047\047)[ \t]*[:=][ \t]*(call[ \t]+)?(microflow|nanoflow)([^a-z0-9_]|$)"
+      re_ds  = "(^|[^a-z0-9_])datasource[ \t]*[:=][ \t]*(microflow|nanoflow)([^a-z0-9_]|$)" }
     {
       lex_line($0)
       t = clean; gsub(/^[ \t]+/, "", t)
@@ -412,6 +423,7 @@ mxtk_watch_compat() {  # $1 = MDL script; prints "restart\t<reasons>" | "unknown
           j = 2; if (v == "CREATE" && w[2] == "OR") j = 4
           o1 = w[j]; o2 = w[j+1]; o3 = w[j+2]
           cur_page = ((v == "CREATE" || v == "ALTER") && o1 == "PAGE")
+          cur_ui = (v == "ALTER" && (o1 == "PAGE" || o1 == "SNIPPET")); ui_unk = 0
           attr = 0
           if (v == "ALTER" && o1 == "ENTITY") for (k = 3; k <= n; k++) if (w[k] == "ADD") { attr = 1; break }
           if ((v == "CREATE" || v == "DROP") && o1 == "MICROFLOW")
@@ -449,6 +461,19 @@ mxtk_watch_compat() {  # $1 = MDL script; prints "restart\t<reasons>" | "unknown
       # A Url property on a page: the create header `(..., Url: ...)` or `set Url = ...` in an
       # ALTER PAGE body. The identifier must stand alone, so ImageUrl never matches.
       if (cur_page && clean ~ /(^|[^A-Za-z0-9_])Url[ \t]*[:=]/) add("page URL added or changed (route table)", NR)
+      # ALTER PAGE/SNIPPET only (#738): a widget action set to a microflow/nanoflow is a new runtime
+      # operation, registered at boot (restart); a microflow/nanoflow data source is not on the
+      # ui-loop.md watch column (unknown). CREATE [OR REPLACE] keeps its note: most page scripts
+      # carry action buttons. Strings are blanked by the lexer, so a caption saying "action" never counts.
+      if (cur_ui) {
+        lc = tolower(clean)
+        if (lc ~ re_act) add("widget action changed (the runtime registers actions at boot)", NR)
+        else if (!ui_unk && lc ~ re_ds) {
+          ui_unk = 1
+          if (nunk < 3) { h = t; if (length(h) > 50) h = substr(h, 1, 50) "..."; unk = unk (nunk++ ? "; " : "") "line " NR ": " h " (microflow/nanoflow data source)" }
+          else nunk++
+        }
+      }
     }
     END {
       if (nlab > 0) {
@@ -458,6 +483,7 @@ mxtk_watch_compat() {  # $1 = MDL script; prints "restart\t<reasons>" | "unknown
         }
         printf "restart\t%s\n", s; exit
       }
+      if (instr) { unk = unk (nunk++ ? "; " : "") "an unterminated string swallowed the rest of the script" }
       if (nunk > 0) { printf "unknown\t%s%s\n", unk, (nunk > 3 ? " (+" (nunk - 3) " more)" : ""); exit }
       if (maybe != "") { printf "watch\tunless the page is new: create or replace/modify page, %s\n", maybe; exit }
       printf "watch\t\n"

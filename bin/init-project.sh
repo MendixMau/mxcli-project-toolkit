@@ -16,6 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # instruments review-agent.md needs. A fresh project got neither the agent nor its tools.
 . "$SCRIPT_DIR/lib/install-manifest.sh"
 . "$SCRIPT_DIR/lib/install-lint-rules.sh"
+. "$SCRIPT_DIR/lib/gitignore-ensure.sh"   # CRLF-safe .gitignore appends (mxtk_gitignore_has / _ensure)
 
 # The baseline routing block this script writes into CLAUDE.local.md is NOT a heredoc copy of
 # the README's table any more. It is rendered from bin/lib/skill-routing.tsv — the same table
@@ -575,7 +576,7 @@ fi
 # Gitignore decision. Only relevant if the project is (or becomes) a git repo, but writing the
 # entry unconditionally is harmless and survives a later `git init`.
 GITIGNORE="$PROJECT_DIR/.gitignore"
-if [ -f "$GITIGNORE" ] && grep -qE '^/?sources/?$' "$GITIGNORE"; then
+if mxtk_gitignore_has "$GITIGNORE" sources; then
   echo "Skip: sources/ already listed in .gitignore."
 else
   case "$SOURCES_MODE" in
@@ -598,10 +599,7 @@ else
   esac
 
   if [ "$SOURCES_MODE" = "ignore" ]; then
-    if [ -f "$GITIGNORE" ] && [ -s "$GITIGNORE" ] && [ -n "$(tail -c 1 "$GITIGNORE")" ]; then
-      printf '\n' >> "$GITIGNORE"
-    fi
-    printf '# Legacy source drop — see sources/README.md\nsources/\n' >> "$GITIGNORE"
+    mxtk_gitignore_ensure "$GITIGNORE" sources '# Legacy source drop — see sources/README.md' 'sources/'
     echo "Created/updated: .gitignore (sources/ ignored)"
   else
     echo "sources/ will be tracked by git — not added to .gitignore."
@@ -612,13 +610,10 @@ fi
 # per-machine, never-shared shape as the old .claude/.exec-approval sentinel it replaces, so it
 # is always ignored, unconditionally, with no ask/track choice (there is nothing here a
 # teammate should ever pull down from another machine's git history).
-if [ -f "$GITIGNORE" ] && grep -qE '^/?\.mxtk/?$' "$GITIGNORE"; then
+if mxtk_gitignore_has "$GITIGNORE" .mxtk; then
   echo "Skip: .mxtk/ already listed in .gitignore."
 else
-  if [ -f "$GITIGNORE" ] && [ -s "$GITIGNORE" ] && [ -n "$(tail -c 1 "$GITIGNORE")" ]; then
-    printf '\n' >> "$GITIGNORE"
-  fi
-  printf '# Per-machine session state (exec-approval.sh and friends) — never shared\n.mxtk/\n' >> "$GITIGNORE"
+  mxtk_gitignore_ensure "$GITIGNORE" .mxtk '# Per-machine session state (exec-approval.sh and friends) — never shared' '.mxtk/'
   echo "Created/updated: .gitignore (.mxtk/ ignored)"
 fi
 
@@ -626,25 +621,19 @@ fi
 # https://code.claude.com/docs/en/settings) holds the two install-claude-permissions.sh allow
 # entries that embed $TOOLKIT_ROOT, an absolute path under this machine's home directory.
 # Same reasoning as .mxtk/ above: never shared, so never tracked.
-if [ -f "$GITIGNORE" ] && grep -qE '^/?\.claude/settings\.local\.json$' "$GITIGNORE"; then
+if mxtk_gitignore_has "$GITIGNORE" .claude/settings.local.json; then
   echo "Skip: .claude/settings.local.json already listed in .gitignore."
 else
-  if [ -f "$GITIGNORE" ] && [ -s "$GITIGNORE" ] && [ -n "$(tail -c 1 "$GITIGNORE")" ]; then
-    printf '\n' >> "$GITIGNORE"
-  fi
-  printf '# Per-machine Claude Code permissions (absolute toolkit-root paths) — never shared\n.claude/settings.local.json\n' >> "$GITIGNORE"
+  mxtk_gitignore_ensure "$GITIGNORE" .claude/settings.local.json '# Per-machine Claude Code permissions (absolute toolkit-root paths) — never shared' '.claude/settings.local.json'
   echo "Created/updated: .gitignore (.claude/settings.local.json ignored)"
 fi
 
 # The progress report caches which session logs belong to this project: absolute paths with a
 # user name and session ids. Machine-local, never tracked.
-if [ -f "$GITIGNORE" ] && grep -qE '^/?\.claude/progress-report-sessions\.txt$' "$GITIGNORE"; then
+if mxtk_gitignore_has "$GITIGNORE" .claude/progress-report-sessions.txt; then
   echo "Skip: .claude/progress-report-sessions.txt already listed in .gitignore."
 else
-  if [ -f "$GITIGNORE" ] && [ -s "$GITIGNORE" ] && [ -n "$(tail -c 1 "$GITIGNORE")" ]; then
-    printf '\n' >> "$GITIGNORE"
-  fi
-  printf '# Machine-local progress report session cache (absolute session-log paths) — never shared\n/.claude/progress-report-sessions.txt\n' >> "$GITIGNORE"
+  mxtk_gitignore_ensure "$GITIGNORE" .claude/progress-report-sessions.txt '# Machine-local progress report session cache (absolute session-log paths) — never shared' '/.claude/progress-report-sessions.txt'
   echo "Created/updated: .gitignore (.claude/progress-report-sessions.txt ignored)"
 fi
 

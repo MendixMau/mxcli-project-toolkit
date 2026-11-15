@@ -352,6 +352,50 @@ expect "$WORK/const.mdl" "$UNK" "create constant" "create constant"
 grep -q '^move page' "$WORK/movefolder.mdl" && expect "$WORK/movefolder.mdl" "watch can apply this" "" "move page ... to folder + alter page is not 'unknown'" \
   || bad "golden 'move page ... to folder' line not found"
 
+# #738: widget action / data source edits inside ALTER PAGE|SNIPPET. Goldens: the issue's own repro
+# (verbatim from the issue body), bug102's ALTER PAGE ... SET DataSource, and the ALTER form the
+# rest-integration skill documents (grepped out of those files). NOT RUN: the runtime half
+# (restart needed after an action change) rests on the issue's report; no Mendix app was run.
+printf "mdl 1;\nalter page BugRepro.SomePage { set ('action': call microflow BugRepro.ACT_Save) on swOn; };\n" > "$WORK/act738.mdl"
+expect "$WORK/act738.mdl" "restart needed" "widget action changed" "alter page set ('action': call microflow ...) (issue #738 repro, verbatim)"
+awk '/^ALTER PAGE M.Tasks/{p=1} p{print} p&&/^\} ON/{exit}' \
+  "$TOOLKIT/bug-logs/pending-github-issues/bug102-alter-page-set-datasource-datagrid-silent-noop.md" > "$WORK/ds102.mdl"
+[ -s "$WORK/ds102.mdl" ] && expect "$WORK/ds102.mdl" "watch can apply this" "" "alter page set DataSource = DATABASE ... (bug102, verbatim) stays watch" \
+                         || bad "golden bug102 ALTER PAGE block not found"
+grep -m1 -oE 'alter page … \{ set DataSource = microflow … on dgRoutes \}' "$TOOLKIT/skills/rest-integration-first-time-right.md" >/dev/null \
+  && printf "alter page Mod.Route_List { set DataSource = microflow Mod.DS_Routes on dgRoutes }\n" > "$WORK/dsmf.mdl" \
+  && expect "$WORK/dsmf.mdl" "$UNK" "data source" "alter page set DataSource = microflow (shape from rest-integration skill)" \
+  || bad "golden 'set DataSource = microflow' shape not found in rest-integration-first-time-right.md"
+printf "alter page Shop.P { set Action = MICROFLOW Shop.ACT_Save on btnSave }\n" > "$WORK/act2.mdl"
+expect "$WORK/act2.mdl" "restart needed" "widget action changed" "alter page set Action = MICROFLOW ... (SET Action form in the mxcli ALTER PAGE help, bug155 patch)"
+grep -m1 -oE "SET 'Row size' = 'Small' ON lvOrders" "$TOOLKIT/bug-logs/submitted-prs/mxcli/2026-09-28-alter-page-set-rendermode/0001-fix-pages-ALTER-PAGE-SNIPPET-SET-RenderMode-on-a-dyn.patch" | sed 's/^/alter snippet Shop.S { /; s/$/ }/' > "$WORK/quotedkey.mdl"
+expect "$WORK/quotedkey.mdl" "watch can apply this" "" "alter snippet with a quoted key and a plain value stays watch"
+# What stays watch-safe: the plain edits ui-loop.md lists (captions, classes, ImageUrl).
+expect "$PFM/alter-multiline-alter.mdl" "watch can apply this" "" "alter page set (Caption, ButtonStyle) multi-line stays watch-safe (alter-multiline-alter)"
+# #738 review: words inside strings, comments and names never classify. These inputs are the
+# reviewer's reproductions (hand-written, not captured): the claim is "stays watch", not a parse.
+neg() {  # $1 label  $2 MDL text (printf format)
+  printf "$2" > "$WORK/neg.mdl"; expect "$WORK/neg.mdl" "watch can apply this" "" "stays watch: $1"
+}
+neg "caption string spanning two lines"  "alter page M.P {\n  set Caption = 'Multi\nline action call' on btn1;\n};\n"
+neg "multi-line string holding call microflow / Action: / onclick" "alter page M.P {\n  set Caption = 'Multi\nline Action: x call microflow M.X onclick' on btn1;\n};\n"
+neg "caption 'Call customer'"            "alter page M.P { set Caption = 'Call customer' on btn }\n"
+neg "Caption: 'Take action'"             "alter page M.P { replace t with { textbox t1 (Caption: 'Take action') } }\n"
+neg "widgets btnAction, callLog, microflowLabel" "alter page M.P { set Caption = 'x' on btnAction\n set Class = 'y' on callLog\n set Caption = 'z' on microflowLabel }\n"
+neg "comments -- // /* */ with action/call" "alter page M.P {\n -- action call here\n // call microflow X\n /* onclick\n action */\n set Caption = 'x' on b }\n"
+neg "doubled quote 'it''s an action'"    "alter page M.P { set Caption = 'it''s an action' on b }\n"
+neg "doubled quote across a line break" "alter page M.P { set Caption = 'it''s\nan action call' on b }\n"
+neg "attribute named Action"            "alter page M.P { set Attribute: Action on b }\n"
+neg "widget named call"                 "alter page M.P { set Caption = 'x' on call\n}\n"
+# Narrowing (#738 review): close_page/show_page buttons, and a create-or-replace page with a microflow
+# button (real shipped file), keep master's verdict.
+expect "$GAL/11-buttons.mdl" "watch can apply this" "" "gallery 11-buttons (action: close_page x9) stays watch"
+expect "$PFM/demo-overview.mdl" "watch can apply this" "unless the page is new" "create or replace page with a microflow button keeps its note (demo-overview)"
+neg "alter page set Action = close_page" "alter page M.P { set Action = close_page on btn }\n"
+neg "alter page set OnChange = save_changes" "alter page M.P { set OnChange = save_changes on sw }\n"
+printf "alter page M.P {\n set Caption = 'never closed\n set Class = 'x' on b;\n" > "$WORK/open.mdl"
+expect "$WORK/open.mdl" "$UNK" "unterminated" "a string that never closes is unknown, never watch-safe"
+
 echo "-- watch-compat in a real run"
 cp "$GAL/05-demo-data.mdl" "$P/mdlsource/demo.mdl"
 OUT="$(run "$P" mdlsource/demo.mdl)"; RC=$?

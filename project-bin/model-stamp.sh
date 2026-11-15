@@ -324,8 +324,13 @@ case "$cmd" in
     } > "$STAMP"
     # Machine-local, like the doctor receipt: never let it travel with the repo.
     if in_git && ! git -C "$PROJECT_ROOT" check-ignore -q .claude/.model-verified 2>/dev/null; then
-      printf '\n# Machine-local toolkit marker (model-stamp.sh verification stamp)\n/.claude/.model-verified\n' \
-        >> "$PROJECT_ROOT/.gitignore" 2>/dev/null || true
+      if command -v mxtk_gitignore_ensure >/dev/null 2>&1; then   # absent only in a _common.sh sync held back
+        mxtk_gitignore_ensure "$PROJECT_ROOT/.gitignore" /.claude/.model-verified '' \
+          '# Machine-local toolkit marker (model-stamp.sh verification stamp)' '/.claude/.model-verified' || true
+      else
+        printf '\n# Machine-local toolkit marker (model-stamp.sh verification stamp)\n/.claude/.model-verified\n' \
+          >> "$PROJECT_ROOT/.gitignore" 2>/dev/null || true
+      fi
     fi
     echo "  ✓ verification stamp written ($state — $*)"
     ;;

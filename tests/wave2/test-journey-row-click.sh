@@ -38,6 +38,11 @@ const http = require('http');
 const R = require('./journey-runner.js');
 const out = (k, v) => console.log(`${k} ${JSON.stringify(v)}`);
 if (typeof R.scopedWidget !== 'function') { console.log('NOFN'); process.exit(0); }
+// #668: displayed names resolve seeds like execution does; an unresolvable one stays as written.
+R.setDisplayVars({ order: 'SO-1001' });
+out('E:shown', [R.shown('Open {{order}}'), R.shown('Open {{nope}}'), R.shown('plain')]);
+out('E:label', R.describeAct({ do: 'click', widget: 'b', label: 'Ship {{order}}' }, { order: 'SO-1001' }).target);
+out('E:label-missing', R.describeAct({ do: 'click', widget: 'b', label: 'Ship {{nope}}' }, {}).target);
 out('D:row', R.describeAct({ do: 'click', widget: 'btnShip', label: 'Ship', row: '{{code}}' }, { code: 'B-200' }).target);
 (async () => {
   let H; try { H = require('./helpers.js'); if (!H.deviceProfiles()) throw new Error('no playwright'); } catch (e) { out('SKIPB', e.message); return; }
@@ -49,6 +54,18 @@ out('D:row', R.describeAct({ do: 'click', widget: 'btnShip', label: 'Ship', row:
     // cells rendered with no whitespace between them, as React renders a grid
     '<div class="mx-name-grid3"><table><tr><td>Order 1</td><td><button class="mx-name-btnShip" onclick="hits.push(\'O1\')">Ship</button></td></tr>' +
     '<tr><td>Order 10</td><td><button class="mx-name-btnShip" onclick="hits.push(\'O10\')">Ship</button></td></tr></table></div>' +
+    // #665: the pluggable List view renders each item as <li class="mx-name-index-N"> with NO
+    // .mx-listview-item (so ROW_SEL misses it). PROVENANCE: structure taken from the compiled list view
+    // widget of a toolkit-built demo app's deployed client (`jsx("ul", ...items.map(... jsx("li",
+    // { className: "mx-name-index-" + index ...`), 2026-11. It is NOT a saved DOM page: no saved page with
+    // this class exists in the repo or the demo apps; the item content (a text widget, a button) is generic.
+    '<div class="mx-listview mx-name-grid5"><ul><li class="mx-name-index-0"><span class="mx-name-txt1">Order P-1</span>' +
+    '<button class="mx-name-btnShip" onclick="hits.push(\'P1\')">Ship</button></li>' +
+    '<li class="mx-name-index-1"><span class="mx-name-txt1">Order P-2</span>' +
+    '<button class="mx-name-btnShip" onclick="hits.push(\'P2\')">Ship</button></li></ul></div>' +
+    // guard case (shape NOT verified against a real page): widgets inside the item carry the index class too
+    '<div class="mx-name-grid6"><ul><li class="mx-name-index-0"><span class="mx-name-txt1 mx-name-index-0">Order Q-1</span>' +
+    '<button class="mx-name-btnShip mx-name-index-0" onclick="hits.push(\'Q1\')">Ship</button></li></ul></div>' +
     '<div class="mx-name-grid4"><table><tr><td>Order 7</td><td><button class="mx-name-btnShip">Ship</button></td></tr>' +
     '<tr><td>Order 7</td><td><button class="mx-name-btnShip">Ship</button></td></tr></table></div>';
   const srv = http.createServer((q, s) => { s.setHeader('content-type', 'text/html'); s.end(html); });
@@ -61,6 +78,8 @@ out('D:row', R.describeAct({ do: 'click', widget: 'btnShip', label: 'Ship', row:
   await R.act(page, { do: 'click', widget: 'btnShip', row: '{{code}}', in: 'grid1', settleMs: 0 }, { code: 'B-200' }, note);
   await R.act(page, { do: 'click', widget: 'btnShip', row: 'B-200', in: 'grid2', settleMs: 0 }, {}, note);
   await R.act(page, { do: 'click', widget: 'btnShip', row: 'Order 1', in: 'grid3', settleMs: 0 }, {}, note);
+  await R.act(page, { do: 'click', widget: 'btnShip', row: 'P-2', in: 'grid5', settleMs: 0 }, {}, note);
+  await R.act(page, { do: 'click', widget: 'btnShip', row: 'Q-1', in: 'grid6', settleMs: 0 }, {}, note);
   out('B:amb', await R.act(page, { do: 'click', widget: 'btnShip', row: 'Order 7', in: 'grid4', settleMs: 0 }, {}, note).then(() => 'no error', x => x.message));
   out('B:err', await R.act(page, { do: 'click', widget: 'btnShip', row: 'Z-999', in: 'grid1', settleMs: 0 }, {}, note).then(() => 'no error', x => x.message));
   out('B:hits', await page.evaluate(() => window.hits));
@@ -72,10 +91,12 @@ get() { printf '%s\n' "$OUT" | sed -n "s/^$1 //p"; }
 if printf '%s\n' "$OUT" | grep -qx NOFN; then
   bad "journey-runner.js exports no scopedWidget (#148)" "$(printf '%s\n' "$OUT" | tail -3)"
 else
+  [ "$(get E:shown)" = '["Open SO-1001","Open {{nope}}","plain"]' ] && ok "displayed text resolves seeds; an unknown placeholder stays visible (#668)" || bad "shown" "$(get E:shown)"
+  [ "$(get E:label)" = '"Ship SO-1001"' ] && [ "$(get E:label-missing)" = '"Ship {{nope}}"' ] && ok "action labels in the walk resolve seeds, unresolved stay as-is (#668)" || bad "label" "$(get E:label) / $(get E:label-missing)"
   [ "$(get D:row)" = '"Ship in the row \"B-200\""' ] && ok "the walk narrates which row was clicked" || bad "describeAct row" "$(get D:row)"
   if [ -n "$(get SKIPB)" ]; then echo "  skip — no Playwright browser here ($(get SKIPB))"
   else
-    [ "$(get B:hits)" = '["A","B","B2","O1"]' ] && ok "bare click hits the first row (the defect); row+in hits the named row, also in a display:contents role=row grid; row \"Order 1\" never hits \"Order 10\"" || bad "row-scoped click" "$(get B:hits)"
+    [ "$(get B:hits)" = '["A","B","B2","O1","P2","Q1"]' ] && ok "bare click hits the first row (the defect); row+in hits the named row, also in a display:contents role=row grid; row \"Order 1\" never hits \"Order 10\"; a plain-div row carrying mx-name-index-N is found by fallback (#665)" || bad "row-scoped click" "$(get B:hits)"
     [ "$(get B:amb)" = '"ambiguous: 2 rows in .mx-name-grid4 say \"Order 7\""' ] && ok "two rows that both say the text throw 'ambiguous' (step FAIL), never pick one" || bad "ambiguous row" "$(get B:amb)"
     [ "$(get B:err)" = '"no row in .mx-name-grid1 says \"Z-999\""' ] && ok "a row nobody shows throws (step FAIL), never falls back to the first row" || bad "missing row" "$(get B:err)"
   fi

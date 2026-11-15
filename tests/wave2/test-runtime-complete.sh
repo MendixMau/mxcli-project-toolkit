@@ -58,7 +58,9 @@ OUT="$(mxtk_runtime_report 11.13.0 '!')"; RC=$?
 [ "$RC" -eq 1 ] && ok "report rc 1" || bad "report rc $RC"
 has "report names the dir" "$OUT" "incomplete Mendix runtime: $R"
 has "report names what is missing" "$OUT" "missing: bundles/org.osgi*.jar"
-has "report names the repair command" "$OUT" "mxcli setup mxbuild -p"
+has "report names the repair command" "$OUT" "mxcli setup mxruntime -p"
+hasnt_() { case "$1" in *"$2"*) bad "unexpected: $2" ;; *) ok "no: $2" ;; esac; }
+hasnt_ "$OUT" "UNVERIFIED"
 [ "$(printf '%s\n' "$OUT" | grep -vc '^!')" = 0 ] && ok "every line carries the prefix" || bad "unprefixed line in report"
 mxtk_runtime_problems 11.9.0 >/dev/null && ok "another version's cache is not looked at" || bad "checked the wrong version"
 
@@ -75,6 +77,9 @@ rm -f "$WORK/home2/mxbuild/11.13.0/runtime"/bundles/org.osgi*.jar
 OUT="$(MXTK_MXCLI_HOME="$WORK/home2" mxtk_runtime_problems 11.13.0)"; RC=$?
 [ "$RC" -eq 1 ] && has "stale mxbuild/<v>/runtime named" "$OUT" "mxbuild/11.13.0/runtime|bundles/org.osgi*.jar" || bad "not detected (rc $RC)"
 hasnt "the complete runtime/<v> is not named" "$OUT" "home2/runtime"
+OUT="$(MXTK_MXCLI_HOME="$WORK/home2" mxtk_runtime_report 11.13.0 '!')"
+has "mxbuild-dir repair names setup mxbuild" "$OUT" "mxcli setup mxbuild -p"
+hasnt_ "$OUT" "setup mxruntime"
 
 echo "-- Studio Pro runtime (macOS path, stubbed mxtk_sp_list; NOT RUN on a real Mac)"
 SPA="$WORK/Mendix Studio Pro 11.13.0.app"; build "$SPA/Contents"

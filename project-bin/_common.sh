@@ -479,7 +479,12 @@ mxtk_runtime_report() {
     printf '%s   matching complete Studio Pro runtime: %s\n' "$pre" "$sp"
     printf '%s   mv <dir above> <dir above>.incomplete && ln -s "%s" <dir above>\n' "$pre" "$sp"
   else
-    printf '%s   rm -rf <dir above>, then: mxcli setup mxbuild -p <app>.mpr   (UNVERIFIED that it fetches the runtime)\n' "$pre"
+    printf '%s\n' "$probs" | while IFS='|' read -r d g; do
+      case "$d" in
+        */mxbuild/*) printf '%s   rm -rf "%s", then: mxcli setup mxbuild -p <app>.mpr   (MxBuild download; caches under ~/.mxcli/mxbuild/<v>/)\n' "$pre" "${d%/runtime}" ;;
+        *)           printf '%s   rm -rf "%s", then: mxcli setup mxruntime -p <app>.mpr   (runtime download; caches under ~/.mxcli/runtime/<v>/)\n' "$pre" "${d%/runtime}" ;;
+      esac
+    done
   fi
   return 1
 }

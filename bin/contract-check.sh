@@ -28,8 +28,10 @@
 # mandatory chain step that writes it; with no registry this exits 2 and says so). The snapshots
 # are produced by `snapshot` below and must be committed — `check` reads the committed copy.
 #
-# WHAT IT READS. Per app, two read-only mxcli calls (no builds; mxcli refreshes its own catalog
-# cache .mxcli/ beside the .mpr): catalog tables for published OData and REST services and
+# WHAT IT READS. Per app, three mxcli calls that never write the model (no builds; mxcli's catalog
+# cache .mxcli/catalog.db beside the .mpr is built in fast mode by a plain SELECT, and the third call,
+# the inline REST count, refreshes it to full mode). It takes NO lock: do not run it while an exec is
+# writing the model. The first two calls read: catalog tables for published OData and REST services and
 # operations, business event services and messages, consumed REST services and operations,
 # consumed OData services and external entities, attributes, associations, generalizations and
 # constants (a base URL held in a constant resolves to its default value); plus `describe odata

@@ -136,6 +136,23 @@ hasnt "impact: publisher app itself not listed"  "in cars" "$O"
 CC_INLINE_shop=pos bash "$CC" --impact cars:MyFirstModule.Car --registry "$REG" > "$O"
 has "not-exposed impact also reports inline" "inline: 1 inline REST call(s) in shop" "$O"
 
+# wrong-shaped results: derived from the real `pos` capture (its first result set alone; the whole of it plus one
+# extra set) — the engine must not read a result set it did not expect
+mkdir -p "$TMP/cap/inline/one" "$TMP/cap/inline/three"
+"$PY" -c 'import json,sys
+t=open(sys.argv[1]).read(); d=json.JSONDecoder(); a,i=d.raw_decode(t); b,j=d.raw_decode(t,i+len(t[i:])-len(t[i:].lstrip()))
+open(sys.argv[2],"w").write(json.dumps(a)+"\n"); open(sys.argv[3],"w").write(json.dumps(a)+json.dumps(b)+json.dumps([])+"\n")' \
+  "$FIX/captures/inline/pos/shop.inline.json" "$TMP/cap/inline/one/shop.inline.json" "$TMP/cap/inline/three/shop.inline.json" \
+  && ok "wrong-shape captures built" || bad "wrong-shape captures not built"
+[ "$(grep -c '^\[' "$TMP/cap/inline/three/shop.inline.json")" = 1 ] && ok "three: one line of 3 sets" || bad "three file shape"
+CC_INLINE_shop=one bash "$CC" check --registry "$REG" > "$O"
+has "1 result set -> not measured" "inline: inline REST calls in shop: not measured" "$O"
+CC_INLINE_shop=three bash "$CC" check --registry "$REG" > "$O"
+has "3 result sets -> not measured" "inline: inline REST calls in shop: not measured" "$O"
+CC_INLINE_shop=pos CC_INLINE_FAIL_shop=1 bash "$CC" check --registry "$REG" > "$O"; check "failed inline call: exit still 0" "$?" "0"
+has   "mxcli exit non-zero -> not measured" "inline: inline REST calls in shop: not measured" "$O"
+hasnt "a failed call's output is not used"  "FeedbackModule.SUB_Feedback_PostToAppInsights" "$O"
+
 echo "== 6-7. layouts, AMBIGUOUS, EXTERNAL"
 for f in "$TMP"/cap/base/cars.*; do cp "$f" "$TMP/cap/base/cars2.${f##*/cars.}"; done
 mkdir -p "$TMP/cars2"; : > "$TMP/cars2/TestApp.mpr"

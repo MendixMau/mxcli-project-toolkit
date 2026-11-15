@@ -36,3 +36,5 @@ if [ -n "${CC_RECORD:-}" ]; then
 fi
 [ -f "$f" ] || { echo "mxcli-replay: no capture $f" >&2; exit 3; }
 cat "$f"
+# $CC_INLINE_FAIL_<app>=1: the inline call prints its capture, then exits non-zero (a failed mxcli)
+if [ "$kind" = inline ]; then eval "fl=\${CC_INLINE_FAIL_$app:-}"; [ -z "$fl" ] || exit 1; fi

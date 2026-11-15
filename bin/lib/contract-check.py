@@ -1,8 +1,11 @@
 """contract-check.py — the engine behind bin/contract-check.sh. Read that file's header first;
 this one documents only the internals.
 
-Two mxcli calls per app, both read-only on the model (mxcli refreshes its own catalog cache,
-.mxcli/catalog.db beside the .mpr — nothing else is written):
+Three mxcli calls per app (the first two as listed here; the third is the inline-REST count in
+INLINE_Q, run by inline_rest()), none writing the model. A plain SELECT builds mxcli's catalog cache
+.mxcli/catalog.db beside the .mpr in fast mode; the third call's `refresh catalog full` rewrites it
+in full mode. Nothing else is written. NO LOCK is taken: do not run this while an exec is writing
+the model:
 
   1. one `-c` string of SELECTs over the catalog tables listed in QUERIES, with --json. mxcli
      prints one JSON array per statement on stdout (counts and warnings go to stderr), so the

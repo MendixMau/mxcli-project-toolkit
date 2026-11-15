@@ -18,6 +18,7 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 `docs/RELEASE-PROCESS.md` §8.
 
 ## Unreleased
+- fix(doctor,test-scratch): **a cached Mendix runtime that is incomplete is now named, with what it lacks and the repair**: mxcli accepts `~/.mxcli/runtime/<v>/runtime` on `launcher/runtimelauncher.jar` alone, so a cache without `bundles/org.osgi*.jar` killed `test --local` at startup (`NoClassDefFoundError org/osgi/...`) with no test verdict and a green mxbuild check above it; `bin/doctor.sh` and `test-scratch.sh` (before the build) now warn, also for the `mxbuild/<v>/runtime` link, point at a complete matching Studio Pro `Contents/runtime` on macOS, and carry on (never blocks, exit codes unchanged, silent when complete; #692) — field run, 2026-11
 
 ## v2026.11.15
 - fix(gitignore): **`bin/init-project.sh`, `bin/sync-project.sh` and `project-bin/model-stamp.sh` no longer add an entry a CRLF `.gitignore` already has, and append in the file's own line ending**: `grep -qE '^/?x/?$'` missed `x\r` (init-project re-appended `sources/`, `.mxtk/`, `.claude/settings.local.json` and the progress-report cache on every run), and sync-project/model-stamp wrote LF lines into a CRLF file (mixed endings). One helper, `mxtk_gitignore_ensure` (`bin/lib/gitignore-ensure.sh`, copy in `project-bin/_common.sh` for installed scripts); LF files get the same bytes as before; new `tests/wave2/test-gitignore-crlf.sh` — follow-up to the snapshot-mpr fix, 2026-11

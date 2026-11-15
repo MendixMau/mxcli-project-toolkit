@@ -272,6 +272,9 @@ WARM=0
 MX_VER=""
 if [ -n "${MXTK_MODEL_VERSION:-}" ]; then MX_VER="$MXTK_MODEL_VERSION"
 elif command -v mxtk_model_version >/dev/null 2>&1; then MX_VER="$(mxtk_model_version "$MPR" 2>/dev/null || true)"; fi
+# An incomplete cached runtime (#692): warn now, before the expensive build, and carry on. mxcli accepts a
+# runtime on its launcher jar alone; the run then dies at startup with no verdict. Output only when wrong.
+if command -v mxtk_runtime_report >/dev/null 2>&1; then mxtk_runtime_report "$MX_VER" "!" >&2 || true; fi
 # One stat call for all files: a fork per file (wc -c) cost 25 to 30 s on a 600-file javasource on macOS.
 _libs_list() {
   local _ds=() _d

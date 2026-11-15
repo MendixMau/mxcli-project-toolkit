@@ -64,7 +64,10 @@
 #   (no registry, malformed row, no .mpr, no mxcli, mxcli failed, an app has no baseline).
 # Exit (--impact): 0 answered (consumers or none) · 2 cannot run.
 #
-# WHAT IT CANNOT SEE: business event subscribers are snapshotted and diffed but not joined across
+# WHAT IT CANNOT SEE: inline `call rest service` activities in a microflow are not a consumed REST
+# service document, so they are never matched against a publisher and are not in the denominator;
+# an `inline:` line per app counts them (microflow names) or says "not measured" (never 0) when
+# the catalog's activities table cannot be read; business event subscribers are snapshotted and diffed but not joined across
 # apps (no subscriber fixture existed); published OData microflow actions and other publish
 # kinds are printed as UNPARSED, never silently dropped; external-entity attributes are matched
 # by name (a remote name that differs from the local one reads as "not exposed"); REST request

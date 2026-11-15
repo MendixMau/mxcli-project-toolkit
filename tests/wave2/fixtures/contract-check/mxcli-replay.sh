@@ -20,9 +20,15 @@ while [ $# -gt 0 ]; do
 done
 app="$(basename "$(dirname "$mpr")")"
 [ "$app" = "app" ] && app="$(basename "$(dirname "$(dirname "$mpr")")")"   # two-tree layout
-case "$stmts" in describe*) kind=describe ;; *) kind=select ;; esac
+case "$stmts" in describe*) kind=describe ;; refresh*) kind=inline ;; *) kind=select ;; esac
 eval "state=\${CC_STATE_$app:-base}"
 f="${CC_CAPTURES:?CC_CAPTURES not set}/$state/$app.$kind.json"
+# the inline-REST call is a separate call with its own captures: captures/inline/<state>/<app>.inline.json,
+# <state> from $CC_INLINE_<app>; unset = no capture = "not measured"
+if [ "$kind" = inline ]; then
+  eval "ist=\${CC_INLINE_$app:-absent}"
+  f="$CC_CAPTURES/inline/$ist/$app.inline.json"
+fi
 if [ -n "${CC_RECORD:-}" ]; then
   mkdir -p "$(dirname "$f")"
   "$CC_RECORD" -p "$mpr" --json -c "$stmts" > "$f"; rc=$?

@@ -142,6 +142,50 @@ def run_mxcli(mx, mpr, stmts):
     return r.stdout, r.stderr
 
 
+# Inline `call rest service` activities are not a consumed REST service document, so the 13 QUERIES
+# above never see them. They are counted by a SEPARATE mxcli call (the 13-result-set check stays
+# valid) and only REPORTED, never joined, never part of the denominator or an exit code. The
+# catalog's activities table is empty until `refresh catalog full`, so the call refreshes first.
+INLINE_Q = ("refresh catalog full; select count(*) as n from catalog.activities; "
+            "select MicroflowQualifiedName from catalog.activities where ActionType = 'RestCallAction' "
+            "order by MicroflowQualifiedName;")
+
+
+def inline_rest(app):
+    """[microflow, ...] (one entry per inline REST call), or None = not measured (no mxcli, call
+    failed, unexpected shape, or an empty activities table: an empty table is not a clean app)."""
+    try:
+        mpr = resolve_mpr(app["path"])
+        mx = find_mxcli(mpr) if mpr else None
+        if not mx:
+            return None
+        argv = (["bash", mx] if mx.endswith(".sh") else [mx])
+        r = subprocess.run(argv + ["-p", mpr, "--json", "-c", INLINE_Q], capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=600)
+        if r.returncode != 0:
+            return None
+        vals = json_values(r.stdout)
+        if len(vals) != 2 or int(vals[0][0]["n"]) == 0:
+            return None
+        return [row["MicroflowQualifiedName"] for row in vals[1]]
+    except (OSError, subprocess.TimeoutExpired, ValueError, KeyError, IndexError, TypeError):
+        return None
+
+
+def print_inline(apps, skip=None):
+    for app in apps:
+        if app["name"] == skip:
+            continue
+        calls = inline_rest(app)
+        if calls is None:
+            print("inline: inline REST calls in %s: not measured (catalog.activities unavailable or empty)" % app["name"])
+        elif not calls:
+            print("inline: 0 inline REST calls in %s" % app["name"])
+        else:
+            print("inline: %d inline REST call(s) in %s not checked (%s)" % (
+                len(calls), app["name"], ", ".join(sorted(set(calls)))))
+
+
 def norm_path(*parts):
     segs = []
     for p in parts:
@@ -624,6 +668,7 @@ def main():
         if not tps:
             print("NOT-EXPOSED %s:%s is in no published OData, REST or business event contract of %s" % (an, elem, an))
             print("denominator: 0 contract members; 0 consumer apps")
+            print_inline(apps, an)
             return 0
         consumers = set()
         for kind, svc, member, sub in tps:
@@ -645,6 +690,7 @@ def main():
             print("NOTE       business event subscribers are not joined across apps (not implemented: no subscriber fixture)")
         print("denominator: %d contract member(s); %d consumer app(s) in a registry of %d: %s" % (
             len(tps), len(consumers), len(apps), ", ".join(sorted(consumers)) or "none"))
+        print_inline(apps, an)
         print("note: `mxcli impact` / `refs` do not report OData exposure (measured on v0.28.0); this list is the cross-app answer")
         return 0
 
@@ -682,6 +728,7 @@ def main():
             print("UNPARSED   %s:%s" % (app["name"], u))
     rows = join(apps, snaps)
     print_join(rows)
+    print_inline(apps)
     broken = len([r for r in rows if r[0] == "BROKEN"])
     members = sum(len(e["members"]) for s in snaps.values() for o in s["published"]["odata"] for e in o["entity_sets"])
     brk = len([o for o in out if o[0] == "BREAKING"])

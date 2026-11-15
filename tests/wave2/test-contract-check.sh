@@ -120,6 +120,22 @@ has "impact microflow -> REST consumer" "CONSUMER   shop:MyFirstModule.CarsClien
 bash "$CC" --impact cars:MyFirstModule.Car --registry "$REG" > "$O"
 has "impact: not exposed"  "NOT-EXPOSED cars:MyFirstModule.Car" "$O"
 
+echo "== 5b. inline REST calls (issue #674): reported, never green-by-absence, never a verdict"
+bash "$CC" check --registry "$REG" > "$O"
+has "no inline capture -> not measured (shop)" "inline: inline REST calls in shop: not measured" "$O"
+hasnt "not measured is never printed as 0"     "inline: 0 inline REST calls" "$O"
+CC_INLINE_shop=pos CC_INLINE_cars=neg bash "$CC" check --registry "$REG" > "$O"; check "inline calls do not change the exit code" "$?" "0"
+has "N>0 listed with microflow name" "inline: 1 inline REST call(s) in shop not checked (FeedbackModule.SUB_Feedback_PostToAppInsights)" "$O"
+has "zero rows (table populated) -> 0"  "inline: 0 inline REST calls in cars" "$O"
+has "denominator line unchanged"        "denominator: 2/2 consumed REST operations and external entities resolved to a publisher in the registry (broken 0, external 0, ambiguous 0, unresolved 0, stale contract versions 0)" "$O"
+CC_INLINE_shop=empty bash "$CC" check --registry "$REG" > "$O"
+has "empty activities table -> not measured, not 0" "inline: inline REST calls in shop: not measured" "$O"
+CC_INLINE_shop=pos bash "$CC" --impact cars:MyFirstModule.VCar.Brand --registry "$REG" > "$O"; check "impact exit 0 with inline" "$?" "0"
+has "impact: inline line for the consumer app" "inline: 1 inline REST call(s) in shop not checked (FeedbackModule.SUB_Feedback_PostToAppInsights)" "$O"
+hasnt "impact: publisher app itself not listed"  "in cars" "$O"
+CC_INLINE_shop=pos bash "$CC" --impact cars:MyFirstModule.Car --registry "$REG" > "$O"
+has "not-exposed impact also reports inline" "inline: 1 inline REST call(s) in shop" "$O"
+
 echo "== 6-7. layouts, AMBIGUOUS, EXTERNAL"
 for f in "$TMP"/cap/base/cars.*; do cp "$f" "$TMP/cap/base/cars2.${f##*/cars.}"; done
 mkdir -p "$TMP/cars2"; : > "$TMP/cars2/TestApp.mpr"

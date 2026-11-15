@@ -1,0 +1,9 @@
+Captured 2026-11 (field run) by running the REAL journey-runner.js runJourney() in headless
+Chromium against a one-page localhost stand-in (an element .mx-name-ready saying "Order SO-1001
+details" and a .mx-name-btnShip button). The only stand-in is helpers.oqlScalar, stubbed to return
+"SO-1001" (there is no database here); the seeds, walk, step names and check names are exactly what
+the runner wrote. journey-findings.json = { capturedAt, ..., results, walks } as the runner's
+findings slot; Orders.journey.json = the journey that was run (step names and the journey title use
+{{order}}; step 2 also has {{ghost}}, a placeholder with no seed). capture.js beside this file is the script (copy journey-runner.js, helpers.js, settle.js, otel.js,
+config.js and a project.config.js into <dir>/tests/e2e, run `cat capture.js | OUT1=.. OUT2=.. node -` there
+after replacing process.argv[2]/[3] with process.env.OUT1/OUT2; ALLOW_UNVERIFIED_APP=1).

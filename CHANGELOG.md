@@ -18,6 +18,7 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 `docs/RELEASE-PROCESS.md` §8.
 
 ## Unreleased
+- fix(journey-runner): **The HTML report now shows resolved seed values in step names, check labels, the journey title and the page-says expectations instead of `{{seed}}` (#668, the report half).** `report-render.js` resolves them for display only, on a copy, from the seeds the walk already records (`walks[].seeds`); stored names, `report.json`, ids, anchors and every join key stay raw (`report-normalize.js` still matches rows to the contract by the raw string), a placeholder with no seed stays visible as written, and a walk with no recorded seeds renders as before. `journey-runner.js` also exports `walks` (for fixtures; no behaviour change). New `tests/wave2/test-report-seeds-668.sh` on a capture from the real runner; field run, 2026-11
 
 ## v2026.11.15
 - fix(gitignore): **`bin/init-project.sh`, `bin/sync-project.sh` and `project-bin/model-stamp.sh` no longer add an entry a CRLF `.gitignore` already has, and append in the file's own line ending**: `grep -qE '^/?x/?$'` missed `x\r` (init-project re-appended `sources/`, `.mxtk/`, `.claude/settings.local.json` and the progress-report cache on every run), and sync-project/model-stamp wrote LF lines into a CRLF file (mixed endings). One helper, `mxtk_gitignore_ensure` (`bin/lib/gitignore-ensure.sh`, copy in `project-bin/_common.sh` for installed scripts); LF files get the same bytes as before; new `tests/wave2/test-gitignore-crlf.sh` — follow-up to the snapshot-mpr fix, 2026-11

@@ -1127,13 +1127,20 @@ def agent_stage(a, wins):
 # ----------------------------------------------------------------- build plan
 PHASE_RE = re.compile(r"^#{1,6}\s+(?:Phase|Slice)\s+(\d[0-9A-Za-z.]*)\s*(?:[\u2014\u2013\u00b7:-]\s*|\s+)(.*?)\s*$")
 def classify_state(raw):
-    """Row status by prefix, 'not built' checked before 'built'. built | partial | todo | skip."""
+    """Row status by prefix, 'not built' checked before 'built'. built | partial | todo | skip | unread.
+    unread = a State word this table does not define (gate-pass, ASSUMED, INCOMPLETE ...): never counted as todo,
+    shown by name (#653). A blank cell stays todo: nothing was written, so there is no word to report."""
     l = (raw or "").strip().lower().replace("**", "")
     if l.startswith(("not built", "not done", "not started", "planned", "to do", "todo", "open", "pending", "blocked", "failed")): return "todo"
     if l.startswith(("not needed", "n/a", "dropped", "skipped", "waived", "deferred")): return "skip"
     if l.startswith(("built", "done", "complete", "verified", "proven", "passed")): return "built"
     if l.startswith(("partial", "in progress", "started", "wip")): return "partial"
-    return "todo"
+    return "todo" if not l else "unread"
+
+def state_word(raw):
+    """The first word of a State cell, for the 'unrecognised state: <word>' note."""
+    m = re.match(r"[^\s:;,()]+", (raw or "").strip().replace("**", ""))
+    return m.group(0) if m else ""
 
 # HARNESS rows that run `verify-module.sh <Module>` (the module-close row, brd-to-build-plan.md
 # Step 5): Pass = the module's summary is clean AND its LOOK + CONFIRM is done. The agent that ran
@@ -1297,7 +1304,7 @@ def finish_plan(phases, proj, generated, source):
     """Counts per phase and for the plan. HARNESS rows are not build rows (MendixMau decision
     2026-10-21): they are out of every 'x of y built' count, and a verify-module.sh row is shown as
     its module's sign-off status on the phase card instead (the last such row per module)."""
-    out = []; kinds = collections.Counter(); tot = collections.Counter()
+    out = []; kinds = collections.Counter(); tot = collections.Counter(); unread_rows = []
     by_n = {str(x.get("number")): x for _p, _n, st in phases for x in st}; logs = None
     last = {}
     for pi, (_pid, _name, steps) in enumerate(phases):
@@ -1323,13 +1330,14 @@ def finish_plan(phases, proj, generated, source):
             cl = classify_state(x.get("state")); c[cl] += 1
             if cl != "skip": kinds[x.get("kind") or "-"] += 1
             rows.append({"n": x.get("number"), "kind": x.get("kind"), "step": (x.get("step") or "")[:140], "state": x.get("state") or "", "cls": cl})
+            if cl == "unread": unread_rows.append({"phase": pid, "n": x.get("number"), "word": state_word(x.get("state")), "step": (x.get("step") or "")[:80]})
         tot.update(c); signoffs.extend(mods_here)
         mods = os.path.join(proj, "architecture", "modules", name)
-        out.append({"id": pid, "name": name, "n": c["built"] + c["partial"] + c["todo"], "built": c["built"], "partial": c["partial"], "todo": c["todo"], "skip": c["skip"], "kinds": dict(kd),
+        out.append({"id": pid, "name": name, "n": c["built"] + c["partial"] + c["todo"] + c["unread"], "built": c["built"], "partial": c["partial"], "todo": c["todo"], "unread": c["unread"], "skip": c["skip"], "kinds": dict(kd),
                     "harness": harness, "signoffs": mods_here,
                     "brief": os.path.isfile(os.path.join(mods, "module-brief.md")), "ledger": os.path.isfile(os.path.join(mods, "coverage-ledger.md")),
                     "def": os.path.isfile(os.path.join(mods, "definition.md")), "steps": rows})
-    return {"phases": out, "kinds": dict(kinds), "built": tot["built"], "partial": tot["partial"], "todo": tot["todo"], "skip": tot["skip"],
+    return {"phases": out, "kinds": dict(kinds), "built": tot["built"], "partial": tot["partial"], "todo": tot["todo"], "unread": tot["unread"], "unread_rows": unread_rows, "skip": tot["skip"],
             "total": sum(tot.values()) - tot["skip"], "harness": sum(p["harness"] for p in out), "signoffs": signoffs,
             "generated": generated, "source": source, "note": ""}
 
@@ -1888,7 +1896,7 @@ def phase_bar(p, runs):
     """The phase card's bar and count; a phase of HARNESS rows only has no build rows to count."""
     if not p["n"] and p.get("harness"): return "<div class=sub>Sign-off phase: no build rows</div>"
     return "<div class='stack3' style='margin:6px 0'><i class=b style='width:%.0f%%'></i><i class=p style='width:%.0f%%'></i></div><div class=sub>%d of %d rows built%s%s</div>" % (
-        pct(p["built"], p["n"]), pct(p["partial"], p["n"]), p["built"], p["n"], (", %d partial" % p["partial"]) if p["partial"] else "", (" &middot; %d runs" % runs) if runs else "")
+        pct(p["built"], p["n"]), pct(p["partial"], p["n"]), p["built"], p["n"], (", %d partial" % p["partial"]) if p["partial"] else "", ((" &middot; %d unrecognised state" % p["unread"]) if p.get("unread") else "") + ((" &middot; %d runs" % runs) if runs else ""))
 
 def signoff_rollup(bp):
     """One line under the plan counts: module sign-offs and other HARNESS rows, never counted as built rows."""
@@ -2180,21 +2188,22 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
         cur = now_phase(bp, proj); phase_detail = args.phase_detail
         w("<div class=card><div class=hd><b>%d of %d rows built%s</b><a href='#plan-tables'>Jump to script folders and module proof</a></div><div class='stack3' style='margin:8px 0' title='built, partial, not built'><i class=b style='width:%.1f%%'></i><i class=p style='width:%.1f%%'></i></div>" %
           (bp["built"], bp["total"], (", %d partial" % bp["partial"]) if bp["partial"] else "", pct(bp["built"], bp["total"]), pct(bp["partial"], bp["total"])))
-        w("<div class=legend><span><b style='background:var(--ok)'></b>built %d</span><span><b style='background:var(--warn)'></b>partial %d</span><span><b style='background:var(--idle)'></b>not built %d</span>%s</div>" % (bp["built"], bp["partial"], bp["todo"], ("<span>not needed %d (not counted)</span>" % bp["skip"]) if bp["skip"] else ""))
+        w("<div class=legend><span><b style='background:var(--ok)'></b>built %d</span><span><b style='background:var(--warn)'></b>partial %d</span><span><b style='background:var(--idle)'></b>not built %d</span>%s%s</div>" % (bp["built"], bp["partial"], bp["todo"], ("<span class=st-unknown>unrecognised state %d (counted in the total, not as not built)</span>" % bp["unread"]) if bp.get("unread") else "", ("<span>not needed %d (not counted)</span>" % bp["skip"]) if bp["skip"] else ""))
+        if bp.get("unread_rows"): w("<div class='note stale' id=unreadstate>%s</div>" % "<br>".join("unrecognised state: <b>%s</b> (phase %s, row %s: %s). The report does not know this word and does not count the row as built, partial or not built." % (esc(u["word"]), esc(u["phase"]), esc(u["n"]), esc(u["step"])) for u in bp["unread_rows"]))
         w("<div class=stack>" + "".join("<i title='%s %d' style='width:%.1f%%;background:%s'></i>" % (k, v, pct(v, bp["total"]), KC.get(k, "#888")) for k, v in kinds.items()) + "</div>")
         w("<div class=legend>" + "".join("<span><b style='background:%s'></b>%s %d</span>" % (KC.get(k, "#888"), k, v) for k, v in kinds.items()) + "</div>")
         lb = (facts["last_run"]["t"], facts["last_run"]["script"], facts["last_run"]["result"]) if facts else None
         if lb: w("<div class=note id=lastbuild data-stamp>%s. Last build step: <code>%s</code> (%s), %s at %s.</div>" % (esc(facts_line(facts)), esc(lb[1][:90]), esc(re.sub(r"[^\w .,/()+-]", "", lb[2])[:40].strip() or "no result"), esc(ago(lb[0])), esc(datetime.datetime.fromtimestamp(lb[0]).strftime("%Y-%m-%d %H:%M"))))
         if facts and facts["score"]: w("<div class=note id=modelscore data-stamp>Latest model score %.1f (%s).</div>" % (facts["score"]["score"], esc(facts["score"]["script"][:40])))
         if bp.get("note"): w("<div class='note stale'>%s.</div>" % esc(bp["note"]))
-        w("<div class=note id=planread data-stamp>Kinds are the plan's own Kind column; row state is the plan's State column read by prefix (built or done = built, partial or in progress = partial, anything else = not built); HARNESS rows are not build rows and are not counted. A HARNESS row running verify-module.sh &lt;Module&gt; is that module's sign-off and shows on its phase card as one status, read from the module's verify summary and LOOK report: verified only when the summary is clean and newer than the scripts it depends on and the LOOK is N of N. The gate's own record of the look is the look obligation, in the obligations table of <code>gate-check.sh &lt;project&gt; 5</code> (index.html). Plan read %s from %s.</div>%s</div>" % (esc(bp.get("generated") or "unknown"), "architecture/build-plan.md" if bp.get("source") == "md" else "architecture/build-plan.json", signoff_rollup(bp)))
+        w("<div class=note id=planread data-stamp>Kinds are the plan's own Kind column; row state is the plan's State column read by prefix (built or done = built, partial or in progress = partial, a blank cell = not built; any other word is shown as an unrecognised state, never counted as not built); HARNESS rows are not build rows and are not counted. A HARNESS row running verify-module.sh &lt;Module&gt; is that module's sign-off and shows on its phase card as one status, read from the module's verify summary and LOOK report: verified only when the summary is clean and newer than the scripts it depends on and the LOOK is N of N. The gate's own record of the look is the look obligation, in the obligations table of <code>gate-check.sh &lt;project&gt; 5</code> (index.html). Plan read %s from %s.</div>%s</div>" % (esc(bp.get("generated") or "unknown"), "architecture/build-plan.md" if bp.get("source") == "md" else "architecture/build-plan.json", signoff_rollup(bp)))
         def card(p):
             now = p is cur
             w("<details class='card ph%s' id='phase-%s'%s><summary><b>Phase %s: %s</b>%s%s<div class=k>%s</div><div class=k>module files: %s</div>%s<div class=k>Click to show or hide the rows</div></summary>" %
               (" now" if now else "", esc(p["id"]), " open" if now else "", esc(p["id"]), esc(p["name"]), " <span class=nowtag>building now</span>" if now else "", phase_bar(p, runs_by.get(str(p["id"]))), esc(" ".join("%s %d" % kv for kv in p["kinds"].items())),
                esc(" ".join(("%s %s" % (n, "yes" if v else "no")) for n, v in (("definition", p["def"]), ("brief", p["brief"]), ("ledger", p["ledger"])))), signoff_html(p)))
             if str(p["id"]) in phase_detail: w(phase_detail[str(p["id"])])
-            else: w("<div class=tw><table class=steps><tr><th>#</th><th>Kind</th><th>Row</th><th>State</th></tr>" + "".join("<tr class='r-%s'><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>" % (x["cls"], esc(x["n"]), esc(x["kind"]) + (" <span class=mut>(not counted)</span>" if x["cls"] == "harness" else ""), esc(x["step"]), esc(x["state"][:90])) for x in p["steps"]) + "</table></div>" if p["steps"] else "")
+            else: w("<div class=tw><table class=steps><tr><th>#</th><th>Kind</th><th>Row</th><th>State</th></tr>" + "".join("<tr class='r-%s'><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>" % (x["cls"], esc(x["n"]), esc(x["kind"]) + (" <span class=mut>(not counted)</span>" if x["cls"] == "harness" else ""), esc(x["step"]), esc(x["state"][:90]) + (" <span class=st-unknown>(unrecognised state: %s)</span>" % esc(state_word(x["state"])) if x["cls"] == "unread" else "")) for x in p["steps"]) + "</table></div>" if p["steps"] else "")
             w("</details>")
         # focus: the phase being built plus the three unfinished ones with the latest built date; the rest fold
         last = lambda p: max([m for x in p["steps"] for m in re.findall(r"20\d\d-\d\d-\d\d", x.get("state", ""))] or [""])

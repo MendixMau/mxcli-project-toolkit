@@ -18,6 +18,7 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 `docs/RELEASE-PROCESS.md` §8.
 
 ## Unreleased
+- fix(gitignore): **`bin/doctor.sh` appends its machine-local entries (`.doctor-receipt`, `toolkit.env`, `progress-report-sessions.txt`, `.property-sets-receipt`) through `mxtk_gitignore_ensure`**: a CRLF `.gitignore` got LF lines (mixed endings) and could get an entry it already had added again; LF files get the same bytes as before, and the "(added … to the project's .gitignore)" note now prints only when a line was actually written — follow-up to the .gitignore line-ending fixes, 2026-11
 
 ## v2026.11.15
 - fix(gitignore): **`bin/init-project.sh`, `bin/sync-project.sh` and `project-bin/model-stamp.sh` no longer add an entry a CRLF `.gitignore` already has, and append in the file's own line ending**: `grep -qE '^/?x/?$'` missed `x\r` (init-project re-appended `sources/`, `.mxtk/`, `.claude/settings.local.json` and the progress-report cache on every run), and sync-project/model-stamp wrote LF lines into a CRLF file (mixed endings). One helper, `mxtk_gitignore_ensure` (`bin/lib/gitignore-ensure.sh`, copy in `project-bin/_common.sh` for installed scripts); LF files get the same bytes as before; new `tests/wave2/test-gitignore-crlf.sh` — follow-up to the snapshot-mpr fix, 2026-11

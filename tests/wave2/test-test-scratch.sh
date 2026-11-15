@@ -62,6 +62,7 @@ fi
 exit "${STUB_RC:-0}"
 STUB
 chmod +x "$P/mxcli" "$P/bin/test-scratch.sh"
+export MXTK_MXCLI_HOME="$WORK/mxhome"   # never read the real ~/.mxcli (#692 runtime check)
 export TMPDIR="$WORK/tmp" MXTK_TEST_PORTS="$(( 30000 + RANDOM % 20000 )) $(( 30000 + RANDOM % 20000 ))"
 run() { ( cd "$P" && REC="$WORK/rec.$1" ./bin/test-scratch.sh "${@:2}" ) 2>&1; }
 
@@ -450,6 +451,21 @@ if command -v node >/dev/null 2>&1; then
 else
   echo "  [skip] node missing — the injected settings units are built from the capture with node"
 fi
+
+echo "-- an incomplete cached runtime is warned about, and the run still happens (#692)"
+# layout: the real listing tests/wave2/fixtures/runtime-layout-11.13.0.txt minus the org.osgi jar
+rm -rf "$P/mprcontents/4e" "$P/mprcontents/00" "$P/mprcontents/ff" "$P/.git"   # the #244 cases leave injected units; the guard would refuse
+RL="$TOOLKIT/tests/wave2/fixtures/runtime-layout-11.13.0.txt"
+RT="$MXTK_MXCLI_HOME/runtime/11.13.0"; mkdir -p "$RT"
+while IFS= read -r _p; do case "$_p" in *.jar|*.txt|*.properties|*.json) mkdir -p "$RT/$(dirname "$_p")"; : > "$RT/$_p" ;; *) mkdir -p "$RT/$_p" ;; esac; done < "$RL"
+OUT="$(MXTK_MODEL_VERSION=11.13.0 run r1 --no-cache -- tests/a.test.mdl)"; RC=$?
+[ -f "$WORK/rec.r1" ] && [ -z "$(printf '%s' "$OUT" | grep -i 'incomplete Mendix runtime')" ] && ok "complete runtime: runs, no warning" || bad "warned on a complete runtime, or did not run: $(printf '%s' "$OUT" | head -2)"
+printf 'model\n' > "$P/Fixture.mpr"
+rm -f "$RT"/runtime/bundles/org.osgi*.jar
+OUT="$(STUB_RC=4 MXTK_MODEL_VERSION=11.13.0 run r2 --no-cache -- tests/a.test.mdl)"; RC=$?
+has "incomplete runtime named" "$OUT" "incomplete Mendix runtime: $RT/runtime"
+has "what is missing named" "$OUT" "missing: bundles/org.osgi*.jar"
+[ "$RC" -eq 4 ] && [ -f "$WORK/rec.r2" ] && ok "the run still happened and mxcli's exit code passed through" || bad "run blocked or exit changed ($RC)"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"

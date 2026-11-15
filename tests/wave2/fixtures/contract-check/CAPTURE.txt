@@ -42,3 +42,17 @@ Field-run numbers on the untrimmed captures (same as the fixture asserts):
   bump    same BREAKING, VERSION 1.0.0 -> 2.0.0, 0 VIOLATION, still BROKEN shop GetCars; exit 1
   --impact cars:MyFirstModule.VCar.Brand -> CONSUMER shop:MyFirstModule.ECar (mxcli impact: none)
   Two mxcli calls per app; snapshot of both apps 0.9 s wall.
+
+captures/inline/<state>/<app>.inline.json — the SEPARATE inline-REST call (issue #674), recorded
+2026-11-15 with mxcli v0.28.0 from two toolkit-built demo apps of one family (each Feedback module has one inline
+`call rest service post` microflow, FeedbackModule.SUB_Feedback_PostToAppInsights; describe shows
+`$Response = call rest service post '{1}' with ({1} = $ServerLocation) (...)`). Stdout only, untrimmed
+(a copy of the app's .mpr + mprcontents; the originals were not touched). The call is
+  refresh catalog full; select count(*) as n from catalog.activities;
+  select MicroflowQualifiedName from catalog.activities where ActionType = 'RestCallAction' order by MicroflowQualifiedName;
+  pos    one app, unmodified: n=423, one RestCallAction row
+  neg    the other app after `drop microflow FeedbackModule.SUB_Feedback_PostToAppInsights`
+         (mxcli exec: succeeded): n=514, rows []
+  empty  the two SELECTs WITHOUT the refresh on a fresh copy (activities table not built): n=0, rows []
+Which app a file is used for is the test's choice ($CC_INLINE_<app>=pos|neg|empty); an app with no
+file reads "not measured". The 13 base/rename/drop/bump captures above are unchanged.

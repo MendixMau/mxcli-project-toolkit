@@ -1655,6 +1655,17 @@ else
   note "like the container build. MXBUILD_PATH=<path to mxbuild> also works."
 fi
 
+# Cached runtime complete? (#692) mxcli takes a runtime on its launcher jar alone; an incomplete one
+# kills `test --local` at startup with no verdict, and a green mxbuild above says nothing about it.
+# Silent when every cached runtime is complete (or none is cached). Never changes GATE_OK.
+if command -v mxtk_runtime_report >/dev/null 2>&1; then
+  _RV="$(mxtk_model_version 2>/dev/null || true)"
+  if ! _RR="$(mxtk_runtime_report "$_RV" "")"; then
+    warn "a cached Mendix runtime is incomplete — local tests can die at startup (#692)"
+    printf '%s\n' "$_RR" | while IFS= read -r l; do note "$l"; done
+  fi
+fi
+
 # Java: mxbuild is invoked with an explicit --java-exe-path; if none resolves, the gate skips.
 if [ -n "$JAVA_EXE" ] && [ -x "$JAVA_EXE" ]; then
   # -version writes to stderr, and wrappers can prepend noise (JAVA_TOOL_OPTIONS pickup

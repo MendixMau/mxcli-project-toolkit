@@ -120,6 +120,39 @@ has "impact microflow -> REST consumer" "CONSUMER   shop:MyFirstModule.CarsClien
 bash "$CC" --impact cars:MyFirstModule.Car --registry "$REG" > "$O"
 has "impact: not exposed"  "NOT-EXPOSED cars:MyFirstModule.Car" "$O"
 
+echo "== 5b. inline REST calls (issue #674): reported, never green-by-absence, never a verdict"
+bash "$CC" check --registry "$REG" > "$O"
+has "no inline capture -> not measured (shop)" "inline: inline REST calls in shop: not measured" "$O"
+hasnt "not measured is never printed as 0"     "inline: 0 inline REST calls" "$O"
+CC_INLINE_shop=pos CC_INLINE_cars=neg bash "$CC" check --registry "$REG" > "$O"; check "inline calls do not change the exit code" "$?" "0"
+has "N>0 listed with microflow name" "inline: 1 inline REST call(s) in shop not checked (FeedbackModule.SUB_Feedback_PostToAppInsights)" "$O"
+has "zero rows (table populated) -> 0"  "inline: 0 inline REST calls in cars" "$O"
+has "denominator line unchanged"        "denominator: 2/2 consumed REST operations and external entities resolved to a publisher in the registry (broken 0, external 0, ambiguous 0, unresolved 0, stale contract versions 0)" "$O"
+CC_INLINE_shop=empty bash "$CC" check --registry "$REG" > "$O"
+has "empty activities table -> not measured, not 0" "inline: inline REST calls in shop: not measured" "$O"
+CC_INLINE_shop=pos bash "$CC" --impact cars:MyFirstModule.VCar.Brand --registry "$REG" > "$O"; check "impact exit 0 with inline" "$?" "0"
+has "impact: inline line for the consumer app" "inline: 1 inline REST call(s) in shop not checked (FeedbackModule.SUB_Feedback_PostToAppInsights)" "$O"
+hasnt "impact: publisher app itself not listed"  "in cars" "$O"
+CC_INLINE_shop=pos bash "$CC" --impact cars:MyFirstModule.Car --registry "$REG" > "$O"
+has "not-exposed impact also reports inline" "inline: 1 inline REST call(s) in shop" "$O"
+
+# wrong-shaped results: derived from the real `pos` capture (its first result set alone; the whole of it plus one
+# extra set) — the engine must not read a result set it did not expect
+mkdir -p "$TMP/cap/inline/one" "$TMP/cap/inline/three"
+"$PY" -c 'import json,sys
+t=open(sys.argv[1]).read(); d=json.JSONDecoder(); a,i=d.raw_decode(t); b,j=d.raw_decode(t,i+len(t[i:])-len(t[i:].lstrip()))
+open(sys.argv[2],"w").write(json.dumps(a)+"\n"); open(sys.argv[3],"w").write(json.dumps(a)+json.dumps(b)+json.dumps([])+"\n")' \
+  "$FIX/captures/inline/pos/shop.inline.json" "$TMP/cap/inline/one/shop.inline.json" "$TMP/cap/inline/three/shop.inline.json" \
+  && ok "wrong-shape captures built" || bad "wrong-shape captures not built"
+[ "$(grep -c '^\[' "$TMP/cap/inline/three/shop.inline.json")" = 1 ] && ok "three: one line of 3 sets" || bad "three file shape"
+CC_INLINE_shop=one bash "$CC" check --registry "$REG" > "$O"
+has "1 result set -> not measured" "inline: inline REST calls in shop: not measured" "$O"
+CC_INLINE_shop=three bash "$CC" check --registry "$REG" > "$O"
+has "3 result sets -> not measured" "inline: inline REST calls in shop: not measured" "$O"
+CC_INLINE_shop=pos CC_INLINE_FAIL_shop=1 bash "$CC" check --registry "$REG" > "$O"; check "failed inline call: exit still 0" "$?" "0"
+has   "mxcli exit non-zero -> not measured" "inline: inline REST calls in shop: not measured" "$O"
+hasnt "a failed call's output is not used"  "FeedbackModule.SUB_Feedback_PostToAppInsights" "$O"
+
 echo "== 6-7. layouts, AMBIGUOUS, EXTERNAL"
 for f in "$TMP"/cap/base/cars.*; do cp "$f" "$TMP/cap/base/cars2.${f##*/cars.}"; done
 mkdir -p "$TMP/cars2"; : > "$TMP/cars2/TestApp.mpr"

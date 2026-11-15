@@ -25,6 +25,8 @@
 #   T18 a State word the report does not define (gate-pass, INCOMPLETE, ASSUMED: the three from #653) is
 #       never counted as "not built": each is named in an "unrecognised state: <word>" note with its row,
 #       has its own count, and the rows still add up (built + partial + not built + unrecognised = total).
+#       A blank State and a cell holding only an empty-cell marker (- — – [ ] TBD) stay not built with no
+#       note; claims outside the vocabulary (✅, [x]) are named; the phase "N of M" includes them.
 #
 # Usage: bash tests/wave2/test-progress-report.sh /path/to/build-plan-status.sh
 
@@ -507,16 +509,28 @@ cat > "$P7/architecture/build-plan.md" <<'MD'
 | 3 | BUILD | `02-security-roles.mdl` | Module roles Owner/Viewer/Administrator | 2 | `manage-security.md` | INCOMPLETE: verify-module exit 2 |
 | 4 | BUILD | `03-entities.mdl` | `Dashboard`, `DashboardVersion` | 3 | `mdl-entities.md` | ASSUMED (deferred): not run, no physical device |
 | 5 | PROVE | `SHOW SECURITY MATRIX IN DashboardPublishing` | every entity carries rules | 4 | `manage-security.md` | not built |
+| 6 | BUILD | `p6.mdl` | placeholder row | 5 | `none` |  |
+| 7 | BUILD | `p7.mdl` | placeholder row | 5 | `none` | - |
+| 8 | BUILD | `p8.mdl` | placeholder row | 5 | `none` | — |
+| 9 | BUILD | `p9.mdl` | placeholder row | 5 | `none` | – |
+| 10 | BUILD | `p10.mdl` | placeholder row | 5 | `none` | [ ] |
+| 11 | BUILD | `p11.mdl` | placeholder row | 5 | `none` | TBD |
+| 12 | BUILD | `p12.mdl` | placeholder row | 5 | `none` | tbd |
+| 13 | BUILD | `p13.mdl` | placeholder row | 5 | `none` | ✅ |
+| 14 | BUILD | `p14.mdl` | placeholder row | 5 | `none` | [x] |
 MD
 CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$P7" --html >/dev/null 2>&1
 R7="$P7/architecture/progress-report.html"
 has "$R7" "unrecognised state: <b>gate-pass</b> (phase 1, row 2" "gate-pass named with its row"
 has "$R7" "unrecognised state: <b>INCOMPLETE</b> (phase 1, row 3" "INCOMPLETE named with its row"
 has "$R7" "unrecognised state: <b>ASSUMED</b> (phase 1, row 4" "ASSUMED named with its row"
-has "$R7" "unrecognised state 3 (counted in the total" "legend carries its own count of 3"
-has "$R7" "not built 1</span>" "only the real 'not built' row is counted as not built"
-has "$R7" "1 of 5 rows built" "totals still add up: 5 rows, 1 built"
-has "$R7" "3 unrecognised state" "phase card says 3 unrecognised"
+has "$R7" "unrecognised state 5 (counted in the total" "legend carries its own count of 5"
+has "$R7" "not built 8</span>" "'not built' row, blank and the 7 placeholders count as not built"
+has "$R7" "1 of 14 rows built" "totals still add up: 14 rows (unrecognised included), 1 built"
+has "$R7" "<div class=sub>1 of 14 rows built &middot; 5 unrecognised state" "phase card: N of M includes the 5 unrecognised rows (M=14)"
+has "$R7" "unrecognised state: <b>✅</b> (phase 1, row 13" "a check mark is named, not hidden"
+has "$R7" "unrecognised state: <b>\[x\]</b> (phase 1, row 14" "[x] is named, not hidden"
+for r_ in 6 7 8 9 10 11 12; do hasnt "$R7" "unrecognised state: <b>[^<]*</b> (phase 1, row $r_[,:]" "row $r_ (blank or placeholder) raises no note"; done
 
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

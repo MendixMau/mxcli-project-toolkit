@@ -114,6 +114,7 @@ grep -q "added /.claude/.doctor-receipt to the project's .gitignore — the rece
   && ok "the append is still announced, same words" || bad "doctor announcement changed"
 cp "$P/.gitignore" "$WORK/before"; dr "$P"
 cmp -s "$WORK/before" "$P/.gitignore" && ok "second run: .gitignore byte-identical (no duplicates)" || bad "doctor rerun changed the file"
+grep -q "(added " "$WORK/doctor.out" && bad "second run printed an '(added' note though nothing was added" || ok "second run: no '(added' note (first run printed it, above)"
 
 P="$WORK/doc-crlf-nonl"; mkdir -p "$P"; ( cd "$P" && git init -q . 2>/dev/null ); printf 'node_modules/\r\nbuild/' > "$P/.gitignore"
 dr "$P"

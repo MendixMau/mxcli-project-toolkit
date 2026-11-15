@@ -22,6 +22,9 @@
 #   T15 --open matches this project's exact file URL (osascript stubbed); a generator crash leaves one WARN.
 #   T17 two scripts sharing a leading number (10-data.mdl, 10b-data-flows.mdl), each matched to a phase:
 #       the page is still written, no TypeError (#513); the unmatched 11- script takes the later 10 phase.
+#   T18 a State word the report does not define (gate-pass, INCOMPLETE, ASSUMED: the three from #653) is
+#       never counted as "not built": each is named in an "unrecognised state: <word>" note with its row,
+#       has its own count, and the rows still add up (built + partial + not built + unrecognised = total).
 #
 # Usage: bash tests/wave2/test-progress-report.sh /path/to/build-plan-status.sh
 
@@ -487,6 +490,33 @@ grep -q "@media(max-width:520px){code,pre,.stage dd" "$GEN" && ok "narrow rules 
 grep -q "\.stage dl{grid-template-columns:minmax(0,1fr)}" "$GEN" && ok "stage label/value rows stack on phones" || bad "stage label/value rows stack on phones"
 grep -q "\.hd \.sub{white-space:normal" "$GEN" && ok "gates label wraps below the header text" || bad "gates label wraps below the header text"
 grep -q "\.snav{padding:6px 12px;flex-wrap:nowrap;overflow-x:auto" "$GEN" && ok "stage nav scrolls inside its own container" || bad "stage nav scrolls inside its own container"
+
+echo "T18 unrecognised State words are shown, not counted as todo (#653)"
+# Table shape and row text from tests/wave2/fixtures/build-plan-claims-real.md (a real plan); State cells are the
+# three prefixes the issue reports from a field build, verbatim, plus one known word of each kind.
+P7="$WORK/p7"; mkdir -p "$P7/architecture"
+cat > "$P7/architecture/build-plan.md" <<'MD'
+# Build plan
+
+## Phase 1 — Foundation (security, settings, domain)
+
+| # | Kind | Step | Produces / Proves | Depends on | Skills | State |
+|---|---|---|---|---|---|---|
+| 1 | BRIEF | Check `architecture/modules/DashboardPublishing/module-brief.md` covers phase 1 | brief exists and is current | — | `module-brief.md` | built |
+| 2 | BUILD | `01-module-and-settings.mdl` | Module `DashboardPublishing`; project languages EN + TH; default EN | 1 | `project-settings.md` | gate-pass with instrument faults (verify-module incomplete) |
+| 3 | BUILD | `02-security-roles.mdl` | Module roles Owner/Viewer/Administrator | 2 | `manage-security.md` | INCOMPLETE: verify-module exit 2 |
+| 4 | BUILD | `03-entities.mdl` | `Dashboard`, `DashboardVersion` | 3 | `mdl-entities.md` | ASSUMED (deferred): not run, no physical device |
+| 5 | PROVE | `SHOW SECURITY MATRIX IN DashboardPublishing` | every entity carries rules | 4 | `manage-security.md` | not built |
+MD
+CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$P7" --html >/dev/null 2>&1
+R7="$P7/architecture/progress-report.html"
+has "$R7" "unrecognised state: <b>gate-pass</b> (phase 1, row 2" "gate-pass named with its row"
+has "$R7" "unrecognised state: <b>INCOMPLETE</b> (phase 1, row 3" "INCOMPLETE named with its row"
+has "$R7" "unrecognised state: <b>ASSUMED</b> (phase 1, row 4" "ASSUMED named with its row"
+has "$R7" "unrecognised state 3 (counted in the total" "legend carries its own count of 3"
+has "$R7" "not built 1</span>" "only the real 'not built' row is counted as not built"
+has "$R7" "1 of 5 rows built" "totals still add up: 5 rows, 1 built"
+has "$R7" "3 unrecognised state" "phase card says 3 unrecognised"
 
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

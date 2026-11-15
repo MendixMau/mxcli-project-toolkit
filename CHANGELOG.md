@@ -18,6 +18,7 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 `docs/RELEASE-PROCESS.md` §8.
 
 ## Unreleased
+- fix(progress-report): **a build-plan State word the report does not define (`gate-pass`, `INCOMPLETE`, `ASSUMED`, ...) is no longer silently counted as not built (#653)**: `classify_state` returned `todo` for any unknown prefix, so a row a person had marked `gate-pass` read as open. It now returns `unread`: the row keeps its place in the phase and plan totals but has its own count (`unrecognised state N` in the legend and on the phase card) and a note `unrecognised state: <word> (phase, row)` per row; a blank State stays not built. Display only: no verdict, gate or exit code reads the todo count. `build-plan-status.sh` already reported these as unreadable. Covered by `test-progress-report.sh` T18. — field run, 2026-11
 
 ## v2026.11.15
 - fix(gitignore): **`bin/init-project.sh`, `bin/sync-project.sh` and `project-bin/model-stamp.sh` no longer add an entry a CRLF `.gitignore` already has, and append in the file's own line ending**: `grep -qE '^/?x/?$'` missed `x\r` (init-project re-appended `sources/`, `.mxtk/`, `.claude/settings.local.json` and the progress-report cache on every run), and sync-project/model-stamp wrote LF lines into a CRLF file (mixed endings). One helper, `mxtk_gitignore_ensure` (`bin/lib/gitignore-ensure.sh`, copy in `project-bin/_common.sh` for installed scripts); LF files get the same bytes as before; new `tests/wave2/test-gitignore-crlf.sh` — follow-up to the snapshot-mpr fix, 2026-11

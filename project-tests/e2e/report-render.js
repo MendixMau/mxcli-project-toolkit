@@ -2591,7 +2591,40 @@ const JS = `
 
 /* ───────────────────────── assemble ───────────────────────── */
 
+// #668: the runner stores step and check names RAW (`Open {{order}}`) because report-normalize.js
+// joins rows to the journey contract by that exact string, and it records the seeds it resolved on
+// the walk. So the page resolves them for DISPLAY only, here, on a copy: report.json, every id,
+// `journey`, `stepIndex`, `sourceName`, `blockedBy` and the anchors are untouched. Same rule as the
+// runner's `subst`: a placeholder with no seed stays visible as written, never blank.
+function withDisplayNames(d) {
+  const seedsBy = new Map();
+  for (const w of arr(d.walks)) {
+    if (w && w.seeds && typeof w.seeds === 'object' && Object.keys(w.seeds).length) seedsBy.set(w.journey, w.seeds);
+  }
+  if (!seedsBy.size) return d;
+  const sub = (s, v) => (typeof s !== 'string' || !v) ? s
+    : s.replace(/\{\{(\w+)\}\}/g, (m, k) => (Object.prototype.hasOwnProperty.call(v, k) && v[k] != null ? String(v[k]) : m));
+  return Object.assign({}, d, {
+    checks: arr(d.checks).map((c) => {
+      const v = seedsBy.get(c.journey);
+      return v ? Object.assign({}, c, { title: sub(c.title, v), stepName: sub(c.stepName, v) }) : c;
+    }),
+    walks: arr(d.walks).map((w) => {
+      const v = seedsBy.get(w.journey);
+      if (!v) return w;
+      return Object.assign({}, w, { title: sub(w.title, v), steps: arr(w.steps).map((s) =>
+        Object.assign({}, s, { name: sub(s.name, v),
+          expects: s.expects ? Object.assign({}, s.expects, {
+            pageSays: arr(s.expects.pageSays).map((t) => sub(t, v)),
+            pageDoesNotSay: arr(s.expects.pageDoesNotSay).map((t) => sub(t, v)) }) : s.expects,
+          checks: arr(s.checks).map((c) =>
+          Object.assign({}, c, { name: sub(c.name, v) })) })) });
+    }),
+  });
+}
+
 function render(d, ver, rebase, shotCtx) {
+  d = withDisplayNames(d);
   const ctx = shotCtx ||
     { roots: shotRoots('docs/report.json'), bytes: 0, embedded: 0, missing: 0, overBudget: 0 };
   const checks = arr(d.checks);

@@ -1,0 +1,118 @@
+{
+  "capturedAt": "2026-11-15T05:31:13.091Z",
+  "configuredUser": "u",
+  "actualUser": "u",
+  "usedFallback": false,
+  "baseUrl": "http://localhost:39205",
+  "device": "desktop",
+  "positiveControl": false,
+  "results": [
+    {
+      "rung": "ui",
+      "name": "Open {{order}}: reached",
+      "verdict": "PASS",
+      "detail": ".mx-name-ready",
+      "requirement": ""
+    },
+    {
+      "rung": "ui",
+      "name": "Open {{order}}: page says \"SO-1001\"",
+      "verdict": "PASS",
+      "detail": "",
+      "requirement": ""
+    },
+    {
+      "rung": "ui",
+      "name": "Ship {{order}} ({{ghost}}): reached",
+      "verdict": "PASS",
+      "detail": ".mx-name-ready",
+      "requirement": ""
+    }
+  ],
+  "walks": [
+    {
+      "journey": "J-ORD-01",
+      "title": "Ship order {{order}}",
+      "persona": "Clerk",
+      "device": "desktop (default 1440x900 window)",
+      "requirement": [],
+      "seeds": {
+        "order": "SO-1001"
+      },
+      "steps": [
+        {
+          "n": 1,
+          "name": "Open {{order}}",
+          "requirement": [],
+          "actions": [],
+          "expects": {
+            "landsOn": ".mx-name-ready",
+            "pageSays": [
+              "{{order}}"
+            ],
+            "pageDoesNotSay": [],
+            "microflows": [],
+            "writes": null
+          },
+          "shot": {
+            "file": "tests/e2e/artifacts/J-ORD-01-step1.png",
+            "title": "",
+            "url": "http://localhost:39205/",
+            "at": "2026-11-15T05:31:12.514Z"
+          },
+          "reached": true,
+          "checks": [
+            {
+              "rung": "ui",
+              "name": "Open {{order}}: reached",
+              "verdict": "PASS",
+              "detail": ".mx-name-ready"
+            },
+            {
+              "rung": "ui",
+              "name": "Open {{order}}: page says \"SO-1001\"",
+              "verdict": "PASS",
+              "detail": ""
+            }
+          ],
+          "ms": 133
+        },
+        {
+          "n": 2,
+          "name": "Ship {{order}} ({{ghost}})",
+          "requirement": [],
+          "actions": [
+            {
+              "verb": "Click",
+              "target": "Ship SO-1001",
+              "selector": ".mx-name-btnShip"
+            }
+          ],
+          "expects": {
+            "landsOn": ".mx-name-ready",
+            "pageSays": [],
+            "pageDoesNotSay": [],
+            "microflows": [],
+            "writes": null
+          },
+          "shot": {
+            "file": "tests/e2e/artifacts/J-ORD-01-step2.png",
+            "title": "",
+            "url": "http://localhost:39205/",
+            "at": "2026-11-15T05:31:13.091Z"
+          },
+          "reached": true,
+          "checks": [
+            {
+              "rung": "ui",
+              "name": "Ship {{order}} ({{ghost}}): reached",
+              "verdict": "PASS",
+              "detail": ".mx-name-ready"
+            }
+          ],
+          "ms": 573
+        }
+      ]
+    }
+  ]
+}

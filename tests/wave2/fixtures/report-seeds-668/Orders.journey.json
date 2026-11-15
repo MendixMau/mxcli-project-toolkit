@@ -1,0 +1,37 @@
+{
+  "id": "J-ORD-01",
+  "title": "Ship order {{order}}",
+  "persona": "Clerk",
+  "requirement": [],
+  "seeds": [
+    {
+      "name": "order",
+      "sql": "SELECT 1"
+    }
+  ],
+  "steps": [
+    {
+      "name": "Open {{order}}",
+      "actions": [],
+      "ui": {
+        "ready": ".mx-name-ready",
+        "textPresent": [
+          "{{order}}"
+        ]
+      }
+    },
+    {
+      "name": "Ship {{order}} ({{ghost}})",
+      "actions": [
+        {
+          "do": "click",
+          "widget": "btnShip",
+          "label": "Ship {{order}}"
+        }
+      ],
+      "ui": {
+        "ready": ".mx-name-ready"
+      }
+    }
+  ]
+}

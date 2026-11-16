@@ -18,6 +18,7 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 `docs/RELEASE-PROCESS.md` §8.
 
 ## Unreleased
+- process(poc-build): **POC test cadence cut to what finds bugs (#770)**: per page one LOOK at 1280 and one polish round (390 on the first page only); once at the end one journey with the happy path, one negative step per business rule and per must-have and one cross-user refusal per role, ending in a logout, run 2× (warm, then cold after one restart on the used DB) instead of 3 cold runs, then the broken control without a restart and one LOOK pass at 1280 + 390 over every page. "Done when" updated; status stays EXPERIMENTAL and says the new cadence is unmeasured. The open-session-count assertion after each run is a follow-up. — POC light-mode experiment (#729/#730), 2026-11
 
 ## v2026.11.16
 - fix(gitignore): **`bin/doctor.sh` appends its machine-local entries (`.doctor-receipt`, `toolkit.env`, `progress-report-sessions.txt`, `.property-sets-receipt`) through `mxtk_gitignore_ensure`**: a CRLF `.gitignore` got LF lines (mixed endings) and could get an entry it already had added again; LF files get the same bytes as before, and the "(added … to the project's .gitignore)" note now prints only when a line was actually written — follow-up to the .gitignore line-ending fixes, 2026-11

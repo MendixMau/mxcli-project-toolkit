@@ -241,6 +241,21 @@ version. Three things the field run taught:
 
 → `skills/agents-examples/single-call.example.mdl`, `skills/agents-examples/single-call.agent.json`
 
+## A colleague's clone must run it too
+
+**Commit `modules/*.mxmodule` with the model.** Studio Pro reads the `agenteditor.agent`
+document type from `modules/AgentEditor.mxmodule` beside the `.mpr`. The Marketplace install
+writes it; a sync of only `.mpr` + `mprcontents/` drops it, and with it every extension type.
+Failure: the builder's copy is green, and after a plain `git pull` a colleague's Studio Pro shows
+`unknown type 'agenteditor.agent'` on every agent. `bin/status.sh` WATCHes an untracked
+`.mxmodule`, and a project using Agent Editor with none (#778).
+
+**The GenAI key and the constants it needs live in the project, not a start script.** Set the
+key constant, plus what startup needs once a key is present (`Encryption.EncryptionKey`,
+`GenAICommons.StoreTraces = true`), in the Default configuration (never a real key in git: a placeholder plus where to get it). Failure: the key
+existed only as an environment variable the builder's start script set, so a colleague running
+from Studio Pro got a blank key at runtime. No check covers this yet; read the configuration.
+
 ## Never commit a client export
 
 Real exports carry client-identifying content — system prompts naming the client, tool
@@ -264,3 +279,4 @@ before committing, or keep the export outside the repo. See `anonymize-client-ap
 - [ ] KB loaders use `AddKnowledgeBaseChunk` + `Embed_Replace` + guarded metadata
 - [ ] Read-only status stated explicitly in the system prompt, if it applies
 - [ ] Verified by **reading data back**, not by a green exec log
+- [ ] `modules/*.mxmodule` committed; key and required constants set in the Default configuration

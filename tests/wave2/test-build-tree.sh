@@ -22,7 +22,8 @@
 #   B3 two-tree (app/X.mpr): app/deployment/ unchanged, the copy is the app folder
 #   B4 the sync: a file deleted from the model leaves the copy; the copy's deployment/ survives a
 #      sync; .git, .mxcli, sources/, *.mpr.lock are not copied; .mxtk/ ignores itself
-#   B4c a nested node_modules (widgets/W/node_modules) is never copied, and a stale one is removed (#764)
+#   B4c a nested node_modules (widgets/W/node_modules) is never copied, and a stale one is removed (#764);
+#       javascriptsource/**/node_modules (JS action deps, bundled by mxbuild) is kept
 #   B5 a compile error printed from the copy names the REAL file, not .mxtk/build/
 #   B6 MXTK_GATE_IN_PLACE=1 builds in place, as before, and says so
 #   B7 the pre-push hook prints the restart line only after an in-place build
@@ -143,6 +144,16 @@ mkdir -p "$W/.mxtk/build/model/widgets/W/node_modules/dep"; printf 'stale\n' > "
 python3 -I "$BT" "$W/Shop.mpr" "$W/.mxtk/build/model" >/dev/null 2>&1  # portability-ok: fixture runs the script directly
 [ ! -e "$W/.mxtk/build/model/widgets/W/node_modules" ] && ok "B4c a stale nested node_modules in the copy is removed" || bad "B4c a stale nested node_modules lingers in the copy"
 [ -f "$W/.mxtk/build/model/widgets/W/src/W.tsx" ] && ok "B4c   and the widget's sources stay" || bad "B4c the resync dropped src/W.tsx"
+# A JavaScript action's npm dependencies live in javascriptsource/<m>/**/node_modules and mxbuild bundles
+# them (review of #769): that one tree keeps its node_modules, on the first sync and on a resync.
+mkdir -p "$W/javascriptsource/mymod/actions/node_modules/big-js"
+printf 'module.exports = 2;\n' > "$W/javascriptsource/mymod/actions/node_modules/big-js/index.js"
+python3 -I "$BT" "$W/Shop.mpr" "$W/.mxtk/build/model" >/dev/null 2>&1  # portability-ok: fixture runs the script directly
+[ -f "$W/.mxtk/build/model/javascriptsource/mymod/actions/node_modules/big-js/index.js" ] \
+  && ok "B4c javascriptsource/**/node_modules (JS action deps) is copied" || bad "B4c javascriptsource node_modules was dropped"
+python3 -I "$BT" "$W/Shop.mpr" "$W/.mxtk/build/model" >/dev/null 2>&1  # portability-ok: fixture runs the script directly
+[ -f "$W/.mxtk/build/model/javascriptsource/mymod/actions/node_modules/big-js/index.js" ] \
+  && ok "B4c   and survives a resync" || bad "B4c a resync removed javascriptsource node_modules"
 
 echo "-- B5 a compile error from the copy names the real file"
 OUT="$(vm "$P" FAKE_JAVA_ERR=1)"; RC=$?

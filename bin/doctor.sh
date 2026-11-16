@@ -2100,7 +2100,7 @@ if [ -n "$PROJECT_DIR" ]; then
     PSET="$PROJECT_DIR/.claude/settings.json"
     PLOCAL="$PROJECT_DIR/.claude/settings.local.json"
     PERM_GAP=""
-    grep -qF '"Bash(./bin/exec.sh:*)"' "$PSET" 2>/dev/null || PERM_GAP="the safe-wrapper entries"
+    grep -qF '"Bash(./bin/exec.sh *)"' "$PSET" 2>/dev/null || PERM_GAP="the safe-wrapper entries"  # #780 spelling
     case "$PERM_PROFILE" in
       project|full) grep -qF '"Edit(/**)"' "$PSET" 2>/dev/null || PERM_GAP="${PERM_GAP:-the project-folder entries}" ;;
     esac

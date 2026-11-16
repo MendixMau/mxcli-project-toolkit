@@ -337,12 +337,45 @@ case "$_cur" in 6|7) [ "$_ts_remotes" -eq 0 ] && \
 esac
 [ -n "$_ts_ahead" ] && TS_WATCH="${TS_WATCH:+$TS_WATCH · }Team Server has commits made outside the toolkit: $_ts_ahead (as of the last fetch) is in no local branch — recover per skills/platform-link.md §3"
 
+# --- extension modules travel with the model (#778) ------------------------------------------
+# Studio Pro reads extension document types (agenteditor.agent) from modules/*.mxmodule next to
+# the .mpr. A Marketplace install writes that file; a sync of only .mpr + mprcontents/ leaves it
+# behind, so the builder stays green and every colleague's clone shows "unknown type
+# 'agenteditor.agent'" (field 2026-11). Two WATCH items, never a verdict, local files only:
+# (1) a modules/*.mxmodule the model's git repo does not track; (2) the project uses Agent Editor
+# (AgentEditorCommons in analysis/app-facts/inventory.json, or a `create agent` statement in
+# mdlsource/) but no modules/AgentEditor*.mxmodule sits beside the .mpr. Both layouts: root, app/.
+# Agent references and runtime constants are NOT checked here (needs a captured agent document).
+AE_WATCH=""; _ae_used=0
+if grep -qE '"name": *"AgentEditorCommons"' "$PROJECT_DIR/analysis/app-facts/inventory.json" 2>/dev/null \
+   || { [ -d "$MDL_DIR" ] && grep -rqiE '(^|[^a-z_])create +(or +(replace|modify) +)?agent([^a-z_]|$)' --include='*.mdl' "$MDL_DIR" 2>/dev/null; }; then
+  _ae_used=1
+fi
+_ae_untracked=""; _ae_missing=""
+for _md in "$PROJECT_DIR" "$PROJECT_DIR/app"; do
+  ls "$_md"/*.mpr >/dev/null 2>&1 || continue
+  _rel="${_md#"$PROJECT_DIR"}"; _rel="${_rel#/}"; _rel="${_rel:+$_rel/}"
+  if git -C "$_md" rev-parse --git-dir >/dev/null 2>&1; then
+    for _mm in "$_md"/modules/*.mxmodule; do
+      [ -f "$_mm" ] || continue
+      git -C "$_md" ls-files --error-unmatch -- "modules/${_mm##*/}" >/dev/null 2>&1 && continue
+      _ae_untracked="${_ae_untracked:+$_ae_untracked, }${_rel}modules/${_mm##*/}"
+    done
+  fi
+  if [ "$_ae_used" = 1 ]; then
+    _hit=0; for _mm in "$_md"/modules/AgentEditor*.mxmodule; do [ -f "$_mm" ] && _hit=1; done
+    [ "$_hit" = 0 ] && _ae_missing="${_ae_missing:+$_ae_missing, }${_rel}modules/AgentEditor.mxmodule"
+  fi
+done
+[ -n "$_ae_untracked" ] && AE_WATCH="extension module not in git: $_ae_untracked — a clone loses its document types; commit it with the model (skills/mendix-agents.md)"
+[ -n "$_ae_missing" ] && AE_WATCH="${AE_WATCH:+$AE_WATCH · }project uses Agent Editor but $_ae_missing is missing — Studio Pro shows unknown type 'agenteditor.agent' (skills/mendix-agents.md)"
+
 # --- print ----------------------------------------------------------------------------------
 TK="toolkit $TK_COMMIT_NOW"; [ -n "$TK_COMMIT_REG" ] && [ "$TK_COMMIT_REG" != "$TK_COMMIT_NOW" ] && TK="$TK (register says $TK_COMMIT_REG)"
 [ -n "$TK_UPD" ] && TK="$TK · updates: $TK_UPD"
 WATCH=""
 for _w in "$STAGE_STALE" "${APPROVED_OVER:+APPROVED OVER A FAILING GATE: $APPROVED_OVER}" "$DONE_STALL" "${BP_STALE%% (*}" \
-          "$( [ "${PH_TOTAL:-0}" -gt 0 ] && [ "$EAC" = 0 ] && echo "agent slots unfilled: $PH_TOTAL in $PH_FILES file(s)" )" "$PACK_GAP" "$LINT_UNVERSIONED" "$TS_WATCH"; do
+          "$( [ "${PH_TOTAL:-0}" -gt 0 ] && [ "$EAC" = 0 ] && echo "agent slots unfilled: $PH_TOTAL in $PH_FILES file(s)" )" "$PACK_GAP" "$LINT_UNVERSIONED" "$TS_WATCH" "$AE_WATCH"; do
   [ -n "$_w" ] && WATCH="${WATCH:+$WATCH · }$_w"
 done
 if [ "$BRIEF" = 1 ]; then

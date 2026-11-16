@@ -43,9 +43,11 @@ EOS
   echo "$d"
 }
 
+plat() { case "$1" in Darwin) echo macos ;; MINGW*) echo windows ;; *) echo linux ;; esac; }
 run() { # run <uname -s> <project> -> output file
   local out="$T/out.$RANDOM"
-  FAKE_UNAME_S="$1" HOME="$T/home" MXCLI_VERSION= MENDIX_APP="$T/nosp" MXBUILD_PATH= ProgramW6432= PROGRAMFILES= \
+  # MXTK_PLATFORM: _common.sh reads $OSTYPE first, which the fake uname cannot change.
+  MXTK_PLATFORM="$(plat "$1")" FAKE_UNAME_S="$1" HOME="$T/home" MXCLI_VERSION= MENDIX_APP="$T/nosp" MXBUILD_PATH= ProgramW6432= PROGRAMFILES= \
     PATH="$T/bin:$PATH" bash "$DOCTOR" --install --yes "$2" < /dev/null > "$out" 2>&1
   echo "$out"
 }
@@ -82,9 +84,23 @@ called "$P" && ok "linux app: still runs mxcli setup mxbuild" || fail "linux app
 P="$(mkproj win-help)"; O="$(run MINGW64_NT-10.0-26200 "$P")"
 has "$O" "gets its .mpr from 'mxcli init'" && fail "help: still says mxcli init makes the .mpr" || ok "help: mxcli init no longer named as the .mpr source"
 
+# 7. Studio Pro IS installed (macOS and Windows layouts): nothing changes — no download, no new
+#    FAIL, the old "nothing to download" line. Guards against the fix firing on a healthy machine.
+mkstub() { mkdir -p "$(dirname "$1")"; printf '#!/usr/bin/env bash\necho "MxBuild stub"\nexit 0\n' > "$1"; chmod +x "$1"; }
+mkstub "$T/spmac/Contents/modeler/mxbuild"; mkstub "$T/spwin/modeler/mxbuild.exe"
+for c in "Darwin:$T/spmac:mac" "MINGW64_NT-10.0-26200:$T/spwin:win"; do
+  us="${c%%:*}"; rest="${c#*:}"; sp="${rest%:*}"; lbl="${rest##*:}"
+  P="$(mkproj "$lbl-sp" mpr)"; O="$T/out.$lbl-sp"
+  MXTK_PLATFORM="$(plat "$us")" FAKE_UNAME_S="$us" HOME="$T/home" MXCLI_VERSION= MENDIX_APP="$sp" MXBUILD_PATH= \
+    PATH="$T/bin:$PATH" bash "$DOCTOR" --install --yes "$P" < /dev/null > "$O" 2>&1
+  has "$O" "nothing to download" && ok "$lbl with Studio Pro: nothing to download" || fail "$lbl with Studio Pro: expected 'nothing to download'"
+  has "$O" "publishes Linux mxbuild only" && fail "$lbl with Studio Pro: Linux-only FAIL fired" || ok "$lbl with Studio Pro: no Linux-only FAIL"
+  called "$P" && fail "$lbl with Studio Pro: ran setup mxbuild" || ok "$lbl with Studio Pro: no setup mxbuild"
+done
+
 # 6. No Claude Code on the machine: the Claude-only section says "skipped", not WARN.
 P="$(mkproj noclaude mpr)"; O="$T/out.noclaude"
-HOME="$T/home" MENDIX_APP="$T/nosp" PATH="$T/bin:/usr/bin:/bin" FAKE_UNAME_S=Linux \
+MXTK_PLATFORM=linux HOME="$T/home" MENDIX_APP="$T/nosp" PATH="$T/bin:/usr/bin:/bin" FAKE_UNAME_S=Linux \
   bash "$DOCTOR" "$P" < /dev/null > "$O" 2>&1
 sed -n '/Claude Code permissions/,/Property sets/p' "$O" > "$O.claude"
 has "$O.claude" "skipped — Claude Code is not installed" && ok "no claude: section skipped" || fail "no claude: section not skipped"

@@ -17,6 +17,8 @@
 # toolkit leak-guard denylist; send that to scratch, never to the developer's real list.
 export MXTK_LEAKGUARD_DENYFILE="${TMPDIR:-/tmp}/mxtk-fixture-denylist.$$"
 trap 'rm -f "$MXTK_LEAKGUARD_DENYFILE"' EXIT
+# run-all.sh exports MXTK_NO_GUIDE=1 so the suite opens no tabs; this test needs the opening.
+unset MXTK_NO_GUIDE
 
 SUBJECT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../bin" && pwd)/init-project.sh}"
 TOOLKIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

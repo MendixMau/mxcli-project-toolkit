@@ -55,6 +55,10 @@ esac
 # --- register facts -------------------------------------------------------------------------
 STAGE_LINE="$(awk '/^## Current stage/{f=1;next} f && /^\*\*Stage/{print;exit}' "$REG" | sed -E 's/\*\*//g; s/,? *(in progress)?\.?$//')"
 [ -n "$STAGE_LINE" ] || STAGE_LINE="(no Current stage line in PROJECT.md)"
+# The readout is only as fresh as the last gate-check run that wrote it (#767): one awk over
+# docs/BUILD-LOG.md says when exec rows landed after it. Warn-only, shown under WATCH.
+. "$TOOLKIT_ROOT/bin/lib/build-log-read.sh"
+STAGE_STALE="$(mxtk_stage_stale_note "$REG" "$PROJECT_DIR/docs/BUILD-LOG.md")"
 ENTRY_RAW="$(awk '
   { line = $0
     gsub(/^[ \t>*_-]+/, "", line)
@@ -307,7 +311,7 @@ fi
 TK="toolkit $TK_COMMIT_NOW"; [ -n "$TK_COMMIT_REG" ] && [ "$TK_COMMIT_REG" != "$TK_COMMIT_NOW" ] && TK="$TK (register says $TK_COMMIT_REG)"
 [ -n "$TK_UPD" ] && TK="$TK · updates: $TK_UPD"
 WATCH=""
-for _w in "${APPROVED_OVER:+APPROVED OVER A FAILING GATE: $APPROVED_OVER}" "$DONE_STALL" "${BP_STALE%% (*}" \
+for _w in "$STAGE_STALE" "${APPROVED_OVER:+APPROVED OVER A FAILING GATE: $APPROVED_OVER}" "$DONE_STALL" "${BP_STALE%% (*}" \
           "$( [ "${PH_TOTAL:-0}" -gt 0 ] && [ "$EAC" = 0 ] && echo "agent slots unfilled: $PH_TOTAL in $PH_FILES file(s)" )" "$PACK_GAP" "$LINT_UNVERSIONED"; do
   [ -n "$_w" ] && WATCH="${WATCH:+$WATCH · }$_w"
 done

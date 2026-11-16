@@ -18,6 +18,7 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 `docs/RELEASE-PROCESS.md` §8.
 
 ## Unreleased
+- learn(security): **MxAdmin no longer "ships with password `1`" in the rules (#662)**: `learned-mdl-preflight.md` (baseline), `brd-to-build-plan.md` Step 7 and the rendered `generated/rules-access.md` now say MxAdmin exists only where the runtime host created it (Studio Pro's own run, or the buildpack's `ADMIN_PASSWORD`); `mxcli run --local` never creates it (`MxAdmin user ... does not exist!`) and `mxcli docker build` seeds `admin` / `Admin123!` instead, so sign in as a demo user. The "never touch MxAdmin" rule stays — field run, 2026-11
 - fix(build-tree): **`bin/build-tree.py` excludes `node_modules` at any depth, not only at the project root (#764)**: `skip()` ran only for top-level names, so a custom widget's nested `widgets/<W>/node_modules` (1.2 GB in the field) was copied into `.mxtk/build/model/` on every full build, and one exec stalled for 13+ minutes. A nested `node_modules` already in an existing copy is removed on the next sync; the other excluded names (`deployment`, `docs`, `.mxcli`, `.mxtk`, ...) stay top-level only, since a widget may hold its own. The one exception is the top-level `javascriptsource/` tree, whose `node_modules` hold JavaScript actions' npm dependencies that mxbuild bundles: those are still copied. `test-build-tree.sh` B4c covers both. — a Greenfield field run (2026-11-13)
 
 ## v2026.11.16

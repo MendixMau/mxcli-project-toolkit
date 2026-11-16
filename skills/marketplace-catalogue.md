@@ -70,6 +70,16 @@ Names not verified against the live Marketplace; confirm each with `mxcli market
 Utilities with no keyword in the gate (community-commons) are still a fit-gap row when the build
 needs them.
 
+## Reviewing a built module
+
+Moved from `module-review.md` §4e, which keeps the first two sentences:
+
+The same question for Marketplace components: open the module's Java actions and REST calls.
+Each one doing what a `marketplace-catalogue.md` entry covers (an LLM call, SSO, PDF, Excel,
+encryption) needs a fit-gap row that buys it or says why not. Lint rule MXTK-AI001 sees GenAI
+constants, REST services and Java action names, never the Java source or a URL typed into a
+REST call activity: read those.
+
 ## Done when
 
 - every capability the requirements name has a row (count the requirements' capabilities; the

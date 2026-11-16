@@ -689,6 +689,17 @@ PROJECT.md `## Test strategy`; never batch close) is `testing-shape.md` §3; `ex
 the run's lane (`ui-only` / `logic`). Repeating a pass the artifacts already prove is the over-testing
 toolkit issue #274 measured: UI-only changes re-proven 5–10×.
 
+**Re-shoot from polish round 2** (moved from `module-review.md` stage 4, which keeps the rule):
+
+**Re-shoot only what a polish round changed.** The first LOOK covers every page. Round 2 onward runs
+`bin/look-ledger.sh reshoot <Module>`: it lists the pages built after their last seen LOOK (plus every
+page when a layout, snippet or `.scss`/`.css` file changed after it) and prints `K of N page(s) to re-shoot`;
+the other N-K are SEEN at their last build and are not re-shot. `NOT MEASURED` means no owed row exists:
+run the full LOOK. The report keeps its headline `N of N pages reviewed` and gains an addendum (its own
+`VALID AT:` and K `PROOF-OF-LOOK:` lines, stage 5): the obligation still closes against N. Failure it
+prevents: 7 polish rounds each re-shooting all pages (7.5 min of close shots in speed-night run 3) while
+each round touched 1-2 pages.
+
 > **Older ordinals, for anyone arriving from a document that still cites them:** Gate 2 = Gate:
 > BUILD, Gate 3 = Gate: COVERAGE, Gate 4 = Gate: UI. There was never a Gate 1 — the pre-exec
 > `mxcli check` was the unwritten first gate, which is why the numbering started at 2, and it is

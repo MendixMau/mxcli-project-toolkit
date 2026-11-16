@@ -194,9 +194,14 @@ _script_rules() {  # $1 = directory, $2... = prefixes ("./bin/", "bash bin/", ..
     case "$n" in exec.sh|*[\*\ \(\)]*) continue ;; esac  # exec.sh is listed first, always
     # Scripts that record a person's decision about what the agent may do keep prompting: an
     # allow rule would let an agent widen its own permissions (`--profile full` adds a bare
-    # `Bash`), set its own exec autonomy or interview mode. init-project.sh is one of them: it runs the
-    # harness installer with the profile PROJECT.md names, which an agent with Edit(/**) can change. Sourced libraries (`_*.sh`) are never run.
-    case "$n" in _*|init-project.sh|install-claude-permissions.sh|install-harness-permissions.sh|permission-profile.sh|exec-approval.sh|interview-mode.sh) continue ;; esac
+    # `Bash`). init-project.sh is one of them: it runs the harness installer with the profile
+    # PROJECT.md names, which an agent with Edit(/**) can change. install-claude-hooks.sh writes
+    # ~/.claude/settings.json, whose hooks fire in every repo on the machine (`--ceiling` blocks
+    # tool calls everywhere) (#782). Sourced libraries (`_*.sh`) are never run.
+    # exec-approval.sh, interview-mode.sh and permission-profile.sh ARE allowed: their plain read
+    # runs before every exec (#782). Their writers, `--set` and `--clear`, prompt through the
+    # DECISION_ASK rules below; an ask rule beats an allow rule, a bare `Bash` included.
+    case "$n" in _*|init-project.sh|install-claude-permissions.sh|install-harness-permissions.sh|install-claude-hooks.sh) continue ;; esac
     for p in "$@"; do printf '%s\n' "Bash($p$n *)"; done
   done
 }
@@ -261,7 +266,15 @@ DENY=(
 # that line, not a y/N an agent could type into a pty, is the gate. --file/--all stay denied.
 # `--import` (the maintainer filing a mailed bundle with their own gh, no opt-in line) is denied
 # too, --dry-run included: a deny rule is a glob with no negation, so it cannot spare the dry run.
-ASK=()
+# The writers of the three decision scripts allowed above (#782): `--set <value>` and `--clear`
+# are their only state-changing arguments (there is no `--set=` form; anything else reads). Every
+# profile gets these, `wrappers` included. They carry no machine path, so they are shared. One
+# glob per writer covers every spelling: ./bin/, bin/, bash bin/, and the toolkit's absolute path.
+DECISION_ASK=()
+for _s in exec-approval.sh interview-mode.sh permission-profile.sh; do
+  DECISION_ASK+=( "Bash(*$_s*--set*)" "Bash(*$_s*--clear*)" )
+done
+ASK=( "${DECISION_ASK[@]}" )
 
 # `project` profile: relative, committable, shared. mkdir/cp/mv/rm are not here — a Bash rule
 # cannot be scoped to a folder; in Manual mode they prompt, in acceptEdits/auto mode Claude Code
@@ -283,7 +296,7 @@ if [ "$PROFILE" = project ] || [ "$PROFILE" = full ]; then
     "Bash(python3 tests/*)"  # portability-ok: a permission-rule string, not an interpreter call
   )
   # Prompt even in auto/bypass mode and even under `full`: hard to undo, or outside the project.
-  ASK=(
+  ASK+=(
     "Bash(git push*--force*)"
     "Bash(git push* -f*)"
     "Bash(git reset --hard*)"

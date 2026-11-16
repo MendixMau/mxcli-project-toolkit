@@ -72,7 +72,7 @@ gates by design with nothing saying so (#624).
 
 **No question stays "Not yet asked" under `auto`.** It gets its recommended default, recorded
 `ASSUMED` as above; in `intake.md` the answer line reads `Assumed (auto-mode): <default> — rejected: <alt>`,
-colon right after the parenthesis, e.g. `Assumed (auto-mode): POC — rejected: production build` (`Assumed (auto) — POC`, no colon, FAILs Stage P). The intake's Marketplace question defaults to *"use the catalogued Marketplace
+colon right after the parenthesis, e.g. `Assumed (auto-mode): greenfield — rejected: requirements-driven` (`Assumed (auto) — greenfield`, no colon, FAILs Stage P). The intake's Marketplace question defaults to *"use the catalogued Marketplace
 component for each capability (`marketplace-catalogue.md`); Build only with a reason in the
 fit-gap row"*, written to `PROJECT.md`. Failure: an unattended run left it unasked, skipped the
 fit-gap, and hand-wrote in Java an LLM call the GenAI modules provide.

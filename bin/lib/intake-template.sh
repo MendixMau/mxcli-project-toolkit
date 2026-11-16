@@ -33,7 +33,8 @@ Replace each "_Not yet asked._" line below with a real answer, in one of three f
   Assumed (auto-mode): ...           Interview mode: auto only — the recommended default;
                                      the full record goes in PROJECT.md
 
-All three pass gate-check's Stage P (keep the colon right after the parenthesis). "_Not yet asked._" passes nothing, deliberately: this
+All three pass gate-check's Stage P (keep the colon right after the parenthesis).
+"_Not yet asked._" passes nothing, deliberately: this
 file is generated before the interview happens, and a scaffold must never be able to certify
 an interview that never took place. Per conversion-runbook.md's interview protocol, every
 question is asked in chat and the turn ends to wait for the answer; unknowns the user hands

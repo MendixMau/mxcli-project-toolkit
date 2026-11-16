@@ -73,7 +73,7 @@ EXPECTED_SHARED=(
 EXPECTED_LOCAL=()
 for _f in "$TOOLKIT_ROOT"/bin/*.sh; do
   _n="${_f##*/}"
-  case "$_n" in exec.sh|_*|install-claude-permissions.sh|install-harness-permissions.sh|permission-profile.sh|exec-approval.sh|interview-mode.sh) continue ;; esac
+  case "$_n" in exec.sh|_*|init-project.sh|install-claude-permissions.sh|install-harness-permissions.sh|permission-profile.sh|exec-approval.sh|interview-mode.sh) continue ;; esac
   EXPECTED_LOCAL+=( "Bash($TOOLKIT_ROOT/bin/$_n *)" "Bash(bash $TOOLKIT_ROOT/bin/$_n *)" )
 done
 
@@ -439,7 +439,7 @@ py_get_allow "$P12/.claude/settings.json" | grep -qF "mxbuild" \
   && bad "T12: a per-machine mxbuild rule leaked into the shared settings.json" \
   || ok "T12: mxbuild rules stay in settings.local.json"
 { py_get_allow "$P12/.claude/settings.json"; py_get_allow "$P12/.claude/settings.local.json"; } \
-  | grep -E 'install-claude-permissions\.sh|install-harness-permissions\.sh|permission-profile\.sh|exec-approval\.sh|interview-mode\.sh|/_[a-z]+\.sh' \
+  | grep -E 'init-project\.sh|install-claude-permissions\.sh|install-harness-permissions\.sh|permission-profile\.sh|exec-approval\.sh|interview-mode\.sh|/_[a-z]+\.sh' \
   && bad "T12: an allow rule lets the agent run a script that records a person's decision, or a sourced library" \
   || ok "T12: permission/approval/interview-mode scripts and _*.sh libraries keep prompting (#781 review)"
 "$SUBJECT" "$P12" --hooks-only --check >"$WORK/t12-hooks.out" 2>&1

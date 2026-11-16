@@ -194,8 +194,9 @@ _script_rules() {  # $1 = directory, $2... = prefixes ("./bin/", "bash bin/", ..
     case "$n" in exec.sh|*[\*\ \(\)]*) continue ;; esac  # exec.sh is listed first, always
     # Scripts that record a person's decision about what the agent may do keep prompting: an
     # allow rule would let an agent widen its own permissions (`--profile full` adds a bare
-    # `Bash`), set its own exec autonomy or interview mode. Sourced libraries (`_*.sh`) are never run.
-    case "$n" in _*|install-claude-permissions.sh|install-harness-permissions.sh|permission-profile.sh|exec-approval.sh|interview-mode.sh) continue ;; esac
+    # `Bash`), set its own exec autonomy or interview mode. init-project.sh is one of them: it runs the
+    # harness installer with the profile PROJECT.md names, which an agent with Edit(/**) can change. Sourced libraries (`_*.sh`) are never run.
+    case "$n" in _*|init-project.sh|install-claude-permissions.sh|install-harness-permissions.sh|permission-profile.sh|exec-approval.sh|interview-mode.sh) continue ;; esac
     for p in "$@"; do printf '%s\n' "Bash($p$n *)"; done
   done
 }

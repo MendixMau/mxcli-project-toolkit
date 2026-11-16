@@ -37,6 +37,8 @@ prerequisite, never a substitute, and never a reason to skip.
 
 ## Step 1 — enumerate what the deployment does NOT have
 
+**Deploy from the toolkit project itself** — it is the Team Server copy, never a second working copy without `.mxtk` (`skills/platform-link.md` §3, "Going live"; recovery recipe there if one already split off).
+
 **Before building a package or deploying:** run `bin/demo-login-tiles.sh --remove`, then `bin/demo-login-tiles.sh --check --strict` must exit 0 (the tiles' password file is static content any host can fetch).
 
 Before touching the harness, list what the target lacks relative to localhost. Do not guess it;

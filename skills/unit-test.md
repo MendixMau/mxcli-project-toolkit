@@ -289,6 +289,17 @@ A failing test is a finding for the user, not a cue to change the `@expect` unti
 Same rule as every test in this toolkit: diagnose, report, no unapproved fix
 (`e2e-harness-base.md`).
 
+## False-green rows
+
+Moved from `testing-shape.md` §4 (the false-green register), which keeps a pointer row. Every entry
+is a confirmed incident; the guard is required, not advisory.
+
+| Part | How it goes green while broken | Guard — required, not advisory |
+|---|---|---|
+| **Unit** | **A committing flow tested with `@cleanup rollback` and `@expect` on the returned or in-memory object** passes with the `commit` deleted (a seeded `commit` removal went undetected by the existing test and by two agent runs, 2026-11) | One `@cleanup none` test per committing flow with `@verify` on the row (`unit-test.md` §2c) |
+| **Unit** | **A rollback-clean test of a flow that sends, writes a file, commits separately or queues**: rollback undoes one transaction only, so the REST call, file bytes, separate/queued commit and autonumber survive (6 of 7 probed effects, 2026-11) | `project-bin/rollback-scan.sh` before the first run; every A line gated, `@cleanup none` or marked not asserted (`unit-test.md` §3b) |
+| **Unit** | **Only the happy value and the last test's values were tried**: a condition weakened to accept a whitespace-only string passed every test (2026-11) | `unit-test.md` §2b: baseline plus one change per decision, cap 8 per flow, `skipped:` listed |
+
 ## Related
 
 - `skills/testing-shape.md`: the module shape, the strategy, §4 false greens, §6 controls

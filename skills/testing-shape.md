@@ -235,13 +235,11 @@ so the next person argues with the incident rather than with the rule.
 | **Data** | "No items found" has **five** distinct causes and looks identical for all five | Measure with an instrument; never infer the cause from the empty state |
 | **Unit** | **The runner silently drops the first test** when the file opens with a `/** */` header comment. The count looks plausible and nothing warns. (BUG-LOCAL-29, 2026-08-05) | **Count the `/` separators in the file and compare against `mxcli test --list`** before trusting a run. Avoid file-level `/** */` headers. |
 | **Unit** | **`@expect` forms other than `=` equality are not captured** — `length(...)`, `!= empty`, `> 0` all parse to no visible assertion. In the only test file in existence this hit 8 of 14 tests. (BUG-LOCAL-30, 2026-08-05) | Write every `@expect` as plain `=` or `$Var/Attr =` equality. Run `--list` and confirm **every** test shows its `@expect`. |
-| **Unit** | **A committing flow tested with `@cleanup rollback` and `@expect` on the returned or in-memory object** passes with the `commit` deleted (a seeded `commit` removal went undetected by the existing test and by two agent runs, 2026-11) | One `@cleanup none` test per committing flow with `@verify` on the row (`unit-test.md` §2c) |
-| **Unit** | **A rollback-clean test of a flow that sends, writes a file, commits separately or queues**: rollback undoes one transaction only, so the REST call, file bytes, separate/queued commit and autonumber survive (6 of 7 probed effects, 2026-11) | `project-bin/rollback-scan.sh` before the first run; every A line gated, `@cleanup none` or marked not asserted (`unit-test.md` §3b) |
-| **Unit** | **Only the happy value and the last test's values were tried**: a condition weakened to accept a whitespace-only string passed every test (2026-11) | `unit-test.md` §2b: baseline plus one change per decision, cap 8 per flow, `skipped:` listed |
+| **Unit** | Three more ways a unit test reads green over a broken flow (a committing flow asserted under rollback, an effect that survives rollback, only the happy value tried) | `unit-test.md` § False-green rows: read them before writing a unit test |
 | **Unit** | A microflow passes in isolation but no button calls it, or the caller passes different args | Assert the **caller path** exists, not just the microflow |
 | **Trace** | `[].every()` is `true` — assertions pass on **zero spans** | Assert the span set is **non-empty first**, then assert over it. Also check the action wasn't a no-op: navigating to the page you are already on fires nothing. |
 | **Trace** | A caught error leaves the microflow span `OK` while its activities are `ERROR`: the handler swallowed a real failure, and a page renders fine over a dead integration while both a UI check and a microflow-status check lie | Assert at **activity** granularity, not microflow granularity |
-| **all** | `mxcli run --local` starts with **scheduled events off**, so a job-driven feature never runs under test and its journey passes vacuously or fails for the wrong reason (2026-09-26, Mendix 11.13.0) | Prove it in a separate start with scheduled events on — §5, "`run --local` starts with scheduled events off" |
+| **all** | `mxcli run --local` starts with **scheduled events off**, so a job-driven feature never runs under test and its journey passes vacuously or fails for the wrong reason (2026-09-26, Mendix 11.13.0) | Prove it in a separate start with scheduled events on — §5; mechanics in `e2e-harness-base.md` § Bringing the stack up |
 | **all** | `$?` after a pipeline measures the pipe, not the script — biased toward false *success* | Never read `$?` through a pipe. See `tool-output-is-not-ground-truth.md`. |
 
 **Verdict discipline — the canonical statement, referenced from `journey-proof.md` rather than
@@ -360,123 +358,17 @@ reopens SP, then stops — every exit path says *"click Run Locally in Studio Pr
 recovery, useless as a test precondition: it blocks every run on a human. Bring the stack up yourself
 and only report a blocker if you cannot.
 
-| Command | Use |
-|---|---|
-| `mxcli docker run` | setup, build and start in one |
-| `mxcli docker status` | verify it is actually up — **do not infer "up" from the absence of an error** |
-| `mxcli docker reload` | rebuild + hot reload after an exec |
-| `mxcli docker down` | tear down |
+**The rules, in one place.** Commands, `run --local` flags, the scratch copy and the field case behind
+each rule: `e2e-harness-base.md` § Bringing the stack up. Read it before the first e2e or unit run of a session.
 
-**Docker-free alternative — `mxcli run --local`.** Keeps an `mxbuild --serve` process and a
-standalone Mendix runtime hot: cold first build ~10-15s, then an incremental rebuild ~1s that is
-hot-applied without a restart for page/microflow/text changes (entity, view and association changes
-still restart the runtime — the metamodel is reconciled only at startup). Needs Mendix 11.x, JDK 21,
-and a reachable PostgreSQL whose database **already exists**; no Docker daemon. Runtime stack traces
-and microflow `LOG` output land in `<projectDir>/.mxcli/runtime.log` — the browser only shows a
-generic dialog, so that file is where a server-side error is actually readable.
-
-| Flag | Use |
-|---|---|
-| `--watch` | rebuild and hot-apply on every model change |
-| `--hub` | expose the running app at a public URL through `mxcli tunnel-hub` — a chisel client reverse-tunnels out over 443 and the runtime boots with `ApplicationRootUrl` set to the hub URL, so the app works under that origin. Implies `--local`. |
-| `--test-endpoint` | host mxcli's token-guarded test endpoint, so `mxcli test <files> -p <app.mpr> --attach` runs against this already-warm app — a couple of seconds instead of ~30 |
-
-**`mxcli test … --attach` is a model write even when nothing changes.** It adds and then removes
-its `MxTest` microflows, so the `.mpr` mtime moves while every unit comes back byte-identical —
-and the catalog then reads stale, so `verify-module.sh`'s graph sweep FAULTs with "catalog is
-stale" on a module you did not touch. Order a test-then-verify loop as: `mxcli test … --attach`
-→ `./mxcli -p <app.mpr> -c 'REFRESH CATALOG FULL'` (~6 s) → `verify-module.sh`. (Field case: the
-card-disbursement requirements-driven build, 2026-09, mxcli v0.24.0 — a seeding test run before
-the module verify made the graph sweep FAULT until the catalog was rebuilt.)
-
-**`--test-endpoint` writes into the working model for as long as the app runs.** It injects an
-`MxTest` module, `javasource/mxtest/`, `themesource/mxtest/` and a Settings-unit change that
-chains its registration after startup; a clean stop prints "test endpoint removed; project
-restored". In that window `git status` shows extra model paths and the lint ratchet rises
-(CUSTOM002, CONV013). So: run the build-time app **without** the flag and switch it on only for a
-test window; no exec, no commit and no model restore until the clean stop. Restoring the model
-under a running endpoint deletes `MxTest`, and the next `--attach` refuses with "needs a runtime
-restart". After the stop, `git status` on the model must be empty. (Field case: the same build,
-v0.24.0, 2026-09-26: 11 model paths with the endpoint up, back to 2 after the stop.)
-
-**`run --local` starts with scheduled events off.** The runtime log reads "Synchronizing scheduled
-events: None", so job-driven behaviour is never exercised and a journey over it can only pass
-vacuously or fail for the wrong reason. Prove scheduled work in a **separate** start with
-`--runtime-setting ScheduledEventExecution=ALL`: count rows over at least 2 ticks and grep the log
-for the "Scheduling …" line. Keep journeys that count rows exactly on the default start, where no
-timer moves the data. (Field case: the same build, Mendix 11.13.0, 2026-09-26.)
-
-**A gate build while `run --local` serves breaks the running client.** `bin/verify-model.sh` and
-exec.sh's gate run `mxbuild --target=deploy`, which rewrites `deployment/web/` and drops the
-`dist/` bundle `run --local` built. The runtime keeps answering 200, but every page load 404s on
-`dist/index.js`, so a journey's login hangs waiting for `.mx-page` — it reads as a login or
-licence failure. The tell is `404 - file not found for file: dist%2Findex.js` in
-`.mxcli/runtime.log`. Restart `run --local` after every gate build; never probe across one.
-(Field case: the card-disbursement requirements-driven build, Mendix 11.13.0, 2026-09-25.)
-
-**`--hub` is what makes a container-hosted run reachable.** A cloud/devcontainer session has no
-shared filesystem with a laptop and cannot serve `localhost` to one. Before `--hub` the only answer
-was a hand-rolled ngrok/cloudflared tunnel; it is now a flag.
-
-**`mxcli test --local` does NOT leave a warm `run --local` app alone.** It uses its own ports
-(8081/8091) and its own `<project>_test` database, but not its own deployment directory: mxbuild
-always writes `<app dir>/deployment`, so a building test run rewrites `deployment/run/bin` under the
-live app. mxcli warns ("This test run recompiles the project") but does not stop it, and the live
-app then answers 200 with empty bodies or `NoClassDefFoundError` — journeys that follow fail for
-reasons unrelated to the feature. **Restart `run --local` after any `test --local` run; never run a
-journey across one.** `--attach` avoids the second build but hot-applies into the live app and runs
-against its database, so restart before any journey that counts rows.
-(Field case: existing app, mxcli v0.25, Mendix 11.15, 2026-10-07.)
-
-**The remedy: `./bin/test-scratch.sh -- <test files> --local`.** It takes this project's exec lock
-while it copies (so it never copies a half-written model), copies the model tree to a scratch dir
-without `.git`, `deployment/` or `.mxcli/` (the live app's run --local record), takes a machine-wide
-lock on the test ports 8081/8091 (a live holder refuses, a dead one is taken over), runs `mxcli test`
-there with `-p` on the copy. The copy is a warm one that keeps its own `.mxcli` and `deployment/`
-between runs (`--cold` for the gate, `--no-cache` for a throwaway), and several test files run in one
-boot (`@cleanup none` files get their own); `unit-test.md` § 4a has the numbers and the limits. The live model, its `deployment/` and the running
-app are never touched, so no restart is owed afterwards. It refuses `--attach`, which by design runs
-against the live app. (Field case: 2026-10-12, one unlocked `mxcli test` in the live repo broke the
-running app with `NoClassDefFoundError`, .mpr unchanged; #278.)
-
-> ### 🔴 Docker is NOT a safe default if the app calls host services by `localhost`
->
-> **Confirmed the hard way, 2026-08-06, on the first real run of this skill.** Inside a container,
-> `localhost` is **the container**, not your machine. Measured from `docker-mendix-1`:
->
-> | From inside the container | Result |
-> |---|---|
-> | `http://localhost:3001/...` (the mock API) | **000 — unreachable** |
-> | `http://host.docker.internal:3001/...` | **200** |
->
-> The microflow hardcodes `'http://localhost:3001/api/mes/core/v1/routes'`, so under Docker the REST
-> call never happens. The same applies to the OTel endpoint (`localhost:4318`).
->
-> **How it presents — and why it is dangerous:** an empty grid *and* an empty span set. Every trace
-> assertion would pass **vacuously** on zero spans, leaving only a row-count failure, which sends
-> you debugging the page. The correct verdict is ***the run is invalid***, not *the feature failed*.
->
-> **Before choosing Docker, check whether the app calls anything on the host** — a mock, a collector,
-> a database, any integration. If it does and the URLs are hardcoded to `localhost`, either run
-> against Studio Pro's local run instead, or parameterise those URLs to `host.docker.internal`
-> (**a model write** — ask first). Do not "fix" the resulting emptiness in the test.
-
-**Three more gotchas that will otherwise be diagnosed as feature bugs:**
-
-- **Docker has its own database.** Data assertions and demo data must target the *Docker* DB, not the
-  SP-local one. Assert against the wrong database and the result is meaningless in whichever
-  direction it lands.
-- **Do not trust a remembered port.** Measured 2026-08-06: Docker binds **8080** — the *same* port as
-  SP's Run Locally, not 8081. (8081 appears in an old log line as `ApplicationRootUrl`; it is not a
-  bound port.) A suite that hardcodes `APP_PORT ||= '8081'` then hits a dead port and it looks exactly
-  like "the app is broken". **Do not hardcode and do not remember: measure.** `bin/test-stack-up.sh`
-  resolves the port, proves the thing answering is *this project's* Mendix, and publishes the answer
-  to `.claude/loop/stack.env` for every consumer to read.
-- **The admin/OQL route works — no `psql` needed for the Data rung.** Measured 2026-08-06 on Mendix
-  11.13 **under Docker**: `mxcli oql --direct` on admin port `runtime+10` (8090) with the project's
-  own token returned a correct row count. `learned-db-assertions.md` now leads with this; if you meet
-  an older copy claiming the token route "always returns 401" on 11.10+ and mandating `psql.exe`,
-  that copy is stale — the randomisation is a property of one deployment's config, not of Mendix.
+- `mxcli docker status`: **do not infer "up" from the absence of an error**.
+- After `mxcli test … --attach`, run `REFRESH CATALOG FULL` before `verify-module.sh`.
+- `--test-endpoint`: no exec, no commit and no model restore until the clean stop. After the stop, `git status` on the model must be empty.
+- `run --local` starts with scheduled events off: prove scheduled work in a **separate** start with `--runtime-setting ScheduledEventExecution=ALL`.
+- Restart `run --local` after every gate build; never probe across one.
+- **Restart `run --local` after any `test --local` run; never run a journey across one** — or run unit tests through `./bin/test-scratch.sh -- <test files> --local`, which never touches the live app.
+- **Before choosing Docker, check whether the app calls anything on the host.** Inside a container `localhost` is the container: an empty grid *and* an empty span set mean ***the run is invalid***, not *the feature failed*.
+- Docker has its own database. **Do not hardcode and do not remember: measure** the port (`bin/test-stack-up.sh`).
 
 **Unit tests need more than this — they write to your model.** `mxcli test` generates a TestRunner
 microflow, **injects it into the project**, **sets security OFF**, builds, restarts the runtime, then

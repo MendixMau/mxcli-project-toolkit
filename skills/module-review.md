@@ -48,14 +48,10 @@ fidelity is `UNMEASURED` the LOOK alone decides. After R rounds, log the gap in
 `design/ui-reviews/` and move on: reported at the gate, not blocking. T / R come from PROJECT.md
 `Pipeline mode:` (balanced, the default: 85% / 3; `iterative-build-loop.md` § Pipeline mode);
 `module-close.sh` prints them, plus a `Polish: n of R` row per page to count rounds in.
-**Re-shoot only what a polish round changed.** The first LOOK covers every page. Round 2 onward runs
-`bin/look-ledger.sh reshoot <Module>`: it lists the pages built after their last seen LOOK (plus every
-page when a layout, snippet or `.scss`/`.css` file changed after it) and prints `K of N page(s) to re-shoot`;
-the other N-K are SEEN at their last build and are not re-shot. `NOT MEASURED` means no owed row exists:
-run the full LOOK. The report keeps its headline `N of N pages reviewed` and gains an addendum (its own
-`VALID AT:` and K `PROOF-OF-LOOK:` lines, stage 5): the obligation still closes against N. Failure it
-prevents: 7 polish rounds each re-shooting all pages (7.5 min of close shots in speed-night run 3) while
-each round touched 1-2 pages.
+**Re-shoot only what a polish round changed.** The first LOOK covers every page; round 2 onward
+re-shoots K of N and the obligation still closes against N (`iterative-build-loop.md` § Pipeline mode,
+"Re-shoot from polish round 2"). Failure it prevents: 7 polish rounds each re-shooting all pages
+(7.5 min of close shots in speed-night run 3) while each round touched 1-2 pages.
 
 ---
 
@@ -254,9 +250,8 @@ status column next to a built badge component passes every mechanical check and 
 
 The same question for Marketplace components: open the module's Java actions and REST calls.
 Each one doing what a `marketplace-catalogue.md` entry covers (an LLM call, SSO, PDF, Excel,
-encryption) needs a fit-gap row that buys it or says why not. Lint rule MXTK-AI001 sees GenAI
-constants, REST services and Java action names, never the Java source or a URL typed into a
-REST call activity: read those.
+encryption) needs a fit-gap row that buys it or says why not. What lint cannot see:
+`marketplace-catalogue.md` § Reviewing a built module.
 
 ### 4f. Cross-check against what was actually asked for (high value, optional)
 

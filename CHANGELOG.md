@@ -19,7 +19,7 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 
 ## Unreleased
 
-- fix(tests): **`tests/wave2/run-all.sh` exports `MXTK_NO_GUIDE=1`**: every fixture that scaffolds a fresh project through `bin/init-project.sh` opened `toolkit-guide.html` in the developer's real browser, one tab per fixture for the whole run; `test-guide-reopen.sh` unsets it, since it tests the opening with a fake `open`. Maurits Visser, from a local full-suite run.
+- fix(tests): **`tests/wave2/run-all.sh` exports `MXTK_NO_GUIDE=1`**: every fixture that scaffolds a fresh project through `bin/init-project.sh` opened `toolkit-guide.html` in the developer's real browser, one tab per fixture for the whole run; `test-guide-reopen.sh` unsets it, since it tests the opening with a fake `open` — Maurits Visser, from a local full-suite run
 
 ## v2026.11.16
 - fix(gitignore): **`bin/doctor.sh` appends its machine-local entries (`.doctor-receipt`, `toolkit.env`, `progress-report-sessions.txt`, `.property-sets-receipt`) through `mxtk_gitignore_ensure`**: a CRLF `.gitignore` got LF lines (mixed endings) and could get an entry it already had added again; LF files get the same bytes as before, and the "(added … to the project's .gitignore)" note now prints only when a line was actually written — follow-up to the .gitignore line-ending fixes, 2026-11

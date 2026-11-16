@@ -1416,6 +1416,40 @@ fi
 
 # The setup step itself, shared by the had-mxcli and just-fetched-mxcli paths. Re-runs the
 # toolchain discovery on success — the cache did not exist the first time around.
+# Why the toolchain cannot be downloaded here, before the plan promises ~800 MB it cannot deliver.
+#   noapp   — no .mpr: no app yet, so no version to fetch for.
+#   nolinux — macOS or Git Bash: the CDN publishes Linux mxbuild only; `mxcli setup mxbuild`
+#             refuses (mxcli NativeMxBuildForSetup, issue #916). Studio Pro's bundled mxbuild is the
+#             only native one. Field run 2026-11-16: an empty folder on Windows, no Studio Pro, no
+#             Docker — four FAILs from the missing .mpr, then a 373 MB Linux download that could
+#             never have run there.
+toolchain_skip_reason() {
+  [ -n "$PROJECT_DIR" ] || return 0
+  if ! ls "$PROJECT_DIR"/*.mpr >/dev/null 2>&1 && ! ls "$PROJECT_DIR"/app/*.mpr >/dev/null 2>&1; then
+    echo noapp
+  else
+    case "$PLATFORM" in macos|gitbash) echo nolinux ;; esac
+  fi
+}
+toolchain_skip_say() {
+  case "$1" in
+    noapp)
+      bad "--install: no .mpr in $PROJECT_DIR — there is no Mendix app here yet, so there is no version to fetch mxbuild for."
+      note "Create the app first, then run doctor again:"
+      note "  Windows/macOS: Studio Pro > New app > Blank, saved in this folder, then close Studio Pro."
+      note "    Keep it out of OneDrive and on a short path without spaces (C:/Mendix/<app>, ~/Mendix/<app>)."
+      note "  Linux, Dev Container or cloud: ./mxcli new <Name> --version X.Y.Z --output-dir <empty folder>"
+      note "    — BEFORE 'mxcli init' (new refuses a folder that is not empty, and runs init itself)."
+      note "  An existing app: point doctor at the folder that holds its .mpr." ;;
+    nolinux)
+      _skv="$(mxtk_model_version "$(ls "$PROJECT_DIR"/*.mpr "$PROJECT_DIR"/app/*.mpr 2>/dev/null | head -1)" 2>/dev/null || true)"
+      bad "--install: no mxbuild can be downloaded for $PLATFORM — the Mendix CDN publishes Linux mxbuild only, and it cannot run here."
+      note "Install Studio Pro ${_skv:-in the app version}: doctor finds its bundled mxbuild by itself, nothing to download."
+      note "Or work in the Dev Container (Docker Desktop) or a cloud container, where the Linux mxbuild runs."
+      note "Studio Pro installed where doctor did not look? MENDIX_APP=<install root> in toolkit.env (see above)." ;;
+  esac
+}
+
 install_toolchain() {
   INSTALL_MPR="$(ls "$PROJECT_DIR"/*.mpr 2>/dev/null | head -1)"
   if [ -z "$INSTALL_MPR" ]; then
@@ -1450,7 +1484,15 @@ if [ "$INSTALL" -eq 1 ]; then
     note "--install: $WRONG_MXCLI is a $_wf-format program built for another OS; it will be kept as $(basename "$WRONG_MXCLI").$_wf and the right build fetched."
   fi
 
-  if [ "$NEED_TOOLCHAIN" -eq 0 ] && [ "$NEED_MXCLI" -eq 0 ]; then
+  TOOLCHAIN_SKIP=""
+  if [ "$NEED_TOOLCHAIN" -eq 1 ]; then
+    TOOLCHAIN_SKIP="$(toolchain_skip_reason)"
+    if [ -n "$TOOLCHAIN_SKIP" ]; then toolchain_skip_say "$TOOLCHAIN_SKIP"; NEED_TOOLCHAIN=0; fi
+  fi
+
+  if [ "$NEED_TOOLCHAIN" -eq 0 ] && [ "$NEED_MXCLI" -eq 0 ] && [ -n "$TOOLCHAIN_SKIP" ]; then
+    note "--install: nothing else to download — the project mxcli is in place."
+  elif [ "$NEED_TOOLCHAIN" -eq 0 ] && [ "$NEED_MXCLI" -eq 0 ]; then
     ok "--install: nothing to download — a runnable mxbuild and the project mxcli are in place"
   elif [ -z "$PROJECT_DIR" ]; then
     bad "--install needs a project directory: bin/doctor.sh --install <project-dir>"
@@ -1606,7 +1648,7 @@ GATE_OK=1
 # Studio Pro install (the root mxbuild and the bundled JRE are discovered under).
 if [ -n "$SP_APP" ]; then
   ok "Studio Pro install: $SP_APP"
-elif [ "$PLATFORM" = linux ]; then
+elif [ "$PLATFORM" = linux ] || [ "$PLATFORM" = wsl ]; then
   warn "no Studio Pro install (none exists for Linux)."
   note "A standalone mxbuild works instead: bin/doctor.sh --install <project-dir> downloads"
   note "one to ~/.mxcli (the container build's toolchain), or set MXBUILD_PATH=/path/to/mxbuild."
@@ -1617,13 +1659,14 @@ else
     note "the mxbuild gate; you still need Studio Pro to open the model yourself)."
   else
     bad "no Studio Pro install found — mxbuild and its bundled Java live inside it."
-    note "Two ways out:"
-    note "  1. No Studio Pro needed for the gate: bin/doctor.sh --install <project-dir>"
-    note "     downloads the standalone toolchain (same one the headless container build uses)."
-    note "  2. Install Mendix Studio Pro, or point past the discovery:"
+    note "On $PLATFORM the gate needs Studio Pro's own mxbuild: the Mendix CDN publishes Linux"
+    note "mxbuild only, so 'doctor.sh --install' cannot download one that runs here. Two ways out:"
+    note "  1. Install Mendix Studio Pro in the app's version, or point past the discovery:"
     note "     MENDIX_APP=<install root>   (macOS: /Applications/Mendix Studio Pro X.Y.Z.app,"
     note "                                  Windows: C:/Program Files/Mendix/X.Y.Z)"
     note "     MXBUILD_PATH=<mxbuild binary>   JAVA_HOME=<jdk/jre root>"
+    note "  2. Work in the Dev Container (Docker Desktop) or a cloud container, where the"
+    note "     downloaded Linux mxbuild runs."
   fi
 fi
 
@@ -1651,8 +1694,13 @@ else
     bad "mxbuild not found/executable: ${MXBUILD:-<none>}"
   fi
   note "Have Studio Pro? Point at it: MENDIX_APP=<its version folder> in toolkit.env (see above)."
-  note "No Studio Pro: bin/doctor.sh --install <project-dir> downloads a standalone mxbuild,"
-  note "like the container build. MXBUILD_PATH=<path to mxbuild> also works."
+  if [ "$PLATFORM" = linux ] || [ "$PLATFORM" = wsl ]; then
+    note "No Studio Pro: bin/doctor.sh --install <project-dir> downloads a standalone mxbuild,"
+    note "like the container build. MXBUILD_PATH=<path to mxbuild> also works."
+  else
+    note "No Studio Pro: on $PLATFORM there is no download that runs (the CDN mxbuild is Linux only) —"
+    note "install Studio Pro, or use the Dev Container. MXBUILD_PATH=<path to mxbuild> also works."
+  fi
 fi
 
 # Cached runtime complete? (#692) mxcli takes a runtime on its launcher jar alone; an incomplete one
@@ -2002,7 +2050,9 @@ if [ -n "$PROJECT_DIR" ]; then
     [ -n "$MPR" ] && ok "model: ${MPR#$PROJECT_DIR/}" || {
       warn "no .mpr found in the project root"
       note "If the model lives elsewhere, point doctor at the folder that contains it;"
-      note "a brand-new project gets its .mpr from 'mxcli init' or a Studio Pro export."; }
+      note "a brand-new project gets its .mpr from Studio Pro (New app > Blank, saved in this folder)"
+      note "or from './mxcli new <Name> --version X.Y.Z --output-dir <empty folder>' — 'mxcli init'"
+      note "creates no app. Run 'new' BEFORE 'init': it refuses a folder that is not empty and runs init itself."; }
     PMXCLI_PROBE="$(find_project_mxcli 2>/dev/null || true)"
     _wf=""; [ -n "$PMXCLI_PROBE" ] && _wf="$(mxtk_mxcli_wrong_format "$PMXCLI_PROBE" 2>/dev/null)"
     if [ -n "$_wf" ]; then
@@ -2038,6 +2088,12 @@ if [ -n "$PROJECT_DIR" ]; then
     # Claude Code permissions (2026-10-06): which profile intake Q12 picked, whether the
     # settings files carry it, and what a project file cannot do. Greps only — no Python here.
     head_ "Claude Code permissions: $PROJECT_DIR"
+    # Only where Claude Code is. Another agent (Codex, Copilot, Cursor, OpenCode, ...) never reads
+    # .claude/, so a WARN here sent its user to install hooks that cannot fire (field run 2026-11-16).
+    if ! command -v claude >/dev/null 2>&1 && [ ! -d "$HOME/.claude" ] && [ -z "${MXTK_CLAUDE:-}" ]; then
+      note "skipped — Claude Code is not installed on this machine. These checks cover Claude Code only;"
+      note "other agents start from AGENTS.md, which mxcli init writes. (MXTK_CLAUDE=1 runs them anyway.)"
+    else
     PERM_PROFILE="$("$TOOLKIT_ROOT/bin/permission-profile.sh" "$PROJECT_DIR" 2>/dev/null)"
     PERM_FROM="$("$TOOLKIT_ROOT/bin/permission-profile.sh" "$PROJECT_DIR" --explain 2>/dev/null | sed -n 's/^from: //p')"
     ok "profile: ${PERM_PROFILE:-?} (from: ${PERM_FROM:-?})"
@@ -2089,6 +2145,7 @@ if [ -n "$PROJECT_DIR" ]; then
     note "your own default mode (~/.claude/settings.json): ${_um:-not set, so the Claude Code built-in default applies}"
     note "No prompts at all is your call, not the project's: set it in ~/.claude/settings.json, or start"
     note "'claude --dangerously-skip-permissions' only inside a container/VM. Deny/ask rules still apply."
+    fi
 
     # Property sets (#295) — see the header above ps_check. A full run checks (read-only);
     # --quick (what exec.sh runs when the mxcli version changes) only compares the receipt

@@ -7,7 +7,7 @@
 #
 # Exit: mxcli's own exit code · 2 usage, or bin/_common.sh older than this script · 3 refused (nothing copied or run)
 #
-# WHY (#278, field run 2026-10-12; testing-shape.md § "mxcli test --local does NOT leave a warm
+# WHY (#278, field run 2026-10-12; e2e-harness-base.md § Bringing the stack up, "mxcli test --local does NOT leave a warm
 # run --local app alone"). `mxcli test` injects a TestRunner, sets security off, builds into
 # <app dir>/deployment and restores — all in the LIVE project. One unlocked run in the live repo
 # broke the running app (NoClassDefFoundError) with the .mpr unchanged; the remedy that worked was

@@ -23,6 +23,10 @@ FAILED=0; RAN=0; SKIPPED=0
 # registers the project name in the toolkit's gitignored denylist unless told otherwise. Send it
 # to scratch here for every fixture, and refuse at the end if the real one appeared anyway.
 export MXTK_LEAKGUARD_DENYFILE="${TMPDIR:-/tmp}/mxtk-runall-denylist.$$"
+# Same idea for the browser: every fixture that scaffolds a fresh project through init-project.sh
+# would open toolkit-guide.html in the developer's real browser, one tab per fixture, all run long.
+# test-guide-reopen.sh unsets this and uses a fake `open` to test the opening itself.
+export MXTK_NO_GUIDE=1
 ROOT_DENY="$TOOLKIT/.leakguard-deny"; ROOT_DENY_BEFORE=0; [ -f "$ROOT_DENY" ] && ROOT_DENY_BEFORE=1
 
 echo "### SYNTAX — every shell script in the toolkit"

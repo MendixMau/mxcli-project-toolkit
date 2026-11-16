@@ -303,12 +303,42 @@ if git -C "$PROJECT_DIR" rev-parse --git-dir >/dev/null 2>&1; then
   [ -n "$LINT_UNVERSIONED" ] && LINT_UNVERSIONED="lint debt is not versioned: git-ignored $LINT_UNVERSIONED — use '/.claude/*' plus '!/.claude/<file>' lines"
 fi
 
+# --- platform home: the toolkit project IS the Team Server copy (#765) ----------------------
+# A greenfield app built with the toolkit went live through a SEPARATE Team Server working copy
+# with no .mxtk; every later change skipped the exec gate, snapshots and BUILD-LOG, and nothing
+# said so (field 2026-11-13). A copy without the toolkit cannot flag itself, so the watch runs
+# here. Local git only — remote URLs and the refs the last fetch left; no network, ever. Two
+# WATCH items, never a verdict: (1) Stage 6 or later with no remote whose URL names Team Server;
+# (2) a fetched Team Server ref that no local branch contains (HEAD first; any local branch also
+# counts, so the subtree route's ts-export branch is not a false alarm). Repos read: the project
+# root, plus app/ when that is its own repository (two-tree layout). skills/platform-link.md §3.
+TS_WATCH=""; _ts_remotes=0; _ts_ahead=""
+for _gd in "$PROJECT_DIR" "$PROJECT_DIR/app"; do
+  [ "$_gd" = "$PROJECT_DIR/app" ] && [ ! -e "$_gd/.git" ] && continue
+  git -C "$_gd" rev-parse --git-dir >/dev/null 2>&1 || continue
+  for _r in $(git -C "$_gd" config --get-regexp '^remote\..*\.url$' 2>/dev/null \
+              | awk '{ u = tolower($2); if (u ~ /git\.api\.mendix\.com|teamserver/) { k = $1; sub(/^remote\./, "", k); sub(/\.url$/, "", k); print k } }'); do
+    _ts_remotes=$((_ts_remotes + 1))
+    for _ref in $(git -C "$_gd" for-each-ref --format='%(refname)' "refs/remotes/$_r/" 2>/dev/null); do
+      case "$_ref" in */HEAD) continue ;; esac
+      git -C "$_gd" merge-base --is-ancestor "$_ref" HEAD 2>/dev/null && continue
+      [ -n "$(git -C "$_gd" for-each-ref --contains "$_ref" --count=1 refs/heads 2>/dev/null)" ] && continue
+      _ts_ahead="${_ts_ahead:+$_ts_ahead, }${_ref#refs/remotes/}"
+    done
+  done
+done
+_cur="$(printf '%s\n' "$STAGE_LINE" | grep -oE 'Stage [0-9P]' | head -1 | sed 's/^Stage //')"
+case "$_cur" in 6|7) [ "$_ts_remotes" -eq 0 ] && \
+  TS_WATCH="no Team Server remote at Stage $_cur: the toolkit project should BE the Team Server copy, never a second working copy (skills/platform-link.md §3)" ;;
+esac
+[ -n "$_ts_ahead" ] && TS_WATCH="${TS_WATCH:+$TS_WATCH · }Team Server has commits made outside the toolkit: $_ts_ahead (as of the last fetch) is in no local branch — recover per skills/platform-link.md §3"
+
 # --- print ----------------------------------------------------------------------------------
 TK="toolkit $TK_COMMIT_NOW"; [ -n "$TK_COMMIT_REG" ] && [ "$TK_COMMIT_REG" != "$TK_COMMIT_NOW" ] && TK="$TK (register says $TK_COMMIT_REG)"
 [ -n "$TK_UPD" ] && TK="$TK · updates: $TK_UPD"
 WATCH=""
 for _w in "${APPROVED_OVER:+APPROVED OVER A FAILING GATE: $APPROVED_OVER}" "$DONE_STALL" "${BP_STALE%% (*}" \
-          "$( [ "${PH_TOTAL:-0}" -gt 0 ] && [ "$EAC" = 0 ] && echo "agent slots unfilled: $PH_TOTAL in $PH_FILES file(s)" )" "$PACK_GAP" "$LINT_UNVERSIONED"; do
+          "$( [ "${PH_TOTAL:-0}" -gt 0 ] && [ "$EAC" = 0 ] && echo "agent slots unfilled: $PH_TOTAL in $PH_FILES file(s)" )" "$PACK_GAP" "$LINT_UNVERSIONED" "$TS_WATCH"; do
   [ -n "$_w" ] && WATCH="${WATCH:+$WATCH · }$_w"
 done
 if [ "$BRIEF" = 1 ]; then

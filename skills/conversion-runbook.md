@@ -672,6 +672,8 @@ cited as evidence.*
 > owns what, which parts run standalone, and what a missing part must report (degrade loudly, never
 > silently). Whether a result *means* anything is decided by the skills above, not by the scripts.
 
+**Going live, every entry mode:** deploy from this project as the Team Server copy, never a second working copy (`platform-link.md` §3).
+
 ### Stage 7 — Cutover
 
 Migration-specific — greenfield builds have no legacy system to cut over from and skip this stage. Runs **after** Stage 6, deliberately: don't migrate real production data and flip users onto an app that hasn't passed its E2E gate yet.

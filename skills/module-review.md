@@ -50,7 +50,7 @@ fidelity is `UNMEASURED` the LOOK alone decides. After R rounds, log the gap in
 `module-close.sh` prints them, plus a `Polish: n of R` row per page to count rounds in.
 **Re-shoot only what a polish round changed.** The first LOOK covers every page; round 2 onward
 re-shoots K of N and the obligation still closes against N (`iterative-build-loop.md` § Pipeline mode,
-"Re-shoot from polish round 2"). Failure it prevents: 7 polish rounds each re-shooting all pages
+"Re-shoot from polish round 2"); `NOT MEASURED` means no owed row exists: run the full LOOK. Failure it prevents: 7 polish rounds each re-shooting all pages
 (7.5 min of close shots in speed-night run 3) while each round touched 1-2 pages.
 
 ---

@@ -362,13 +362,13 @@ and only report a blocker if you cannot.
 each rule: `e2e-harness-base.md` § Bringing the stack up. Read it before the first e2e or unit run of a session.
 
 - `mxcli docker status`: **do not infer "up" from the absence of an error**.
-- After `mxcli test … --attach`, run `REFRESH CATALOG FULL` before `verify-module.sh`.
-- `--test-endpoint`: no exec, no commit and no model restore until the clean stop. After the stop, `git status` on the model must be empty.
-- `run --local` starts with scheduled events off: prove scheduled work in a **separate** start with `--runtime-setting ScheduledEventExecution=ALL`.
-- Restart `run --local` after every gate build; never probe across one.
-- **Restart `run --local` after any `test --local` run; never run a journey across one** — or run unit tests through `./bin/test-scratch.sh -- <test files> --local`, which never touches the live app.
-- **Before choosing Docker, check whether the app calls anything on the host.** Inside a container `localhost` is the container: an empty grid *and* an empty span set mean ***the run is invalid***, not *the feature failed*.
-- Docker has its own database. **Do not hardcode and do not remember: measure** the port (`bin/test-stack-up.sh`).
+- After `mxcli test … --attach`, run `REFRESH CATALOG FULL` before `verify-module.sh` (else a "catalog is stale" FAULT), and **restart before any journey that counts rows**.
+- Run the build-time app **without** `--test-endpoint`; switch it on only for a test window. During it: no exec, no commit and no model restore until the clean stop. After the stop, `git status` on the model must be empty.
+- `run --local` starts with scheduled events off: prove scheduled work in a **separate** start with `--runtime-setting ScheduledEventExecution=ALL`; done = rows counted over **at least 2 ticks** and the "Scheduling …" line in the log. Keep exact-count journeys on the default start.
+- Restart `run --local` after every gate build; never probe across one. Failure: every page 404s on `dist%2Findex.js` (runtime log) and reads as a login or licence failure.
+- **Restart `run --local` after any `test --local` run; never run a journey across one** (failure: 200s with empty bodies or `NoClassDefFoundError`) — or run unit tests through `./bin/test-scratch.sh -- <test files> --local`, which never touches the live app.
+- **Before choosing Docker, check whether the app calls anything on the host.** Inside a container `localhost` is the container: an empty grid *and* an empty span set mean ***the run is invalid***, not *the feature failed*. Parameterising those URLs to `host.docker.internal` is **a model write — ask first**; do not "fix" the emptiness in the test.
+- Docker has its own database. **Do not hardcode and do not remember: measure** the port (`bin/test-stack-up.sh`). Failure: Docker bound 8080, not 8081.
 
 **Unit tests need more than this — they write to your model.** `mxcli test` generates a TestRunner
 microflow, **injects it into the project**, **sets security OFF**, builds, restarts the runtime, then

@@ -224,6 +224,48 @@ OUT="$("$SYNC" "$P9" 2>&1)"
 printf '%s\n' "$OUT" | grep -q "appended the '## Change log' section" && bad "sync claims it appended a section to a CRLF file that has one" \
   || ok "sync does not append to a CRLF file"
 
+echo "== T10 (issue #767): an exec script since Stage 5 with no cr: and no build-plan row is listed, warn-only =="
+# GOLDEN INPUT: every BUILD-LOG row is the verbatim exec.sh capture in fixtures/verify-446, with
+# only its timestamp, script name and (for one row) the cr tag exec.sh appends substituted.
+CAP="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fixtures/verify-446/BUILD-LOG.captured.md"
+ROW="$(grep -m1 '^| 2026-' "$CAP")"
+row() { # row <time> <script> [cr]  — the captured row with three cells substituted
+  local r="${ROW/2026-10-21T05:41:52/$1}"; r="${r/\`test.mdl\`/\`$2\`}"
+  [ -n "${3:-}" ] && r="${r/ · change: logic/ · change: logic · cr: $3}"
+  printf '%s\n' "$r"
+}
+P10="$(mkproj t10)"; mkdir -p "$P10/docs" "$P10/architecture"
+cat > "$P10/architecture/build-plan.md" <<'EOF3'
+# Build plan
+
+| # | Kind | Step | What | Depends on |
+|---|---|---|---|---|
+| 10 | BUILD | 010-crm-domain.mdl | CRM domain model | |
+| 21 | BUILD | UC-F002-01 Browse customers: 020-…-customer_overview.mdl | Customer list | 10 |
+EOF3
+{ sed -n '1,/^|---/p' "$CAP"
+  row 2026-10-20T09:00:00 001-scaffold.mdl                 # before Stage 5: not listed
+  row 2026-10-21T09:00:00 010-crm-domain.mdl               # in the plan: Stage 5 starts here
+  row 2026-10-21T10:00:00 020-crm-page-customer_overview.mdl   # matches the abbreviated plan row
+  row 2026-10-22T09:00:00 070-admin-account.mdl            # the unlogged ask
+  row 2026-10-22T10:00:00 071-vat-number.mdl CR-01         # logged: cr tag
+  row 2026-10-22T11:00:00 070-admin-account.mdl            # re-run: listed once
+} > "$P10/docs/BUILD-LOG.md"
+[ "$(grep -c '^| 2026-' "$P10/docs/BUILD-LOG.md")" = "6" ] && ok "precondition: 6 captured-shape rows" || bad "row build failed"
+OUT10="$("$GATE" --no-html "$P10" 2>&1)"; RC10=$?
+BLK="$(printf '%s\n' "$OUT10" | sed -n '/^Change log:/,/^[^ ]/p')"
+printf '%s\n' "$BLK" | grep -q "WARN — 1 exec script(s) since Stage 5 started with no cr: tag and no build-plan row" \
+  && ok "nudge line under Change log: names 1 script" || bad "no nudge line" "$BLK"
+printf '%s\n' "$BLK" | grep -qx '    070-admin-account.mdl' && ok "070-admin-account.mdl listed" || bad "unlogged script not listed" "$BLK"
+for s in 001-scaffold.mdl 010-crm-domain.mdl 020-crm-page-customer_overview.mdl 071-vat-number.mdl; do
+  printf '%s\n' "$BLK" | grep -q "^    $s" && bad "$s listed" "$BLK" || ok "$s not listed"
+done
+[ "$(printf '%s\n' "$BLK" | grep -c '^    070-admin-account.mdl')" = "1" ] && ok "re-run listed once" || bad "duplicate listing" "$BLK"
+printf '%s\n' "$OUT10" | grep -q '^Change log: PASS — 0 change requests logged' && ok "verdict unchanged: still PASS (warn line is separate)" \
+  || bad "Change log verdict changed" "$(printf '%s\n' "$OUT10" | grep '^Change log:')"
+rm -f "$P10/docs/BUILD-LOG.md"; "$GATE" --no-html "$P10" >/dev/null 2>&1; RC10b=$?
+[ "$RC10" = "$RC10b" ] && ok "exit $RC10 with the unlogged row = $RC10b without" || bad "exit differs: $RC10 vs $RC10b"
+
 echo ""
 echo "test-change-log: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

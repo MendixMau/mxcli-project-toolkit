@@ -3153,6 +3153,11 @@ fi
 # more correct for projects that keep their build log elsewhere, and is the obvious follow-up;
 # it is not done here because a missing/renamed log must never be the reason an ack fails.
 BUILD_LOG="$PROJECT_DIR/docs/BUILD-LOG.md"
+# Read-time checks over that log (#767): the stale-readout note and the unlogged-ask nudge.
+if [ -r "$TOOLKIT_DIR/bin/lib/build-log-read.sh" ]; then
+  # shellcheck source=lib/build-log-read.sh
+  . "$TOOLKIT_DIR/bin/lib/build-log-read.sh"
+fi
 build_log_append() {
   mkdir -p "$(dirname "$BUILD_LOG")" 2>/dev/null || true
   printf '%s  %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" >> "$BUILD_LOG"
@@ -3527,6 +3532,14 @@ else
     fi
   fi
 fi
+# Unlogged asks (#767): exec scripts run since Stage 5 started that carry no `cr:` tag and that the
+# build plan does not name — the asks that went straight into MDL, which the counts above cannot
+# see (0 rows reads PASS). A separate warn line under "Change log:", never a verdict change.
+CR_UNLOGGED=""
+if command -v mxtk_unlogged_execs >/dev/null 2>&1; then
+  _cr_plan="$(resolve_artifact "architecture/build-plan.md" || true)"
+  [ -n "$_cr_plan" ] && CR_UNLOGGED="$(mxtk_unlogged_execs "$BUILD_LOG" "$_cr_plan")"
+fi
 # ---------------------------------------------------------------------------
 # Read for this gate — the runbook lines this stage actually needs.
 #
@@ -3603,6 +3616,12 @@ if [ -n "$CR_ROWS" ]; then
   done
   _cr_more=$(( $(printf '%s\n' "$CR_ROWS" | grep -c .) - 10 ))
   [ "$_cr_more" -gt 0 ] && echo "  … and $_cr_more more in the register"
+fi
+if [ -n "$CR_UNLOGGED" ]; then
+  _cr_un_n="$(printf '%s\n' "$CR_UNLOGGED" | grep -c .)"
+  echo "  WARN — $_cr_un_n exec script(s) since Stage 5 started with no cr: tag and no build-plan row (an unlogged ask? log it in ## Change log, then exec --cr CR-NN — skills/change-intake.md) — warn-only:"
+  printf '%s\n' "$CR_UNLOGGED" | head -n 10 | sed 's/^/    /'
+  [ "$_cr_un_n" -gt 10 ] && echo "    … and $((_cr_un_n - 10)) more in docs/BUILD-LOG.md"
 fi
 
 # ---------------------------------------------------------------------------
@@ -4374,7 +4393,13 @@ if { [ "$WRITE_HTML" = "1" ] || [ "$_single_query" = "1" ]; } && [ -n "$REGISTER
   fi
   _line="$_line — gates passed: ${_passed:-none yet}"
   [ -n "$_manual" ] && _line="$_line · manual: $_manual"
-  _stamp=" (derived by gate-check on $(date -u +%Y-%m-%d); re-run it rather than editing this line)."
+  # "· last exec <date>" (#767): the newest docs/BUILD-LOG.md row this readout saw. Read back by
+  # mxtk_stage_stale_note below and in status.sh, so a build that keeps exec-ing after its last
+  # gate-check run is told its readout is stale. Inside the parenthesis on purpose: status.sh,
+  # token-burn.sh and obligation-check.sh parse only the "**Stage N" prefix.
+  _last_exec=""
+  command -v mxtk_build_log_last_date >/dev/null 2>&1 && _last_exec="$(mxtk_build_log_last_date "$BUILD_LOG")"
+  _stamp=" (derived by gate-check on $(date -u +%Y-%m-%d)${_last_exec:+ · last exec $_last_exec}; re-run it rather than editing this line)."
   # Rewrite only when the position moved — a new date alone is not a change worth a diff — and
   # ONLY over a line nobody wrote by hand: the untouched scaffold line, or this readout's own
   # earlier line. A human's line is never replaced (field run 2026-09-14, twelve real projects:
@@ -4402,7 +4427,8 @@ if { [ "$WRITE_HTML" = "1" ] || [ "$_single_query" = "1" ]; } && [ -n "$REGISTER
     echo ""
     echo "Current stage in $(basename "$REGISTER") is hand-written and left alone: $(printf '%s' "$_have" | cut -c1-70)"
     echo "  gates derive: $(printf '%s' "$_line" | sed 's/\*\*//g')"
-  elif [ "${_have%% (derived by gate-check*}" != "$_line" ]; then
+  elif [ "${_have%% (derived by gate-check*}" != "$_line" ] \
+       || [ "$(printf '%s' "$_have" | sed -nE 's/.*· last exec ([0-9-]+).*/\1/p')" != "$_last_exec" ]; then
     _tmp="$(mktemp "${TMPDIR:-/tmp}/curstage.XXXXXX")"
     if MXTK_CUR_LINE="$_line$_stamp" awk '
          /^## Current stage/ { print; insec = 1; next }
@@ -4418,6 +4444,13 @@ if { [ "$WRITE_HTML" = "1" ] || [ "$_single_query" = "1" ]; } && [ -n "$REGISTER
     rm -f "$_tmp"
   fi
   fi
+fi
+# Stale readout (#767) — on EVERY run, after any rewrite above (so a full run that just refreshed
+# the line says nothing). Warn-only: a stage query, a blocked run or a --no-html run keeps the old
+# line and is told so; nothing refuses on it.
+if [ -n "$REGISTER" ] && [ -f "$REGISTER" ] && command -v mxtk_stage_stale_note >/dev/null 2>&1; then
+  _stale_note="$(mxtk_stage_stale_note "$REGISTER" "$BUILD_LOG")"
+  [ -n "$_stale_note" ] && { echo ""; echo "WARN: $_stale_note"; }
 fi
 
 # ---------------------------------------------------------------------------

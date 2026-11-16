@@ -618,7 +618,7 @@ else
 fi
 
 # .claude/settings.local.json (Claude Code's own "project local" precedence tier — see
-# https://code.claude.com/docs/en/settings) holds the two install-claude-permissions.sh allow
+# https://code.claude.com/docs/en/settings) holds the install-claude-permissions.sh allow
 # entries that embed $TOOLKIT_ROOT, an absolute path under this machine's home directory.
 # Same reasoning as .mxtk/ above: never shared, so never tracked.
 if mxtk_gitignore_has "$GITIGNORE" .claude/settings.local.json; then

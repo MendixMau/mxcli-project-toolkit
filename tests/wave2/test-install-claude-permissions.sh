@@ -54,23 +54,26 @@ echo "== harness subject: $HARNESS_SUBJECT"
 
 [ -x "$SUBJECT" ] || { echo "FAIL — subject not found/executable: $SUBJECT"; echo "PASS=0 FAIL=1"; exit 1; }
 
-# The nine relative entries -> the SHARED, committable settings.json.
+# No mxbuild under a scratch HOME, so the per-version mx rules appear only where T12 adds one.
+export HOME="$WORK/home"; mkdir -p "$HOME"
+
+# The relative entries -> the SHARED, committable settings.json. These scratch projects have no
+# bin/ of their own, so only the always-listed exec.sh rules and the mxcli rules (#780 shape:
+# one rule per script, `*` only at the end).
 EXPECTED_SHARED=(
-  "Bash(./bin/exec.sh:*)"
-  "Bash(bin/exec.sh:*)"
-  "Bash(bash bin/exec.sh:*)"
-  "Bash(./bin/*.sh:*)"
-  "Bash(bin/*.sh:*)"
-  "Bash(bash bin/*.sh:*)"
-  "Bash(~/.mxcli/mxbuild/*/modeler/mx:*)"
-  "Bash(./mxcli:*)"
-  "Bash(mxcli:*)"
+  "Bash(./bin/exec.sh *)"
+  "Bash(bin/exec.sh *)"
+  "Bash(bash bin/exec.sh *)"
+  "Bash(./mxcli *)"
+  "Bash(mxcli *)"
 )
-# The two entries that embed the absolute toolkit-root path -> the per-machine settings.local.json.
-EXPECTED_LOCAL=(
-  "Bash($TOOLKIT_ROOT/bin/*.sh:*)"
-  "Bash(bash $TOOLKIT_ROOT/bin/*.sh:*)"
-)
+# The entries that embed the absolute toolkit-root path -> the per-machine settings.local.json:
+# two per toolkit script (exec.sh is the project's own copy, never the toolkit's).
+EXPECTED_LOCAL=()
+for _f in "$TOOLKIT_ROOT"/bin/*.sh; do
+  _n="${_f##*/}"; [ "$_n" = exec.sh ] && continue
+  EXPECTED_LOCAL+=( "Bash($TOOLKIT_ROOT/bin/$_n *)" "Bash(bash $TOOLKIT_ROOT/bin/$_n *)" )
+done
 
 # The one deny entry and the one SessionStart hook the script also installs — same spec,
 # same script, but not exercised anywhere else once test-model-stamp.sh's T8 (which used to
@@ -222,7 +225,7 @@ _check_present "T2" "$EXIST/.claude/settings.json" "${EXPECTED_SHARED[@]}"
 _check_present "T2" "$EXIST/.claude/settings.local.json" "${EXPECTED_LOCAL[@]}"
 
 # Pre-existing entries kept exactly once each (merge, not append-blind — a naive append would
-# duplicate Bash(./mxcli:*) and Bash(mxcli:*), which are both in EXPECTED_SHARED and already present).
+# duplicate Bash(./mxcli *), which is in EXPECTED_SHARED and already present).
 ALLOW2="$(py_get_allow "$EXIST/.claude/settings.json")"
 for pre in "Bash(mxcli:*)" "Bash(./mxcli:*)" "Bash(./mxcli *)" "Bash(playwright-cli:*)" "Bash(playwright-cli *)"; do
   N="$(printf '%s\n' "$ALLOW2" | grep -cxF "$pre")"
@@ -265,7 +268,7 @@ grep -q 'nothing to do' "$WORK/t3.out" \
 # ── T4: --check on a project missing entries ────────────────────────────────────────────────
 MISS="$WORK/missing"
 mkdir -p "$MISS/.claude"
-echo '{"permissions":{"allow":["Bash(mxcli:*)"]}}' > "$MISS/.claude/settings.json"
+echo '{"permissions":{"allow":["Bash(mxcli *)"]}}' > "$MISS/.claude/settings.json"
 SNAP_BEFORE="$(cat "$MISS/.claude/settings.json")"
 "$SUBJECT" "$MISS" --check >"$WORK/t4.out" 2>&1
 RC=$?
@@ -273,12 +276,12 @@ RC=$?
                  || bad "T4: --check exited 0 despite missing entries"
 MISSING_NAMED=0
 for e in "${EXPECTED_SHARED[@]}" "${EXPECTED_LOCAL[@]}"; do
-  [ "$e" = "Bash(mxcli:*)" ] && continue  # already present in this fixture, correctly not "missing"
+  [ "$e" = "Bash(mxcli *)" ] && continue  # already present in this fixture, correctly not "missing"
   grep -qxF "  $e" "$WORK/t4.out" || { MISSING_NAMED=1; echo "     not named: $e"; }
 done
 [ "$MISSING_NAMED" -eq 0 ] && ok "T4: --check names every missing entry (both files)" \
                             || bad "T4: --check did not name every missing entry"
-grep -qxF "  Bash(mxcli:*)" "$WORK/t4.out" \
+grep -qxF "  Bash(mxcli *)" "$WORK/t4.out" \
   && bad "T4: --check names an entry that was already present" \
   || ok "T4: --check does not name the already-present entry"
 MISSING_DENY_NAMED=0
@@ -310,7 +313,7 @@ ALLOW5L="$(py_get_allow "$EXIST/.claude/settings.local.json")"
 STILL_ADDED=0
 for e in "${EXPECTED_SHARED[@]}"; do
   case "$e" in
-    "Bash(./mxcli:*)"|"Bash(mxcli:*)") continue ;;  # pre-existing; must survive
+    "Bash(./mxcli *)") continue ;;  # pre-existing in the T2 capture; must survive
   esac
   printf '%s\n' "$ALLOW5" | grep -qxF "$e" && { STILL_ADDED=1; echo "     still present: $e"; }
 done
@@ -376,6 +379,106 @@ py_get_allow "$PROF/.claude/settings.local.json" | grep -qx "Bash" && bad "T5b: 
 TYPO="$(MXTK_PERMISSION_PROFILE=fulll "$(dirname "$SUBJECT")/permission-profile.sh" "$PROF" 2>/dev/null)"
 [ "$TYPO" = wrappers ] && ok "T5b: a misspelt profile falls back to wrappers" \
                        || bad "T5b: misspelt profile resolved to '$TYPO' (want wrappers)"
+
+# ── T12 (#780): rule shape — bare script calls match, no startup warning, old entries migrate ──
+# Matcher per https://code.claude.com/docs/en/permissions ("Wildcard patterns"): `*` is any run of
+# characters; a trailing ` *` (or legacy `:*`) also matches the bare command ONLY when it is the
+# rule's only wildcard (`Bash(* --help *)` does not match `npm --help`). A `*` before the rest of
+# the command raises a startup warning (https://code.claude.com/docs/en/errors).
+py_rules() {  # $1 = mode (shape|match|has) $2... = settings files, then "--" and commands
+  "$PY" - "$@" <<'PY'
+import json, os, re, sys
+mode, args = sys.argv[1], sys.argv[2:]
+cut = args.index("--") if "--" in args else len(args)
+files, cmds = args[:cut], args[cut + 1:]
+rules = []
+for f in files:
+    if os.path.exists(f):
+        rules += [r for r in json.load(open(f)).get("permissions", {}).get("allow", []) if r.startswith("Bash")]
+def match(rule, cmd):
+    if rule == "Bash":
+        return True
+    inner = rule[5:-1]
+    if inner.endswith(":*"):
+        inner = inner[:-2] + " *"
+    if inner.count("*") == 1 and inner.endswith(" *"):
+        return cmd == inner[:-2] or cmd.startswith(inner[:-2] + " ")
+    return re.fullmatch(re.escape(inner).replace(r"\*", ".*"), cmd) is not None
+if mode == "shape":
+    badr = [r for r in rules if r != "Bash" and "*" in r[5:-1][:-1]]
+    for r in badr:
+        print("     wildcard before the end: " + r)
+    sys.exit(1 if badr else 0)
+if mode == "match":
+    miss = [c for c in cmds if not any(match(r, c) for r in rules)]
+    for c in miss:
+        print("     no rule matches: " + c)
+    sys.exit(1 if miss else 0)
+PY
+}
+P12="$WORK/p780"; mkdir -p "$P12/bin" "$HOME/.mxcli/mxbuild/11.12.0/modeler"
+: > "$HOME/.mxcli/mxbuild/11.12.0/modeler/mx"
+for s in exec.sh gate-check.sh status.sh doctor.sh; do : > "$P12/bin/$s"; done
+"$SUBJECT" "$P12" --profile wrappers >"$WORK/t12.out" 2>&1
+MX="$HOME/.mxcli/mxbuild/11.12.0/modeler/mx"
+py_rules shape "$P12/.claude/settings.json" "$P12/.claude/settings.local.json" \
+  && ok "T12: no allow rule has a * before its final ' *' (no startup warning rows)" \
+  || bad "T12: allow rules with a * before the end (each one a startup warning)"
+py_rules match "$P12/.claude/settings.json" -- ./bin/gate-check.sh bin/status.sh "bash bin/doctor.sh" ./bin/exec.sh \
+  && ok "T12: bare ./bin/gate-check.sh, bin/status.sh, bash bin/doctor.sh, ./bin/exec.sh are allowed (shared)" \
+  || bad "T12: a bare project-script call still prompts"
+py_rules match "$P12/.claude/settings.json" -- "./bin/gate-check.sh $P12 3" "bin/exec.sh --patch x.mdl" \
+  && ok "T12: the same scripts with arguments are allowed" || bad "T12: a script call with arguments prompts"
+py_rules match "$P12/.claude/settings.local.json" -- "$TOOLKIT_ROOT/bin/doctor.sh" "bash $TOOLKIT_ROOT/bin/status.sh $P12" \
+     "~/.mxcli/mxbuild/11.12.0/modeler/mx" "$MX check App.mpr" "~/.mxcli/mxbuild/11.12.0/modeler/mx check App.mpr" \
+  && ok "T12: toolkit scripts by absolute path and the installed mx (both spellings) are allowed (local)" \
+  || bad "T12: a toolkit-script or mx call prompts"
+py_get_allow "$P12/.claude/settings.json" | grep -qF "mxbuild" \
+  && bad "T12: a per-machine mxbuild rule leaked into the shared settings.json" \
+  || ok "T12: mxbuild rules stay in settings.local.json"
+py_rules match "$P12/.claude/settings.json" -- ./bin/gate-check.shx >/dev/null \
+  && bad "T12: a rule matches a different program (./bin/gate-check.shx)" \
+  || ok "T12: rules end at the script name (./bin/gate-check.shx is not allowed)"
+
+# Migration: a project installed by the pre-#780 script (entries and sidecars copied from its
+# output on master c3c8a303), plus entries someone else wrote. Re-install removes only ours.
+M12="$WORK/m780"; mkdir -p "$M12/bin" "$M12/.claude"; : > "$M12/bin/gate-check.sh"
+cat > "$M12/.claude/settings.json" <<'JSON'
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm test *)",
+      "Bash(./bin/exec.sh:*)",
+      "Bash(bin/exec.sh:*)",
+      "Bash(bash bin/exec.sh:*)",
+      "Bash(./bin/*.sh:*)",
+      "Bash(bin/*.sh:*)",
+      "Bash(bash bin/*.sh:*)",
+      "Bash(~/.mxcli/mxbuild/*/modeler/mx:*)",
+      "Bash(./mxcli:*)",
+      "Bash(mxcli:*)"
+    ]
+  }
+}
+JSON
+cat > "$M12/.claude/.mxtk-permissions-added.json" <<'JSON'
+{"allow": ["Bash(./bin/*.sh:*)", "Bash(./bin/exec.sh:*)", "Bash(./mxcli:*)", "Bash(bash bin/*.sh:*)", "Bash(bash bin/exec.sh:*)", "Bash(bin/*.sh:*)", "Bash(bin/exec.sh:*)", "Bash(mxcli:*)", "Bash(~/.mxcli/mxbuild/*/modeler/mx:*)"], "deny": [], "hook": false}
+JSON
+printf '{"permissions": {"allow": ["Bash(make *)", "Bash(%s/bin/*.sh:*)", "Bash(bash %s/bin/*.sh:*)"]}}\n' "$TOOLKIT_ROOT" "$TOOLKIT_ROOT" > "$M12/.claude/settings.local.json"
+printf '{"allow": ["Bash(%s/bin/*.sh:*)", "Bash(bash %s/bin/*.sh:*)"], "deny": []}\n' "$TOOLKIT_ROOT" "$TOOLKIT_ROOT" > "$M12/.claude/.mxtk-permissions-added-local.json"
+"$SUBJECT" "$M12" --profile wrappers --check >"$WORK/t12c.out" 2>&1
+grep -qxF '  - Bash(./bin/*.sh:*)' "$WORK/t12c.out" && grep -qxF "  - Bash($TOOLKIT_ROOT/bin/*.sh:*)" "$WORK/t12c.out" \
+  && ok "T12: --check names the old wildcard entries the next install removes" \
+  || bad "T12: --check does not name the old wildcard entries"
+"$SUBJECT" "$M12" --profile wrappers >"$WORK/t12m.out" 2>&1
+LEFT="$( { py_get_allow "$M12/.claude/settings.json"; py_get_allow "$M12/.claude/settings.local.json"; } | grep -F '*.sh:*' ; py_get_allow "$M12/.claude/settings.json" | grep -F 'mxbuild/*/' )"
+[ -z "$LEFT" ] && ok "T12: re-install removes the old wildcard entries it added (both files)" \
+               || bad "T12: old wildcard entries survived re-install: $(echo $LEFT)"
+py_get_allow "$M12/.claude/settings.json" | grep -qxF 'Bash(npm test *)' && py_get_allow "$M12/.claude/settings.local.json" | grep -qxF 'Bash(make *)' \
+  && ok "T12: entries someone else wrote survive the migration" || bad "T12: a foreign entry was removed"
+py_rules match "$M12/.claude/settings.json" -- ./bin/gate-check.sh && py_rules shape "$M12/.claude/settings.json" "$M12/.claude/settings.local.json" \
+  && ok "T12: after migration a bare ./bin/gate-check.sh is allowed and no rule warns" \
+  || bad "T12: after migration a bare call prompts or a rule still warns"
 
 # ══════════════════════════════════════════════════════════════════════════════════════════
 # install-harness-permissions.sh — Copilot and Aider (Claude delegated, spot-checked only)

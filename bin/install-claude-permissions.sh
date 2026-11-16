@@ -15,15 +15,25 @@
 # AGENT asks; it has no say over whether the HARNESS itself prompts first.
 #
 # RULE SYNTAX, verified against https://code.claude.com/docs/en/permissions ("Wildcard
-# patterns" section) before choosing these patterns:
-#   - `*` stands in for any sequence of characters at that position, not just one path segment
-#     — the doc's own example `Bash(git * main)` matches `git push origin main`, where `*`
-#     spans two words. So `bin/*.sh` matches any script directly under bin/, and
-#     `~/.mxcli/mxbuild/*/modeler/mx` matches any installed mxbuild version.
-#   - A trailing `:*` is an exact equivalent of a trailing ` *` (space + wildcard), and — being
-#     the rule's ONLY wildcard — also matches the bare command with nothing after it.
-# The exec.sh-specific entries are listed separately even though `bin/*.sh:*` already covers
-# them; that redundancy is deliberate and matches this script's spec, not an oversight.
+# patterns") and https://code.claude.com/docs/en/errors ("Has a wildcard before the rest of the
+# command"), Claude Code 2.1.325 (#780):
+#   - A trailing ` *` (space + wildcard; `:*` is the legacy spelling of the same thing) matches
+#     the bare command with nothing after it ONLY when it is the rule's only wildcard:
+#     `Bash(* --help *)` matches `npm --help x` but not `npm --help`. Until #780 this script
+#     wrote `Bash(./bin/*.sh:*)`, which mixes a `*` with the trailing `:*`. `claude doctor`
+#     2.1.325 reports such a rule as "matched as a literal prefix (the * is not expanded) and
+#     will likely never match", and a real `claude -p` run (2026-11-16) was denied both
+#     `./bin/status.sh` and `./bin/status.sh --brief` under it; under `Bash(./bin/status.sh *)`
+#     both ran.
+#   - A `*` before the rest of the command (in the program name, as `bin/*.sh` was) raises a
+#     startup warning row for every such allow rule, at every session start.
+#   So every allow rule here has at most one `*`, at the very end after a space: one rule per
+#   script that exists when this runs (`Bash(./bin/<name>.sh *)`), which is the docs' own "one
+#   rule per subcommand". A script installed later is missing until this runs again; --check (and
+#   so sync-project.sh) names it. Entries an earlier version of this script added (the sidecar
+#   below records them) and no longer wants are removed on the next install; --check lists them.
+#   Deny and ask rules are not affected (the warning is for allow rules, and a deny glob is
+#   meant to be broad), so they keep their spelling.
 #
 # PROFILES (2026-10-06): bin/permission-profile.sh resolves `wrappers` | `project` (default) |
 # `full`, picked at intake Q12. `wrappers` is exactly the list below. `project` adds edits inside
@@ -61,16 +71,16 @@
 # removes only those, never an identical entry that was already present before this script
 # ever ran (e.g. `mxcli init` already seeds `Bash(./mxcli:*)` and `Bash(mxcli:*)`).
 #
-# TWO FILES, SPLIT BY WHAT THE ENTRY LEAKS (2026-09-16). Two of the eleven entries embed
+# TWO FILES, SPLIT BY WHAT THE ENTRY LEAKS (2026-09-16). The toolkit-script entries embed
 # $TOOLKIT_ROOT — an absolute path under the operator's home directory (a username, routinely).
 # `.claude/settings.json` is the SHARED project file, meant to be committed so every teammate
 # gets the same allow-list; committing someone's home-directory path into it is exactly the
-# per-machine leak this toolkit's leak guard exists to catch elsewhere. So those two entries
-# alone go into `.claude/settings.local.json` — precedence level 3 in
+# per-machine leak this toolkit's leak guard exists to catch elsewhere. So those entries, and
+# the per-version mxbuild `mx` entries (which versions are installed is per machine), go into `.claude/settings.local.json` — precedence level 3 in
 # https://code.claude.com/docs/en/settings ("Settings files and precedence"), "You, this
 # project", i.e. per-machine and never shared — and init-project.sh's .gitignore template
-# ignores it the same way it ignores `.mxtk/`. The other nine entries are all relative (no
-# machine-specific path) and stay in the shared `.claude/settings.json`, same as before.
+# ignores it the same way it ignores `.mxtk/`. The project-script and mxcli entries are all
+# relative (no machine-specific path) and stay in the shared `.claude/settings.json`.
 #
 # NOT WRITTEN, ON PURPOSE: `autoMode` (2026-09-27). In auto permission mode a second gate, the
 # safety classifier, runs after these rules and can refuse a command they allow (field: a Python
@@ -174,23 +184,42 @@ echo "permission profile: $PROFILE"
 #
 # SHARED: relative invocations only, safe to commit — everyone on the project gets the same
 # allow-list regardless of where they cloned the toolkit.
+# One rule per script, `*` only at the end (see RULE SYNTAX above). A name holding a character
+# that means something in a rule (`*`, a space, a parenthesis) is skipped rather than escaped.
+_script_rules() {  # $1 = directory, $2... = prefixes ("./bin/", "bash bin/", ...)
+  local dir="$1" f n p; shift
+  for f in "$dir"/*.sh; do
+    [ -f "$f" ] || continue
+    n="${f##*/}"
+    case "$n" in exec.sh|*[\*\ \(\)]*) continue ;; esac  # exec.sh is listed first, always
+    for p in "$@"; do printf '%s\n' "Bash($p$n *)"; done
+  done
+}
 ENTRIES_SHARED=(
-  "Bash(./bin/exec.sh:*)"
-  "Bash(bin/exec.sh:*)"
-  "Bash(bash bin/exec.sh:*)"
-  "Bash(./bin/*.sh:*)"
-  "Bash(bin/*.sh:*)"
-  "Bash(bash bin/*.sh:*)"
-  "Bash(~/.mxcli/mxbuild/*/modeler/mx:*)"
-  "Bash(./mxcli:*)"
-  "Bash(mxcli:*)"
+  "Bash(./bin/exec.sh *)"
+  "Bash(bin/exec.sh *)"
+  "Bash(bash bin/exec.sh *)"
+)
+while IFS= read -r _r; do [ -n "$_r" ] && ENTRIES_SHARED+=( "$_r" ); done <<EOF_RULES
+$(_script_rules "$PROJECT_DIR/bin" "./bin/" "bin/" "bash bin/")
+EOF_RULES
+ENTRIES_SHARED+=(
+  "Bash(./mxcli *)"
+  "Bash(mxcli *)"
 )
 # LOCAL: embeds $TOOLKIT_ROOT, an absolute path under this machine's home directory — per-machine
-# only, never committed. See the header note above.
-ENTRIES_LOCAL=(
-  "Bash($TOOLKIT_ROOT/bin/*.sh:*)"
-  "Bash(bash $TOOLKIT_ROOT/bin/*.sh:*)"
-)
+# only, never committed. See the header note above. exec.sh is the project's copy, not this one.
+ENTRIES_LOCAL=()
+while IFS= read -r _r; do [ -n "$_r" ] && ENTRIES_LOCAL+=( "$_r" ); done <<EOF_RULES
+$(_script_rules "$TOOLKIT_ROOT/bin" "$TOOLKIT_ROOT/bin/" "bash $TOOLKIT_ROOT/bin/")
+EOF_RULES
+# mxbuild's `mx`, one rule per installed version (`mx check` by hand, as the skills show it),
+# spelt both ways an agent types it: with `~` and with the absolute path.
+for _mx in "$HOME"/.mxcli/mxbuild/*/modeler/mx "$HOME"/.mxcli/mxbuild/*/modeler/mx.exe; do
+  [ -f "$_mx" ] || continue
+  case "$_mx" in *[\*\ \(\)]*) continue ;; esac
+  ENTRIES_LOCAL+=( "Bash(~${_mx#"$HOME"} *)" "Bash($_mx *)" )
+done
 
 # THE ONE DENY and THE ONE HOOK (2026-09-17, see header notes above) are global, not
 # per-machine — they carry no $TOOLKIT_ROOT path — so they are only ever merged into the
@@ -221,8 +250,8 @@ DENY=(
 # redirect or `cp` cannot be denied without also denying `cat`, so a hand-copied approval is caught
 # by the checksum security-check.sh verifies on every run, and by review of the files in git.
 # This is a guard rail, not a lock.
-# `file-bugs.sh --auto` is deliberately NOT denied, and needs no rule of its own: `bin/*.sh:*`
-# above already allows it. It posts only in a project whose PROJECT.md has the person's line
+# `file-bugs.sh --auto` is deliberately NOT denied, and needs no rule of its own: the per-script
+# `Bash($TOOLKIT_ROOT/bin/file-bugs.sh *)` allow rules above already allow it. It posts only in a project whose PROJECT.md has the person's line
 # `Bug filing: auto`, only rows that pass the redaction scan, and never without a deny list —
 # that line, not a y/N an agent could type into a pty, is the gate. --file/--all stay denied.
 # `--import` (the maintainer filing a mailed bundle with their own gh, no opt-in line) is denied
@@ -237,14 +266,14 @@ if [ "$PROFILE" = project ] || [ "$PROFILE" = full ]; then
     "Edit(/**)"
     "Bash(node tests/*)"
     "Bash(npx playwright *)"
-    "Bash(npm install:*)"
-    "Bash(npm ci:*)"
-    "Bash(docker compose:*)"
-    "Bash(docker ps:*)"
-    "Bash(docker logs:*)"
-    "Bash(git add:*)"
-    "Bash(git commit:*)"
-    "Bash(git mv:*)"
+    "Bash(npm install *)"
+    "Bash(npm ci *)"
+    "Bash(docker compose *)"
+    "Bash(docker ps *)"
+    "Bash(docker logs *)"
+    "Bash(git add *)"
+    "Bash(git commit *)"
+    "Bash(git mv *)"
     "Bash(python3 bin/*)"  # portability-ok: a permission-rule string, not an interpreter call
     "Bash(python3 tests/*)"  # portability-ok: a permission-rule string, not an interpreter call
   )
@@ -366,6 +395,13 @@ if mode == "check":
     missing_deny = [e for e in deny_entries if e not in deny]
     missing_ask = [e for e in ask_entries if e not in d.get("permissions", {}).get("ask", [])]
     missing_hooks = [h for h in hook_specs if not hook_present(d, h) or extra_copies(d, h)]
+    # Entries an earlier run added that this one no longer wants (e.g. the pre-#780 wildcard
+    # `Bash(./bin/*.sh:*)`): named so the re-run's removals are no surprise; not a failure alone.
+    stale = [e for e in allow if e in added and e not in entries]
+    if stale:
+        print("Entries an earlier install added that the next install removes (%s):" % settings_path)
+        for m in stale:
+            print("  - " + m)
     if missing or missing_deny or missing_ask or missing_hooks:
         print("Missing entries in %s:" % settings_path)
         for m in missing:
@@ -466,7 +502,9 @@ for key, want, mine in (("allow", entries, added), ("deny", deny_entries, added_
         break  # --hooks-only: add the hooks, never prune what an earlier full install wrote
     gone = [e for e in perms.get(key, []) if e in mine and e not in want]
     if gone:
-        perms[key] = [e for e in perms[key] if e not in gone]
+        # In place: `allow` above is this same list, and the additions below go into it (#780: a
+        # rebinding here dropped every addition made in the run that pruned).
+        perms[key][:] = [e for e in perms[key] if e not in gone]
         pruned += ["%s %s" % (key, e) for e in gone]
     mine.difference_update(set(mine) - set(want))
 
@@ -607,7 +645,7 @@ if [ "$HOOKS_ONLY" -eq 1 ]; then
   exit $?
 fi
 _merge_group "$SETTINGS" "$SIDECAR" "$MODE" "$HOOKS" "${#ENTRIES_SHARED[@]}" "${#DENY[@]}" "${ENTRIES_SHARED[@]}" "${DENY[@]}" ${ASK[@]+"${ASK[@]}"} || RC=$?
-_merge_group "$SETTINGS_LOCAL" "$SIDECAR_LOCAL" "$MODE" "" "${#ENTRIES_LOCAL[@]}" 0 "${ENTRIES_LOCAL[@]}" || {
+_merge_group "$SETTINGS_LOCAL" "$SIDECAR_LOCAL" "$MODE" "" "${#ENTRIES_LOCAL[@]}" 0 ${ENTRIES_LOCAL[@]+"${ENTRIES_LOCAL[@]}"} || {
   RC2=$?
   [ "$RC2" -gt "$RC" ] && RC=$RC2
 }

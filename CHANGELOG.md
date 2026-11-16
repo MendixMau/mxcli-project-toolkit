@@ -18,6 +18,7 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 `docs/RELEASE-PROCESS.md` §8.
 
 ## Unreleased
+- fix(intake,interview-protocol): **the intake preamble and `interview-protocol.md` now state the Stage P answer form for `Interview mode: auto`, `Assumed (auto-mode): <default> — rejected: <alt>`, colon right after the parenthesis (#766)**: the preamble listed only `Answered (CONFIRMED):` and `Unverified — how to verify:`, and the protocol said "recorded `ASSUMED` as above", pointing at the register shape the intake gate rejects, so an auto-mode kickoff learned the accepted form only from the FAIL message. Text only: the gate matcher and Q9 are unchanged, and existing intakes are not re-synced. Proof: `tests/wave2/test-stage-p.sh` T12 (fails on master's template) — field report from a greenfield auto-mode build, relayed by the maintainer
 
 ## v2026.11.16
 - fix(gitignore): **`bin/doctor.sh` appends its machine-local entries (`.doctor-receipt`, `toolkit.env`, `progress-report-sessions.txt`, `.property-sets-receipt`) through `mxtk_gitignore_ensure`**: a CRLF `.gitignore` got LF lines (mixed endings) and could get an entry it already had added again; LF files get the same bytes as before, and the "(added … to the project's .gitignore)" note now prints only when a line was actually written — follow-up to the .gitignore line-ending fixes, 2026-11

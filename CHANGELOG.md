@@ -18,6 +18,7 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 `docs/RELEASE-PROCESS.md` §8.
 
 ## Unreleased
+- learn(security): **MxAdmin no longer "ships with password `1`" in the rules (#662)**: `learned-mdl-preflight.md` (baseline), `brd-to-build-plan.md` Step 7 and the rendered `generated/rules-access.md` now say MxAdmin exists only where the runtime host created it (Studio Pro's own run, or the buildpack's `ADMIN_PASSWORD`); `mxcli run --local` never creates it (`MxAdmin user ... does not exist!`) and `mxcli docker build` seeds `admin` / `Admin123!` instead, so sign in as a demo user. The "never touch MxAdmin" rule stays — field run, 2026-11
 
 ## v2026.11.16
 - fix(gitignore): **`bin/doctor.sh` appends its machine-local entries (`.doctor-receipt`, `toolkit.env`, `progress-report-sessions.txt`, `.property-sets-receipt`) through `mxtk_gitignore_ensure`**: a CRLF `.gitignore` got LF lines (mixed endings) and could get an entry it already had added again; LF files get the same bytes as before, and the "(added … to the project's .gitignore)" note now prints only when a line was actually written — follow-up to the .gitignore line-ending fixes, 2026-11

@@ -68,12 +68,14 @@ EXPECTED_SHARED=(
   "Bash(mxcli *)"
 )
 # The entries that embed the absolute toolkit-root path -> the per-machine settings.local.json:
-# two per toolkit script (exec.sh is the project's own copy, never the toolkit's; the scripts that
-# record a person's decision and the sourced _*.sh libraries get none — #781 review).
+# two per toolkit script (exec.sh is the project's own copy, never the toolkit's; the installers
+# that record a person's decision and the sourced _*.sh libraries get none — #781 review, #782).
+# exec-approval.sh, interview-mode.sh and permission-profile.sh are allowed; their --set/--clear
+# prompt through ask rules (#782, T12).
 EXPECTED_LOCAL=()
 for _f in "$TOOLKIT_ROOT"/bin/*.sh; do
   _n="${_f##*/}"
-  case "$_n" in exec.sh|_*|init-project.sh|install-claude-permissions.sh|install-harness-permissions.sh|permission-profile.sh|exec-approval.sh|interview-mode.sh) continue ;; esac
+  case "$_n" in exec.sh|_*|init-project.sh|install-claude-permissions.sh|install-harness-permissions.sh|install-claude-hooks.sh) continue ;; esac
   EXPECTED_LOCAL+=( "Bash($TOOLKIT_ROOT/bin/$_n *)" "Bash(bash $TOOLKIT_ROOT/bin/$_n *)" )
 done
 
@@ -393,10 +395,12 @@ import json, os, re, sys
 mode, args = sys.argv[1], sys.argv[2:]
 cut = args.index("--") if "--" in args else len(args)
 files, cmds = args[:cut], args[cut + 1:]
-rules = []
+rules, asks = [], []
 for f in files:
     if os.path.exists(f):
-        rules += [r for r in json.load(open(f)).get("permissions", {}).get("allow", []) if r.startswith("Bash")]
+        perms = json.load(open(f)).get("permissions", {})
+        rules += [r for r in perms.get("allow", []) if r.startswith("Bash")]
+        asks += [r for r in perms.get("ask", []) if r.startswith("Bash")]
 def match(rule, cmd):
     if rule == "Bash":
         return True
@@ -416,6 +420,15 @@ if mode == "match":
     for c in miss:
         print("     no rule matches: " + c)
     sys.exit(1 if miss else 0)
+if mode in ("runs", "asks"):  # an ask rule beats an allow rule (docs: deny > ask > allow)
+    def runs(c):
+        return any(match(r, c) for r in rules) and not any(match(r, c) for r in asks)
+    def asked(c):
+        return any(match(r, c) for r in asks)
+    wrong = [c for c in cmds if not (runs(c) if mode == "runs" else asked(c))]
+    for c in wrong:
+        print("     " + ("prompts: " if mode == "runs" else "no ask rule matches: ") + c)
+    sys.exit(1 if wrong else 0)
 PY
 }
 P12="$WORK/p780"; mkdir -p "$P12/bin" "$HOME/.mxcli/mxbuild/11.12.0/modeler"
@@ -439,9 +452,33 @@ py_get_allow "$P12/.claude/settings.json" | grep -qF "mxbuild" \
   && bad "T12: a per-machine mxbuild rule leaked into the shared settings.json" \
   || ok "T12: mxbuild rules stay in settings.local.json"
 { py_get_allow "$P12/.claude/settings.json"; py_get_allow "$P12/.claude/settings.local.json"; } \
-  | grep -E 'init-project\.sh|install-claude-permissions\.sh|install-harness-permissions\.sh|permission-profile\.sh|exec-approval\.sh|interview-mode\.sh|/_[a-z]+\.sh' \
-  && bad "T12: an allow rule lets the agent run a script that records a person's decision, or a sourced library" \
-  || ok "T12: permission/approval/interview-mode scripts and _*.sh libraries keep prompting (#781 review)"
+  | grep -E 'init-project\.sh|install-claude-permissions\.sh|install-harness-permissions\.sh|install-claude-hooks\.sh|/_[a-z]+\.sh' \
+  && bad "T12: an allow rule lets the agent run an installer that records a person's decision, or a sourced library" \
+  || ok "T12: init-project, the permission and hooks installers, and _*.sh libraries keep prompting (#781 review, #782)"
+# #782: the decision scripts' reads run unprompted (exec-approval.sh is read before every exec);
+# their writers --set/--clear prompt in every spelling, under every profile.
+TK="$TOOLKIT_ROOT/bin"
+py_rules runs "$P12/.claude/settings.json" "$P12/.claude/settings.local.json" -- \
+     "$TK/exec-approval.sh $P12" "$TK/exec-approval.sh $P12 --explain" "bash $TK/exec-approval.sh $P12" \
+     "$TK/interview-mode.sh $P12 --explain" "$TK/interview-mode.sh $P12 --remote" "bash $TK/interview-mode.sh $P12" \
+     "$TK/permission-profile.sh $P12" "$TK/permission-profile.sh $P12 --explain" \
+     "./bin/exec-approval.sh ." "bin/interview-mode.sh . --explain" \
+  && ok "T12: exec-approval/interview-mode/permission-profile reads are allowed (#782)" \
+  || bad "T12: a read-only exec-approval/interview-mode/permission-profile call prompts (#782)"
+DECIDE_WRITES=()
+for _s in exec-approval.sh interview-mode.sh permission-profile.sh; do
+  DECIDE_WRITES+=( "$TK/$_s $P12 --set auto" "bash $TK/$_s $P12 --set full" "$TK/$_s $P12 --clear" \
+                   "./bin/$_s . --set auto" "bin/$_s . --clear" "bash bin/$_s . --set unattended" )
+done
+py_rules asks "$P12/.claude/settings.json" "$P12/.claude/settings.local.json" -- "${DECIDE_WRITES[@]}" \
+  && ok "T12: every --set/--clear of the three decision scripts hits an ask rule (#782)" \
+  || bad "T12: a --set/--clear of a decision script is not behind an ask rule (#782)"
+PF="$WORK/p782full"; mkdir -p "$PF"
+"$SUBJECT" "$PF" --profile full >/dev/null 2>&1
+py_get_allow "$PF/.claude/settings.local.json" | grep -qxF 'Bash' \
+  && py_rules asks "$PF/.claude/settings.json" -- "${DECIDE_WRITES[@]}" \
+  && ok "T12: under the full profile (bare Bash allowed) --set/--clear still ask (#782)" \
+  || bad "T12: under the full profile an ask rule is missing (#782)"
 "$SUBJECT" "$P12" --hooks-only --check >"$WORK/t12-hooks.out" 2>&1
 grep -q "the next install removes" "$WORK/t12-hooks.out" \
   && bad "T12: --hooks-only --check lists allow entries as stale (it never prunes)" \
@@ -489,6 +526,33 @@ py_get_allow "$M12/.claude/settings.json" | grep -qxF 'Bash(npm test *)' && py_g
 py_rules match "$M12/.claude/settings.json" -- ./bin/gate-check.sh && py_rules shape "$M12/.claude/settings.json" "$M12/.claude/settings.local.json" \
   && ok "T12: after migration a bare ./bin/gate-check.sh is allowed and no rule warns" \
   || bad "T12: after migration a bare call prompts or a rule still warns"
+
+# #782 migration: a project installed by #781 (master 1e0c38a0) has an allow rule for
+# install-claude-hooks.sh, recorded in the local sidecar, and no decision ask rules. Re-install
+# removes the hooks rule it added, keeps an identical-looking foreign one in a second project,
+# and adds the ask rules; --check names the stale rule and reports the ask rules missing.
+M2="$WORK/m782"; mkdir -p "$M2/.claude"
+HK="Bash($TOOLKIT_ROOT/bin/install-claude-hooks.sh *)"; HKB="Bash(bash $TOOLKIT_ROOT/bin/install-claude-hooks.sh *)"
+printf '{"permissions": {"allow": ["Bash(make *)", "%s", "%s"]}}\n' "$HK" "$HKB" > "$M2/.claude/settings.local.json"
+printf '{"allow": ["%s", "%s"], "deny": []}\n' "$HK" "$HKB" > "$M2/.claude/.mxtk-permissions-added-local.json"
+"$SUBJECT" "$M2" --profile wrappers --check >"$WORK/t782c.out" 2>&1; rc782=$?
+[ "$rc782" -ne 0 ] && grep -qxF "  - $HK" "$WORK/t782c.out" && grep -qxF '  Bash(*exec-approval.sh*--set*)' "$WORK/t782c.out" \
+  && ok "T12: --check on a #781 install names the stale hooks rule and the missing ask rules (#782)" \
+  || bad "T12: --check on a #781 install does not name the stale hooks rule / missing ask rules (#782)"
+"$SUBJECT" "$M2" --profile wrappers >"$WORK/t782m.out" 2>&1
+py_get_allow "$M2/.claude/settings.local.json" | grep -qF 'install-claude-hooks.sh' \
+  && bad "T12: re-install left the install-claude-hooks.sh allow rule it added (#782)" \
+  || ok "T12: re-install removes the install-claude-hooks.sh allow rule it added (#782)"
+py_get_allow "$M2/.claude/settings.local.json" | grep -qxF 'Bash(make *)' \
+  && py_rules asks "$M2/.claude/settings.json" -- "$TK/exec-approval.sh $M2 --set auto" >/dev/null \
+  && ok "T12: after the #782 migration foreign entries survive and --set asks" \
+  || bad "T12: after the #782 migration a foreign entry is gone or --set does not ask"
+F2="$WORK/f782"; mkdir -p "$F2/.claude"
+printf '{"permissions": {"allow": ["%s"]}}\n' "$HK" > "$F2/.claude/settings.local.json"
+"$SUBJECT" "$F2" --profile wrappers >/dev/null 2>&1
+py_get_allow "$F2/.claude/settings.local.json" | grep -qxF "$HK" \
+  && ok "T12: a hooks-installer rule someone else wrote (no sidecar record) is left alone (#782)" \
+  || bad "T12: a foreign hooks-installer rule was removed (#782)"
 
 # ══════════════════════════════════════════════════════════════════════════════════════════
 # install-harness-permissions.sh — Copilot and Aider (Claude delegated, spot-checked only)

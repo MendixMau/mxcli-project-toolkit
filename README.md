@@ -323,9 +323,18 @@ they would have saved, restarted or reopened it. Everything either side of that 
 > export MXBUILD_PATH="/c/Program Files/Mendix/<version>/modeler/mxbuild.exe"
 > ```
 >
-> `bin/doctor.sh --install <project>` closes the gap without Studio Pro: it fetches a
-> version-matched mxbuild that `exec.sh` then finds on its own. With no terminal to answer the
-> prompt (an agent, CI), add `--yes`: `bin/doctor.sh --install --yes <project>`.
+> On **Linux** (Dev Container, cloud) `bin/doctor.sh --install <project>` closes the gap without
+> Studio Pro: it fetches a version-matched mxbuild that `exec.sh` then finds on its own. On
+> **Windows and macOS** it cannot: the Mendix CDN publishes Linux mxbuild only, so the gate there
+> needs Studio Pro's own mxbuild (install Studio Pro in the app's version) or the Dev Container.
+> With no terminal to answer the prompt (an agent, CI), add `--yes`:
+> `bin/doctor.sh --install --yes <project>`.
+>
+> **Starting from an empty folder?** There is no app until something creates the `.mpr`:
+> Studio Pro (New app → Blank, saved in that folder, outside OneDrive, short path), or
+> `./mxcli new <Name> --version X.Y.Z --output-dir <empty folder>` — which also needs Studio Pro on
+> Windows/macOS for the same reason. Run `mxcli new` *before* `mxcli init`, never after: `new`
+> refuses a folder that is not empty, and runs `init` itself.
 
 **Existing clone from before 2026-08-18?** You predate `.gitattributes`, so if git checked the
 scripts out with CRLF they will not run. Fix once:

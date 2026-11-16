@@ -112,7 +112,7 @@ _mkt_locate() {
   [ -f "$_MKT_COMMON" ] || return 0
   out="$( export PROJECT_ROOT="$root"; . "$_MKT_COMMON" >/dev/null 2>&1 || exit 0
           m="$(find_mpr 2>&1)" && printf 'mpr\t%s\n' "$m" || {
-            case "$m" in *"refusing to guess"*) printf 'mpr\tAMBIGUOUS\n' ;; esac; }
+            case "$m" in (*"refusing to guess"*) printf 'mpr\tAMBIGUOUS\n' ;; esac; }
           x="$(find_project_mxcli 2>/dev/null)" && printf 'mx\t%s\n' "$x"
           exit 0 )"
   local IFS=$'\n' l

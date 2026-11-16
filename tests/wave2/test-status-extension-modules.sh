@@ -16,6 +16,7 @@
 #   T6  two-tree, inventory.json lists AgentEditorCommons, none  -> WATCH names app/modules/AgentEditor.mxmodule missing
 #   T7  no agents, no .mxmodule, no git                          -> no extension WATCH
 #   T8  the full screen carries the same WATCH
+#   T9  mdlsource only mentions `create agent` in a comment and a string -> no Agent Editor WATCH
 #
 # GOLDEN INPUT: PROJECT.md is the real bin/init-project.sh scaffold; tracked/untracked is whatever
 # this machine's git reports. inventory.json is printed in the json.dump(indent=1) shape app-facts.sh
@@ -90,6 +91,11 @@ esac
 P="$(mkproj t7 '')"
 out="$(watch "$P")"
 if grep -qE 'extension module|uses Agent Editor' <<<"$out"; then bad "T7 no agents, no git must not WATCH" "$out"; else ok "T7 no agents, no .mxmodule, no git: no extension WATCH"; fi
+
+P="$(mkproj t9 '')"; g "$P" init -q; mkdir -p "$P/mdlsource"
+printf -- "-- TODO: create agent later\ncreate microflow Support.Note () begin\n  log info node 'App' 'please create agent first';\nend;\n" > "$P/mdlsource/320-note.mdl"
+out="$(watch "$P")"
+if grep -q 'uses Agent Editor' <<<"$out"; then bad "T9 a comment or string mentioning create agent must not WATCH" "$out"; else ok "T9 create agent only in a comment and a string: no Agent Editor WATCH"; fi
 
 out="$(bash "$W/tk/bin/status.sh" "$W/proj-t1" 2>&1)"
 if grep -q '^WATCH .*extension module not in git' <<<"$out"; then ok "T8 full screen: same WATCH"; else bad "T8 full screen lacks the WATCH" "$out"; fi

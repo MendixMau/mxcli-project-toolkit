@@ -348,7 +348,7 @@ esac
 # Agent references and runtime constants are NOT checked here (needs a captured agent document).
 AE_WATCH=""; _ae_used=0
 if grep -qE '"name": *"AgentEditorCommons"' "$PROJECT_DIR/analysis/app-facts/inventory.json" 2>/dev/null \
-   || { [ -d "$MDL_DIR" ] && grep -rqiE '(^|[^a-z_])create +(or +(replace|modify) +)?agent([^a-z_]|$)' --include='*.mdl' "$MDL_DIR" 2>/dev/null; }; then
+   || { [ -d "$MDL_DIR" ] && grep -rqiE --include='*.mdl' '^[[:space:]]*create[[:space:]]+(or[[:space:]]+(replace|modify)[[:space:]]+)?agent([[:space:]]|$)' "$MDL_DIR" 2>/dev/null; }; then
   _ae_used=1
 fi
 _ae_untracked=""; _ae_missing=""

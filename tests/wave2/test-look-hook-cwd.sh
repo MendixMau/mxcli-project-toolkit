@@ -122,7 +122,7 @@ printf '%s' "$gap3" | grep -q 'project root' \
 # L9: a hand-written variant gets "edit it by hand", since --hooks-only will not rewrite it (#502).
 P9="$WORK/proj9"; mkdir -p "$P9/.claude" "$P9/bin"; : > "$P9/Fixture.mpr"
 cp "$WORK/hand.json" "$P9/.claude/settings.json"
-out9="$(MXTK_NO_GUIDE=1 bash "$TK/bin/doctor.sh" --quick --no-docker "$P9" 2>&1)"
+out9="$(MXTK_NO_GUIDE=1 MXTK_CLAUDE=1 bash "$TK/bin/doctor.sh" --quick --no-docker "$P9" 2>&1)"
 printf '%s' "$out9" | grep -q 'hand-written variant the installer will not rewrite' \
   && ok "L9: doctor says to edit a hand-written look hook by hand" || bad "L9: no edit-by-hand note" "$(printf '%s' "$out9" | grep -i hook)"
 

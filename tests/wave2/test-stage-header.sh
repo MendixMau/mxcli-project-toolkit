@@ -122,6 +122,32 @@ H_BEFORE="$(header "$P")"
 "$GATE" "$P" 3 >/dev/null 2>&1; H_AFTER="$(header "$P")"
 [ "$H_AFTER" = "$H_BEFORE" ] && ok "query for an unrelated (non-named) stage left the header alone" || bad "query for an unrelated stage changed the header: $H_BEFORE -> $H_AFTER"
 
+echo "== T13 (issue #767): exec rows newer than the readout's stamp → a stale note from gate-check AND status.sh; a full run refreshes it =="
+# GOLDEN INPUT: the BUILD-LOG is the verbatim exec.sh capture in fixtures/verify-446 (one row,
+# 2026-10-21), never a hand-typed table. The stamp is back-dated to before that row.
+TK="$(cd "$(dirname "$GATE")/.." && pwd)"
+CAP="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fixtures/verify-446/BUILD-LOG.captured.md"
+P="$(mkproj t13)"; answered_intake "$P"; run_full "$P"
+sed -i.bak -E 's/\(derived by gate-check on [0-9-]+( · last exec [0-9-]+)?;/(derived by gate-check on 2026-10-01;/' "$P/PROJECT.md"; rm -f "$P/PROJECT.md.bak"
+mkdir -p "$P/docs"; cp "$CAP" "$P/docs/BUILD-LOG.md"
+OUT="$("$GATE" "$P" 3 2>&1)"
+case "$OUT" in *"Current stage line is from 2026-10-01; 1 exec rows since — re-run bin/gate-check.sh"*) ok "gate-check (stage query) prints the stale note" ;;
+  *) bad "gate-check printed no stale note" ;; esac
+SOUT="$(bash "$TK/bin/status.sh" "$P" --brief 2>&1)"
+case "$SOUT" in *"WATCH"*"Current stage line is from 2026-10-01; 1 exec rows since"*) ok "status.sh --brief shows it under WATCH" ;;
+  *) bad "status.sh shows no stale note: $(printf '%s' "$SOUT" | head -3)" ;; esac
+case "$SOUT" in *"WHERE   t13 · Stage 0 — "*) ok "status.sh still parses the stage line" ;; *) bad "status.sh WHERE line: $(printf '%s\n' "$SOUT" | grep WHERE)" ;; esac
+OUT="$("$GATE" "$P" 2>&1)"; H="$(header "$P")"
+case "$H" in "**Stage 0 — "*"(derived by gate-check on "*" · last exec 2026-10-21; re-run it"*) ok "full run rewrote the stamp with '· last exec': $H" ;;
+  *) bad "no '· last exec' in the rewritten line: $H" ;; esac
+case "$OUT" in *"exec rows since"*) bad "full run still printed the stale note after refreshing" ;; *) ok "no stale note after the refresh" ;; esac
+case "$(bash "$TK/bin/status.sh" "$P" --brief 2>&1)" in *"exec rows since"*) bad "status.sh still stale after the refresh" ;; *) ok "status.sh quiet after the refresh" ;; esac
+# The three other parsers of '^**Stage' still read the rewritten line.
+OB="$( . "$TK/bin/lib/obligation-check.sh" >/dev/null 2>&1; _ob_current_stage "$P/PROJECT.md")"
+[ "$OB" = "0" ] && ok "obligation-check _ob_current_stage reads Stage 0" || bad "obligation-check read '$OB'"
+cp "$P/PROJECT.md" "$WORK/t13.first"; run_full "$P"
+cmp -s "$P/PROJECT.md" "$WORK/t13.first" && ok "idempotent with a BUILD-LOG present" || bad "second run changed PROJECT.md"
+
 rm -rf "$WORK"
 echo ""
 echo "test-stage-header: $PASS ok, $FAIL failed"

@@ -25,13 +25,16 @@ mxtk_intake_template() {
   cat <<'MXTK_INTAKE_EOF'
 # intake.md — Stage P Kickoff Interview
 
-Replace each "_Not yet asked._" line below with a real answer, in one of two forms:
+Replace each "_Not yet asked._" line below with a real answer, in one of three forms:
 
   Answered (CONFIRMED): ...          the question was asked and answered
   Unverified — how to verify: ...    the question WAS asked, the answer is not known yet,
                                      and this line says how it will be established
+  Assumed (auto-mode): ...           Interview mode: auto only — the recommended default;
+                                     the full record goes in PROJECT.md
 
-Both forms pass gate-check's Stage P. "_Not yet asked._" passes nothing, deliberately: this
+All three pass gate-check's Stage P (keep the colon right after the parenthesis).
+"_Not yet asked._" passes nothing, deliberately: this
 file is generated before the interview happens, and a scaffold must never be able to certify
 an interview that never took place. Per conversion-runbook.md's interview protocol, every
 question is asked in chat and the turn ends to wait for the answer; unknowns the user hands

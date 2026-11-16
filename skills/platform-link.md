@@ -306,6 +306,14 @@ identity for its first 144 commits; the owner's verdict on discovering that the 
 clone held none of the artefacts was "*let's do that from the start next time*". Do.
 `bin/init-project.sh` scaffolds beside whatever `.mpr` it finds — point it at the root.
 
+**Going live: the toolkit project IS the Team Server copy — never a second working copy.** To
+deploy, add Team Server as a remote of the project you built in and push from there (adoption
+below). Do not create a fresh Studio Pro or `git clone` checkout to deploy from: it has no
+`.mxtk`, so every change made in it skips the exec gate, snapshots and BUILD-LOG, and nothing on
+the toolkit side notices (field, 2026-11-13). `bin/status.sh` WATCHes at Stage 6+ when no remote
+names Team Server, and when a fetched Team Server ref is in no local branch. A copy that has
+already split off: **Recovering a split-off Team Server copy** at the end of this step.
+
 **Everything from here to the end of this step is the retrofit path** for a project that
 already grew up two-tree. **Team Server expects the Mendix project at the repository ROOT.** Verify by looking at the
 template repo the platform just created: it holds `App.mpr`, `mprcontents/`, `theme/`,
@@ -413,6 +421,37 @@ force: the merge above costs one commit and destroys nothing.
 **Every later sync repeats the merge.** `subtree split` is deterministic — the previous split tip
 is an ancestor of the next — but its output never contains the merge commits made on your side, so
 a bare `git subtree push` is rejected as non-fast-forward. Re-merge each time.
+
+**Recovering a split-off Team Server copy** (`status.sh`: *"Team Server has commits made outside
+the toolkit"*). The Team Server copy moved on without the toolkit; make the toolkit project carry
+its model and become the only copy again. Single-tree layout shown; two-tree, do it in `app/`.
+
+1. **Fetch it in.** `git remote add teamserver <url>` if missing, `git fetch teamserver`, then
+   `git log --oneline HEAD..teamserver/main` — those are the outside commits.
+2. **Take its model whole**, never file by file, on a side branch (`git checkout -b ts-recover`):
+   `git rm -rq mprcontents`, then
+   `git checkout teamserver/main -- App.mpr mprcontents javasource theme` (whatever model folders
+   it holds). Removing first is what drops units Team Server deleted; a checkout over the old
+   folder leaves them on disk, unregistered. **`mprname` trap:** keep Team Server's filename —
+   `mprcontents/mprname` must name the `.mpr` on disk (trap 6b); if the toolkit side used another
+   name, `git rm` that `.mpr` and update whatever derives from it, in the same commit.
+3. **`mxcli fix hashes -p App.mpr`, then pass the gate.** A checkout rewrites `mprcontents/`
+   without the `.mpr`'s ContentsHash index; exit 1 means run it with `--repair`, then again to
+   exit 0. Then `mx check` 0 errors and the module count you expect. Commit (explicit paths).
+4. **Adopt with `-X ours`, push without force:** `git merge -X ours --no-edit teamserver/main`
+   (add `--allow-unrelated-histories` if the copy began as a Portal blank app); `git diff --stat
+   HEAD^1 HEAD` must print nothing; `git merge-base --is-ancestor teamserver/main HEAD` must pass;
+   `git push teamserver ts-recover:main` with no `+` in `--dry-run`. Then merge `ts-recover` into
+   your main line.
+   **Both sides changed the model** since the split? Step 2 discards the toolkit side's model
+   changes: replay those scripts through `./bin/exec.sh` on top, or merge with the model-aware
+   `mxcli git merge teamserver/main` — **mxcli ≥ 0.30 only** (absent in v0.28/v0.29), per
+   `skills/parallel-builds.md` §4–5, never a plain `git merge` of the model.
+5. **Sync the metadata notes:** `"$PY" bin/mx-metadata-note.py sync teamserver` (trap 6c), so
+   Studio Pro reads the right version and History lists the changes.
+6. **Retire the extra copy.** Confirm with `git ls-remote teamserver main`, record the Team Server
+   remote in `PROJECT.md`, then delete the other checkout (or archive it read-only). Anyone who
+   needs Studio Pro opens this project.
 
 ### 4. Deploy
 

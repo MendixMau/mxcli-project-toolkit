@@ -97,7 +97,7 @@ Every mxbuild/`mx` red belongs to exactly one lane, and the fix is lane-specific
 | Lane | Where the binary comes from | Runs on | What red means |
 |---|---|---|---|
 | **Studio Pro bundled** | the install's own `modeler/mx` (`Contents/modeler/mx` on macOS, `modeler/mx.exe` on Windows) | macOS, Windows | The install is missing, or is a build that ships no bundled `mx` — list the installs and look for the file |
-| **Standalone CDN toolchain** | `mxcli setup mxbuild` / `doctor.sh --install` (add `--yes` with no terminal), cached under `~/.mxcli/mxbuild/` | Linux; macOS only when the cached build is Mach-O | Run `file ~/.mxcli/mxbuild/<ver>/modeler/mx` first: an ELF (seen on macOS for 10.24 and 11.12) cannot run natively, a Mach-O arm64 build (seen for 11.14.0, #525) does. Windows: unverified |
+| **Standalone CDN toolchain** | `mxcli setup mxbuild` / `doctor.sh --install` (add `--yes` with no terminal), cached under `~/.mxcli/mxbuild/` | Linux (WSL included) only: the Mendix CDN publishes Linux mxbuild only, and `mxcli setup mxbuild` refuses elsewhere | On macOS, run `file ~/.mxcli/mxbuild/<ver>/modeler/mx`: an ELF (seen for 10.24 and 11.12) cannot run natively; a Mach-O build in the cache (seen for 11.14.0, #525) did not come from the CDN, so treat it as the Studio Pro lane. Windows: use Studio Pro |
 | **Container** | the same Linux toolchain, inside a container | anywhere a container runtime runs | See the limitation below before believing this one |
 
 **macOS: Mendix 11 is a platform requirement, not a toolkit preference.** macOS Studio Pro was Beta

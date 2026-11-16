@@ -55,7 +55,7 @@ out="$("$TK/bin/install-claude-permissions.sh" "$P" --hooks-only --check 2>&1)";
   || bad "H1: rc=$rc" "$out"
 
 # H2
-out="$(bash "$TK/bin/doctor.sh" "$P" 2>&1)"
+out="$(MXTK_CLAUDE=1 bash "$TK/bin/doctor.sh" "$P" 2>&1)"
 { printf '%s' "$out" | grep -q 'no hook for' && printf '%s' "$out" | grep -q 'look-ledger seen' \
     && printf '%s' "$out" | grep -q -- '--hooks-only'; } \
   && ok "H2: doctor warns about the missing hooks and names the fix" \
@@ -106,7 +106,7 @@ fsum="$(cat "$F/.claude/settings.json")"
 O="$WORK/optout"; cp -R "$P" "$O"; mkdir -p "$O/.mxtk"; touch "$O/.mxtk/no-hook-repair"
 printf '{"allow":["Bash(./mxcli:*)"],"deny":[]}\n' > "$O/.claude/.mxtk-permissions-added.json"
 osum="$(cat "$O/.claude/settings.json")"
-out="$("$TK/bin/sync-project.sh" "$O" 2>&1)"; dout="$(bash "$TK/bin/doctor.sh" "$O" 2>&1)"
+out="$("$TK/bin/sync-project.sh" "$O" 2>&1)"; dout="$(MXTK_CLAUDE=1 bash "$TK/bin/doctor.sh" "$O" 2>&1)"
 { ! grep -q 'look-ledger' "$O/.claude/settings.json" && ! printf '%s' "$out" | grep -q 'Added: Claude Code hooks\|no look-ledger / session-check hook' \
     && ! printf '%s' "$dout" | grep -q 'no hook for'; } \
   && ok "H8: .mxtk/no-hook-repair stops the repair, the sync warning and the doctor warning" \
@@ -124,7 +124,7 @@ grep -qF 'sh .claude/bootstrap-mxcli.sh' "$S" && grep -qF '"Bash(./mxcli:*)"' "$
 sum1="$(cat "$S")"
 "$TK/bin/sync-project.sh" "$P" >/dev/null 2>&1
 [ "$sum1" = "$(cat "$S")" ] && ok "H4: a second sync changes nothing" || bad "H4: second sync rewrote settings.json"
-out="$(bash "$TK/bin/doctor.sh" "$P" 2>&1)"
+out="$(MXTK_CLAUDE=1 bash "$TK/bin/doctor.sh" "$P" 2>&1)"
 printf '%s' "$out" | grep -q 'hooks are in .claude/settings.json' \
   && ok "H4: doctor now passes the hook check" || bad "H4: doctor still flags the hook"
 

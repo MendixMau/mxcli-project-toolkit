@@ -1648,7 +1648,7 @@ GATE_OK=1
 # Studio Pro install (the root mxbuild and the bundled JRE are discovered under).
 if [ -n "$SP_APP" ]; then
   ok "Studio Pro install: $SP_APP"
-elif [ "$PLATFORM" = linux ]; then
+elif [ "$PLATFORM" = linux ] || [ "$PLATFORM" = wsl ]; then
   warn "no Studio Pro install (none exists for Linux)."
   note "A standalone mxbuild works instead: bin/doctor.sh --install <project-dir> downloads"
   note "one to ~/.mxcli (the container build's toolchain), or set MXBUILD_PATH=/path/to/mxbuild."

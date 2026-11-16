@@ -68,10 +68,12 @@ EXPECTED_SHARED=(
   "Bash(mxcli *)"
 )
 # The entries that embed the absolute toolkit-root path -> the per-machine settings.local.json:
-# two per toolkit script (exec.sh is the project's own copy, never the toolkit's).
+# two per toolkit script (exec.sh is the project's own copy, never the toolkit's; the scripts that
+# record a person's decision and the sourced _*.sh libraries get none — #781 review).
 EXPECTED_LOCAL=()
 for _f in "$TOOLKIT_ROOT"/bin/*.sh; do
-  _n="${_f##*/}"; [ "$_n" = exec.sh ] && continue
+  _n="${_f##*/}"
+  case "$_n" in exec.sh|_*|install-claude-permissions.sh|install-harness-permissions.sh|permission-profile.sh|exec-approval.sh|interview-mode.sh) continue ;; esac
   EXPECTED_LOCAL+=( "Bash($TOOLKIT_ROOT/bin/$_n *)" "Bash(bash $TOOLKIT_ROOT/bin/$_n *)" )
 done
 
@@ -418,7 +420,7 @@ PY
 }
 P12="$WORK/p780"; mkdir -p "$P12/bin" "$HOME/.mxcli/mxbuild/11.12.0/modeler"
 : > "$HOME/.mxcli/mxbuild/11.12.0/modeler/mx"
-for s in exec.sh gate-check.sh status.sh doctor.sh; do : > "$P12/bin/$s"; done
+for s in exec.sh gate-check.sh status.sh doctor.sh interview-mode.sh exec-approval.sh _common.sh; do : > "$P12/bin/$s"; done
 "$SUBJECT" "$P12" --profile wrappers >"$WORK/t12.out" 2>&1
 MX="$HOME/.mxcli/mxbuild/11.12.0/modeler/mx"
 py_rules shape "$P12/.claude/settings.json" "$P12/.claude/settings.local.json" \
@@ -436,6 +438,14 @@ py_rules match "$P12/.claude/settings.local.json" -- "$TOOLKIT_ROOT/bin/doctor.s
 py_get_allow "$P12/.claude/settings.json" | grep -qF "mxbuild" \
   && bad "T12: a per-machine mxbuild rule leaked into the shared settings.json" \
   || ok "T12: mxbuild rules stay in settings.local.json"
+{ py_get_allow "$P12/.claude/settings.json"; py_get_allow "$P12/.claude/settings.local.json"; } \
+  | grep -E 'install-claude-permissions\.sh|install-harness-permissions\.sh|permission-profile\.sh|exec-approval\.sh|interview-mode\.sh|/_[a-z]+\.sh' \
+  && bad "T12: an allow rule lets the agent run a script that records a person's decision, or a sourced library" \
+  || ok "T12: permission/approval/interview-mode scripts and _*.sh libraries keep prompting (#781 review)"
+"$SUBJECT" "$P12" --hooks-only --check >"$WORK/t12-hooks.out" 2>&1
+grep -q "the next install removes" "$WORK/t12-hooks.out" \
+  && bad "T12: --hooks-only --check lists allow entries as stale (it never prunes)" \
+  || ok "T12: --hooks-only --check lists no stale allow entries"
 py_rules match "$P12/.claude/settings.json" -- ./bin/gate-check.shx >/dev/null \
   && bad "T12: a rule matches a different program (./bin/gate-check.shx)" \
   || ok "T12: rules end at the script name (./bin/gate-check.shx is not allowed)"

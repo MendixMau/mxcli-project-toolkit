@@ -192,6 +192,10 @@ _script_rules() {  # $1 = directory, $2... = prefixes ("./bin/", "bash bin/", ..
     [ -f "$f" ] || continue
     n="${f##*/}"
     case "$n" in exec.sh|*[\*\ \(\)]*) continue ;; esac  # exec.sh is listed first, always
+    # Scripts that record a person's decision about what the agent may do keep prompting: an
+    # allow rule would let an agent widen its own permissions (`--profile full` adds a bare
+    # `Bash`), set its own exec autonomy or interview mode. Sourced libraries (`_*.sh`) are never run.
+    case "$n" in _*|install-claude-permissions.sh|install-harness-permissions.sh|permission-profile.sh|exec-approval.sh|interview-mode.sh) continue ;; esac
     for p in "$@"; do printf '%s\n' "Bash($p$n *)"; done
   done
 }
@@ -397,7 +401,8 @@ if mode == "check":
     missing_hooks = [h for h in hook_specs if not hook_present(d, h) or extra_copies(d, h)]
     # Entries an earlier run added that this one no longer wants (e.g. the pre-#780 wildcard
     # `Bash(./bin/*.sh:*)`): named so the re-run's removals are no surprise; not a failure alone.
-    stale = [e for e in allow if e in added and e not in entries]
+    # Not under --hooks-only: that mode passes no entries and never prunes (#781 review).
+    stale = [] if os.environ.get("MXTK_HOOKS_ONLY") == "1" else [e for e in allow if e in added and e not in entries]
     if stale:
         print("Entries an earlier install added that the next install removes (%s):" % settings_path)
         for m in stale:

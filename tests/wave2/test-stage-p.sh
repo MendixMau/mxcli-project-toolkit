@@ -5,7 +5,8 @@
 #
 # Run it against the PRE-fix script too — that is the positive control. A suite that has
 # only ever seen the fix cannot show that it discriminates. Expected on the pre-fix script:
-# T2, T3, T5a, T5b, T6a, T8 and T10 fail.
+# T2, T3, T5a, T5b, T6a, T8 and T10 fail. T12 reads bin/lib/intake-template.sh beside the
+# gate; it fails on a template from before #766.
 #
 #   tests/wave2/test-stage-p.sh /path/to/gate-check.sh
 #
@@ -192,6 +193,29 @@ if ! printf '%s' "$V" | grep -q 'PASS' && printf '%s' "$V" | grep -q 'PENDING' \
   ok "missing intake reports PENDING and names both search paths"
 else
   bad "missing intake message unhelpful: $V"
+fi
+
+echo "== T12: the auto-mode answer form is documented in the preamble, and passes (#766) =="
+# An Interview mode: auto run wrote "Assumed (Interview mode auto)" answers, FAILed Stage P, and
+# learned the accepted form only from the FAIL message. The preamble an auto-mode agent reads
+# first must name the form, and a section answered in it must PASS. The template is read from
+# beside the gate under test, so the master copy is the positive control.
+TPL="$(dirname "$GATE")/lib/intake-template.sh"
+if [ -f "$TPL" ] && ( . "$TPL" && mxtk_intake_template ) | sed '/^## /,$d' | grep -q 'Assumed (auto-mode):'; then
+  ok "intake preamble names the 'Assumed (auto-mode):' form"
+else
+  bad "intake preamble does not name the 'Assumed (auto-mode):' form ($TPL)"
+fi
+P="$(mkproj t12)"
+{ section '1. Entry mode?' 'Assumed (auto-mode): greenfield — rejected: requirements-driven.'
+  section '2. Which ERP?'  'Assumed (auto) — none.'
+} > "$P/intake.md"
+V="$(stagep "$P")"
+if printf '%s' "$V" | grep -q 'FAIL' && printf '%s' "$V" | grep -q '2. Which ERP?' \
+   && ! printf '%s' "$V" | grep -q '1. Entry mode?'; then
+  ok "'Assumed (auto-mode):' passes; the colon-less form still fails"
+else
+  bad "auto-mode answer mis-graded: $V"
 fi
 
 echo ""

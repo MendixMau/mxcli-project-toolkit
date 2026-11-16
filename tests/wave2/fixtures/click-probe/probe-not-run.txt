@@ -1,0 +1,3 @@
+click-probe: COULD NOT RUN - app not reachable at http://localhost:1 (start it: bin/test-stack-up.sh)
+This is the instrument failing, not the app passing: nothing was measured.
+MXTK-RESULT click-probe verdict=could-not-run findings=0 accepted=0 pages=0 controls=0 personas=0 exit=4

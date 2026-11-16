@@ -100,6 +100,20 @@ if [ -f "$RL" ]; then
 else
   echo "  [skip] no reload.sh beside $SUT"
 fi
+echo "== C4 click probe: one advisory line, never a verdict or an exit code (replays real probe output)"
+CPF="$TK/tests/wave2/fixtures/click-probe"
+for sc in "clean:0:click probe: clean over 4 page-views" "findings:1:click probe: 2 finding(s), advisory: click does not land: /p/covered btnGo" "not-run:4:click probe: NOT RUN (app not reachable at http://localhost:1 (start it: bin/test-stack-up.sh); advisory)"; do
+  kind="${sc%%:*}"; want="${sc#*:*:}"
+  P5="$WORK/cp-$kind"; mkproj "$P5" ""; mkdir -p "$P5/tests/e2e"
+  printf 'process.stdout.write(require("fs").readFileSync(process.argv[2],"utf8"));process.exit(Number(process.argv[3]));\n' > "$WORK/replay.js"
+  printf 'process.argv[2]=%s;process.argv[3]=%s;require(%s);\n' "\"$CPF/probe-$kind.txt\"" "$(cat "$CPF/probe-$kind.rc")" "\"$WORK/replay.js\"" > "$P5/tests/e2e/click-probe.js"
+  out=$(cd "$P5" && bash bin/module-close.sh Administration 2>&1); rc=$?
+  { [ "$rc" = 0 ] && printf '%s\n' "$out" | grep -qF "module-close Administration: $want" && grep -qF "$want" "$P5/docs/progress/module-close/Administration.md"; } \
+    && ok "C4 $kind: line '$want...' in stdout and report; exit stays 0 (lint=0), the probe's exit ($(cat "$CPF/probe-$kind.rc")) changes nothing" || bad "C4 $kind: rc=$rc" "$out"
+done
+P5="$WORK/cp-none"; mkproj "$P5" ""
+out=$(cd "$P5" && bash bin/module-close.sh Administration 2>&1)
+printf '%s\n' "$out" | grep -q 'click probe' && bad "C4: probe not installed must stay silent" "$out" || ok "C4 not installed: silent (no probe, no line)"
 echo
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

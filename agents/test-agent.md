@@ -74,6 +74,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/improvement-register.md` | Any review pass that runs more than once |
 | `skills/journey-examples.md` | Writing an actual .journey.json |
 | `skills/wiring-sweep.md` | Every module before it is called done; buttons, links or actions that do nothing when clicked |
+| `skills/click-probe.md` | Module close, once the app runs: a button that may sit under an invisible layer (clicks do not land), a page that scrolls sideways at 390 px, or reading the `click probe:` line module-close prints |
 | `skills/rest-between-mendix-apps.md` | App-to-app REST or microservices: two or more Mendix apps you build that read each other over REST |
 | `skills/upstream-feedback.md` | About to open an issue, PR or discussion against mxcli or the toolkit |
 | `skills/empty-widget-triage.md` | A page/grid/list/combobox renders or shows empty ('0 to 0 of 0', blank cells, zero rows, zero options) during UI review or an e2e run |

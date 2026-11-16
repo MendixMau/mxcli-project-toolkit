@@ -779,6 +779,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Running lint as a gate rather than a report — per-rule ratchet against a committed baseline, plus the crash and collapse guards that stop a blind rule passing | `project-bin/lint-gate.sh` |
 | Reading a lint result, or writing/repairing any .star rule — lint's failure mode is a confident clean pass, so 0 findings is a claim needing evidence | `skills/lint-that-actually-runs.md` |
 | Every module before it is called done; buttons, links or actions that do nothing when clicked — does every clickable thing actually do something; run AFTER the happy-path journey is green, never before | `skills/wiring-sweep.md` |
+| Module close, once the app runs: a button that may sit under an invisible layer (clicks do not land), a page that scrolls sideways at 390 px, or reading the `click probe:` line module-close prints | `skills/click-probe.md` |
 | The user asks for a full end-to-end test, a click-through proof, or does-everything-actually-work — or you are unsure which harness skill applies; this one routes you | `skills/full-harness-audit.md` |
 | End of any build+test cycle that wrote docs/report.json — did the testing itself hold up, not just get filed; one level up from finding-disposition | `skills/test-result-audit.md` |
 | Any report from a test/review run is about to be published — no report ends without a disposition for every finding | `skills/finding-disposition.md` |

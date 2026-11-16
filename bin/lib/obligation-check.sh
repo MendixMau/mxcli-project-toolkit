@@ -55,6 +55,7 @@ test-stack-up          project-level setup, done once
 coherence-cadence      the trigger for the coherence obligation, not a second obligation
 process-coherence-pass the coherence obligation is its mark
 monkey-test            runs inside verify-module.sh and lands in its summary
+click-probe            advisory line at module close; never a pass that is owed
 existing-app-assurance the a-la-carte entry; by definition owes the pipeline nothing
 learned-skill-ux-audit  a technique applied during the LOOK, which already owes a mark
 learned-skill-scope-delta  a technique, not a pass

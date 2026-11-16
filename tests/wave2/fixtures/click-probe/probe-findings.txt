@@ -1,0 +1,17 @@
+click-probe: http://localhost:41361, 2 persona(s) configured, widths 1280 + 390 px
+  alice 1280px /p/home: 6 controls
+  alice 1280px /p/covered: 5 controls - FINDING
+  alice 1280px /p/bar: 5 controls
+  alice 390px /p/home: 6 controls
+  alice 390px /p/covered: 5 controls - FINDING
+  alice 390px /p/bar: 5 controls - FINDING
+    ⚠ login as "carol" rejected: The username or password is incorrect (not retrying — avoids account lockout)
+  carol: NOT PROBED - login as "carol" failed (The username or password is incorrect)
+FINDING click does not land: /p/covered btnGo "Go" covered by promoStrip (alice at 1280 px)
+FINDING click does not land: /p/covered btnGo "Go" covered by promoStrip (alice at 390 px)
+accepted page scrolls sideways at 390: /p/bar, widest element wideBar, 3 px over - desktop-only bar
+accepted list line 1: no reason: ignored, the finding stays a finding [click	/p/covered	btnGo	]
+NOT PROBED persona carol: login as "carol" failed (The username or password is incorrect)
+MXTK-RESULT click-probe verdict=findings findings=2 accepted=1 pages=6 controls=32 personas=1 exit=1
+denominator: 6 page-views (alice 3 pages; x 2 widths), 32 controls checked, 0 skipped (hidden, disabled or off-screen)
+click-probe: 2 finding(s)

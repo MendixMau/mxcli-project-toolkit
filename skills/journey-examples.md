@@ -321,6 +321,7 @@ Each of these is either an error path in the runner or a correction recorded in 
 | Treating "seeds returned nothing" as a feature failure | someone debugs the app for a fixture gap | `INVALID`; see `fixture-seeding.md`'s four-cause table |
 | `persona` drifting from `TEST_USER` | the report names an identity that never walked | keep them in step; check `usedFallback` in the findings file |
 | Reading a green `assocMustBeSet` as "linked to the right row" | the wrong-but-valid neighbour passes everything | add `mustPointAt`, and reset the fixture so it means something |
+| Asserting a list only after a reload, or not after the action at all | a Retire action committed with no refresh, the list kept saying Open until the page was reloaded, and nothing caught it (planted-defect experiment, 2026-11) | after an action that changes a list, assert the list shows the change WITHOUT reloading the page |
 | Running `--positive-control` against a demo baseline | the control run writes real rows | separate fixture; the runner already writes controls to `journey-findings-control.json` |
 
 ---

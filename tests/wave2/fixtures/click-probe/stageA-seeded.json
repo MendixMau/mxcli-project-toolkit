@@ -1,0 +1,270 @@
+[
+ {
+  "persona": "learner1",
+  "width": 1280,
+  "page": "/",
+  "landed": "/p/home",
+  "checked": 12,
+  "covered": [],
+  "overflowPx": 0
+ },
+ {
+  "persona": "learner1",
+  "width": 1280,
+  "page": "/p/home",
+  "landed": "/p/home",
+  "checked": 12,
+  "covered": [],
+  "overflowPx": 0
+ },
+ {
+  "persona": "learner1",
+  "width": 1280,
+  "page": "/p/practice",
+  "landed": "/p/practice",
+  "checked": 9,
+  "covered": [],
+  "overflowPx": 0
+ },
+ {
+  "persona": "learner1",
+  "width": 1280,
+  "page": "/p/flashcards",
+  "landed": "/p/flashcards",
+  "checked": 8,
+  "covered": [
+   {
+    "kind": "covered",
+    "label": "Show meaning",
+    "cls": "btn mx-button mx-name-btnFlip btn-primary",
+    "coveredBy": "DIV.mx-name-promoStrip"
+   },
+   {
+    "kind": "covered",
+    "label": "Next",
+    "cls": "btn mx-button mx-name-btnNextCard tb-btn-secondary btn-defau",
+    "coveredBy": "DIV.mx-name-promoStrip"
+   }
+  ],
+  "overflowPx": 0
+ },
+ {
+  "persona": "learner1",
+  "width": 1280,
+  "page": "/p/team",
+  "landed": "/p/team",
+  "checked": 12,
+  "covered": [],
+  "overflowPx": 0
+ },
+ {
+  "persona": "learner1",
+  "width": 1280,
+  "page": "/p/questions",
+  "landed": "/p/questions",
+  "checked": 8,
+  "covered": [],
+  "overflowPx": 0
+ },
+ {
+  "persona": "learner1",
+  "width": 390,
+  "page": "/",
+  "landed": "/p/home",
+  "checked": 12,
+  "covered": [],
+  "overflowPx": 0
+ },
+ {
+  "persona": "learner1",
+  "width": 390,
+  "page": "/p/home",
+  "landed": "/p/home",
+  "checked": 12,
+  "covered": [],
+  "overflowPx": 0
+ },
+ {
+  "persona": "learner1",
+  "width": 390,
+  "page": "/p/practice",
+  "landed": "/p/practice",
+  "checked": 9,
+  "covered": [],
+  "overflowPx": 0
+ },
+ {
+  "persona": "learner1",
+  "width": 390,
+  "page": "/p/flashcards",
+  "landed": "/p/flashcards",
+  "checked": 8,
+  "covered": [
+   {
+    "kind": "covered",
+    "label": "Show meaning",
+    "cls": "btn mx-button mx-name-btnFlip btn-primary",
+    "coveredBy": "DIV.mx-name-promoStrip"
+   },
+   {
+    "kind": "covered",
+    "label": "Next",
+    "cls": "btn mx-button mx-name-btnNextCard tb-btn-secondary btn-defau",
+    "coveredBy": "DIV.mx-name-promoStrip"
+   }
+  ],
+  "overflowPx": 0
+ },
+ {
+  "persona": "learner1",
+  "width": 390,
+  "page": "/p/team",
+  "landed": "/p/team",
+  "checked": 12,
+  "covered": [],
+  "overflowPx": 17
+ },
+ {
+  "persona": "learner1",
+  "width": 390,
+  "page": "/p/questions",
+  "landed": "/p/questions",
+  "checked": 8,
+  "covered": [],
+  "overflowPx": 0
+ },
+ {
+  "persona": "trainer1",
+  "width": 1280,
+  "page": "/",
+  "landed": "/p/home",
+  "checked": 7,
+  "covered": [],
+  "overflowPx": 0
+ },
+ {
+  "persona": "trainer1",
+  "width": 1280,
+  "page": "/p/home",
+  "landed": "/p/home",
+  "checked": 7,
+  "covered": [],
+  "overflowPx": 0
+ },
+ {
+  "persona": "trainer1",
+  "width": 1280,
+  "page": "/p/practice",
+  "landed": "/p/practice",
+  "checked": 9,
+  "covered": [],
+  "overflowPx": 0
+ },
+ {
+  "persona": "trainer1",
+  "width": 1280,
+  "page": "/p/flashcards",
+  "landed": "/p/flashcards",
+  "checked": 8,
+  "covered": [
+   {
+    "kind": "covered",
+    "label": "Show meaning",
+    "cls": "btn mx-button mx-name-btnFlip btn-primary",
+    "coveredBy": "DIV.mx-name-promoStrip"
+   },
+   {
+    "kind": "covered",
+    "label": "Next",
+    "cls": "btn mx-button mx-name-btnNextCard tb-btn-secondary btn-defau",
+    "coveredBy": "DIV.mx-name-promoStrip"
+   }
+  ],
+  "overflowPx": 0
+ },
+ {
+  "persona": "trainer1",
+  "width": 1280,
+  "page": "/p/team",
+  "landed": "/p/team",
+  "checked": 13,
+  "covered": [],
+  "overflowPx": 0
+ },
+ {
+  "persona": "trainer1",
+  "width": 1280,
+  "page": "/p/questions",
+  "landed": "/p/questions",
+  "checked": 39,
+  "covered": [],
+  "overflowPx": 0
+ },
+ {
+  "persona": "trainer1",
+  "width": 390,
+  "page": "/",
+  "landed": "/p/home",
+  "checked": 7,
+  "covered": [],
+  "overflowPx": 0
+ },
+ {
+  "persona": "trainer1",
+  "width": 390,
+  "page": "/p/home",
+  "landed": "/p/home",
+  "checked": 7,
+  "covered": [],
+  "overflowPx": 0
+ },
+ {
+  "persona": "trainer1",
+  "width": 390,
+  "page": "/p/practice",
+  "landed": "/p/practice",
+  "checked": 9,
+  "covered": [],
+  "overflowPx": 0
+ },
+ {
+  "persona": "trainer1",
+  "width": 390,
+  "page": "/p/flashcards",
+  "landed": "/p/flashcards",
+  "checked": 8,
+  "covered": [
+   {
+    "kind": "covered",
+    "label": "Show meaning",
+    "cls": "btn mx-button mx-name-btnFlip btn-primary",
+    "coveredBy": "DIV.mx-name-promoStrip"
+   },
+   {
+    "kind": "covered",
+    "label": "Next",
+    "cls": "btn mx-button mx-name-btnNextCard tb-btn-secondary btn-defau",
+    "coveredBy": "DIV.mx-name-promoStrip"
+   }
+  ],
+  "overflowPx": 0
+ },
+ {
+  "persona": "trainer1",
+  "width": 390,
+  "page": "/p/team",
+  "landed": "/p/team",
+  "checked": 13,
+  "covered": [],
+  "overflowPx": 17
+ },
+ {
+  "persona": "trainer1",
+  "width": 390,
+  "page": "/p/questions",
+  "landed": "/p/questions",
+  "checked": 39,
+  "covered": [],
+  "overflowPx": 0
+ }
+]

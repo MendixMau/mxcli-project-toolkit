@@ -1,0 +1,33 @@
+ok learner1 1280px / (landed /p/home, 12 controls)
+ok learner1 1280px /p/home (landed /p/home, 12 controls)
+ok learner1 1280px /p/practice (landed /p/practice, 9 controls)
+VIOLATION learner1 1280px /p/flashcards -> covered=2 overflowPx=0
+   covered "Show meaning" by DIV.mx-name-promoStrip
+   covered "Next" by DIV.mx-name-promoStrip
+ok learner1 1280px /p/team (landed /p/team, 12 controls)
+ok learner1 1280px /p/questions (landed /p/questions, 8 controls)
+ok learner1 390px / (landed /p/home, 12 controls)
+ok learner1 390px /p/home (landed /p/home, 12 controls)
+ok learner1 390px /p/practice (landed /p/practice, 9 controls)
+VIOLATION learner1 390px /p/flashcards -> covered=2 overflowPx=0
+   covered "Show meaning" by DIV.mx-name-promoStrip
+   covered "Next" by DIV.mx-name-promoStrip
+VIOLATION learner1 390px /p/team -> covered=0 overflowPx=17
+ok learner1 390px /p/questions (landed /p/questions, 8 controls)
+ok trainer1 1280px / (landed /p/home, 7 controls)
+ok trainer1 1280px /p/home (landed /p/home, 7 controls)
+ok trainer1 1280px /p/practice (landed /p/practice, 9 controls)
+VIOLATION trainer1 1280px /p/flashcards -> covered=2 overflowPx=0
+   covered "Show meaning" by DIV.mx-name-promoStrip
+   covered "Next" by DIV.mx-name-promoStrip
+ok trainer1 1280px /p/team (landed /p/team, 13 controls)
+ok trainer1 1280px /p/questions (landed /p/questions, 39 controls)
+ok trainer1 390px / (landed /p/home, 7 controls)
+ok trainer1 390px /p/home (landed /p/home, 7 controls)
+ok trainer1 390px /p/practice (landed /p/practice, 9 controls)
+VIOLATION trainer1 390px /p/flashcards -> covered=2 overflowPx=0
+   covered "Show meaning" by DIV.mx-name-promoStrip
+   covered "Next" by DIV.mx-name-promoStrip
+VIOLATION trainer1 390px /p/team -> covered=0 overflowPx=17
+ok trainer1 390px /p/questions (landed /p/questions, 39 controls)
+CLICK-PROBE: 24 page-views, 6 with violations

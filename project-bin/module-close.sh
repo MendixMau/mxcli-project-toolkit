@@ -87,6 +87,23 @@ fi
 marked=$(bash bin/conformance-check.sh --module "$mod" --mark-built --quiet 2>/dev/null | grep -- '--mark-built:' || true)
 vm=$(bash bin/verify-module.sh "$mod" --quick 2>&1); vm_rc=$?; vm=$(printf '%s\n' "$vm" | tail -15)
 look=$(bash bin/look-ledger.sh status 2>/dev/null | grep -E "\b$mod\." || true)
+# Click probe (tests/e2e/click-probe.js): ADVISORY, one line like gate-check's security_check_line:
+# never a verdict, never an exit code of this script. Is a button under an invisible layer, does a
+# page scroll sideways at 390 px. Needs the running app; when it is not reachable the line says
+# NOT RUN, never green. Silent only where the probe is not installed (bin/sync-project.sh installs it).
+cp_line=""
+if [ -f tests/e2e/click-probe.js ] && command -v node >/dev/null 2>&1; then
+  _cp_out=$(mktemp "${TMPDIR:-/tmp}/module-close-clickprobe.XXXXXX")
+  node tests/e2e/click-probe.js > "$_cp_out" 2>&1 < /dev/null; _cp_rc=$?
+  _cp_den=$(sed -n 's/^denominator: //p' "$_cp_out" | head -1)
+  case "$_cp_rc" in
+    0) cp_line="click probe: clean over $_cp_den (advisory)" ;;
+    1) cp_line="click probe: $(grep -c '^FINDING' "$_cp_out") finding(s), advisory: $(grep '^FINDING' "$_cp_out" | head -2 | sed 's/^FINDING //; s/ (.*//' | tr '\n' ';') run node tests/e2e/click-probe.js for all of them" ;;
+    *) _cp_why=$(sed -n 's/^click-probe: COULD NOT RUN - //p' "$_cp_out" | head -1 | cut -c1-120)
+       cp_line="click probe: NOT RUN (${_cp_why:-exit $_cp_rc}; advisory)" ;;
+  esac
+  rm -f "$_cp_out"
+fi
 # Polish loop per page (module-review.md stage 4, #686): numbers from PROJECT.md `Pipeline mode:`
 # (75%/3, 85%/3 default, 90%/5), `UI polish: <N>% / <R> rounds` overrides either (_common.sh).
 read -r pt pr <<EOF2
@@ -117,6 +134,7 @@ pt=${pt:-85}; pr=${pr:-3}; pmode=$(mxtk_pipeline_mode "$PROJECT_ROOT" 2>/dev/nul
   pages=$(printf '%s\n' "$look" | grep -oE "\b$mod\.[A-Za-z0-9_]+" | sort -u)
   if [ -n "$pages" ]; then printf '%s\n' "$pages" | while IFS= read -r pg; do echo "| $pg | Polish: 0 of $pr | | | |"; done
   else echo "| $mod.<Page> | Polish: 0 of $pr | | | |"; fi
+  [ -n "$cp_line" ] && { echo; echo "## 5c. Click probe (advisory)"; echo; echo "$cp_line"; }
   echo; echo "## 6. Lead: roles × pages, unhappy paths, fixes"; echo
   echo "Journeys and unit tests owed: \`./bin/affected-tests.sh --moment module --module $mod\`, then its run rows."
   echo "LOOK every page at 390 and 1280. Polish loop per page (Pipeline mode: $pmode), up to $pr rounds of fix → page-fidelity → LOOK;"
@@ -134,4 +152,5 @@ if bash bin/model-stamp.sh check -q --full >/dev/null 2>&1; then
   { mkdir -p .claude/loop && touch .claude/loop/prepush-build.last && rm -f .claude/loop/prepush-deferred; } 2>/dev/null
 fi
 echo "module-close $mod: $nmine lint ⚠, verify-module exit $vm_rc, report $rep"
+[ -n "$cp_line" ] && echo "module-close $mod: $cp_line"
 [ "$nmine" -eq 0 ] || exit 1

@@ -22,6 +22,7 @@
 #   B3 two-tree (app/X.mpr): app/deployment/ unchanged, the copy is the app folder
 #   B4 the sync: a file deleted from the model leaves the copy; the copy's deployment/ survives a
 #      sync; .git, .mxcli, sources/, *.mpr.lock are not copied; .mxtk/ ignores itself
+#   B4c a nested node_modules (widgets/W/node_modules) is never copied, and a stale one is removed (#764)
 #   B5 a compile error printed from the copy names the REAL file, not .mxtk/build/
 #   B6 MXTK_GATE_IN_PLACE=1 builds in place, as before, and says so
 #   B7 the pre-push hook prints the restart line only after an in-place build
@@ -126,6 +127,22 @@ python3 -I "$BT" "$P/Shop.mpr" "$P/.mxtk/build/model" >/dev/null 2>&1  # portabi
   && ok "B4 a same-size change within the same second is copied (mtime in nanoseconds)" || bad "B4 sub-second change missed"
 rm -f "$RO"
 [ -z "$(cd "$P" && git status --porcelain -- .mxtk)" ] && ok "B4 git status shows nothing under .mxtk/" || bad "B4 .mxtk shows in git status"
+
+echo "-- B4c a nested node_modules (a custom widget's sources) is never copied (#764)"
+W="$WORK/widget"; mkdir -p "$W/widgets/W/node_modules/dep" "$W/widgets/W/src" "$W/widgets/W/docs"
+printf 'not a real model\n' > "$W/Shop.mpr"; printf 'module.exports = 1;\n' > "$W/widgets/W/node_modules/big.js"
+printf 'x\n' > "$W/widgets/W/node_modules/dep/index.js"; printf 'export const W = 1;\n' > "$W/widgets/W/src/W.tsx"
+printf 'widget docs\n' > "$W/widgets/W/docs/README.md"
+OUT="$(python3 -I "$BT" "$W/Shop.mpr" "$W/.mxtk/build/model" 2>&1)"; RC=$?  # portability-ok: fixture runs the script directly
+[ "$RC" -eq 0 ] && ok "B4c exit 0" || bad "B4c exit $RC: $OUT"
+[ -f "$W/.mxtk/build/model/widgets/W/src/W.tsx" ] && ok "B4c the widget's src/W.tsx is copied" || bad "B4c src/W.tsx missing from the copy"
+[ ! -e "$W/.mxtk/build/model/widgets/W/node_modules" ] && ok "B4c widgets/W/node_modules is not copied" || bad "B4c widgets/W/node_modules was copied"
+[ -f "$W/.mxtk/build/model/widgets/W/docs/README.md" ] && ok "B4c a nested docs/ (top-level-only name) is still copied" || bad "B4c a nested docs/ was dropped"
+# An older copy (synced before #764) already holds the nested node_modules: the next sync removes it.
+mkdir -p "$W/.mxtk/build/model/widgets/W/node_modules/dep"; printf 'stale\n' > "$W/.mxtk/build/model/widgets/W/node_modules/big.js"
+python3 -I "$BT" "$W/Shop.mpr" "$W/.mxtk/build/model" >/dev/null 2>&1  # portability-ok: fixture runs the script directly
+[ ! -e "$W/.mxtk/build/model/widgets/W/node_modules" ] && ok "B4c a stale nested node_modules in the copy is removed" || bad "B4c a stale nested node_modules lingers in the copy"
+[ -f "$W/.mxtk/build/model/widgets/W/src/W.tsx" ] && ok "B4c   and the widget's sources stay" || bad "B4c the resync dropped src/W.tsx"
 
 echo "-- B5 a compile error from the copy names the real file"
 OUT="$(vm "$P" FAKE_JAVA_ERR=1)"; RC=$?

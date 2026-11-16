@@ -18,6 +18,7 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 `docs/RELEASE-PROCESS.md` §8.
 
 ## Unreleased
+- fix(build-tree): **`bin/build-tree.py` excludes `node_modules` at any depth, not only at the project root (#764)**: `skip()` ran only for top-level names, so a custom widget's nested `widgets/<W>/node_modules` (1.2 GB in the field) was copied into `.mxtk/build/model/` on every full build, and one exec stalled for 13+ minutes. A nested `node_modules` already in an existing copy is removed on the next sync; the other excluded names (`deployment`, `docs`, `.mxcli`, `.mxtk`, ...) stay top-level only, since a widget may hold its own. `test-build-tree.sh` B4c covers both. — a Greenfield field run (2026-11-13)
 
 ## v2026.11.16
 - fix(gitignore): **`bin/doctor.sh` appends its machine-local entries (`.doctor-receipt`, `toolkit.env`, `progress-report-sessions.txt`, `.property-sets-receipt`) through `mxtk_gitignore_ensure`**: a CRLF `.gitignore` got LF lines (mixed endings) and could get an entry it already had added again; LF files get the same bytes as before, and the "(added … to the project's .gitignore)" note now prints only when a line was actually written — follow-up to the .gitignore line-ending fixes, 2026-11

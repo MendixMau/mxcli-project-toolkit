@@ -33,7 +33,8 @@ PROJECT_DIR="${1:-}"
 # macOS ships bash 3.2 as /bin/bash and its $(...) scanner rejects things bash 5 accepts. When
 # the bash on PATH is a different one, parse with /bin/bash too — script-owners.sh shipped
 # unparseable on a Mac this way. `bash -n` there catches an apostrophe in a comment inside
-# $(...); it does not catch a case pattern without a leading "(" (that fails only when run).
+# $(...); it does not catch a case pattern without a leading "(" (that fails only when run;
+# bin/check-portability.sh rule 3 flags it statically).
 SYS_BASH=""
 if [ -x /bin/bash ] && [ "$(/bin/bash -c 'printf %s "$BASH_VERSION"' 2>/dev/null)" != "$BASH_VERSION" ]; then
   SYS_BASH=/bin/bash

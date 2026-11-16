@@ -84,6 +84,21 @@ while IFS= read -r f; do
 $(code_lines "$f" | LC_ALL=C grep -E '^[0-9]+:.*\$[A-Za-z_][A-Za-z0-9_]*[^[:print:][:cntrl:]]')
 EOF
 
+  # 3. A case pattern with no leading "(" inside a $( ... ) command substitution. bash 3.2
+  # (macOS /bin/bash) reads the pattern's unmatched ")" as the end of the substitution, and
+  # bash -n cannot see it because 3.2 parses the substitution only when it runs (#552
+  # script-owners.sh, #763 marketplace-check.sh: every exec of a domain-model script stopped).
+  # Multi-line, so it is a whole-file scan (bin/lib/case-in-subst.awk), not a per-line match.
+  # No file is exempt. Fix: the POSIX form, case "$x" in (pat) ... ;; esac.
+  while IFS= read -r ln; do
+    [ -n "$ln" ] || continue
+    case "$(sed -n "${ln}p" "$f")" in (*portability-ok:*) continue ;; esac
+    report "$f" "$ln" "case pattern without a leading ( inside \$(...) — breaks the substitution on bash 3.2" \
+      'Write the pattern in the POSIX form with a leading paren: case "$x" in (pat) ... ;; esac.'
+  done <<EOF
+$(awk -f "$ROOT/bin/lib/case-in-subst.awk" "$f")
+EOF
+
   is_meta "$f" && continue
 
   while IFS= read -r hit; do

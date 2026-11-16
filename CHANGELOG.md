@@ -18,6 +18,7 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 `docs/RELEASE-PROCESS.md` §8.
 
 ## Unreleased
+- fix(marketplace-check, portability): **`bin/exec.sh` on a domain-model script no longer stops at the marketplace check on macOS `/bin/bash` 3.2 (#763)**: `_mkt_locate` ran `case "$m" in *"refusing to guess"*) ...` inside `$( ... )`, and bash 3.2 read the pattern's `)` as the end of the substitution (the #552 class, `bash -n` blind to it). The pattern now uses the POSIX leading paren `(pat)`; a sweep of `bin/`, `bin/lib/`, `project-bin/` and `claude-hooks/` found no other. New `bin/check-portability.sh` rule 3 (`bin/lib/case-in-subst.awk`, multi-line) flags a case pattern without a leading `(` inside `$( )`, so a third one cannot land; fixture `tests/wave2/test-case-in-subst.sh` — thanarat
 
 ## v2026.11.16
 - fix(gitignore): **`bin/doctor.sh` appends its machine-local entries (`.doctor-receipt`, `toolkit.env`, `progress-report-sessions.txt`, `.property-sets-receipt`) through `mxtk_gitignore_ensure`**: a CRLF `.gitignore` got LF lines (mixed endings) and could get an entry it already had added again; LF files get the same bytes as before, and the "(added … to the project's .gitignore)" note now prints only when a line was actually written — follow-up to the .gitignore line-ending fixes, 2026-11

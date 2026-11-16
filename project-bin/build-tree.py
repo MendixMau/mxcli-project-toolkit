@@ -21,7 +21,14 @@ is never touched here.
 Excluded top-level names: version control, the build output, caches and the toolkit's own state, and
 the project-output folders the toolkit keeps beside a single-tree model (analysis/, sources/,
 knowledge-base/, docs/); MXTK_BUILD_TREE_EXCLUDE adds space-separated names. Studio Pro's
-*.mpr.lock is never copied (it belongs to the real model, #577).
+*.mpr.lock is never copied (it belongs to the real model, #577). Those names are excluded at the top
+only: below it they can be legitimate content (a widget's own docs/ or deployment/ folder).
+node_modules is excluded at ANY depth (#764): a custom widget's source folder held a 1.2 GB
+node_modules that was copied on every exec (one exec stalled 13+ minutes); the build reads the
+widget's built .mpk in widgets/, never its sources' dependencies. A nested node_modules already in
+an older copy is removed on the next sync. The ONE exception is the top-level javascriptsource/ tree:
+a JavaScript action's npm dependencies live in javascriptsource/<module>/**/node_modules and mxbuild
+bundles them, so they are copied like any other source (review of #769).
 
 Exit 0 = synced (stdout: "synced N file(s), removed M", the model directory copied, then the copy's
 .mpr path); 1 = it could not
@@ -33,25 +40,27 @@ import sys
 
 EXCLUDE = {".git", ".svn", ".hg", "deployment", "node_modules", ".mpr-snapshots", ".mxtk", ".mxcli",
            ".claude", "analysis", "sources", "knowledge-base", "docs"}
+EXCLUDE_ANY_DEPTH = {"node_modules"}  # dependency folders: never a model input, wherever they sit (#764)
 
 
 def skip(name):
     return name in EXCLUDE or name.endswith(".mpr.lock")
 
 
-def sync_dir(src, dst, top, stats):
+def sync_dir(src, dst, top, stats, keep_nm=False):
     os.makedirs(dst, exist_ok=True)
     want = set()
     with os.scandir(src) as it:
         for e in it:
-            if top and skip(e.name):
-                continue
+            if (top and skip(e.name)) or (e.name in EXCLUDE_ANY_DEPTH and not keep_nm):
+                continue  # below the top it is not in `want`, so the pass below removes an old copy of it
             want.add(e.name)
             s, d = e.path, os.path.join(dst, e.name)
             if e.is_dir():  # follows a symlinked folder: the build reads its content
                 if os.path.lexists(d) and not os.path.isdir(d):
                     os.remove(d)
-                sync_dir(s, d, False, stats)
+                # javascriptsource/ keeps its node_modules: JavaScript actions' npm dependencies, bundled by mxbuild
+                sync_dir(s, d, False, stats, keep_nm or (top and e.name == "javascriptsource"))
                 continue
             st = e.stat()
             try:

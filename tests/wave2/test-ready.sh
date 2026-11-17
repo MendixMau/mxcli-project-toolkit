@@ -24,9 +24,9 @@ echo "== subject: $SUBJECT"
 [ -f "$SUBJECT" ] && [ -d "$FXS" ] || { echo "FAIL — subject or fixture missing"; echo "PASS=0 FAIL=1"; exit 1; }
 
 # ready.sh commits with the caller's git identity; a CI runner has none
-export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.invalid GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.invalid
+export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
 hook() { printf '{"hook_event_name":"PostToolUse","tool_name":"Read","tool_input":{"file_path":"%s"},"tool_response":{}}' "$1"; }
-G() { git -C "$1" -c user.email=t@example.invalid -c user.name=t "${@:2}"; }
+G() { git -C "$1" -c user.email=t@t -c user.name=t "${@:2}"; }
 
 # mkproject <dir> <root|app> [mode] — a wired project: bin/ installed, three captured pages built
 mkproject() {

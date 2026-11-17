@@ -22,7 +22,7 @@ WORK="$(mktemp -d "${TMPDIR:-/tmp}/citest.XXXXXX")" || exit 2
 trap 'rm -rf "$WORK"' EXIT
 echo "== subject: $SUBJECT"
 [ -f "$SUBJECT" ] && [ -d "$FXS" ] || { echo "FAIL — subject or fixture missing"; echo "PASS=0 FAIL=1"; exit 1; }
-export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.invalid GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.invalid
+export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
 export MXTK_NO_GUIDE=1
 G() { git -C "$1" "${@:2}"; }
 hook() { printf '{"hook_event_name":"PostToolUse","tool_name":"Read","tool_input":{"file_path":"%s"},"tool_response":{}}' "$1"; }

@@ -196,9 +196,7 @@ def load_project(proj):
                     "status": st.group(0).lower() if st else "unknown", "status_txt": c[7], "closed": c[8] if len(c) > 8 else ""})
     m = re.search(r"Entry mode:\s*\**\s*(\w[\w-]*)", md)
     em = (m.group(1).lower() if m else "migration")
-    # The mode-contract vocabulary of artifact-manifest.tsv column 6 (Build type: poc is its own contract).
-    info["entry_mode"] = "requirements-driven" if em.startswith("requirements") else "existing-app" if em.startswith(("existing", "change")) else em
-    if re.search(r"(?im)^[\s>*_-]*Build type\s*\**\s*:\s*\**\s*poc\b", md): info["entry_mode"] = "poc"
+    info["entry_mode"] = "requirements" if em.startswith("requirements") else "existing-app-change" if em.startswith("existing") else em
     info["waived"] = set(re.findall(r"Waived artifact\s+([\w-]+)\s*:", md))
     info["waived_stages"] = set(re.findall(r"(?im)^[\s>*_-]*Waived stage\s+([P0-7])\s*\**\s*:", md))
     for agg in re.findall(r"(?im)^[\s>*_-]*Waived stages\s*\**\s*:\s*([^\n]*)", md):
@@ -344,7 +342,7 @@ def load_manifest(toolkit, mode):
     for line in txt.splitlines():
         if not line.strip() or line.startswith("#"): continue
         c = line.split("\t")
-        if len(c) >= 7 and c[1] in STAGES and (mode in c[5].split(",") or "all" in c[5].split(",")) and c[0] not in WAIVED:
+        if len(c) >= 7 and c[1] in STAGES and mode in c[5].split(",") and c[0] not in WAIVED:
             rows.append({"id": c[0], "stage": c[1], "paths": c[2].split("|"), "absence": c[6].strip()})
     return rows
 

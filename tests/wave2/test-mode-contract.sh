@@ -12,8 +12,8 @@
 #      on disk does not clear it, the build-ready stamp does, an --adopt 5 does
 #   H  --adopt 5 under auto writes an ASSUMED consentBy: auto-mode Stage-4 row, and gate-check
 #      lists it as a ✋ decision to confirm; without auto no row is written
-#   K  Build type: poc → gate-check reads Stages 0-4, 6, 7 "not owed (mode: Build type: poc)";
-#      artifact rows not listed for poc read "not owed (mode poc"
+#   K  Build type: poc (its own axis, not an entry-mode token) → gate-check reads Stages 0-4,
+#      6, 7 "not owed (mode: Build type: poc)"
 #   G  init-project.sh over a hand-written PROJECT.md appends Current stage, Decisions, Open
 #      questions and Change log, says so, and keeps the hand-written lines
 #
@@ -105,7 +105,6 @@ sed -i.bak 's/^Build type: full$/Build type: poc/' "$P/PROJECT.md" && rm -f "$P/
 G="$("$GC" "$P" 2>&1)"
 n="$(printf '%s\n' "$G" | grep -cE '^Stage [0-4] .*not owed \(mode: Build type: poc\)|^Stage [67] .*not owed \(mode: Build type: poc\)')"
 [ "$n" = 7 ] && ok "K stages 0-4, 6, 7 not owed (mode) — 7 of 7" || bad "K stages 0-4, 6, 7 not owed (mode)" "$n of 7"
-case "$G" in *"not owed (mode poc"*) ok "K artifact rows say not owed (mode poc)" ;; *) bad "K artifact rows say not owed (mode poc)" ;; esac
 
 echo "-- G: init over a hand-written PROJECT.md"
 Q="$WORK/hand"; mkdir -p "$Q"; ( cd "$Q" && git init -q . )

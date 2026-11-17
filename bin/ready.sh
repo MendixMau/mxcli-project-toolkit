@@ -262,6 +262,20 @@ fi
 # --- independent review, unattended mode only -------------------------------------------------
 step "review: interview mode" "$TMP/mode" bash "$TOOLKIT_ROOT/bin/interview-mode.sh" "$ROOT"
 MODE="$(grep -E '^(steering|assist|auto)$' "$TMP/mode" 2>/dev/null | tail -1)"
+# Is the independent review owed? The STRICTEST reading wins. interview-mode.sh falls back to steering
+# on a line it cannot parse, which is right for questioning (ask too much) and wrong here: a field
+# register read `- Interview mode: auto (gate questions go to questions.md ...)`, the resolver said
+# steering, and this script said "a human sees the screens" for a run nobody watched. So the raw
+# line's first word decides too: auto / unattended means owed, whatever the resolver concluded.
+RAWMODE=""
+[ -f "$REG" ] && RAWMODE="$(grep -m1 -iE '^[-*>[:space:]]*(\*\*)?Interview mode(\*\*)?[[:space:]]*:' "$REG" | sed 's/^[^:]*:[[:space:]`*]*//' | awk '{print tolower($1)}' | tr -cd 'a-z')"
+case "$RAWMODE" in
+  auto|unattended)
+    if [ "$MODE" != auto ]; then
+      echo "  note  review owed: PROJECT.md's Interview mode line starts with \"$RAWMODE\"; interview-mode.sh resolved ${MODE:-nothing} — the stricter reading decides whether a person saw the screens" >&2
+      MODE=auto
+    fi ;;
+esac
 RV_DIR="$ROOT/docs/progress/look-reviews"
 : > "$TMP/scores"
 # Review files are read in every mode (the packet shows them); only auto mode requires them.

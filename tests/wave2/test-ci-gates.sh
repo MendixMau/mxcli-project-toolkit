@@ -72,6 +72,12 @@ ci "$P"
   && printf '%s\n' "$out" | grep -q '^FAIL  ready  docs/progress/status.md:5: ## READY FOR REVIEW' \
   && ok "C1: heading claims (# READY FOR BENCH ...) fail CI — the field shape" || bad "C1c: rc=$rc $out"
 G "$P" rm -q docs/progress/status.md; G "$P" commit -qm "drop heading claims"
+# same claim in a lowercase status.md at the ROOT (where the field copy kept it; the first scan matched STATUS*.md only)
+printf '# READY FOR BENCH (fix round 6, 2026-11-16 15:34 UTC)\n' > "$P/status.md"; commit_all "$P" "root status"
+ci "$P"
+[ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q '^FAIL  ready  status.md:1: # READY FOR BENCH' \
+  && ok "C1: a lowercase status.md at the root is scanned too" || bad "C1d: rc=$rc $out"
+G "$P" rm -q status.md; G "$P" commit -qm "drop root status"
 # a hand-appended ready.log row with no evidence behind it
 printf '2026-11-17T09:00:00Z\tREADY\tmodule Billing\tdocs/progress/ready-2026-11-17-Billing.md\t3 of 3\n' >> "$P/docs/progress/ready.log"; commit_all "$P" "forged log"
 ci "$P"

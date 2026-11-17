@@ -11,7 +11,7 @@
 # that is exactly READY. Field shape (2026-11, five times in one status file, missed by the first
 # version of this check, which only took READY alone or before `:`/`—`):
 #     # READY FOR BENCH (fix round 6, 2026-11-16 15:34 UTC)
-# Status files: PROJECT.md, RESUME.md / STATUS*.md / PROGRESS*.md at the root, and every .md under
+# Status files: PROJECT.md, and resume / status* / progress* .md at the root in any letter case, and every .md under
 # docs/ except ready.sh's own output (docs/progress/ready-*.md, review-packets/, look-reviews/,
 # must-haves/). Not CLAUDE*.md, README or agent text: they explain the rule, they claim nothing.
 # BACKED means the line names an evidence file docs/progress/ready-<date>-<scope>.md that exists,
@@ -36,7 +36,9 @@ mxtk_ready_claim_faults() {
     [ -f "$log" ] && awk -F'\t' -v e="$1" '$2 == "READY" && $4 == e { f=1 } END { exit !f }' "$log"
   }
   {
-    for f in "$root/PROJECT.md" "$root"/RESUME.md "$root"/STATUS*.md "$root"/PROGRESS*.md; do [ -f "$f" ] && printf '%s\n' "$f"; done
+    # root status files in any case: a field copy kept five claims in a lowercase status.md
+    [ -f "$root/PROJECT.md" ] && printf '%s\n' "$root/PROJECT.md"
+    find "$root" -maxdepth 1 -type f \( -iname 'resume.md' -o -iname 'status*.md' -o -iname 'progress*.md' \) 2>/dev/null
     [ -d "$root/docs" ] && find "$root/docs" -type f -name '*.md' \
       ! -path '*/docs/progress/ready-*' ! -path '*/docs/progress/review-packets/*' \
       ! -path '*/docs/progress/look-reviews/*' ! -path '*/docs/progress/must-haves/*' 2>/dev/null

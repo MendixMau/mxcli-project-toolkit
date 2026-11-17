@@ -165,6 +165,15 @@ run "$P" --no-commit
   && printf '%s\n' "$out" | grep -q 'PASS  look      3 of 3' \
   && ok "R8: Stage P not passed, all 3 pages seen → NOT READY on position" || bad "R8: rc=$rc $out"
 
+# ── R10: an annotated `Interview mode: auto (...)` line still owes the independent review ──────
+# Field register line, verbatim but generic. interview-mode.sh falls back to steering on it; the
+# review must not be waived by that fallback.
+P="$WORK/r10"; mkproject "$P" root; see_all "$P"
+printf -- '- Interview mode: auto (gate questions go to questions.md with an ASSUMED default)\n' >> "$P/PROJECT.md"
+run "$P" --no-commit
+[ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q 'note  review owed: PROJECT.md.s Interview mode line starts with "auto"' \
+  && printf '%s\n' "$out" | grep -q 'FAIL  review    0 of 3' && ok "R10: the strict reading owes the review; NOT READY without one" || bad "R10: rc=$rc $out"
+
 # ── R9: bounded time — every step has a watchdog; a stalled step is NOT MEASURED, never a hang ─
 # (field run, 2026-11: ready.sh on a six-app copy ran over 300 s with no output and was killed)
 P="$WORK/r8"

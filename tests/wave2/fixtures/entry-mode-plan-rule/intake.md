@@ -1,0 +1,161 @@
+# intake.md — Stage P Kickoff Interview
+
+Replace each "_Not yet asked._" line below with a real answer, in one of three forms:
+
+  Answered (CONFIRMED): ...          the question was asked and answered
+  Unverified — how to verify: ...    the question WAS asked, the answer is not known yet,
+                                     and this line says how it will be established
+  Assumed (auto-mode): ...           Interview mode: auto only — the recommended default;
+                                     the full record goes in PROJECT.md
+
+All three pass gate-check's Stage P (keep the colon right after the parenthesis).
+"_Not yet asked._" passes nothing, deliberately: this
+file is generated before the interview happens, and a scaffold must never be able to certify
+an interview that never took place. Per conversion-runbook.md's interview protocol, every
+question is asked in chat and the turn ends to wait for the answer; unknowns the user hands
+back ("you decide") are recorded as ASSUMED in PROJECT.md rather than blocking Stage P.
+
+Question 16 (which kind of build) is asked FIRST, before Q1, at project birth; a project already past kickoff is not asked it.
+
+**These are the questions only the human can answer.** Anything derivable — where the source
+sits, what documents exist, which Mendix version the .mpr targets, whether prior analysis is
+present — is the agent's homework, brought back as "I found X, confirm?" rather than asked
+here. Do that homework FIRST: it is what turns each question below into a recommendation
+with evidence instead of a blank prompt.
+
+## 1. Entry mode: migration, requirements-driven, greenfield, or change an existing app?
+
+_Not yet asked._ The agent proposes with evidence and the user confirms — never a silent
+inference (conversion-runbook.md "Entry Modes"; classification rules apply in order, first
+match wins: a live Mendix `.mpr` you are adding to or altering, not rebuilding → change an
+existing app (record it verbatim as `Change an existing app`; existing-app-change.md); else
+any legacy source → migration; else any specs/BRDs/wireframes → requirements-driven; else
+greenfield). Auditing or regression-testing an app nobody is changing is not a mode at all —
+that routes to existing-app-assurance.md and skips the pipeline. Getting this wrong skips
+whole stages: real misrouting, 2026-07-14; and until 2026-09-22 this question listed only
+three modes, so a session changing a live app had no option to pick.
+
+## 2. What is this project, and what is driving it?
+
+_Not yet asked._ Sets stakes, urgency and the default for Q3 in one answer. (a) POC/demo —
+prove feasibility, throwaway output, speed over completeness. (b) Production replacement with
+a hard date — licence expiry, platform EOL, contract; fidelity and speed win, improvements
+deferred. (c) Production replacement, open-ended — modernisation is part of the goal. Only
+the user knows; record the date itself if there is one.
+
+## 3. Fidelity: port as-is, or improve as we go?
+
+_Not yet asked._ Default inherited from Q2 — (b) implies as-is, (c) licenses redesign — so
+put the inherited default to the user and ask what to override. This decides whether every
+Stage 3 fit-gap finding is a gap to close or an opportunity to take.
+
+## 4. What are we working on: the whole application, or a part of it — and what else does that touch?
+
+_Not yet asked._ Name the topic in plain words — a feature, a flow, a module, a fix, or the
+whole app. Say what else it touches, and name what is explicitly OUT — "out" is the half that
+gets forgotten and rebuilt anyway. A module-sized source is the common case and is easy to
+mistake for a whole app. Also ask whether there are input documents — user stories, tickets,
+a spec: they go in `sources/`, and "none, the app plus my description" is a fine answer. For
+an existing app this is settled at Stage 0b, after the map, so
+`Unverified — how to verify: named when the change request arrives (Stage 0b)` is a legitimate
+kickoff answer.
+
+## 5. Of what we touch, what must stay exactly as it is?
+
+_Not yet asked._ Integrations, data contracts, external URLs, scheduled jobs, reports other
+systems consume. These are the constraints that invalidate an architecture late and cheaply
+if found now; they are rarely visible in the source, because they live in its consumers. For
+an existing app the default is that nothing beyond the ask changes — this question names the
+things the change must not break.
+
+## 6. Are there licence/security constraints on storing this client's source in this workspace?
+
+_Not yet asked._ How to verify: ask the human; not inferable from the code.
+
+## 7. Is an SME available — who, and at what cadence?
+
+_Not yet asked._ Availability is not the useful half: an SME who exists but answers in two
+weeks reshapes the plan as much as no SME at all. Ask who, for which class of decision, and
+what the realistic turnaround is.
+
+## 8. Anything else — scope, priorities, or worries?
+
+_Not yet asked._ The standing open-floor question the runbook requires at every checkpoint
+(§1). Closed questions capture decisions; they never surface what the user wanted to say
+unprompted. "Nothing further" is a valid answer — but it has to be the user's, not assumed.
+
+## 9. Interview mode: attended (default) or unattended?
+
+_Not yet asked._ How to verify: ask the user; default is `steering`. Record it as
+`Interview mode:` in PROJECT.md: `steering` = every gate question is asked in chat and the agent
+waits; `assist` = questions batched at gates, low-consequence ones assumed and reported; `auto`
+(opt-in only, explicit request required) = nothing blocks, positions recorded as ASSUMED for
+reconciliation. `attended` / `unattended` are accepted aliases for `steering` / `auto`.
+
+## 10. Is any of this already done outside the toolkit — and where does the pipeline pick up?
+
+_Not yet asked._ Only relevant when the project did not start here: a build already underway,
+analysis that lives in Confluence, a design system someone else owns. Name the stage the toolkit
+picks up at and record it — `bin/gate-check.sh <project> --adopt <stage> --reason "..."` — so the
+earlier stages report WAIVED instead of a red row nobody can ever clear. Answer "starting from
+scratch here" and nothing is waived, which is the right answer for most projects. Do NOT infer
+this from what happens to be on disk: a missing artifact and an artifact produced elsewhere look
+identical, and guessing wrong either nags forever or waives a stage that genuinely still matters.
+
+## 11. Exec approval: `auto` (default) or `ask`?
+
+_Not yet asked._ How to verify: ask the user; default is `auto`. Full rule text (what it
+gates, the resolution order, the STOP-table carve-out): `bin/lib/wiring-item3.sh` — the same
+text every agent's Start-here stamp carries. See `bin/exec-approval.sh --explain` for what is
+currently resolved and why; the user switches it, never the agent on its own judgement.
+
+## 12. Claude Code permissions: `project` (default), `wrappers`, or `full`?
+
+_Not yet asked._ How to verify: ask the user; default is `project`. `wrappers` = only the
+toolkit's safe wrappers run without a prompt. `project` = those plus edits inside this folder and
+the everyday test/npm/docker/git-commit commands. `full` = everything, on this person's machine
+only (`.claude/settings.local.json`); force-push, `git reset --hard`, `git clean` and `sudo`
+still prompt. Record it as `Permission profile:` in PROJECT.md, then run
+`bin/install-harness-permissions.sh <project> --profile <answer>`; `bin/doctor.sh <project>`
+shows what is in effect.
+
+## 13. Unit tests (`.test.mdl`): project default `no` (default) or `yes`?
+
+_Not yet asked._ How to verify: ask the user; default is `no`. Every module already gets UI
+journeys and data assertions. Unit tests cost a closed Studio Pro and a snapshot per run, and
+agents ran them everywhere when no default was set (toolkit issue #274). With `no`, a module
+still flips to `yes` in its brief when it has calculation, mapping or date/money logic, calls Java or REST, or had a bug fixed in that flow (`testing-shape.md` §2). Record it as
+`Unit tests default:` in PROJECT.md.
+
+## 14. Will this project use Marketplace modules — and if so, can you create a Mendix Personal Access Token now?
+
+_Not yet asked._ `mxcli marketplace install` needs a Mendix PAT, and a confirmed Stage 3 "Buy"
+that waits for one at build time tends never to get installed (`gate-check.sh` build-ready
+and `exec.sh` now check). If yes or maybe, set the token up now: where to create it, which scope, how to hand
+it to mxcli — skills/learned-constants-and-secrets.md § "Creating a PAT for Marketplace
+installs". If you cannot create one, name the Mendix admin who can. "No Marketplace modules
+expected" is a fine answer; it is revisited at the Stage 3 fit-gap.
+
+## 15. Pipeline mode: `high-speed`, `balanced` (default) or `high-quality`?
+
+_Not yet asked._ How to verify: ask the user; default is `balanced`. The trade-off, in plain words:
+- **high-speed**: fastest; pages are only polished at module close, so mid-module pages are roughest.
+- **balanced**: each changed page gets one quick look and one run of the journeys that reach it;
+  less time per build row than checking every page after every change (1.4 min less on a 5-page
+  app in PR #700's experiment; estimated ≥8 min on #686's larger app); pages are polished at
+  module close.
+- **high-quality**: checks every page after every change; slowest, maximum polish while building.
+Record it as `Pipeline mode:` in PROJECT.md (no line = balanced). The table is
+`skills/iterative-build-loop.md` § "Pipeline mode".
+
+## 16. Which kind of build — full (default) or POC?
+
+_Not yet asked._ Ask this FIRST, before Q1, at project birth only; the question is "Which kind of build?"
+- **Full build (Recommended)**: the staged pipeline with its gates; for anything that will be maintained or go live.
+- **POC build**: a demo-quality app fast: design first, one approval stop, a short must-have list; skips the stage
+  gates and the heavier checks, and hands over what a full build needs next. Proven on small apps only (`skills/poc-build.md`).
+
+Record it as `Build type: full | poc` in PROJECT.md, `CONFIRMED` (`ASSUMED` = full, only when the user said "you
+decide"; `Interview mode: auto` never picks `poc`). On `poc`: open `skills/poc-build.md` and follow it; the other
+intake questions are not asked (its Skipped list). A project already past kickoff is not asked: no line = `full`; if
+`--repair-intake` appended this question there, answer it `Unverified — how to verify: began before this question; no line = full`.

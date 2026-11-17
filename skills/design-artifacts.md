@@ -224,6 +224,30 @@ screen it reuses so a reviewer can trace it. `bin/gate-check.sh`'s Stage-3 gate 
 table against `design/wireframes/*.html` and reports `MANUAL <built> wireframes for
 <inventoried> inventoried screens` when the build falls short of the inventory.
 
+### Step 2a: Adopt a supplied design — map, do not redraw
+
+**Trigger:** the corpus supplies clickable HTML prototypes or a design system (requirements-driven
+or migration; a POC uses `poc-build.md` steps 1–4 instead). The prototype is the
+target; Stage 3 maps it rather than drawing a second, drifting copy.
+
+1. Screen Inventory rows (Step 2) get Basis `SUPPLIED` and the file in Notes.
+2. Write `design/wireframes/PAGE-MAP.tsv`, one row per page: `<PageName><TAB><path>`. The path
+   resolves against `design/wireframes/`, so a supplied file reads
+   `Orders_List<TAB>../../prototypes/orders/list.html` (a route form, `…prototype.html#/<route>`,
+   works too). `check-page-shell.sh`, `page-fidelity.js` (given the mapped file) and
+   `ui-preflight-pages.md` Step 1 then treat the mapped prototype as the page's wireframe.
+3. A supplied design-system stylesheet seeds Step 1 (`mxcli theme create <name> --from <css>`);
+   do not invent tokens next to it.
+4. Buildability pass as `poc-build.md` step 3: each interactive element BUILDABLE or
+   REDESIGNED/DEVIATION, 0 unchecked; deviations go to the Stage 3 sign-off.
+5. A screen with no supplied file is drawn per Step 3; a supplied screen with no requirement goes
+   to Step 3b. Step 3d's LOOK runs over the supplied prototype.
+
+**Done when:** "N of N inventoried screens mapped" (every page a row, every row's file on disk:
+`check-page-shell.sh` reports a stale row), and the deviation list is in the sign-off. *Failure
+(field run, 2026-11): prototypes supplied for every screen, none mapped; ~78 pages built against no
+target, missing whole sections the prototypes show.*
+
 ---
 
 ## Step 2b: Interaction Model — before the first wireframe

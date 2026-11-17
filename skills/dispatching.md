@@ -104,6 +104,15 @@ every subagent: disable the ones a project does not use. The toolkit keeps its o
 (`CLAUDE.local.md`'s session-start ritual is main-session only and does not repeat what
 `gate-check.sh` prints).
 
+**Independent look before READY (unattended).** Under `Interview mode: auto`, `bin/ready.sh`
+refuses READY without `docs/progress/look-reviews/look-review-<Module>.md` from an agent that did
+not build the pages. Dispatch a fresh reviewer, never the builder resumed. Its brief carries only
+pairs: each page's screenshot and its target (wireframe, or the mapped prototype screen), never the
+builder's verdict, notes or fidelity score. It writes `Reviewer:` and `Builder:` (different names),
+`Reviewed: <UTC ISO time>`, then a table `| Page | Screenshot | Target | Score | Note |`, one row
+per page, Score 1–5 against the target. A page below 4, or rebuilt after its review, blocks READY.
+Failure this prevents (field run, 2026-11): every look was the builder judging its own screens.
+
 **Done when**, for each dispatch batch: N of N calls name a model; 0 scans started as forks;
 every fix round names its review file and commit range; 0 messages sent to agents that already
 reported. After a run, `bin/context-audit.sh --project <dir>` section 1 gives the subagent start

@@ -104,7 +104,7 @@ commands that run at every step: `docs/pipeline-walks.html`.
 |---|---|---|
 | **Migration** | Legacy source code exists | P, 0 to 7 |
 | **Requirements-driven** | Specs, BRDs or wireframes, no code | P, 0 to 6 |
-| **Greenfield** | Just an idea or a plan | P (light), 0, 5, 6 |
+| **Requirements-driven, from a conversation** | Just an idea for a real app (a demo: `Build type: poc`) | P, 0 to 6 |
 | **Change an existing app** | A live `.mpr` you add to or alter | P, 0 to 6 per change |
 | **À la carte assurance** | Audit or a test net only | none |
 
@@ -915,6 +915,7 @@ Then filter by Role(s). A helper dispatched with a role stub (ba, architect, mdl
 | Before any mxcli exec / exec.sh / --mcp write — ask or run? the knob decides | `bin/exec-approval.sh` | 5,6 | mdl, gate |
 | Before calling any module tested, or before re-running tests after a change — what testing a module means, which re-runs a change owes (UI-only vs logic lane), and the false-green register of confirmed ways a test reports green over a broken feature | `skills/testing-shape.md` | 5,6 | test, gate, review |
 | Finishing any module — before calling it done. One command that runs every instrument and keeps "instrument faulted" apart from "feature failed"; in a wired project run the installed copy at bin/verify-module.sh | `project-bin/verify-module.sh` | 5,6 | mdl, gate, test, review |
+| Claiming READY or done for a module or the app — the only way to write READY: `bin/ready.sh <project-root> [--module M]` runs the Stage 5/6 gates, the look ledger, the must-have list and (unattended) the independent review, prints K of N for each and commits the evidence; a READY line it did not write is not READY and FAILs Stage 6 and CI | `bin/ready.sh` | 5,6 | every role |
 | A CSS/SCSS or style change that appears to have done nothing (a colour or class that won't show), a focus ring or outline that paints on every page landing or load, or an app still grey after a design port every instrument called green — the three ways a correct rule paints nothing (matches nothing / matches chrome / loses the cascade), the two reads that tell them apart, and the class that arrived in the stylesheet and is bound to no widget | `skills/learned-css-that-never-applied.md` | 5,6 | review, gate (mdl: on demand) |
 | Before trusting a green check/exec/DESCRIBE result as proof, or when a runtime symptom appears over a fully green model — the register of constructs that pass early rungs and fail later ones | `skills/learned-detection-gaps.md` | 5,6 | gate, review (mdl: on demand) |
 | Creating any entity, or calling a module security-ready — entity and grants land in one script, and ready means SHOW SECURITY MATRIX proves it | `skills/security-is-not-a-later-script.md` | 5 | gate, review (mdl: on demand) |

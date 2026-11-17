@@ -3,14 +3,17 @@
 #
 #   bin/look-ledger.sh owe <script.mdl>   called by bin/exec.sh after a script lands
 #   bin/look-ledger.sh seen               PostToolUse(Read) hook; reads the hook JSON on stdin
-#   bin/look-ledger.sh status [--app <App>]
-#                                         prints one line per owed page: SEEN or OWED (one app's
-#                                         pages only with --app, or with MXTK_APP set; --by-app:
-#                                         every app's, keyed by app, the app as a 6th column)
+#   bin/look-ledger.sh status [--shots] [--app <App> | --by-app]
+#                                         prints one line per owed page: SEEN or OWED (--shots: state, page,
+#                                         and the screenshot that saw it — bin/ready.sh's evidence list;
+#                                         --app: one app's pages only, also with MXTK_APP set; --by-app:
+#                                         every app's, keyed by app, the app as one more column)
 #   bin/look-ledger.sh reshoot [Module] [--all]
 #                                         which pages a polish round must re-shoot (390 + 1280): the pages
 #                                         built after their last seen LOOK, plus every page when a layout,
 #                                         snippet or style file changed after it. K of N, never silence
+#   bin/look-ledger.sh summary [--write]  pages owed vs opened, per module, plus each unseen page; --write
+#                                         also writes it to docs/progress/look-summary.tsv (TRACKED — see below)
 #   bin/look-ledger.sh shots [findings.json...]
 #                                         which owed page a journey run's screenshots already show:
 #                                         OPEN <page> <png> (read it), UNREACHED <page> (no journey did)
@@ -389,15 +392,70 @@ RESHOOT_ROWS2
   return 0
 }
 
+# cmd_summary [--write] — the ledger as a small TRACKED file, so "N owed, 0 seen" is visible from git.
+# WHY (two field runs, 2026-11). .claude/loop/ is git-ignored, so the ledger lived only in the build's
+# container: the orchestrator and the reviewers looking at the repo saw nothing, and gate-check.sh on a
+# copy of the repo reported Stage 5 MANUAL for a build with 0 of ~78 pages ever looked at. The ledger
+# itself stays ignored (it is append-only machine state, rewritten on every Read); this summary sits in
+# docs/progress/ beside RESUME.md, which is tracked, instead of beside the ledger — a file inside an
+# ignored directory cannot be re-included by a .gitignore negation. Producers: bin/ready.sh (every run)
+# and close-task.sh (every work boundary, before its `git commit`). Consumer: gate-check.sh Stage 5,
+# when the ledger is absent from the checkout. "seen" here is the raw ledger (a screenshot opened);
+# gate-check also credits PROOF-OF-LOOK citations and waivers, so it reads the unseen rows, not the count.
+#   as-of   <iso>  owed <N>  seen <K>  unseen <N-K>
+#   module  <M>    <owed>    <seen>
+#   unseen  <Module.Page>  <epoch of its last build>
+SUMMARY_REL="docs/progress/look-summary.tsv"
+_summary_body() { awk -F'\t' -v OFS='\t' '$1=="as-of" { $2="" } { print }'; }
+cmd_summary() {
+  local rows out
+  rows="$(look_status)"
+  out="$(printf '%s\n' "$rows" | awk -F'\t' -v iso="$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
+    NF>=3 { m=$2; sub(/\..*/, "", m); if (!(m in o)) ord[++k]=m; o[m]++; n++
+            if ($1=="SEEN") { s[m]++; ns++ } else un[++u]=$2 "\t" $3 }
+    END {
+      printf "# look-summary.tsv — written by look-ledger.sh summary from the git-ignored .claude/loop/look/ ledger; do not edit\n"
+      printf "as-of\t%s\towed %d\tseen %d\tunseen %d\n", iso, n, ns, n-ns
+      for (i=1; i<=k; i++) printf "module\t%s\t%d\t%d\n", ord[i], o[ord[i]], s[ord[i]]+0
+      for (i=1; i<=u; i++) printf "unseen\t%s\n", un[i]
+    }')"
+  if [ "${1:-}" = --write ]; then
+    if [ -s "$OWED" ]; then
+      # rewritten only when a count or an unseen row moved: a new as-of alone is not worth a diff
+      if [ "$(_summary_body < "$PROJECT_ROOT/$SUMMARY_REL" 2>/dev/null)" != "$(printf '%s\n' "$out" | _summary_body)" ]; then
+        mkdir -p "$PROJECT_ROOT/docs/progress" 2>/dev/null && printf '%s\n' "$out" > "$PROJECT_ROOT/$SUMMARY_REL" 2>/dev/null
+      fi
+    fi
+  fi
+  if [ -s "$OWED" ]; then
+    printf '%s\n' "$out" | awk -F'\t' '$1=="as-of" { print "look ledger: " $3 ", " $4 ", " $5 " (as of " $2 ")" }'
+  else
+    echo "look ledger: NOT MEASURED — no $OWED (no page built through exec.sh in this checkout)"
+  fi
+  return 0
+}
+
 case "${1:-}" in
+  summary) shift; cmd_summary "$@" ;;
   reshoot) shift; cmd_reshoot "$@" ;;
   owe)    shift; cmd_owe "$@" ;;
   seen)   cmd_seen ;;
-  status) shift
-          case "${1:-}" in --by-app) LOOK_APP="*" ;; --app) LOOK_APP="${2:-}" ;; --app=*) LOOK_APP="${1#--app=}" ;; *) LOOK_APP=""; [ -n "${MXTK_APP:-}" ] && mxtk_apps >/dev/null 2>&1 && LOOK_APP="$MXTK_APP" ;; esac
-          look_status ;;
+  status) shift; _ls_shots=0; LOOK_APP=""; _ls_app_set=0
+          while [ $# -gt 0 ]; do
+            case "$1" in
+              --shots)  _ls_shots=1 ;;
+              --by-app) LOOK_APP="*"; _ls_app_set=1 ;;
+              --app)    shift; LOOK_APP="${1:-}"; _ls_app_set=1 ;;
+              --app=*)  LOOK_APP="${1#--app=}"; _ls_app_set=1 ;;
+            esac
+            shift
+          done
+          [ "$_ls_app_set" = 1 ] || { [ -n "${MXTK_APP:-}" ] && mxtk_apps >/dev/null 2>&1 && LOOK_APP="$MXTK_APP"; }
+          if [ "$_ls_shots" = 1 ]; then
+            if [ "$LOOK_APP" = "*" ]; then _look_status_ex | cut -f1,2,5,6; else _look_status_ex | cut -f1,2,5; fi
+          else look_status; fi ;;
   shots)  shift; cmd_shots "$@" ;;
   pages)  shift; look_pages_in "${1:-/dev/null}" ;;
-  *) echo "usage: $0 owe <script.mdl> | seen < hook-json | status | reshoot [Module] [--all] | shots [findings.json...] | pages <script.mdl>" >&2; exit 2 ;;
+  *) echo "usage: $0 owe <script.mdl> | seen < hook-json | status [--shots] | summary [--write] | reshoot [Module] [--all] | shots [findings.json...] | pages <script.mdl>" >&2; exit 2 ;;
 esac
 exit 0

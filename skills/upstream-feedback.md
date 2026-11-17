@@ -1,6 +1,6 @@
 # Upstream Feedback
 
-**Applies to:** any mxcli project — migration, requirements-driven, and greenfield alike.
+**Applies to:** any mxcli project — migration, requirements-driven, and POC alike.
 
 **Purpose:** Route a finding worth sending upstream — an mxcli command that lied, a gate that
 let a defect through, a runbook stage that was missing a step — to the right repo and the right

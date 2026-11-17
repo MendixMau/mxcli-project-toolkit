@@ -720,6 +720,8 @@ fi
 # then excused stages on that label. See bin/lib/entry-mode.sh for why.
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")/lib" && pwd)/entry-mode.sh"
 ENTRY_MODE="$(entry_mode_token "$ENTRY_RAW")"
+BUILD_TYPE="$(reg_field "build type" 2>/dev/null || true)"
+case "$(printf '%s' "$BUILD_TYPE" | tr '[:upper:]' '[:lower:]')" in poc|poc[!a-z]*) BUILD_TYPE=poc ;; *) BUILD_TYPE=full ;; esac
 
 # stage_waiver <stage> — "<scope>|<reason>", or nothing. Most specific source of truth first.
 #
@@ -760,20 +762,29 @@ stage_waiver() {
       "$ADOPTED_AT" "${ADOPTED_REASON:+: $ADOPTED_REASON}"
     return 0
   fi
+  # The mode contract (conversion-runbook.md → Entry Modes; artifact-manifest.tsv column 6).
+  # `Build type: poc` is its own contract whatever the entry mode: skills/poc-build.md owes its
+  # steps and must-haves, not stage gates, so 0-4, 6 and 7 read "not owed (mode)" instead of a
+  # PENDING row nobody may clear. Stage 5 stays checked (MANUAL), and P (the build-type answer).
+  if [ "$BUILD_TYPE" = poc ]; then
+    case "$st" in
+      [0-4]|6|7) printf 'mode|not owed (mode: Build type: poc) — skills/poc-build.md owes steps 1–9 and its must-haves instead\n'; return 0 ;;
+    esac
+  fi
   # Entry mode. The runbook's Entry Modes table already says these stages do not run; until now
   # the gate did not know that, so it demanded artifacts the runbook had excused.
   case "$ENTRY_MODE" in
-    greenfield)
-      case "$st" in
-        1|2|3|4) printf 'mode|greenfield entry mode — stages 1–4 collapse into the plan the user already has (conversion-runbook.md → Entry Modes)\n'; return 0 ;;
-      esac ;;
     requirements-driven)
       case "$st" in
-        7) printf 'mode|requirements-driven entry mode — no legacy system to cut over from; if legacy data turns up, record a Stage-7 decision and this goes back to being checked (conversion-runbook.md → Entry Modes)\n'; return 0 ;;
+        7) printf 'mode|not owed (mode: requirements-driven) — no legacy system to cut over from; if legacy data turns up, record a Stage-7 decision and this goes back to being checked (conversion-runbook.md → Entry Modes)\n'; return 0 ;;
       esac ;;
     existing-app-change)
       case "$st" in
-        7) printf 'mode|existing-app entry mode — the app is live and stays live; there is no cutover (existing-app-change.md → Deliverables)\n'; return 0 ;;
+        7) printf 'mode|not owed (mode: existing-app) — the app is live and stays live; there is no cutover (existing-app-change.md → Deliverables)\n'; return 0 ;;
+      esac ;;
+    a-la-carte)
+      case "$st" in
+        [0-7]) printf 'mode|not owed (mode: a-la-carte) — no pipeline: audit or tooling use only (existing-app-assurance.md); declare another mode to run the stages\n'; return 0 ;;
       esac ;;
   esac
   return 1
@@ -2239,15 +2250,29 @@ stage4_closing_rows() {
 # own "Marketplace installs:" line and never changes this verdict, so a project whose Stage 5
 # exit is already recorded cannot flip to "approved over a failing gate". It blocks earlier, in
 # build-ready and in exec.sh before a domain-model script, where the install belongs.
+#
+# A checkout without the ledger (#T3, two field runs 2026-11): .claude/loop/ is git-ignored, so a
+# copy of the repo has no owed.tsv and used to stay MANUAL over a build with 0 of ~78 pages looked
+# at. docs/progress/look-summary.tsv is the TRACKED summary look-ledger.sh writes (bin/ready.sh,
+# close-task.sh); its `unseen` rows are judged exactly like OWED ledger rows below, so PROOF-OF-LOOK
+# citations and waivers still clear them. MXTK_LOOK_MODULE=<Module> scopes the check to one module
+# (bin/ready.sh --module); unset, nothing changes.
 check_stage_5() {
-  local owed="$PROJECT_DIR/.claude/loop/look/owed.tsv" rows proofs="" n=0 n_seen=0 n_proof=0 n_waived=0
-  local unseen="" n_unseen=0 st page epoch mod rep line shot f sz mt
-  if [ ! -s "$owed" ] || [ ! -f "$TOOLKIT_DIR/project-bin/look-ledger.sh" ]; then
-    check_stage_manual; return
+  local owed="$PROJECT_DIR/.claude/loop/look/owed.tsv" rows="" proofs="" n=0 n_seen=0 n_proof=0 n_waived=0
+  local unseen="" n_unseen=0 st page epoch mod rep line shot f sz mt src=""
+  local summ="$PROJECT_DIR/docs/progress/look-summary.tsv" scope="${MXTK_LOOK_MODULE:-}"
+  if [ -s "$owed" ] && [ -f "$TOOLKIT_DIR/project-bin/look-ledger.sh" ]; then
+    # The toolkit's copy, not the project's: the same join for every project, whichever version
+    # of the script it installed.
+    rows="$(PROJECT_ROOT="$PROJECT_DIR" bash "$TOOLKIT_DIR/project-bin/look-ledger.sh" status 2>/dev/null)"
+  elif [ -s "$summ" ]; then
+    # SEEN rows are not listed by page in the summary: one placeholder per seen page of the scope.
+    rows="$(awk -F'\t' -v m="$scope" '
+      $1=="module" && (m=="" || $2==m) { for (i=0; i<$4+0; i++) print "SEEN\t" $2 ".(seen)\t0" }
+      $1=="unseen" { print "OWED\t" $2 "\t" $3 }' "$summ")"
+    src=" (from the committed docs/progress/look-summary.tsv, $(awk -F'\t' '$1=="as-of"{print "as of " $2; exit}' "$summ"); the ledger is not in this checkout)"
   fi
-  # The toolkit's copy, not the project's: the same join for every project, whichever version
-  # of the script it installed.
-  rows="$(PROJECT_ROOT="$PROJECT_DIR" bash "$TOOLKIT_DIR/project-bin/look-ledger.sh" status 2>/dev/null)"
+  [ -n "$scope" ] && rows="$(printf '%s\n' "$rows" | awk -F'\t' -v m="$scope" 'index($2, m ".") == 1')"
   [ -n "$rows" ] || { check_stage_manual; return; }
 
   # PROOF-OF-LOOK citations, once: "Module.Page<TAB>shot-mtime" per citation with a real shot.
@@ -2292,9 +2317,9 @@ EOF
   [ "$n_proof" -gt 0 ] && how="$how, $n_proof by PROOF-OF-LOOK"
   [ "$n_waived" -gt 0 ] && how="$how, $n_waived waived"
   if [ "$n_unseen" -gt 0 ]; then
-    echo "FAIL|look: $n_unseen of $n built page(s) never looked at since their last build: $unseen — screenshot each, open the PNG (a file name containing the page name, or the journey screenshot bin/look-ledger.sh shots lists), compare it to its wireframe (skills/ui-loop.md); or --waive look/<Module> --reason \"...\""
+    echo "FAIL|look: $n_unseen of $n built page(s)${scope:+ in $scope} never looked at since their last build$src: $unseen — screenshot each, open the PNG (a file name containing the page name, or the journey screenshot bin/look-ledger.sh shots lists), compare it to its wireframe (skills/ui-loop.md); or --waive look/<Module> --reason \"...\""
   else
-    echo "MANUAL|look: $n of $n built page(s) accounted for ($how); the rest of Stage 5 is manual"
+    echo "MANUAL|look: $n of $n built page(s)${scope:+ in $scope} accounted for ($how)$src; the rest of Stage 5 is manual"
   fi
 }
 
@@ -2316,7 +2341,16 @@ test_surface_hit() {
 }
 
 check_stage_6() {
-  local test_ok="" review_ok=""
+  local test_ok="" review_ok="" rcf=""
+  # A READY line bin/ready.sh did not write is not READY (bin/lib/ready-claims.sh): Stage 6 FAILs on
+  # it before anything else, so a hand-written READY cannot carry a project into its test stage.
+  if [ -r "$TOOLKIT_DIR/bin/lib/ready-claims.sh" ]; then
+    . "$TOOLKIT_DIR/bin/lib/ready-claims.sh"
+    if ! rcf="$(mxtk_ready_claim_faults "$PROJECT_DIR")"; then
+      echo "FAIL|READY claimed without bin/ready.sh ($(printf '%s\n' "$rcf" | grep -c .) line(s)): $(printf '%s\n' "$rcf" | head -3 | tr '\n' ';' | sed 's/;$//') — READY is written only by bin/ready.sh <project-root> [--module M]; remove the hand-written line or run it"
+      return
+    fi
+  fi
   test_surface_hit && test_ok=1
   # module-review.md report — any non-empty dated report under a ui-reviews/ dir
   if [ -n "$(find_artifact -path '*/ui-reviews/ui-review-*.html' -size +0c)" ]; then
@@ -2623,10 +2657,16 @@ check_build_ready() {
     echo "  ✓ Fit-gap: not owed — project joined the toolkit at stage $ADOPTED_AT"
   elif fg_w="$(artifact_waived fit-gap)"; then
     echo "  ✓ Fit-gap: WAIVED — $fg_w"
-  elif [ -z "$fg_path" ] && fg_w="$(stage_waiver 3)" && [ "${fg_w%%|*}" != "noreason" ]; then
-    echo "  ✓ Fit-gap: not owed — ${fg_w#*|}"
   elif [ -z "$fg_path" ] && case "$(printf '%s' "$bt_raw" | tr '[:upper:]' '[:lower:]')" in poc|poc[!a-z]*) true ;; *) false ;; esac; then
+    # Before stage_waiver: that now also excuses Stage 3 for poc, in its own words.
     echo "  ✓ Fit-gap: not owed — Build type: poc (skills/poc-build.md) and no fit-gap exists"
+  elif [ -z "$fg_path" ] && fg_w="$(stage_waiver 3)" && [ "${fg_w%%|*}" != "noreason" ]; then
+    # A mode reason reads "not owed (mode: <m>) — <why>"; this line already says "not owed".
+    fg_r="${fg_w#*|}"
+    case "$fg_r" in "not owed (mode: "*)
+      fg_m="${fg_r#not owed (mode: }"; fg_r="${fg_m%%)*} entry mode ${fg_m#*) }" ;;
+    esac
+    echo "  ✓ Fit-gap: not owed — $fg_r"
   else
     if ! type mxtk_fitgap_review >/dev/null 2>&1; then
       # shellcheck source=lib/marketplace-check.sh
@@ -3232,6 +3272,25 @@ register_set_line() { # register_set_line <Label> <value> — replace the line, 
   printf '\n## Toolkit position\n\n%s: %s\n' "$label" "$value" >> "$REGISTER"
 }
 
+# register_add_decision <stage> <decision> <status> <notes> — append one row to the register's
+# "## Decisions" table (after its last row), or a new section when there is none.
+register_add_decision() {
+  local tmp row; tmp="$(mktemp "${TMPDIR:-/tmp}/gc-dec.XXXXXX")" || return 1
+  row="| $1 | $2 | $3 | $4 |"
+  if awk -v row="$row" '
+       /^##[ \t]+Decisions/ { insec = 1 }
+       insec && /^\|/ { intab = 1; print; next }
+       insec && intab && !/^\|/ { print row; done = 1; insec = 0; intab = 0 }
+       insec && /^##[ \t]/ && !/Decisions/ { if (!done) { print row; print ""; done = 1 }; insec = 0 }
+       { print }
+       END { if (insec && !done) { print row; done = 1 }; exit !done }
+     ' "$REGISTER" > "$tmp"; then
+    cat "$tmp" > "$REGISTER"; rm -f "$tmp"; return 0
+  fi
+  rm -f "$tmp"
+  printf '\n## Decisions\n\n| Stage | Decision | Status | Notes |\n|---|---|---|---|\n%s\n' "$row" >> "$REGISTER"
+}
+
 if [ -n "$ADOPT_STAGE" ] || [ -n "$WAIVE_STAGE" ]; then
   if [ -z "$REGISTER" ] || [ ! -f "$REGISTER" ]; then
     echo "No decision register (PROJECT.md) found under $PROJECT_DIR — nothing to record in." >&2
@@ -3246,6 +3305,25 @@ if [ -n "$ADOPT_STAGE" ] || [ -n "$WAIVE_STAGE" ]; then
     echo "Recorded in $REGISTER:  Adopted at stage: $ADOPT_STAGE — $WAIVER_REASON"
     echo "Every stage before $ADOPT_STAGE now reports WAIVED and exits 0. Stage P is deliberately"
     echo "not covered — the kickoff interview is how the toolkit learns what this project is."
+    # UNATTENDED IS THE PRIMARY CASE (2026-11-17). Under `Interview mode: auto` an agent can adopt
+    # past the design and plan stages with any reason it likes, so on a pipeline-mode project an
+    # adoption that skips Stage 3 or 4 is also a ✋ decision a person still owes: an ASSUMED row
+    # stamped consentBy: auto-mode, which auto_hand_pending() lists on every run and which keeps
+    # Stage 6 FAILing until a person puts their name in consentBy. Interactive runs are unchanged.
+    case "$ADOPT_STAGE" in 4|5|6|7)
+      case "$ENTRY_MODE" in migration|requirements-driven)
+        if [ "$(bash "$TOOLKIT_DIR/bin/interview-mode.sh" "$PROJECT_DIR" 2>/dev/null)" = auto ]; then
+          _ad_st=4; [ "$ADOPT_STAGE" = 4 ] && _ad_st=3
+          register_add_decision "$_ad_st" "Adopted at stage $ADOPT_STAGE (skips design/plan): $WAIVER_REASON" "ASSUMED" \
+            "consentBy: auto-mode · consentAt: $(date -u +%Y-%m-%d) — ✋ human-pending: a person confirms or overturns it (their name in consentBy); Stage 6 FAILs until then" \
+            || { echo "Could not write the ✋ decision row to $REGISTER" >&2; exit 1; }
+          build_log_append "TOOLKIT-ADOPTED-AT $ADOPT_STAGE human-pending (Interview mode: auto)"
+          echo "✋ Interview mode: auto — this adoption skips Stage $_ad_st on a $ENTRY_MODE project, so it is"
+          echo "  recorded as a human-pending Stage-$_ad_st decision (ASSUMED, consentBy: auto-mode). It clears the"
+          echo "  plan rule for building, and Stage 6 FAILs until a person confirms it."
+        fi ;;
+      esac ;;
+    esac
   else
     # An obligation waiver (bin/lib/obligations.tsv) uses the SAME flag and the same reason
     # requirement, because a second waiver vocabulary is a second place to look and a second
@@ -4149,6 +4227,17 @@ echo "not a gate failure and does not affect the exit code — it is a stage nob
 echo ""
 printf "Summary: %d passed · %d not started · %d waived · %d need attention · %d manual\n" \
   "$N_PASS" "$N_PENDING" "$N_WAIVED" "$N_FAIL" "$N_MANUAL"
+# Declared position (project-bin/_position.sh; conversion-runbook.md → Entry Modes). The field runs
+# that built with no plan (2026-11) had neither line, and this summary read like any other.
+# Warn-only, and never the script's last status: an `if`, not an `&&` chain, and the text read with
+# a default — a scratch copy of this script without bin/lib/ (tests/wave2/test-bug06-freshness.sh)
+# has no banner text, and an unbound variable under `set -u` aborted the run with exit 1.
+if [ -z "$ENTRY_MODE" ] && [ -z "$ADOPTED_AT" ] && [ -n "${MXTK_POS_BANNER:-}" ]; then
+  printf '⚠ %s\n' "$MXTK_POS_BANNER"
+fi
+if [ "$ENTRY_MODE" = greenfield-retired ] && [ -n "${MXTK_POS_RETIRED:-}" ]; then
+  printf '⚠ %s\n' "${MXTK_POS_RETIRED/<project>/$PROJECT_DIR}"
+fi
 
 # The stage counts above are about STAGES. They say nothing about the per-module passes and the
 # per-stage artifacts checked further up, and for a long time nothing down here did either — so
@@ -4672,6 +4761,18 @@ if [ -n "$REQUESTED_STAGE" ]; then
     echo ""
     if check_build_ready; then
       enforce_open_questions build-ready
+      # The record exec.sh's plan rule reads under Interview mode: auto (project-bin/exec.sh,
+      # "Declared position + plan rule"): exec cannot afford a gate-check per write. Sticky on
+      # purpose — a later FAIL does not remove it, so a wiring repair is never blocked by the
+      # rule it is repairing (guard rule 7). Local, gitignored, like the exec lock beside it.
+      # Ignored BEFORE the stamp lands, as exec.sh does for its own stamp (a committed stamp would
+      # clear the auto-mode plan rule in every clone of the repository).
+      if [ -r "$TOOLKIT_DIR/bin/lib/gitignore-ensure.sh" ]; then
+        . "$TOOLKIT_DIR/bin/lib/gitignore-ensure.sh"
+        mxtk_gitignore_ensure "$PROJECT_DIR/.gitignore" ".mpr-snapshots" "/.mpr-snapshots/" || true
+      fi
+      mkdir -p "$PROJECT_DIR/.mpr-snapshots" 2>/dev/null \
+        && printf '%s build-ready PASS (bin/gate-check.sh)\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$PROJECT_DIR/.mpr-snapshots/.build-ready-pass" 2>/dev/null || true
       exit 0
     else
       exit 1

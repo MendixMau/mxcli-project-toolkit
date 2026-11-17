@@ -211,12 +211,13 @@ _art_stage_of_rank() { case "$1" in 0) echo P ;; [1-8]) echo $(( $1 - 1 )) ;; *)
 _art_entry_mode() {
   local raw
   raw="$(_art_field "$1" "entry mode" 2>/dev/null || true)"
-  # Shared tokeniser (see bin/lib/entry-mode.sh). This lib's own vocabulary says
-  # "requirements" where the canonical set says "requirements-driven"; translate at
-  # the boundary rather than changing what the manifest rows compare against.
+  # Shared tokeniser (see bin/lib/entry-mode.sh).
+  # The manifest's modes column says "requirements" where the canonical set says
+  # "requirements-driven"; translate at the boundary.
   local tok; tok="$(entry_mode_token "$raw")"
   case "$tok" in
     requirements-driven) echo "requirements" ;;
+    greenfield-retired)  echo "" ;;   # retired, not yet synced: every row owed — louder, never quieter
     *)                   echo "$tok" ;;
   esac
 }
@@ -415,7 +416,7 @@ mxtk_artifacts_report() {
     if [ -n "$mode" ]; then
       case ",$modes," in
         *",$mode,"*) ;;
-        *) printf 'Artifact %-24s N/A — entry mode %s does not owe it (manifest modes: %s)\n' \
+        *) printf 'Artifact %-24s N/A — not owed (mode %s; manifest modes: %s)\n' \
              "$id" "$mode" "$modes"
            continue ;;
       esac

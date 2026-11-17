@@ -70,8 +70,8 @@ codebase. What varies by mode:
   from, not what is in the folder. The Business Capability Map and the Recommended Scope Subset
   **still apply and still matter** — a document corpus has capabilities and a slice order exactly
   like a codebase does. Run `bin/source-sufficiency.sh` over the corpus.
-- **Greenfield** — mark the extraction rows *and* the coverage matrix `N/A`. The scope subset is
-  still the deliverable.
+- **Requirements-driven from a conversation (no corpus)** — mark the extraction rows *and* the
+  coverage matrix `N/A`. The scope subset is still the deliverable.
 
 **Documents plus a database schema is not a documents-only source.** A table schema, an ORM model
 or an OpenAPI contract is extractable structure and grades as such, whatever the markdown around

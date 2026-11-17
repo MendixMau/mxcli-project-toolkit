@@ -196,7 +196,7 @@ def load_project(proj):
                     "status": st.group(0).lower() if st else "unknown", "status_txt": c[7], "closed": c[8] if len(c) > 8 else ""})
     m = re.search(r"Entry mode:\s*\**\s*(\w[\w-]*)", md)
     em = (m.group(1).lower() if m else "migration")
-    info["entry_mode"] = "requirements" if em.startswith("requirements") else "existing-app-change" if em.startswith("existing") else em
+    info["entry_mode"] = "requirements" if em.startswith(("requirements", "greenfield")) else "existing-app-change" if em.startswith("existing") else em
     info["waived"] = set(re.findall(r"Waived artifact\s+([\w-]+)\s*:", md))
     info["waived_stages"] = set(re.findall(r"(?im)^[\s>*_-]*Waived stage\s+([P0-7])\s*\**\s*:", md))
     for agg in re.findall(r"(?im)^[\s>*_-]*Waived stages\s*\**\s*:\s*([^\n]*)", md):
@@ -1858,7 +1858,6 @@ def skip_reason(s, info, gate):
     if s in info.get("waived_stages", ()) or gate["rows"].get(s, {}).get("status") == "WAIVED": return "waived in the decision register"
     ad = info.get("adopted_at")
     if ad and s != "P" and STAGES.index(s) < STAGES.index(ad): return "this project joined the toolkit at stage %s, so it happened before" % ad
-    if info.get("entry_mode") == "greenfield" and s in "1234": return "greenfield entry mode collapses stages 1 to 4 into the plan the user already has"
     return ""
 
 def ago(t):

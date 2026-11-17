@@ -316,7 +316,7 @@ _mxtk_closeout_report_body() {
       case "$id" in ''|'#'*|artifact) continue ;; esac
       [ "$stage" = "$st" ] || continue
       if ! _co_owed "$modes" "$mode"; then
-        [ "$absence" = "optin" ] || printf -- '- ⏭ `%s` — N/A: entry mode %s does not owe it\n' "$id" "$mode"
+        [ "$absence" = "optin" ] || printf -- '- ⏭ `%s` — N/A: not owed (mode %s)\n' "$id" "$mode"
         continue
       fi
       optin=""

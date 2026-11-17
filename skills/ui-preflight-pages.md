@@ -78,7 +78,9 @@ Read the full wireframe file and extract:
 | Conditional visibility | Callout notes describing "shown only when…" or "edit mode vs. view mode" states |
 | Navigation entry point | `.origin` annotation or a nav-link callout stating what opens this page |
 
-**If no wireframe exists:** ⛔ STOP. Report to the main session that the wireframe is missing and that the page script cannot be drafted until one exists. Do not proceed, do not guess layout or bindings, do not ask whether to proceed without one — the wireframe is not optional. See `design-artifacts.md` to produce one first.
+**A supplied prototype mapped in `design/wireframes/PAGE-MAP.tsv` IS the wireframe** (`design-artifacts.md` Step 2a): read the mapped file and extract the same table; where it carries no binding annotations, take bindings from the BRD and the module brief.
+
+**If no wireframe exists** — no `design/wireframes/<page>.html`, and no `PAGE-MAP.tsv` row naming a file or route on disk: ⛔ STOP. Report to the main session that the wireframe is missing and that the page script cannot be drafted until one exists. Do not proceed, do not guess layout or bindings, do not ask whether to proceed without one — the wireframe is not optional. See `design-artifacts.md` to produce one first.
 
 **If an annotated `.md` companion exists** (e.g. `item-management.md` alongside
 `item-management.html`): read it — it often contains the binding table, widget-type decisions, and

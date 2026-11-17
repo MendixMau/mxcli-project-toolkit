@@ -84,7 +84,7 @@ footer{margin-top:56px;color:var(--ink-3);font-size:13px;border-top:1px solid va
     <a href="#spine">Shared spine</a>
     <a href="#mig">Migration</a>
     <a href="#req">Requirements-driven</a>
-    <a href="#gf">Greenfield</a>
+    <a href="#gf">Just an idea</a>
     <a href="#chg">Change an existing app</a>
     <a href="#alc">À-la-carte assurance</a>
     <a href="#build">Stage 5 module loop</a>
@@ -214,33 +214,9 @@ flowchart TD
   </table></div>
   <div class="note">Small project tier (one module, up to 8 screens, 25 use cases): set <code>Size tier: small</code> in the register and follow <code>small-project-tier.md</code>. The stages still run, the artifacts shrink.</div>
 
-  <!-- ===================== GREENFIELD ===================== -->
-  <h2 id="gf"><span class="pill gf">Greenfield</span> Just an idea, or a running start on the model</h2>
-  <p class="sub">The narrowest mode. Stages 1 to 4 collapse to whatever plan the user already has. Stage 0 does not collapse: the scope conversation still runs. If you find yourself inventing requirements mid-build, you are in requirements-driven mode and should back up to Stage 2.</p>
-  <div class="diagram"><pre class="mermaid">
-flowchart TD
-  P["P Kickoff light<br/>init-project.sh<br/>intake answered"] --> S0["0 Scope only ✋<br/>CAC-1 brainstorm<br/>sign-off in triage.md"]
-  S0 --> S0a["inventory, extraction, documents<br/>rows = N/A in the register"]
-  S0a --> C["1–4 collapse<br/>to the plan the user brings"]
-  C --> BR{"gate-check build-ready"}
-  BR --> S5["5 Build<br/>walking skeleton, then module loop"]
-  S5 --> S6["6 Test"]
-  S6 --> S7["7 Cutover N/A"]
-  S6 --> WU["Wrap-up<br/>harvest-learnings.sh"]
-  classDef stop fill:#f8dedb,stroke:#b3261e,color:#1d2430
-  class S0 stop
-  classDef mode fill:#dfeedc,stroke:#3f7b3a,color:#1d2430
-  class P,S5,S6 mode
-  classDef na fill:#ece9e2,stroke:#c6beae,color:#7c8494
-  class S0a,C,S7 na
-  </pre></div>
-  <div class="tablewrap"><table class="steps">
-    <tr><th>Stage</th><th>Steps</th><th>Scripts and commands</th></tr>
-    <tr><td>P light</td><td class="what">Scaffold, answer intake, register <code>Greenfield CONFIRMED</code>.</td><td class="scripts"><code>bin/init-project.sh &lt;project&gt;</code></td></tr>
-    <tr><td>0 Scope ✋</td><td class="what">CAC-1 brainstorm and slice ordering. Inventory, extraction and document rows are written N/A with the reason "no corpus".</td><td class="scripts"><code>bin/gate-check.sh &lt;project&gt; 0</code></td></tr>
-    <tr><td>5 Build</td><td class="what">Walking skeleton first, then the module loop. Same discipline as every other mode.</td><td class="scripts"><code>./mxcli check s.mdl -p app.mpr --references</code><br><code>bin/exec.sh s.mdl</code> · <code>./mxcli lint -p app.mpr</code><br><code>project-bin/verify-module.sh &lt;Module&gt;</code></td></tr>
-    <tr><td>6 Test</td><td class="what">Golden path, edge cases, DB assertions, app-wide review.</td><td class="scripts"><code>bin/gate-check.sh &lt;project&gt; 6</code></td></tr>
-  </table></div>
+  <!-- ===================== JUST AN IDEA (greenfield retired 2026-11-17) ===================== -->
+  <h2 id="gf"><span class="pill gf">Just an idea</span> Two doors: a real app, or a demo</h2>
+  <p class="sub">There is no greenfield mode any more: every mode designs and plans. An idea for a real app is requirements-driven with the conversation as the source: Stages 1 and 2 run as a short interview that writes the BRDs, then Stages 3 to 6 run as in the requirements-driven walk above (the small-project tier and <code>Pipeline mode: high-speed</code> keep it light). An idea for a demo is <code>Build type: poc</code>, answered at kickoff, and follows <code>skills/poc-build.md</code>. A POC that becomes a real app hands its hand-over to a requirements-driven build, or starts a change to the existing app. An old register that still says greenfield is mapped by <code>bin/sync-project.sh</code>.</p>
 
   <!-- ===================== CHANGE AN EXISTING APP ===================== -->
   <h2 id="chg"><span class="pill chg">Change an existing app</span> A live .mpr you are altering, not rebuilding</h2>

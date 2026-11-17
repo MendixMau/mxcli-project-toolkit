@@ -53,6 +53,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `bin/question-kinds.sh` | Deciding who answers a question — before putting any batch to the user. gap/conflict/choice/user-only is what keeps a gate batch at four questions instead of 127 |
 | `bin/facts-lock.sh` | Writing BRDs, especially several in parallel — "build" before the fan-out, "check" before any BRD is called done |
 | `skills/module-brief.md` | Building any module — before the first script. The mdl-agent's single per-module input |
+| `bin/ready.sh` | Claiming READY or done for a module or the app — the only way to write READY: `bin/ready.sh <project-root> [--module M]` runs the Stage 5/6 gates, the look ledger, the must-have list and (unattended) the independent review, prints K of N for each and commits the evidence; a READY line it did not write is not READY and FAILs Stage 6 and CI |
 | `skills/tool-output-is-not-ground-truth.md` | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude |
 | `bin/status.sh` | The first command of every session, and any time someone asks "where are we" or "what next" — one screen: stage, done/overdue, the ONE next action, from the instruments, never from memory |
 | `skills/retesting-learned-rules.md` | Before obeying any learned-* STOP or workaround that costs a detour — probe the binary you actually have, then stamp the verdict back into the rule |

@@ -28,9 +28,12 @@ set -uo pipefail
 
 _OB_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 OBLIGATIONS_TSV="${OBLIGATIONS_TSV:-$_OB_LIB_DIR/obligations.tsv}"
-# entry_mode_token: the one tokeniser artifact-check.sh also uses (never a second parser).
-# shellcheck source=entry-mode.sh
-[ -r "$_OB_LIB_DIR/entry-mode.sh" ] && . "$_OB_LIB_DIR/entry-mode.sh"
+# Entry mode: artifact-check.sh's _art_entry_mode() — its register read, entry_mode_token, and its
+# requirements-driven → requirements translation at the boundary. Called, never copied: a second
+# copy of that mapping is how the two tables would drift apart. Sourcing it only defines
+# functions (its direct-invocation block is guarded), and gate-check.sh sources it anyway.
+# shellcheck source=artifact-check.sh
+[ -r "$_OB_LIB_DIR/artifact-check.sh" ] && . "$_OB_LIB_DIR/artifact-check.sh"
 
 # Skills in the `verify` group that deliberately owe no per-module artifact. The reverse check
 # warns about any verify-group skill NOT named by an obligation; anything listed here is an
@@ -634,14 +637,11 @@ mxtk_obligations_report() {
   local adopted_rank=0
   [ -n "$adopted" ] && adopted_rank="$(_ob_rank "$adopted")"
 
-  # Entry mode, in the manifest's tokens (artifact-check.sh _art_entry_mode, same translation).
-  # Unknown or absent = every row owed.
-  local mode="" raw_mode line
-  if command -v entry_mode_token >/dev/null 2>&1; then
-    _ob_register_norm "$reg"
-    raw_mode="$(printf '%s\n' "$_OB_REG_NORM" | awk -F'\t' '$1=="entry mode"{print $2; exit}')"
-    [ -n "$raw_mode" ] && mode="$(entry_mode_token "$raw_mode" 2>/dev/null)"
-    [ "$mode" = "requirements-driven" ] && mode="requirements"
+  # Entry mode, in the manifest's tokens, via artifact-check.sh's own reader (see the source line
+  # at the top). Unknown or absent = every row owed; reader missing = every row owed, never N/A.
+  local mode=""
+  if command -v _art_entry_mode >/dev/null 2>&1; then
+    mode="$(_art_entry_mode "$reg" 2>/dev/null || true)"
   fi
 
   local current; current="$(_ob_current_stage "$reg")"

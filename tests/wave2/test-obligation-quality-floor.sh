@@ -120,6 +120,12 @@ printf 'Toolkit commit: none\n' > "$Q/PROJECT.md"
 case "$(mrow)" in *PENDING*) ok "no Entry mode line owes it" ;; *) bad "no mode: $(mrow)" ;; esac
 printf 'Entry mode: greenfield\n' > "$Q/PROJECT.md"
 case "$(MXTK_ROWS_UPTO=5 "$OBCHECK" "$Q" 2>/dev/null | grep '^Obligation look ')" in *PENDING*) ok "shipped table: greenfield owes look" ;; *) bad "shipped table changed a verdict" ;; esac
+# requirements-driven is translated to the table's `requirements` token by the SAME reader
+# artifact-check.sh uses (_art_entry_mode), not by a second copy of the mapping.
+printf 'Entry mode: requirements-driven\n' > "$Q/PROJECT.md"
+case "$(mrow)" in *"N/A — not owed (entry mode requirements"*) ok "requirements-driven, row omits requirements: not owed" ;; *) bad "rd omit: $(mrow)" ;; esac
+awk -F'\t' 'BEGIN{OFS="\t"} !/^#/ && NF==10 && $1=="look"{$10="migration,requirements"} {print}' "$(dirname "$OBCHECK")/obligations.tsv" > "$WORK/ob-mode.tsv"
+case "$(mrow)" in *PENDING*) ok "requirements-driven, row lists requirements: owed" ;; *) bad "rd list: $(mrow)" ;; esac
 
 echo "pass=$PASS fail=$FAIL"
 [ "$FAIL" -eq 0 ]

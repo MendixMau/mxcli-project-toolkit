@@ -200,6 +200,7 @@ Unit tests default: no
 Gate mode: check
 Pipeline mode: balanced
 Build type: full
+Must-haves: bound
 
 <!-- Build type (intake Q16, asked FIRST at kickoff; this line is only the default until it is answered; no line = full): full | poc. poc = skills/poc-build.md. -->
 

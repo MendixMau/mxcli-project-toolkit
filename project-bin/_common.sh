@@ -92,6 +92,79 @@ _mxtk_resolve_root() {
   # nothing found: keep the old behaviour so the caller's own error is the one seen
   printf '%s\n' "${self_parent:-$(pwd)}"
 }
+
+# --- Multi-app projects: apps/<App>/<App>.mpr, one mdlsource/ per app -----------------------
+# THE INTERFACE every reader uses to scope per app (gate-check, status, look-ledger, the
+# obligation check, ready.sh). Small on purpose; globs and builtins only, Bash 3.2.
+#
+#   mxtk_apps [root]           one line per app model: "<App><TAB><apps/App/X.mpr>" (path relative
+#                              to root), in glob order. Prints nothing and returns 1 unless the
+#                              root holds no *.mpr and no app/*.mpr — single-tree and two-tree
+#                              projects are never multi-app, whatever sits under apps/.
+#   mxtk_app_count [root]      the number of lines mxtk_apps prints (0 for every other layout).
+#   mxtk_select_app <App> [root]
+#                              sets and exports MPR_FILE (absolute) and MXTK_APP for one app.
+#                              Exact folder name first, then any letter case. rc 1, apps listed
+#                              on stderr, when <App> is not one (or its folder holds two .mpr).
+#   mxtk_app_of <path> [root]  prints <App> when <path> (absolute, or relative to root) sits under
+#                              apps/<App>/; nothing, rc 1, otherwise.
+#   MXTK_APP=<App>             the environment form of --app, honoured when this file is sourced,
+#                              so every script takes it without parsing an argument. An MPR_FILE
+#                              the user set wins over it; the cwd auto-pick below never does.
+#
+# The rule for readers: with mxtk_app_count >= 2 and no app selected, never pick one and never
+# report "nothing checked" — iterate mxtk_apps and report one line per app. find_mpr itself
+# still refuses (it answers "which model do I WRITE", and that needs a choice).
+# WHY (field runs, 2026-11): six apps under apps/<App>/ printed "more than one .mpr; set
+# MPR_FILE to choose, nothing checked" for the Marketplace check, the obligation check found no
+# module in scope, and the project's CLAUDE.local.md had to hand-write the MPR_FILE workaround.
+mxtk_apps() {
+  local r="${1:-$PROJECT_ROOT}" f a n=0
+  for f in "$r"/*.mpr "$r"/app/*.mpr; do [ -e "$f" ] && return 1; done
+  for f in "$r"/apps/*/*.mpr; do
+    [ -e "$f" ] || continue
+    a="${f%/*}"; a="${a##*/}"
+    printf '%s\t%s\n' "$a" "${f#"$r"/}"; n=$((n + 1))
+  done
+  [ "$n" -gt 0 ]
+}
+mxtk_app_count() {
+  local r="${1:-$PROJECT_ROOT}" f n=0
+  for f in "$r"/*.mpr "$r"/app/*.mpr; do [ -e "$f" ] && { echo 0; return 0; }; done
+  for f in "$r"/apps/*/*.mpr; do [ -e "$f" ] && n=$((n + 1)); done
+  echo "$n"
+}
+mxtk_select_app() {
+  local want="$1" r="${2:-$PROJECT_ROOT}" list a p hit="" n=0 wl al
+  list="$(mxtk_apps "$r")" || { echo "ERROR: --app $want: $r is not a multi-app project (no apps/<App>/*.mpr)" >&2; return 1; }
+  wl="$(printf '%s' "$want" | tr '[:upper:]' '[:lower:]')"
+  while IFS='	' read -r a p; do [ "$a" = "$want" ] && { hit="$p"; n=$((n + 1)); }; done <<EOF
+$list
+EOF
+  if [ "$n" -eq 0 ]; then
+    while IFS='	' read -r a p; do
+      al="$(printf '%s' "$a" | tr '[:upper:]' '[:lower:]')"
+      [ "$al" = "$wl" ] && { hit="$p"; n=$((n + 1)); }
+    done <<EOF
+$list
+EOF
+  fi
+  if [ "$n" -ne 1 ]; then
+    if [ "$n" -eq 0 ]; then echo "ERROR: --app $want: no such app. Apps in $r:" >&2
+    else echo "ERROR: --app $want: $n .mpr files in that app folder — set MPR_FILE to the one meant:" >&2; fi
+    printf '%s\n' "$list" | while IFS='	' read -r a p; do echo "  $a  ($p)" >&2; done
+    return 1
+  fi
+  a="${hit#apps/}"; a="${a%%/*}"
+  MPR_FILE="$r/$hit"; MXTK_APP="$a"; export MPR_FILE MXTK_APP
+}
+mxtk_app_of() {
+  local p="$1" r="${2:-$PROJECT_ROOT}"
+  case "$p" in "$r"/*) p="${p#"$r"/}" ;; esac
+  case "$p" in apps/?*/*) p="${p#apps/}"; printf '%s\n' "${p%%/*}"; return 0 ;; esac
+  return 1
+}
+
 PROJECT_ROOT="${PROJECT_ROOT:-$(_mxtk_resolve_root)}"
 # Multi-app folder, MPR_FILE unset, the session inside one app's folder: pick that app HERE,
 # at source time, and export it (#489 review). Since #489 the root from apps/<X>/ is the
@@ -122,6 +195,12 @@ if [ -z "${MPR_FILE:-}" ] && [ -d "$PROJECT_ROOT/apps" ]; then
   fi
   if [ "$_mxtk_n" -eq 1 ]; then MPR_FILE="$_mxtk_pick"; MXTK_MPR_PICKED="$_mxtk_pick"; export MPR_FILE MXTK_MPR_PICKED; fi
   unset _mxtk_n _mxtk_pick _mxtk_f
+fi
+# MXTK_APP (--app's environment form) wins over the cwd auto-pick, never over a user's MPR_FILE.
+# Its MPR_FILE is marked as a pick too, so a child in another project re-derives it from the name.
+if [ -n "${MXTK_APP:-}" ] && { [ -z "${MPR_FILE:-}" ] || [ "${MPR_FILE:-}" = "${MXTK_MPR_PICKED:-}" ]; }; then
+  if mxtk_select_app "$MXTK_APP"; then MXTK_MPR_PICKED="$MPR_FILE"; export MXTK_MPR_PICKED
+  else unset MPR_FILE MXTK_MPR_PICKED; fi
 fi
 
 # mxtk_posix_path — a Windows-form path (C:\Program Files\Mendix) as Git Bash addresses it
@@ -249,7 +328,7 @@ find_mpr() {
     for f in "$PROJECT_ROOT"/*.mpr; do [ -e "$f" ] && echo "  $(basename "$f")" >&2; done
     if [ "$multi" = 1 ]; then
       for f in "$PROJECT_ROOT"/apps/*/*.mpr; do [ -e "$f" ] && echo "  ${f#"$PROJECT_ROOT"/}" >&2; done
-      echo "Set MPR_FILE=apps/<X>/<X>.mpr (relative to $PROJECT_ROOT) to choose." >&2
+      echo "Choose one: MXTK_APP=<X>, or MPR_FILE=apps/<X>/<X>.mpr (relative to $PROJECT_ROOT)." >&2
     else
       echo "Set MPR_FILE=<name>.mpr to choose." >&2
     fi

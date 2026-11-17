@@ -47,6 +47,12 @@ CREATE OR MODIFY PAGE Approval.Approval_Decide {
 }
 MDL
   (cd "$1" && bash bin/look-ledger.sh owe "$1/mdlsource/20-approval-pages.mdl" >/dev/null)
+  # The position READY needs: stages P-4 PASS or WAIVED. The fixture joins at Build the way a real
+  # project records it, through gate-check's own --waive / --adopt (NOADOPT=1 skips this).
+  if [ -z "${NOADOPT:-}" ]; then
+    bash "$TK/bin/gate-check.sh" --no-html --waive P --reason "fixture: kickoff held elsewhere" "$1" >/dev/null 2>&1
+    bash "$TK/bin/gate-check.sh" --no-html --adopt 5 --reason "fixture: joins at build" "$1" >/dev/null 2>&1
+  fi
   G "$1" init -q; G "$1" add -A; G "$1" commit -qm scaffold
 }
 # see <dir> <page-file-stem> <captured png> — a screenshot named for its page, opened by the agent
@@ -77,7 +83,7 @@ see "$P" dashboard-1280 J-DASH-01-step1.png
 run "$P"
 [ "$rc" = 1 ] && ok "R1: 1 of 3 seen → exit 1" || bad "R1: rc=$rc"
 printf '%s\n' "$out" | grep -q 'FAIL  look      1 of 3 page(s) looked at' && ok "R1: look row says 1 of 3" || bad "R1: $out"
-printf '%s\n' "$out" | grep -q '^NOT-READY — 1 of 3 checks pass' && ok "R1: verdict NOT-READY with its denominator" || bad "R1: verdict: $out"
+printf '%s\n' "$out" | grep -q '^NOT-READY — 2 of 4 checks pass' && ok "R1: verdict NOT-READY with its denominator" || bad "R1: verdict: $out"
 ev="$(ls "$P"/docs/progress/ready-*-app.md 2>/dev/null | head -1)"
 [ -n "$ev" ] && grep -q '^- Approval.Approval_Inbox' "$ev" && grep -q 'Approval.Dashboard: dashboard-1280.png' "$ev" \
   && ok "R1: evidence names the unseen pages and the screenshot relied on" || bad "R1: evidence $(cat "$ev" 2>/dev/null)"
@@ -99,7 +105,7 @@ see_all "$P"
 run "$P"
 [ "$rc" = 0 ] && ok "R3: all 3 seen → READY exit 0" || bad "R3: rc=$rc $out"
 tail -1 "$P/docs/progress/ready.log" | grep -q '	READY	app	' && ok "R3: ready.log carries the READY line" || bad "R3: log $(tail -1 "$P/docs/progress/ready.log")"
-G "$P" log -1 --format=%s | grep -q '^ready: app READY (3 of 3 checks)' && ok "R3: committed as 'ready: app READY'" || bad "R3: $(G "$P" log -1 --format=%s)"
+G "$P" log -1 --format=%s | grep -q '^ready: app READY (4 of 4 checks)' && ok "R3: committed as 'ready: app READY'" || bad "R3: $(G "$P" log -1 --format=%s)"
 grep -q '^as-of.*owed 3	seen 3	unseen 0' "$P/docs/progress/look-summary.tsv" && ok "R3: summary refreshed to 3 of 3" || bad "R3: summary"
 
 # ── R4: unattended (auto) needs an independent review ──────────────────────────────────────
@@ -151,6 +157,13 @@ pk="$P/docs/progress/review-packets/Approval.html"
 P="$WORK/r7"; mkdir -p "$P"; printf '# PROJECT.md\n' > "$P/PROJECT.md"
 run "$P" --no-commit
 [ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q 'look      NOT MEASURED' && ok "R7: no ledger → NOT READY, look NOT MEASURED" || bad "R7: rc=$rc $out"
+
+# ── R8: every page seen, but no stage before Build ever passed → NOT READY (field run, 2026-11) ─
+P="$WORK/r8"; NOADOPT=1 mkproject "$P" root; see_all "$P"
+run "$P" --no-commit
+[ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q 'FAIL  position  .* of 6 stages before Build PASS or WAIVED — not: P ' \
+  && printf '%s\n' "$out" | grep -q 'PASS  look      3 of 3' \
+  && ok "R8: Stage P not passed, all 3 pages seen → NOT READY on position" || bad "R8: rc=$rc $out"
 
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

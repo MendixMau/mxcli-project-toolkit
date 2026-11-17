@@ -19,6 +19,7 @@
 #
 # THE CHECKS (each row prints K of N; a row nobody measured is NOT MEASURED and fails — never
 # green-by-absence):
+#   position   stages P and 0-4 each PASS, WAIVED (an --adopt point) or not owed by the entry mode.
 #   gate 5     gate-check.sh <root> 5. PASS/WAIVED, or MANUAL with the look accounted for (Stage 5
 #              is MANUAL by design once the look is clear — its other half is a Decisions row).
 #   gate 6     only when the register's "## Current stage" line is at Stage 6 or later.
@@ -110,8 +111,21 @@ if [ "$(printf '%s\n' "$apps" | sed '/^$/d' | wc -l | tr -d ' ')" -ge 2 ]; then
   [ -z "$APP" ] || printf '%s\n' $apps | grep -qx "$APP" || row fail scope "no app $APP here; apps: $(printf '%s ' $apps)"
 fi
 
-# --- gate 5 ---------------------------------------------------------------------------------
+# --- position: every stage before Build passed, waived (adopted) or not owed by the entry mode ---
+# A field run wrote READY with no stage past P ever passed (pinned gate-check: Stage P FAIL). A look
+# accounted for in Stage 5 is not enough if the planning it builds on never happened. One full,
+# read-only run (--no-html writes nothing) gives every stage's verdict.
 GC="$TOOLKIT_ROOT/bin/gate-check.sh"
+GFULL="$(bash "$GC" --no-html "$ROOT" 2>&1)"
+pk=0; pbad=""
+for st in P 0 1 2 3 4; do
+  v="$(printf '%s\n' "$GFULL" | grep -m1 "^Stage $st (" | sed "s/^Stage $st ([^)]*): //" | awk '{print $1}')"
+  case "$v" in PASS|WAIVED|N/A) pk=$((pk+1)) ;; *) pbad="$pbad${pbad:+, }$st ${v:-unknown}" ;; esac
+done
+if [ -z "$pbad" ]; then row ok position "6 of 6 stages before Build PASS or WAIVED (P, 0-4)"
+else row fail position "$pk of 6 stages before Build PASS or WAIVED — not: $pbad. Pass them, or record where this project joined (gate-check.sh --adopt 5 --reason \"...\")"; fi
+
+# --- gate 5 ---------------------------------------------------------------------------------
 g5="$(MXTK_LOOK_MODULE="$MOD" bash "$GC" --no-html "$ROOT" 5 2>&1)"; rc5=$?
 l5="$(printf '%s\n' "$g5" | grep -m1 '^Stage 5 (' | sed 's/^Stage 5 ([^)]*): //')"
 v5="$(printf '%s' "$l5" | awk '{print $1}')"
@@ -185,18 +199,32 @@ for m in $mh_mods; do
   mh_k=$((mh_k + tk)); mh_n=$((mh_n + tot))
 done
 mh_where="docs/progress/must-haves/${MOD:-<Module>}.md"
+# The standard obligation waiver (`Waived obligation must-haves[/<Module>]: <reason>`) clears a
+# missing mark; an ADVISORY verdict from the obligation check (a project past Stage 5 at sync) shows
+# without blocking.
+mh_waived=""; mh_left=""
+for m in $mh_miss; do
+  if [ -f "$REG" ] && grep -qiE "^[-*[:space:]]*Waived obligation must-haves(/$m)?[[:space:]]*:" "$REG"; then mh_waived="$mh_waived $m"
+  else mh_left="$mh_left $m"; fi
+done
+mh_miss="$mh_left"
+mh_adv="$(printf '%s\n' "$GFULL" | grep -m1 -E '^Obligation must-haves[[:space:]]+ADVISORY')"
 if [ -z "$mh_mods" ]; then
   row info must-have "not measured — no built page names a module that owes a mark ($mh_where)"
 elif [ -n "$mh_bad" ]; then
   row fail must-have "FAULT — line 1 has no \"N of M\" in the mark of:$mh_bad"
+elif [ -n "$mh_miss" ] && [ "$mh_owed" = 1 ] && [ -n "$mh_adv" ]; then
+  row info must-have "ADVISORY (not blocking) — no mark for:$mh_miss; $(printf '%s' "$mh_adv" | sed 's/^Obligation must-haves[[:space:]]*//' | cut -c1-120)"
 elif [ -n "$mh_miss" ] && [ "$mh_owed" = 1 ]; then
   row fail must-have "$mh_k of $mh_n ticked; no mark for:$mh_miss (write $mh_where, skills/must-haves.md)"
+elif [ -z "$mh_files" ] && [ -n "$mh_waived" ]; then
+  row ok must-have "WAIVED — Waived obligation must-haves in PROJECT.md for:$mh_waived"
 elif [ -z "$mh_files" ]; then
   row info must-have "not present — no mark at $mh_where"
 elif [ "$mh_k" -lt "$mh_n" ]; then
   row fail must-have "$mh_k of $mh_n rows TICKED in$mh_files${mh_miss:+ (no mark for:$mh_miss)}"
 else
-  row ok must-have "$mh_n of $mh_n rows TICKED in$mh_files${mh_miss:+ (no mark for:$mh_miss)}"
+  row ok must-have "$mh_n of $mh_n rows TICKED in$mh_files${mh_miss:+ (no mark for:$mh_miss)}${mh_waived:+ (waived:$mh_waived)}"
 fi
 [ -n "$mh_hidden" ] && echo "  note  must-have mark read from git-ignored .claude/loop/ for:$mh_hidden — move it to docs/progress/must-haves/ so CI and reviewers see it" >&2
 

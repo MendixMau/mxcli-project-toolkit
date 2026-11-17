@@ -90,8 +90,10 @@ late=0; case "$claim" in 6|7) late=1 ;; esac
 if [ -s "$SUMM" ]; then
   unseen="$(awk -F'\t' '$1 == "unseen" { print $2 }' "$SUMM")"
   asof="$(awk -F'\t' '$1 == "as-of" { print $2 " (" $3 ", " $4 ")"; exit }' "$SUMM")"
+  # "look: K of N pages seen" — shown on every run that does not fail, so the number is in front of people
+  kn="$(awk -F'\t' '$1 == "as-of" { o=$3; s=$4; sub(/^owed /, "", o); sub(/^seen /, "", s); print "look: " s " of " o " pages seen"; exit }' "$SUMM")"
   if [ -z "$unseen" ]; then
-    say PASS look "committed look summary: no built page unseen, as of $asof"
+    say PASS look "$kn — committed look summary, as of ${asof%% (*}"
   else
     n="$(printf '%s\n' "$unseen" | wc -l | tr -d ' ')"
     hit=""
@@ -105,10 +107,10 @@ if [ -s "$SUMM" ]; then
 $claims
 EOF
     list="$(printf '%s\n' "$unseen" | head -8 | tr '\n' ' ')"
-    if [ -n "$hit" ]; then say FAIL look "READY ($hit) while the committed look summary shows $n built page(s) never looked at: $list"
-    elif [ "$late" = 1 ]; then say FAIL look "the register is at Stage $claim while $n built page(s) were never looked at: $list"
-    elif [ "${MXTK_CI_STRICT_LOOK:-0}" = 1 ]; then say FAIL look "$n built page(s) never looked at (strict): $list"
-    else say WARN look "$n built page(s) not looked at yet (as of $asof): $list — fine mid-build, a FAIL once READY is claimed"; fi
+    if [ -n "$hit" ]; then say FAIL look "$kn — READY ($hit) while the committed look summary shows $n built page(s) never looked at: $list"
+    elif [ "$late" = 1 ]; then say FAIL look "$kn — the register is at Stage $claim while $n built page(s) were never looked at: $list"
+    elif [ "${MXTK_CI_STRICT_LOOK:-0}" = 1 ]; then say FAIL look "$kn — $n built page(s) never looked at (strict): $list"
+    else say WARN look "$kn — $n built page(s) not looked at yet (as of ${asof%% (*}): $list — fine mid-build, a FAIL once READY or Stage 6 is claimed"; fi
   fi
 elif [ -n "$claims" ]; then
   say FAIL look "READY claimed ($(printf '%s' "$claims" | tr '\n' ';')) but no docs/progress/look-summary.tsv is committed: the look behind the claim is invisible"

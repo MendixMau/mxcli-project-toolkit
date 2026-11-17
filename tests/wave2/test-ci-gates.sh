@@ -50,9 +50,11 @@ ci() { rm -rf "$WORK/ci"; git clone -q "$1" "$WORK/ci"; out="$(bash "$SUBJECT" "
 
 # ── C0: clean — every page seen, READY by ready.sh, greenfield ────────────────────────────
 P="$WORK/c0"; mkproject "$P" greenfield; see_all "$P"
+bash "$TK/bin/gate-check.sh" --no-html --waive P --reason "fixture: kickoff held elsewhere" "$P" >/dev/null 2>&1   # READY needs P-4 passed or waived
+commit_all "$P" "kickoff waived"
 bash "$TK/bin/ready.sh" "$P" >/dev/null 2>&1 || bad "C0: ready.sh did not pass on a clean project"
 ci "$P"
-[ "$rc" = 0 ] && printf '%s\n' "$out" | grep -q '^PASS  ready' && printf '%s\n' "$out" | grep -q '^PASS  look' \
+[ "$rc" = 0 ] && printf '%s\n' "$out" | grep -q '^PASS  ready' && printf '%s\n' "$out" | grep -q '^PASS  look   look: 3 of 3 pages seen' \
   && ok "C0: clean tree, READY written by ready.sh → CI passes" || bad "C0: rc=$rc $out"
 [ ! -e "$WORK/ci/.claude/loop" ] && ok "C0: CI saw no ledger, only the committed summary" || bad "C0: the clone carries the ignored ledger"
 
@@ -74,14 +76,14 @@ sleep 1; printf 'CREATE OR MODIFY PAGE Approval.Approval_Archive {\n}\n' > "$P/m
 (cd "$P" && bash bin/look-ledger.sh owe "$P/mdlsource/21-archive.mdl" >/dev/null && bash bin/look-ledger.sh summary --write >/dev/null)
 commit_all "$P" "archive page"
 ci "$P"
-[ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q '^FAIL  look   READY (app) while the committed look summary shows 1 built page(s) never looked at: Approval.Approval_Archive' \
+[ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q '^FAIL  look   look: 3 of 4 pages seen — READY (app) while the committed look summary shows 1 built page(s) never looked at: Approval.Approval_Archive' \
   && ok "C2: READY standing over a committed unseen page fails CI" || bad "C2: rc=$rc $out"
 # the same tree without a done-claim is a warning mid-build, a FAIL when strict
 P2="$WORK/c2b"; mkproject "$P2" greenfield; (cd "$P2" && bash bin/look-ledger.sh summary --write >/dev/null); commit_all "$P2" summary
 ci "$P2"
-[ "$rc" = 0 ] && printf '%s\n' "$out" | grep -q '^WARN  look   3 built page(s) not looked at yet' && ok "C2: no claim → WARN, exit 0 (mid-build)" || bad "C2b: rc=$rc $out"
+[ "$rc" = 0 ] && printf '%s\n' "$out" | grep -q '^WARN  look   look: 0 of 3 pages seen — 3 built page(s) not looked at yet' && ok "C2: no claim → WARN, exit 0 (mid-build)" || bad "C2b: rc=$rc $out"
 rm -rf "$WORK/ci"; git clone -q "$P2" "$WORK/ci"; out="$(MXTK_CI_STRICT_LOOK=1 bash "$SUBJECT" "$WORK/ci" 2>&1)"; rc=$?
-[ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q '^FAIL  look   3 built page(s) never looked at (strict)' && ok "C2: MXTK_CI_STRICT_LOOK=1 → FAIL" || bad "C2c: rc=$rc $out"
+[ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q '^FAIL  look   look: 0 of 3 pages seen — 3 built page(s) never looked at (strict)' && ok "C2: MXTK_CI_STRICT_LOOK=1 → FAIL" || bad "C2c: rc=$rc $out"
 
 # ── C3 (a): the register claims Stage 5 and Stage 5 FAILs ──────────────────────────────────
 sed -i.bak 's/^\*\*Stage P — Kickoff\*\*, in progress\./**Stage 5 — Build**, in progress (manual gate: its verdict is a Decisions row, not a file) — gates passed: P, 0, 1, 2, 3, 4 (derived by gate-check on 2026-11-17; re-run it rather than editing this line)./' "$P2/PROJECT.md"; rm -f "$P2/PROJECT.md.bak"

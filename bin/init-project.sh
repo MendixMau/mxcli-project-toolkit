@@ -291,6 +291,11 @@ else
   echo "Created: docs/progress/RESUME.md (starter — the first close-the-loop overwrites it)"
 fi
 
+# .github/workflows/toolkit-gates.yml — the CI gate an agent cannot skip (bin/ci-gates.sh). Create-if-
+# absent, never overwritten (bin/lib/ci-template.sh).
+. "$TOOLKIT_ROOT/bin/lib/ci-template.sh"
+mxtk_ci_install "$TOOLKIT_ROOT" "$PROJECT_DIR" 0 init || true
+
 CLAUDE_LOCAL="$PROJECT_DIR/CLAUDE.local.md"
 if [ -f "$CLAUDE_LOCAL" ]; then
   echo "Skip: CLAUDE.local.md already exists — not overwritten."
@@ -338,6 +343,8 @@ This project uses the shared toolkit at \`$TOOLKIT_ROOT\`. For ANY pipeline work
 3. **Every gate question is asked in chat, then the turn ends and waits** (runbook §1).
    \`ASSUMED\` is earned by asking — the user said "you decide" — never by skipping.
 4. **Before calling a stage done:** \`$TOOLKIT_ROOT/bin/gate-check.sh <project-root> <stage>\`.
+   **READY / done on a module or the app only via** \`$TOOLKIT_ROOT/bin/ready.sh <project-root> [--module M]\`
+   — it writes the READY line and commits the evidence; never write READY by hand.
 5. **Before any page MDL:** read \`$TOOLKIT_ROOT/skills/ui-preflight-pages.md\` in full — its
    *text*; a delegated page draft carries the text or reads the file first. **After it:** the
    \`check-page-shell\`, \`page-fidelity\` and \`ui-loop\` rows below, then look at the page at

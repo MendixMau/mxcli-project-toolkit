@@ -108,7 +108,11 @@ step() {
   # this script's cleanup (which would delete $TMP under the steps still to come)
   ( trap - EXIT; exec "$@" ) < /dev/null > "$out" 2>&1 &
   pid=$!
-  ( trap - EXIT; sleep "$STEP_T"; : > "$out.killed"; kill "$pid" 2>/dev/null && { sleep 2; kill -9 "$pid" 2>/dev/null; } ) > /dev/null 2>&1 &
+  # The sleep runs as the watchdog's child and is killed with it: a bare `sleep` would outlive a step
+  # that finished first (CI reaped six orphaned sleeps after one fixture run).
+  ( trap - EXIT; trap 'kill "$s" 2>/dev/null; exit 0' TERM
+    sleep "$STEP_T" & s=$!; wait "$s"
+    : > "$out.killed"; kill "$pid" 2>/dev/null && { sleep 2; kill -9 "$pid" 2>/dev/null; } ) > /dev/null 2>&1 &
   wd=$!
   wait "$pid"; rc=$?
   kill "$wd" 2>/dev/null; wait "$wd" 2>/dev/null

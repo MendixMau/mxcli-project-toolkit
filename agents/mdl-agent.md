@@ -94,6 +94,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `project-bin/lint-gate.sh` | Running lint as a gate rather than a report |
 | `skills/improvement-register.md` | Any review pass that runs more than once |
 | `skills/wiring-sweep.md` | Every module before it is called done; buttons, links or actions that do nothing when clicked |
+| `skills/must-haves.md` | Closing any module with pages, any build type |
 | `skills/learned-workflow-patterns.md` | Writing or debugging a Mendix native Workflow (CREATE WORKFLOW/USER TASK/OUTCOMES) |
 | `skills/workflow-structure-rules.md` | Designing or reviewing a Workflow's SHAPE before or after the MDL |
 | `skills/rest-integration-first-time-right.md` | Building a REST integration (consumed or published) for the first time on a project |

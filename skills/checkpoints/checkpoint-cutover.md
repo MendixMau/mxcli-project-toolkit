@@ -5,7 +5,7 @@
 **Template:** See `checkpoint-template.md` for format rules.
 **Hard gate:** Stage 7 is a `✋` gate — every answer here must land in `PROJECT.md` as `CONFIRMED`. No `ASSUMED` defaults past this checkpoint; if the user can't answer yet, the pipeline waits.
 
-Migration-mode only. Greenfield and requirements-driven builds with no legacy data skip Stage 7 entirely — record that skip in `PROJECT.md` as a one-line decision ("no legacy system, no cutover"), don't leave it implicit.
+Migration-mode only. Requirements-driven builds (from documents or a conversation) and POC builds with no legacy data skip Stage 7 entirely — record that skip in `PROJECT.md` as a one-line decision ("no legacy system, no cutover"), don't leave it implicit.
 
 ---
 

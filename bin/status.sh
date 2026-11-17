@@ -75,8 +75,11 @@ ENTRY="$(entry_mode_token "$ENTRY_RAW" 2>/dev/null)"
 # Declared position (project-bin/_position.sh, the reader exec.sh and gate-check.sh share): no
 # Entry mode (register or intake) and no adoption line → the one banner, first line of either view.
 # Field runs (2026-11) built ~78 pages with neither line, and nothing here said so.
-mxtk_pos_read "$PROJECT_DIR"; POS_BANNER=""; mxtk_pos_undeclared && POS_BANNER="$MXTK_POS_BANNER"
-[ "$POS_ENTRY" = greenfield-retired ] && POS_BANNER="${MXTK_POS_RETIRED/<project>/$PROJECT_DIR}"
+POS_ENTRY=""; POS_BANNER=""
+if declare -F mxtk_pos_read >/dev/null; then
+  mxtk_pos_read "$PROJECT_DIR"; mxtk_pos_undeclared && POS_BANNER="${MXTK_POS_BANNER:-}"
+  [ "$POS_ENTRY" = greenfield-retired ] && POS_BANNER="${MXTK_POS_RETIRED/<project>/$PROJECT_DIR}"
+fi
 ADOPTED="$(grep -m1 -oE '^Adopted at stage: *[0-9P]+' "$REG" | sed 's/^Adopted at stage: *//')"
 SKELETON="$(grep -m1 -oE '^Skeleton proven [0-9-]+' "$REG" | sed 's/^Skeleton proven //')"
 UNSYNCED="$(grep -c 'UNSYNCED' "$REG" 2>/dev/null)"; UNSYNCED="${UNSYNCED:-0}"
@@ -386,8 +389,8 @@ for _w in "$STAGE_STALE" "${APPROVED_OVER:+APPROVED OVER A FAILING GATE: $APPROV
   [ -n "$_w" ] && WATCH="${WATCH:+$WATCH · }$_w"
 done
 if [ "$BRIEF" = 1 ]; then
-  [ -n "$POS_BANNER" ] && echo "⚠       $POS_BANNER"
   [ -n "$CWD_NOTE" ] && echo "CWD     $CWD_NOTE"
+  [ -n "$POS_BANNER" ] && echo "⚠       $POS_BANNER"
   echo "WHERE   $NAME · $STAGE_LINE${ENTRY:+ · $ENTRY}${ADOPTED:+ · joined at $ADOPTED}"
   [ -n "$ROUND_LINE" ] && echo "ROUND   $ROUND_LINE"
   echo "STATE   scripts $N_SCRIPTS written / $N_PASS gate-pass / $N_DONE done- · modules opened $MOD_OPENED${SKELETON:+ · skeleton $SKELETON} · UNSYNCED $UNSYNCED · open questions $OPEN_Q${MANUAL:+ · $MANUAL}${APPMAP:+ · $APPMAP}"
@@ -398,8 +401,8 @@ if [ "$BRIEF" = 1 ]; then
 fi
 printf '\n%s — %s%s%s\n' "$NAME" "$STAGE_LINE" "${ENTRY:+ · $ENTRY}" "${ADOPTED:+ · joined at stage $ADOPTED}"
 printf '%s\n\n' "$TK"
-[ -n "$POS_BANNER" ] && printf '⚠ %s\n\n' "$POS_BANNER"
 [ -n "$CWD_NOTE" ] && printf 'CWD       %s\n' "$CWD_NOTE"
+[ -n "$POS_BANNER" ] && printf '⚠ %s\n\n' "$POS_BANNER"
 [ -n "$ROUND_LINE" ] && printf 'ROUND     %s\n' "$ROUND_LINE"
 printf 'DONE      scripts: %s written, %s gate-pass, %s done-  ·  modules opened: %s%s\n' "$N_SCRIPTS" "$N_PASS" "$N_DONE" "$MOD_OPENED" "${SKELETON:+  ·  skeleton proven $SKELETON}"
 printf 'OVERDUE   %s  ·  %s  ·  %s  ·  UNSYNCED markers: %s  ·  open questions: %s\n' "$DOCTOR" "$LINT" "${COH:-coherence: cadence script not installed}" "$UNSYNCED" "$OPEN_Q"

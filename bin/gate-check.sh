@@ -4147,8 +4147,15 @@ printf "Summary: %d passed · %d not started · %d waived · %d need attention �
   "$N_PASS" "$N_PENDING" "$N_WAIVED" "$N_FAIL" "$N_MANUAL"
 # Declared position (project-bin/_position.sh; conversion-runbook.md → Entry Modes). The field runs
 # that built with no plan (2026-11) had neither line, and this summary read like any other.
-[ -z "$ENTRY_MODE" ] && [ -z "$ADOPTED_AT" ] && printf '⚠ %s\n' "$MXTK_POS_BANNER"
-[ "$ENTRY_MODE" = greenfield-retired ] && printf '⚠ %s\n' "${MXTK_POS_RETIRED/<project>/$PROJECT_DIR}"
+# Warn-only, and never the script's last status: an `if`, not an `&&` chain, and the text read with
+# a default — a scratch copy of this script without bin/lib/ (tests/wave2/test-bug06-freshness.sh)
+# has no banner text, and an unbound variable under `set -u` aborted the run with exit 1.
+if [ -z "$ENTRY_MODE" ] && [ -z "$ADOPTED_AT" ] && [ -n "${MXTK_POS_BANNER:-}" ]; then
+  printf '⚠ %s\n' "$MXTK_POS_BANNER"
+fi
+if [ "$ENTRY_MODE" = greenfield-retired ] && [ -n "${MXTK_POS_RETIRED:-}" ]; then
+  printf '⚠ %s\n' "${MXTK_POS_RETIRED/<project>/$PROJECT_DIR}"
+fi
 
 # The stage counts above are about STAGES. They say nothing about the per-module passes and the
 # per-stage artifacts checked further up, and for a long time nothing down here did either — so

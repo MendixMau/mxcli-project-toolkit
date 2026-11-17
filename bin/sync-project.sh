@@ -842,6 +842,31 @@ if [ -f "$PROJECT_DIR/PROJECT.md" ] && ! mxtk_change_log_has_section "$PROJECT_D
   CHANGES=$((CHANGES + 1))
 fi
 
+# --- 2b1a2. PROJECT.md: one-time `Must-haves:` line (the must-haves obligation, #787) -------------
+# The must-haves row (bin/lib/obligations.tsv, skills/must-haves.md) owes a per-module mark from
+# Stage 5. A project already past Stage 5 when it arrived built every module without it, so it is
+# recorded once as advisory: its row is shown, never counted. Every other project is bound. Written
+# only when no `Must-haves:` line exists, so it is decided ONCE, on the first sync after the row
+# landed — never re-derived from the project's position, or a new project would turn advisory the
+# day it passed Stage 5 without the marks. init-project.sh writes `bound` for new projects.
+# "Past Stage 5" = gate-check's derived Current stage is 6 or 7, or the register adopted at 6/7.
+# A stage nobody can read is not "past": bound, with the one line that changes it.
+if [ -f "$PROJECT_DIR/PROJECT.md" ] && ! grep -qiE '^[*_ >-]*Must-haves:' "$PROJECT_DIR/PROJECT.md" \
+   && [ -r "$TOOLKIT_ROOT/bin/lib/obligation-check.sh" ]; then
+  _mh_stage="$( . "$TOOLKIT_ROOT/bin/lib/obligation-check.sh"
+                c="$(_ob_current_stage "$PROJECT_DIR/PROJECT.md")"; a="$(_ob_adopted_stage "$PROJECT_DIR/PROJECT.md" || true)"
+                case "$c" in (6|7) printf '%s' "$c"; exit 0 ;; esac
+                case "$a" in (6|7) printf '%s' "$a" ;; esac )"
+  if [ -n "$_mh_stage" ]; then
+    printf '\nMust-haves: advisory — joined at stage %s before the must-haves row existed (skills/must-haves.md; change to `bound` to owe it)\n' "$_mh_stage" | w_app "$PROJECT_DIR/PROJECT.md"
+    echo "${DRY:-}Updated: PROJECT.md — Must-haves: advisory (past Stage 5 before the row existed; the must-haves row is shown, not counted)."
+  else
+    printf '\nMust-haves: bound\n' | w_app "$PROJECT_DIR/PROJECT.md"
+    echo "${DRY:-}Updated: PROJECT.md — Must-haves: bound (each module with pages owes docs/progress/must-haves/<Module>.md; already past Stage 5? set \`Must-haves: advisory — <reason>\`)."
+  fi
+  CHANGES=$((CHANGES + 1))
+fi
+
 # --- 2b1b. PROJECT.md: say out loud what a missing `Pipeline mode:` line means (#686) --------
 # No line = balanced (project-bin/_common.sh mxtk_pipeline_mode), which moved journeys, the
 # 390 + 1280 LOOK and the pre-push full build from per row to module close. Report only: the

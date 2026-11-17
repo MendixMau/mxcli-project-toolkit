@@ -21,6 +21,8 @@
 #   ADOPTED  the project joined the pipeline above this obligation's stage
 #   NOT YET DUE  final-look only: gate-check's derived Current stage has not reached its from-stage
 #   N/A      this project is not running the pipeline at all (a-la-carte; existing-app-assurance.md)
+#   ADVISORY must-haves only: the register says `Must-haves: advisory` (written once by
+#            sync-project.sh for a project already past Stage 5); shown, never counted
 
 set -uo pipefail
 
@@ -158,6 +160,25 @@ _ob_adopted_stage() {
     # so the leading-blank case awk tolerated cannot arise here.
     printf '%s\n' "${val%%[ 	]*}"
     return 0
+  done
+  return 1
+}
+
+# _ob_must_haves_advisory <register> → prints the reason and returns 0 when the register says
+# `Must-haves: advisory — <reason>`. sync-project.sh writes that line ONCE, for a project already
+# past Stage 5 when the must-haves row arrived (it could not have owed the mark while it built);
+# every other project gets `Must-haves: bound`, from init-project.sh or that same first sync.
+# Keyed on a written line, never on the project's position: "advisory once past Stage 5" would
+# also silence a NEW project the moment it reached Stage 6 without the marks — absence-renders-green.
+_ob_must_haves_advisory() {
+  local reg="$1" line key val
+  _ob_register_norm "$reg"
+  local IFS=$'\n'
+  for line in $_OB_REG_NORM; do
+    key="${line%%$'\t'*}"; val="${line#*$'\t'}"
+    [ "$key" = "must-haves" ] || continue
+    case "$val" in [Aa][Dd][Vv][Ii][Ss][Oo][Rr][Yy]*) printf '%s\n' "$val"; return 0 ;; esac
+    return 1
   done
   return 1
 }
@@ -765,7 +786,13 @@ mxtk_obligations_report() {
 
     local scoped=$((total - waived_n)) tail=""
     [ "$waived_n" -gt 0 ] && tail=" ($waived_n waived)"
-    if [ -n "$faulted" ] || [ -n "$noproof" ] || [ -n "$unstamped" ] || [ -n "$noproto" ]; then
+    local advisory=""
+    if [ "$ob" = "must-haves" ] && { [ -n "$pending" ] || [ -n "$faulted" ]; } \
+       && advisory="$(_ob_must_haves_advisory "$reg")"; then
+      # Reported, not counted: the module list stays visible, the pending total does not move.
+      printf 'Obligation %-10s ADVISORY — %d of %d discharged%s; NOT DONE:%s%s — register: Must-haves: %s (%s)\n' \
+        "$ob" "$done_n" "$scoped" "$tail" "$pending" "${faulted:+; NO DENOMINATOR:$faulted}" "$advisory" "$skill"
+    elif [ -n "$faulted" ] || [ -n "$noproof" ] || [ -n "$unstamped" ] || [ -n "$noproto" ]; then
       local why_bits=""
       [ -n "$faulted" ] && why_bits="NO DENOMINATOR:$faulted — a pass that cannot say what it covered has not covered it"
       [ -n "$unstamped" ] && why_bits="${why_bits:+$why_bits; }NO VALID AT:$unstamped — an unstamped final LOOK can never go stale, so it is treated as no report (stamp it with the commit it was true at)"

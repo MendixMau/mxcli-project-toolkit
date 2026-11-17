@@ -59,7 +59,8 @@ never this file; a READY line it did not write FAILs Stage 6 and CI.
    That verdict, not this file, is the answer to "where are we".
 2. **If it reports Stage P:** run the kickoff interview against \`intake.md\`. Ask Q16 (which kind of
    build) FIRST; on POC follow \`$toolkit/skills/poc-build.md\` and do not ask the rest. Otherwise
-   Q1 is the entry mode (migration / requirements-driven / greenfield) and it decides everything after.
+   Q1 is the entry mode (migration / requirements-driven / change an existing app; an idea for a real
+   app is requirements-driven, a demo is the POC build) and it decides everything after.
    Every question is asked in chat and the turn then ENDS and waits —
    \`$toolkit/skills/interview-protocol.md\` §3. Record each answer in \`PROJECT.md\` as
    \`CONFIRMED\` or \`ASSUMED\`.

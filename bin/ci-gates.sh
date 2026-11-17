@@ -23,7 +23,7 @@
 #               committed summary behind it fails: the claim cites evidence nobody can read.
 #   (d) order   model work before its plan: docs/BUILD-LOG.md has exec rows (or mdlsource/ holds build
 #               scripts outside gallery/) while gate-check Stage 4 is not PASS/WAIVED. gate-check already
-#               waives Stage 4 for greenfield and for an --adopt point at or after it.
+#               waives Stage 4 for an --adopt point after it (and Build type: poc, where it is not owed).
 #
 # WHAT IT CANNOT SEE (anything not committed): the git-ignored .claude/loop/ ledgers themselves (only
 # the summary ready.sh / close-task.sh commit), screenshots, chat, a model edited without exec.sh and

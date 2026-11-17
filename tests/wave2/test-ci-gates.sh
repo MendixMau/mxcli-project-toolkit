@@ -48,9 +48,9 @@ see_all() {
 commit_all() { G "$1" add -A; G "$1" commit -qm "$2"; }
 ci() { rm -rf "$WORK/ci"; git clone -q "$1" "$WORK/ci"; out="$(bash "$SUBJECT" "$WORK/ci" 2>&1)"; rc=$?; }
 
-# ── C0: clean — every page seen, READY by ready.sh, greenfield ────────────────────────────
-P="$WORK/c0"; mkproject "$P" greenfield; see_all "$P"
-# READY needs P-4 passed or waived: greenfield waives 1-4 but owes 0, so the fixture joins at Build
+# ── C0: clean — every page seen, READY by ready.sh, requirements-driven ────────────────────────────
+P="$WORK/c0"; mkproject "$P" requirements-driven; see_all "$P"
+# READY needs P-4 passed or waived: no entry mode waives 1-4 (greenfield was retired), so the fixture joins at Build
 # the way test-ready.sh does (--waive P, --adopt 5)
 bash "$TK/bin/gate-check.sh" --no-html --waive P --reason "fixture: kickoff held elsewhere" "$P" >/dev/null 2>&1
 bash "$TK/bin/gate-check.sh" --no-html --adopt 5 --reason "fixture: joins at build" "$P" >/dev/null 2>&1
@@ -96,7 +96,7 @@ ci "$P"
 [ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q '^FAIL  look   look: 3 of 4 pages seen — READY (app) while the committed look summary shows 1 built page(s) never looked at: Approval.Approval_Archive' \
   && ok "C2: READY standing over a committed unseen page fails CI" || bad "C2: rc=$rc $out"
 # the same tree without a done-claim is a warning mid-build, a FAIL when strict
-P2="$WORK/c2b"; mkproject "$P2" greenfield; (cd "$P2" && bash bin/look-ledger.sh summary --write >/dev/null); commit_all "$P2" summary
+P2="$WORK/c2b"; mkproject "$P2" requirements-driven; bash "$TK/bin/gate-check.sh" --no-html --adopt 5 --reason "fixture: joins at build" "$P2" >/dev/null 2>&1; (cd "$P2" && bash bin/look-ledger.sh summary --write >/dev/null); commit_all "$P2" summary
 ci "$P2"
 [ "$rc" = 0 ] && printf '%s\n' "$out" | grep -q '^WARN  look   look: 0 of 3 pages seen — 3 built page(s) not looked at yet' && ok "C2: no claim → WARN, exit 0 (mid-build)" || bad "C2b: rc=$rc $out"
 rm -rf "$WORK/ci"; git clone -q "$P2" "$WORK/ci"; out="$(MXTK_CI_STRICT_LOOK=1 bash "$SUBJECT" "$WORK/ci" 2>&1)"; rc=$?

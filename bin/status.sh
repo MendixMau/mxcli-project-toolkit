@@ -72,6 +72,10 @@ ENTRY_RAW="$(awk '
   }
 ' "$REG")"
 ENTRY="$(entry_mode_token "$ENTRY_RAW" 2>/dev/null)"
+# Declared position (project-bin/_position.sh, the reader exec.sh and gate-check.sh share): no
+# Entry mode (register or intake) and no adoption line → the one banner, first line of either view.
+# Field runs (2026-11) built ~78 pages with neither line, and nothing here said so.
+mxtk_pos_read "$PROJECT_DIR"; POS_BANNER=""; mxtk_pos_undeclared && POS_BANNER="$MXTK_POS_BANNER"
 ADOPTED="$(grep -m1 -oE '^Adopted at stage: *[0-9P]+' "$REG" | sed 's/^Adopted at stage: *//')"
 SKELETON="$(grep -m1 -oE '^Skeleton proven [0-9-]+' "$REG" | sed 's/^Skeleton proven //')"
 UNSYNCED="$(grep -c 'UNSYNCED' "$REG" 2>/dev/null)"; UNSYNCED="${UNSYNCED:-0}"
@@ -250,6 +254,7 @@ fi
 next_action() {
   if [ -n "$APPROVED_OVER" ]; then echo "$APPROVED_OVER is approved in PROJECT.md but its gate FAILS — fix the gate, or re-open the approval with the user (bin/gate-check.sh)"; return; fi   # conversion-runbook.md §2
   if [ "$N_ATTN" -gt 0 ]; then echo "fix what gate-check flags: $(printf '%s\n' "$NEED_ATTN" | head -1)"; return; fi   # conversion-runbook.md §2
+  if [ -n "$POS_BANNER" ]; then echo "declare the entry mode (intake Q1, kickoff) or adopt a stage: bin/gate-check.sh $PROJECT_DIR --adopt <stage> --reason \"...\""; return; fi   # conversion-runbook.md → Entry Modes
   case "$STAGE_LINE" in *"Stage 5"*|*"Stage 6"*|*"Stage 7"*)
     if [ -z "$SKELETON" ]; then echo "run the walking skeleton before the first module (skills/walking-skeleton.md)"; return; fi ;;  # walking-skeleton.md
   esac
@@ -379,6 +384,7 @@ for _w in "$STAGE_STALE" "${APPROVED_OVER:+APPROVED OVER A FAILING GATE: $APPROV
   [ -n "$_w" ] && WATCH="${WATCH:+$WATCH · }$_w"
 done
 if [ "$BRIEF" = 1 ]; then
+  [ -n "$POS_BANNER" ] && echo "⚠       $POS_BANNER"
   [ -n "$CWD_NOTE" ] && echo "CWD     $CWD_NOTE"
   echo "WHERE   $NAME · $STAGE_LINE${ENTRY:+ · $ENTRY}${ADOPTED:+ · joined at $ADOPTED}"
   [ -n "$ROUND_LINE" ] && echo "ROUND   $ROUND_LINE"
@@ -390,6 +396,7 @@ if [ "$BRIEF" = 1 ]; then
 fi
 printf '\n%s — %s%s%s\n' "$NAME" "$STAGE_LINE" "${ENTRY:+ · $ENTRY}" "${ADOPTED:+ · joined at stage $ADOPTED}"
 printf '%s\n\n' "$TK"
+[ -n "$POS_BANNER" ] && printf '⚠ %s\n\n' "$POS_BANNER"
 [ -n "$CWD_NOTE" ] && printf 'CWD       %s\n' "$CWD_NOTE"
 [ -n "$ROUND_LINE" ] && printf 'ROUND     %s\n' "$ROUND_LINE"
 printf 'DONE      scripts: %s written, %s gate-pass, %s done-  ·  modules opened: %s%s\n' "$N_SCRIPTS" "$N_PASS" "$N_DONE" "$MOD_OPENED" "${SKELETON:+  ·  skeleton proven $SKELETON}"

@@ -221,7 +221,9 @@ mxtk_mkt_report() {
 # mxtk_mkt_report_apps <project-dir> <register> <shared fit-gap or ""> <apps>
 # A multi-app project (two or more apps/<App>/<App>.mpr, <apps> as mxtk_apps prints them) with no
 # app selected: one check per app instead of "more than one .mpr ... nothing checked" (field run,
-# 2026-11, six apps). Prints a header line and one "  [<App>] <VERDICT> — ..." line per app.
+# 2026-11, six apps). Prints a header line, one "  [<App>] <VERDICT> — ..." line per app with its
+# own fit-gap, and for the apps on the shared fit-gap one line per distinct finding, naming its
+# apps ("[all 6 apps, from the shared architecture/fit-gap.md]" when it holds for every app).
 # Each app reads architecture/apps/<App>/fit-gap.md when it has one, else the shared fit-gap. A
 # shared fit-gap does not say which app owes a Buy, so a package missing from an app reads PENDING
 # there, naming the move that settles it — never a FAIL on a guess.
@@ -229,7 +231,9 @@ mxtk_mkt_report() {
 # MXTK_MKT_NOTE to "<App>: <verdict>; ..." — build-ready counts that FAIL as one item.
 mxtk_mkt_report_apps() {
   local root="$1" reg="$2" shared="$3" apps="$4" app mpr fg out st worst="" notes="" one
-  printf 'Marketplace installs: per app (%s apps; --app <App> checks one)\n' "$(printf '%s\n' "$apps" | grep -c .)"
+  local groups="" g gk gapps n_sh=0 n_all key
+  n_all="$(printf '%s\n' "$apps" | grep -c . || true)"
+  printf 'Marketplace installs: per app (%s apps; --app <App> checks one)\n' "$n_all"
   while IFS='	' read -r app mpr; do
     [ -n "$app" ] || continue
     fg="$shared"
@@ -238,11 +242,21 @@ mxtk_mkt_report_apps() {
            mxtk_mkt_report "$root" "$reg" "$fg" >/dev/null
            printf '%s\t%s' "$MXTK_MKT_STATUS" "$MXTK_MKT_NOTE")"
     st="${out%%	*}"; one="${out#*	}"
-    if [ "$st" = FAIL ] && [ "$fg" = "$shared" ]; then
-      st=PENDING
-      one="the shared ${shared#"$root"/} does not say which app owes this Buy; move the row to architecture/apps/$app/fit-gap.md, or waive it. Read: $one"
+    if [ "$fg" = "$shared" ]; then
+      [ "$st" = FAIL ] && { st=PENDING
+        one="the shared ${shared#"$root"/} does not say which app owes this Buy; move the row to architecture/apps/<App>/fit-gap.md, or waive it. Read: $one"; }
+      # Shared source: findings that read the same for several apps print once (a field run, six
+      # apps, repeated one project-level finding six times). The app's own model name is the
+      # only per-app word in a note; it is folded to <App>.mpr before comparing.
+      n_sh=$((n_sh + 1)); key="$st	$(printf '%s' "$one" | sed "s#-p ${mpr##*/}#-p <App>.mpr#g")"
+      g="$(printf '%s' "$groups" | awk -F'\034' -v k="$key" '$2 == k { print $1; exit }')"
+      if [ -n "$g" ]; then groups="$(printf '%s' "$groups" | awk -F'\034' -v k="$key" -v a="$app" 'BEGIN{OFS="\034"} $2 == k { $1 = $1 ", " a } { print }')
+"
+      else groups="$groups$app$(printf '\034')$key
+"; fi
+    else
+      printf '  [%s] %s — %s\n' "$app" "$st" "$one"
     fi
-    printf '  [%s] %s — %s\n' "$app" "$st" "$one"
     notes="${notes:+$notes; }$app: $st"
     case "$st" in
       FAIL) worst=FAIL ;;
@@ -252,6 +266,17 @@ mxtk_mkt_report_apps() {
   done <<EOF
 $apps
 EOF
+  if [ -n "$groups" ]; then
+    local IFS=$'\n'
+    for g in $groups; do
+      gapps="${g%%$'\034'*}"; gk="${g#*$'\034'}"
+      case "$gapps" in
+        *", "*) [ "$(printf '%s' "$gapps" | tr ',' '\n' | grep -c .)" -eq "$n_all" ] \
+                  && gapps="all $n_all apps, from the shared ${shared#"$root"/}" || gapps="$gapps, from the shared ${shared#"$root"/}" ;;
+      esac
+      printf '  [%s] %s — %s\n' "$gapps" "${gk%%	*}" "${gk#*	}"
+    done
+  fi
   MXTK_MKT_STATUS="${worst:-PENDING}"; MXTK_MKT_NOTE="${notes:-no app read}"; MXTK_MKT_CONF_STATUS=""
   return 0
 }

@@ -17,11 +17,13 @@
 #      with an apps/ folder holding a model beside the root model
 #   A3 gate-check, no app chosen: "Marketplace installs: per app (3 apps", one [App] line each,
 #      no "nothing checked"; per-app fit-gap missing package -> FAIL for that app only; shared
-#      fit-gap missing package -> PENDING (owner unknown); build-ready counts the FAIL
+#      fit-gap missing package -> PENDING (owner unknown); build-ready counts the FAIL; with
+#      every app on the shared fit-gap, the one finding prints once ("all 3 apps")
 #   A4 gate-check --app orders: one Marketplace line, Orders' fit-gap; no Apps section;
 #      --app Nope exits 2 naming the apps; --app on a single-tree project exits 2
 #   A5 gate-check "Apps:" section and status.sh: one line per app, scripts per app's mdlsource,
-#      LOOK owed per app; single-tree and two-tree print neither
+#      LOOK owed per app, and "no ledger here (N pages ...)" before any ledger exists — never
+#      "no pages owed" by absence; single-tree and two-tree print neither
 #   A6 look-ledger: owe writes the app as a 5th column in the multi-app tree, four columns in a
 #      single tree; status --app keeps two apps' same-named page apart
 #   A7 init-project scaffolds architecture/apps/<App>/intake.md + triage.md + the index and the
@@ -108,6 +110,12 @@ has "A3 Portal shared fit-gap PENDING" "$out" "  [Portal] PENDING — the shared
 hasnt "A3 no nothing-checked" "$out" "nothing checked"
 br="$(gc "$P" build-ready)"
 has "A3 build-ready counts the FAIL" "$br" "✗ Marketplace: Billing: FAIL; Orders: PASS; Portal: PENDING"
+# every app on the shared fit-gap: one finding, printed once (a field run, six apps, printed it six times)
+mv "$P/architecture/apps" "$T/apps-fitgaps"
+out="$(gc "$P")"
+has "A3 shared finding printed once" "$out" "  [all 3 apps, from the shared architecture/fit-gap.md] PENDING"
+eq "A3 no per-app repeat" "$(printf '%s\n' "$out" | grep -c '^  \[Orders\] PENDING')" "0"
+mv "$T/apps-fitgaps" "$P/architecture/apps"
 
 echo "A4 gate-check --app"
 out="$(gc --app orders "$P")"
@@ -120,13 +128,17 @@ out="$(gc --app Orders "$S1")"; rc=$?
 eq "A4 --app on single tree exits 2" "$rc" "2"
 
 echo "A5 Apps section and status lines"
+# no ledger yet (it is git-ignored: a fresh checkout has none) is never "no pages owed"
+st="$(clean_env bash "$TK/bin/status.sh" "$P" 2>&1)"
+has "A5 no ledger is said" "$st" "APP       Orders: apps/Orders/Orders.mpr · scripts 2 written / 0 done- · LOOK: no ledger here (2 page(s) in its scripts)"
+hasnt "A5 no pass-by-absence" "$st" "no pages owed"
 for a in Orders Billing; do
   (cd "$P/apps/$a" && clean_env bash "$TK/project-bin/look-ledger.sh" owe "$P/apps/$a/mdlsource/030-$(echo "$a" | tr '[:upper:]' '[:lower:]')-pages.mdl" >/dev/null)
 done
 out="$(gc "$P")"
 has "A5 Apps header" "$out" "Apps: 3 (one register, PROJECT.md"
 has "A5 Billing line" "$out" "  [Billing] apps/Billing/Billing.mpr · scripts 3 written / 1 done- · LOOK: 2 of 2 page(s) owed"
-has "A5 Portal line" "$out" "  [Portal] apps/Portal/Portal.mpr · scripts 0 written / 0 done- · LOOK: no pages owed"
+has "A5 Portal line" "$out" "  [Portal] apps/Portal/Portal.mpr · scripts 0 written / 0 done- · LOOK: no page in its scripts"
 st="$(clean_env bash "$TK/bin/status.sh" "$P" 2>&1)"
 has "A5 status Orders" "$st" "APP       Orders: apps/Orders/Orders.mpr · scripts 2 written / 0 done- · LOOK: 2 of 2 page(s) owed"
 stb="$(clean_env bash "$TK/bin/status.sh" "$P" --brief 2>&1)"

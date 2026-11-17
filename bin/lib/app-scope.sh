@@ -13,7 +13,10 @@
 #       one line per app, "<App><TAB><evidence>", only when there are two or more apps:
 #       "apps/<App>/<App>.mpr · scripts N written / D done- · LOOK: K of M page(s) owed"
 #       scripts count apps/<App>/mdlsource/ (gallery excluded, as status.sh counts the root);
-#       LOOK is `look-ledger.sh status --app <App>` (one project ledger, keyed by app).
+#       LOOK is `look-ledger.sh status --app <App>` (one project ledger, keyed by app). With no
+#       ledger, or no row of this app in it, it says so and counts the pages its scripts create
+#       or alter: never "no pages owed" without a ledger to say it (a field run, six apps: the
+#       ledger is git-ignored, so a fresh checkout with ~78 built pages read "no pages owed").
 
 mxtk_scope_apps() {
   local pd="$1" tk="$2"
@@ -34,7 +37,17 @@ mxtk_app_lines() {
       n="$(find "$d" -name '*.mdl' -not -path '*/gallery/*' | wc -l | tr -d ' ')"
       dn="$(find "$d" -name 'done-*.mdl' | wc -l | tr -d ' ')"
     fi
-    lk="LOOK: no pages owed"
+    np=0
+    [ -d "$d" ] && np="$(find "$d" -name '*.mdl' -not -path '*/gallery/*' -exec cat {} + 2>/dev/null | awk '
+      /^[[:space:]]*--/ { next }
+      { l = toupper($0) }
+      l ~ /^[[:space:]]*(CREATE([[:space:]]+OR[[:space:]]+(REPLACE|MODIFY))?|ALTER)[[:space:]]+PAGE[[:space:]]/ {
+        n = split($0, w, /[[:space:]]+/); for (i = 1; i < n; i++) if (toupper(w[i]) == "PAGE") { x = w[i+1]; break }
+        sub(/[(;{].*$/, "", x); gsub(/"/, "", x); if (x ~ /^[A-Za-z0-9_]+\.[A-Za-z0-9_]+$/) seen[x] = 1 }
+      END { k = 0; for (x in seen) k++; print k }')"
+    if [ "$np" -eq 0 ]; then lk="LOOK: no page in its scripts"
+    elif [ -s "$pd/.claude/loop/look/owed.tsv" ]; then lk="LOOK: no ledger row for this app ($np page(s) in its scripts)"
+    else lk="LOOK: no ledger here ($np page(s) in its scripts) — .claude/loop/look/ is written by bin/exec.sh on this machine"; fi
     if [ -s "$pd/.claude/loop/look/owed.tsv" ] && [ -f "$tk/project-bin/look-ledger.sh" ]; then
       ls="$(PROJECT_ROOT="$pd" MPR_FILE="" MXTK_APP="" bash "$tk/project-bin/look-ledger.sh" status --app "$a" 2>/dev/null)"
       lt="$(printf '%s' "$ls" | grep -c . || true)"; lo="$(printf '%s\n' "$ls" | grep -c '^OWED' || true)"

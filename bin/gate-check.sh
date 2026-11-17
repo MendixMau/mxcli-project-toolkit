@@ -733,7 +733,7 @@ stage_waiver() {
   case "$ENTRY_MODE" in
     greenfield)
       case "$st" in
-        1|2|3|4) printf 'mode|greenfield entry mode — stages 1–4 collapse into the plan the user already has (conversion-runbook.md → Entry Modes)\n'; return 0 ;;
+        1|2|3|4) printf 'mode|greenfield entry mode — stages 1–4 collapse into the design front end and short plan (conversion-runbook.md → Entry Modes)\n'; return 0 ;;
       esac ;;
     requirements-driven)
       case "$st" in
@@ -742,6 +742,10 @@ stage_waiver() {
     existing-app-change)
       case "$st" in
         7) printf 'mode|existing-app entry mode — the app is live and stays live; there is no cutover (existing-app-change.md → Deliverables)\n'; return 0 ;;
+      esac ;;
+    a-la-carte)
+      case "$st" in
+        [0-7]) printf 'mode|a-la-carte entry mode — no pipeline: audit or tooling use only (existing-app-assurance.md); declare another mode to run the stages\n'; return 0 ;;
       esac ;;
   esac
   return 1
@@ -4119,6 +4123,14 @@ echo "not a gate failure and does not affect the exit code — it is a stage nob
 echo ""
 printf "Summary: %d passed · %d not started · %d waived · %d need attention · %d manual\n" \
   "$N_PASS" "$N_PENDING" "$N_WAIVED" "$N_FAIL" "$N_MANUAL"
+# Declared position (project-bin/_position.sh; conversion-runbook.md → Entry Modes). The field runs
+# that built with no plan (2026-11) had neither line, and this summary read like any other.
+# Warn-only, and never the script's last status: an `if`, not an `&&` chain, and the text read with
+# a default — a scratch copy of this script without bin/lib/ (tests/wave2/test-bug06-freshness.sh)
+# has no banner text, and an unbound variable under `set -u` aborted the run with exit 1.
+if [ -z "$ENTRY_MODE" ] && [ -z "$ADOPTED_AT" ] && [ -n "${MXTK_POS_BANNER:-}" ]; then
+  printf '⚠ %s\n' "$MXTK_POS_BANNER"
+fi
 
 # The stage counts above are about STAGES. They say nothing about the per-module passes and the
 # per-stage artifacts checked further up, and for a long time nothing down here did either — so

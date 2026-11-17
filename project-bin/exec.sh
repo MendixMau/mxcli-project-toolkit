@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # exec.sh — the guard chain around a model write.
 #
-#   STOP-row scan → concurrent-writer guard → module-brief advisory → mxcli check → snapshot → baseline → exec
+#   position banner + plan rule → STOP-row scan → concurrent-writer guard → module-brief advisory → mxcli check → snapshot → baseline → exec
 #   → model-scope restore (units changed only in whitespace go back to HEAD; model-scope.py)
 #   → mxbuild delta gate → auto-restore only on a NEW error → lint ratchet → SP reopen
 #
@@ -704,7 +704,7 @@ HDR2
   # The gate cell is read from GATE_STATE rather than passed in, so no caller
   # can omit it — a blank cell in this table reads as "fine", which is the exact
   # false-green the gate exists to prevent.
-  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${SCAN_NOTE:+ · $SCAN_NOTE}${ROWS_NOTE:+ · $ROWS_NOTE}${MKT_NOTE:+ · $MKT_NOTE}${RESTATE_NOTE:+ · $RESTATE_NOTE}${GATE_NOTE:+ · $GATE_NOTE}${MXB_LOG_NOTE:+ · $MXB_LOG_NOTE}${HV_NOTE:+ · $HV_NOTE}${SCOPE_NOTE:+ · $SCOPE_NOTE}$_EXEC_APPROVAL_SUFFIX${STEP_TIMES:+ · steps: $STEP_TIMES}"
+  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${POS_NOTE:+ · $POS_NOTE}${SCAN_NOTE:+ · $SCAN_NOTE}${ROWS_NOTE:+ · $ROWS_NOTE}${MKT_NOTE:+ · $MKT_NOTE}${RESTATE_NOTE:+ · $RESTATE_NOTE}${GATE_NOTE:+ · $GATE_NOTE}${MXB_LOG_NOTE:+ · $MXB_LOG_NOTE}${HV_NOTE:+ · $HV_NOTE}${SCOPE_NOTE:+ · $SCOPE_NOTE}$_EXEC_APPROVAL_SUFFIX${STEP_TIMES:+ · steps: $STEP_TIMES}"
   if [ -n "${EPOCHSECONDS:-}" ]; then printf -v _when '%(%Y-%m-%dT%H:%M:%S%z)T' -1; else _when="$(date '+%Y-%m-%dT%H:%M:%S%z')"; fi
   printf '| %s | `%s` | %s | %s | %s |\n' \
     "$_when" "$LOG_NAME" \
@@ -754,6 +754,61 @@ take_score() {
     echo "  ⚠ ${_sc:-score not taken}"
   fi
 }
+
+# ── Declared position + plan rule (2026-11-17) ──────────────────────────────
+# _position.sh reads PROJECT.md (and intake.md §1) once, in-shell: no process starts.
+#
+# BANNER. No `Entry mode:` and no `Adopted at stage:` → one line on every run and a BUILD-LOG tag,
+# so an unattended run cannot miss it. Two field runs (2026-11, requirements-driven, full spec and
+# prototypes supplied) built ~78 pages with no BRDs, blueprint, wireframes or plan, and the
+# register said nothing about where the project was; every guard stayed silent because the
+# project had declared nothing for it to check against.
+#
+# PLAN RULE — a policy change. The module-brief block below says "exec.sh is not the pipeline's
+# gatekeeper", and for an undeclared or a-la-carte project it still is not. But a project that
+# DECLARED `Entry mode: migration` or `requirements-driven` has said it runs stages 1-4, so its
+# first model write with no plan is refused ONCE (conversion-runbook.md → Entry Modes, "Plan
+# before build"). Cheap to clear, never a wall:
+#   - outside evidence counts (guard rule 6): Adopted at stage 5+, a reasoned `Waived stage 4:`,
+#     gate-check's readout at Stage 5+, or architecture/build-plan.md plus a module brief (root
+#     or apps/<App>/) — see mxtk_plan_evidence;
+#   - the clearing commands are gate-check.sh --adopt/--waive and writing the plan, none of which
+#     goes through here (guard rule 7), and the refusal is ONCE EVER per clone (.mpr-snapshots/
+#     .plan-rule-refused, git-ignored before it is written): every later write goes on, tagged
+#     "no plan" in its BUILD-LOG row, and no second refusal ever comes on that clone;
+#   - never refused: --patch (opaque repair; doctor.sh's recovery path), `Build type: poc`,
+#     greenfield, change-an-existing-app, a-la-carte, and no declared mode at all.
+POS_NOTE=""
+if [ -f "$_XD/_position.sh" ]; then
+  . "$_XD/_position.sh"
+  mxtk_pos_read "$PROJECT_ROOT"
+  if mxtk_pos_undeclared; then
+    echo "⚠ $MXTK_POS_BANNER"
+    POS_NOTE="no entry mode declared"
+  elif [ "$PATCH_MODE" != "1" ] && [ "$POS_BUILD" != poc ] \
+       && { [ "$POS_ENTRY" = migration ] || [ "$POS_ENTRY" = requirements-driven ]; } \
+       && ! mxtk_plan_evidence "$PROJECT_ROOT"; then
+    _PLAN_STAMP="$PROJECT_ROOT/.mpr-snapshots/.plan-rule-refused"
+    _GC="${MXTK_ROOT:-${_TKR:-<toolkit>}}/bin/gate-check.sh"
+    if [ -f "$_PLAN_STAMP" ]; then
+      echo "⚠ Plan rule: Entry mode $POS_ENTRY and no plan (Stage 4 not passed or adopted) — refused once already, going on; this row is tagged \"no plan\"."
+      POS_NOTE="no plan (Entry mode $POS_ENTRY, before Stage 4)"
+    else
+      [ -d "$PROJECT_ROOT/.mpr-snapshots" ] || mkdir -p "$PROJECT_ROOT/.mpr-snapshots"
+      # Ignore the folder BEFORE the stamp lands in it: on a fresh repo snapshot-mpr.sh has not run
+      # yet, and a committed stamp would make "once per clone" once per repository.
+      mxtk_gitignore_ensure "$PROJECT_ROOT/.gitignore" ".mpr-snapshots" "/.mpr-snapshots/" || true
+      if [ -n "${EPOCHSECONDS:-}" ]; then printf -v _pw '%(%Y-%m-%dT%H:%M:%S%z)T' -1; else _pw="now"; fi
+      printf '%s %s\n' "$_pw" "$SCRIPT" > "$_PLAN_STAMP"
+      result_line refused no skipped 1
+      echo "✗ Plan rule: Entry mode $POS_ENTRY, and Stage 4 has not passed or been adopted — no build plan, no module briefs. NOTHING was written."
+      echo "  Remedy: run stages 1-4 (conversion-runbook.md), or record why not: $_GC $PROJECT_ROOT --adopt 5 --reason \"...\" (it shows in the register)."
+      echo "  This is the one refusal this clone will ever get: every later write goes on, its BUILD-LOG row tagged \"no plan\"."
+      log_build "🚫 blocked" "plan rule: Entry mode $POS_ENTRY, no build plan/briefs and Stage 4 not adopted — refused once, nothing written"
+      exit 1
+    fi
+  fi
+fi
 
 # ── STOP-row scan (added 2026-10-14, #349) ───────────────────────────────────
 # The toolkit's bin/mdl-scan.sh greps the script for the STOP rows of learned-mdl-preflight.md

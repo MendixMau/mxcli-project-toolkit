@@ -64,6 +64,14 @@ ci "$P"
 [ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q '^FAIL  ready  docs/progress/STATUS.md:5:' \
   && ok "C1: a hand-written READY table cell fails CI, file:line named" || bad "C1: rc=$rc $out"
 G "$P" rm -q docs/progress/STATUS.md; G "$P" commit -qm "drop hand status"
+# the field shape, verbatim but for the target and date (a field status file carried it five times,
+# and the first version of the check passed it): a heading, READY followed by words
+printf '# READY FOR BENCH (fix round 6, 2026-11-16 15:34 UTC)\n\nAll pages built.\n\n## READY FOR REVIEW\n' > "$P/docs/progress/status.md"; commit_all "$P" "heading claims"
+ci "$P"
+[ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q '^FAIL  ready  docs/progress/status.md:1: # READY FOR BENCH' \
+  && printf '%s\n' "$out" | grep -q '^FAIL  ready  docs/progress/status.md:5: ## READY FOR REVIEW' \
+  && ok "C1: heading claims (# READY FOR BENCH ...) fail CI — the field shape" || bad "C1c: rc=$rc $out"
+G "$P" rm -q docs/progress/status.md; G "$P" commit -qm "drop heading claims"
 # a hand-appended ready.log row with no evidence behind it
 printf '2026-11-17T09:00:00Z\tREADY\tmodule Billing\tdocs/progress/ready-2026-11-17-Billing.md\t3 of 3\n' >> "$P/docs/progress/ready.log"; commit_all "$P" "forged log"
 ci "$P"
@@ -113,6 +121,16 @@ bash "$TK/bin/gate-check.sh" --no-html --adopt 5 --reason "joined at build; stag
 commit_all "$P3" adopt
 ci "$P3"
 printf '%s\n' "$out" | grep -q '^PASS  order' && ok "C4: an --adopt 5 point clears it" || bad "C4b: $out"
+
+# ── C5 (d): multi-app — build scripts per app, apps/<App>/mdlsource/ ───────────────────────
+P6="$WORK/c5"; mkdir -p "$P6/docs"
+for a in Sales Stock; do mkdir -p "$P6/apps/$a/mdlsource"; : > "$P6/apps/$a/$a.mpr"
+  printf 'CREATE PAGE %s.Overview () { }\n' "$a" > "$P6/apps/$a/mdlsource/10-pages.mdl"; done
+printf '# PROJECT.md\n\n## Current stage\n\n**Stage P — Kickoff**, in progress.\n\nEntry mode: requirements-driven\n' > "$P6/PROJECT.md"
+G "$P6" init -q; commit_all "$P6" multi
+ci "$P6"
+[ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q '^FAIL  order  model work (0 exec row(s) in docs/BUILD-LOG.md, 2 build script(s) in mdlsource/ dirs)' \
+  && ok "C5: per-app scripts (apps/<App>/mdlsource/) count as model work" || bad "C5: rc=$rc $out"
 
 # ── I: installer — create if absent, never overwrite ───────────────────────────────────────
 . "$TK/bin/lib/ci-template.sh"

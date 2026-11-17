@@ -114,18 +114,35 @@ EOF
   fi
 elif [ -n "$claims" ]; then
   say FAIL look "READY claimed ($(printf '%s' "$claims" | tr '\n' ';')) but no docs/progress/look-summary.tsv is committed: the look behind the claim is invisible"
+elif [ -f "$ROOT/docs/BUILD-LOG.md" ] && grep -qE '^\| *[0-9]{4}-[0-9]{2}-[0-9]{2}' "$ROOT/docs/BUILD-LOG.md"; then
+  say WARN look "look: not measured — docs/BUILD-LOG.md has exec rows but no docs/progress/look-summary.tsv is committed (bin/ready.sh and close-task.sh write it)"
 else
-  say PASS look "no look summary committed and nothing claims done"
+  say PASS look "no look summary committed, no exec row, nothing claims done"
 fi
 
 # (d) model work before Stage 4 passed
 execs=0
 [ -f "$ROOT/docs/BUILD-LOG.md" ] && execs="$(grep -cE '^\| *[0-9]{4}-[0-9]{2}-[0-9]{2}' "$ROOT/docs/BUILD-LOG.md" 2>/dev/null)"
-scripts="$( [ -d "$ROOT/mdlsource" ] && find "$ROOT/mdlsource" -name '*.mdl' ! -path '*/gallery/*' 2>/dev/null | wc -l | tr -d ' ')"
+# Script dirs: mdlsource/ at the root, plus one per app in a multi-app project (apps/<App>/mdlsource/,
+# through the multi-app resolver mxtk_apps when this toolkit has it, else the apps/*/ glob). A field
+# copy kept all 234 of its scripts per app, and the root-only count said 0.
+dirs="$ROOT/mdlsource"
+appdirs="$( ( PROJECT_ROOT="$ROOT"; . "$TOOLKIT_ROOT/project-bin/_common.sh" >/dev/null 2>&1
+              type mxtk_apps >/dev/null 2>&1 && mxtk_apps "$ROOT" 2>/dev/null | cut -f2 ) < /dev/null 2>/dev/null )"
+if [ -n "$appdirs" ]; then
+  for m in $appdirs; do case "$m" in /*) d="${m%/*}" ;; *) d="$ROOT/${m%/*}" ;; esac; dirs="$dirs $d/mdlsource"; done
+else
+  for d in "$ROOT"/apps/*/mdlsource; do [ -d "$d" ] && dirs="$dirs $d"; done
+fi
+scripts=0
+for d in $dirs; do
+  [ -d "$d" ] || continue
+  scripts=$((scripts + $(find "$d" -name '*.mdl' ! -path '*/gallery/*' 2>/dev/null | wc -l | tr -d ' ')))
+done
 if [ "${execs:-0}" -gt 0 ] || [ "${scripts:-0}" -gt 0 ]; then
   gate 4; rc=$?
   if [ "$rc" = 0 ]; then say PASS order "model work ($execs exec row(s), $scripts script(s)) after Stage 4: $GV"
-  else say FAIL order "model work ($execs exec row(s) in docs/BUILD-LOG.md, $scripts build script(s) in mdlsource/) while Stage 4 is ${GV:-not passed}: build before the plan. Pass Stage 4, or record the adoption point (gate-check.sh --adopt 5 --reason \"...\")"; fi
+  else say FAIL order "model work ($execs exec row(s) in docs/BUILD-LOG.md, $scripts build script(s) in mdlsource/ dirs) while Stage 4 is ${GV:-not passed}: build before the plan. Pass Stage 4, or record the adoption point (gate-check.sh --adopt 5 --reason \"...\")"; fi
 else
   say PASS order "no model work committed yet"
 fi

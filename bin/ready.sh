@@ -95,12 +95,38 @@ _epoch() {  # ISO-8601 UTC -> epoch, GNU then BSD; 0 when unparseable
   date -u -d "$1" +%s 2>/dev/null || date -u -j -f '%Y-%m-%dT%H:%M:%SZ' "$1" +%s 2>/dev/null || echo 0
 }
 
+# step <label> <out-file> <cmd...> — run one external step with stdin closed, under a watchdog.
+# A field run on a six-app copy ran over 300 s with no output and was killed; nothing said which step
+# stalled. Now each step names itself on stderr before it starts, cannot wait on a terminal, and is
+# killed after MXTK_READY_STEP_TIMEOUT seconds (default 120): exit 124, and its row says NOT MEASURED.
+STEP_T="${MXTK_READY_STEP_TIMEOUT:-120}"
+step() {
+  local label="$1" out="$2" pid wd rc
+  shift 2
+  printf '  ...   %s\n' "$label" >&2
+  # exec in a subshell with the EXIT trap cleared: the pid IS the command, and a kill never runs
+  # this script's cleanup (which would delete $TMP under the steps still to come)
+  ( trap - EXIT; exec "$@" ) < /dev/null > "$out" 2>&1 &
+  pid=$!
+  ( trap - EXIT; sleep "$STEP_T"; : > "$out.killed"; kill "$pid" 2>/dev/null && { sleep 2; kill -9 "$pid" 2>/dev/null; } ) > /dev/null 2>&1 &
+  wd=$!
+  wait "$pid"; rc=$?
+  kill "$wd" 2>/dev/null; wait "$wd" 2>/dev/null
+  if [ -e "$out.killed" ]; then   # the watchdog fired: it marks before it kills
+    rm -f "$out.killed"
+    printf '  ...   %s: did not finish in %ss, killed\n' "$label" "$STEP_T" >&2
+    return 124
+  fi
+  return $rc
+}
+
 echo "ready.sh — $SCOPE in $ROOT ($ISO)"
 
 # --- multi-app: a per-app scope needs the multi-app resolver; never guess it -------------------
 # The multi-app resolver (project-bin/_common.sh mxtk_apps) when this toolkit has it; apps/*/*.mpr else.
-apps="$( ( PROJECT_ROOT="$ROOT"; . "$TOOLKIT_ROOT/project-bin/_common.sh" >/dev/null 2>&1
-           type mxtk_apps >/dev/null 2>&1 && mxtk_apps "$ROOT" 2>/dev/null | cut -f1 ) )"
+step "apps: multi-app resolver" "$TMP/apps" env PROJECT_ROOT="$ROOT" bash -c \
+  '. "$1/project-bin/_common.sh" >/dev/null 2>&1; type mxtk_apps >/dev/null 2>&1 && mxtk_apps "$2" 2>/dev/null | cut -f1' _ "$TOOLKIT_ROOT" "$ROOT"
+apps="$(cat "$TMP/apps" 2>/dev/null)"
 [ -n "$apps" ] || apps="$(ls -d "$ROOT"/apps/*/ 2>/dev/null | while IFS= read -r d; do ls "$d"*.mpr >/dev/null 2>&1 && basename "$d"; done)"
 if [ "$(printf '%s\n' "$apps" | sed '/^$/d' | wc -l | tr -d ' ')" -ge 2 ]; then
   # Never "nothing checked": every app is named, and none is READY until the ledger is per app.
@@ -116,7 +142,9 @@ fi
 # accounted for in Stage 5 is not enough if the planning it builds on never happened. One full,
 # read-only run (--no-html writes nothing) gives every stage's verdict.
 GC="$TOOLKIT_ROOT/bin/gate-check.sh"
-GFULL="$(bash "$GC" --no-html "$ROOT" 2>&1)"
+step "position: gate-check (all stages, read-only)" "$TMP/gfull" bash "$GC" --no-html "$ROOT"; rcf=$?
+GFULL="$(cat "$TMP/gfull")"
+[ "$rcf" = 124 ] && GFULL=""   # every stage then reads "unknown": NOT MEASURED, never a pass
 pk=0; pbad=""
 for st in P 0 1 2 3 4; do
   v="$(printf '%s\n' "$GFULL" | grep -m1 "^Stage $st (" | sed "s/^Stage $st ([^)]*): //" | awk '{print $1}')"
@@ -126,11 +154,13 @@ if [ -z "$pbad" ]; then row ok position "6 of 6 stages before Build PASS or WAIV
 else row fail position "$pk of 6 stages before Build PASS or WAIVED — not: $pbad. Pass them, or record where this project joined (gate-check.sh --adopt 5 --reason \"...\")"; fi
 
 # --- gate 5 ---------------------------------------------------------------------------------
-g5="$(MXTK_LOOK_MODULE="$MOD" bash "$GC" --no-html "$ROOT" 5 2>&1)"; rc5=$?
+step "gate5: gate-check stage 5" "$TMP/g5" env MXTK_LOOK_MODULE="$MOD" bash "$GC" --no-html "$ROOT" 5; rc5=$?
+g5="$(cat "$TMP/g5")"
 l5="$(printf '%s\n' "$g5" | grep -m1 '^Stage 5 (' | sed 's/^Stage 5 ([^)]*): //')"
 v5="$(printf '%s' "$l5" | awk '{print $1}')"
 look5="$(printf '%s' "$l5" | grep -o 'look: .*' | head -1)"
 case "$rc5" in
+  124) row fail gate5 "NOT MEASURED — gate-check stage 5 did not finish in ${STEP_T}s (MXTK_READY_STEP_TIMEOUT)" ;;
   0) row ok gate5 "Stage 5 $v5" ;;
   2) if printf '%s' "$look5" | grep -q 'accounted for'; then row ok gate5 "Stage 5 MANUAL with the look accounted for (its sign-off is a Decisions row)"
      else row fail gate5 "Stage 5 MANUAL with nothing measured — no page recorded as built"; fi ;;
@@ -142,9 +172,10 @@ pos=""
 [ -f "$REG" ] && pos="$(awk '/^## Current stage/{f=1;next} f && /^\*\*/{print;exit}' "$REG")"
 case "$pos" in
   *"Stage 6"*|*"Stage 7"*|*"All gates passed"*)
-    bash "$GC" --no-html "$ROOT" 6 > "$TMP/g6" 2>&1; rc6=$?
+    step "gate6: gate-check stage 6" "$TMP/g6" bash "$GC" --no-html "$ROOT" 6; rc6=$?
     l6="$(grep -m1 '^Stage 6 (' "$TMP/g6" | sed 's/^Stage 6 ([^)]*): //')"
-    if [ "$rc6" = 0 ]; then row ok gate6 "Stage 6 $(printf '%s' "$l6" | awk '{print $1}') (register position: Stage 6 or later)"
+    if [ "$rc6" = 124 ]; then row fail gate6 "NOT MEASURED — gate-check stage 6 did not finish in ${STEP_T}s (MXTK_READY_STEP_TIMEOUT)"
+    elif [ "$rc6" = 0 ]; then row ok gate6 "Stage 6 $(printf '%s' "$l6" | awk '{print $1}') (register position: Stage 6 or later)"
     else row fail gate6 "Stage 6 $(printf '%s' "$l6" | cut -c1-200)"; fi ;;
   *) row info gate6 "not owed — the register's position is before Stage 6" ;;
 esac
@@ -169,9 +200,9 @@ fi
 
 # per-page facts for the evidence file and the review join: state, page, built-epoch, shot
 if [ -s "$ROOT/.claude/loop/look/owed.tsv" ]; then
-  PROJECT_ROOT="$ROOT" bash "$LEDGER" summary --write >/dev/null 2>&1
-  PROJECT_ROOT="$ROOT" bash "$LEDGER" status > "$TMP/st" 2>/dev/null
-  PROJECT_ROOT="$ROOT" bash "$LEDGER" status --shots > "$TMP/shots" 2>/dev/null
+  step "look: ledger summary" "$TMP/sum" env PROJECT_ROOT="$ROOT" bash "$LEDGER" summary --write
+  step "look: ledger status" "$TMP/st" env PROJECT_ROOT="$ROOT" bash "$LEDGER" status || : > "$TMP/st"
+  step "look: screenshots seen" "$TMP/shots" env PROJECT_ROOT="$ROOT" bash "$LEDGER" status --shots || : > "$TMP/shots"
 else
   : > "$TMP/st"; : > "$TMP/shots"
 fi
@@ -229,7 +260,8 @@ fi
 [ -n "$mh_hidden" ] && echo "  note  must-have mark read from git-ignored .claude/loop/ for:$mh_hidden — move it to docs/progress/must-haves/ so CI and reviewers see it" >&2
 
 # --- independent review, unattended mode only -------------------------------------------------
-MODE="$(bash "$TOOLKIT_ROOT/bin/interview-mode.sh" "$ROOT" 2>/dev/null)"
+step "review: interview mode" "$TMP/mode" bash "$TOOLKIT_ROOT/bin/interview-mode.sh" "$ROOT"
+MODE="$(grep -E '^(steering|assist|auto)$' "$TMP/mode" 2>/dev/null | tail -1)"
 RV_DIR="$ROOT/docs/progress/look-reviews"
 : > "$TMP/scores"
 # Review files are read in every mode (the packet shows them); only auto mode requires them.

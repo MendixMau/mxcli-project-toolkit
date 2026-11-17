@@ -6,8 +6,11 @@
 # was graded done with 0 of ~78 pages looked at. bin/ready.sh is now the only writer of READY; this
 # is the check that a READY line anywhere else is backed by it.
 #
-# A READY CLAIM is a line in a status file whose first word (after list, quote and bold markup, or
-# a `Status:` / `State:` / `Verdict:` label) is READY, or a table cell that is exactly READY.
+# A READY CLAIM is a line in a status file whose first word (after heading, list, quote and bold
+# markup, or a `Status:` / `State:` / `Verdict:` label) is READY, whatever follows it, or a table cell
+# that is exactly READY. Field shape (2026-11, five times in one status file, missed by the first
+# version of this check, which only took READY alone or before `:`/`—`):
+#     # READY FOR BENCH (fix round 6, 2026-11-16 15:34 UTC)
 # Status files: PROJECT.md, RESUME.md / STATUS*.md / PROGRESS*.md at the root, and every .md under
 # docs/ except ready.sh's own output (docs/progress/ready-*.md, review-packets/, look-reviews/,
 # must-haves/). Not CLAUDE*.md, README or agent text: they explain the rule, they claim nothing.
@@ -50,7 +53,7 @@ mxtk_ready_claim_faults() {
       out="$out$rel:$n: $(printf '%s' "$text" | cut -c1-100) — $why
 "
     done <<EOF
-$(tr -d '\r' < "$f" | grep -nE '^[[:space:]>*_#-]*(\*\*)?((Status|State|Verdict)[[:space:]]*:[[:space:]]*)?(\*\*)?READY(\*\*)?([[:space:]]*$|[[:space:]]*[:(]|[[:space:]]+[—–-]|[[:space:]]+(for|—)[[:space:]])|\|[[:space:]]*(\*\*)?READY(\*\*)?[[:space:]]*\|')
+$(tr -d '\r' < "$f" | grep -nE '^[[:space:]>*_#-]*(\*\*)?((Status|State|Verdict)[[:space:]]*:[[:space:]]*)?(\*\*)?READY(\*\*)?([^A-Za-z0-9_-]|$)|\|[[:space:]]*(\*\*)?READY(\*\*)?[[:space:]]*\|')
 EOF
   done < "${TMPDIR:-/tmp}/mxtk-rc.$$"
   rm -f "${TMPDIR:-/tmp}/mxtk-rc.$$"

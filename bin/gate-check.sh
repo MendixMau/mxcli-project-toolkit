@@ -2215,7 +2215,7 @@ stage4_closing_rows() {
 # citations and waivers still clear them. MXTK_LOOK_MODULE=<Module> scopes the check to one module
 # (bin/ready.sh --module); unset, nothing changes.
 check_stage_5() {
-  local owed="$PROJECT_DIR/.claude/loop/look/owed.tsv" rows proofs="" n=0 n_seen=0 n_proof=0 n_waived=0
+  local owed="$PROJECT_DIR/.claude/loop/look/owed.tsv" rows="" proofs="" n=0 n_seen=0 n_proof=0 n_waived=0
   local unseen="" n_unseen=0 st page epoch mod rep line shot f sz mt src=""
   local summ="$PROJECT_DIR/docs/progress/look-summary.tsv" scope="${MXTK_LOOK_MODULE:-}"
   if [ -s "$owed" ] && [ -f "$TOOLKIT_DIR/project-bin/look-ledger.sh" ]; then

@@ -165,5 +165,13 @@ run "$P" --no-commit
   && printf '%s\n' "$out" | grep -q 'PASS  look      3 of 3' \
   && ok "R8: Stage P not passed, all 3 pages seen → NOT READY on position" || bad "R8: rc=$rc $out"
 
+# ── R9: bounded time — every step has a watchdog; a stalled step is NOT MEASURED, never a hang ─
+# (field run, 2026-11: ready.sh on a six-app copy ran over 300 s with no output and was killed)
+P="$WORK/r8"
+start=$(date +%s); out="$(MXTK_READY_STEP_TIMEOUT=0 bash "$SUBJECT" "$P" --no-commit 2>&1)"; rc=$?; took=$(( $(date +%s) - start ))
+[ "$rc" = 1 ] && [ "$took" -lt 60 ] && printf '%s\n' "$out" | grep -q 'gate5: gate-check stage 5: did not finish in 0s, killed' \
+  && printf '%s\n' "$out" | grep -q 'FAIL  gate5     NOT MEASURED' && printf '%s\n' "$out" | grep -q '^NOT-READY' \
+  && ok "R9: every step killed at its timeout → NOT READY in ${took}s, each stalled step named" || bad "R9: rc=$rc took=${took}s $out"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

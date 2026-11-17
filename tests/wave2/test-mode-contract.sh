@@ -93,6 +93,23 @@ printf 'Interview mode: auto\n' >> "$P/PROJECT.md"
 CLAUDE_INTERVIEW_MODE= "$GC" "$P" --adopt 5 --reason "plan kept outside the toolkit" > "$WORK/adopt.out" 2>&1
 run; passed && ok "A --adopt 5 clears it" || bad "A --adopt 5 clears it" "calls=$CALLS_N"
 
+echo "-- H: the ✋ adoption"
+grep -qE '^\| 4 \| Adopted at stage 5 .*\| ASSUMED \| consentBy: auto-mode · consentAt: [0-9]' "$P/PROJECT.md" \
+  && ok "H ASSUMED auto-mode Stage-4 row written" || bad "H ASSUMED auto-mode Stage-4 row written" "$(grep -n 'Adopted' "$P/PROJECT.md")"
+grep -q "human-pending" "$WORK/adopt.out" && ok "H --adopt says it is human-pending" || bad "H --adopt says it is human-pending"
+G="$("$GC" "$P" 2>&1)"
+case "$G" in *"✋ decision(s) assumed by auto-mode"*"(Stage 4)"*) ok "H gate-check lists it to confirm" ;; *) bad "H gate-check lists it to confirm" ;; esac
+mkproj single "Entry mode: migration"
+"$GC" "$P" --adopt 5 --reason "plan kept outside the toolkit" >/dev/null 2>&1
+grep -q "consentBy: auto-mode" "$P/PROJECT.md" && bad "H no ✋ row without auto" || ok "H no ✋ row without auto"
+
+echo "-- K: Build type: poc"
+mkproj single "Entry mode: requirements-driven"
+sed -i.bak 's/^Build type: full$/Build type: poc/' "$P/PROJECT.md" && rm -f "$P/PROJECT.md.bak"
+G="$("$GC" "$P" 2>&1)"
+n="$(printf '%s\n' "$G" | grep -cE '^Stage [0-4] .*not owed \(mode: Build type: poc\)|^Stage [67] .*not owed \(mode: Build type: poc\)')"
+[ "$n" = 7 ] && ok "K stages 0-4, 6, 7 not owed (mode) — 7 of 7" || bad "K stages 0-4, 6, 7 not owed (mode)" "$n of 7"
+
 echo "-- W: auto read by its first word, not the exact value (one helper: mxtk_auto_word)"
 # Field smoke run: `Interview mode: auto (gate questions go to questions.md ...)` was read as attended,
 # so the second write got past the plan rule on refuse-once.
@@ -118,23 +135,6 @@ case "$OUT" in *"✗ Plan rule (Interview mode: auto): no Entry mode declared"*)
   *) bad "U undeclared + auto → refused every write" "calls=$CALLS_N" ;; esac
 mkproj single ""
 run; passed && ok "U undeclared + attended → banner, not refused" || bad "U undeclared + attended → banner, not refused" "calls=$CALLS_N"
-
-echo "-- H: the ✋ adoption"
-grep -qE '^\| 4 \| Adopted at stage 5 .*\| ASSUMED \| consentBy: auto-mode · consentAt: [0-9]' "$P/PROJECT.md" \
-  && ok "H ASSUMED auto-mode Stage-4 row written" || bad "H ASSUMED auto-mode Stage-4 row written" "$(grep -n 'Adopted' "$P/PROJECT.md")"
-grep -q "human-pending" "$WORK/adopt.out" && ok "H --adopt says it is human-pending" || bad "H --adopt says it is human-pending"
-G="$("$GC" "$P" 2>&1)"
-case "$G" in *"✋ decision(s) assumed by auto-mode"*"(Stage 4)"*) ok "H gate-check lists it to confirm" ;; *) bad "H gate-check lists it to confirm" ;; esac
-mkproj single "Entry mode: migration"
-"$GC" "$P" --adopt 5 --reason "plan kept outside the toolkit" >/dev/null 2>&1
-grep -q "consentBy: auto-mode" "$P/PROJECT.md" && bad "H no ✋ row without auto" || ok "H no ✋ row without auto"
-
-echo "-- K: Build type: poc"
-mkproj single "Entry mode: requirements-driven"
-sed -i.bak 's/^Build type: full$/Build type: poc/' "$P/PROJECT.md" && rm -f "$P/PROJECT.md.bak"
-G="$("$GC" "$P" 2>&1)"
-n="$(printf '%s\n' "$G" | grep -cE '^Stage [0-4] .*not owed \(mode: Build type: poc\)|^Stage [67] .*not owed \(mode: Build type: poc\)')"
-[ "$n" = 7 ] && ok "K stages 0-4, 6, 7 not owed (mode) — 7 of 7" || bad "K stages 0-4, 6, 7 not owed (mode)" "$n of 7"
 
 echo "-- G: init over a hand-written PROJECT.md"
 Q="$WORK/hand"; mkdir -p "$Q"; ( cd "$Q" && git init -q . )

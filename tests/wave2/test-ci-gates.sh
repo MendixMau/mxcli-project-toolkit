@@ -50,8 +50,11 @@ ci() { rm -rf "$WORK/ci"; git clone -q "$1" "$WORK/ci"; out="$(bash "$SUBJECT" "
 
 # ── C0: clean — every page seen, READY by ready.sh, greenfield ────────────────────────────
 P="$WORK/c0"; mkproject "$P" greenfield; see_all "$P"
-bash "$TK/bin/gate-check.sh" --no-html --waive P --reason "fixture: kickoff held elsewhere" "$P" >/dev/null 2>&1   # READY needs P-4 passed or waived
-commit_all "$P" "kickoff waived"
+# READY needs P-4 passed or waived: greenfield waives 1-4 but owes 0, so the fixture joins at Build
+# the way test-ready.sh does (--waive P, --adopt 5)
+bash "$TK/bin/gate-check.sh" --no-html --waive P --reason "fixture: kickoff held elsewhere" "$P" >/dev/null 2>&1
+bash "$TK/bin/gate-check.sh" --no-html --adopt 5 --reason "fixture: joins at build" "$P" >/dev/null 2>&1
+commit_all "$P" "joins at build"
 bash "$TK/bin/ready.sh" "$P" >/dev/null 2>&1 || bad "C0: ready.sh did not pass on a clean project"
 ci "$P"
 [ "$rc" = 0 ] && printf '%s\n' "$out" | grep -q '^PASS  ready' && printf '%s\n' "$out" | grep -q '^PASS  look   look: 3 of 3 pages seen' \
@@ -99,12 +102,19 @@ ci "$P2"
 rm -rf "$WORK/ci"; git clone -q "$P2" "$WORK/ci"; out="$(MXTK_CI_STRICT_LOOK=1 bash "$SUBJECT" "$WORK/ci" 2>&1)"; rc=$?
 [ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q '^FAIL  look   look: 0 of 3 pages seen — 3 built page(s) never looked at (strict)' && ok "C2: MXTK_CI_STRICT_LOOK=1 → FAIL" || bad "C2c: rc=$rc $out"
 
-# ── C3 (a): the register claims Stage 5 and Stage 5 FAILs ──────────────────────────────────
+# ── C3 (a): only stages the register records as PASSED fail; the stage in progress warns ─────
+# Stage 5 in progress (gates passed: P-4), its look FAILs from the committed summary → a warning.
 sed -i.bak 's/^\*\*Stage P — Kickoff\*\*, in progress\./**Stage 5 — Build**, in progress (manual gate: its verdict is a Decisions row, not a file) — gates passed: P, 0, 1, 2, 3, 4 (derived by gate-check on 2026-11-17; re-run it rather than editing this line)./' "$P2/PROJECT.md"; rm -f "$P2/PROJECT.md.bak"
 commit_all "$P2" "claims stage 5"
 ci "$P2"
-[ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q '^FAIL  stage  the register claims Stage 5 and its gate FAILs: .*3 of 3 built page(s) never looked at' \
-  && ok "C3: a claimed stage whose gate FAILs fails CI (from the committed summary)" || bad "C3: rc=$rc $out"
+printf '%s\n' "$out" | grep -q '^WARN  stage  Stage 5 is in progress and its gate FAILs .*3 of 3 built page(s) never looked at' \
+  && ! printf '%s\n' "$out" | grep -q '^FAIL  stage' && ok "C3: the stage in progress FAILing its gate is a warning, not a CI failure" || bad "C3: rc=$rc $out"
+# The register says Stage 5 PASSED (Stage 6 in progress) while its gate FAILs → CI fails.
+sed -i.bak 's/^\*\*Stage 5 — Build\*\*, in progress (manual gate: its verdict is a Decisions row, not a file) — gates passed: P, 0, 1, 2, 3, 4 /**Stage 6 — Test**, in progress — gates passed: P, 0, 1, 2, 3, 4, 5 /' "$P2/PROJECT.md"; rm -f "$P2/PROJECT.md.bak"
+commit_all "$P2" "claims stage 5 passed"
+ci "$P2"
+[ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q '^FAIL  stage  Stage 5 is recorded as passed in the register and its gate now FAILs: .*3 of 3 built page(s) never looked at' \
+  && ok "C3: a stage recorded as passed whose gate FAILs fails CI (from the committed summary)" || bad "C3b: rc=$rc $out"
 
 # ── C4 (d): model work before Stage 4, requirements-driven ─────────────────────────────────
 P3="$WORK/c4"; mkproject "$P3" requirements-driven
@@ -120,8 +130,16 @@ true even when someone forgets. Read this before assuming the model builds.
 LOG
 commit_all "$P3" "built early"
 ci "$P3"
-[ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q '^FAIL  order  model work (1 exec row(s) in docs/BUILD-LOG.md, 1 build script(s) in mdlsource/) while Stage 4 is' \
+[ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q '^FAIL  order  model work (1 exec row(s) in docs/BUILD-LOG.md, 1 build script(s) in mdlsource/ dirs) while Stage 4 is' \
   && ok "C4: requirements-driven model work before Stage 4 fails CI" || bad "C4: rc=$rc $out"
+
+# ── C7: enforcement off (what sync installs into an existing project): (d) warns, (b) still fails ─
+rm -rf "$WORK/ci"; git clone -q "$P3" "$WORK/ci"; out="$(MXTK_CI_ENFORCE=0 bash "$SUBJECT" "$WORK/ci" 2>&1)"; rc=$?
+[ "$rc" = 0 ] && printf '%s\n' "$out" | grep -q '^WARN  order  model work .*(advisory: set MXTK_CI_ENFORCE: "1"' \
+  && ok "C7: MXTK_CI_ENFORCE=0 → the order check warns, exit 0" || bad "C7: rc=$rc $out"
+printf '| Approval | READY |\n' > "$WORK/ci/STATUS.md"; out="$(MXTK_CI_ENFORCE=0 bash "$SUBJECT" "$WORK/ci" 2>&1)"; rc=$?
+[ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q '^FAIL  ready  STATUS.md:1:' \
+  && ok "C7: with enforcement off, a hand-written READY still fails CI" || bad "C7b: rc=$rc $out"
 
 bash "$TK/bin/gate-check.sh" --no-html --adopt 5 --reason "joined at build; stages before it were done elsewhere" "$P3" >/dev/null 2>&1
 commit_all "$P3" adopt
@@ -138,6 +156,17 @@ ci "$P6"
 [ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q '^FAIL  order  model work (0 exec row(s) in docs/BUILD-LOG.md, 2 build script(s) in mdlsource/ dirs)' \
   && ok "C5: per-app scripts (apps/<App>/mdlsource/) count as model work" || bad "C5: rc=$rc $out"
 
+# ── C6: the toolkit's own scaffold trips nothing — init, commit, CI ────────────────────────
+# (review of #788: the RESUME.md starter said "**READY is not written in this file.**", a claim by
+# the check's own rule, so every new project was red on (b) and Stage 6 could never pass)
+P7="$WORK/c6"; mkdir -p "$P7"; G "$P7" init -q
+MXTK_NO_GUIDE=1 bash "$TK/bin/init-project.sh" "$P7" >/dev/null 2>&1 < /dev/null
+grep -q 'MXTK_CI_ENFORCE: "1"' "$P7/.github/workflows/toolkit-gates.yml" 2>/dev/null && ok "C6: init installs the workflow, enforced" || bad "C6: no enforced workflow after init"
+commit_all "$P7" "init"
+ci "$P7"
+[ "$rc" = 0 ] && printf '%s\n' "$out" | grep -q '^PASS  ready' && ! printf '%s\n' "$out" | grep -q '^FAIL' \
+  && ok "C6: a fresh project's first push passes CI (ready PASS; Stage P in progress only warns)" || bad "C6: rc=$rc $out"
+
 # ── I: installer — create if absent, never overwrite ───────────────────────────────────────
 . "$TK/bin/lib/ci-template.sh"
 P4="$WORK/inst"; mkdir -p "$P4/.github/workflows"; printf 'name: build\n' > "$P4/.github/workflows/build.yml"
@@ -147,6 +176,9 @@ cmp -s "$TK/templates/ci/toolkit-gates.yml" "$P4/.github/workflows/toolkit-gates
 printf '# adapted\n' >> "$P4/.github/workflows/toolkit-gates.yml"
 m="$(mxtk_ci_install "$TK" "$P4" 0)"; tail -1 "$P4/.github/workflows/toolkit-gates.yml" | grep -q '^# adapted' && printf '%s' "$m" | grep -q '^Kept:' \
   && ok "I2: an adapted copy is kept and reported, never overwritten" || bad "I2: $m"
+P6s="$WORK/inst3"; mkdir -p "$P6s"; m="$(mxtk_ci_install "$TK" "$P6s" 0 sync)"
+grep -q 'MXTK_CI_ENFORCE: "0"' "$P6s/.github/workflows/toolkit-gates.yml" && printf '%s' "$m" | grep -q 'Installed advisory' \
+  && [ -z "$(mxtk_ci_install "$TK" "$P6s" 0 sync)" ] && ok "I4: sync installs advisory (ENFORCE 0) with one notice; a re-run is silent" || bad "I4: $m"
 P5="$WORK/inst2"; mkdir -p "$P5"; m="$(mxtk_ci_install "$TK" "$P5" 1)"
 [ ! -e "$P5/.github" ] && printf '%s' "$m" | grep -q '^Would create' && ok "I3: dry run writes nothing" || bad "I3: $m"
 

@@ -50,8 +50,8 @@ it). The first session to finish work overwrites it wholesale per
 confidently wrong on any project that was already mid-flight when this file appeared, and a wrong
 resume doc is worse than none. Step 1 below is how to find out.
 
-**READY is not written in this file.** Only \`$toolkit/bin/ready.sh\` writes it
-(\`docs/progress/ready.log\` plus its evidence); a READY line it did not write FAILs Stage 6 and CI.
+**Only \`$toolkit/bin/ready.sh\` writes READY** (\`docs/progress/ready.log\` plus its evidence),
+never this file; a READY line it did not write FAILs Stage 6 and CI.
 
 ## Next actions, in order
 

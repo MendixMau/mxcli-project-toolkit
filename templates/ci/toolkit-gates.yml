@@ -4,7 +4,7 @@
 # The gate an agent cannot skip. Everything inside an agent's session can be skipped by the agent
 # (not running a gate, `git commit --no-verify`, writing READY by hand). This runs on GitHub, on what
 # was pushed, and runs the toolkit's bin/ci-gates.sh at the toolkit commit PROJECT.md pins:
-#   (a) gate-check for the stage the register claims fails on FAIL
+#   (a) a stage the register records as passed whose gate now FAILs fails (the stage in progress warns)
 #   (b) a READY line that bin/ready.sh did not write fails
 #   (c) built pages never looked at fail once anything claims done (READY, or Stage 6+)
 #   (d) model work committed before Stage 4 passed fails (greenfield and --adopt points excepted)
@@ -42,4 +42,9 @@ jobs:
             echo "::warning title=toolkit gates::PROJECT.md pins no usable toolkit commit (or one older than bin/ci-gates.sh); ran master instead"
           fi
       - name: Toolkit gates
+        env:
+          # "1": the stage (a) and order (d) checks fail the build. A project the toolkit reached
+          # mid-flight (sync-project.sh) starts at "0", where they only warn; set "1" when ready.
+          # The hand-written READY check (b) fails the build either way.
+          MXTK_CI_ENFORCE: "1"
         run: bash "$RUNNER_TEMP/toolkit/bin/ci-gates.sh" .

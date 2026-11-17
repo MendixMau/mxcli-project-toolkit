@@ -126,7 +126,7 @@ fi
 LOOK_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/look-ledger.sh"
 if [ -f "$LOOK_SCRIPT" ] && [ -s "$ROOT/.claude/loop/look/owed.tsv" ]; then
   look_line=$(PROJECT_ROOT="$ROOT" bash "$LOOK_SCRIPT" summary --write 2>/dev/null)
-  [ -n "$look_line" ] && { echo "### Look ledger"; echo; echo "- $look_line — commit docs/progress/look-summary.tsv with the rest"; echo "- READY / done is claimed only by \`$MXTK_ROOT/bin/ready.sh $ROOT [--module M]\`"; echo; }
+  [ -n "$look_line" ] && { echo "### Look ledger"; echo; echo "- $look_line — commit docs/progress/look-summary.tsv with the rest"; echo "- Only \`$MXTK_ROOT/bin/ready.sh $ROOT [--module M]\` claims READY / done"; echo; }
 fi
 
 # ---- the routing table -------------------------------------------------

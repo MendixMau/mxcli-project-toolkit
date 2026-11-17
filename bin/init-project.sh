@@ -293,7 +293,7 @@ fi
 # .github/workflows/toolkit-gates.yml — the CI gate an agent cannot skip (bin/ci-gates.sh). Create-if-
 # absent, never overwritten (bin/lib/ci-template.sh).
 . "$TOOLKIT_ROOT/bin/lib/ci-template.sh"
-mxtk_ci_install "$TOOLKIT_ROOT" "$PROJECT_DIR" 0 || true
+mxtk_ci_install "$TOOLKIT_ROOT" "$PROJECT_DIR" 0 init || true
 
 CLAUDE_LOCAL="$PROJECT_DIR/CLAUDE.local.md"
 if [ -f "$CLAUDE_LOCAL" ]; then

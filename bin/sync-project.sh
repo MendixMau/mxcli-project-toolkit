@@ -1345,7 +1345,7 @@ fi
 # that differs from templates/ci/toolkit-gates.yml is reported, not replaced (bin/lib/ci-template.sh).
 if [ "$WIRED" -eq 1 ]; then
   . "$TOOLKIT_ROOT/bin/lib/ci-template.sh"
-  mxtk_ci_install "$TOOLKIT_ROOT" "$PROJECT_DIR" "$DRY_RUN" && CHANGES=$((CHANGES + 1))
+  mxtk_ci_install "$TOOLKIT_ROOT" "$PROJECT_DIR" "$DRY_RUN" sync && CHANGES=$((CHANGES + 1))
 fi
 
 # --- 4b. Verification engine: tests/e2e/ (same contract as the crash net) ----------------

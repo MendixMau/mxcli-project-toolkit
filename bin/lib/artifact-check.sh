@@ -217,6 +217,7 @@ _art_entry_mode() {
   local tok; tok="$(entry_mode_token "$raw")"
   case "$tok" in
     requirements-driven) echo "requirements" ;;
+    greenfield-retired)  echo "" ;;   # retired, not yet synced: every row owed — louder, never quieter
     *)                   echo "$tok" ;;
   esac
 }

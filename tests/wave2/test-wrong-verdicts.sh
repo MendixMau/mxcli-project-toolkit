@@ -100,7 +100,7 @@ if [ -f "$TK/bin/lib/entry-mode.sh" ]; then
     if [ "$got" = "$2" ]; then ok "V4 '$1' -> $2"; else bad "V4 '$1' -> '$got', expected '$2'"; fi; }
   check "migration (not greenfield)" "migration"
   check "migration, phase 2"         "migration"
-  check "Greenfield"                 "greenfield"
+  check "Greenfield"                 "greenfield-retired"   # retired 2026-11-17: a token that says "run sync", not a mode
   check "requirements"               "requirements-driven"
   check "existing-app-change"        "existing-app-change"
   # The runbook's own label for the fourth mode. Its first word is "change", so a
@@ -113,7 +113,7 @@ if [ -f "$TK/bin/lib/entry-mode.sh" ]; then
   # #634: emphasis + period + prose after the value. The whole-value trim only reaches
   # the LAST character, so the first-word cut left "migration**." and matched nothing.
   check "Assumed (auto-mode): **Migration**. Evidence: 409 .java files" "migration"
-  check "**Greenfield**: no legacy source"  "greenfield"
+  check "**Greenfield**: no legacy source"  "greenfield-retired"
   check "_requirements-driven_. specs only" "requirements-driven"
   check "Migration. Evidence follows"       "migration"
   check "banana"                     ""

@@ -104,7 +104,7 @@ commands that run at every step: `docs/pipeline-walks.html`.
 |---|---|---|
 | **Migration** | Legacy source code exists | P, 0 to 7 |
 | **Requirements-driven** | Specs, BRDs or wireframes, no code | P, 0 to 6 |
-| **Greenfield** | Just an idea or a plan | P (light), 0, 5, 6 |
+| **Requirements-driven, from a conversation** | Just an idea for a real app (a demo: `Build type: poc`) | P, 0 to 6 |
 | **Change an existing app** | A live `.mpr` you add to or alter | P, 0 to 6 per change |
 | **À la carte assurance** | Audit or a test net only | none |
 

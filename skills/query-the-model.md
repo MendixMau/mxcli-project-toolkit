@@ -1,6 +1,6 @@
 # Query the Model — Source-of-Truth Order Before Any Question or Write
 
-**Applies to:** any mxcli project (migration and greenfield alike).
+**Applies to:** any mxcli project (migration and new apps alike).
 
 **Purpose:** Fix the one rule that makes every other gate in `conversion-runbook.md` work: **query the model → read the source → ask the human, in that order, and never skip to the last one.** An agent that asks the user something it could have derived wastes their attention and teaches them to stop trusting the interviews. An agent that guesses instead of querying produces scripts that look right and fail at `mxbuild`, or silently drift from what the Mendix model actually contains.
 

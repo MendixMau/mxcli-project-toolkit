@@ -835,6 +835,41 @@ if [ -f "$PROJECT_DIR/PROJECT.md" ] && [ -n "$(mxtk_register_missing "$PROJECT_D
   echo "⚠ ${DRY:-}Updated: PROJECT.md had no decision-register structure — appended: $_reg_added (bin/lib/register-skeleton.sh). Review them: the ✋ gates read the Decisions table."
   CHANGES=$((CHANGES + 1))
 fi
+# --- 2b0a. Entry mode greenfield was RETIRED (2026-11-17, conversion-runbook.md → Entry Modes,
+# "Two doors"): a real app from an idea is requirements-driven with the conversation as the
+# source; a demo is Build type: poc. The register line is mapped to requirements-driven, the
+# old line kept as a comment, and the project adopted at the stage its readout shows (stages it
+# already passed or skipped as greenfield are not re-owed) through gate-check.sh --adopt, so the
+# same rules apply: register line, BUILD-LOG row, and under Interview mode: auto a ✋
+# human-pending decision for an adoption past Stage 3 or 4. Said once, here. Read-only on
+# anything but PROJECT.md and docs/BUILD-LOG.md. An intake-only "greenfield" answer is not
+# rewritten (it is the user's answer): gate-check and status say to re-answer it.
+. "$SCRIPT_DIR/lib/entry-mode.sh"
+if [ -f "$PROJECT_DIR/PROJECT.md" ]; then
+  _gf_line="$(awk '
+    /<!--/ { c = 1 } c { if ($0 ~ /-->/) c = 0; next }
+    { l = $0; gsub(/^[ \t>*_-]+/, "", l); gsub(/\*/, "", l)
+      if (tolower(l) ~ /^entry mode[ \t]*:/) { print NR "\t" $0; exit } }' "$PROJECT_DIR/PROJECT.md")"
+  if [ -n "$_gf_line" ] && _gf_v="${_gf_line#*	}" && [ "$(entry_mode_token "${_gf_v#*:}" 2>/dev/null)" = greenfield-retired ]; then
+    mxtk_pos_read "$PROJECT_DIR"
+    _gf_n="${_gf_line%%	*}"; _gf_old="${_gf_line#*	}"; _gf_at=""
+    case "$POS_ADOPTED" in "") case "$POS_READOUT" in [1-7]) _gf_at="$POS_READOUT" ;; esac ;; esac
+    echo "⚠ ${DRY:-}Mapped: PROJECT.md Entry mode greenfield → requirements-driven (greenfield retired, mapped at sync)${_gf_at:+; adopted at stage $_gf_at, its current stage}. Stages before the adoption point are not re-owed; from here the requirements-driven steps apply (conversion-runbook.md → Entry Modes)."
+    if [ "$DRY_RUN" -ne 1 ]; then
+      _gf_tmp="$(mktemp "${TMPDIR:-/tmp}/sync-gf.XXXXXX")"
+      awk -v n="$_gf_n" -v d="$(date -u +%Y-%m-%d)" '
+        NR == n { print "Entry mode: requirements-driven"; gsub(/--/, "-", $0)
+                  print "<!-- was: " $0 " — greenfield retired, mapped at sync " d " -->"; next } { print }' \
+        "$PROJECT_DIR/PROJECT.md" > "$_gf_tmp" && cat "$_gf_tmp" > "$PROJECT_DIR/PROJECT.md"; rm -f "$_gf_tmp"
+      mkdir -p "$PROJECT_DIR/docs"
+      printf '%s  ENTRY-MODE-MAPPED greenfield -> requirements-driven: greenfield retired, mapped at sync%s\n' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${_gf_at:+ (adopted at stage $_gf_at)}" >> "$PROJECT_DIR/docs/BUILD-LOG.md"
+      [ -n "$_gf_at" ] && "$SCRIPT_DIR/gate-check.sh" "$PROJECT_DIR" --adopt "$_gf_at" --reason "greenfield retired, mapped at sync" 2>&1 \
+        | grep -E '^(Recorded in|✋)' | sed 's/^/   /' || true
+    fi
+    CHANGES=$((CHANGES + 1))
+  fi
+fi
 if [ -f "$PROJECT_DIR/PROJECT.md" ] && ! grep -q "Toolkit commit:" "$PROJECT_DIR/PROJECT.md"; then
   printf '\nToolkit commit: (set at session start — see CLAUDE.local.md ritual)\n' | w_app "$PROJECT_DIR/PROJECT.md"
   echo "Updated: PROJECT.md — added the Toolkit commit acknowledgement line."

@@ -1,6 +1,6 @@
 # Interaction Model — Who Lands Where, and What Object Each Page Is About
 
-**Applies to:** migration | requirements-driven | greenfield | change an existing app (any project that draws wireframes)
+**Applies to:** migration | requirements-driven | POC | change an existing app (any project that draws wireframes)
 **Purpose:** Before the first wireframe, write down how each role reaches each page and which object
 each page is about, so the wireframes, the build and the journeys all start from one page-parameter
 contract instead of one persona looking at one record.

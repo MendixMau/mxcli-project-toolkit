@@ -8,7 +8,7 @@
 
 ## When to Use This Skill
 
-- Starting a brand-new mxcli-powered project (migration or greenfield) and setting up its `CLAUDE.md` for the first time
+- Starting a brand-new mxcli-powered project (migration, requirements-driven or POC) and setting up its `CLAUDE.md` for the first time
 - Auditing an existing project's `CLAUDE.md` against the toolkit's current Baseline routing (run this whenever the toolkit's `git pull` brings in a newly-baseline-worthy skill)
 - Someone says "review the toolkit and build the CLAUDE.md" — that instruction alone is not enough; this skill is what makes it repeatable instead of improvised
 
@@ -31,7 +31,7 @@ None of these live in the toolkit. Ask the user or check the project directly; d
 | Fact | Why it matters | How to check |
 |---|---|---|
 | **mxcli invocation style** | Global binary (`mxcli`) vs. project-local (`./mxcli`) — get this wrong and every command in `CLAUDE.md` is wrong | `which mxcli`; check for a binary committed in the project root |
-| **Source platform / stack** | Decides which situational skills apply (`source-os11.md` vs `source-node-express-react.md` vs `pipelines/java-angular/` vs none, if greenfield) | Ask the user, or run `source-triage.md` Step 1 if a migration is already underway |
+| **Source platform / stack** | Decides which situational skills apply (`source-os11.md` vs `source-node-express-react.md` vs `pipelines/java-angular/` vs none, if no legacy source) | Ask the user, or run `source-triage.md` Step 1 if a migration is already underway |
 | **mxbuild / Studio Pro setup** | Whether `mx check` needs `mxcli setup mxbuild` first, and which Studio Pro version | `mxcli setup mxbuild --help`, check `~/.mxcli/mxbuild/` |
 | **Communication style preferences** | E.g. "never show raw MDL in chat, describe changes in plain language then execute silently" — genuinely project/client-specific, never assume the default | Ask the user directly |
 | **Migration-input location** (migrations only) | Where BRDs/architecture docs from an upstream analysis project live | Ask the user; this is almost never the toolkit's own `pipelines/` output location |
@@ -83,7 +83,7 @@ From the toolkit's `README.md` "When to use which skill" table, include only the
 - **Oracle Forms source** → mxcli's bundled `.ai-context/skills/migrate-oracle-forms/SKILL.md` — directory-shaped since mxcli v0.20.0, flat `migrate-oracle-forms.md` on older installs (the toolkit owns no Forms extractor; the bundled skill is canonical)
 - **K2 / Nintex workflow source** → mxcli's bundled `.ai-context/skills/migrate-k2-nintex/SKILL.md`, same shape note (server/database-stored, not file-based — extraction means the K2 DB or SmartObject APIs, so expect no XML-style extractor)
 - **Any migration, regardless of source** → `migration-pipeline.md`, `source-triage.md` (also Baseline, but worth restating in context), `brd-generation.md`, `brd-validation.md`, `modularize-domain.md`, `architecture-blueprint.md`, `design-artifacts.md`, `brd-to-build-plan.md`, `iterative-build-loop.md`
-- **Greenfield (no source migration at all)** → likely none of the migration-pipeline rows; the project probably only needs Baseline plus mxcli's own bundled `.ai-context/skills/` (which this toolkit doesn't own or duplicate)
+- **No legacy source (requirements-driven or POC)** → likely none of the migration-pipeline rows; the project probably only needs Baseline plus mxcli's own bundled `.ai-context/skills/` (which this toolkit doesn't own or duplicate)
 
 Don't include a row "just in case" — an unused situational row is noise the same way an over-annotated microflow is noise (see `learned-microflow-patterns.md`).
 

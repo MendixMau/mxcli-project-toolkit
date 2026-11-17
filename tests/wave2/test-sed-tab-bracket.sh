@@ -16,7 +16,7 @@
 #   T1  closeout.sh _co_trim keeps a trailing/leading t ("bulk import", "**test harness**")
 #       and still trims a real tab; _co_stage_of reads "Stage<TAB>3" as 3
 #   T2  entry-mode.sh entry_mode_token reads a tab-separated answer ("answered:<TAB>migration",
-#       "<TAB>greenfield"), which the old trim left untouched and the first-word cut then emptied
+#       "<TAB>requirements"), which the old trim left untouched and the first-word cut then emptied
 #   T3  bin/check-portability.sh (same toolkit) flags `sed 's/[ \t]*$//'` and
 #       `grep -c '^##[ \t]'`, passes [[:blank:]], an awk regex and a $'...' real tab
 #   T4  ... and flags \t OUTSIDE a bracket in a sed pattern or replacement (#488: the
@@ -57,7 +57,7 @@ else
   check "T1d Stage<TAB>3 is stage 3" "$(run "_co_stage_of 'Stage${TAB}3'")"               "3"
   echo "== T2 entry-mode.sh =="
   check "T2a answered:<TAB>migration" "$(run "entry_mode_token 'answered:${TAB}migration'" 2>/dev/null)" "migration"
-  check "T2b <TAB>greenfield"         "$(run "entry_mode_token '${TAB}greenfield'" 2>/dev/null)"         "greenfield"
+  check "T2b <TAB>requirements"       "$(run "entry_mode_token '${TAB}requirements'" 2>/dev/null)"       "requirements-driven"
   check "T2c bold value unchanged"    "$(run "entry_mode_token '**requirements-driven**'" 2>/dev/null)"  "requirements-driven"
 fi
 

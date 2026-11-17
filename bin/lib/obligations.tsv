@@ -39,11 +39,12 @@
 #   9 skill        the skill that governs the pass and holds every verdict
 #  10 modes        comma list of entry modes that owe it — the SAME column, tokens and reader as
 #                  bin/lib/artifact-manifest.tsv column 6 (entry_mode_token in bin/lib/entry-mode.sh):
-#                  migration,requirements,greenfield,existing-app-change. A register whose
+#                  migration,requirements,existing-app-change (greenfield retired 2026-11-17: an
+#                  unsynced register reads no mode, so every row is owed). A register whose
 #                  `Entry mode:` is not listed reads `N/A — not owed (entry mode …)`, said out loud,
 #                  never PASS. No `Entry mode:` line, an unrecognised one, or an empty column = owed:
-#                  louder, never quieter. Every row owes all four today (each mode reaches Stage 5;
-#                  greenfield runs the design front end, so it reaches the Stage 3 rows too) — the
+#                  louder, never quieter. Every row owes all three today (each mode reaches Stage 5
+#                  and runs the design stage) — the
 #                  column exists so a row a mode genuinely skips is excused by data, not by absence.
 #                  À-la-carte projects are excused wholesale (no register and no briefs → N/A).
 #                  Build type (poc) is not an entry mode and is not read here.
@@ -54,11 +55,11 @@
 # An obligation is owed by the pass you are performing now, never by the app's history.
 #
 obligation	performer	scope	match	artifact	denominator	degradable	from-stage	skill	modes
-look	review	module	names	design/ui-reviews/ui-review-*.html	yes	yes	5	skills/module-review.md	migration,requirements,greenfield,existing-app-change
-sweep	test	module	path	.claude/loop/sweep/<Module>/sweep.md	yes	yes	5	skills/wiring-sweep.md	migration,requirements,greenfield,existing-app-change
-journeys	test	module	path	.claude/loop/verify/<Module>/summary.tsv	no	no	5	skills/journey-proof.md	migration,requirements,greenfield,existing-app-change
-coherence	architect	cluster	path	.claude/loop/coherence/last-cluster-pass.tsv	no	yes	5	skills/process-coherence-pass.md	migration,requirements,greenfield,existing-app-change
-skeleton	mdl	project	path	docs/skeleton-proof.md	yes	no	5	skills/walking-skeleton.md	migration,requirements,greenfield,existing-app-change
+look	review	module	names	design/ui-reviews/ui-review-*.html	yes	yes	5	skills/module-review.md	migration,requirements,existing-app-change
+sweep	test	module	path	.claude/loop/sweep/<Module>/sweep.md	yes	yes	5	skills/wiring-sweep.md	migration,requirements,existing-app-change
+journeys	test	module	path	.claude/loop/verify/<Module>/summary.tsv	no	no	5	skills/journey-proof.md	migration,requirements,existing-app-change
+coherence	architect	cluster	path	.claude/loop/coherence/last-cluster-pass.tsv	no	yes	5	skills/process-coherence-pass.md	migration,requirements,existing-app-change
+skeleton	mdl	project	path	docs/skeleton-proof.md	yes	no	5	skills/walking-skeleton.md	migration,requirements,existing-app-change
 
 # workflow-count is the FIRST obligation below stage 5, and that gap is why it exists. Every row
 # above is from-stage 5: look, sweep, journeys, coherence, skeleton. So this table — the only
@@ -82,7 +83,7 @@ skeleton	mdl	project	path	docs/skeleton-proof.md	yes	no	5	skills/walking-skeleto
 # nothing to count" alone reports NO-DENOM (#684).
 # That is deliberately NOT an optin row: an artifact a project must think of in order to owe is
 # an artifact nobody owes, which is the disease this whole table was built for.
-workflow-count	architect	project	path	architecture/workflow-count.md	yes	yes	3	skills/workflow-structure-rules.md	migration,requirements,greenfield,existing-app-change
+workflow-count	architect	project	path	architecture/workflow-count.md	yes	yes	3	skills/workflow-structure-rules.md	migration,requirements,existing-app-change
 
 # design-reaches-app owes a mark for something no other pass can see: whether the design system
 # arrived in the built app at all. It was owed from stage 3 until #627 (2026-11-05): its only
@@ -114,7 +115,7 @@ workflow-count	architect	project	path	architecture/workflow-count.md	yes	yes	3	s
 #
 # It is owed by mdl rather than review deliberately: the agent that performed the port is the
 # one that must show it landed. A producer for every consumer, in the same hands.
-design-reaches-app	mdl	project	path	docs/design-reaches-app.md	yes	yes	5	project-bin/check-design-reaches-app.sh	migration,requirements,greenfield,existing-app-change
+design-reaches-app	mdl	project	path	docs/design-reaches-app.md	yes	yes	5	project-bin/check-design-reaches-app.sh	migration,requirements,existing-app-change
 
 # fidelity — the third row here, and the second time the same gap was found in the field (#109).
 # On a requirements-driven app replacement, project-bin/page-fidelity.js existed and was cited by
@@ -134,7 +135,7 @@ design-reaches-app	mdl	project	path	docs/design-reaches-app.md	yes	yes	5	project
 # wireframe is waived explicitly: `--waive fidelity/<Module> --reason "no wireframe"`. Owed by mdl
 # for the same reason as design-reaches-app: the hands that built the page are the hands that must
 # show it matches.
-fidelity	mdl	module	names	docs/PAGE-FIDELITY.tsv	no	yes	5	skills/ui-loop.md	migration,requirements,greenfield,existing-app-change
+fidelity	mdl	module	names	docs/PAGE-FIDELITY.tsv	no	yes	5	skills/ui-loop.md	migration,requirements,existing-app-change
 # dispatch is the THIRD obligation below stage 5, and it is here because it is the only mark
 # that answers a different question from the others: not "was the pass any good" but "did the
 # work go through the agent that owns it at all".
@@ -158,7 +159,7 @@ fidelity	mdl	module	names	docs/PAGE-FIDELITY.tsv	no	yes	5	skills/ui-loop.md	migr
 # ("owes no denominator, just the line") — that is the governing text this column exists to
 # point at. The agent stub is the performer named in column 2 (mdl); it is not itself a skill
 # and holds no verdict of its own to point to (review of PR #99, 2026-09).
-dispatch	mdl	module	path	.claude/loop/dispatch/<Module>/scripts.tsv	no	yes	5	skills/agent-roles.md	migration,requirements,greenfield,existing-app-change
+dispatch	mdl	module	path	.claude/loop/dispatch/<Module>/scripts.tsv	no	yes	5	skills/agent-roles.md	migration,requirements,existing-app-change
 
 # final-look is the whole-app LOOK, run last. The per-module `look` row above judges each
 # module as it was when that module was reviewed. It cannot see a later task undoing an earlier
@@ -175,7 +176,7 @@ dispatch	mdl	module	path	.claude/loop/dispatch/<Module>/scripts.tsv	no	yes	5	ski
 # stamped before the last model commit is stale (_ob_stale), so the pass is owed again after
 # any later change. Denominator required ("N of N pages, M of M roles"). Governed by
 # module-review.md § "The final LOOK".
-final-look	review	project	names	design/ui-reviews/final-look-*.html	yes	yes	6	skills/module-review.md	migration,requirements,greenfield,existing-app-change
+final-look	review	project	names	design/ui-reviews/final-look-*.html	yes	yes	6	skills/module-review.md	migration,requirements,existing-app-change
 
 # prototype-look is the Stage 3 LOOK: the assembled design/prototype.html, the page the user
 # actually clicks, opened in a real browser at device widths before the Stage 3 sign-off
@@ -198,7 +199,7 @@ final-look	review	project	names	design/ui-reviews/final-look-*.html	yes	yes	6	sk
 # LOOK is owed again — a v1 LOOK cannot discharge v2. With no design/prototype.html in either
 # layout the row reads N/A (a project with no UI owes no prototype LOOK); one that has screens but
 # never assembled them is caught by the Stage 3 wireframe gate, not here.
-prototype-look	review	project	names	design/ui-reviews/prototype-look-*.html	yes	yes	3	skills/design-artifacts.md	migration,requirements,greenfield,existing-app-change
+prototype-look	review	project	names	design/ui-reviews/prototype-look-*.html	yes	yes	3	skills/design-artifacts.md	migration,requirements,existing-app-change
 
 # must-haves owes, per module, the ticked list in skills/must-haves.md: the build-type-independent
 # floor (empty states, friendly refusals, active nav on first landing, no silent list cap, 1280 and
@@ -216,4 +217,4 @@ prototype-look	review	project	names	design/ui-reviews/prototype-look-*.html	yes	
 # how the field run's look ledger stayed hidden. Denominator
 # on the first line: "N of N rows ticked or NOT DONE with a reason". Owed by built modules when no
 # brief exists (the floor in obligation-check.sh), like every module row.
-must-haves	review	module	path	docs/progress/must-haves/<Module>.md	yes	yes	5	skills/must-haves.md	migration,requirements,greenfield,existing-app-change
+must-haves	review	module	path	docs/progress/must-haves/<Module>.md	yes	yes	5	skills/must-haves.md	migration,requirements,existing-app-change

@@ -18,7 +18,7 @@
 #   F8  Build row that names the component           -> ✓ ("Document Generation ... too rigid")
 #   F9  --waive artifact/fit-gap --reason            -> ✓ WAIVED, F1's project
 #   F10 --adopt 5                                    -> ✓ not owed
-#   F11 greenfield, no fit-gap -> ✓ not owed; greenfield WITH a bad fit-gap -> ✗ (a file is read)
+#   F11 a-la-carte, no fit-gap -> ✓ not owed; a-la-carte WITH a bad fit-gap -> ✗ (a file is read)
 #   F12 two-tree layout (app/App.mpr)                -> same verdict as F4
 #   F14 Build row with an ACCIDENTAL keyword ("custom chart widget") -> ✗ naming `charts`; the same
 #       row with a one-sentence "Marketplace: ... not used because ..." reason -> ✓
@@ -121,13 +121,13 @@ gc --adopt 5 --reason "joined at the build" "$P" >/dev/null
 L="$(fg_line "$(gc "$P" build-ready)")"
 case "$L" in "  ✓ Fit-gap: not owed — project joined the toolkit at stage 5") ok "$L" ;; *) bad "F10: $L" ;; esac
 
-echo "== F11: greenfield =="
-P="$(mkproj f11a root greenfield)"
+echo "== F11: a mode that excuses Stage 3 (a-la-carte; greenfield retired 2026-11-17) =="
+P="$(mkproj f11a root a-la-carte)"
 L="$(fg_line "$(gc "$P" build-ready)")"
-case "$L" in "  ✓ Fit-gap: not owed — greenfield entry mode"*) ok "greenfield, no fit-gap: not owed" ;; *) bad "F11a: $L" ;; esac
-P="$(mkproj f11b root greenfield "$HDR" "$SEP" "$LLM")"
+case "$L" in "  ✓ Fit-gap: not owed — a-la-carte entry mode"*) ok "a-la-carte, no fit-gap: not owed" ;; *) bad "F11a: $L" ;; esac
+P="$(mkproj f11b root a-la-carte "$HDR" "$SEP" "$LLM")"
 L="$(fg_line "$(gc "$P" build-ready)")"
-case "$L" in "  ⚠ Fit-gap: ADVISORY —"*genai-llm*) ok "greenfield with a fit-gap: still read" ;; *) bad "F11b: $L" ;; esac
+case "$L" in "  ⚠ Fit-gap: ADVISORY —"*genai-llm*) ok "a-la-carte with a fit-gap: still read" ;; *) bad "F11b: $L" ;; esac
 
 echo "== F12: two-tree layout =="
 P="$(mkproj f12 app - "$HDR" "$SEP" "$NATIVE" "$LLM")"

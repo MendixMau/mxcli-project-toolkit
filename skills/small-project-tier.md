@@ -11,7 +11,7 @@ the cost, not the source. This tier keeps every gate and every interview and bou
 gate reads — it never removes a thing a gate reads.
 
 **Upstream:** the Stage 0 inventory (`bin/source-sufficiency.sh init`, or the intake for
-greenfield) and CAC-1 (`checkpoints/checkpoint-scope.md` Q3).
+a project whose source is a conversation) and CAC-1 (`checkpoints/checkpoint-scope.md` Q3).
 **Downstream:** every stage's §1b checklist carries the caps below as its denominators;
 `bin/gate-check.sh` reads the waiver lines this tier tells you to write.
 

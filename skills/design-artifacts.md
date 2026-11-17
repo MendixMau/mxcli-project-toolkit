@@ -390,6 +390,12 @@ overflowing its card by 17–18 px at phone width, while each wireframe screensh
 current prototype's, so any re-assembly is looked at again. "0 found of N measured" is
 a pass; a count with no denominator is not.
 
+**A supplied prototype** (handed over, never assembled — `prototypes/<app>/<screen>.html`,
+`design/prototypes/`, or the folder a `Prototype folder: <path>` register line names) is the
+target too: the same report and PROOF-OF-LOOK lines, no `PROTOTYPE-SHA` (nothing assembled it),
+and `page-fidelity.js <folder> <Page> <mdl>` scores a page against its screen. Without one,
+`prototype-look` is N/A; with one and no report, PENDING (field run 2026-11-17: 0 pages looked at).
+
 ---
 
 ## Step 4: Tooling — Own HTML Leads

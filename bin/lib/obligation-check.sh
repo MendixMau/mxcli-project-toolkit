@@ -203,6 +203,137 @@ _ob_modules() {
   } 2>/dev/null | sed '/^$/d' | sort -u
 }
 
+# ── Pages built, whatever the pipeline position ────────────────────────────
+#
+# WHY (field run 2026-11-17). A requirements-driven project handed a ready spec and clickable
+# prototypes started at the build stage: six apps under apps/<App>/, ~78 pages each, no
+# architecture/modules/ briefs, no build plan, no verify runs. _ob_modules() was empty, so the
+# page rows printed "PASS — no module has been opened for work yet; nothing owed", and the
+# project reached its last level with 0 pages ever looked at. Green by absence — the one thing
+# this file exists to prevent. Pages built means a LOOK is owed.
+#
+# So, for the page rows only (look, fidelity: _OB_PAGE_ROWS), when the brief/verify scope is
+# empty the scope falls back to the modules that HOLD BUILT PAGES, read from recorded facts:
+#   mdlsource/  page statements (`create [or modify|or replace] page M.P`) at the root, app/ and
+#               apps/<X>/ — the scripts the project wrote; comments and *.test.mdl skipped
+#   .claude/loop/look/owed.tsv    exec.sh's record of every page a landed script built
+#   .claude/loop/page-scope.json  page-scope.sh's inScope list (root, app/, apps/<X>/) — NOT on
+#                                 an existing-app change, where it lists pages nobody here built
+# A model that resolves (root, app/ or apps/<X>/*.mpr) with none of these reads FAULT, not PASS:
+# pages may exist and nothing here can count them (not on an existing-app change, nor while
+# gate-check's derived Current stage is before 5 — a starter model is not a build).
+# The other module rows keep the brief scope; platform/marketplace modules never enter it.
+_OB_PAGE_ROWS=" look fidelity "
+_OB_PLATFORM_MODULES=" System Administration Atlas_Core Atlas_Web_Content Atlas_UI_Resources MxModelReflection CommunityCommons Encryption NanoflowCommons WebActions DeepLink MxTest FeedbackModule DataWidgets "
+
+# _ob_existing_app <register> → 0 when the register's Entry mode is an existing-app change.
+_ob_existing_app() {
+  local line key val
+  _ob_register_norm "$1"
+  local IFS=$'\n'
+  for line in $_OB_REG_NORM; do
+    key="${line%%$'\t'*}"; val="${line#*$'\t'}"
+    [ "$key" = "entry mode" ] || continue
+    _ob_lc "$val"
+    case "$_OB_LC" in *"existing app"*|*"existing-app"*) return 0 ;; esac
+    return 1
+  done
+  return 1
+}
+
+# _ob_built_pages <root> <existing-app 0|1> → unique Module.Page lines; memoized per root.
+_OB_PAGES=""; _OB_PAGES_DONE=""
+_ob_built_pages() {
+  local root="$1" existing="${2:-0}" d f
+  if [ "$_OB_PAGES_DONE" != "$root" ]; then
+    _OB_PAGES_DONE="$root"
+    _OB_PAGES="$(
+      {
+        for d in "$root/mdlsource" "$root/app/mdlsource" "$root"/apps/*/mdlsource; do
+          [ -d "$d" ] && find "$d" -type f -name '*.mdl' ! -name '*.test.mdl' 2>/dev/null
+        done | while IFS= read -r f; do
+          # Comments stripped first (-- line, /* */ block): a commented-out page is not built.
+          awk '{ s=$0; o=""; i=1
+                 while (i<=length(s)) { c=substr(s,i,2)
+                   if (!b && c=="/*") { b=1; i+=2; continue }
+                   if (b && c=="*/")  { b=0; i+=2; continue }
+                   if (!b && c=="--") break
+                   if (!b) o=o substr(s,i,1); i++ }
+                 print o }' "$f" 2>/dev/null
+        done | grep -oiE 'create[[:space:]]+(or[[:space:]]+(modify|replace)[[:space:]]+)?page[[:space:]]+"?[A-Za-z_][A-Za-z0-9_]*"?\."?[A-Za-z_][A-Za-z0-9_]*' \
+             | sed -E 's/^.*[[:space:]]//; s/"//g'
+        for f in "$root/.claude/loop/look/owed.tsv" "$root/app/.claude/loop/look/owed.tsv"; do
+          [ -s "$f" ] && awk -F'\t' '$3 ~ /^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$/ {print $3}' "$f"
+        done
+        if [ "$existing" != 1 ]; then
+          for f in "$root/.claude/loop/page-scope.json" "$root/app/.claude/loop/page-scope.json" \
+                   "$root"/apps/*/.claude/loop/page-scope.json; do
+            [ -s "$f" ] && awk '/"inScope"[[:space:]]*:/ {f=1} f {print} f && /\]/ {exit}' "$f" \
+              | grep -oE '"[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*"' | tr -d '"'
+          done
+        fi
+      } 2>/dev/null | tr -d '\r' | awk -F. -v skip="$_OB_PLATFORM_MODULES" \
+          'NF == 2 && index(skip, " " $1 " ") == 0' | LC_ALL=C sort -u)"
+  fi
+  printf '%s' "$_OB_PAGES"
+}
+
+# _ob_models <root> → the .mpr files of every layout, root-relative, one per line.
+_ob_models() {
+  local f
+  for f in "$1"/*.mpr "$1"/app/*.mpr "$1"/apps/*/*.mpr; do
+    [ -e "$f" ] && printf '%s\n' "${f#"$1"/}"
+  done
+  return 0
+}
+
+# _ob_reviewed_pages <root> → distinct pages carrying a PROOF-OF-LOOK citation, in any report.
+_ob_reviewed_pages() {
+  local f any=0
+  for f in "$1"/design/ui-reviews/ui-review-*.html; do [ -f "$f" ] && { any=1; break; }; done
+  [ "$any" = 1 ] || { printf '0'; return 0; }
+  cat "$1"/design/ui-reviews/ui-review-*.html 2>/dev/null | tr -d '\r' \
+    | grep -oE 'PROOF-OF-LOOK:[[:space:]]*[^=<]+=' \
+    | sed 's/^PROOF-OF-LOOK:[[:space:]]*//; s/[[:space:]]*=$//' | LC_ALL=C sort -u | grep -c . | tr -d ' '
+}
+
+# ── The visual target: an assembled prototype OR a supplied one ────────────
+#
+# A requirements-driven project is often HANDED its clickable prototype — a folder of screens
+# never assembled by assemble-prototype.js. prototype-look knew only design/prototype.html, so a
+# project with a full supplied prototype read "N/A — no prototype" (field run 2026-11-17).
+# Recognised, first hit wins:
+#   design/prototype.html, app/design/prototype.html   assembled (the PROTOTYPE-SHA rule applies)
+#   register line `Prototype folder: <path>`           supplied, named by the project
+#   prototypes/, design/prototypes/                    supplied, by convention
+# A folder counts when it holds a .html within three levels (prototypes/<app>/<screen>.html).
+# _ob_proto_target <root> <register> → "assembled<TAB>path" | "folder<TAB>path<TAB>screens" | nothing.
+_ob_proto_target() {
+  local root="$1" reg="$2" f line key val n cands=""
+  for f in design/prototype.html app/design/prototype.html; do
+    [ -s "$root/$f" ] && { printf 'assembled\t%s\n' "$f"; return 0; }
+  done
+  if [ -f "$reg" ]; then
+    _ob_register_norm "$reg"
+    while IFS= read -r line; do
+      key="${line%%$'\t'*}"; val="${line#*$'\t'}"
+      case "$key" in "prototype folder"|"prototype folders"|"prototypes") ;; *) continue ;; esac
+      val="${val%%[ 	]*}"; val="${val#\`}"; val="${val%\`}"; val="${val%/}"
+      [ -n "$val" ] && cands="$cands$val"$'\n'
+    done <<< "$_OB_REG_NORM"
+  fi
+  cands="${cands}prototypes"$'\n'"design/prototypes"
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    case "$f" in /*) ;; *) f="$root/$f" ;; esac
+    [ -d "$f" ] || continue
+    n="$(find "$f" -maxdepth 3 -type f \( -name '*.html' -o -name '*.htm' \) 2>/dev/null | grep -c . | tr -d ' ')"
+    [ "${n:-0}" -gt 0 ] || continue
+    printf 'folder\t%s\t%s\n' "${f#"$root"/}" "$n"; return 0
+  done <<< "$cands"
+  return 0
+}
+
 # Does the artifact exist for this unit? Echoes the file that discharges it, or nothing.
 _ob_find() {
   local root="$1" match="$2" pattern="$3" unit="$4" resolved f
@@ -539,11 +670,16 @@ mxtk_obligations_report() {
       continue
     fi
 
-    # prototype-look with no assembled prototype in either layout: nothing to look at, so N/A, not
-    # PENDING — a Stage 5+ project with no UI must not carry an owed pass it cannot perform.
-    if [ "$ob" = "prototype-look" ] && [ ! -s "$root/design/prototype.html" ] && [ ! -s "$root/app/design/prototype.html" ]; then
-      printf 'Obligation %-10s N/A — no design/prototype.html assembled (%s)\n' "$ob" "$skill"
-      continue
+    # prototype-look with no prototype at all — none assembled in either layout, none supplied
+    # (_ob_proto_target): nothing to look at, so N/A, not PENDING — a Stage 5+ project with no UI
+    # must not carry an owed pass it cannot perform. A SUPPLIED folder is a target: owed, no SHA.
+    local proto_kind="" proto_path="" proto_n=""
+    if [ "$ob" = "prototype-look" ]; then
+      IFS=$'\t' read -r proto_kind proto_path proto_n <<< "$(_ob_proto_target "$root" "$reg")"
+      if [ -z "$proto_kind" ]; then
+        printf 'Obligation %-10s N/A — no design/prototype.html assembled and no prototype folder supplied (prototypes/, design/prototypes/, or a `Prototype folder:` register line) (%s)\n' "$ob" "$skill"
+        continue
+      fi
     fi
 
     local units
@@ -553,6 +689,45 @@ mxtk_obligations_report() {
       *) printf 'Obligation %-10s FAULT — unknown scope "%s" in %s\n' "$ob" "$scope" "$OBLIGATIONS_TSV"
          MXTK_OB_STATUS="FAULT"; continue ;;
     esac
+
+    # Empty brief scope on a page row: fall back to the modules holding built pages (see
+    # _ob_built_pages). Pages built means a LOOK is owed, whatever the pipeline position.
+    local page_scope_note=""
+    [ "$proto_kind" = "folder" ] && \
+      page_scope_note="$proto_n screen(s) supplied — visual target: $proto_path/, a supplied prototype (no assembler, so no PROTOTYPE-SHA is owed; PROOF-OF-LOOK still is)"
+    if [ -z "$units" ] && [ "$scope" = "module" ]; then
+      case "$_OB_PAGE_ROWS" in *" $ob "*)
+        local existing=0 pages n_pages n_mods n_seen models n_models tgt reason
+        _ob_existing_app "$reg" && existing=1
+        pages="$(_ob_built_pages "$root" "$existing")"
+        if [ -n "$pages" ]; then
+          units="$(printf '%s\n' "$pages" | cut -d. -f1 | LC_ALL=C sort -u)"
+          n_pages="$(printf '%s\n' "$pages" | grep -c .)"
+          n_mods="$(printf '%s\n' "$units" | grep -c .)"
+          if [ "$ob" = "look" ]; then
+            n_seen="$(_ob_reviewed_pages "$root")"
+            page_scope_note="$n_pages page(s) built, $n_seen reviewed"
+          else
+            page_scope_note="$n_pages page(s) built"
+          fi
+          page_scope_note="$page_scope_note — no module brief or verify run opened a module, so the scope is the $n_mods module(s) holding built pages (mdlsource/, look/owed.tsv, page-scope.json)"
+          tgt="$(_ob_proto_target "$root" "$reg" | cut -f2)"
+          [ -n "$tgt" ] && page_scope_note="$page_scope_note; visual target: $tgt"
+        elif [ "$existing" != 1 ] && { [ "$current_rank" -ge 6 ] || [ "$current_rank" = 99 ]; }; then
+          models="$(_ob_models "$root")"
+          if [ -n "$models" ] && reason="$(_ob_waiver "$reg" "$ob" "-")"; then
+            printf 'Obligation %-10s WAIVED — %s (%s)\n' "$ob" "$reason" "$skill"
+            continue
+          elif [ -n "$models" ]; then
+            n_models="$(printf '%s\n' "$models" | grep -c .)"
+            printf 'Obligation %-10s FAULT — ? page(s) built, 0 of ? %s: %d model(s) resolve (%s) but nothing lists their pages — no mdlsource/ page statements, no .claude/loop/look/owed.tsv, no page-scope.json. Pages may exist and none is in scope; run bin/page-scope.sh (MPR_FILE=<app>.mpr per app) so the denominator is measured, or --waive %s with a reason (%s)\n' \
+              "$ob" "$([ "$ob" = look ] && echo reviewed || echo scored)" "$n_models" "$(printf '%s\n' "$models" | head -3 | paste -s -d, - | sed 's/,/, /g')$([ "$n_models" -gt 3 ] && printf ', +%d more' $((n_models-3)))" "$ob" "$skill"
+            MXTK_OB_STATUS="FAULT"; MXTK_OB_N_FAULT=$((MXTK_OB_N_FAULT+1))
+            continue
+          fi
+        fi ;;
+      esac
+    fi
 
     if [ -z "$units" ]; then
       printf 'Obligation %-10s PASS — no module has been opened for work yet; nothing owed (%s)\n' "$ob" "$skill"
@@ -568,7 +743,8 @@ mxtk_obligations_report() {
     local is_look=0 needs_stamp=0 needs_proto=0
     case "$ob" in look|final-look|prototype-look) is_look=1 ;; esac
     [ "$ob" = "final-look" ] && needs_stamp=1
-    [ "$ob" = "prototype-look" ] && needs_proto=1
+    # The PROTOTYPE-SHA stamp names an ASSEMBLED page; a supplied folder has no assembler to print one.
+    [ "$ob" = "prototype-look" ] && [ "$proto_kind" = "assembled" ] && needs_proto=1
     local total=0 done_n=0 waived_n=0 pending="" faulted="" stale="" noproof="" unstamped="" noproto="" norun="" u hit reason stale_at proof_why candidates c newest
     while IFS= read -r u; do
       [ -n "$u" ] || continue
@@ -642,6 +818,8 @@ mxtk_obligations_report() {
 
     local scoped=$((total - waived_n)) tail=""
     [ "$waived_n" -gt 0 ] && tail=" ($waived_n waived)"
+    # The page fallback's own denominator, on the verdict line itself: "78 page(s) built, 0 reviewed".
+    [ -n "$page_scope_note" ] && tail="$tail [${page_scope_note%% — *}]"
     if [ -n "$faulted" ] || [ -n "$noproof" ] || [ -n "$unstamped" ] || [ -n "$noproto" ]; then
       local why_bits=""
       [ -n "$faulted" ] && why_bits="NO DENOMINATOR:$faulted — a pass that cannot say what it covered has not covered it"
@@ -659,6 +837,7 @@ mxtk_obligations_report() {
     else
       printf 'Obligation %-10s PASS — %d of %d discharged%s (%s)\n' "$ob" "$done_n" "$scoped" "$tail" "$skill"
     fi
+    [ -n "$page_scope_note" ] && printf 'Obligation %-10s   SCOPE: %s\n' "$ob" "${page_scope_note#* — }"
     # Printed under whichever verdict won: a stale unit is counted in NOT DONE above, and this
     # line says WHY it is owed again rather than letting it read as never-reviewed.
     if [ -n "$stale" ] && [ "$needs_proto" = 1 ]; then

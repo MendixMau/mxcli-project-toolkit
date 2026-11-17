@@ -1165,6 +1165,96 @@ if [ -n "$brief_missing" ]; then
   echo ""
 fi
 
+# 5b. Page review advisory (WARNS, never blocks) — with or without a build plan.
+#
+# WHY (field run 2026-11-17). Block 5 is silent without architecture/build-plan.md, by design:
+# the project never opted in to briefs. But a page is owed a LOOK whatever the pipeline position,
+# and a requirements-driven project that started at the build stage (spec and clickable
+# prototypes supplied, six apps, ~78 pages each, no build plan) reached its last level with 0
+# pages ever looked at; its pages missed whole sections the spec names and looked nothing like
+# the prototypes. Nothing said so while the pages were being written.
+#
+# So: when this script creates or replaces a page, say once per exec which of its modules has no
+# review yet (no design/ui-reviews/ui-review-*.html naming it) and which of its pages has no
+# visual target (no wireframe or prototype screen whose file name is the page name, case and
+# punctuation removed — look-ledger.sh's name rule — and no assembled prototype naming it).
+# A warning only: the à-la-carte rule stands, and a guard must never block the remedy
+# (CLAUDE.md "Shipping an instrument" rule 7). Only for scripts with a page statement
+# (CHANGE_UI=1, computed above), so a non-UI exec starts no extra process.
+# Target folders: design/wireframes/, app/design/wireframes/, prototypes/, design/prototypes/ and
+# a `Prototype folder: <path>` register line (bin/lib/obligation-check.sh _ob_proto_target).
+if [ "$PATCH_MODE" != "1" ] && [ "$CHANGE_UI" = 1 ] && [ -f "$SCRIPT" ]; then
+  _pv_pages=$(awk '
+    { s = $0; o = ""; i = 1
+      while (i <= length(s)) { c = substr(s, i, 2)
+        if (!b && c == "/*") { b = 1; i += 2; continue }
+        if (b && c == "*/")  { b = 0; i += 2; continue }
+        if (!b && c == "--") break
+        if (!b) o = o substr(s, i, 1); i++ }
+      t = o
+      while (match(tolower(t), /create[ \t]+(or[ \t]+(modify|replace)[ \t]+)?page[ \t]+"?[a-z_][a-z0-9_]*"?\."?[a-z_][a-z0-9_]*/)) {
+        m = substr(t, RSTART, RLENGTH); t = substr(t, RSTART + RLENGTH)
+        sub(/^.*[ \t]/, "", m); gsub(/"/, "", m); if (!(m in seen)) { seen[m] = 1; print m } } }' "$SCRIPT" 2>/dev/null)
+  if [ -n "$_pv_pages" ]; then
+    _pv_dirs=""
+    for _d in design/wireframes app/design/wireframes prototypes design/prototypes; do
+      [ -d "$PROJECT_ROOT/$_d" ] && _pv_dirs="$_pv_dirs$PROJECT_ROOT/$_d
+"
+    done
+    if [ -f "$PROJECT_ROOT/PROJECT.md" ]; then
+      while IFS= read -r _d; do
+        _d="${_d#\`}"; _d="${_d%\`}"; _d="${_d%/}"
+        case "$_d" in "") continue ;; /*) ;; *) _d="$PROJECT_ROOT/$_d" ;; esac
+        [ -d "$_d" ] && _pv_dirs="$_pv_dirs$_d
+"
+      done <<EOF
+$(sed -nE 's/^[[:space:]>*_-]*[Pp]rototype[[:space:]]+[Ff]olders?[*_]*:[[:space:]]*([^[:space:]]+).*$/\1/p' "$PROJECT_ROOT/PROJECT.md" 2>/dev/null)
+EOF
+    fi
+    _pv_proto=""
+    for _f in "$PROJECT_ROOT/design/prototype.html" "$PROJECT_ROOT/app/design/prototype.html"; do
+      [ -s "$_f" ] && { _pv_proto="$_f"; break; }
+    done
+    # One awk: the pages whose name (or name without module) matches no target file name and
+    # that the assembled prototype, if any, does not mention.
+    # Pages go in through the environment: a newline inside `awk -v` is an error in BSD awk.
+    _pv_unmapped=$( printf '%s' "$_pv_dirs" | while IFS= read -r _d; do
+        [ -n "$_d" ] && find "$_d" -maxdepth 3 -type f \( -name '*.html' -o -name '*.htm' \) 2>/dev/null
+      done | PV_PAGES="$_pv_pages" PV_PROTO="$_pv_proto" awk '
+          function norm(x) { x = tolower(x); sub(/\.html?$/, "", x); gsub(/[^a-z0-9]/, "", x); return x }
+          { n = split($0, p, "/"); have[norm(p[n])] = 1 }
+          END { pages = ENVIRON["PV_PAGES"]; proto = ENVIRON["PV_PROTO"]
+            if (proto != "") { while ((getline l < proto) > 0) body = body tolower(l) "\n" }
+            k = split(pages, pg, "\n")
+            for (i = 1; i <= k; i++) { q = pg[i]; if (q == "") continue
+              short = q; sub(/^[^.]*\./, "", short)
+              if ((norm(q) in have) || (norm(short) in have)) continue
+              if (proto != "" && index(body, tolower(short)) > 0) continue
+              print q } }')
+    _pv_mods=""; _pv_unrev=""; _pv_n=0
+    for _p in $_pv_pages; do
+      _pv_n=$((_pv_n + 1)); _m="${_p%%.*}"
+      case " $_pv_mods " in *" $_m "*) continue ;; esac
+      case "$_m" in System|Administration|Atlas_Core|Atlas_Web_Content|Atlas_UI_Resources|MxModelReflection|CommunityCommons|Encryption|NanoflowCommons|WebActions|DeepLink|MxTest) continue ;; esac
+      _pv_mods="$_pv_mods $_m"; _pv_rev=0
+      for _f in "$PROJECT_ROOT"/design/ui-reviews/ui-review-*.html; do
+        [ -f "$_f" ] && grep -qF -- "$_m" "$_f" 2>/dev/null && { _pv_rev=1; break; }
+      done
+      [ "$_pv_rev" = 1 ] || _pv_unrev="$_pv_unrev $_m"
+    done
+    if [ -n "$_pv_unrev" ] || [ -n "$_pv_unmapped" ]; then
+      echo "⚠ LOOK owed: this script builds $_pv_n page(s) — proceeding, but nobody has looked at them yet."
+      [ -n "$_pv_unrev" ] && echo "    no review yet for:$_pv_unrev (no design/ui-reviews/ui-review-*.html names it)"
+      [ -n "$_pv_unmapped" ] && echo "    no wireframe or prototype screen named for: $(printf '%s' "$_pv_unmapped" | tr '\n' ' ')"
+      echo "  Pages built means a LOOK is owed, whatever the pipeline position: screenshot each page and"
+      echo "  compare it with its spec and target screen (skills/ui-loop.md; module-review.md stage 5)."
+      echo "  gate-check.sh reports look PENDING until then. A supplied prototype counts as the target:"
+      echo "  prototypes/<app>/<screen>.html, or a 'Prototype folder: <path>' line in PROJECT.md."
+      echo ""
+    fi
+  fi
+fi
+
 # ── Marketplace install gate (before the first domain-model script) ─────────
 # A confirmed Stage 3 "Buy" (architecture/fit-gap.md) is installed at brd-to-build-plan.md Step 0,
 # before any domain-model script, so MDL can reference the module and `mxcli check --references`

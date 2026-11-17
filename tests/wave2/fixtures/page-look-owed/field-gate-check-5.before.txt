@@ -1,0 +1,3 @@
+Obligation look       PASS — no module has been opened for work yet; nothing owed (skills/module-review.md)
+Obligation fidelity   PASS — no module has been opened for work yet; nothing owed (skills/ui-loop.md)
+Obligation prototype-look N/A — no design/prototype.html assembled (skills/design-artifacts.md)

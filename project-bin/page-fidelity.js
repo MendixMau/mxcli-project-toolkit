@@ -15,6 +15,8 @@
 // Usage:
 //   page-fidelity.js <wireframe.html> <page-name> <mdl-file> [mdl-file...]
 //   page-fidelity.js <wireframe.html> <page-name> -        (MDL on stdin, e.g. DESCRIBE output)
+//   page-fidelity.js <prototype-folder> <page-name> <mdl-file...>   (a supplied prototype: the
+//                    screen whose file name matches the page name — see screenInFolder)
 //   --chrome a,b,c   classes the page's layout renders (not the page's to declare); or pass the
 //                    layout's MDL (`describe layout <Mod.Layout>`) as another input — see layoutChrome
 //
@@ -90,11 +92,37 @@ for (let i = 0; i < argv.length; i++) {
 }
 const [WF, PAGE, ...MDLS] = rest;
 if (!WF || !PAGE || !MDLS.length) {
-  console.error('usage: page-fidelity.js [--no-log] [--stub] [--chrome a,b,c] <wireframe.html | prototype.html#/route> <page-name> <mdl-file...|->');
+  console.error('usage: page-fidelity.js [--no-log] [--stub] [--chrome a,b,c] <wireframe.html | prototype.html#/route | prototype-folder> <page-name> <mdl-file...|->');
   process.exit(2);
 }
 const WF_REF = proto.parseRef(WF);
-const WF_FILE = WF_REF ? WF_REF.file : WF;
+// A SUPPLIED PROTOTYPE FOLDER as the target (field run 2026-11-17: a requirements-driven project
+// handed `prototypes/<app>/<screen>.html` and never assembled one). Pass the folder and the page
+// name; the screen is the .html file (up to two levels down) whose name, with case and
+// punctuation removed, equals the page name or the page name without its module — the same
+// name rule look-ledger.sh uses for screenshots. None or several → exit 2 naming the candidates.
+function screenInFolder(dir, page) {
+  const norm = x => String(x).toLowerCase().replace(/\.html?$/, '').replace(/[^a-z0-9]/g, '');
+  const want = new Set([norm(page), norm(String(page).split('.').pop())]);
+  const hits = [], all = [];
+  (function walk(d, depth) {
+    let ents = [];
+    try { ents = fs.readdirSync(d, { withFileTypes: true }); } catch (e) { return; }
+    for (const e of ents) {
+      const f = path.join(d, e.name);
+      if (e.isDirectory() && depth < 2 && !e.name.startsWith('.')) walk(f, depth + 1);
+      else if (e.isFile() && /\.html?$/i.test(e.name)) { all.push(f); if (want.has(norm(e.name))) hits.push(f); }
+    }
+  })(dir, 0);
+  if (hits.length === 1) return hits[0];
+  console.error('page-fidelity: ' + (hits.length ? hits.length + ' screens' : 'no screen') + ' named ' + page +
+    ' in prototype folder ' + dir + (hits.length ? ': ' + hits.join(', ') : ' (' + all.length + ' screen(s): ' +
+    all.slice(0, 8).map(f => path.relative(dir, f)).join(', ') + (all.length > 8 ? ', ...' : '') + ')') +
+    ' — pass the screen file itself');
+  process.exit(2);
+}
+const WF_FILE = WF_REF ? WF_REF.file
+  : (fs.existsSync(WF) && fs.statSync(WF).isDirectory()) ? screenInFolder(WF, PAGE) : WF;
 
 function readWireframe() {
   if (!fs.existsSync(WF_FILE)) { console.error('page-fidelity: no such wireframe: ' + WF_FILE); process.exit(2); }
@@ -865,6 +893,29 @@ if (!NOLOG) {
       const up = path.dirname(d);
       if (up === d) break;
       d = up;
+    }
+    // MULTI-APP FOLDER (apps/<X>/<X>.mpr, _common.sh #420): the walk above stops at the app
+    // folder, and the walk below looks only ONE level down, so a screen under the project's
+    // prototypes/ or design/ found no model at all and every score went unlogged (field run
+    // 2026-11-17: page-fidelity.js installed, never logged). The project root is the folder
+    // that HOLDS apps/ — that is where docs/PAGE-FIDELITY.tsv is read by the fidelity obligation.
+    const holdsApps = dir => {
+      try {
+        return fs.readdirSync(dir, { withFileTypes: true })
+          .some(x => x.isDirectory() && x.name.toLowerCase() === 'apps' &&
+            fs.readdirSync(path.join(dir, x.name), { withFileTypes: true })
+              .some(a => a.isDirectory() && fs.readdirSync(path.join(dir, x.name, a.name)).some(f => f.endsWith('.mpr'))));
+      } catch (e) { return false; }
+    };
+    if (root && path.basename(path.dirname(root)).toLowerCase() === 'apps' &&
+        fs.existsSync(path.join(path.dirname(path.dirname(root)), 'PROJECT.md'))) {
+      root = path.dirname(path.dirname(root));
+    }
+    for (let e = path.resolve(path.dirname(WF_FILE)), i = 0; !root && i < 12; i++) {
+      if (holdsApps(e)) { root = e; break; }
+      const up = path.dirname(e);
+      if (up === e) break;
+      e = up;
     }
     if (!root) {
       let e = path.resolve(path.dirname(WF_FILE));

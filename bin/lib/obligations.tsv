@@ -21,7 +21,9 @@
 # Format: TAB-separated, nine columns. Blank lines and #-comments ignored.
 #   1 obligation   stable id, used in waiver lines
 #   2 performer    which agent owes it (agents/<performer>-agent.md)
-#   3 scope        module   — once per module that has been opened for work
+#   3 scope        module   — once per module that has been opened for work; for look and
+#                             fidelity, when none has, once per module holding built pages
+#                             (obligation-check.sh _ob_built_pages: pages built owe a LOOK)
 #                  cluster  — once per 2-3 proven modules (coherence-cadence.sh's cadence)
 #                  project  — once for the whole project
 #   4 match        path  — artifact is a literal path; <Module> is substituted

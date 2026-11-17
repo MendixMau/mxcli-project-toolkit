@@ -1378,6 +1378,14 @@ if [ "$WIRED" -eq 1 ] && [ ! -f "$PROJECT_DIR/docs/progress/RESUME.md" ]; then
   CHANGES=$((CHANGES + 1))
 fi
 
+# --- 4a1. CI gate: .github/workflows/toolkit-gates.yml, create-if-absent ------------------------
+# The gate an agent cannot skip (bin/ci-gates.sh, on every push and PR). Never overwritten: a copy
+# that differs from templates/ci/toolkit-gates.yml is reported, not replaced (bin/lib/ci-template.sh).
+if [ "$WIRED" -eq 1 ]; then
+  . "$TOOLKIT_ROOT/bin/lib/ci-template.sh"
+  mxtk_ci_install "$TOOLKIT_ROOT" "$PROJECT_DIR" "$DRY_RUN" sync && CHANGES=$((CHANGES + 1))
+fi
+
 # --- 4b. Verification engine: tests/e2e/ (same contract as the crash net) ----------------
 # project-bin/verify-module.sh has been installed by section 4 for weeks and it DRIVES
 # project-tests/e2e/journey-runner.js — which reached exactly one project, by hand, and that

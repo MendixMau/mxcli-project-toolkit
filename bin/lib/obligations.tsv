@@ -201,7 +201,9 @@ prototype-look	review	project	names	design/ui-reviews/prototype-look-*.html	yes	
 # dashboard tiles, status tiles, the side navigation. Row 13 ("every region the design shows is
 # on the page") is the check that would have named each one.
 #
-# Producer: module-review.md stage 5 (review-agent writes the file with the report). Denominator
+# Producer: module-review.md stage 5 (review-agent writes the file with the report). Under docs/,
+# tracked, not .claude/loop/ (git-ignored): a mark CI, reviewers and a fresh clone cannot see is
+# how the field run's look ledger stayed hidden. Denominator
 # on the first line: "N of N rows ticked or NOT DONE with a reason". Owed by built modules when no
 # brief exists (the floor in obligation-check.sh), like every module row.
-must-haves	review	module	path	.claude/loop/must-haves/<Module>.md	yes	yes	5	skills/must-haves.md
+must-haves	review	module	path	docs/progress/must-haves/<Module>.md	yes	yes	5	skills/must-haves.md

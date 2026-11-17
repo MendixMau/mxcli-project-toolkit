@@ -97,11 +97,11 @@ case "$l" in *PENDING*"0 of 1 discharged"*Orders*) ok "briefed scope unchanged: 
 case "$(row "$B" look)" in *"OWED BY WHAT WAS BUILT"*|*Other*) bad "floor applied to a briefed project" ;; *) ok "no floor line, unbriefed module not added" ;; esac
 mkdir -p "$B/.claude/loop/sweep/Orders"
 printf 'Orders · 4 of 4 interactive elements swept across 2 of 2 pages\n' > "$B/.claude/loop/sweep/Orders/sweep.md"
-mkdir -p "$B/.claude/loop/must-haves"
-printf 'Orders · 13 of 13 rows ticked or NOT DONE with a reason · pages 2 of 2\n' > "$B/.claude/loop/must-haves/Orders.md"
+mkdir -p "$B/docs/progress/must-haves"
+printf 'Orders · 13 of 13 rows ticked or NOT DONE with a reason · pages 2 of 2\n' > "$B/docs/progress/must-haves/Orders.md"
 case "$(row "$B" sweep | head -1)" in *PASS*"1 of 1"*) ok "a real sweep still discharges" ;; *) bad "sweep: $(row "$B" sweep)" ;; esac
 case "$(row "$B" must-haves | head -1)" in *PASS*"1 of 1"*) ok "a ticked must-have list discharges" ;; *) bad "must-haves: $(row "$B" must-haves)" ;; esac
-printf 'Orders · all rows ticked\n' > "$B/.claude/loop/must-haves/Orders.md"
+printf 'Orders · all rows ticked\n' > "$B/docs/progress/must-haves/Orders.md"
 case "$(row "$B" must-haves | head -1)" in *FAULT*"NO DENOMINATOR"*) ok "a must-have list with no denominator is FAULT" ;; *) bad "must-haves no-denom: $(row "$B" must-haves)" ;; esac
 
 echo "== T8: gate-check Stage 5 on the multi-app copy shows the floor =="

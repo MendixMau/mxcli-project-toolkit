@@ -396,7 +396,7 @@ summed them until a systematic sweep.
 as unexplained or it will return.
 
 **Before closing the pass, tick `skills/must-haves.md`** (13 rows, every build type) and write
-`.claude/loop/must-haves/<Module>.md`, first line `13 of 13 rows ticked or NOT DONE with a reason`.
+`docs/progress/must-haves/<Module>.md`, first line `13 of 13 rows ticked or NOT DONE with a reason`.
 No file, no close: `Obligation must-haves` reads PENDING. *Failure: screens missing the tiles and
 side navigation the prototype showed, called done.*
 

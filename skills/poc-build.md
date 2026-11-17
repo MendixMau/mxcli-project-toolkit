@@ -42,7 +42,7 @@ STILL BINDING in a POC build: access rules and grants in the same script that cr
 
 ## Must-have checklist
 
-`skills/must-haves.md` — the one list for every build type (13 rows; empty states, friendly refusals, active nav on first landing, no silent list cap, 1280 and 390, regions the design shows, ...). Read it before the first page and tick it before hand-over; write its mark, `.claude/loop/must-haves/<Module>.md`. Row 9: hide the demo-user switcher; row 12: demo data clean.
+`skills/must-haves.md` — the one list for every build type (13 rows; empty states, friendly refusals, active nav on first landing, no silent list cap, 1280 and 390, regions the design shows, ...). Read it before the first page and tick it before hand-over; write its mark, `docs/progress/must-haves/<Module>.md`. Row 9: hide the demo-user switcher; row 12: demo data clean.
 
 Before hand-over, run `bin/security-check.sh`: show the person its security findings and `docs/security/access-snapshot.txt`, and record their approval (`--approve --reason`, `--accept` per finding; an agent never approves).
 

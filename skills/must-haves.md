@@ -28,7 +28,7 @@ Row 13 with no design supplied: the yardstick is the module brief or the use cas
 
 ## The mark
 
-Write `.claude/loop/must-haves/<Module>.md`. **First line, the denominator:**
+Write `docs/progress/must-haves/<Module>.md`. **First line, the denominator:**
 
 ```
 <Module> · 13 of 13 rows ticked or NOT DONE with a reason · pages 6 of 6
@@ -40,5 +40,5 @@ then one line per row: `<#> TICKED — <evidence: screenshot path, journey step 
 
 ## Done when
 
-- `.claude/loop/must-haves/<Module>.md` exists for every module that holds a page, first line `13 of 13 rows ticked or NOT DONE with a reason`.
+- `docs/progress/must-haves/<Module>.md` exists for every module that holds a page, first line `13 of 13 rows ticked or NOT DONE with a reason`.
 - Every NOT DONE carries its reason, and the module's report or hand-over repeats it.

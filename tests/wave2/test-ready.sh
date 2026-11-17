@@ -121,6 +121,13 @@ run "$P" --no-commit
 review "$P" other mdl-agent 4
 run "$P" --no-commit
 [ "$rc" = 0 ] && printf '%s\n' "$out" | grep -q 'PASS  review    3 of 3' && ok "R4: all seen + independent review 4+ → READY" || bad "R4: rc=$rc $out"
+# an unconfirmed ✋ adoption an agent recorded under auto blocks READY until a person confirms it
+printf '\n| 4 | Adopted at stage 5 (skips design/plan): fixture | ASSUMED | consentBy: auto-mode · consentAt: 2026-11-17 — ✋ human-pending |\n' >> "$P/PROJECT.md"
+run "$P" --no-commit
+[ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q 'FAIL  adoption  1 unconfirmed ✋ adoption' && ok "R4: an unconfirmed ✋ auto-mode adoption → NOT READY, named" || bad "R4 adoption: rc=$rc $out"
+sed -i.bak 's/consentBy: auto-mode/consentBy: A. Person/' "$P/PROJECT.md" && rm -f "$P/PROJECT.md.bak"
+run "$P" --no-commit
+[ "$rc" = 0 ] && ok "R4: the same adoption confirmed by a person → READY again" || bad "R4 confirmed: rc=$rc $out"
 # a page rebuilt after the review is owed a new score (and a new look)
 sleep 1; (cd "$P" && bash bin/look-ledger.sh owe "$P/mdlsource/20-approval-pages.mdl" >/dev/null); see_all "$P"
 run "$P" --no-commit

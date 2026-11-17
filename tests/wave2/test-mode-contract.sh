@@ -15,6 +15,9 @@
 #   K  Build type: poc (its own axis, not an entry-mode token) → gate-check reads Stages 0-4,
 #      6, 7 "not owed (mode: Build type: poc)"
 #   V  every token in artifact-manifest.tsv col 6 / obligations.tsv col 10 is one the reader emits
+#   W  `Interview mode: auto (...)` / `unattended — ...` read as auto (first word) in exec.sh and
+#      in gate-check.sh's --adopt ✋ check; `autopilot` is not
+#   U  no Entry mode under auto is refused every write; attended keeps the banner only
 #   G  init-project.sh over a hand-written PROJECT.md appends Current stage, Decisions, Open
 #      questions and Change log, says so, and keeps the hand-written lines
 #
@@ -106,6 +109,32 @@ sed -i.bak 's/^Build type: full$/Build type: poc/' "$P/PROJECT.md" && rm -f "$P/
 G="$("$GC" "$P" 2>&1)"
 n="$(printf '%s\n' "$G" | grep -cE '^Stage [0-4] .*not owed \(mode: Build type: poc\)|^Stage [67] .*not owed \(mode: Build type: poc\)')"
 [ "$n" = 7 ] && ok "K stages 0-4, 6, 7 not owed (mode) — 7 of 7" || bad "K stages 0-4, 6, 7 not owed (mode)" "$n of 7"
+
+echo "-- W: auto read by its first word, not the exact value (one helper: mxtk_auto_word)"
+# Field smoke run: `Interview mode: auto (gate questions go to questions.md ...)` was read as attended,
+# so the second write got past the plan rule on refuse-once.
+for line in "Interview mode: auto (gate questions go to questions.md, answered later)" "Interview mode: unattended — questions logged" "- **Interview mode**: Auto"; do
+  mkproj single "Entry mode: requirements-driven"
+  printf '%s\n' "$line" >> "$P/PROJECT.md"
+  run; run
+  autorefused && ok "W '$line' → still refused on the second write" || bad "W '$line' → still refused on the second write" "calls=$CALLS_N"
+done
+mkproj single "Entry mode: requirements-driven"
+printf 'Interview mode: autopilot\n' >> "$P/PROJECT.md"
+run; case "$OUT" in *"Plan rule (Interview mode: auto)"*) bad "W 'autopilot' is not auto" ;; *) ok "W 'autopilot' is not auto (attended refuse-once instead)" ;; esac
+mkproj single "Entry mode: migration"
+printf 'Interview mode: auto (gate questions go to questions.md)\n' >> "$P/PROJECT.md"
+"$GC" "$P" --adopt 5 --reason "plan kept outside the toolkit" >/dev/null 2>&1
+grep -q 'consentBy: auto-mode' "$P/PROJECT.md" && ok "W --adopt under 'auto (...)' writes the ✋ row" || bad "W --adopt under 'auto (...)' writes the ✋ row"
+
+echo "-- U: no Entry mode under auto is refused; attended keeps the banner only"
+mkproj single ""
+printf 'Interview mode: auto\n' >> "$P/PROJECT.md"
+run; run
+case "$OUT" in *"✗ Plan rule (Interview mode: auto): no Entry mode declared"*) [ "$CALLS_N" = 0 ] && ok "U undeclared + auto → refused every write" || bad "U undeclared + auto reached check" ;;
+  *) bad "U undeclared + auto → refused every write" "calls=$CALLS_N" ;; esac
+mkproj single ""
+run; passed && ok "U undeclared + attended → banner, not refused" || bad "U undeclared + attended → banner, not refused" "calls=$CALLS_N"
 
 echo "-- G: init over a hand-written PROJECT.md"
 Q="$WORK/hand"; mkdir -p "$Q"; ( cd "$Q" && git init -q . )

@@ -3312,7 +3312,10 @@ if [ -n "$ADOPT_STAGE" ] || [ -n "$WAIVE_STAGE" ]; then
     # Stage 6 FAILing until a person puts their name in consentBy. Interactive runs are unchanged.
     case "$ADOPT_STAGE" in 4|5|6|7)
       case "$ENTRY_MODE" in migration|requirements-driven)
-        if [ "$(bash "$TOOLKIT_DIR/bin/interview-mode.sh" "$PROJECT_DIR" 2>/dev/null)" = auto ]; then
+        # Strictest reading (mxtk_auto_word, project-bin/_position.sh): the resolver, or the register
+        # line's first word — interview-mode.sh reads "auto (questions go to ...)" as steering.
+        if [ "$(bash "$TOOLKIT_DIR/bin/interview-mode.sh" "$PROJECT_DIR" 2>/dev/null)" = auto ] \
+           || { declare -F mxtk_auto_word >/dev/null && mxtk_auto_word "$(reg_field "interview mode" 2>/dev/null || true)"; }; then
           _ad_st=4; [ "$ADOPT_STAGE" = 4 ] && _ad_st=3
           register_add_decision "$_ad_st" "Adopted at stage $ADOPT_STAGE (skips design/plan): $WAIVER_REASON" "ASSUMED" \
             "consentBy: auto-mode · consentAt: $(date -u +%Y-%m-%d) — ✋ human-pending: a person confirms or overturns it (their name in consentBy); Stage 6 FAILs until then" \

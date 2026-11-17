@@ -52,6 +52,7 @@
 
 set -u
 TOOLKIT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+. "$TOOLKIT_ROOT/bin/lib/entry-mode.sh"   # mxtk_auto_word: the one first-word reading of Interview mode
 
 usage() { echo "usage: ready.sh <project-root> [--module <M> | --app <A>] [--no-commit]" >&2; exit 2; }
 
@@ -156,6 +157,20 @@ for st in P 0 1 2 3 4; do
 done
 if [ -z "$pbad" ]; then row ok position "6 of 6 stages before Build PASS or WAIVED (P, 0-4)"
 else row fail position "$pk of 6 stages before Build PASS or WAIVED — not: $pbad. Pass them, or record where this project joined (gate-check.sh --adopt 5 --reason \"...\")"; fi
+
+# --- ✋ adoptions an unattended agent recorded itself ---------------------------------------------
+# Under Interview mode: auto, `gate-check.sh --adopt` past Stage 3/4 writes an ASSUMED Decisions row
+# stamped `consentBy: auto-mode`. That adoption clears the position row above, exec.sh's plan rule
+# and the CI order check — so without this row an agent could approve its own skip of the design and
+# the plan and still reach READY (the ✋ only failed Stage 6, which this script runs only once the
+# register says Stage 6). A person confirms by putting their name in consentBy; until then: NOT READY.
+ah_lines=""
+[ -f "$REG" ] && ah_lines="$(grep -niE '^[[:space:]]*\|.*adopted at stage.*consentby[[:space:]]*:[[:space:]]*[`*]*auto-mode' "$REG" | cut -d: -f1 | tr '\n' ' ' | sed 's/ *$//')"
+if [ -n "$ah_lines" ]; then
+  row fail adoption "$(printf '%s\n' $ah_lines | grep -c .) unconfirmed ✋ adoption(s) an agent recorded under Interview mode: auto — PROJECT.md line(s) $ah_lines. A person confirms (their name in consentBy) or overturns each"
+else
+  row info adoption "no unconfirmed ✋ auto-mode adoption in PROJECT.md"
+fi
 
 # --- gate 5 ---------------------------------------------------------------------------------
 step "gate5: gate-check stage 5" "$TMP/g5" env MXTK_LOOK_MODULE="$MOD" bash "$GC" --no-html "$ROOT" 5; rc5=$?
@@ -271,15 +286,16 @@ MODE="$(grep -E '^(steering|assist|auto)$' "$TMP/mode" 2>/dev/null | tail -1)"
 # register read `- Interview mode: auto (gate questions go to questions.md ...)`, the resolver said
 # steering, and this script said "a human sees the screens" for a run nobody watched. So the raw
 # line's first word decides too: auto / unattended means owed, whatever the resolver concluded.
+# The first-word rule lives in ONE place, mxtk_auto_word (project-bin/_position.sh, through the
+# bin/lib/entry-mode.sh shim), shared with exec.sh's plan rule and gate-check.sh's --adopt ✋ check.
 RAWMODE=""
-[ -f "$REG" ] && RAWMODE="$(grep -m1 -iE '^[-*>[:space:]]*(\*\*)?Interview mode(\*\*)?[[:space:]]*:' "$REG" | sed 's/^[^:]*:[[:space:]`*]*//' | awk '{print tolower($1)}' | tr -cd 'a-z')"
-case "$RAWMODE" in
-  auto|unattended)
+[ -f "$REG" ] && RAWMODE="$(grep -m1 -iE '^[-*>[:space:]]*(\*\*)?Interview mode(\*\*)?[[:space:]]*:' "$REG" | sed 's/^[^:]*:[[:space:]`*]*//')"
+if [ -n "$RAWMODE" ] && mxtk_auto_word "$RAWMODE"; then
     if [ "$MODE" != auto ]; then
-      echo "  note  review owed: PROJECT.md's Interview mode line starts with \"$RAWMODE\"; interview-mode.sh resolved ${MODE:-nothing} — the stricter reading decides whether a person saw the screens" >&2
+      echo "  note  review owed: PROJECT.md's Interview mode line starts with \"$(printf '%s' "$RAWMODE" | awk '{print $1}')\"; interview-mode.sh resolved ${MODE:-nothing} — the stricter reading decides whether a person saw the screens" >&2
       MODE=auto
-    fi ;;
-esac
+    fi
+fi
 RV_DIR="$ROOT/docs/progress/look-reviews"
 : > "$TMP/scores"
 # Review files are read in every mode (the packet shows them); only auto mode requires them.

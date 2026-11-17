@@ -625,6 +625,17 @@ if [ -n "$CHANGE_CLASS" ]; then
   fi
 fi
 
+# Paths taken relative to the CALLER's folder stop resolving at the cd below. `cd apps/Orders &&
+# ../../bin/exec.sh ../../mdlsource/x.mdl` left _XD="../../bin", so the plan-rule guard
+# `[ -f "$_XD/_position.sh" ]` failed in silence and an unattended write went through, while the
+# same call by absolute path was refused (review of #789). The script path was used the same way
+# by every [ -f "$SCRIPT" ] guard after the cd. Both are made absolute HERE, and only when the
+# caller is not already at the project root, so a run from the root prints what it always did.
+if [ "$PWD" != "$PROJECT_ROOT" ]; then
+  case "$_XD" in /*) ;; *) _XD="$(cd "$_XD" && pwd)" ;; esac
+  case "$SCRIPT" in /*) ;; *) [ -f "$SCRIPT" ] && SCRIPT="$(cd "$(dirname "$SCRIPT")" && pwd)/$(basename "$SCRIPT")" ;; esac
+fi
+
 cd "$PROJECT_ROOT"
 
 # ── Build log (auto) ─────────────────────────────────────────────────────────

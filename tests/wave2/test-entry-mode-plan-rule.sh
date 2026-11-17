@@ -150,6 +150,12 @@ done
 mkproj single "Entry mode: greenfield"
 run; passed && ok "N retired greenfield → no refusal" || bad "N retired greenfield → no refusal" "calls=$CALLS_N"
 case "$OUT" in *"Entry mode greenfield is retired: run bin/sync-project.sh"*) ok "N retired greenfield → says run sync" ;; *) bad "N retired greenfield → says run sync" ;; esac
+# ...but under Interview mode: auto it is held to the requirements-driven plan rule (review of #792)
+mkproj single "Entry mode: greenfield"
+printf 'Interview mode: auto\n' >> "$P/PROJECT.md"
+run
+case "$OUT" in *"✗ Plan rule (Interview mode: auto): Entry mode requirements-driven"*) [ "$CALLS_N" = 0 ] && ok "A retired greenfield under auto → refused like requirements-driven" || bad "A retired greenfield under auto reached check" ;;
+  *) bad "A retired greenfield under auto → refused like requirements-driven" "calls=$CALLS_N" ;; esac
 mkproj single "Entry mode: requirements-driven"
 sed -i.bak 's/^Build type: full$/Build type: poc/' "$P/PROJECT.md" && rm -f "$P/PROJECT.md.bak"
 grep -q '^Build type: poc$' "$P/PROJECT.md" || bad "setup: Build type: poc not written"

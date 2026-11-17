@@ -522,9 +522,9 @@ case "$V" in *'ledger: ;'*|*': ;'*) bad "an empty not-measured reason was printe
 s4proj t23d; printf '\nWaived stage 4:\n' >> "$P/PROJECT.md"
 V="$(verdict "$P" 4)"
 case "$V" in *PASS*'WARN'*'has no reason'*) ok "reasonless waiver on a passing stage: PASS with a WARN" ;; *) bad "reasonless waiver on a passing stage: $V" ;; esac
-P="$(mkproj t23e)"; printf 'Entry mode: greenfield\n\nWaived stage 3:\n' >> "$P/PROJECT.md"
-V="$(verdict "$P" 3)"
-case "$V" in *WAIVED*'greenfield'*'WARN'*) ok "reasonless waiver on a mode-skipped stage: WAIVED by the mode, with a WARN" ;; *) bad "reasonless waiver on a mode-skipped stage: $V" ;; esac
+P="$(mkproj t23e)"; printf 'Entry mode: requirements-driven\n\nWaived stage 7:\n' >> "$P/PROJECT.md"
+V="$(verdict "$P" 7)"
+case "$V" in *WAIVED*'requirements-driven'*'WARN'*) ok "reasonless waiver on a mode-skipped stage: WAIVED by the mode, with a WARN" ;; *) bad "reasonless waiver on a mode-skipped stage: $V" ;; esac
 # (5) dotted row ids and requirement ids in Depends on
 s4proj t23f
 sed -i.bak 's/| 2 | `BUILD` | 010-domain.mdl | domain | 1 |/| 2 | `BUILD` | 010-domain.mdl | domain | 1, US-12, F001 |/; s/| 3 | `BUILD` | 020-approval.mdl | domain | 2 |/| 3.1 | `BUILD` | 020-approval.mdl | domain | 2 |/; s/| 0 errors | 2–3 |/| 0 errors | 2–3.1, 01 |/' "$P/architecture/build-plan.md"; rm -f "$P/architecture/build-plan.md.bak"

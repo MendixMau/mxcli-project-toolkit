@@ -130,14 +130,17 @@ echo "== T9: entry-mode column — a mode a row does not list reads N/A, never P
 Q="$WORK/mode"; mkdir -p "$Q/architecture/modules/Orders"
 awk -F'\t' 'BEGIN{OFS="\t"} !/^#/ && NF==10 && $1=="look"{$10="migration"} {print}' "$(dirname "$OBCHECK")/obligations.tsv" > "$WORK/ob-mode.tsv"
 mrow() { OBLIGATIONS_TSV="$WORK/ob-mode.tsv" MXTK_ROWS_UPTO=5 "$OBCHECK" "$Q" 2>/dev/null | grep '^Obligation look ' | head -1; }
+printf 'Entry mode: requirements-driven\n' > "$Q/PROJECT.md"
+case "$(mrow)" in *"N/A — not owed (entry mode requirements"*) ok "requirements-driven not owed a migration-only row" ;; *) bad "requirements-driven: $(mrow)" ;; esac
+# greenfield is retired (2026-11-17): an unsynced register reads no mode, so it owes — louder, never quieter
 printf 'Entry mode: greenfield\n' > "$Q/PROJECT.md"
-case "$(mrow)" in *"N/A — not owed (entry mode greenfield"*) ok "greenfield not owed a migration-only row" ;; *) bad "greenfield: $(mrow)" ;; esac
+case "$(mrow)" in *PENDING*) ok "retired greenfield owes the migration-only row" ;; *) bad "retired greenfield: $(mrow)" ;; esac
 printf 'Entry mode: migration\n' > "$Q/PROJECT.md"
 case "$(mrow)" in *PENDING*) ok "migration still owes it" ;; *) bad "migration: $(mrow)" ;; esac
 printf 'Toolkit commit: none\n' > "$Q/PROJECT.md"
 case "$(mrow)" in *PENDING*) ok "no Entry mode line owes it" ;; *) bad "no mode: $(mrow)" ;; esac
-printf 'Entry mode: greenfield\n' > "$Q/PROJECT.md"
-case "$(MXTK_ROWS_UPTO=5 "$OBCHECK" "$Q" 2>/dev/null | grep '^Obligation look ')" in *PENDING*) ok "shipped table: greenfield owes look" ;; *) bad "shipped table changed a verdict" ;; esac
+printf 'Entry mode: requirements-driven\n' > "$Q/PROJECT.md"
+case "$(MXTK_ROWS_UPTO=5 "$OBCHECK" "$Q" 2>/dev/null | grep '^Obligation look ')" in *PENDING*) ok "shipped table: requirements-driven owes look" ;; *) bad "shipped table changed a verdict" ;; esac
 # requirements-driven is translated to the table's `requirements` token by the SAME reader
 # artifact-check.sh uses (_art_entry_mode), not by a second copy of the mapping.
 printf 'Entry mode: requirements-driven\n' > "$Q/PROJECT.md"

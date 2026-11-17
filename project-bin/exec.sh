@@ -784,9 +784,17 @@ POS_NOTE=""
 if [ -f "$_XD/_position.sh" ]; then
   . "$_XD/_position.sh"
   mxtk_pos_read "$PROJECT_ROOT"
+  # A retired `Entry mode: greenfield` (never synced) says "run sync" — and under Interview mode:
+  # auto it is held to the requirements-driven plan rule below, or an unattended agent could
+  # write that one line, or skip sync, and build with no plan (review of #792). The remedy is
+  # sync-project.sh or the --adopt it performs, neither of which runs through here (guard rule 7).
   if [ "$POS_ENTRY" = greenfield-retired ]; then
     echo "⚠ ${MXTK_POS_RETIRED/<project>/$PROJECT_ROOT}"
     POS_NOTE="entry mode greenfield retired, not synced"
+    [ "$POS_AUTO" = 1 ] && POS_ENTRY=requirements-driven
+  fi
+  if [ "$POS_ENTRY" = greenfield-retired ]; then
+    :
   elif mxtk_pos_undeclared; then
     echo "⚠ $MXTK_POS_BANNER"
     POS_NOTE="no entry mode declared"

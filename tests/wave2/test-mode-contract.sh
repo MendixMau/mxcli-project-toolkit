@@ -18,6 +18,9 @@
 #   W  `Interview mode: auto (...)` / `unattended — ...` read as auto (first word) in exec.sh and
 #      in gate-check.sh's --adopt ✋ check; `autopilot` is not
 #   U  no Entry mode under auto is refused every write; attended keeps the banner only
+#   X  exec.sh called by relative paths from inside apps/<App> (../../bin/exec.sh
+#      ../../mdlsource/x.mdl) is refused under auto exactly as the absolute call is; so is an
+#      exec.sh copy installed in apps/<App>/bin/ (its root defers to the outer project)
 #   G  init-project.sh over a hand-written PROJECT.md appends Current stage, Decisions, Open
 #      questions and Change log, says so, and keeps the hand-written lines
 #
@@ -110,6 +113,33 @@ G="$("$GC" "$P" 2>&1)"
 n="$(printf '%s\n' "$G" | grep -cE '^Stage [0-4] .*not owed \(mode: Build type: poc\)|^Stage [67] .*not owed \(mode: Build type: poc\)')"
 [ "$n" = 7 ] && ok "K stages 0-4, 6, 7 not owed (mode) — 7 of 7" || bad "K stages 0-4, 6, 7 not owed (mode)" "$n of 7"
 
+echo "-- X: exec.sh called by RELATIVE paths from inside an app folder (review of #789)"
+# _XD="${0%/*}" was relative (../../bin); after exec.sh's cd to the project root the plan-rule
+# guard [ -f "$_XD/_position.sh" ] failed in silence and the unattended write went through, while
+# the same call by absolute path was refused. A relative script path broke the same way.
+# runat <cwd> <exec> <script> -> OUT, CALLS_N
+runat() {
+  rm -rf "$P/docs" "$WORK/calls"
+  ( cd "$1" && CALLS="$WORK/calls" SP_RESTART=0 MXTK_NO_INSTALL=1 SKIP_DOCTOR=1 TMPDIR="$WORK" \
+      bash "$2" "$3" ) >"$WORK/out" 2>&1
+  OUT="$(cat "$WORK/out")"
+  CALLS_N="$(grep -c check "$WORK/calls" 2>/dev/null)"; CALLS_N="${CALLS_N:-0}"
+}
+mkproj multi "Entry mode: requirements-driven"
+printf 'Interview mode: auto\n' >> "$P/PROJECT.md"
+runat "$P/apps/Orders" ../../bin/exec.sh ../../mdlsource/01-thing.mdl
+autorefused && ok "X relative exec + script from apps/Orders → refused" || bad "X relative exec + script from apps/Orders → refused" "calls=$CALLS_N"
+runat "$P/apps/Orders" "$P/bin/exec.sh" "$P/mdlsource/01-thing.mdl"
+autorefused && ok "X the same call by absolute paths → refused" || bad "X absolute paths → refused" "calls=$CALLS_N"
+mkdir -p "$P/.mpr-snapshots"; printf 'build-ready PASS\n' > "$P/.mpr-snapshots/.build-ready-pass"
+runat "$P/apps/Orders" ../../bin/exec.sh ../../mdlsource/01-thing.mdl
+passed && ok "X after build-ready the relative call reaches the check (the script resolved)" || bad "X relative call after build-ready" "calls=$CALLS_N"
+# a copy installed INSIDE an app folder (apps/<App>/bin/exec.sh, init-project.sh run there) must
+# not escape the outer register: its root is the outer multi-app project (_common.sh tier 2)
+rm -f "$P/.mpr-snapshots/.build-ready-pass"
+mkdir -p "$P/apps/Orders/bin"; cp "$P/bin/"*.sh "$P/apps/Orders/bin/"
+runat "$P/apps/Orders" ./bin/exec.sh ../../mdlsource/01-thing.mdl
+autorefused && ok "X an apps/Orders/bin/exec.sh copy defers to the outer register → refused" || bad "X in-app exec.sh copy → refused" "calls=$CALLS_N"
 echo "-- W: auto read by its first word, not the exact value (one helper: mxtk_auto_word)"
 # Field smoke run: `Interview mode: auto (gate questions go to questions.md ...)` was read as attended,
 # so the second write got past the plan rule on refuse-once.

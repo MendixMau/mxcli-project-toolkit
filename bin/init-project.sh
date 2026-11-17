@@ -233,6 +233,17 @@ fi
 
 TOOLKIT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# Multi-app projects (two or more apps/<App>/<App>.mpr): per-app intake/triage under
+# architecture/apps/<App>/, an index listing every app, and the two Wiring rows that name the app
+# selection (bin/lib/app-scope.sh; skills/module-folder-convention.md § Several apps in one repo).
+# Nothing happens, and nothing prints, for any other layout.
+. "$SCRIPT_DIR/lib/app-scope.sh"
+mxtk_scope_init "$(cd "$PROJECT_DIR" && pwd)" "$TOOLKIT_ROOT"
+mxtk_scaffold_apps "$PROJECT_DIR" "$TOOLKIT_ROOT"
+_WIRE_MPR=""; _WIRE_MDL=""
+_wr="$(mxtk_wiring_rows "$PROJECT_DIR" "$TOOLKIT_ROOT")"
+[ -n "$_wr" ] && { _WIRE_MPR="${_wr%%	*}"; _WIRE_MDL="${_wr#*	}"; }
+
 # docs/progress/RESUME.md — the file every generated entry point tells an agent to read FIRST.
 # Written here so that instruction is true on a project that is two seconds old. Never
 # overwritten: after the first close-the-loop this file is the project's own, and clobbering it
@@ -269,8 +280,8 @@ at build time and correct any that differ**; a path that doesn't resolve is a wi
 |---|---|---|
 | Toolkit root | \`$TOOLKIT_ROOT\` | The process authority |
 | Toolkit commit | see \`PROJECT.md\` \`Toolkit commit:\` | Authoritative there; ritual keeps it fresh |
-| Project MPR | \`$(ls "$PROJECT_DIR"/*.mpr 2>/dev/null | head -1 | xargs -r basename || echo "<name>.mpr")\` | The model file |
-| MDL source dir | \`mdlsource/\` | Numbered build scripts |
+| Project MPR | ${_WIRE_MPR:-\`$(ls "$PROJECT_DIR"/*.mpr 2>/dev/null | head -1 | xargs -r basename || echo "<name>.mpr")\` | The model file} |
+| MDL source dir | ${_WIRE_MDL:-\`mdlsource/\` | Numbered build scripts} |
 | Module briefs | \`architecture/modules/<Module>/\` | one \`module-brief.md\` per module |
 | Wireframes | \`design/wireframes/\` | one annotated HTML per screen |
 | Design system | \`design/ds.css\` + \`design/design-system.html\` | tokens + component showcase |

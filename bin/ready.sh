@@ -4,7 +4,9 @@
 #
 # Usage: bin/ready.sh <project-root> [--module <M> | --app <A>] [--no-commit]
 #   --module M   scope every check to module M (its pages, its must-have list, its review)
-#   --app A      the whole app, labelled A (default: the whole project, labelled "app")
+#   --app A      the whole app, labelled A (default: the whole project, labelled "app"). In a
+#                multi-app project (apps/<App>/<App>.mpr) it reads app A's pages only; with no
+#                --app there, every app gets its own row and READY needs each of them.
 #   --no-commit  write the files, leave committing to the caller
 # Exit 0 READY, 1 NOT READY, 2 usage. Bash 3.2 compatible.
 #
@@ -133,14 +135,41 @@ step "apps: multi-app resolver" "$TMP/apps" env PROJECT_ROOT="$ROOT" bash -c \
   '. "$1/project-bin/_common.sh" >/dev/null 2>&1; type mxtk_apps >/dev/null 2>&1 && mxtk_apps "$2" 2>/dev/null | cut -f1' _ "$TOOLKIT_ROOT" "$ROOT"
 apps="$(cat "$TMP/apps" 2>/dev/null)"
 [ -n "$apps" ] || apps="$(ls -d "$ROOT"/apps/*/ 2>/dev/null | while IFS= read -r d; do ls "$d"*.mpr >/dev/null 2>&1 && basename "$d"; done)"
+MULTI=0
 if [ "$(printf '%s\n' "$apps" | sed '/^$/d' | wc -l | tr -d ' ')" -ge 2 ]; then
-  # Never "nothing checked": every app is named, and none is READY until the ledger is per app.
-  for a in $apps; do
-    [ -z "$APP" ] || [ "$APP" = "$a" ] || continue
-    row fail "app:$a" "NOT MEASURED — the look ledger is not kept per app yet, so no check here can be read for app $a alone"
-  done
-  [ -z "$APP" ] || printf '%s\n' $apps | grep -qx "$APP" || row fail scope "no app $APP here; apps: $(printf '%s ' $apps)"
+  MULTI=1
+  # Never "nothing checked": every app is named and gets its own row, from the look ledger kept per
+  # app (look-ledger.sh status --by-app: one project ledger, the app as a column). READY needs every
+  # app's row to pass. With --app <A> only A is read, and MXTK_APP=A scopes the gate-check and
+  # ledger steps below to it. A field build had four apps, and with no per-app row it could
+  # never reach READY.
+  if [ -n "$APP" ] && ! printf '%s\n' $apps | grep -qx "$APP"; then
+    row fail scope "no app $APP here; apps: $(printf '%s ' $apps)"
+  else
+    : > "$TMP/byapp"
+    if [ -s "$ROOT/.claude/loop/look/owed.tsv" ]; then
+      step "apps: look ledger per app" "$TMP/byapp" env PROJECT_ROOT="$ROOT" MPR_FILE= MXTK_APP= bash "$LEDGER" status --by-app || : > "$TMP/byapp"
+    fi
+    for a in $apps; do
+      [ -z "$APP" ] || [ "$APP" = "$a" ] || continue
+      n="$(awk -F'\t' -v a="$a" '$4 == a { t++ } END { print t + 0 }' "$TMP/byapp")"
+      k="$(awk -F'\t' -v a="$a" '$4 == a && $1 == "SEEN" { t++ } END { print t + 0 }' "$TMP/byapp")"
+      if [ "$n" -eq 0 ]; then
+        if [ -f "$REG" ] && grep -qiE "^[-*[:space:]]*Waived obligation look/$a[[:space:]]*:" "$REG"; then
+          row ok "app:$a" "WAIVED — Waived obligation look/$a in PROJECT.md"
+        else
+          row fail "app:$a" "NOT MEASURED — no page of app $a recorded as built in the look ledger (.claude/loop/look/owed.tsv): the denominator is unknown"
+        fi
+      elif [ "$k" -lt "$n" ]; then
+        row fail "app:$a" "$k of $n page(s) seen since their last build — unseen: $(awk -F'\t' -v a="$a" '$4 == a && $1 != "SEEN" { printf "%s%s", s, $2; s = ", " }' "$TMP/byapp")"
+      else
+        row ok "app:$a" "$n of $n page(s) seen since their last build"
+      fi
+    done
+  fi
 fi
+# One app chosen: the gate-check and ledger steps below read that app only (the resolver's MXTK_APP).
+SCOPE_ENV="MXTK_APP="; [ "$MULTI" = 1 ] && [ -n "$APP" ] && SCOPE_ENV="MXTK_APP=$APP"
 
 # --- position: every stage before Build passed, waived (adopted) or not owed by the entry mode ---
 # A field run wrote READY with no stage past P ever passed (pinned gate-check: Stage P FAIL). A look
@@ -173,7 +202,7 @@ else
 fi
 
 # --- gate 5 ---------------------------------------------------------------------------------
-step "gate5: gate-check stage 5" "$TMP/g5" env MXTK_LOOK_MODULE="$MOD" bash "$GC" --no-html "$ROOT" 5; rc5=$?
+step "gate5: gate-check stage 5" "$TMP/g5" env "$SCOPE_ENV" MXTK_LOOK_MODULE="$MOD" bash "$GC" --no-html "$ROOT" 5; rc5=$?
 g5="$(cat "$TMP/g5")"
 l5="$(printf '%s\n' "$g5" | grep -m1 '^Stage 5 (' | sed 's/^Stage 5 ([^)]*): //')"
 v5="$(printf '%s' "$l5" | awk '{print $1}')"
@@ -220,8 +249,8 @@ fi
 # per-page facts for the evidence file and the review join: state, page, built-epoch, shot
 if [ -s "$ROOT/.claude/loop/look/owed.tsv" ]; then
   step "look: ledger summary" "$TMP/sum" env PROJECT_ROOT="$ROOT" bash "$LEDGER" summary --write
-  step "look: ledger status" "$TMP/st" env PROJECT_ROOT="$ROOT" bash "$LEDGER" status || : > "$TMP/st"
-  step "look: screenshots seen" "$TMP/shots" env PROJECT_ROOT="$ROOT" bash "$LEDGER" status --shots || : > "$TMP/shots"
+  step "look: ledger status" "$TMP/st" env "$SCOPE_ENV" PROJECT_ROOT="$ROOT" bash "$LEDGER" status || : > "$TMP/st"
+  step "look: screenshots seen" "$TMP/shots" env "$SCOPE_ENV" PROJECT_ROOT="$ROOT" bash "$LEDGER" status --shots || : > "$TMP/shots"
 else
   : > "$TMP/st"; : > "$TMP/shots"
 fi

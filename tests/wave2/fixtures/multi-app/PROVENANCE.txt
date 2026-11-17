@@ -1,0 +1,20 @@
+tests/wave2/fixtures/multi-app/ — provenance
+
+tree.txt is the structural shape of a real multi-app repository (a field run, six apps, Nov 2026),
+from its `git ls-files`: file counts at depth <= 4 under apps/ and <= 2 elsewhere, app names
+anonymised to AppA..AppF, every line naming the project dropped. Kept here, one line per entry:
+
+  - every top-level entry of the root (files as files, folders as "<dir>/"), and architecture/
+    holding fit-gap.md only — as captured;
+  - per app, the captured shape: <App>.mpr, its OWN PROJECT.md and CLAUDE.md (mxcli init per
+    app — the field repo held seven PROJECT.md files), AGENTS.md, FINDINGS.md, .gitignore, and
+    the folders .claude/ (4 files), .ai-context/, .devcontainer/ (2), .playwright/, docs/,
+    mprcontents/, tests/ (7), vendorlib/ (32), widgets/ (33) — each folder as one "<dir>/"
+    line, since no reader under test looks inside them;
+  - mdlsource/ with the captured script COUNT per app (69 / 34 / 28 / 26 / 27 / 27). The script
+    NAMES are not captured (they name the project); they are generated, NNN-step.mdl.
+
+The readers under test (project-bin/_common.sh mxtk_apps, bin/lib/app-scope.sh) glob directory
+names and count *.mdl files; they parse no tool output. Tool output used by
+test-multi-app-scope.sh is captured, never hand-written: SHOW MODULES replays
+tests/wave2/fixtures/show-modules/*.out (see that folder's CAPTURE.txt).

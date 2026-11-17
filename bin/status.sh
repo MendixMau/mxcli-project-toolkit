@@ -32,7 +32,13 @@ TOOLKIT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$TOOLKIT_ROOT/bin/lib/placeholders.sh"
 PROJECT_DIR="${1:-}"; BRIEF=0
 for a in "$@"; do case "$a" in --brief) BRIEF=1 ;; esac; done
-case "$PROJECT_DIR" in ""|--*) echo "usage: bin/status.sh <project-root> [--brief]" >&2; exit 1 ;; esac
+# No project named: the one the current folder belongs to, by _common.sh's own walk
+# (mxtk_walk_root, which resolves an app folder of a multi-app project to the project root).
+case "$PROJECT_DIR" in ""|--*)
+  PROJECT_DIR="$(unset PROJECT_ROOT MPR_FILE MXTK_APP; . "$TOOLKIT_ROOT/project-bin/_common.sh" >/dev/null 2>&1; mxtk_walk_root "$(pwd)" 2>/dev/null)" || PROJECT_DIR=""
+  [ -n "$PROJECT_DIR" ] && [ -f "$PROJECT_DIR/PROJECT.md" ] \
+    || { echo "usage: bin/status.sh <project-root> [--brief]   (no project found from $(pwd))" >&2; exit 1; } ;;
+esac
 PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd)" || { echo "not a directory: $1" >&2; exit 1; }
 REG="$PROJECT_DIR/PROJECT.md"
 [ -f "$REG" ] || { echo "no PROJECT.md in $PROJECT_DIR — run bin/init-project.sh first" >&2; exit 1; }
@@ -380,12 +386,25 @@ done
 [ -n "$_ae_untracked" ] && AE_WATCH="extension module not in git: $_ae_untracked — a clone loses its document types; commit it with the model (skills/mendix-agents.md)"
 [ -n "$_ae_missing" ] && AE_WATCH="${AE_WATCH:+$AE_WATCH · }project uses Agent Editor but $_ae_missing is missing — Studio Pro shows unknown type 'agenteditor.agent' (skills/mendix-agents.md)"
 
+# --- multi-app projects: one line per app (apps/<App>/<App>.mpr) ----------------------------
+# The register stays one (PROJECT.md above); the evidence that is per app is shown per app: its
+# model, its own mdlsource/ scripts, and its LOOK debt (bin/lib/app-scope.sh, shared with
+# gate-check). Single-tree and two-tree projects print nothing here.
+. "$TOOLKIT_ROOT/bin/lib/app-scope.sh"
+mxtk_scope_init "$PROJECT_DIR" "$TOOLKIT_ROOT"   # the app list once, for both readers below
+APP_LINES="$(mxtk_app_lines "$PROJECT_DIR" "$TOOLKIT_ROOT")"
+[ -n "$APP_LINES" ] && APP_LINES="$APP_LINES
+"
+# An app's own PROJECT.md holding register lines (bin/lib/app-scope.sh): a second register, WATCH.
+APP_REG_WATCH="$(mxtk_app_register_notes "$PROJECT_DIR" "$TOOLKIT_ROOT" | cut -f2 | sed 's/: the register is the root.*$//' | paste -sd '|' - | sed 's/|/ · /g')"
+[ -n "$APP_REG_WATCH" ] && APP_REG_WATCH="$APP_REG_WATCH — the root PROJECT.md is the register"
+
 # --- print ----------------------------------------------------------------------------------
 TK="toolkit $TK_COMMIT_NOW"; [ -n "$TK_COMMIT_REG" ] && [ "$TK_COMMIT_REG" != "$TK_COMMIT_NOW" ] && TK="$TK (register says $TK_COMMIT_REG)"
 [ -n "$TK_UPD" ] && TK="$TK · updates: $TK_UPD"
 WATCH=""
 for _w in "$STAGE_STALE" "${APPROVED_OVER:+APPROVED OVER A FAILING GATE: $APPROVED_OVER}" "$DONE_STALL" "${BP_STALE%% (*}" \
-          "$( [ "${PH_TOTAL:-0}" -gt 0 ] && [ "$EAC" = 0 ] && echo "agent slots unfilled: $PH_TOTAL in $PH_FILES file(s)" )" "$PACK_GAP" "$LINT_UNVERSIONED" "$TS_WATCH" "$AE_WATCH"; do
+          "$( [ "${PH_TOTAL:-0}" -gt 0 ] && [ "$EAC" = 0 ] && echo "agent slots unfilled: $PH_TOTAL in $PH_FILES file(s)" )" "$PACK_GAP" "$LINT_UNVERSIONED" "$TS_WATCH" "$AE_WATCH" "$APP_REG_WATCH"; do
   [ -n "$_w" ] && WATCH="${WATCH:+$WATCH · }$_w"
 done
 if [ "$BRIEF" = 1 ]; then
@@ -393,6 +412,7 @@ if [ "$BRIEF" = 1 ]; then
   [ -n "$POS_BANNER" ] && echo "⚠       $POS_BANNER"
   echo "WHERE   $NAME · $STAGE_LINE${ENTRY:+ · $ENTRY}${ADOPTED:+ · joined at $ADOPTED}"
   [ -n "$ROUND_LINE" ] && echo "ROUND   $ROUND_LINE"
+  printf '%s' "$APP_LINES" | while IFS='	' read -r _a _l; do [ -n "$_a" ] && echo "APP     $_a: $_l"; done
   echo "STATE   scripts $N_SCRIPTS written / $N_PASS gate-pass / $N_DONE done- · modules opened $MOD_OPENED${SKELETON:+ · skeleton $SKELETON} · UNSYNCED $UNSYNCED · open questions $OPEN_Q${MANUAL:+ · $MANUAL}${APPMAP:+ · $APPMAP}"
   [ -n "$WATCH" ] && echo "WATCH   $WATCH"
   echo "NEXT    $NEXT"
@@ -404,6 +424,7 @@ printf '%s\n\n' "$TK"
 [ -n "$CWD_NOTE" ] && printf 'CWD       %s\n' "$CWD_NOTE"
 [ -n "$POS_BANNER" ] && printf '⚠ %s\n\n' "$POS_BANNER"
 [ -n "$ROUND_LINE" ] && printf 'ROUND     %s\n' "$ROUND_LINE"
+printf '%s' "$APP_LINES" | while IFS='	' read -r _a _l; do [ -n "$_a" ] && printf 'APP       %s: %s\n' "$_a" "$_l"; done
 printf 'DONE      scripts: %s written, %s gate-pass, %s done-  ·  modules opened: %s%s\n' "$N_SCRIPTS" "$N_PASS" "$N_DONE" "$MOD_OPENED" "${SKELETON:+  ·  skeleton proven $SKELETON}"
 printf 'OVERDUE   %s  ·  %s  ·  %s  ·  UNSYNCED markers: %s  ·  open questions: %s\n' "$DOCTOR" "$LINT" "${COH:-coherence: cadence script not installed}" "$UNSYNCED" "$OPEN_Q"
 [ -n "$MANUAL" ] && printf '          %s (docs/manual-steps.md)\n' "$MANUAL"

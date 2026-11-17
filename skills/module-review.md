@@ -395,6 +395,11 @@ summed them until a systematic sweep.
 **A fix found faster in Studio Pro than the root cause was found is not a closed bug.** Record it
 as unexplained or it will return.
 
+**Before closing the pass, tick `skills/must-haves.md`** (13 rows, every build type) and write
+`docs/progress/must-haves/<Module>.md`, first line `13 of 13 rows ticked or NOT DONE with a reason`.
+No file, no close: `Obligation must-haves` reads PENDING. *Failure: screens missing the tiles and
+side navigation the prototype showed, called done.*
+
 **Before closing the pass, append every P1/P2 to `docs/improvement-register.md`**
 (`improvement-register.md`) — one row per finding, with its defect class from that skill's fixed
 vocabulary. This is what turns "did this recur" from an archaeology project across dated HTML

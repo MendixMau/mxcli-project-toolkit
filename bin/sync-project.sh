@@ -850,6 +850,8 @@ fi
 # landed — never re-derived from the project's position, or a new project would turn advisory the
 # day it passed Stage 5 without the marks. init-project.sh writes `bound` for new projects.
 # "Past Stage 5" = gate-check's derived Current stage is 6 or 7, or the register adopted at 6/7.
+# The stage is the LAST line gate-check stamped into PROJECT.md; sync does not run gate-check. A
+# stale or missing stamp therefore reads as bound, and the printed note names the hand edit.
 # A stage nobody can read is not "past": bound, with the one line that changes it.
 if [ -f "$PROJECT_DIR/PROJECT.md" ] && ! grep -qiE '^[*_ >-]*Must-haves:' "$PROJECT_DIR/PROJECT.md" \
    && [ -r "$TOOLKIT_ROOT/bin/lib/obligation-check.sh" ]; then

@@ -256,15 +256,22 @@ _ob_modules() {
 # bin/lib/_common.sh, this list should defer to it.) No mxcli call: the gate stays read-only and
 # fork-cheap; page-scope.sh is the remedy named when nothing can be read.
 #
+# Entry mode existing-app-change ($2): source 3 is never read. page-scope.json lists the WHOLE
+# model, so it would make every legacy module owe every row — against this table's own rule that
+# an app owes nothing for modules nobody is building. The ledger and the scripts name only pages
+# this change wrote (review of #787).
+#
 # Sets _OB_BUILT_PAGES (Module.Page lines, unique) and _OB_BUILT_SRC (where they came from), or
 # _OB_BUILT_SRC="" with _OB_BUILT_MPR=1 when a model exists but no source could count its pages.
-_OB_BUILT_PAGES=""; _OB_BUILT_SRC=""; _OB_BUILT_MPR=0; _OB_BUILT_DONE=""
+# _OB_BUILT_SCRIPTS is the number of *.mdl build scripts found (build evidence, see below).
+_OB_BUILT_PAGES=""; _OB_BUILT_SRC=""; _OB_BUILT_MPR=0; _OB_BUILT_DONE=""; _OB_BUILT_SCRIPTS=0; _OB_BUILT_ROOTS=""
 _ob_built_pages() {
-  local root="$1" t f roots
-  [ "$_OB_BUILT_DONE" = "$root" ] && return 0
-  _OB_BUILT_DONE="$root"; _OB_BUILT_PAGES=""; _OB_BUILT_SRC=""; _OB_BUILT_MPR=0
+  local root="$1" mode="${2:-}" t f roots
+  [ "$_OB_BUILT_DONE" = "$root|$mode" ] && return 0
+  _OB_BUILT_DONE="$root|$mode"; _OB_BUILT_PAGES=""; _OB_BUILT_SRC=""; _OB_BUILT_MPR=0; _OB_BUILT_SCRIPTS=0
   roots="$root"$'\n'"$root/app"
   for t in "$root"/apps/*/; do [ -d "$t" ] && roots="$roots"$'\n'"${t%/}"; done
+  _OB_BUILT_ROOTS="$roots"
 
   # 1. look ledger
   local IFS=$'\n'
@@ -282,6 +289,7 @@ _ob_built_pages() {
       -o -name .claude -o -name javasource -o -name vendorlib -o -name widgets -o -name themesource \
       -o -name theme -o -name resources \) -prune -o -type f -name '*.mdl' ! -name '*.test.mdl' -print 2>/dev/null \
       | LC_ALL=C sort)"
+  [ -n "$scripts" ] && _OB_BUILT_SCRIPTS="$(printf '%s\n' "$scripts" | wc -l | tr -d ' ')"
   if [ -n "$scripts" ]; then
     # Same statement shapes and comment rules as look_pages_in() (project-bin/look-ledger.sh);
     # the last statement on a page across the scripts, in path order, decides (DROP removes).
@@ -305,7 +313,8 @@ _ob_built_pages() {
     if [ -n "$_OB_BUILT_PAGES" ]; then _OB_BUILT_SRC="page statements in *.mdl scripts"; return 0; fi
   fi
 
-  # 3. the model, as page-scope.sh recorded it
+  # 3. the model, as page-scope.sh recorded it — never for existing-app-change (header above)
+  [ "$mode" = "existing-app-change" ] && roots=""
   for t in $roots; do
     f="$t/.claude/loop/page-scope.json"
     [ -s "$f" ] || continue
@@ -318,7 +327,7 @@ _ob_built_pages() {
   if [ -n "$_OB_BUILT_PAGES" ]; then _OB_BUILT_SRC=".claude/loop/page-scope.json (the model)"; return 0; fi
 
   # Nothing readable. A model on disk means pages may exist uncounted: say so, never "0 pages".
-  for t in $roots; do
+  for t in $_OB_BUILT_ROOTS; do
     for f in "$t"/*.mpr; do [ -f "$f" ] && { _OB_BUILT_MPR=1; break 2; }; done
   done
   return 0
@@ -327,7 +336,7 @@ _ob_built_pages() {
 # "<n> pages in <m> modules (A 30, B 12, ...)" for the built scope; modules on stdout via _OB_BUILT_MODS.
 _OB_BUILT_MODS=""; _OB_BUILT_SUMMARY=""
 _ob_built_scope() {
-  _ob_built_pages "$1"
+  _ob_built_pages "$1" "${2:-}"
   _OB_BUILT_MODS=""; _OB_BUILT_SUMMARY=""
   [ -n "$_OB_BUILT_PAGES" ] || return 0
   _OB_BUILT_MODS="$(printf '%s\n' "$_OB_BUILT_PAGES" | awk -F. '{print $1}' | LC_ALL=C sort -u)"
@@ -607,6 +616,29 @@ _ob_look_proof_broken() {
   return 0
 }
 
+# _ob_build_evidence <current-stage-rank> → prints what shows the model has been BUILT ON, or
+# nothing. A .mpr alone is not that: init-project.sh scaffolds projects that have one from day
+# one, and an existing app arrives with one. The "pages could not be counted" FAULT fires only
+# with this evidence; with none, the honest reading is "no module has been opened" (review of
+# #787: every Stage P project with a .mpr read FAULT on six rows, and bin/status.sh's
+# "modules opened: 0" turned into "≥1"). Evidence, any of:
+#   - an exec row in docs/BUILD-LOG.md (exec.sh's "| <ISO date> | `script` |" table rows)
+#   - *.mdl build scripts on disk (counted by _ob_built_pages)
+#   - gate-check's derived Current stage at 5 or later
+# Not the register's stage alone as the switch: the field run had no Current stage line at all.
+_ob_build_evidence() {
+  local cur_rank="$1" t f
+  local IFS=$'\n'
+  for t in $_OB_BUILT_ROOTS; do
+    f="$t/docs/BUILD-LOG.md"
+    [ -s "$f" ] && grep -qE '^\| [0-9]{4}-[0-9]{2}-[0-9]{2}T[^|]*\| `' "$f" 2>/dev/null \
+      && { printf 'exec rows in %s' "${f#"$t"/}"; return 0; }
+  done
+  [ "${_OB_BUILT_SCRIPTS:-0}" -gt 0 ] && { printf '%s *.mdl script(s) with no page statement' "$_OB_BUILT_SCRIPTS"; return 0; }
+  [ "$cur_rank" -ge 6 ] && [ "$cur_rank" -lt 99 ] && { printf 'derived Current stage is 5 or later'; return 0; }
+  return 1
+}
+
 # ── the forward check ───────────────────────────────────────────────────────
 # mxtk_obligations_report <project-dir> [register-path]
 # Prints one line per obligation. Sets MXTK_OB_STATUS to the worst verdict seen.
@@ -650,10 +682,15 @@ mxtk_obligations_report() {
 
   local modules; modules="$(_ob_modules "$root")"
   # The floor (see _ob_built_pages): an empty planned scope falls back to the built one.
-  local floor=0 floor_fault_counted=0
+  local floor=0 floor_fault_counted=0 build_ev=""
   if [ -z "$modules" ]; then
-    _ob_built_scope "$root"
-    if [ -n "$_OB_BUILT_MODS" ]; then modules="$_OB_BUILT_MODS"; floor=1; fi
+    _ob_built_scope "$root" "$mode"
+    if [ -n "$_OB_BUILT_MODS" ]; then modules="$_OB_BUILT_MODS"; floor=1
+    # existing-app-change never takes the FAULT: its sources are this change's own writes, so
+    # "none found" is a measured zero for the change, and page-scope.sh would not be the remedy.
+    elif [ "$_OB_BUILT_MPR" = 1 ] && [ "$mode" != "existing-app-change" ]; then
+      build_ev="$(_ob_build_evidence "$current_rank" || true)"
+    fi
   fi
   local ob performer scope match artifact denom degradable from_stage skill
 
@@ -667,6 +704,10 @@ mxtk_obligations_report() {
   while IFS=$'\t' read -r ob performer scope match artifact denom degradable from_stage skill modes; do
     case "$ob" in ''|'#'*|obligation) continue ;; esac
 
+    # _ob_rank inline: it was a command substitution (a fork) three times per row.
+    case "$from_stage" in P|p) from_rank=0 ;; [0-7]) from_rank=$(( from_stage + 1 )) ;; *) from_rank=99 ;; esac
+    if [ "$from_rank" -gt "$limit_rank" ]; then skipped_n=$((skipped_n+1)); continue; fi
+
     # Entry mode (column 10): a row the declared mode does not owe is said out loud, never PASS.
     if [ -n "$mode" ] && [ -n "$modes" ]; then
       case ",$modes," in
@@ -675,10 +716,6 @@ mxtk_obligations_report() {
            continue ;;
       esac
     fi
-
-    # _ob_rank inline: it was a command substitution (a fork) three times per row.
-    case "$from_stage" in P|p) from_rank=0 ;; [0-7]) from_rank=$(( from_stage + 1 )) ;; *) from_rank=99 ;; esac
-    if [ "$from_rank" -gt "$limit_rank" ]; then skipped_n=$((skipped_n+1)); continue; fi
 
     if [ "$from_rank" -lt "$adopted_rank" ]; then
       printf 'Obligation %-10s ADOPTED — project joined at stage %s, above this pass'"'"'s stage %s (%s)\n' \
@@ -712,16 +749,16 @@ mxtk_obligations_report() {
     esac
 
     if [ -z "$units" ]; then
-      if [ "$scope" = "module" ] && [ "$_OB_BUILT_MPR" = 1 ]; then
-        # A model is on disk and nothing could count its pages: "could not measure" is FAULT, and
-        # it must never read as "0 pages built". Counted once for all module rows, not per row.
-        printf 'Obligation %-10s FAULT — no module brief or verify run, and the built pages could not be counted (no look ledger, no page statements in *.mdl, no .claude/loop/page-scope.json) though a .mpr exists; run bin/page-scope.sh (%s)\n' "$ob" "$skill"
+      if [ "$scope" = "module" ] && [ -n "$build_ev" ]; then
+        # The model has been built on (build_ev) and nothing could count its pages: "could not
+        # measure" is FAULT, never "0 pages built". Counted once for all module rows, not per row.
+        printf 'Obligation %-10s FAULT — no module brief or verify run, and the built pages could not be counted (no look ledger, no page statements in *.mdl, no .claude/loop/page-scope.json) though the model has been built on (%s); run bin/page-scope.sh (%s)\n' "$ob" "$build_ev" "$skill"
         if [ "$floor_fault_counted" = 0 ]; then
           MXTK_OB_STATUS="FAULT"; MXTK_OB_N_FAULT=$((MXTK_OB_N_FAULT+1)); floor_fault_counted=1
         fi
       else
         # "no module has been opened" is parsed by bin/status.sh (MOD_OPENED): keep that phrase.
-        printf 'Obligation %-10s PASS — no module has been opened for work yet and no page built (look ledger, *.mdl page statements and page-scope.json read); nothing owed (%s)\n' "$ob" "$skill"
+        printf 'Obligation %-10s PASS — no module has been opened for work yet; nothing owed (%s)\n' "$ob" "$skill"
       fi
       continue
     fi

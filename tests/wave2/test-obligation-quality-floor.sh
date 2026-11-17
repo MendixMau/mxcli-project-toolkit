@@ -13,7 +13,8 @@
 # the shape of field run 1. The page scripts are the repo's captured page scripts
 # (fixtures/page-fidelity-mocks/demo-*.mdl) under the apps' module names.
 #
-# Positive control: against master's obligation-check.sh, T1 (look PASS by absence) and T5 fail.
+# Positive control: against master's obligation-check.sh, T1 (look PASS by absence) and T5 fail;
+# against 9de09b5, T6 fails (FAULT on a fresh scaffold with a .mpr) and T6b fails.
 set -uo pipefail
 GATE="${1:?usage: test-obligation-quality-floor.sh /path/to/bin/gate-check.sh}"
 GATE="$(cd "$(dirname "$GATE")" && pwd)/$(basename "$GATE")"
@@ -76,18 +77,35 @@ cp "$HERE/fixtures/verify-446/page-scope.json" "$M/.claude/loop/page-scope.json"
 d="$(row "$M" look | grep 'OWED BY WHAT WAS BUILT')"
 case "$d" in *"1 page(s) built in 1 module(s) (MyFirstModule 1)"*page-scope.json*) ok "page-scope source: $d" ;; *) bad "page-scope not used: $d" ;; esac
 
-echo "== T5: a model with no countable pages is FAULT, counted once — never 0 pages =="
-U="$WORK/uncounted"; mkdir -p "$U/app"; register "$U"; : > "$U/app/App.mpr"
+echo "== T5: a model that has been built on, with no countable pages, is FAULT once — never 0 pages =="
+U="$WORK/uncounted"; mkdir -p "$U/app/docs"; register "$U"; : > "$U/app/App.mpr"
+# exec.sh's BUILD-LOG table row shape (project-bin/exec.sh log_build), under the two-tree app/.
+printf '| when (ISO-8601 local) | script | gate | result | detail |\n|---|---|---|---|---|\n| 2026-11-01T10:00:00+0100 | `10-domain.mdl` | pass | OK | applied |\n' > "$U/app/docs/BUILD-LOG.md"
 out="$(MXTK_ROWS_UPTO=5 "$OBCHECK" "$U" 2>&1)"
-case "$(printf '%s\n' "$out" | grep '^Obligation look ')" in *FAULT*"could not be counted"*page-scope.sh*) ok "look FAULT with the remedy" ;;
+case "$(printf '%s\n' "$out" | grep '^Obligation look ')" in *FAULT*"could not be counted"*BUILD-LOG*page-scope.sh*) ok "look FAULT with the evidence and the remedy" ;;
   *) bad "expected FAULT: $(printf '%s\n' "$out" | grep '^Obligation look ')" ;; esac
 n="$( . "$OBCHECK"; mxtk_obligations_report "$U" >/dev/null; echo "$MXTK_OB_N_FAULT")"
 [ "$n" = 1 ] && ok "one fault for all module rows" || bad "expected 1 fault, got $n"
 
-echo "== T6: nothing built and no model — the PASS says what was read =="
-E="$WORK/empty"; mkdir -p "$E"; register "$E"
-l="$(row "$E" look | head -1)"
-case "$l" in *PASS*"no page built"*) ok "$l" ;; *) bad "expected measured PASS, got: $l" ;; esac
+echo "== T6: a .mpr and NO build evidence (fresh scaffold, Stage P) keeps master's PASS line =="
+# Review of #787: a .mpr alone made every Stage P project FAULT on six rows, and bin/status.sh's
+# "modules opened: 0" (it greps "no module has been opened") turned into "≥1".
+E="$WORK/scaffold"; mkdir -p "$E"; register "$E"; : > "$E/App.mpr"
+for ob in look sweep journeys fidelity dispatch must-haves; do
+  l="$(row "$E" "$ob" | head -1)"
+  case "$l" in *"PASS — no module has been opened for work yet; nothing owed"*) ok "$ob: master's PASS line" ;; *) bad "$ob: $l" ;; esac
+done
+n="$( . "$OBCHECK"; mxtk_obligations_report "$E" >/dev/null; echo "$MXTK_OB_N_FAULT")"
+[ "$n" = 0 ] && ok "no fault on a fresh scaffold" || bad "expected 0 faults, got $n"
+N="$WORK/nothing"; mkdir -p "$N"; register "$N"
+case "$(row "$N" look | head -1)" in *"PASS — no module has been opened for work yet; nothing owed"*) ok "no model at all: same PASS" ;; *) bad "no model: $(row "$N" look)" ;; esac
+
+echo "== T6b: existing-app-change never takes scope from page-scope.json (it lists the whole model) =="
+X="$WORK/eac"; mkdir -p "$X/.claude/loop"; printf 'Entry mode: change an existing app\n' > "$X/PROJECT.md"; : > "$X/App.mpr"
+cp "$HERE/fixtures/verify-446/page-scope.json" "$X/.claude/loop/page-scope.json"
+case "$(row "$X" look)" in *"PASS — no module has been opened for work yet; nothing owed"*) ok "legacy modules owe nothing" ;; *) bad "eac: $(row "$X" look)" ;; esac
+mkdir -p "$X/mdlsource"; page_script Orders Order_Edit demo-list.mdl > "$X/mdlsource/10-orders.mdl"
+case "$(row "$X" look | grep 'OWED BY')" in *"1 page(s) built in 1 module(s) (Orders 1)"*) ok "a page this change wrote is owed" ;; *) bad "eac script: $(row "$X" look)" ;; esac
 
 echo "== T7: a project WITH briefs keeps today's verdicts (no floor, no extra modules) =="
 B="$WORK/briefed"; mkdir -p "$B/architecture/modules/Orders" "$B/mdlsource"; register "$B"

@@ -375,6 +375,7 @@ done
 # model, its own mdlsource/ scripts, and its LOOK debt (bin/lib/app-scope.sh, shared with
 # gate-check). Single-tree and two-tree projects print nothing here.
 . "$TOOLKIT_ROOT/bin/lib/app-scope.sh"
+mxtk_scope_init "$PROJECT_DIR" "$TOOLKIT_ROOT"   # the app list once, for both readers below
 APP_LINES="$(mxtk_app_lines "$PROJECT_DIR" "$TOOLKIT_ROOT")"
 [ -n "$APP_LINES" ] && APP_LINES="$APP_LINES
 "

@@ -238,12 +238,16 @@ mxtk_mkt_report_apps() {
     [ -n "$app" ] || continue
     fg="$shared"
     [ -s "$root/architecture/apps/$app/fit-gap.md" ] && fg="$root/architecture/apps/$app/fit-gap.md"
-    out="$(MPR_FILE="$root/$mpr"; MXTK_APP="$app"; _MKT_NO_REMEMBER=1; export MPR_FILE MXTK_APP
-           mxtk_mkt_report "$root" "$reg" "$fg" >/dev/null
-           printf '%s\t%s' "$MXTK_MKT_STATUS" "$MXTK_MKT_NOTE")"
+    if [ "$mpr" = "-" ]; then
+      out="PENDING	apps/$app/ holds more than one .mpr and none is named $app.mpr, so no model was read; name the app's model $app.mpr, or move the extra .mpr out of apps/$app/, to have it checked"
+    else
+      out="$(MPR_FILE="$root/$mpr"; MXTK_APP="$app"; _MKT_NO_REMEMBER=1; export MPR_FILE MXTK_APP
+             mxtk_mkt_report "$root" "$reg" "$fg" >/dev/null
+             printf '%s\t%s' "$MXTK_MKT_STATUS" "$MXTK_MKT_NOTE")"
+    fi
     st="${out%%	*}"; one="${out#*	}"
     if [ "$fg" = "$shared" ]; then
-      [ "$st" = FAIL ] && { st=PENDING
+      [ "$st" = FAIL ] && [ -n "$shared" ] && { st=PENDING
         one="the shared ${shared#"$root"/} does not say which app owes this Buy; move the row to architecture/apps/<App>/fit-gap.md, or waive it. Read: $one"; }
       # Shared source: findings that read the same for several apps print once (a field run, six
       # apps, repeated one project-level finding six times). The app's own model name is the
@@ -270,9 +274,11 @@ EOF
     local IFS=$'\n'
     for g in $groups; do
       gapps="${g%%$'\034'*}"; gk="${g#*$'\034'}"
+      # "from the shared <file>" only when there is one; with no fit-gap at all the finding
+      # itself says so, and the label is just the apps.
       case "$gapps" in
-        *", "*) [ "$(printf '%s' "$gapps" | tr ',' '\n' | grep -c .)" -eq "$n_all" ] \
-                  && gapps="all $n_all apps, from the shared ${shared#"$root"/}" || gapps="$gapps, from the shared ${shared#"$root"/}" ;;
+        *", "*) [ "$(printf '%s' "$gapps" | tr ',' '\n' | grep -c .)" -eq "$n_all" ] && gapps="all $n_all apps"
+                [ -n "$shared" ] && gapps="$gapps, from the shared ${shared#"$root"/}" ;;
       esac
       printf '  [%s] %s — %s\n' "$gapps" "${gk%%	*}" "${gk#*	}"
     done

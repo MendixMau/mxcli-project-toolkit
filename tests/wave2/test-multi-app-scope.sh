@@ -10,22 +10,28 @@
 # The tree is materialised from fixtures/multi-app/tree.txt (see PROVENANCE.txt there); SHOW
 # MODULES is replayed from the captures in fixtures/show-modules/ by a stub mxcli keyed on -p.
 #
-#   A1 resolver: mxtk_apps lists the three apps, mxtk_app_count 3; mxtk_select_app exact and any
+#   A1 resolver: mxtk_apps lists the six apps, mxtk_app_count 6; mxtk_select_app exact and any
 #      letter case, unknown refused listing apps; mxtk_app_of; MXTK_APP at source time beats the
-#      cwd auto-pick, a user's MPR_FILE beats MXTK_APP; find_mpr still refuses, naming MXTK_APP
+#      cwd auto-pick, a user's MPR_FILE beats MXTK_APP; find_mpr still refuses, naming MXTK_APP;
+#      an app folder with its own .claude/ + PROJECT.md resolves to the outer project when that
+#      holds a register (refinement of #489), keeps its own root when not; one line per app
+#      folder (a second .mpr is not a second app; "-" and a refusal when none is <App>.mpr)
 #   A2 single tree and two-tree: mxtk_apps prints nothing (rc 1) and mxtk_app_count is 0, even
 #      with an apps/ folder holding a model beside the root model
 #   A3 gate-check, no app chosen: "Marketplace installs: per app (6 apps", one [App] line each,
 #      no "nothing checked"; per-app fit-gap missing package -> FAIL for that app only; shared
 #      fit-gap missing package -> PENDING (owner unknown); build-ready counts the FAIL; with
-#      every app on the shared fit-gap, the one finding prints once ("all 6 apps")
-#   A4 gate-check --app appa: one Marketplace line, AppA' fit-gap; no Apps section;
-#      --app Nope exits 2 naming the apps; --app on a single-tree project exits 2
+#      every app on the shared fit-gap, the one finding prints once ("all 6 apps"); with no
+#      fit-gap at all, no "from the shared" label
+#   A4 gate-check --app appa: one Marketplace line, AppA's fit-gap, no Apps section; --app Nope
+#      exits 2 naming the apps; --app on a single-tree project exits 2; an env MXTK_APP there is
+#      dropped (exit 0)
 #   A5 gate-check "Apps:" section and status.sh: one line per app, scripts per app's mdlsource,
 #      LOOK owed per app, and "no ledger here (N pages ...)" before any ledger exists — never
 #      "no pages owed" by absence; single-tree and two-tree print neither
 #   A6 look-ledger: owe writes the app as a 5th column in the multi-app tree, four columns in a
-#      single tree; status --app keeps two apps' same-named page apart
+#      single tree; nothing lands in an app's own .claude/ (one ledger); status --app keeps two
+#      apps' same-named page apart
 #   A7 init-project scaffolds architecture/apps/<App>/intake.md + triage.md + the index and the
 #      multi-app Wiring rows; sync-project re-run creates nothing and overwrites nothing
 #   A8 an app's own PROJECT.md (mxcli init per app; the field repo had seven) holding register
@@ -88,6 +94,23 @@ r="$(clean_env MXTK_APP=AppA MPR_FILE=apps/AppC/AppC.mpr bash -c "cd '$P'; . '$C
 eq "A1 user MPR_FILE beats MXTK_APP" "$r" "$P/apps/AppC/AppC.mpr"
 r="$(clean_env bash -c "cd '$P'; . '$COMMON'; find_mpr" 2>&1)"
 has "A1 find_mpr refuses" "$r" "refusing to guess"; has "A1 refusal names MXTK_APP" "$r" "MXTK_APP=<X>"
+# Each captured app folder carries its own .claude/ + PROJECT.md (mxcli init per app). Under an
+# outer project with a register they resolve to the OUTER project (refinement of #489).
+r="$(clean_env bash -c "cd '$P/apps/AppB/docs'; . '$COMMON'; echo \"\$PROJECT_ROOT|\$MPR_FILE\"")"
+eq "A1 app folder with its own .claude/ resolves to the outer project" "$r" "$P|$P/apps/AppB/AppB.mpr"
+# ... and keep their own root when the outer PROJECT.md holds no register lines (#489 unchanged)
+N="$T/nested"; mkdir -p "$N/apps/X/.claude" "$N/.claude"; : > "$N/PROJECT.md"; : > "$N/apps/X/PROJECT.md"; : > "$N/apps/X/X.mpr"
+r="$(clean_env bash -c "cd '$N/apps/X'; . '$COMMON'; echo \"\$PROJECT_ROOT\"")"
+eq "A1 no outer register: the app folder keeps its own root" "$r" "$N/apps/X"
+# one line per app FOLDER: a second .mpr does not make a second app
+: > "$P/apps/AppC/Copy.mpr"; mv "$P/apps/AppD/AppD.mpr" "$P/apps/AppD/Zz.mpr"; : > "$P/apps/AppD/Other.mpr"
+r="$(clean_env bash -c "cd '$P'; . '$COMMON'; mxtk_apps | grep -E '^App[CD]'; echo n=\$(mxtk_app_count)")"
+eq "A1 one line per folder, <App>.mpr preferred, '-' when ambiguous" "$r" "AppC	apps/AppC/AppC.mpr
+AppD	-
+n=6"
+r="$(clean_env bash -c "cd '$P'; . '$COMMON'; mxtk_select_app AppD; echo rc=\$?" 2>&1)"
+has "A1 ambiguous folder refused" "$r" "apps/AppD/ holds more than one .mpr and none is named AppD.mpr"; has "A1 ambiguous rc" "$r" "rc=1"
+rm -f "$P/apps/AppC/Copy.mpr" "$P/apps/AppD/Other.mpr"; mv "$P/apps/AppD/Zz.mpr" "$P/apps/AppD/AppD.mpr"
 
 echo "A2 single tree and two-tree are never multi-app"
 S1="$T/single"; mkdir -p "$S1/apps/Other" "$S1/.claude"; : > "$S1/Single.mpr"; : > "$S1/apps/Other/Other.mpr"
@@ -117,6 +140,10 @@ has "A3 build-ready counts the FAIL" "$br" "✗ Marketplace: AppA: PASS; AppB: F
 mv "$P/architecture/apps" "$T/apps-fitgaps"
 out="$(gc "$P")"
 has "A3 shared finding printed once" "$out" "  [all 6 apps, from the shared architecture/fit-gap.md] PENDING"
+mv "$P/architecture/fit-gap.md" "$T/shared-fitgap"
+out="$(gc "$P")"
+has "A3 no fit-gap at all: one line, no 'from the shared'" "$out" "  [all 6 apps] PENDING — no architecture/fit-gap.md yet"
+mv "$T/shared-fitgap" "$P/architecture/fit-gap.md"
 eq "A3 no per-app repeat" "$(printf '%s\n' "$out" | grep -c '^  \[AppA\] PENDING')" "0"
 mv "$T/apps-fitgaps" "$P/architecture/apps"
 
@@ -129,6 +156,8 @@ out="$(gc --app Nope "$P")"; rc=$?
 eq "A4 unknown app exits 2" "$rc" "2"; has "A4 names the apps" "$out" "AppA  (apps/AppA/AppA.mpr)"
 out="$(gc --app AppA "$S1")"; rc=$?
 eq "A4 --app on single tree exits 2" "$rc" "2"
+out="$(clean_env MXTK_APP=AppA MXCLI="$STUB" MXTK_NO_FETCH=1 MXTK_GATE_CACHE_TTL_MIN=0 bash "$TK/bin/gate-check.sh" --no-html "$S1" 2>&1)"; rc=$?
+eq "A4 env MXTK_APP on a single tree is dropped (exit 0)" "$rc" "0"
 
 echo "A5 Apps section and status lines"
 # no ledger yet (it is git-ignored: a fresh checkout has none) is never "no pages owed"
@@ -156,6 +185,7 @@ done
 echo "A6 look-ledger keyed by app"
 cols="$(awk -F'\t' '{print NF ":" $5}' "$P/.claude/loop/look/owed.tsv" | sort -u | tr '\n' ' ')"
 eq "A6 multi-app rows carry the app" "$cols" "5:AppA 5:AppB "
+[ -e "$P/apps/AppA/.claude/loop/look/owed.tsv" ] && fail "A6 ledger split into apps/AppA/.claude/" || ok "A6 one ledger: nothing under apps/AppA/.claude/loop/"
 printf 'create page Single.Home (\n);\n' > "$S1/p.mdl"
 (cd "$S1" && clean_env bash "$TK/project-bin/look-ledger.sh" owe "$S1/p.mdl" >/dev/null)
 eq "A6 single tree keeps four columns" "$(awk -F'\t' '{print NF}' "$S1/.claude/loop/look/owed.tsv")" "4"

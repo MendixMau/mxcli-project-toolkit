@@ -282,6 +282,7 @@ TOOLKIT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # selection (bin/lib/app-scope.sh; skills/module-folder-convention.md § Several apps in one repo).
 # Nothing happens, and nothing prints, for any other layout.
 . "$SCRIPT_DIR/lib/app-scope.sh"
+mxtk_scope_init "$(cd "$PROJECT_DIR" && pwd)" "$TOOLKIT_ROOT"
 mxtk_scaffold_apps "$PROJECT_DIR" "$TOOLKIT_ROOT"
 _WIRE_MPR=""; _WIRE_MDL=""
 _wr="$(mxtk_wiring_rows "$PROJECT_DIR" "$TOOLKIT_ROOT")"

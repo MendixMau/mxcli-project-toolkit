@@ -5,7 +5,8 @@
 #   bin/look-ledger.sh seen               PostToolUse(Read) hook; reads the hook JSON on stdin
 #   bin/look-ledger.sh status [--app <App>]
 #                                         prints one line per owed page: SEEN or OWED (one app's
-#                                         pages only with --app, or with MXTK_APP set)
+#                                         pages only with --app, or with MXTK_APP set; --by-app:
+#                                         every app's, keyed by app, the app as a 6th column)
 #   bin/look-ledger.sh reshoot [Module] [--all]
 #                                         which pages a polish round must re-shoot (390 + 1280): the pages
 #                                         built after their last seen LOOK, plus every page when a layout,
@@ -213,7 +214,7 @@ cmd_seen() {
 # look_status — one line per owed page, newest build only:  SEEN|OWED <TAB> Module.Page <TAB> epoch
 # One awk pass over both ledgers: a per-row fork costs ~150ms under Git Bash on Windows, and a
 # join of 50 pages against 300 reads would otherwise take minutes (obligation-check.sh, 2026-08-25).
-look_status() { _look_status_ex | cut -f1-3; }
+look_status() { if [ "${LOOK_APP:-}" = "*" ]; then _look_status_ex | cut -f1-3,6; else _look_status_ex | cut -f1-3; fi; }
 # _look_status_ex — look_status plus, for a SEEN page, the epoch and path of its newest matching screenshot
 # (cols 4, 5; 0 and empty when OWED). `status` still prints cols 1-3 only: other tools parse those.
 _look_status_ex() {
@@ -236,19 +237,28 @@ _look_status_ex() {
         shotmt[g[3] SUBSEP g[4]] = g[5]+0
       }
     }
-    # --app: rows of that app only — by the app column, or for an older row by its script path
-    app != "" && !($5 == app || ($5 == "" && index($4, "apps/" app "/") == 1)) { next }
-    NF>=3 { if (!($3 in last) || $1+0 > last[$3]) last[$3]=$1+0 }
+    # --app: rows of that app only — by the app column, or for an older row by its script path.
+    # app "*" (--by-app): every row, keyed by app and page; the app is printed as a 6th column.
+    app != "" && app != "*" && !($5 == app || ($5 == "" && index($4, "apps/" app "/") == 1)) { next }
+    NF>=3 {
+      k = $3
+      if (app == "*") { ra = $5; if (ra == "" && $4 ~ /^apps\/[^\/]+\//) { ra = $4; sub(/^apps\//, "", ra); sub(/\/.*$/, "", ra) }
+                        k = ra SUBSEP $3 }
+      if (!(k in last) || $1+0 > last[k]) last[k]=$1+0
+    }
     END {
-      for (p in last) {
+      for (k in last) {
+        p = k; ka = ""
+        if (app == "*") { split(k, kk, SUBSEP); ka = kk[1]; p = kk[2] }
         short=p; sub(/^[^.]*\./, "", short); short=norm(short); ok=0; sa=0; si=""
         for (i=1; i<=n; i++) {
-          if (!(at[i]>=last[p] && mt[i]>=last[p])) continue
-          if (index(base[i], short) || (((p SUBSEP full[i]) in shotmt) && shotmt[p SUBSEP full[i]]>=last[p])) {
+          if (!(at[i]>=last[k] && mt[i]>=last[k])) continue
+          if (index(base[i], short) || (((p SUBSEP full[i]) in shotmt) && shotmt[p SUBSEP full[i]]>=last[k])) {
             ok=1; if (at[i]>=sa) { sa=at[i]; si=full[i] }
           }
         }
-        print (ok ? "SEEN" : "OWED") "\t" p "\t" last[p] "\t" sa "\t" si
+        if (app == "*") print (ok ? "SEEN" : "OWED") "\t" p "\t" last[k] "\t" sa "\t" si "\t" ka
+        else print (ok ? "SEEN" : "OWED") "\t" p "\t" last[k] "\t" sa "\t" si
       }
     }' "$OWED" 2>/dev/null | sort -k2,2
 }
@@ -384,7 +394,7 @@ case "${1:-}" in
   owe)    shift; cmd_owe "$@" ;;
   seen)   cmd_seen ;;
   status) shift
-          case "${1:-}" in --app) LOOK_APP="${2:-}" ;; --app=*) LOOK_APP="${1#--app=}" ;; *) LOOK_APP=""; [ -n "${MXTK_APP:-}" ] && mxtk_apps >/dev/null 2>&1 && LOOK_APP="$MXTK_APP" ;; esac
+          case "${1:-}" in --by-app) LOOK_APP="*" ;; --app) LOOK_APP="${2:-}" ;; --app=*) LOOK_APP="${1#--app=}" ;; *) LOOK_APP=""; [ -n "${MXTK_APP:-}" ] && mxtk_apps >/dev/null 2>&1 && LOOK_APP="$MXTK_APP" ;; esac
           look_status ;;
   shots)  shift; cmd_shots "$@" ;;
   pages)  shift; look_pages_in "${1:-/dev/null}" ;;

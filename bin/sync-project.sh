@@ -678,6 +678,7 @@ fi
 # predates this. Never overwrites. Nothing happens, and nothing prints, for any other layout.
 . "$SCRIPT_DIR/lib/app-scope.sh"
 _ATK="$(cd "$SCRIPT_DIR/.." && pwd)"
+mxtk_scope_init "$PROJECT_DIR" "$_ATK"
 _WIRE_MPR=""; _WIRE_MDL=""
 _wr="$(mxtk_wiring_rows "$PROJECT_DIR" "$_ATK")"
 [ -n "$_wr" ] && { _WIRE_MPR="${_wr%%	*}"; _WIRE_MDL="${_wr#*	}"; }

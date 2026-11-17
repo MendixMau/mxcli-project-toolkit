@@ -70,7 +70,7 @@ ADOPT_STAGE=""
 WAIVE_STAGE=""
 CLOSEOUT=0
 WAIVER_REASON=""
-GC_APP="${MXTK_APP:-}"
+GC_APP="${MXTK_APP:-}"; GC_APP_ARG=0   # 1: named by --app (an error when it does not apply); 0: from the environment (dropped)
 declare -a GC_ARGS
 GC_ARGS=()
 while [ $# -gt 0 ]; do
@@ -84,8 +84,8 @@ while [ $# -gt 0 ]; do
     --closeout)        CLOSEOUT=1; HTML_MODE="never" ;;
     --waive)           shift; WAIVE_STAGE="${1:-}" ;;
     --reason)          shift; WAIVER_REASON="${1:-}" ;;
-    --app)             shift; GC_APP="${1:-}" ;;
-    --app=*)           GC_APP="${1#--app=}" ;;
+    --app)             shift; GC_APP="${1:-}"; GC_APP_ARG=1 ;;
+    --app=*)           GC_APP="${1#--app=}"; GC_APP_ARG=1 ;;
     --force-stale)     FORCE_STALE=1 ;;
     --strict-protocol) STRICT_PROTOCOL=1 ;;
     --)        shift; while [ $# -gt 0 ]; do GC_ARGS[${#GC_ARGS[@]}]="$1"; shift; done; break ;;
@@ -306,18 +306,26 @@ fi
 # PROJECT_ROOT pinned, so the layout rules are the crash net's and not a copy. GC_APPS stays
 # empty on single-tree and two-tree projects, and nothing below prints for them.
 GC_APPS=""
-if [ -f "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/project-bin/_common.sh" ] && [ -d "$PROJECT_DIR/apps" ]; then
+_gc_common="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/project-bin/_common.sh"
+if [ -f "$_gc_common" ] && [ -d "$PROJECT_DIR/apps" ]; then
   GC_APPS="$( PROJECT_ROOT="$(cd "$PROJECT_DIR" && pwd)"; MPR_FILE=""; MXTK_APP=""
-              . "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/project-bin/_common.sh" >/dev/null 2>&1 || exit 0
+              . "$_gc_common" >/dev/null 2>&1 || exit 0
               mxtk_apps "$PROJECT_ROOT" 2>/dev/null )"
 fi
+# An env MXTK_APP that does not apply (not a multi-app project, or no such app) is dropped, as
+# _common.sh drops it; only an explicit --app is an error.
+if [ -n "$GC_APP" ] && [ -z "$GC_APPS" ] && [ "$GC_APP_ARG" = 0 ]; then GC_APP=""; fi
 if [ -n "$GC_APP" ]; then
   [ -n "$GC_APPS" ] || { echo "Error: --app $GC_APP: $PROJECT_DIR is not a multi-app project (no apps/<App>/*.mpr)." >&2; exit 2; }
-  _gc_sel="$( PROJECT_ROOT="$(cd "$PROJECT_DIR" && pwd)"; MPR_FILE=""; MXTK_APP=""
-              . "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/project-bin/_common.sh" >/dev/null 2>&1
-              mxtk_select_app "$GC_APP" "$PROJECT_ROOT" && printf '%s\t%s\n' "$MXTK_APP" "$MPR_FILE" )" || exit 2
-  MXTK_APP="${_gc_sel%%	*}"; MPR_FILE="${_gc_sel#*	}"; GC_APP="$MXTK_APP"; export MXTK_APP MPR_FILE
+  if _gc_sel="$( PROJECT_ROOT="$(cd "$PROJECT_DIR" && pwd)"; MPR_FILE=""; MXTK_APP=""
+                 . "$_gc_common" >/dev/null 2>&1
+                 mxtk_select_app "$GC_APP" "$PROJECT_ROOT" && printf '%s\t%s\n' "$MXTK_APP" "$MPR_FILE" )"; then
+    MXTK_APP="${_gc_sel%%	*}"; MPR_FILE="${_gc_sel#*	}"; GC_APP="$MXTK_APP"; export MXTK_APP MPR_FILE
+  elif [ "$GC_APP_ARG" = 1 ]; then exit 2
+  else echo "note: MXTK_APP=$GC_APP names no app here; reporting every app" >&2; GC_APP=""; unset MXTK_APP; fi
 fi
+# The app list, computed once, for every per-app reader in this run (bin/lib/app-scope.sh).
+MXTK_SCOPE_APPS="$GC_APPS"; MXTK_SCOPE_ROOT="$PROJECT_DIR"; export MXTK_SCOPE_APPS MXTK_SCOPE_ROOT   # the same string the readers are given
 
 # Resolve the knowledge-base dir the same way this project's artifacts actually live.
 # Convention: analysis/<name>/knowledge-base/ under the project dir; fall back to

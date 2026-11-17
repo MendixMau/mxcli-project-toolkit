@@ -7,8 +7,14 @@
 # PROJECT_ROOT pinned), so single-tree and two-tree projects yield nothing and print nothing.
 # The register stays ONE (PROJECT.md); only evidence that is per app is reported per app.
 #
+#   mxtk_scope_init <project-dir> <toolkit-dir>
+#       computes the app list ONCE and exports it (MXTK_SCOPE_APPS, keyed by MXTK_SCOPE_ROOT);
+#       callers run it in their own shell before the readers below (each re-source of _common.sh
+#       cost ~0.1 s; a status run did it three times). gate-check sets the same pair itself.
 #   mxtk_scope_apps <project-dir> <toolkit-dir>
-#       prints mxtk_apps' lines ("<App><TAB><apps/App/X.mpr>"), or nothing
+#       prints mxtk_apps' lines ("<App><TAB><apps/App/X.mpr>", model "-" when the folder holds
+#       several .mpr and none is named for it), or nothing — from the exported list when it was
+#       computed for this project, else by sourcing _common.sh in a subshell
 #   mxtk_app_lines <project-dir> <toolkit-dir>
 #       one line per app, "<App><TAB><evidence>", only when there are two or more apps:
 #       "apps/<App>/<App>.mpr · scripts N written / D done- · LOOK: K of M page(s) owed"
@@ -18,8 +24,17 @@
 #       or alter: never "no pages owed" without a ledger to say it (a field run, six apps: the
 #       ledger is git-ignored, so a fresh checkout with ~78 built pages read "no pages owed").
 
+mxtk_scope_init() {
+  MXTK_SCOPE_ROOT="$1"; MXTK_SCOPE_APPS=""
+  MXTK_SCOPE_APPS="$(MXTK_SCOPE_ROOT=""; mxtk_scope_apps "$1" "$2")"
+  export MXTK_SCOPE_APPS MXTK_SCOPE_ROOT
+}
+
 mxtk_scope_apps() {
   local pd="$1" tk="$2"
+  if [ -n "${MXTK_SCOPE_ROOT:-}" ] && [ "$MXTK_SCOPE_ROOT" = "$pd" ]; then
+    [ -n "${MXTK_SCOPE_APPS:-}" ] && printf '%s\n' "$MXTK_SCOPE_APPS"; return 0
+  fi
   [ -d "$pd/apps" ] && [ -f "$tk/project-bin/_common.sh" ] || return 0
   ( PROJECT_ROOT="$pd"; MPR_FILE=""; MXTK_APP=""
     . "$tk/project-bin/_common.sh" >/dev/null 2>&1 || exit 0
@@ -27,36 +42,49 @@ mxtk_scope_apps() {
 }
 
 mxtk_app_lines() {
-  local pd="$1" tk="$2" apps a m d n dn lk ls lt lo
+  local pd="$1" tk="$2" apps facts look="" own=0
   apps="$(mxtk_scope_apps "$pd" "$tk")"
   [ "$(printf '%s' "$apps" | grep -c . || true)" -ge 2 ] || return 0
-  while IFS='	' read -r a m; do
-    [ -n "$a" ] || continue
-    d="$pd/apps/$a/mdlsource"; n=0; dn=0
-    if [ -d "$d" ]; then
-      n="$(find "$d" -name '*.mdl' -not -path '*/gallery/*' | wc -l | tr -d ' ')"
-      dn="$(find "$d" -name 'done-*.mdl' | wc -l | tr -d ' ')"
-    fi
-    np=0
-    [ -d "$d" ] && np="$(find "$d" -name '*.mdl' -not -path '*/gallery/*' -exec cat {} + 2>/dev/null | awk '
-      /^[[:space:]]*--/ { next }
-      { l = toupper($0) }
-      l ~ /^[[:space:]]*(CREATE([[:space:]]+OR[[:space:]]+(REPLACE|MODIFY))?|ALTER)[[:space:]]+PAGE[[:space:]]/ {
-        n = split($0, w, /[[:space:]]+/); for (i = 1; i < n; i++) if (toupper(w[i]) == "PAGE") { x = w[i+1]; break }
-        sub(/[(;{].*$/, "", x); gsub(/"/, "", x); if (x ~ /^[A-Za-z0-9_]+\.[A-Za-z0-9_]+$/) seen[x] = 1 }
-      END { k = 0; for (x in seen) k++; print k }')"
-    if [ "$np" -eq 0 ]; then lk="LOOK: no page in its scripts"
-    elif [ -s "$pd/.claude/loop/look/owed.tsv" ]; then lk="LOOK: no ledger row for this app ($np page(s) in its scripts)"
-    else lk="LOOK: no ledger here ($np page(s) in its scripts) — .claude/loop/look/ is written by bin/exec.sh on this machine"; fi
-    if [ -s "$pd/.claude/loop/look/owed.tsv" ] && [ -f "$tk/project-bin/look-ledger.sh" ]; then
-      ls="$(PROJECT_ROOT="$pd" MPR_FILE="" MXTK_APP="" bash "$tk/project-bin/look-ledger.sh" status --app "$a" 2>/dev/null)"
-      lt="$(printf '%s' "$ls" | grep -c . || true)"; lo="$(printf '%s\n' "$ls" | grep -c '^OWED' || true)"
-      [ "$lt" -gt 0 ] && lk="LOOK: $lo of $lt page(s) owed"
-    fi
-    printf '%s\t%s · scripts %s written / %s done- · %s\n' "$a" "$m" "$n" "$dn" "$lk"
-  done <<EOF
-$apps
-EOF
+  # Per app, in ONE find and ONE awk (a process per app per fact cost ~0.2 s on six apps):
+  # "<App> <scripts> <done-> <pages>", pages = distinct Module.Page its scripts create or alter.
+  facts="$(find "$pd"/apps/*/mdlsource -name '*.mdl' -not -path '*/gallery/*' 2>/dev/null | awk -v root="$pd/apps/" '
+    { f = $0; a = substr(f, length(root) + 1); sub(/\/.*$/, "", a); n[a]++
+      b = f; sub(/.*\//, "", b); if (b ~ /^done-/) dn[a]++
+      while ((getline line < f) > 0) {
+        if (line ~ /^[[:space:]]*--/) continue
+        u = toupper(line)
+        if (u !~ /^[[:space:]]*(CREATE([[:space:]]+OR[[:space:]]+(REPLACE|MODIFY))?|ALTER)[[:space:]]+PAGE[[:space:]]/) continue
+        k = split(line, w, /[[:space:]]+/); x = ""
+        for (i = 1; i < k; i++) if (toupper(w[i]) == "PAGE") { x = w[i+1]; break }
+        sub(/[(;{].*$/, "", x); gsub(/"/, "", x)
+        if (x ~ /^[A-Za-z0-9_]+\.[A-Za-z0-9_]+$/ && !((a SUBSEP x) in seen)) { seen[a SUBSEP x] = 1; np[a]++ }
+      }
+      close(f) }
+    END { for (a in n) print a, n[a], dn[a] + 0, np[a] + 0 }')"
+  # The LOOK ledger once, every app (look-ledger.sh status --by-app: one project ledger, keyed by app).
+  if [ -s "$pd/.claude/loop/look/owed.tsv" ] && [ -f "$tk/project-bin/look-ledger.sh" ]; then
+    own=1
+    look="$(PROJECT_ROOT="$pd" MPR_FILE="" MXTK_APP="" bash "$tk/project-bin/look-ledger.sh" status --by-app 2>/dev/null)"
+  fi
+  # One join, one awk: apps (in mxtk_apps order) x facts x LOOK counts.
+  { printf '%s\n' "$apps" | awk '{ print "A\t" $0 }'
+    printf '%s\n' "$facts" | sed 's/^/F /'
+    printf '%s\n' "$look" | awk -F'\t' 'NF >= 4 { t[$4]++; if ($1 == "OWED") o[$4]++ } END { for (a in t) print "L", a, t[a], o[a] + 0 }'
+  } | awk -v own="$own" '
+    /^A\t/ { split($0, x, "\t"); if (x[2] == "") next; ord[++na] = x[2]; mdl[x[2]] = x[3]; next }
+    $1 == "F" { n[$2] = $3; dn[$2] = $4; np[$2] = $5; next }
+    $1 == "L" { lt[$2] = $3; lo[$2] = $4; next }
+    END {
+      for (i = 1; i <= na; i++) {
+        a = ord[i]; m = mdl[a]
+        if (lt[a] + 0 > 0) lk = "LOOK: " lo[a] " of " lt[a] " page(s) owed"
+        else if (np[a] + 0 == 0) lk = "LOOK: no page in its scripts"
+        else if (own == 1) lk = "LOOK: no ledger row for this app (" np[a] " page(s) in its scripts)"
+        else lk = "LOOK: no ledger here (" np[a] " page(s) in its scripts) — .claude/loop/look/ is written by bin/exec.sh on this machine"
+        if (m == "-") m = "apps/" a "/ (several .mpr, none named " a ".mpr: set MPR_FILE)"
+        printf "%s\t%s · scripts %d written / %d done- · %s\n", a, m, n[a], dn[a], lk
+      }
+    }'
 }
 
 # mxtk_scaffold_apps <project-dir> <toolkit-dir> — the per-app planning folders, one convention
@@ -171,29 +199,37 @@ mxtk_wiring_rows() {
 # none of those lines (a plain mxcli template) says nothing. Field run (six apps): seven
 # PROJECT.md files, one per app plus the root.
 mxtk_app_register_notes() {
-  local pd="$1" tk="$2" apps a m f em rem found nd
+  local pd="$1" tk="$2" apps a m files=""
   apps="$(mxtk_scope_apps "$pd" "$tk")"
   [ "$(printf '%s' "$apps" | grep -c . || true)" -ge 2 ] || return 0
-  _mxtk_em() { awk '{ l = tolower($0); gsub(/[*_>]/, "", l); sub(/^[ \t-]+/, "", l)
-      if (l ~ /^entry mode[ \t]*:/) { sub(/^entry mode[ \t]*:[ \t]*/, "", l); split(l, w, /[ \t(,;]+/); print w[1]; exit } }' "$1" 2>/dev/null; }
-  rem="$(_mxtk_em "$pd/PROJECT.md")"
   while IFS='	' read -r a m; do
-    f="$pd/apps/$a/PROJECT.md"
-    [ -n "$a" ] && [ -f "$f" ] || continue
-    found=""
-    em="$(_mxtk_em "$f")"
-    if [ -n "$em" ]; then
-      if [ -n "$rem" ] && [ "$em" != "$rem" ]; then found="Entry mode: $em, the root says $rem"
-      elif [ -z "$rem" ]; then found="Entry mode: $em, the root has none"
-      else found="Entry mode"; fi
-    fi
-    awk '/^## Current stage/{f=1;next} f && /^\*\*Stage/{ok=1; exit} END{exit !ok}' "$f" 2>/dev/null && found="${found:+$found; }Current stage"
-    grep -qiE '^Adopted at stage:' "$f" 2>/dev/null && found="${found:+$found; }Adopted at stage"
-    nd="$(grep -cE '^\|.*\|[[:space:]]*\**(CONFIRMED|ASSUMED)' "$f" 2>/dev/null || true)"
-    [ "${nd:-0}" -gt 0 ] && found="${found:+$found; }$nd decision row(s)"
-    [ -n "$found" ] && printf '%s\tapps/%s/PROJECT.md holds register lines (%s): the register is the root PROJECT.md, which gate-check reads; move them there and leave the app file a pointer\n' "$a" "$a" "$found"
+    [ -n "$a" ] && [ -f "$pd/apps/$a/PROJECT.md" ] && files="$files$a
+"
   done <<EOF
 $apps
 EOF
-  return 0
+  [ -n "$files" ] || return 0
+  # One awk: the root PROJECT.md first (its Entry mode), then each app's, in app order.
+  printf '%s' "$files" | { set --; while IFS= read -r a; do set -- "$@" "$pd/apps/$a/PROJECT.md"; done
+    awk -v root="$pd/PROJECT.md" '
+      function em(line,   l, w) { l = tolower(line); gsub(/[*_>]/, "", l); sub(/^[ \t-]+/, "", l)
+        if (l !~ /^entry mode[ \t]*:/) return ""; sub(/^entry mode[ \t]*:[ \t]*/, "", l); split(l, w, /[ \t(,;]+/); return w[1] }
+      function flush(   a, f) {
+        if (cur == "") return
+        a = cur; sub(/\/PROJECT\.md$/, "", a); sub(/.*\//, "", a); f = ""
+        if (e != "") { if (rem != "" && e != rem) f = "Entry mode: " e ", the root says " rem
+                       else if (rem == "") f = "Entry mode: " e ", the root has none"; else f = "Entry mode" }
+        if (st) f = f (f != "" ? "; " : "") "Current stage"
+        if (ad) f = f (f != "" ? "; " : "") "Adopted at stage"
+        if (nd) f = f (f != "" ? "; " : "") nd " decision row(s)"
+        if (f != "") printf "%s\tapps/%s/PROJECT.md holds register lines (%s): the register is the root PROJECT.md, which gate-check reads; move them there and leave the app file a pointer\n", a, a, f
+      }
+      BEGIN { while ((getline line < root) > 0) if (rem == "" && (x = em(line)) != "") rem = x; close(root) }
+      FNR == 1 { flush(); cur = FILENAME; e = ""; st = 0; ad = 0; nd = 0; cs = 0 }
+      { if (e == "") e = em($0)
+        if ($0 ~ /^## Current stage/) cs = 1; else if ($0 ~ /^## /) cs = 0
+        if (cs && $0 ~ /^\*\*Stage/) st = 1
+        if (tolower($0) ~ /^adopted at stage:/) ad = 1
+        if ($0 ~ /^\|.*\|[[:space:]]*\**(CONFIRMED|ASSUMED)/) nd++ }
+      END { flush() }' "$@"; }
 }

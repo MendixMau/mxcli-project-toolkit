@@ -3768,6 +3768,7 @@ if [ -z "$REQUESTED_STAGE" ] && [ -z "$GC_APP" ] && [ -r "$TOOLKIT_DIR/bin/lib/a
     printf 'Apps: %s (one register, %s; per-app evidence below; --app <App> scopes a run to one)\n' \
       "$(printf '%s\n' "$_gc_al" | grep -c .)" "$(basename "${REGISTER:-PROJECT.md}")"
     printf '%s\n' "$_gc_al" | while IFS='	' read -r _a _l; do printf '  [%s] %s\n' "$_a" "$_l"; done
+    mxtk_app_register_notes "$PROJECT_DIR" "$TOOLKIT_DIR" | while IFS='	' read -r _a _l; do printf '  ⚠ [%s] %s\n' "$_a" "$_l"; done
   fi
 fi
 

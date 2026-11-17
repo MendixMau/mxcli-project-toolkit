@@ -691,6 +691,7 @@ if [ -n "$_wr" ]; then
     _sa="$(mxtk_scaffold_apps "$PROJECT_DIR" "$_ATK")"
     [ -n "$_sa" ] && { printf '%s\n' "$_sa"; CHANGES=$((CHANGES + 1)); }
   fi
+  mxtk_app_register_notes "$PROJECT_DIR" "$_ATK" | while IFS='	' read -r _a _l; do echo "Note: $_l"; done
   if [ -f "$PROJECT_DIR/CLAUDE.local.md" ] && grep -q "## Wiring" "$PROJECT_DIR/CLAUDE.local.md" \
      && ! grep -q 'MXTK_APP=<App>' "$PROJECT_DIR/CLAUDE.local.md"; then
     echo "Note: CLAUDE.local.md's Wiring block predates multi-app support — replace its Project MPR and"

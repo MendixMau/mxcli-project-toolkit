@@ -378,13 +378,16 @@ done
 APP_LINES="$(mxtk_app_lines "$PROJECT_DIR" "$TOOLKIT_ROOT")"
 [ -n "$APP_LINES" ] && APP_LINES="$APP_LINES
 "
+# An app's own PROJECT.md holding register lines (bin/lib/app-scope.sh): a second register, WATCH.
+APP_REG_WATCH="$(mxtk_app_register_notes "$PROJECT_DIR" "$TOOLKIT_ROOT" | cut -f2 | sed 's/: the register is the root.*$//' | paste -sd '|' - | sed 's/|/ · /g')"
+[ -n "$APP_REG_WATCH" ] && APP_REG_WATCH="$APP_REG_WATCH — the root PROJECT.md is the register"
 
 # --- print ----------------------------------------------------------------------------------
 TK="toolkit $TK_COMMIT_NOW"; [ -n "$TK_COMMIT_REG" ] && [ "$TK_COMMIT_REG" != "$TK_COMMIT_NOW" ] && TK="$TK (register says $TK_COMMIT_REG)"
 [ -n "$TK_UPD" ] && TK="$TK · updates: $TK_UPD"
 WATCH=""
 for _w in "$STAGE_STALE" "${APPROVED_OVER:+APPROVED OVER A FAILING GATE: $APPROVED_OVER}" "$DONE_STALL" "${BP_STALE%% (*}" \
-          "$( [ "${PH_TOTAL:-0}" -gt 0 ] && [ "$EAC" = 0 ] && echo "agent slots unfilled: $PH_TOTAL in $PH_FILES file(s)" )" "$PACK_GAP" "$LINT_UNVERSIONED" "$TS_WATCH" "$AE_WATCH"; do
+          "$( [ "${PH_TOTAL:-0}" -gt 0 ] && [ "$EAC" = 0 ] && echo "agent slots unfilled: $PH_TOTAL in $PH_FILES file(s)" )" "$PACK_GAP" "$LINT_UNVERSIONED" "$TS_WATCH" "$AE_WATCH" "$APP_REG_WATCH"; do
   [ -n "$_w" ] && WATCH="${WATCH:+$WATCH · }$_w"
 done
 if [ "$BRIEF" = 1 ]; then

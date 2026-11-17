@@ -162,3 +162,38 @@ mxtk_wiring_rows() {
     "\`apps/<App>/<App>.mpr\` — $n apps: $names | One model per app. Select with \`MXTK_APP=<App>\` (any bin/ script) or \`--app <App>\` (gate-check, look-ledger); with none, gate-check and status report per app. Index: \`architecture/apps/README.md\`" \
     "\`apps/<App>/mdlsource/\` | Numbered build scripts, per app"
 }
+
+# mxtk_app_register_notes <project-dir> <toolkit-dir> — one line per app whose OWN PROJECT.md
+# (apps/<App>/PROJECT.md, e.g. from `mxcli init` run per app) holds register lines: an Entry mode,
+# a "## Current stage" **Stage line, an "Adopted at stage:" line, or CONFIRMED / ASSUMED table
+# rows. The register is the ROOT PROJECT.md (gate-check never reads an app's); a second register
+# per app is where decisions go to be lost. Warn-only, never a verdict. An app PROJECT.md with
+# none of those lines (a plain mxcli template) says nothing. Field run (six apps): seven
+# PROJECT.md files, one per app plus the root.
+mxtk_app_register_notes() {
+  local pd="$1" tk="$2" apps a m f em rem found nd
+  apps="$(mxtk_scope_apps "$pd" "$tk")"
+  [ "$(printf '%s' "$apps" | grep -c . || true)" -ge 2 ] || return 0
+  _mxtk_em() { awk '{ l = tolower($0); gsub(/[*_>]/, "", l); sub(/^[ \t-]+/, "", l)
+      if (l ~ /^entry mode[ \t]*:/) { sub(/^entry mode[ \t]*:[ \t]*/, "", l); split(l, w, /[ \t(,;]+/); print w[1]; exit } }' "$1" 2>/dev/null; }
+  rem="$(_mxtk_em "$pd/PROJECT.md")"
+  while IFS='	' read -r a m; do
+    f="$pd/apps/$a/PROJECT.md"
+    [ -n "$a" ] && [ -f "$f" ] || continue
+    found=""
+    em="$(_mxtk_em "$f")"
+    if [ -n "$em" ]; then
+      if [ -n "$rem" ] && [ "$em" != "$rem" ]; then found="Entry mode: $em, the root says $rem"
+      elif [ -z "$rem" ]; then found="Entry mode: $em, the root has none"
+      else found="Entry mode"; fi
+    fi
+    awk '/^## Current stage/{f=1;next} f && /^\*\*Stage/{ok=1; exit} END{exit !ok}' "$f" 2>/dev/null && found="${found:+$found; }Current stage"
+    grep -qiE '^Adopted at stage:' "$f" 2>/dev/null && found="${found:+$found; }Adopted at stage"
+    nd="$(grep -cE '^\|.*\|[[:space:]]*\**(CONFIRMED|ASSUMED)' "$f" 2>/dev/null || true)"
+    [ "${nd:-0}" -gt 0 ] && found="${found:+$found; }$nd decision row(s)"
+    [ -n "$found" ] && printf '%s\tapps/%s/PROJECT.md holds register lines (%s): the register is the root PROJECT.md, which gate-check reads; move them there and leave the app file a pointer\n' "$a" "$a" "$found"
+  done <<EOF
+$apps
+EOF
+  return 0
+}

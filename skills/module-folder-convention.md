@@ -194,7 +194,9 @@ register (`PROJECT.md`), one root `intake.md` for answers shared by every app, a
 `apps/<App>/` — that folder is the Mendix project Studio Pro commits and mxbuild packages. Module
 briefs stay `architecture/modules/<Module>/module-brief.md` with an `**App:** <App>` line, because
 every brief reader looks there. `init-project.sh` / `sync-project.sh` scaffold this and the index
-`architecture/apps/README.md`; select one app with `MXTK_APP=<App>` or `--app <App>`.
+`architecture/apps/README.md`; select one app with `MXTK_APP=<App>` or `--app <App>`. An app's
+own `PROJECT.md` (from `mxcli init` per app) is not a register: write decisions to the root one;
+gate-check and status warn when an app's file holds register lines.
 
 Done when every app in `architecture/apps/README.md` has an intake and a build-plan section.
 Failure it prevents (field run, 2026-11): four apps, no per-app intake, one free-form brief

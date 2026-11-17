@@ -28,6 +28,9 @@ set -uo pipefail
 
 _OB_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 OBLIGATIONS_TSV="${OBLIGATIONS_TSV:-$_OB_LIB_DIR/obligations.tsv}"
+# entry_mode_token: the one tokeniser artifact-check.sh also uses (never a second parser).
+# shellcheck source=entry-mode.sh
+[ -r "$_OB_LIB_DIR/entry-mode.sh" ] && . "$_OB_LIB_DIR/entry-mode.sh"
 
 # Skills in the `verify` group that deliberately owe no per-module artifact. The reverse check
 # warns about any verify-group skill NOT named by an obligation; anything listed here is an
@@ -631,6 +634,16 @@ mxtk_obligations_report() {
   local adopted_rank=0
   [ -n "$adopted" ] && adopted_rank="$(_ob_rank "$adopted")"
 
+  # Entry mode, in the manifest's tokens (artifact-check.sh _art_entry_mode, same translation).
+  # Unknown or absent = every row owed.
+  local mode="" raw_mode line
+  if command -v entry_mode_token >/dev/null 2>&1; then
+    _ob_register_norm "$reg"
+    raw_mode="$(printf '%s\n' "$_OB_REG_NORM" | awk -F'\t' '$1=="entry mode"{print $2; exit}')"
+    [ -n "$raw_mode" ] && mode="$(entry_mode_token "$raw_mode" 2>/dev/null)"
+    [ "$mode" = "requirements-driven" ] && mode="requirements"
+  fi
+
   local current; current="$(_ob_current_stage "$reg")"
   local current_rank=99
   [ -n "$current" ] && current_rank="$(_ob_rank "$current")"
@@ -650,8 +663,18 @@ mxtk_obligations_report() {
   local limit_rank=99 skipped_n=0 from_rank
   [ -n "${MXTK_ROWS_UPTO:-}" ] && limit_rank="$(_ob_rank "$MXTK_ROWS_UPTO")"
 
-  while IFS=$'\t' read -r ob performer scope match artifact denom degradable from_stage skill; do
+  local modes
+  while IFS=$'\t' read -r ob performer scope match artifact denom degradable from_stage skill modes; do
     case "$ob" in ''|'#'*|obligation) continue ;; esac
+
+    # Entry mode (column 10): a row the declared mode does not owe is said out loud, never PASS.
+    if [ -n "$mode" ] && [ -n "$modes" ]; then
+      case ",$modes," in
+        *",$mode,"*) ;;
+        *) printf 'Obligation %-10s N/A — not owed (entry mode %s; row modes: %s) (%s)\n' "$ob" "$mode" "$modes" "$skill"
+           continue ;;
+      esac
+    fi
 
     # _ob_rank inline: it was a command substitution (a fork) three times per row.
     case "$from_stage" in P|p) from_rank=0 ;; [0-7]) from_rank=$(( from_stage + 1 )) ;; *) from_rank=99 ;; esac

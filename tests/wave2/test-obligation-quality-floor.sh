@@ -108,5 +108,18 @@ echo "== T8: gate-check Stage 5 on the multi-app copy shows the floor =="
 out="$("$GATE" --no-html "$P" 5 2>&1)"
 case "$out" in *"Obligation look"*PENDING*) ok "gate-check prints look PENDING" ;; *) bad "gate-check: $(printf '%s\n' "$out" | grep -m1 'Obligation look')" ;; esac
 
+echo "== T9: entry-mode column — a mode a row does not list reads N/A, never PASS; unknown mode owes =="
+Q="$WORK/mode"; mkdir -p "$Q/architecture/modules/Orders"
+awk -F'\t' 'BEGIN{OFS="\t"} !/^#/ && NF==10 && $1=="look"{$10="migration"} {print}' "$(dirname "$OBCHECK")/obligations.tsv" > "$WORK/ob-mode.tsv"
+mrow() { OBLIGATIONS_TSV="$WORK/ob-mode.tsv" MXTK_ROWS_UPTO=5 "$OBCHECK" "$Q" 2>/dev/null | grep '^Obligation look ' | head -1; }
+printf 'Entry mode: greenfield\n' > "$Q/PROJECT.md"
+case "$(mrow)" in *"N/A — not owed (entry mode greenfield"*) ok "greenfield not owed a migration-only row" ;; *) bad "greenfield: $(mrow)" ;; esac
+printf 'Entry mode: migration\n' > "$Q/PROJECT.md"
+case "$(mrow)" in *PENDING*) ok "migration still owes it" ;; *) bad "migration: $(mrow)" ;; esac
+printf 'Toolkit commit: none\n' > "$Q/PROJECT.md"
+case "$(mrow)" in *PENDING*) ok "no Entry mode line owes it" ;; *) bad "no mode: $(mrow)" ;; esac
+printf 'Entry mode: greenfield\n' > "$Q/PROJECT.md"
+case "$(MXTK_ROWS_UPTO=5 "$OBCHECK" "$Q" 2>/dev/null | grep '^Obligation look ')" in *PENDING*) ok "shipped table: greenfield owes look" ;; *) bad "shipped table changed a verdict" ;; esac
+
 echo "pass=$PASS fail=$FAIL"
 [ "$FAIL" -eq 0 ]

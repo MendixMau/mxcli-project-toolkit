@@ -112,8 +112,13 @@ _mxtk_resolve_root() {
   _src="${BASH_SOURCE[2]:-${BASH_SOURCE[1]:-${BASH_SOURCE[0]}}}"
   _sd="${_src%/*}"; [ "$_sd" != "$_src" ] || _sd=.
   self_parent=$(cd "$_sd/.." 2>/dev/null && pwd)
-  # tier 2: the script sits in a real project's bin/ (a model in any of the three layouts)
+  # tier 2: the script sits in a real project's bin/ (a model in any of the three layouts).
+  # A copy installed INSIDE an app folder (apps/<App>/bin/, e.g. init-project.sh run there) defers
+  # to the outer multi-app project, by the same rule the walk applies (_mxtk_outer_project): it
+  # must not escape the outer register (review of #789: under auto, its exec.sh read the app's
+  # own PROJECT.md and the plan rule never fired).
   if [ -n "$self_parent" ] && _mxtk_has_model "$self_parent"; then
+    _mxtk_outer_project "$self_parent" && self_parent="$_MXTK_OUTER"
     printf '%s\n' "$self_parent"; return 0
   fi
   # tier 3: walk up from $PWD (mxtk_walk_root).

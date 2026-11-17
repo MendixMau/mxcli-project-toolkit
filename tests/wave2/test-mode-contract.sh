@@ -19,7 +19,8 @@
 #      in gate-check.sh's --adopt ✋ check; `autopilot` is not
 #   U  no Entry mode under auto is refused every write; attended keeps the banner only
 #   X  exec.sh called by relative paths from inside apps/<App> (../../bin/exec.sh
-#      ../../mdlsource/x.mdl) is refused under auto exactly as the absolute call is
+#      ../../mdlsource/x.mdl) is refused under auto exactly as the absolute call is; so is an
+#      exec.sh copy installed in apps/<App>/bin/ (its root defers to the outer project)
 #   G  init-project.sh over a hand-written PROJECT.md appends Current stage, Decisions, Open
 #      questions and Change log, says so, and keeps the hand-written lines
 #
@@ -133,6 +134,12 @@ autorefused && ok "X the same call by absolute paths → refused" || bad "X abso
 mkdir -p "$P/.mpr-snapshots"; printf 'build-ready PASS\n' > "$P/.mpr-snapshots/.build-ready-pass"
 runat "$P/apps/Orders" ../../bin/exec.sh ../../mdlsource/01-thing.mdl
 passed && ok "X after build-ready the relative call reaches the check (the script resolved)" || bad "X relative call after build-ready" "calls=$CALLS_N"
+# a copy installed INSIDE an app folder (apps/<App>/bin/exec.sh, init-project.sh run there) must
+# not escape the outer register: its root is the outer multi-app project (_common.sh tier 2)
+rm -f "$P/.mpr-snapshots/.build-ready-pass"
+mkdir -p "$P/apps/Orders/bin"; cp "$P/bin/"*.sh "$P/apps/Orders/bin/"
+runat "$P/apps/Orders" ./bin/exec.sh ../../mdlsource/01-thing.mdl
+autorefused && ok "X an apps/Orders/bin/exec.sh copy defers to the outer register → refused" || bad "X in-app exec.sh copy → refused" "calls=$CALLS_N"
 echo "-- W: auto read by its first word, not the exact value (one helper: mxtk_auto_word)"
 # Field smoke run: `Interview mode: auto (gate questions go to questions.md ...)` was read as attended,
 # so the second write got past the plan rule on refuse-once.

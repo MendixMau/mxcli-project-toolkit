@@ -78,9 +78,12 @@ _mxtk_emt() {
 #   POS_WAIVED4   1 when a "Waived stage 4:" line carries a reason, or a "Waived stages:" line lists 4
 #                 before its dash with a reason after it (the two spellings gate-check.sh reads)
 #   POS_READOUT   the stage in gate-check.sh's "## Current stage" readout ("**Stage 5 — ..."), or ""
+#   POS_AUTO      1 when the interview mode resolves to auto (unattended): $CLAUDE_INTERVIEW_MODE,
+#                 else .claude/.interview-mode, else the register line — bin/interview-mode.sh's
+#                 order. A value with trailing text is not auto there either (it reads steering).
 mxtk_pos_read() {
-  local root="$1" reg line key val in_c=0 in_cur=0 entry_raw="" ad="" bt="" _nc=0
-  POS_REG=0; POS_ENTRY=""; POS_ADOPTED=""; POS_BUILD="full"; POS_WAIVED4=0; POS_READOUT=""
+  local root="$1" reg line key val in_c=0 in_cur=0 entry_raw="" ad="" bt="" im="" _nc=0
+  POS_REG=0; POS_ENTRY=""; POS_ADOPTED=""; POS_BUILD="full"; POS_WAIVED4=0; POS_READOUT=""; POS_AUTO=0
   reg="$root/PROJECT.md"
   shopt -q nocasematch && _nc=1; shopt -s nocasematch
   if [ -f "$reg" ]; then
@@ -100,6 +103,7 @@ mxtk_pos_read() {
       if   [ -z "$entry_raw" ] && [[ "$key" == "entry mode" ]]; then entry_raw="$val"
       elif [ -z "$ad" ] && [[ "$key" == "adopted at stage" ]]; then ad="$val"
       elif [ -z "$bt" ] && [[ "$key" == "build type" ]]; then bt="$val"
+      elif [ -z "$im" ] && [[ "$key" == "interview mode" ]]; then im="$val"
       elif [[ "$key" == "waived stage 4" ]]; then POS_WAIVED4=1
       elif [[ "$key" == "waived stages" ]]; then
         # The aggregate spelling gate-check.sh also honours ("Waived stages: 1, 2, 3, 4 — reason"):
@@ -125,6 +129,11 @@ mxtk_pos_read() {
     done < "$root/intake.md"
   fi
   [[ "$bt" =~ ^[[:blank:]]*poc([^a-z]|$) ]] && POS_BUILD="poc"
+  if [ -n "${CLAUDE_INTERVIEW_MODE:-}" ]; then im="$CLAUDE_INTERVIEW_MODE"
+  elif [ -f "$root/.claude/.interview-mode" ]; then IFS= read -r im < "$root/.claude/.interview-mode" || true
+  fi
+  im="${im//\`/}"; im="${im%.}"
+  [[ "$im" =~ ^[[:blank:]]*(auto|unattended)[[:blank:]]*$ ]] && POS_AUTO=1
   [[ "$ad" =~ ^[[:blank:]]*([Pp0-7])([^0-9]|$) ]] && POS_ADOPTED="${BASH_REMATCH[1]}"
   [ "$_nc" = 1 ] || shopt -u nocasematch
   if [ -n "$entry_raw" ]; then _mxtk_emt "$entry_raw" 2>/dev/null; POS_ENTRY="$_EMT"; fi

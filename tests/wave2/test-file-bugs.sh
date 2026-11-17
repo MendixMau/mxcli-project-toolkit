@@ -469,7 +469,7 @@ sys.exit(not (pats and m("bin/file-bugs.sh --all") and m("bin/file-bugs.sh --fil
               and m("bin/file-bugs.sh --import b.md") and m("bin/file-bugs.sh --import b.md --dry-run")
               and m("bin/lib/file-bugs.py --import b.md") and not m("bin/file-bugs.sh --bundle")))
 PYX'
-chk "init-project ships the opt-in commented out" 'grep -q "<!-- Bug filing: auto" "$TOOLKIT/bin/init-project.sh"'
+chk "init-project ships the opt-in commented out" 'grep -q "<!-- Bug filing: auto" "$TOOLKIT/bin/lib/register-skeleton.sh"'
 GC="$W/gc"; rm -rf "$GC"; mkdir -p "$GC/docs"; printf '# PROJECT.md\n\n## Current stage\n' > "$GC/PROJECT.md"
 printf '%s\n' '{"id":"PBUG-01","status":"open"}' '{"id":"PBUG-02","status":"filed"}' '{"id":"PBUG-03"}' > "$GC/docs/bugs.jsonl"
 OUT="$("$TOOLKIT/bin/gate-check.sh" --closeout "$GC" 0 2>&1)"; RC=$?

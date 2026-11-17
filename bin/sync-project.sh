@@ -82,6 +82,7 @@ AGENTS="$MXTK_AGENTS"
 . "$SCRIPT_DIR/lib/ritual-template.sh"
 # The PROJECT.md "## Change log" section (skills/change-intake.md): same text init-project.sh writes.
 . "$SCRIPT_DIR/lib/change-log.sh"
+. "$SCRIPT_DIR/lib/register-skeleton.sh"
 
 # Item 3 of wire-agents.sh's stamped block, the one text shared with the in-place repair step
 # below (5c) — see that file's header for why it is not typed twice.
@@ -822,6 +823,16 @@ fi
 # anyone edited by hand is left alone.
 if mxtk_ritual_heal "$CL" "$DRY_RUN"; then
   echo "${DRY:-}Rewrote: CLAUDE.local.md session-start ritual — the short version (main session only; the ack procedure now comes from gate-check's own notice)."
+  CHANGES=$((CHANGES + 1))
+fi
+# --- 2b0. PROJECT.md without the register's structure (hand-written before init; field run,
+# 2026-11): append the missing sections from the one template (bin/lib/register-skeleton.sh),
+# loudly, never touching what is there. Runs before the Toolkit-commit line below, so a register
+# that gets the Current-stage section here does not also get a second commit line.
+if [ -f "$PROJECT_DIR/PROJECT.md" ] && [ -n "$(mxtk_register_missing "$PROJECT_DIR/PROJECT.md")" ]; then
+  _reg_added="$(mxtk_register_fill "$PROJECT_DIR/PROJECT.md" \
+    "Toolkit commit: (set at session start — see CLAUDE.local.md ritual)" w_app | tr '\n' ',' | sed 's/,$//; s/,/, /g')"
+  echo "⚠ ${DRY:-}Updated: PROJECT.md had no decision-register structure — appended: $_reg_added (bin/lib/register-skeleton.sh). Review them: the ✋ gates read the Decisions table."
   CHANGES=$((CHANGES + 1))
 fi
 if [ -f "$PROJECT_DIR/PROJECT.md" ] && ! grep -q "Toolkit commit:" "$PROJECT_DIR/PROJECT.md"; then

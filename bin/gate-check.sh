@@ -688,6 +688,8 @@ fi
 # then excused stages on that label. See bin/lib/entry-mode.sh for why.
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")/lib" && pwd)/entry-mode.sh"
 ENTRY_MODE="$(entry_mode_token "$ENTRY_RAW")"
+BUILD_TYPE="$(reg_field "build type" 2>/dev/null || true)"
+case "$(printf '%s' "$BUILD_TYPE" | tr '[:upper:]' '[:lower:]')" in poc|poc[!a-z]*) BUILD_TYPE=poc ;; *) BUILD_TYPE=full ;; esac
 
 # stage_waiver <stage> — "<scope>|<reason>", or nothing. Most specific source of truth first.
 #
@@ -728,24 +730,33 @@ stage_waiver() {
       "$ADOPTED_AT" "${ADOPTED_REASON:+: $ADOPTED_REASON}"
     return 0
   fi
+  # The mode contract (conversion-runbook.md → Entry Modes; artifact-manifest.tsv column 6).
+  # `Build type: poc` is its own contract whatever the entry mode: skills/poc-build.md owes its
+  # steps and must-haves, not stage gates, so 0-4, 6 and 7 read "not owed (mode)" instead of a
+  # PENDING row nobody may clear. Stage 5 stays checked (MANUAL), and P (the build-type answer).
+  if [ "$BUILD_TYPE" = poc ]; then
+    case "$st" in
+      [0-4]|6|7) printf 'mode|not owed (mode: Build type: poc) — skills/poc-build.md owes steps 1–9 and its must-haves instead\n'; return 0 ;;
+    esac
+  fi
   # Entry mode. The runbook's Entry Modes table already says these stages do not run; until now
   # the gate did not know that, so it demanded artifacts the runbook had excused.
   case "$ENTRY_MODE" in
     greenfield)
       case "$st" in
-        1|2|3|4) printf 'mode|greenfield entry mode — stages 1–4 collapse into the design front end and short plan (conversion-runbook.md → Entry Modes)\n'; return 0 ;;
+        1|2|3|4) printf 'mode|not owed (mode: greenfield) — stages 1–4 collapse into the design front end and short plan (conversion-runbook.md → Entry Modes)\n'; return 0 ;;
       esac ;;
     requirements-driven)
       case "$st" in
-        7) printf 'mode|requirements-driven entry mode — no legacy system to cut over from; if legacy data turns up, record a Stage-7 decision and this goes back to being checked (conversion-runbook.md → Entry Modes)\n'; return 0 ;;
+        7) printf 'mode|not owed (mode: requirements-driven) — no legacy system to cut over from; if legacy data turns up, record a Stage-7 decision and this goes back to being checked (conversion-runbook.md → Entry Modes)\n'; return 0 ;;
       esac ;;
     existing-app-change)
       case "$st" in
-        7) printf 'mode|existing-app entry mode — the app is live and stays live; there is no cutover (existing-app-change.md → Deliverables)\n'; return 0 ;;
+        7) printf 'mode|not owed (mode: existing-app) — the app is live and stays live; there is no cutover (existing-app-change.md → Deliverables)\n'; return 0 ;;
       esac ;;
     a-la-carte)
       case "$st" in
-        [0-7]) printf 'mode|a-la-carte entry mode — no pipeline: audit or tooling use only (existing-app-assurance.md); declare another mode to run the stages\n'; return 0 ;;
+        [0-7]) printf 'mode|not owed (mode: a-la-carte) — no pipeline: audit or tooling use only (existing-app-assurance.md); declare another mode to run the stages\n'; return 0 ;;
       esac ;;
   esac
   return 1
@@ -2618,10 +2629,16 @@ check_build_ready() {
     echo "  ✓ Fit-gap: not owed — project joined the toolkit at stage $ADOPTED_AT"
   elif fg_w="$(artifact_waived fit-gap)"; then
     echo "  ✓ Fit-gap: WAIVED — $fg_w"
-  elif [ -z "$fg_path" ] && fg_w="$(stage_waiver 3)" && [ "${fg_w%%|*}" != "noreason" ]; then
-    echo "  ✓ Fit-gap: not owed — ${fg_w#*|}"
   elif [ -z "$fg_path" ] && case "$(printf '%s' "$bt_raw" | tr '[:upper:]' '[:lower:]')" in poc|poc[!a-z]*) true ;; *) false ;; esac; then
+    # Before stage_waiver: that now also excuses Stage 3 for poc, in its own words.
     echo "  ✓ Fit-gap: not owed — Build type: poc (skills/poc-build.md) and no fit-gap exists"
+  elif [ -z "$fg_path" ] && fg_w="$(stage_waiver 3)" && [ "${fg_w%%|*}" != "noreason" ]; then
+    # A mode reason reads "not owed (mode: <m>) — <why>"; this line already says "not owed".
+    fg_r="${fg_w#*|}"
+    case "$fg_r" in "not owed (mode: "*)
+      fg_m="${fg_r#not owed (mode: }"; fg_r="${fg_m%%)*} entry mode ${fg_m#*) }" ;;
+    esac
+    echo "  ✓ Fit-gap: not owed — $fg_r"
   else
     if ! type mxtk_fitgap_review >/dev/null 2>&1; then
       # shellcheck source=lib/marketplace-check.sh
@@ -3227,6 +3244,25 @@ register_set_line() { # register_set_line <Label> <value> — replace the line, 
   printf '\n## Toolkit position\n\n%s: %s\n' "$label" "$value" >> "$REGISTER"
 }
 
+# register_add_decision <stage> <decision> <status> <notes> — append one row to the register's
+# "## Decisions" table (after its last row), or a new section when there is none.
+register_add_decision() {
+  local tmp row; tmp="$(mktemp "${TMPDIR:-/tmp}/gc-dec.XXXXXX")" || return 1
+  row="| $1 | $2 | $3 | $4 |"
+  if awk -v row="$row" '
+       /^##[ \t]+Decisions/ { insec = 1 }
+       insec && /^\|/ { intab = 1; print; next }
+       insec && intab && !/^\|/ { print row; done = 1; insec = 0; intab = 0 }
+       insec && /^##[ \t]/ && !/Decisions/ { if (!done) { print row; print ""; done = 1 }; insec = 0 }
+       { print }
+       END { if (insec && !done) { print row; done = 1 }; exit !done }
+     ' "$REGISTER" > "$tmp"; then
+    cat "$tmp" > "$REGISTER"; rm -f "$tmp"; return 0
+  fi
+  rm -f "$tmp"
+  printf '\n## Decisions\n\n| Stage | Decision | Status | Notes |\n|---|---|---|---|\n%s\n' "$row" >> "$REGISTER"
+}
+
 if [ -n "$ADOPT_STAGE" ] || [ -n "$WAIVE_STAGE" ]; then
   if [ -z "$REGISTER" ] || [ ! -f "$REGISTER" ]; then
     echo "No decision register (PROJECT.md) found under $PROJECT_DIR — nothing to record in." >&2
@@ -3241,6 +3277,25 @@ if [ -n "$ADOPT_STAGE" ] || [ -n "$WAIVE_STAGE" ]; then
     echo "Recorded in $REGISTER:  Adopted at stage: $ADOPT_STAGE — $WAIVER_REASON"
     echo "Every stage before $ADOPT_STAGE now reports WAIVED and exits 0. Stage P is deliberately"
     echo "not covered — the kickoff interview is how the toolkit learns what this project is."
+    # UNATTENDED IS THE PRIMARY CASE (2026-11-17). Under `Interview mode: auto` an agent can adopt
+    # past the design and plan stages with any reason it likes, so on a pipeline-mode project an
+    # adoption that skips Stage 3 or 4 is also a ✋ decision a person still owes: an ASSUMED row
+    # stamped consentBy: auto-mode, which auto_hand_pending() lists on every run and which keeps
+    # Stage 6 FAILing until a person puts their name in consentBy. Interactive runs are unchanged.
+    case "$ADOPT_STAGE" in 4|5|6|7)
+      case "$ENTRY_MODE" in migration|requirements-driven)
+        if [ "$(bash "$TOOLKIT_DIR/bin/interview-mode.sh" "$PROJECT_DIR" 2>/dev/null)" = auto ]; then
+          _ad_st=4; [ "$ADOPT_STAGE" = 4 ] && _ad_st=3
+          register_add_decision "$_ad_st" "Adopted at stage $ADOPT_STAGE (skips design/plan): $WAIVER_REASON" "ASSUMED" \
+            "consentBy: auto-mode · consentAt: $(date -u +%Y-%m-%d) — ✋ human-pending: a person confirms or overturns it (their name in consentBy); Stage 6 FAILs until then" \
+            || { echo "Could not write the ✋ decision row to $REGISTER" >&2; exit 1; }
+          build_log_append "TOOLKIT-ADOPTED-AT $ADOPT_STAGE human-pending (Interview mode: auto)"
+          echo "✋ Interview mode: auto — this adoption skips Stage $_ad_st on a $ENTRY_MODE project, so it is"
+          echo "  recorded as a human-pending Stage-$_ad_st decision (ASSUMED, consentBy: auto-mode). It clears the"
+          echo "  plan rule for building, and Stage 6 FAILs until a person confirms it."
+        fi ;;
+      esac ;;
+    esac
   else
     # An obligation waiver (bin/lib/obligations.tsv) uses the SAME flag and the same reason
     # requirement, because a second waiver vocabulary is a second place to look and a second
@@ -4654,6 +4709,18 @@ if [ -n "$REQUESTED_STAGE" ]; then
     echo ""
     if check_build_ready; then
       enforce_open_questions build-ready
+      # The record exec.sh's plan rule reads under Interview mode: auto (project-bin/exec.sh,
+      # "Declared position + plan rule"): exec cannot afford a gate-check per write. Sticky on
+      # purpose — a later FAIL does not remove it, so a wiring repair is never blocked by the
+      # rule it is repairing (guard rule 7). Local, gitignored, like the exec lock beside it.
+      # Ignored BEFORE the stamp lands, as exec.sh does for its own stamp (a committed stamp would
+      # clear the auto-mode plan rule in every clone of the repository).
+      if [ -r "$TOOLKIT_DIR/bin/lib/gitignore-ensure.sh" ]; then
+        . "$TOOLKIT_DIR/bin/lib/gitignore-ensure.sh"
+        mxtk_gitignore_ensure "$PROJECT_DIR/.gitignore" ".mpr-snapshots" "/.mpr-snapshots/" || true
+      fi
+      mkdir -p "$PROJECT_DIR/.mpr-snapshots" 2>/dev/null \
+        && printf '%s build-ready PASS (bin/gate-check.sh)\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$PROJECT_DIR/.mpr-snapshots/.build-ready-pass" 2>/dev/null || true
       exit 0
     else
       exit 1

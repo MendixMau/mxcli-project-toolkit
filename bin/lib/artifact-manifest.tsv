@@ -43,8 +43,11 @@
 #   4 producer    the skill step or script that emits it — the thing a PENDING row tells you
 #                 to run
 #   5 consumers   the citations that earn the row its place (see above)
-#   6 modes       comma list of entry modes that owe it:
-#                 migration,requirements,greenfield,existing-app-change
+#   6 modes       THE MODE CONTRACT: comma list of the entry modes that owe it, in the tokens
+#                 bin/lib/entry-mode.sh produces (shared with obligations.tsv's modes column):
+#                 migration,requirements,greenfield,existing-app-change. A mode not listed reports
+#                 "not owed (mode …)", never PASS; a listed one missing reports PENDING as before.
+#                 `Build type: poc` is a separate axis, read by gate-check.sh, not a token here.
 #                 (conversion-runbook.md §"Entry Modes", its table; existing-app-change runs
 #                 P–6 per slice, so it owes every row but coverage-ledger — that mode's ledger
 #                 is `mxcli brain plan`, existing-app-change.md §"Coverage in this mode") — plus

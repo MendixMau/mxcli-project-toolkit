@@ -171,7 +171,7 @@ GC="$("$TOOLKIT/bin/gate-check.sh" "$P" 2>&1)"
 case "$GC" in *"No entry mode declared"*) bad "gate-check silent once declared" ;; *) ok "gate-check silent once declared" ;; esac
 mkproj single "Entry mode: a-la-carte"
 GC="$("$TOOLKIT/bin/gate-check.sh" "$P" 3 2>&1)"
-case "$GC" in *"a-la-carte entry mode — no pipeline"*) ok "a-la-carte stages read WAIVED with the reason" ;; *) bad "a-la-carte stages read WAIVED with the reason" "$(printf '%s\n' "$GC" | grep -m2 '^Stage [0-3]')" ;; esac
+case "$GC" in *"not owed (mode: a-la-carte) — no pipeline"*) ok "a-la-carte stages read WAIVED with the reason" ;; *) bad "a-la-carte stages read WAIVED with the reason" "$(printf '%s\n' "$GC" | grep -m2 '^Stage [0-3]')" ;; esac
 
 echo ""
 echo "== $PASS passed, $FAIL failed"

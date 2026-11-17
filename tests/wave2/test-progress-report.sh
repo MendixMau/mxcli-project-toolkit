@@ -484,7 +484,7 @@ CALLS_JSON='[["ls",30,0],["ls",30,0]]' mklog "$CFGW" "$PW" "$(( $("$PY" -c 'impo
 CLAUDE_CONFIG_DIR="$CFGW" bash "$SCRIPT" "$PW" --html >/dev/null 2>&1
 RW2F="$PW/architecture/progress-report.html"
 grep -q "<a href='#stage-1'>Stage 1</a></td><td colspan=6><b>not applicable</b>: waived" "$RW2F" && grep -q "<a href='#stage-3'>Stage 3</a></td><td colspan=6><b>not applicable</b>: waived" "$RW2F" && ok "waived stages read not applicable" || bad "not applicable labels"
-grep -E "Stage [1-4]</a></td><td colspan=6><b>boundary not detected" "$RW2F" >/dev/null && bad "a skipped stage was called not detected" || ok "no false boundary not detected for skipped stages"
+grep -E "Stage [13]</a></td><td colspan=6><b>boundary not detected" "$RW2F" >/dev/null && bad "a skipped stage was called not detected" || ok "no false boundary not detected for skipped stages"
 
 echo "T16 narrow-width CSS (phone)"
 GEN="$ROOT/project-bin/progress-report.py"

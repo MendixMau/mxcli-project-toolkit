@@ -119,6 +119,16 @@ if git rev-parse --git-dir >/dev/null 2>&1; then
   fi
 fi
 
+# ---- the look ledger, as a tracked summary ------------------------------
+# .claude/loop/ is git-ignored, so without this "N owed, 0 seen" exists only in this container.
+# look-ledger.sh rewrites docs/progress/look-summary.tsv (tracked) only when a count moved; the
+# `git commit` below carries it. Fail-open: a missing ledger script prints nothing, owes nothing.
+LOOK_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/look-ledger.sh"
+if [ -f "$LOOK_SCRIPT" ] && [ -s "$ROOT/.claude/loop/look/owed.tsv" ]; then
+  look_line=$(PROJECT_ROOT="$ROOT" bash "$LOOK_SCRIPT" summary --write 2>/dev/null)
+  [ -n "$look_line" ] && { echo "### Look ledger"; echo; echo "- $look_line — commit docs/progress/look-summary.tsv with the rest"; echo "- READY / done is claimed only by \`$MXTK_ROOT/bin/ready.sh $ROOT [--module M]\`"; echo; }
+fi
+
 # ---- the routing table -------------------------------------------------
 cat <<'TABLE'
 ### Where each thing goes — route by lifespan and audience, not topic

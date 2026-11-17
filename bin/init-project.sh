@@ -337,6 +337,8 @@ This project uses the shared toolkit at \`$TOOLKIT_ROOT\`. For ANY pipeline work
 3. **Every gate question is asked in chat, then the turn ends and waits** (runbook §1).
    \`ASSUMED\` is earned by asking — the user said "you decide" — never by skipping.
 4. **Before calling a stage done:** \`$TOOLKIT_ROOT/bin/gate-check.sh <project-root> <stage>\`.
+   **READY / done on a module or the app only via** \`$TOOLKIT_ROOT/bin/ready.sh <project-root> [--module M]\`
+   — it writes the READY line and commits the evidence; never write READY by hand.
 5. **Before any page MDL:** read \`$TOOLKIT_ROOT/skills/ui-preflight-pages.md\` in full — its
    *text*; a delegated page draft carries the text or reads the file first. **After it:** the
    \`check-page-shell\`, \`page-fidelity\` and \`ui-loop\` rows below, then look at the page at

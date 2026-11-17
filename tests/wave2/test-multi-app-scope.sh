@@ -113,6 +113,13 @@ cp "$T/root-register" "$P/PROJECT.md"
 N="$T/nested"; mkdir -p "$N/apps/X/.claude" "$N/.claude"; : > "$N/PROJECT.md"; : > "$N/apps/X/PROJECT.md"; : > "$N/apps/X/X.mpr"
 r="$(clean_env bash -c "cd '$N/apps/X'; . '$COMMON'; echo \"\$PROJECT_ROOT\"")"
 eq "A1 no outer register: the app folder keeps its own root" "$r" "$N/apps/X"
+# ONE app under an outer folder WITH a real register (toolkit-scaffolded: ## Current stage):
+# resolves to the outer folder. A deliberate change from #489, where apps/X kept its own root
+# (one register is the intent; reviewer of #789 asked for it to be pinned).
+printf '# Project\n\n## Current stage\n**Stage 1 — x**\n' > "$N/PROJECT.md"
+r="$(clean_env bash -c "cd '$N/apps/X'; . '$COMMON'; echo \"\$PROJECT_ROOT\"")"
+eq "A1 one app, outer register: resolves to the outer project (deliberate change from #489)" "$r" "$N"
+: > "$N/PROJECT.md"
 # one line per app FOLDER: a second .mpr does not make a second app
 : > "$P/apps/AppC/Copy.mpr"; mv "$P/apps/AppD/AppD.mpr" "$P/apps/AppD/Zz.mpr"; : > "$P/apps/AppD/Other.mpr"
 r="$(clean_env bash -c "cd '$P'; . '$COMMON'; mxtk_apps | grep -E '^App[CD]'; echo n=\$(mxtk_app_count)")"

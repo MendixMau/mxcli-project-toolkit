@@ -3,7 +3,7 @@
 **Applies to:** a project whose kickoff answer (intake Q16) is the POC build, or whose user explicitly asks for one past kickoff; `PROJECT.md` says `Build type: poc`.
 **Purpose:** A clickable, good-looking, working app in front of people fast, continuable by a normal build.
 
-**Status: EXPERIMENTAL.** Two builds driven by this text, one model, small apps. First (fictional visitor-pass app, ~36 min): "nearly demo-ready", function 26 of 29, design ~4.1 of 5 (not blind), journey 22/22. Second (kickoff question asked first, answered POC; ~64 min): a blind grader compared it with the same requirements built in plain plan mode with no toolkit: function 25 of 25 against 24 of 24 testable; refusals in-page 7 of 7 against 2 of 6; must-haves 10 of 10 against 5 of 10; visual mean 3.8 against 3.6; hand-over 22 of 24 against 12 of 24; time ~64 against ~27 min (both ran in parallel, inflated). The gain is the must-have list and the hand-over, not the look, and it costs time. NOT proven: a real person answering (answers and approval came from a prepared file). The test cadence (steps 7–8) changed after both builds (#770) and is unmeasured.
+**Status: EXPERIMENTAL.** Two builds driven by this text, one model, small apps. First (fictional visitor-pass app, ~36 min): "nearly demo-ready", function 26 of 29, design ~4.1 of 5 (not blind), journey 22/22. Second (kickoff question asked first, answered POC; ~64 min): a blind grader compared it with the same requirements built in plain plan mode with no toolkit: function 25 of 25 against 24 of 24 testable; refusals in-page 7 of 7 against 2 of 6; must-haves 10 of 10 against 5 of 10 (the list now in `skills/must-haves.md`); visual mean 3.8 against 3.6; hand-over 22 of 24 against 12 of 24; time ~64 against ~27 min (both ran in parallel, inflated). The gain is the must-have list and the hand-over, not the look, and it costs time. NOT proven: a real person answering (answers and approval came from a prepared file). The test cadence (steps 7–8) changed after both builds (#770) and is unmeasured.
 
 **Who asks.** The kickoff interview asks the build type first, at project birth (intake Q16; rendering per `skills/interview-protocol.md` §3). On a POC answer `Build type: poc` is recorded `CONFIRMED` in `PROJECT.md`, and this skill is the flow; the other intake questions are not asked. A missing `Build type:` line means `full`; `Interview mode: auto` never picks `poc`. A project past kickoff whose user only says "we need a demo this week" does NOT switch: the lead says in one line that the build type is chosen at the start and offers to continue the normal build (optionally `Pipeline mode: high-speed`). Switching follows the runbook's "Mode changes are decisions" (`conversion-runbook.md` → Entry Modes), the one statement of that rule. A POC build does **not** run the nine stage gates. Stage P still checks that every `intake.md` question carries an answer marker, so write them: Q16 `Answered (CONFIRMED): POC build`, and under each of Q1–Q15 exactly `Unverified — how to verify: not asked, POC build (Build type: poc, skills/poc-build.md); ask it if the build continues as a full build`. Then `bin/gate-check.sh` shows Stage P `PASS` (markers present; it says nothing about those answers), Stages 0–4, 6, 7 `WAIVED` — "not owed (mode: Build type: poc)", the mode contract — and Stage 5 `MANUAL`. *Failure: unmarked questions kept Stage P at `FAIL` for the whole build.* No answer: end the turn and wait (`skills/interview-protocol.md` §3); `ASSUMED` only when the user said "you decide" (= `full`).
 
@@ -41,31 +41,16 @@ Design artifacts (design system, wireframes, clickable prototype) → one **APPR
 
 STILL BINDING in a POC build: access rules and grants in the same script that creates the entity or microflow (`skills/security-is-not-a-later-script.md`), every model write through `bin/exec.sh` (`--commit-first`), exec approval mode, the Production security level, ask-then-stop for every question, explicit-path commits (`git commit -- <paths>`, never `git add -A` or `git add .`), and saying in chat before a destructive or security-level change.
 
-## Must-have checklist (all 12 rows ticked or listed as NOT DONE with a reason)
+## Must-have checklist
 
-| # | Check | Failure it prevents |
-|---|---|---|
-| 1 | User name, role and logout visible in the top bar | Demo cannot show who is signed in |
-| 2 | An empty state on every list | A blank white area reads as broken |
-| 3 | Seed data visible to the demo user who should see it | "My requests" empty: seeded rows had no owner |
-| 4 | Every refusal is a friendly in-page message, never the default error dialog | Refusal showed the stock error box |
-| 5 | The active navigation item is the current page, checked on first landing after login and on a deep link, not after a menu click | Item bold only after a click; first page seen had none active |
-| 6 | No list silently capped: visible pager or count | Gallery stopped at 20 items; journey run 3 failed |
-| 7 | Every page checked at 1280 and at 390, and every role reaches each of its pages at 390 | Nav clipped, modal buttons below the fold; menu toggle hidden at phone width, one role lost its second page |
-| 8 | Journey re-runnable on a used database: unique data, cleans up or tolerates leftovers | Run 1's test rows broke run 2 |
-| 9 | No demo-user switcher floating over the designed pages (Mendix's own `.mx-demouserswitcher`; hide it in the theme) | Debug button on the finished design |
-| 10 | Every cross-page flow has one owner and is run once end to end by a user who starts with NO data | List stayed empty after the first filing; journey passed with a seeded user |
-| 11 | Every empty state seen in the browser once (the no-data demo user, or a filter that returns none); a state no role can reach is marked "not reachable" in the hand-over | Empty states were built and never seen |
-| 12 | Demo data clean at hand-over: no journey leftovers on the main screen | Random-named test rows under the designed screen |
+`skills/must-haves.md` — the one list for every build type (13 rows; empty states, friendly refusals, active nav on first landing, no silent list cap, 1280 and 390, regions the design shows, ...). Read it before the first page and tick it before hand-over; write its mark, `docs/progress/must-haves/<Module>.md`. Row 9: hide the demo-user switcher; row 12: demo data clean.
 
 Before hand-over, run `bin/security-check.sh`: show the person its security findings and `docs/security/access-snapshot.txt`, and record their approval (`--approve --reason`, `--accept` per finding; an agent never approves).
-
-Row 3: `System.owner` cannot be set from a microflow; give the entity an association to `System.User`, filter on that association `= '[%CurrentUser%]'`, seed that (`bin/bug-lookup.sh owner` first).
 
 ## Done when
 
 - The approval stop is answered and recorded in `PROJECT.md`.
-- Checklist: 12 of 12 ticked or listed under NOT DONE with a reason.
+- Checklist (`skills/must-haves.md`): 13 of 13 ticked or listed under NOT DONE with a reason, per module.
 - Journey: 2 of 2 runs pass (warm, then cold after one restart), output pasted, not summarised; every session it opens logs out; one deliberately broken control run fails at the changed step; every negative and cross-user step of step 8 present or listed unreachable.
 - Screenshots: the final pass at 1280 and 390 for every page, each compared with its wireframe or the prototype; demo data clean afterwards.
 - Hand-over documents exist (one per use case, all 5 sections); the final message lists what is NOT built. Claim no unrun pass.

@@ -3,7 +3,9 @@
 #
 #   bin/look-ledger.sh owe <script.mdl>   called by bin/exec.sh after a script lands
 #   bin/look-ledger.sh seen               PostToolUse(Read) hook; reads the hook JSON on stdin
-#   bin/look-ledger.sh status             prints one line per owed page: SEEN or OWED
+#   bin/look-ledger.sh status [--app <App>]
+#                                         prints one line per owed page: SEEN or OWED (one app's
+#                                         pages only with --app, or with MXTK_APP set)
 #   bin/look-ledger.sh reshoot [Module] [--all]
 #                                         which pages a polish round must re-shoot (390 + 1280): the pages
 #                                         built after their last seen LOOK, plus every page when a layout,
@@ -48,7 +50,7 @@
 #
 # Files (all TSV, under .claude/loop/look/; seen is append-only, owed is append-only except that a
 # DROP PAGE removes the dropped page's rows, shots is rewritten):
-#   owed.tsv   epoch  iso-time  Module.Page  script
+#   owed.tsv   epoch  iso-time  Module.Page  script  [app]
 #   seen.tsv   epoch  iso-time  image-path   image-mtime  sha256
 #   shots.tsv  epoch  iso-time  Module.Page  image-path   image-mtime  journey  step
 #
@@ -57,6 +59,15 @@
 # bin/install-claude-permissions.sh installs into the project's .claude/settings.json (run by
 # init-project.sh and sync-project.sh). gate-check.sh also accepts evidence it did not create:
 # a PROOF-OF-LOOK citation in a ui-review report (module-review.md stage 5).
+#
+# MULTI-APP PROJECTS (apps/<App>/<App>.mpr): ONE ledger for the project, keyed by app — not one
+# per app root. The seen side is the agent's act and an image is not an app's: the Read hook runs
+# at the project root (CLAUDE_PROJECT_DIR) and since #489 every app folder resolves to that root,
+# so a per-app ledger would need a second root rule and split seen.tsv. Owed rows gain a 5th
+# column, the app, only in a multi-app tree (from the script's apps/<App>/ path, else the selected
+# MXTK_APP); every other layout writes the same four columns as before, and readers that take
+# cols 1-4 are unchanged. Two apps may both hold Orders.Order_Overview: `status --app` keeps them
+# apart; an unscoped status joins them to the newest build, which can only read OWED longer.
 #
 # Fail-open everywhere: a hook that errors must never break a Read, and `owe` must never fail
 # the exec that called it. Bash 3.2 compatible.
@@ -144,9 +155,14 @@ cmd_owe() {
   _forget_dropped "$script"
   if [ -n "${EPOCHSECONDS:-}" ]; then now=$EPOCHSECONDS; TZ=UTC printf -v iso '%(%Y-%m-%dT%H:%M:%SZ)T' -1   # bash 5: no date process
   else now=$(date +%s); iso=$(date -u +%Y-%m-%dT%H:%M:%SZ); fi
+  local app="" col=""
+  if mxtk_apps "$PROJECT_ROOT" >/dev/null 2>&1; then
+    app="$(mxtk_app_of "$script")" || app="${MXTK_APP:-}"
+    [ -n "$app" ] && col="	$app"
+  fi
   while IFS= read -r p; do
     [ -n "$p" ] || continue
-    printf '%s\t%s\t%s\t%s\n' "$now" "$iso" "$p" "${script#"$PROJECT_ROOT"/}" >> "$OWED" && n=$((n+1))
+    printf '%s\t%s\t%s\t%s%s\n' "$now" "$iso" "$p" "${script#"$PROJECT_ROOT"/}" "$col" >> "$OWED" && n=$((n+1))
   done <<EOF
 $(look_pages_in "$script")
 EOF
@@ -207,7 +223,7 @@ _look_status_ex() {
   [ -s "$SHOTS" ] && shotf="$SHOTS"
   # The seen ledger is read with getline in BEGIN, not as a first file: FNR==NR is also true
   # for the second file when the first is empty, which would read owed rows as screenshots.
-  awk -F'\t' -v seenf="$seenf" -v shotf="$shotf" '
+  awk -F'\t' -v seenf="$seenf" -v shotf="$shotf" -v app="${LOOK_APP:-}" '
     function norm(s) { s=tolower(s); gsub(/[^a-z0-9]/, "", s); return s }
     BEGIN {
       while ((getline line < seenf) > 0) {
@@ -220,6 +236,8 @@ _look_status_ex() {
         shotmt[g[3] SUBSEP g[4]] = g[5]+0
       }
     }
+    # --app: rows of that app only — by the app column, or for an older row by its script path
+    app != "" && !($5 == app || ($5 == "" && index($4, "apps/" app "/") == 1)) { next }
     NF>=3 { if (!($3 in last) || $1+0 > last[$3]) last[$3]=$1+0 }
     END {
       for (p in last) {
@@ -365,7 +383,9 @@ case "${1:-}" in
   reshoot) shift; cmd_reshoot "$@" ;;
   owe)    shift; cmd_owe "$@" ;;
   seen)   cmd_seen ;;
-  status) look_status ;;
+  status) shift
+          case "${1:-}" in --app) LOOK_APP="${2:-}" ;; --app=*) LOOK_APP="${1#--app=}" ;; *) LOOK_APP=""; [ -n "${MXTK_APP:-}" ] && mxtk_apps >/dev/null 2>&1 && LOOK_APP="$MXTK_APP" ;; esac
+          look_status ;;
   shots)  shift; cmd_shots "$@" ;;
   pages)  shift; look_pages_in "${1:-/dev/null}" ;;
   *) echo "usage: $0 owe <script.mdl> | seen < hook-json | status | reshoot [Module] [--all] | shots [findings.json...] | pages <script.mdl>" >&2; exit 2 ;;

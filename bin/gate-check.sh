@@ -10,7 +10,10 @@
 # Usage: bin/gate-check.sh [--html|--no-html] [--ack-protocol [--approved-in-chat]|--force-stale] [--verbose]
 #                          [--adopt <stage> --reason "..."]
 #                          [--waive <stage|obligation[/module]|source/<file>|marketplace/<Name>> --reason "..."]
-#                          <project-dir> [stage]
+#                          [--app <App>] <project-dir> [stage]
+#   - --app <App> (or MXTK_APP=<App>) scopes the model-reading checks to one app of a multi-app
+#     project (apps/<App>/<App>.mpr). Without it, a project with two or more apps gets one line
+#     per app for those checks (the "Apps:" section) — never a pick, never "nothing checked".
 #   - With a stage-number, additionally exits non-zero if that specific stage's check fails.
 #   - Without one, evaluates and reports all stages, exits 0 regardless (informational run).
 #   - --html forces the dashboard write; --no-html suppresses it. Neither changes any verdict.
@@ -67,6 +70,7 @@ ADOPT_STAGE=""
 WAIVE_STAGE=""
 CLOSEOUT=0
 WAIVER_REASON=""
+GC_APP="${MXTK_APP:-}"
 declare -a GC_ARGS
 GC_ARGS=()
 while [ $# -gt 0 ]; do
@@ -80,6 +84,8 @@ while [ $# -gt 0 ]; do
     --closeout)        CLOSEOUT=1; HTML_MODE="never" ;;
     --waive)           shift; WAIVE_STAGE="${1:-}" ;;
     --reason)          shift; WAIVER_REASON="${1:-}" ;;
+    --app)             shift; GC_APP="${1:-}" ;;
+    --app=*)           GC_APP="${1#--app=}" ;;
     --force-stale)     FORCE_STALE=1 ;;
     --strict-protocol) STRICT_PROTOCOL=1 ;;
     --)        shift; while [ $# -gt 0 ]; do GC_ARGS[${#GC_ARGS[@]}]="$1"; shift; done; break ;;
@@ -293,6 +299,24 @@ fi
 if [ ! -d "$PROJECT_DIR" ]; then
   echo "Error: project directory does not exist: $PROJECT_DIR" >&2
   exit 1
+fi
+
+# --- Multi-app projects (apps/<App>/<App>.mpr): which apps, and was one chosen? ------------
+# One subshell over project-bin/_common.sh's resolver (mxtk_apps / mxtk_select_app), with
+# PROJECT_ROOT pinned, so the layout rules are the crash net's and not a copy. GC_APPS stays
+# empty on single-tree and two-tree projects, and nothing below prints for them.
+GC_APPS=""
+if [ -f "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/project-bin/_common.sh" ] && [ -d "$PROJECT_DIR/apps" ]; then
+  GC_APPS="$( PROJECT_ROOT="$(cd "$PROJECT_DIR" && pwd)"; MPR_FILE=""; MXTK_APP=""
+              . "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/project-bin/_common.sh" >/dev/null 2>&1 || exit 0
+              mxtk_apps "$PROJECT_ROOT" 2>/dev/null )"
+fi
+if [ -n "$GC_APP" ]; then
+  [ -n "$GC_APPS" ] || { echo "Error: --app $GC_APP: $PROJECT_DIR is not a multi-app project (no apps/<App>/*.mpr)." >&2; exit 2; }
+  _gc_sel="$( PROJECT_ROOT="$(cd "$PROJECT_DIR" && pwd)"; MPR_FILE=""; MXTK_APP=""
+              . "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/project-bin/_common.sh" >/dev/null 2>&1
+              mxtk_select_app "$GC_APP" "$PROJECT_ROOT" && printf '%s\t%s\n' "$MXTK_APP" "$MPR_FILE" )" || exit 2
+  MXTK_APP="${_gc_sel%%	*}"; MPR_FILE="${_gc_sel#*	}"; GC_APP="$MXTK_APP"; export MXTK_APP MPR_FILE
 fi
 
 # Resolve the knowledge-base dir the same way this project's artifacts actually live.
@@ -3721,11 +3745,31 @@ case "${MXTK_ROWS_UPTO:-}" in P|p|0|1|2|3|4) ;; *)
   if [ -r "$TOOLKIT_DIR/bin/lib/marketplace-check.sh" ]; then
     # shellcheck source=lib/marketplace-check.sh
     . "$TOOLKIT_DIR/bin/lib/marketplace-check.sh"
-    mxtk_mkt_report "$PROJECT_DIR" "${REGISTER:-$PROJECT_DIR/PROJECT.md}" "$(resolve_artifact_nonempty "architecture/fit-gap.md")"
+    if [ -n "$GC_APP" ] && [ -s "$PROJECT_DIR/architecture/apps/$GC_APP/fit-gap.md" ]; then
+      mxtk_mkt_report "$PROJECT_DIR" "${REGISTER:-$PROJECT_DIR/PROJECT.md}" "$PROJECT_DIR/architecture/apps/$GC_APP/fit-gap.md"
+    elif [ -z "$GC_APP" ] && [ "$(printf '%s' "$GC_APPS" | grep -c .)" -ge 2 ]; then
+      mxtk_mkt_report_apps "$PROJECT_DIR" "${REGISTER:-$PROJECT_DIR/PROJECT.md}" "$(resolve_artifact_nonempty "architecture/fit-gap.md")" "$GC_APPS"
+    else
+      mxtk_mkt_report "$PROJECT_DIR" "${REGISTER:-$PROJECT_DIR/PROJECT.md}" "$(resolve_artifact_nonempty "architecture/fit-gap.md")"
+    fi
   else
     printf 'Marketplace installs: NOT CHECKED — bin/lib/marketplace-check.sh missing from %s\n' "$TOOLKIT_DIR"
   fi ;;
 esac
+
+# Multi-app projects: one register (PROJECT.md, read above), per-app evidence here — one line per
+# app, full runs only (bin/lib/app-scope.sh, the same lines bin/status.sh shows). Prints nothing
+# for single-tree and two-tree projects, or for one app under apps/.
+if [ -z "$REQUESTED_STAGE" ] && [ -z "$GC_APP" ] && [ -r "$TOOLKIT_DIR/bin/lib/app-scope.sh" ]; then
+  # shellcheck source=lib/app-scope.sh
+  . "$TOOLKIT_DIR/bin/lib/app-scope.sh"
+  _gc_al="$(mxtk_app_lines "$PROJECT_DIR" "$TOOLKIT_DIR")"
+  if [ -n "$_gc_al" ]; then
+    printf 'Apps: %s (one register, %s; per-app evidence below; --app <App> scopes a run to one)\n' \
+      "$(printf '%s\n' "$_gc_al" | grep -c .)" "$(basename "${REGISTER:-PROJECT.md}")"
+    printf '%s\n' "$_gc_al" | while IFS='	' read -r _a _l; do printf '  [%s] %s\n' "$_a" "$_l"; done
+  fi
+fi
 
 # ---------------------------------------------------------------------------
 # Artifacts — did the stages that promise a file actually leave one?

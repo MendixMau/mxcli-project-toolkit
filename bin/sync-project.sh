@@ -673,6 +673,33 @@ else
   echo "Kept: triage.md has been worked on — not overwritten. Re-read skills/source-triage.md if the toolkit moved."
 fi
 
+# --- 1d. Multi-app projects: per-app planning folders (bin/lib/app-scope.sh) -------------
+# The same scaffold init-project.sh writes, for a project that gained its second app later or
+# predates this. Never overwrites. Nothing happens, and nothing prints, for any other layout.
+. "$SCRIPT_DIR/lib/app-scope.sh"
+_ATK="$(cd "$SCRIPT_DIR/.." && pwd)"
+_WIRE_MPR=""; _WIRE_MDL=""
+_wr="$(mxtk_wiring_rows "$PROJECT_DIR" "$_ATK")"
+[ -n "$_wr" ] && { _WIRE_MPR="${_wr%%	*}"; _WIRE_MDL="${_wr#*	}"; }
+if [ -n "$_wr" ]; then
+  if [ "$DRY_RUN" -eq 1 ]; then
+    _sa="$(mxtk_scope_apps "$PROJECT_DIR" "$_ATK" | while IFS='	' read -r _a _m; do
+             [ -f "$PROJECT_DIR/architecture/apps/$_a/intake.md" ] || printf '%s ' "$_a"; done)"
+    [ -f "$PROJECT_DIR/architecture/apps/README.md" ] || _sa="${_sa}(index) "
+    [ -n "$_sa" ] && { echo "Would create: per-app planning under architecture/apps/ for: $_sa"; CHANGES=$((CHANGES + 1)); }
+  else
+    _sa="$(mxtk_scaffold_apps "$PROJECT_DIR" "$_ATK")"
+    [ -n "$_sa" ] && { printf '%s\n' "$_sa"; CHANGES=$((CHANGES + 1)); }
+  fi
+  if [ -f "$PROJECT_DIR/CLAUDE.local.md" ] && grep -q "## Wiring" "$PROJECT_DIR/CLAUDE.local.md" \
+     && ! grep -q 'MXTK_APP=<App>' "$PROJECT_DIR/CLAUDE.local.md"; then
+    echo "Note: CLAUDE.local.md's Wiring block predates multi-app support — replace its Project MPR and"
+    echo "      MDL source dir rows with:"
+    echo "      | Project MPR | $_WIRE_MPR |"
+    echo "      | MDL source dir | $_WIRE_MDL |"
+  fi
+fi
+
 # --- 2. Agent stubs: refresh pure stubs, report completed ones --------------------------
 AGENT_DIR="$PROJECT_DIR/.claude/agents"
 if [ -d "$AGENT_DIR" ]; then
@@ -897,8 +924,8 @@ that doesn't resolve is a wiring failure the \`build-ready\` gate catches. Refre
 |---|---|---|
 | Toolkit root | \`$TOOLKIT_ROOT\` | The process authority |
 | Toolkit commit | see \`PROJECT.md\` \`Toolkit commit:\` | Authoritative there; ritual keeps it fresh |
-| Project MPR | \`$MPR_NAME\` | The model file |
-| MDL source dir | \`mdlsource/\` | Numbered build scripts |
+| Project MPR | ${_WIRE_MPR:-\`$MPR_NAME\` | The model file} |
+| MDL source dir | ${_WIRE_MDL:-\`mdlsource/\` | Numbered build scripts} |
 | Module briefs | \`architecture/modules/<Module>/\` | one \`module-brief.md\` per module |
 | Wireframes | \`design/wireframes/\` | one annotated HTML per screen |
 | Design system | \`design/ds.css\` + \`design/design-system.html\` | tokens + component showcase |

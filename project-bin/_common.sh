@@ -111,6 +111,7 @@ _mxtk_resolve_root() {
 #   MXTK_APP=<App>             the environment form of --app, honoured when this file is sourced,
 #                              so every script takes it without parsing an argument. An MPR_FILE
 #                              the user set wins over it; the cwd auto-pick below never does.
+#                              Ignored in a project that is not multi-app.
 #
 # The rule for readers: with mxtk_app_count >= 2 and no app selected, never pick one and never
 # report "nothing checked" — iterate mxtk_apps and report one line per app. find_mpr itself
@@ -198,7 +199,9 @@ if [ -z "${MPR_FILE:-}" ] && [ -d "$PROJECT_ROOT/apps" ]; then
 fi
 # MXTK_APP (--app's environment form) wins over the cwd auto-pick, never over a user's MPR_FILE.
 # Its MPR_FILE is marked as a pick too, so a child in another project re-derives it from the name.
-if [ -n "${MXTK_APP:-}" ] && { [ -z "${MPR_FILE:-}" ] || [ "${MPR_FILE:-}" = "${MXTK_MPR_PICKED:-}" ]; }; then
+# Ignored where the project is not multi-app (a value exported for another project's shell).
+if [ -n "${MXTK_APP:-}" ] && [ -d "$PROJECT_ROOT/apps" ] && mxtk_apps >/dev/null 2>&1 \
+   && { [ -z "${MPR_FILE:-}" ] || [ "${MPR_FILE:-}" = "${MXTK_MPR_PICKED:-}" ]; }; then
   if mxtk_select_app "$MXTK_APP"; then MXTK_MPR_PICKED="$MPR_FILE"; export MXTK_MPR_PICKED
   else unset MPR_FILE MXTK_MPR_PICKED; fi
 fi

@@ -218,6 +218,44 @@ mxtk_mkt_report() {
   return 0
 }
 
+# mxtk_mkt_report_apps <project-dir> <register> <shared fit-gap or ""> <apps>
+# A multi-app project (two or more apps/<App>/<App>.mpr, <apps> as mxtk_apps prints them) with no
+# app selected: one check per app instead of "more than one .mpr ... nothing checked" (field run,
+# 2026-11, six apps). Prints a header line and one "  [<App>] <VERDICT> — ..." line per app.
+# Each app reads architecture/apps/<App>/fit-gap.md when it has one, else the shared fit-gap. A
+# shared fit-gap does not say which app owes a Buy, so a package missing from an app reads PENDING
+# there, naming the move that settles it — never a FAIL on a guess.
+# Sets MXTK_MKT_STATUS to the worst app verdict (FAIL > PENDING > the first other verdict) and
+# MXTK_MKT_NOTE to "<App>: <verdict>; ..." — build-ready counts that FAIL as one item.
+mxtk_mkt_report_apps() {
+  local root="$1" reg="$2" shared="$3" apps="$4" app mpr fg out st worst="" notes="" one
+  printf 'Marketplace installs: per app (%s apps; --app <App> checks one)\n' "$(printf '%s\n' "$apps" | grep -c .)"
+  while IFS='	' read -r app mpr; do
+    [ -n "$app" ] || continue
+    fg="$shared"
+    [ -s "$root/architecture/apps/$app/fit-gap.md" ] && fg="$root/architecture/apps/$app/fit-gap.md"
+    out="$(MPR_FILE="$root/$mpr"; MXTK_APP="$app"; _MKT_NO_REMEMBER=1; export MPR_FILE MXTK_APP
+           mxtk_mkt_report "$root" "$reg" "$fg" >/dev/null
+           printf '%s\t%s' "$MXTK_MKT_STATUS" "$MXTK_MKT_NOTE")"
+    st="${out%%	*}"; one="${out#*	}"
+    if [ "$st" = FAIL ] && [ "$fg" = "$shared" ]; then
+      st=PENDING
+      one="the shared ${shared#"$root"/} does not say which app owes this Buy; move the row to architecture/apps/$app/fit-gap.md, or waive it. Read: $one"
+    fi
+    printf '  [%s] %s — %s\n' "$app" "$st" "$one"
+    notes="${notes:+$notes; }$app: $st"
+    case "$st" in
+      FAIL) worst=FAIL ;;
+      PENDING) [ "$worst" = FAIL ] || worst=PENDING ;;
+      *) [ -n "$worst" ] || worst="$st" ;;
+    esac
+  done <<EOF
+$apps
+EOF
+  MXTK_MKT_STATUS="${worst:-PENDING}"; MXTK_MKT_NOTE="${notes:-no app read}"; MXTK_MKT_CONF_STATUS=""
+  return 0
+}
+
 # _mkt_remember <root> <rows> <confirmed-status> — project-bin/exec.sh's install gate skips the
 # SHOW MODULES read when .claude/loop/marketplace-ok.txt holds exactly the current confirmed list
 # (lower case, sorted, space-separated). Written on PASS/WAIVED by whichever caller ran the check,
@@ -225,6 +263,9 @@ mxtk_mkt_report() {
 _mkt_remember() {
   local f="$1/.claude/loop/marketplace-ok.txt" list
   [ -d "$1/.claude" ] || return 0
+  # One file per project: a per-app loop (mxtk_mkt_report_apps) must not leave whichever app ran
+  # last as the answer for all of them, so it writes nothing and exec.sh reads SHOW MODULES.
+  [ "${_MKT_NO_REMEMBER:-0}" = 1 ] && return 0
   case "$3" in
     PASS|WAIVED)
       list="$(printf '%s\n' "$2" | awk -F'\t' '$1=="confirmed"{print tolower($2)}' | sort -u | tr '\n' ' ')"

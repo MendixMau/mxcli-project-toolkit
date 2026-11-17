@@ -470,7 +470,7 @@ if [ -n "$PS_MODE" ]; then
   fi
   PMXCLI_PROBE="$(find_project_mxcli 2>/dev/null || true)"
   head_ "Property sets (Studio Pro merge safety): $PROJECT_DIR"
-  [ -n "$_ps_apps" ] && note "multi-app folder ($_ps_apps): checking ${MPR#"$PROJECT_DIR"/} only — rerun with MPR_FILE=apps/<X>/<X>.mpr for each other app"
+  [ -n "$_ps_apps" ] && note "multi-app folder ($_ps_apps): checking ${MPR#"$PROJECT_DIR"/} only — rerun with MXTK_APP=<X> (or MPR_FILE=apps/<X>/<X>.mpr) for each other app"
   if [ "$PS_IF_STALE" = 1 ] && [ "$PS_MODE" = check ] && [ -n "$PMXCLI_PROBE" ]; then
     PS_VER="$(ps_version "$PMXCLI_PROBE")"
     if [ -n "$PS_VER" ] && ! ps_stale; then
@@ -2045,7 +2045,7 @@ if [ -n "$PROJECT_DIR" ]; then
     if [ -z "$MPR" ] && ls "$PROJECT_DIR"/apps/*/*.mpr >/dev/null 2>&1; then
       MPR="$(ls "$PROJECT_DIR"/apps/*/*.mpr | head -1)"
       _apps="$(cd "$PROJECT_DIR" && ls apps/*/*.mpr | paste -s -d, - | sed 's/,/, /g')"
-      [ "$(ls "$PROJECT_DIR"/apps/*/*.mpr | wc -l | tr -d ' ')" -gt 1 ] && note "multi-app folder: $_apps — instruments need MPR_FILE=apps/<X>/<X>.mpr to pick one"
+      [ "$(ls "$PROJECT_DIR"/apps/*/*.mpr | wc -l | tr -d ' ')" -gt 1 ] && note "multi-app folder: $_apps — instruments need MXTK_APP=<X> (or MPR_FILE=apps/<X>/<X>.mpr) to pick one; gate-check and status report per app"
     fi
     [ -n "$MPR" ] && ok "model: ${MPR#$PROJECT_DIR/}" || {
       warn "no .mpr found in the project root"

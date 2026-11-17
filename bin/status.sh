@@ -370,6 +370,15 @@ done
 [ -n "$_ae_untracked" ] && AE_WATCH="extension module not in git: $_ae_untracked — a clone loses its document types; commit it with the model (skills/mendix-agents.md)"
 [ -n "$_ae_missing" ] && AE_WATCH="${AE_WATCH:+$AE_WATCH · }project uses Agent Editor but $_ae_missing is missing — Studio Pro shows unknown type 'agenteditor.agent' (skills/mendix-agents.md)"
 
+# --- multi-app projects: one line per app (apps/<App>/<App>.mpr) ----------------------------
+# The register stays one (PROJECT.md above); the evidence that is per app is shown per app: its
+# model, its own mdlsource/ scripts, and its LOOK debt (bin/lib/app-scope.sh, shared with
+# gate-check). Single-tree and two-tree projects print nothing here.
+. "$TOOLKIT_ROOT/bin/lib/app-scope.sh"
+APP_LINES="$(mxtk_app_lines "$PROJECT_DIR" "$TOOLKIT_ROOT")"
+[ -n "$APP_LINES" ] && APP_LINES="$APP_LINES
+"
+
 # --- print ----------------------------------------------------------------------------------
 TK="toolkit $TK_COMMIT_NOW"; [ -n "$TK_COMMIT_REG" ] && [ "$TK_COMMIT_REG" != "$TK_COMMIT_NOW" ] && TK="$TK (register says $TK_COMMIT_REG)"
 [ -n "$TK_UPD" ] && TK="$TK · updates: $TK_UPD"
@@ -382,6 +391,7 @@ if [ "$BRIEF" = 1 ]; then
   [ -n "$CWD_NOTE" ] && echo "CWD     $CWD_NOTE"
   echo "WHERE   $NAME · $STAGE_LINE${ENTRY:+ · $ENTRY}${ADOPTED:+ · joined at $ADOPTED}"
   [ -n "$ROUND_LINE" ] && echo "ROUND   $ROUND_LINE"
+  printf '%s' "$APP_LINES" | while IFS='	' read -r _a _l; do [ -n "$_a" ] && echo "APP     $_a: $_l"; done
   echo "STATE   scripts $N_SCRIPTS written / $N_PASS gate-pass / $N_DONE done- · modules opened $MOD_OPENED${SKELETON:+ · skeleton $SKELETON} · UNSYNCED $UNSYNCED · open questions $OPEN_Q${MANUAL:+ · $MANUAL}${APPMAP:+ · $APPMAP}"
   [ -n "$WATCH" ] && echo "WATCH   $WATCH"
   echo "NEXT    $NEXT"
@@ -392,6 +402,7 @@ printf '\n%s — %s%s%s\n' "$NAME" "$STAGE_LINE" "${ENTRY:+ · $ENTRY}" "${ADOPT
 printf '%s\n\n' "$TK"
 [ -n "$CWD_NOTE" ] && printf 'CWD       %s\n' "$CWD_NOTE"
 [ -n "$ROUND_LINE" ] && printf 'ROUND     %s\n' "$ROUND_LINE"
+printf '%s' "$APP_LINES" | while IFS='	' read -r _a _l; do [ -n "$_a" ] && printf 'APP       %s: %s\n' "$_a" "$_l"; done
 printf 'DONE      scripts: %s written, %s gate-pass, %s done-  ·  modules opened: %s%s\n' "$N_SCRIPTS" "$N_PASS" "$N_DONE" "$MOD_OPENED" "${SKELETON:+  ·  skeleton proven $SKELETON}"
 printf 'OVERDUE   %s  ·  %s  ·  %s  ·  UNSYNCED markers: %s  ·  open questions: %s\n' "$DOCTOR" "$LINT" "${COH:-coherence: cadence script not installed}" "$UNSYNCED" "$OPEN_Q"
 [ -n "$MANUAL" ] && printf '          %s (docs/manual-steps.md)\n' "$MANUAL"

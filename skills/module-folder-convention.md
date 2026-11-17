@@ -185,6 +185,23 @@ Two consequences, stated so nobody mistakes silence for a pass:
 
 ---
 
+## Several apps in one repo
+
+One app per `apps/<App>/` (its `.mpr`, its own `mdlsource/`). The project root keeps ONE
+register (`PROJECT.md`), one root `intake.md` for answers shared by every app, and ONE build plan
+(`architecture/build-plan.md`, one `## App: <App>` section per app). Per-app planning goes to
+`architecture/apps/<App>/` (`intake.md`, `triage.md`, an optional `fit-gap.md`), never into
+`apps/<App>/` — that folder is the Mendix project Studio Pro commits and mxbuild packages. Module
+briefs stay `architecture/modules/<Module>/module-brief.md` with an `**App:** <App>` line, because
+every brief reader looks there. `init-project.sh` / `sync-project.sh` scaffold this and the index
+`architecture/apps/README.md`; select one app with `MXTK_APP=<App>` or `--app <App>`.
+
+Done when every app in `architecture/apps/README.md` has an intake and a build-plan section.
+Failure it prevents (field run, 2026-11): four apps, no per-app intake, one free-form brief
+instead — and that brief carried the spec violation that blocked the first grading.
+
+---
+
 ## Companion skills
 
 `module-brief.md` (where the folder plan is decided) · `learned-mdl-preflight.md` Step 0 (chosen

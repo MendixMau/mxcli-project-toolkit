@@ -1,0 +1,16 @@
+tests/wave2/fixtures/multi-app/ — provenance
+
+tree.txt is the SHAPE of a multi-app repository as two field runs (2026-11) reported it: several
+Mendix apps side by side under apps/<App>/, each a full Mendix project folder (its own .mpr,
+mprcontents/, javasource/, themesource/, widgets/) with its own mdlsource/ of numbered MDL page
+scripts, and one project root above them (PROJECT.md, .claude/, architecture/). App names are
+neutral stand-ins; file names inside each app folder follow a Mendix 11 project folder.
+
+NOT a verbatim `ls -R` capture: none of the field repositories could be copied here, and the
+readers under test (project-bin/_common.sh mxtk_apps, bin/lib/app-scope.sh) glob directory names,
+they parse no tool output. Replace tree.txt with a capture from a real multi-app repository
+(`cd <repo> && find . -path ./.git -prune -o -print | sort`, client names replaced) when one is
+available; the fixture reads it as-is.
+
+Tool output used by test-multi-app-scope.sh is captured, never hand-written: SHOW MODULES replays
+tests/wave2/fixtures/show-modules/*.out (see that folder's CAPTURE.txt).

@@ -117,6 +117,16 @@ echo "-- single tree only"
 mkproj single "Entry mode: requirements-driven"
 mkdir -p "$P/architecture"; printf '# Build plan\n\n## Module brief — Orders\n\nScreens: list, detail.\n' > "$P/architecture/build-plan.md"
 run; passed && ok "C inline '## Module brief' heading → no refusal" || bad "C inline brief heading" "calls=$CALLS_N"
+# the aggregate waiver gate-check honours clears it too; one without a reason does not
+mkproj single "Entry mode: requirements-driven"
+printf 'Waived stages: 1, 2, 3, 4 — analysis and plan were done in the client workshop\n' >> "$P/PROJECT.md"
+run; passed && ok "C 'Waived stages: 1, 2, 3, 4 — reason' → no refusal" || bad "C aggregate waiver with a reason" "calls=$CALLS_N"
+mkproj single "Entry mode: requirements-driven"
+printf 'Waived stages: 1, 2, 3\n' >> "$P/PROJECT.md"
+printf 'docs/\n.claude/\n' > "$P/.gitignore"   # as a fresh repo has it: .mpr-snapshots/ not yet ignored
+run; refused && ok "R 'Waived stages' without 4 or a reason still refuses" || bad "R aggregate waiver without 4" "calls=$CALLS_N"
+# the stamp folder is git-ignored before the stamp is written
+grep -qx '/.mpr-snapshots/' "$P/.gitignore" && ok "R .mpr-snapshots/ ignored before the stamp" || bad "R .mpr-snapshots/ ignored before the stamp"
 # a build plan without any brief is not a plan the rule accepts
 mkproj single "Entry mode: requirements-driven"
 mkdir -p "$P/architecture"; printf '# Build plan\n' > "$P/architecture/build-plan.md"
@@ -152,7 +162,10 @@ GC="$("$TOOLKIT/bin/gate-check.sh" "$P" 2>&1)"
 case "$GC" in *"Summary:"*"No entry mode declared"*) ok "B gate-check summary carries the banner" ;; *) bad "B gate-check summary carries the banner" ;; esac
 ST="$("$TOOLKIT/bin/status.sh" "$P" --brief 2>&1)"
 case "$ST" in *"No entry mode declared"*) ok "B status --brief carries the banner" ;; *) bad "B status --brief carries the banner" ;; esac
-case "$ST" in *"NEXT    declare the entry mode"*) ok "B status NEXT says declare the mode" ;; *) bad "B status NEXT says declare the mode" "$(printf '%s\n' "$ST" | grep NEXT)" ;; esac
+# On a fresh scaffold gate-check already flags intake §1 "Entry mode", and that needs-attention rule
+# outranks the banner rule in status.sh's NEXT order; either line names the entry mode.
+case "$ST" in *"NEXT    declare the entry mode"*|*"NEXT    fix what gate-check flags"*"Entry mode"*) ok "B status NEXT names the entry mode" ;;
+  *) bad "B status NEXT names the entry mode" "$(printf '%s\n' "$ST" | grep NEXT)" ;; esac
 mkproj single "Entry mode: requirements-driven"
 GC="$("$TOOLKIT/bin/gate-check.sh" "$P" 2>&1)"
 case "$GC" in *"No entry mode declared"*) bad "gate-check silent once declared" ;; *) ok "gate-check silent once declared" ;; esac

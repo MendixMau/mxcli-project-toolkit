@@ -134,7 +134,7 @@ for spec in "bin/lib/artifact-manifest.tsv:6" "bin/lib/obligations.tsv:10"; do
   hdr="$(grep -m1 -v '^#' "$f" | awk -F'\t' -v c="$col" '{print $c}')"
   [ "$hdr" = modes ] || { echo "  skip ${spec%%:*}: column $col is not 'modes' here"; continue; }
   bad_t="$(grep -v '^#' "$f" | awk -F'\t' -v c="$col" 'NR>1 && NF>=c {n=split($c,a,","); for(i=1;i<=n;i++) print a[i]}' \
-    | sort -u | while read -r t; do case " $EMIT " in *" $t "*) ;; *) printf '%s ' "$t" ;; esac; done)"
+    | sort -u | while read -r t; do case " $EMIT " in (*" $t "*) ;; (*) printf '%s ' "$t" ;; esac; done)"
   [ -z "$bad_t" ] && ok "V ${spec%%:*} modes tokens all emitted by the tokeniser" || bad "V ${spec%%:*} has tokens nothing emits" "$bad_t"
 done
 

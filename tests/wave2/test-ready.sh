@@ -8,6 +8,8 @@
 # `look-ledger.sh owe` from a build script in the captured statement shapes, and the seen ledger
 # by the real `seen` hook from Claude Code's PostToolUse JSON. Nothing in .claude/loop/ is typed.
 #
+# R11 adds a two-app project (apps/<App>/<App>.mpr): ready.sh reads the per-app look ledger.
+#
 # Usage: bash tests/wave2/test-ready.sh [path-to-bin/ready.sh]
 
 SUBJECT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/bin/ready.sh}"
@@ -188,6 +190,46 @@ start=$(date +%s); out="$(MXTK_READY_STEP_TIMEOUT=0 bash "$SUBJECT" "$P" --no-co
 [ "$rc" = 1 ] && [ "$took" -lt 60 ] && printf '%s\n' "$out" | grep -q 'gate5: gate-check stage 5: did not finish in 0s, killed' \
   && printf '%s\n' "$out" | grep -q 'FAIL  gate5     NOT MEASURED' && printf '%s\n' "$out" | grep -q '^NOT-READY' \
   && ok "R9: every step killed at its timeout → NOT READY in ${took}s, each stalled step named" || bad "R9: rc=$rc took=${took}s $out"
+
+# ── R11: two apps (apps/<App>/<App>.mpr): one row per app from the per-app look ledger ─────────
+# READY needs every app's row; NOT READY names the app and its unseen page; --app A reads A only.
+P="$WORK/r11"
+mkdir -p "$P/bin" "$P/shots" "$P/docs/progress/must-haves" "$P/apps/A/mdlsource" "$P/apps/B/mdlsource"
+: > "$P/apps/A/A.mpr"; : > "$P/apps/B/B.mpr"
+cp "$TK/project-bin/look-ledger.sh" "$TK/project-bin/_common.sh" "$P/bin/"
+printf '# PROJECT.md\n\n## Current stage\n\n**Stage P — Kickoff**, in progress.\n\n' > "$P/PROJECT.md"
+printf '.claude/loop/\n' > "$P/.gitignore"
+printf 'Approval · 2 of 2 rows ticked\n1 TICKED — inbox lists open requests\n2 TICKED — decide records the decision\n' > "$P/docs/progress/must-haves/Approval.md"
+printf 'Billing · 1 of 1 rows ticked\n1 TICKED — invoice shows its lines\n' > "$P/docs/progress/must-haves/Billing.md"
+cat > "$P/apps/A/mdlsource/20-approval-pages.mdl" <<'MDL'
+CREATE PAGE "Approval"."Dashboard"
+(
+  Title: 'Dashboard'
+) { }
+create or replace page Approval.Approval_Inbox (Title: 'Approval inbox') { }
+CREATE OR MODIFY PAGE Approval.Approval_Decide {
+}
+MDL
+printf 'CREATE OR MODIFY PAGE Billing.Invoice_View {\n}\n' > "$P/apps/B/mdlsource/30-billing.mdl"
+(cd "$P" && bash bin/look-ledger.sh owe "$P/apps/A/mdlsource/20-approval-pages.mdl" >/dev/null \
+         && bash bin/look-ledger.sh owe "$P/apps/B/mdlsource/30-billing.mdl" >/dev/null)
+bash "$TK/bin/gate-check.sh" --no-html --waive P --reason "fixture: kickoff held elsewhere" "$P" >/dev/null 2>&1
+bash "$TK/bin/gate-check.sh" --no-html --adopt 5 --reason "fixture: joins at build" "$P" >/dev/null 2>&1
+G "$P" init -q; G "$P" add -A; G "$P" commit -qm scaffold
+see_all "$P"
+run "$P" --no-commit
+[ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q 'PASS  app:A     3 of 3 page(s) seen' \
+  && printf '%s\n' "$out" | grep -q 'FAIL  app:B     0 of 1 page(s) seen since their last build — unseen: Billing.Invoice_View' \
+  && ok "R11: two apps, B unlooked → NOT READY, app:B named with its unseen page" || bad "R11: rc=$rc $out"
+run "$P" --app A --no-commit
+[ "$rc" = 0 ] && printf '%s\n' "$out" | grep -q 'look      3 of 3' && ! printf '%s\n' "$out" | grep -q 'app:B' \
+  && ok "R11: --app A reads A only → READY, 3 of 3" || bad "R11 --app A: rc=$rc $out"
+see "$P" invoice_view-1280 J-APP-01-step1.png
+run "$P" --no-commit
+[ "$rc" = 0 ] && printf '%s\n' "$out" | grep -q 'PASS  app:B     1 of 1' && printf '%s\n' "$out" | grep -q 'look      4 of 4' \
+  && ok "R11: both apps looked → READY" || bad "R11 both: rc=$rc $out"
+run "$P" --app Nope --no-commit
+[ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q 'FAIL  scope     no app Nope here' && ok "R11: an unknown --app is named, NOT READY" || bad "R11 Nope: rc=$rc $out"
 
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

@@ -197,7 +197,7 @@ def load_project(proj):
     m = re.search(r"Entry mode:\s*\**\s*(\w[\w-]*)", md)
     em = (m.group(1).lower() if m else "migration")
     # The mode-contract vocabulary of artifact-manifest.tsv column 6 (Build type: poc is its own contract).
-    info["entry_mode"] = "requirements-driven" if em.startswith("requirements") else "existing-app" if em.startswith(("existing", "change")) else em
+    info["entry_mode"] = "requirements-driven" if em.startswith(("requirements", "greenfield")) else "existing-app" if em.startswith(("existing", "change")) else em
     if re.search(r"(?im)^[\s>*_-]*Build type\s*\**\s*:\s*\**\s*poc\b", md): info["entry_mode"] = "poc"
     info["waived"] = set(re.findall(r"Waived artifact\s+([\w-]+)\s*:", md))
     info["waived_stages"] = set(re.findall(r"(?im)^[\s>*_-]*Waived stage\s+([P0-7])\s*\**\s*:", md))
@@ -1860,7 +1860,6 @@ def skip_reason(s, info, gate):
     if s in info.get("waived_stages", ()) or gate["rows"].get(s, {}).get("status") == "WAIVED": return "waived in the decision register"
     ad = info.get("adopted_at")
     if ad and s != "P" and STAGES.index(s) < STAGES.index(ad): return "this project joined the toolkit at stage %s, so it happened before" % ad
-    if info.get("entry_mode") == "greenfield" and s in "1234": return "greenfield entry mode collapses stages 1 to 4 into the plan the user already has"
     return ""
 
 def ago(t):

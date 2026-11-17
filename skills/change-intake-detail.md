@@ -1,6 +1,6 @@
 # Change Intake — Detail: Why, Worked Example, Apply, Prove, Gate Check
 
-**Applies to:** any mxcli project with a `PROJECT.md` (migration, requirements-driven, greenfield, change an existing app), from Stage 2 onward.
+**Applies to:** any mxcli project with a `PROJECT.md` (migration, requirements-driven, POC, change an existing app), from Stage 2 onward.
 **Purpose:** the on-demand half of `change-intake.md`. That file is the baseline core every lead and ba-agent session reads. Read this one to apply or prove a change request, when a class, size or status is unclear, or to explain the `Change log:` gate line.
 **Owns:** nothing: `change-intake.md` owns the `## Change log` table and the classes, sizes and statuses. `conversion-runbook.md` §3b (drift-sync) is this loop's BRD-flush step.
 

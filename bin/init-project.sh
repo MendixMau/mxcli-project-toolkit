@@ -460,7 +460,7 @@ fi
 # resolves $ANALYSIS_BASE against it. sources/ was created here from day one; analysis/ was not,
 # on the unstated assumption that an extraction pipeline would `mkdir -p` it on its way past.
 #
-# That assumption holds for exactly one entry mode. A requirements-driven or greenfield project
+# That assumption holds for exactly one entry mode. A requirements-driven project or a POC
 # runs no pipeline, so nothing ever created the folder, so every surface the runbook promises had
 # nowhere to be written — reported from a customer round on 2026-08-20, where the absence of
 # analysis/ was the first visible symptom of a much larger hole (Stage 0 being skipped entirely).
@@ -490,7 +490,7 @@ and the honest way to change one is to re-run its producer.
 | `extraction-report.html` | the extraction pipeline, or `kb-generation.md` for a document corpus | 1 |
 | `brd-report.html` | `bin/brd-report.sh <project> [--stage N]`: process map, requirements and open questions | 2, any gate |
 
-**This folder exists in every entry mode.** A requirements-driven or greenfield project runs no
+**This folder exists in every entry mode.** A requirements-driven project (or a POC) runs no
 extraction pipeline, but it still produces a sufficiency grade, a scope decision and a BRD report
 — `bin/brd-report.sh` reads BRDs, not source, so the Stage 2 surface is the same page whatever
 wrote the BRDs.

@@ -742,10 +742,6 @@ stage_waiver() {
   # Entry mode. The runbook's Entry Modes table already says these stages do not run; until now
   # the gate did not know that, so it demanded artifacts the runbook had excused.
   case "$ENTRY_MODE" in
-    greenfield)
-      case "$st" in
-        1|2|3|4) printf 'mode|not owed (mode: greenfield) — stages 1–4 collapse into the design front end and short plan (conversion-runbook.md → Entry Modes)\n'; return 0 ;;
-      esac ;;
     requirements-driven)
       case "$st" in
         7) printf 'mode|not owed (mode: requirements-driven) — no legacy system to cut over from; if legacy data turns up, record a Stage-7 decision and this goes back to being checked (conversion-runbook.md → Entry Modes)\n'; return 0 ;;
@@ -4152,6 +4148,7 @@ printf "Summary: %d passed · %d not started · %d waived · %d need attention �
 # Declared position (project-bin/_position.sh; conversion-runbook.md → Entry Modes). The field runs
 # that built with no plan (2026-11) had neither line, and this summary read like any other.
 [ -z "$ENTRY_MODE" ] && [ -z "$ADOPTED_AT" ] && printf '⚠ %s\n' "$MXTK_POS_BANNER"
+[ "$ENTRY_MODE" = greenfield-retired ] && printf '⚠ %s\n' "${MXTK_POS_RETIRED/<project>/$PROJECT_DIR}"
 
 # The stage counts above are about STAGES. They say nothing about the per-module passes and the
 # per-stage artifacts checked further up, and for a long time nothing down here did either — so

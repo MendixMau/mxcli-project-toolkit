@@ -21,7 +21,8 @@
 # quieter.
 
 # entry_mode_token <raw> -> canonical token on stdout, "" if unrecognised.
-# Canonical set: greenfield | requirements-driven | migration | existing-app-change | a-la-carte
+# Canonical set: requirements-driven | migration | existing-app-change | a-la-carte, plus
+# greenfield-retired (a register sync-project.sh has not yet mapped)
 entry_mode_token() { _mxtk_emt "${1-}"; echo "$_EMT"; }
 
 # _mxtk_emt <raw> — the tokeniser itself; sets _EMT instead of printing, so exec.sh's reader
@@ -56,7 +57,10 @@ _mxtk_emt() {
   [[ "$v" =~ ^[*_]*(.*)$ ]] && v="${BASH_REMATCH[1]}"
   if [[ "$v" =~ ^(.*[^.:!*_-])[.:!*_-]*$ ]]; then v="${BASH_REMATCH[1]}"; else v=""; fi
   local tok="" known=1
-  if   [[ "$v" == greenfield ]]; then tok="greenfield"
+  # greenfield was RETIRED on 2026-11-17 (conversion-runbook.md → Entry Modes, "Two doors"):
+  # it reads as its own token so every caller can say "run sync" instead of either honouring it
+  # or dropping it in silence. sync-project.sh maps it to requirements-driven.
+  if   [[ "$v" == greenfield ]]; then tok="greenfield-retired"
   elif [[ "$v" == requirements-driven || "$v" == requirements || "$v" == requirement ]]; then tok="requirements-driven"
   elif [[ "$v" == migration ]]; then tok="migration"
   elif [[ "$v" == existing-app-change || "$v" == existing-app || "$v" == existing ]]; then tok="existing-app-change"
@@ -133,6 +137,7 @@ mxtk_pos_read() {
 
 # The banner (conversion-runbook.md → Entry Modes). One sentence, printed by status.sh,
 # gate-check.sh's summary and every exec.sh run while the register declares no position.
+MXTK_POS_RETIRED='Entry mode greenfield is retired: run bin/sync-project.sh <project> (maps the register line to requirements-driven, adopted at the current stage), or re-answer intake Q1 — Build type: poc for a demo.'
 MXTK_POS_BANNER='No entry mode declared: the toolkit treats this project as Stage P, not started. Declare the mode (kickoff) or adopt a stage with a reason: gate-check.sh --adopt <stage> --reason ...'
 
 # mxtk_pos_undeclared — true when nothing in the register (or intake) says where the project is.

@@ -1,6 +1,6 @@
 # Cloud development environment — setup and loop
 
-**Applies to:** any mxcli project | migration | requirements-driven | greenfield — whenever the
+**Applies to:** any mxcli project | migration | requirements-driven | POC — whenever the
 work happens in an **ephemeral cloud container** (Claude Code on the web/mobile, a devcontainer,
 a CI runner) instead of a local machine with Studio Pro.
 

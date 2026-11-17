@@ -13,7 +13,8 @@
 #      refused ONCE (nothing written, MXTK-RESULT refused); the re-run goes on, row tagged "no plan"
 #   C  cleared without a refusal by: gate-check.sh --adopt 5 (the real command), a build plan +
 #      module brief (root, or apps/<App>/architecture/), a brief inline in the plan
-#   N  never refused: a-la-carte, greenfield, Build type: poc, Change an existing app, --patch
+#   N  never refused: a-la-carte, Build type: poc, Change an existing app, --patch; a retired
+#      greenfield line is not refused either and says to run sync-project.sh
 #
 # Both layouts: single tree (<root>/Fixture.mpr) and multi-app (<root>/apps/Orders/Orders.mpr,
 # PROJECT.md at the root). Golden register + intake: fixtures/entry-mode-plan-rule/ (captured from
@@ -129,12 +130,16 @@ grep -q '^Answered: migration' "$P/intake.md" || bad "setup: intake answer not w
 run; refused && ok "R migration via the intake answer is refused once" || bad "R migration via intake" "calls=$CALLS_N"
 
 # N — modes that never refuse
-for line in "Entry mode: a-la-carte" "Entry mode: greenfield" "Entry mode: Change an existing app"; do
+for line in "Entry mode: a-la-carte" "Entry mode: Change an existing app"; do
   mkproj single "$line"
   run
   passed && ok "N '$line' → no refusal" || bad "N '$line' → no refusal" "calls=$CALLS_N"
   case "$OUT" in *"No entry mode declared"*|*"Plan rule"*) bad "N '$line' → silent" "$(grep -m1 'declared\|Plan rule' "$WORK/out")" ;; *) ok "N '$line' → silent" ;; esac
 done
+# greenfield was retired (2026-11-17): an unsynced register says "run sync", and is not refused
+mkproj single "Entry mode: greenfield"
+run; passed && ok "N retired greenfield → no refusal" || bad "N retired greenfield → no refusal" "calls=$CALLS_N"
+case "$OUT" in *"Entry mode greenfield is retired: run bin/sync-project.sh"*) ok "N retired greenfield → says run sync" ;; *) bad "N retired greenfield → says run sync" ;; esac
 mkproj single "Entry mode: requirements-driven"
 sed -i.bak 's/^Build type: full$/Build type: poc/' "$P/PROJECT.md" && rm -f "$P/PROJECT.md.bak"
 grep -q '^Build type: poc$' "$P/PROJECT.md" || bad "setup: Build type: poc not written"

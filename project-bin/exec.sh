@@ -777,12 +777,16 @@ take_score() {
 #     .plan-rule-refused): a re-run goes on, tagged "no plan" in every BUILD-LOG row;
 #   - under `Interview mode: auto` there is no refuse-once: see the auto branch below;
 #   - never refused: --patch (opaque repair; doctor.sh's recovery path), `Build type: poc`,
-#     greenfield, change-an-existing-app, a-la-carte, and no declared mode at all.
+#     change-an-existing-app, a-la-carte, and no declared mode at all (greenfield, retired
+#     2026-11-17, prints its own "run sync" line and is not refused either).
 POS_NOTE=""
 if [ -f "$_XD/_position.sh" ]; then
   . "$_XD/_position.sh"
   mxtk_pos_read "$PROJECT_ROOT"
-  if mxtk_pos_undeclared; then
+  if [ "$POS_ENTRY" = greenfield-retired ]; then
+    echo "⚠ ${MXTK_POS_RETIRED/<project>/$PROJECT_ROOT}"
+    POS_NOTE="entry mode greenfield retired, not synced"
+  elif mxtk_pos_undeclared; then
     echo "⚠ $MXTK_POS_BANNER"
     POS_NOTE="no entry mode declared"
   elif [ "$PATCH_MODE" != "1" ] && [ "$POS_BUILD" != poc ] && [ "$POS_AUTO" = 1 ] \

@@ -76,6 +76,7 @@ ENTRY="$(entry_mode_token "$ENTRY_RAW" 2>/dev/null)"
 # Entry mode (register or intake) and no adoption line → the one banner, first line of either view.
 # Field runs (2026-11) built ~78 pages with neither line, and nothing here said so.
 mxtk_pos_read "$PROJECT_DIR"; POS_BANNER=""; mxtk_pos_undeclared && POS_BANNER="$MXTK_POS_BANNER"
+[ "$POS_ENTRY" = greenfield-retired ] && POS_BANNER="${MXTK_POS_RETIRED/<project>/$PROJECT_DIR}"
 ADOPTED="$(grep -m1 -oE '^Adopted at stage: *[0-9P]+' "$REG" | sed 's/^Adopted at stage: *//')"
 SKELETON="$(grep -m1 -oE '^Skeleton proven [0-9-]+' "$REG" | sed 's/^Skeleton proven //')"
 UNSYNCED="$(grep -c 'UNSYNCED' "$REG" 2>/dev/null)"; UNSYNCED="${UNSYNCED:-0}"
@@ -254,6 +255,7 @@ fi
 next_action() {
   if [ -n "$APPROVED_OVER" ]; then echo "$APPROVED_OVER is approved in PROJECT.md but its gate FAILS — fix the gate, or re-open the approval with the user (bin/gate-check.sh)"; return; fi   # conversion-runbook.md §2
   if [ "$N_ATTN" -gt 0 ]; then echo "fix what gate-check flags: $(printf '%s\n' "$NEED_ATTN" | head -1)"; return; fi   # conversion-runbook.md §2
+  if [ "$POS_ENTRY" = greenfield-retired ]; then echo "bin/sync-project.sh $PROJECT_DIR — Entry mode greenfield is retired and maps to requirements-driven (conversion-runbook.md → Entry Modes)"; return; fi
   if [ -n "$POS_BANNER" ]; then echo "declare the entry mode (intake Q1, kickoff) or adopt a stage: bin/gate-check.sh $PROJECT_DIR --adopt <stage> --reason \"...\""; return; fi   # conversion-runbook.md → Entry Modes
   case "$STAGE_LINE" in *"Stage 5"*|*"Stage 6"*|*"Stage 7"*)
     if [ -z "$SKELETON" ]; then echo "run the walking skeleton before the first module (skills/walking-skeleton.md)"; return; fi ;;  # walking-skeleton.md

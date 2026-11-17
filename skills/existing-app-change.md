@@ -28,7 +28,7 @@ that loop.
 |---|---|
 | To understand, audit or lint the app; a regression net; no change planned | `existing-app-assurance.md` |
 | To rebuild the app on Mendix from a non-Mendix source | `conversion-runbook.md` → Migration |
-| A brand-new app | `conversion-runbook.md` → Requirements-driven or Greenfield |
+| A brand-new app | `conversion-runbook.md` → Requirements-driven (from documents or a conversation), or a POC |
 | A one-line fix you would not open a ticket for | Just do it. This skill is overhead for a typo. |
 
 The line between "a change" and "a new app inside an old one" is scope, and Stage 0 draws it. If what

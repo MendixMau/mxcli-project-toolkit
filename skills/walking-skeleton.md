@@ -1,6 +1,6 @@
 # Walking skeleton — prove the whole loop on one thin slice before any module
 
-**Applies to:** every entry mode (migration, requirements-driven, greenfield) — the first thing
+**Applies to:** every entry mode (migration, requirements-driven, change an existing app; a POC builds it as its first slice) — the first thing
 Stage 5 does, before the first module of the build plan. À-la-carte work on an existing app skips it.
 **Purpose:** one entity, one microflow, one page, one nav item, one demo user, one journey, one
 screenshot — proven end to end in the *running* app. It is not a feature. It is the proof that the
@@ -75,7 +75,7 @@ first module fixes, known on day one instead of at module close.
 - Not the first module. The skeleton entity may be *absorbed* by the first module's script that
   owns that document (`create or modify`), never deleted.
 - Not a design review. One page, four questions. `module-review.md` still runs at module close.
-- Not optional in greenfield. Greenfield is where the machinery is newest and least proven.
+- Not optional for a new app. A new app is where the machinery is newest and least proven.
 
 ## Related
 

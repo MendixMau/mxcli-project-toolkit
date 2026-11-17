@@ -21,7 +21,8 @@ Then open your agent (Claude Code or equivalent) in `<project-root>` and say wha
 |---|---|---|
 | Legacy source code | Migration | P, 0–7 |
 | Requirements/specs only, no code | Requirements-driven | P, 1–6 |
-| Just an idea / existing plan | Greenfield | P (light), 5–6 |
+| Just an idea — a real app | Requirements-driven, the conversation as the source | P, 0–6 |
+| Just an idea — a demo | `Build type: poc` (`skills/poc-build.md`) | its own steps 1–9 |
 | A live Mendix app you are changing | Change an existing app | P, 0–6 per change |
 
 ## Running unattended — the kick-off brief

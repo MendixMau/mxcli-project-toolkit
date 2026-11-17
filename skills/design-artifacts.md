@@ -227,7 +227,7 @@ table against `design/wireframes/*.html` and reports `MANUAL <built> wireframes 
 ### Step 2a: Adopt a supplied design — map, do not redraw
 
 **Trigger:** the corpus supplies clickable HTML prototypes or a design system (requirements-driven
-or migration; greenfield and POC use `poc-build.md` steps 1–4 instead). The prototype is the
+or migration; a POC uses `poc-build.md` steps 1–4 instead). The prototype is the
 target; Stage 3 maps it rather than drawing a second, drifting copy.
 
 1. Screen Inventory rows (Step 2) get Basis `SUPPLIED` and the file in Notes.

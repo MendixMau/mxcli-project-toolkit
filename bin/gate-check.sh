@@ -2218,15 +2218,29 @@ stage4_closing_rows() {
 # own "Marketplace installs:" line and never changes this verdict, so a project whose Stage 5
 # exit is already recorded cannot flip to "approved over a failing gate". It blocks earlier, in
 # build-ready and in exec.sh before a domain-model script, where the install belongs.
+#
+# A checkout without the ledger (#T3, two field runs 2026-11): .claude/loop/ is git-ignored, so a
+# copy of the repo has no owed.tsv and used to stay MANUAL over a build with 0 of ~78 pages looked
+# at. docs/progress/look-summary.tsv is the TRACKED summary look-ledger.sh writes (bin/ready.sh,
+# close-task.sh); its `unseen` rows are judged exactly like OWED ledger rows below, so PROOF-OF-LOOK
+# citations and waivers still clear them. MXTK_LOOK_MODULE=<Module> scopes the check to one module
+# (bin/ready.sh --module); unset, nothing changes.
 check_stage_5() {
-  local owed="$PROJECT_DIR/.claude/loop/look/owed.tsv" rows proofs="" n=0 n_seen=0 n_proof=0 n_waived=0
-  local unseen="" n_unseen=0 st page epoch mod rep line shot f sz mt
-  if [ ! -s "$owed" ] || [ ! -f "$TOOLKIT_DIR/project-bin/look-ledger.sh" ]; then
-    check_stage_manual; return
+  local owed="$PROJECT_DIR/.claude/loop/look/owed.tsv" rows="" proofs="" n=0 n_seen=0 n_proof=0 n_waived=0
+  local unseen="" n_unseen=0 st page epoch mod rep line shot f sz mt src=""
+  local summ="$PROJECT_DIR/docs/progress/look-summary.tsv" scope="${MXTK_LOOK_MODULE:-}"
+  if [ -s "$owed" ] && [ -f "$TOOLKIT_DIR/project-bin/look-ledger.sh" ]; then
+    # The toolkit's copy, not the project's: the same join for every project, whichever version
+    # of the script it installed.
+    rows="$(PROJECT_ROOT="$PROJECT_DIR" bash "$TOOLKIT_DIR/project-bin/look-ledger.sh" status 2>/dev/null)"
+  elif [ -s "$summ" ]; then
+    # SEEN rows are not listed by page in the summary: one placeholder per seen page of the scope.
+    rows="$(awk -F'\t' -v m="$scope" '
+      $1=="module" && (m=="" || $2==m) { for (i=0; i<$4+0; i++) print "SEEN\t" $2 ".(seen)\t0" }
+      $1=="unseen" { print "OWED\t" $2 "\t" $3 }' "$summ")"
+    src=" (from the committed docs/progress/look-summary.tsv, $(awk -F'\t' '$1=="as-of"{print "as of " $2; exit}' "$summ"); the ledger is not in this checkout)"
   fi
-  # The toolkit's copy, not the project's: the same join for every project, whichever version
-  # of the script it installed.
-  rows="$(PROJECT_ROOT="$PROJECT_DIR" bash "$TOOLKIT_DIR/project-bin/look-ledger.sh" status 2>/dev/null)"
+  [ -n "$scope" ] && rows="$(printf '%s\n' "$rows" | awk -F'\t' -v m="$scope" 'index($2, m ".") == 1')"
   [ -n "$rows" ] || { check_stage_manual; return; }
 
   # PROOF-OF-LOOK citations, once: "Module.Page<TAB>shot-mtime" per citation with a real shot.
@@ -2271,9 +2285,9 @@ EOF
   [ "$n_proof" -gt 0 ] && how="$how, $n_proof by PROOF-OF-LOOK"
   [ "$n_waived" -gt 0 ] && how="$how, $n_waived waived"
   if [ "$n_unseen" -gt 0 ]; then
-    echo "FAIL|look: $n_unseen of $n built page(s) never looked at since their last build: $unseen — screenshot each, open the PNG (a file name containing the page name, or the journey screenshot bin/look-ledger.sh shots lists), compare it to its wireframe (skills/ui-loop.md); or --waive look/<Module> --reason \"...\""
+    echo "FAIL|look: $n_unseen of $n built page(s)${scope:+ in $scope} never looked at since their last build$src: $unseen — screenshot each, open the PNG (a file name containing the page name, or the journey screenshot bin/look-ledger.sh shots lists), compare it to its wireframe (skills/ui-loop.md); or --waive look/<Module> --reason \"...\""
   else
-    echo "MANUAL|look: $n of $n built page(s) accounted for ($how); the rest of Stage 5 is manual"
+    echo "MANUAL|look: $n of $n built page(s)${scope:+ in $scope} accounted for ($how)$src; the rest of Stage 5 is manual"
   fi
 }
 
@@ -2295,7 +2309,16 @@ test_surface_hit() {
 }
 
 check_stage_6() {
-  local test_ok="" review_ok=""
+  local test_ok="" review_ok="" rcf=""
+  # A READY line bin/ready.sh did not write is not READY (bin/lib/ready-claims.sh): Stage 6 FAILs on
+  # it before anything else, so a hand-written READY cannot carry a project into its test stage.
+  if [ -r "$TOOLKIT_DIR/bin/lib/ready-claims.sh" ]; then
+    . "$TOOLKIT_DIR/bin/lib/ready-claims.sh"
+    if ! rcf="$(mxtk_ready_claim_faults "$PROJECT_DIR")"; then
+      echo "FAIL|READY claimed without bin/ready.sh ($(printf '%s\n' "$rcf" | grep -c .) line(s)): $(printf '%s\n' "$rcf" | head -3 | tr '\n' ';' | sed 's/;$//') — READY is written only by bin/ready.sh <project-root> [--module M]; remove the hand-written line or run it"
+      return
+    fi
+  fi
   test_surface_hit && test_ok=1
   # module-review.md report — any non-empty dated report under a ui-reviews/ dir
   if [ -n "$(find_artifact -path '*/ui-reviews/ui-review-*.html' -size +0c)" ]; then

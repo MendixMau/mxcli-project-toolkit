@@ -203,6 +203,113 @@ _ob_modules() {
   } 2>/dev/null | sed '/^$/d' | sort -u
 }
 
+# ── the floor: owed by what was BUILT when nothing was planned ──────────────
+#
+# WHY (two field runs, 2026-11). Both were unattended requirements-driven builds with a full spec,
+# clickable prototypes and a design system supplied. Run 1 skipped stages 1-4 outright: no BRDs,
+# no blueprint, no build plan, no module briefs. It built about 78 pages across several apps,
+# wrote 0 UI review reports, never ran page-fidelity.js, and the gate printed
+#     Obligation look  PASS — no module has been opened for work yet; nothing owed
+# for look, fidelity, sweep and journeys alike, because _ob_modules() keys scope to briefs and
+# verify runs — artifacts of exactly the stages the run skipped. The screens missed whole sections
+# the prototypes show. Run 2, another kit, the same: one glance at the prototypes, no per-screen
+# look. The more stages a project skips, the quieter this check got; that inversion is the bug.
+#
+# So when the planned scope is EMPTY, the built scope is owed: every module that holds a page.
+# A planned scope, when there is one, is left exactly as it was (a project with briefs keeps
+# today's verdicts; an app that predates the toolkit still owes nothing for unbriefed modules).
+#
+# Where built pages are read from, first source that yields any page wins:
+#   1. the look ledger  .claude/loop/look/owed.tsv, column 3 (Module.Page) — written by exec.sh
+#   2. page statements in the project's *.mdl scripts (CREATE / CREATE OR REPLACE|MODIFY / ALTER
+#      PAGE, the shapes look-ledger.sh's look_pages_in() was captured from; *.test.mdl skipped)
+#   3. the model, via .claude/loop/page-scope.json "inScope" — written by bin/page-scope.sh
+# Each is looked for at <root>, <root>/app and <root>/apps/* — single-tree, two-tree and the
+# several-apps-in-one-repo layout of the field run. (When the multi-app resolver lands in
+# bin/lib/_common.sh, this list should defer to it.) No mxcli call: the gate stays read-only and
+# fork-cheap; page-scope.sh is the remedy named when nothing can be read.
+#
+# Sets _OB_BUILT_PAGES (Module.Page lines, unique) and _OB_BUILT_SRC (where they came from), or
+# _OB_BUILT_SRC="" with _OB_BUILT_MPR=1 when a model exists but no source could count its pages.
+_OB_BUILT_PAGES=""; _OB_BUILT_SRC=""; _OB_BUILT_MPR=0; _OB_BUILT_DONE=""
+_ob_built_pages() {
+  local root="$1" t f roots
+  [ "$_OB_BUILT_DONE" = "$root" ] && return 0
+  _OB_BUILT_DONE="$root"; _OB_BUILT_PAGES=""; _OB_BUILT_SRC=""; _OB_BUILT_MPR=0
+  roots="$root"$'\n'"$root/app"
+  for t in "$root"/apps/*/; do [ -d "$t" ] && roots="$roots"$'\n'"${t%/}"; done
+
+  # 1. look ledger
+  local IFS=$'\n'
+  for t in $roots; do
+    f="$t/.claude/loop/look/owed.tsv"
+    [ -s "$f" ] && _OB_BUILT_PAGES="$_OB_BUILT_PAGES$(awk -F'\t' '$3 ~ /^[A-Za-z0-9_]+\.[A-Za-z0-9_]+$/ {print $3}' "$f" 2>/dev/null)"$'\n'
+  done
+  _OB_BUILT_PAGES="$(printf '%s' "$_OB_BUILT_PAGES" | sed '/^$/d' | LC_ALL=C sort -u)"
+  if [ -n "$_OB_BUILT_PAGES" ]; then _OB_BUILT_SRC=".claude/loop/look/owed.tsv"; return 0; fi
+
+  # 2. page statements in *.mdl scripts. Pruned: VCS, dependencies, Mendix build output and the
+  # toolkit's own loop state — none of them is a build script, and deployment/ can be huge.
+  local scripts
+  scripts="$(find "$root" -maxdepth 7 \( -name .git -o -name node_modules -o -name deployment \
+      -o -name .claude -o -name javasource -o -name vendorlib -o -name widgets -o -name themesource \
+      -o -name theme -o -name resources \) -prune -o -type f -name '*.mdl' ! -name '*.test.mdl' -print 2>/dev/null \
+      | LC_ALL=C sort)"
+  if [ -n "$scripts" ]; then
+    # Same statement shapes and comment rules as look_pages_in() (project-bin/look-ledger.sh);
+    # the last statement on a page across the scripts, in path order, decides (DROP removes).
+    _OB_BUILT_PAGES="$(printf '%s\n' "$scripts" | tr '\n' '\0' | xargs -0 awk '
+      FNR == 1 { inc = 0 }
+      /^[[:space:]]*\/\*/ { inc=1 }
+      inc { if ($0 ~ /\*\//) inc=0; next }
+      /^[[:space:]]*--/ { next }
+      { l=toupper($0); act="" }
+      l ~ /^[[:space:]]*(CREATE([[:space:]]+OR[[:space:]]+(REPLACE|MODIFY))?|ALTER)[[:space:]]+PAGE[[:space:]]/ { act="owe" }
+      l ~ /^[[:space:]]*DROP[[:space:]]+PAGE[[:space:]]/ { act="drop" }
+      act != "" {
+        s=$0; sub(/^[[:space:]]*/, "", s)
+        n=split(s, w, /[[:space:]]+/); j=0
+        for (i=1; i<=n; i++) if (toupper(w[i])=="PAGE") { j=i+1; break }
+        if (act=="drop" && toupper(w[j])=="IF" && toupper(w[j+1])=="EXISTS") j+=2
+        name=w[j]; sub(/[(;{].*$/, "", name); gsub(/"/, "", name)
+        if (name ~ /^[A-Za-z0-9_]+\.[A-Za-z0-9_]+$/) last[name]=act
+      }
+      END { for (p in last) if (last[p]=="owe") print p }' 2>/dev/null | LC_ALL=C sort -u)"
+    if [ -n "$_OB_BUILT_PAGES" ]; then _OB_BUILT_SRC="page statements in *.mdl scripts"; return 0; fi
+  fi
+
+  # 3. the model, as page-scope.sh recorded it
+  for t in $roots; do
+    f="$t/.claude/loop/page-scope.json"
+    [ -s "$f" ] || continue
+    _OB_BUILT_PAGES="$_OB_BUILT_PAGES$(tr -d '\r' < "$f" | awk '
+      /"inScope"[[:space:]]*:/ { on=1 }
+      on { s=$0; while (match(s, /"[A-Za-z0-9_]+\.[A-Za-z0-9_]+"/)) { print substr(s, RSTART+1, RLENGTH-2); s=substr(s, RSTART+RLENGTH) }
+           if ($0 ~ /\]/) exit }')"$'\n'
+  done
+  _OB_BUILT_PAGES="$(printf '%s' "$_OB_BUILT_PAGES" | sed '/^$/d' | LC_ALL=C sort -u)"
+  if [ -n "$_OB_BUILT_PAGES" ]; then _OB_BUILT_SRC=".claude/loop/page-scope.json (the model)"; return 0; fi
+
+  # Nothing readable. A model on disk means pages may exist uncounted: say so, never "0 pages".
+  for t in $roots; do
+    for f in "$t"/*.mpr; do [ -f "$f" ] && { _OB_BUILT_MPR=1; break 2; }; done
+  done
+  return 0
+}
+
+# "<n> pages in <m> modules (A 30, B 12, ...)" for the built scope; modules on stdout via _OB_BUILT_MODS.
+_OB_BUILT_MODS=""; _OB_BUILT_SUMMARY=""
+_ob_built_scope() {
+  _ob_built_pages "$1"
+  _OB_BUILT_MODS=""; _OB_BUILT_SUMMARY=""
+  [ -n "$_OB_BUILT_PAGES" ] || return 0
+  _OB_BUILT_MODS="$(printf '%s\n' "$_OB_BUILT_PAGES" | awk -F. '{print $1}' | LC_ALL=C sort -u)"
+  # Sorted by module name before the count, so the line is the same on every run and platform.
+  _OB_BUILT_SUMMARY="$(printf '%s\n' "$_OB_BUILT_PAGES" | awk -F. '{print $1}' | LC_ALL=C sort | uniq -c | awk '
+    { t += $1; m++; o = o (m > 1 ? ", " : "") $2 " " $1 }
+    END { printf "%d page(s) built in %d module(s) (%s)", t, m, o }')"
+}
+
 # Does the artifact exist for this unit? Echoes the file that discharges it, or nothing.
 _ob_find() {
   local root="$1" match="$2" pattern="$3" unit="$4" resolved f
@@ -508,6 +615,12 @@ mxtk_obligations_report() {
   [ -n "$current" ] && current_rank="$(_ob_rank "$current")"
 
   local modules; modules="$(_ob_modules "$root")"
+  # The floor (see _ob_built_pages): an empty planned scope falls back to the built one.
+  local floor=0 floor_fault_counted=0
+  if [ -z "$modules" ]; then
+    _ob_built_scope "$root"
+    if [ -n "$_OB_BUILT_MODS" ]; then modules="$_OB_BUILT_MODS"; floor=1; fi
+  fi
   local ob performer scope match artifact denom degradable from_stage skill
 
   # Stage limit (#583): rows owed from a stage AFTER the one asked about are not evaluated —
@@ -555,7 +668,17 @@ mxtk_obligations_report() {
     esac
 
     if [ -z "$units" ]; then
-      printf 'Obligation %-10s PASS — no module has been opened for work yet; nothing owed (%s)\n' "$ob" "$skill"
+      if [ "$scope" = "module" ] && [ "$_OB_BUILT_MPR" = 1 ]; then
+        # A model is on disk and nothing could count its pages: "could not measure" is FAULT, and
+        # it must never read as "0 pages built". Counted once for all module rows, not per row.
+        printf 'Obligation %-10s FAULT — no module brief or verify run, and the built pages could not be counted (no look ledger, no page statements in *.mdl, no .claude/loop/page-scope.json) though a .mpr exists; run bin/page-scope.sh (%s)\n' "$ob" "$skill"
+        if [ "$floor_fault_counted" = 0 ]; then
+          MXTK_OB_STATUS="FAULT"; MXTK_OB_N_FAULT=$((MXTK_OB_N_FAULT+1)); floor_fault_counted=1
+        fi
+      else
+        # "no module has been opened" is parsed by bin/status.sh (MOD_OPENED): keep that phrase.
+        printf 'Obligation %-10s PASS — no module has been opened for work yet and no page built (look ledger, *.mdl page statements and page-scope.json read); nothing owed (%s)\n' "$ob" "$skill"
+      fi
       continue
     fi
 
@@ -658,6 +781,11 @@ mxtk_obligations_report() {
       [ "$MXTK_OB_STATUS" = "PASS" ] && MXTK_OB_STATUS="PENDING"
     else
       printf 'Obligation %-10s PASS — %d of %d discharged%s (%s)\n' "$ob" "$done_n" "$scoped" "$tail" "$skill"
+    fi
+    # The floor's denominator, under whichever verdict won: what the scope was taken from.
+    if [ "$floor" = 1 ] && [ "$scope" = "module" ]; then
+      printf 'Obligation %-10s   OWED BY WHAT WAS BUILT: %s, %d of %d module(s) discharged — no module brief or verify run exists, so the scope is the modules that hold pages (source: %s)\n' \
+        "$ob" "$_OB_BUILT_SUMMARY" "$done_n" "$scoped" "$_OB_BUILT_SRC"
     fi
     # Printed under whichever verdict won: a stale unit is counted in NOT DONE above, and this
     # line says WHY it is owed again rather than letting it read as never-reviewed.

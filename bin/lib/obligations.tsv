@@ -189,3 +189,19 @@ final-look	review	project	names	design/ui-reviews/final-look-*.html	yes	yes	6	sk
 # layout the row reads N/A (a project with no UI owes no prototype LOOK); one that has screens but
 # never assembled them is caught by the Stage 3 wireframe gate, not here.
 prototype-look	review	project	names	design/ui-reviews/prototype-look-*.html	yes	yes	3	skills/design-artifacts.md
+
+# must-haves owes, per module, the ticked list in skills/must-haves.md: the build-type-independent
+# floor (empty states, friendly refusals, active nav on first landing, no silent list cap, 1280 and
+# 390, every region the design shows, ...). It started as poc-build.md's 12-row checklist, the one
+# part a blind grader credited (10 of 10 against 5 of 10 for a plain build); a full build owed
+# nothing like it, so a build that skipped planning skipped it too.
+#
+# Measured, two field runs, 2026-11 (unattended, requirements-driven, prototypes supplied): about
+# 78 pages built, 0 reviewed, and the screens missed whole sections the prototypes show —
+# dashboard tiles, status tiles, the side navigation. Row 13 ("every region the design shows is
+# on the page") is the check that would have named each one.
+#
+# Producer: module-review.md stage 5 (review-agent writes the file with the report). Denominator
+# on the first line: "N of N rows ticked or NOT DONE with a reason". Owed by built modules when no
+# brief exists (the floor in obligation-check.sh), like every module row.
+must-haves	review	module	path	.claude/loop/must-haves/<Module>.md	yes	yes	5	skills/must-haves.md

@@ -35,6 +35,8 @@ mkproject() {
   cp "$TK/project-bin/look-ledger.sh" "$TK/project-bin/_common.sh" "$1/bin/"
   printf '# PROJECT.md\n\n## Current stage\n\n**Stage P — Kickoff**, in progress.\n\n%s\n' "${3:+Interview mode: $3}" > "$1/PROJECT.md"
   printf '.claude/loop/\n' > "$1/.gitignore"
+  mkdir -p "$1/docs/progress/must-haves"   # T1's mark, all rows TICKED: READY must not hinge on whether that skill has landed
+  printf 'Approval · 2 of 2 rows ticked or NOT DONE with a reason · pages 3 of 3\n1 TICKED — inbox lists open requests\n2 TICKED — decide records the decision\n' > "$1/docs/progress/must-haves/Approval.md"
   cat > "$1/mdlsource/20-approval-pages.mdl" <<'MDL'
 CREATE PAGE "Approval"."Dashboard"
 (
@@ -75,11 +77,11 @@ see "$P" dashboard-1280 J-DASH-01-step1.png
 run "$P"
 [ "$rc" = 1 ] && ok "R1: 1 of 3 seen → exit 1" || bad "R1: rc=$rc"
 printf '%s\n' "$out" | grep -q 'FAIL  look      1 of 3 page(s) looked at' && ok "R1: look row says 1 of 3" || bad "R1: $out"
-printf '%s\n' "$out" | grep -q '^NOT-READY — 0 of 2 checks pass' && ok "R1: verdict NOT-READY with its denominator" || bad "R1: verdict: $out"
+printf '%s\n' "$out" | grep -q '^NOT-READY — 1 of 3 checks pass' && ok "R1: verdict NOT-READY with its denominator" || bad "R1: verdict: $out"
 ev="$(ls "$P"/docs/progress/ready-*-app.md 2>/dev/null | head -1)"
 [ -n "$ev" ] && grep -q '^- Approval.Approval_Inbox' "$ev" && grep -q 'Approval.Dashboard: dashboard-1280.png' "$ev" \
   && ok "R1: evidence names the unseen pages and the screenshot relied on" || bad "R1: evidence $(cat "$ev" 2>/dev/null)"
-G "$P" ls-files --error-unmatch docs/progress/ready.log docs/progress/look-summary.tsv "${ev#"$P"/}" >/dev/null 2>&1 \
+G "$P" ls-files --error-unmatch docs/progress/ready.log docs/progress/look-summary.tsv docs/progress/review-packets/app.html "${ev#"$P"/}" >/dev/null 2>&1 \
   && ok "R1: evidence, ready.log and look-summary.tsv are committed" || bad "R1: not committed: $(G "$P" status --short)"
 grep -q '^as-of.*owed 3	seen 1	unseen 2' "$P/docs/progress/look-summary.tsv" && ok "R1: look-summary.tsv says owed 3 seen 1" || bad "R1: summary $(cat "$P/docs/progress/look-summary.tsv")"
 
@@ -97,7 +99,7 @@ see_all "$P"
 run "$P"
 [ "$rc" = 0 ] && ok "R3: all 3 seen → READY exit 0" || bad "R3: rc=$rc $out"
 tail -1 "$P/docs/progress/ready.log" | grep -q '	READY	app	' && ok "R3: ready.log carries the READY line" || bad "R3: log $(tail -1 "$P/docs/progress/ready.log")"
-G "$P" log -1 --format=%s | grep -q '^ready: app READY (2 of 2 checks)' && ok "R3: committed as 'ready: app READY'" || bad "R3: $(G "$P" log -1 --format=%s)"
+G "$P" log -1 --format=%s | grep -q '^ready: app READY (3 of 3 checks)' && ok "R3: committed as 'ready: app READY'" || bad "R3: $(G "$P" log -1 --format=%s)"
 grep -q '^as-of.*owed 3	seen 3	unseen 0' "$P/docs/progress/look-summary.tsv" && ok "R3: summary refreshed to 3 of 3" || bad "R3: summary"
 
 # ── R4: unattended (auto) needs an independent review ──────────────────────────────────────
@@ -129,11 +131,21 @@ run "$P" --no-commit
 run "$P" --module Nope --no-commit
 [ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q 'look      NOT MEASURED' && ok "R5: a module with no built page is NOT MEASURED, never green" || bad "R5: $out"
 
-# ── R6: must-have list, when present ───────────────────────────────────────────────────────
-mkdir -p "$P/architecture/modules/Approval"
-printf '# Must-haves — Approval\n- [x] inbox lists open requests\n- [ ] decide sends a notification\n' > "$P/architecture/modules/Approval/must-haves.md"
+# ── R6: the must-have mark (skills/must-haves.md § The mark), on its tracked path ──────────
+mkdir -p "$P/docs/progress/must-haves"
+printf 'Approval · 3 of 3 rows ticked or NOT DONE with a reason · pages 3 of 3\n1 TICKED — inbox lists open requests\n2 TICKED — decide records the decision\n3 NOT DONE — notification: no mail server in the lab\n' > "$P/docs/progress/must-haves/Approval.md"
 run "$P" --module Approval --no-commit
-[ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q 'must-have 1 of 2 ticked' && ok "R6: an unticked must-have blocks, 1 of 2" || bad "R6: $out"
+[ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q 'must-have 2 of 3 rows TICKED' && ok "R6: a NOT DONE row blocks READY, 2 of 3 (denominator from line 1)" || bad "R6: $out"
+printf 'Approval · rows not counted yet\n1 TICKED — x\n' > "$P/docs/progress/must-haves/Approval.md"
+run "$P" --module Approval --no-commit
+[ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q 'must-have FAULT — line 1 has no "N of M"' && ok "R6: a mark whose line 1 states no N of M is a FAULT, not a pass" || bad "R6: $out"
+rm -f "$P/docs/progress/must-haves/Approval.md"
+
+# ── R6b: the review packet — paths, never images ───────────────────────────────────────────
+pk="$P/docs/progress/review-packets/Approval.html"
+[ -f "$pk" ] && grep -q 'src="../../../shots/dashboard-1280.png"' "$pk" && grep -q '3 of 3 page(s) seen since their last build' "$pk" \
+  && ! ls "$P"/docs/progress/review-packets/*.png >/dev/null 2>&1 \
+  && ok "R6b: the packet lists each page's screenshot path and K of N, and holds no image" || bad "R6b: packet $(head -c 400 "$pk" 2>/dev/null)"
 
 # ── R7: no ledger at all → NOT MEASURED ────────────────────────────────────────────────────
 P="$WORK/r7"; mkdir -p "$P"; printf '# PROJECT.md\n' > "$P/PROJECT.md"

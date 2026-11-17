@@ -2298,7 +2298,16 @@ test_surface_hit() {
 }
 
 check_stage_6() {
-  local test_ok="" review_ok=""
+  local test_ok="" review_ok="" rcf=""
+  # A READY line bin/ready.sh did not write is not READY (bin/lib/ready-claims.sh): Stage 6 FAILs on
+  # it before anything else, so a hand-written READY cannot carry a project into its test stage.
+  if [ -r "$TOOLKIT_DIR/bin/lib/ready-claims.sh" ]; then
+    . "$TOOLKIT_DIR/bin/lib/ready-claims.sh"
+    if ! rcf="$(mxtk_ready_claim_faults "$PROJECT_DIR")"; then
+      echo "FAIL|READY claimed without bin/ready.sh ($(printf '%s\n' "$rcf" | grep -c .) line(s)): $(printf '%s\n' "$rcf" | head -3 | tr '\n' ';' | sed 's/;$//') — READY is written only by bin/ready.sh <project-root> [--module M]; remove the hand-written line or run it"
+      return
+    fi
+  fi
   test_surface_hit && test_ok=1
   # module-review.md report — any non-empty dated report under a ui-reviews/ dir
   if [ -n "$(find_artifact -path '*/ui-reviews/ui-review-*.html' -size +0c)" ]; then

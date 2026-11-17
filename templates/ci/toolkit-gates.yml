@@ -1,0 +1,45 @@
+# toolkit-gates.yml — installed by mxcli-project-toolkit (bin/init-project.sh, bin/sync-project.sh).
+# Never overwritten once present: edit it freely; sync only reports when it differs from the template.
+#
+# The gate an agent cannot skip. Everything inside an agent's session can be skipped by the agent
+# (not running a gate, `git commit --no-verify`, writing READY by hand). This runs on GitHub, on what
+# was pushed, and runs the toolkit's bin/ci-gates.sh at the toolkit commit PROJECT.md pins:
+#   (a) gate-check for the stage the register claims fails on FAIL
+#   (b) a READY line that bin/ready.sh did not write fails
+#   (c) built pages never looked at fail once anything claims done (READY, or Stage 6+)
+#   (d) model work committed before Stage 4 passed fails (greenfield and --adopt points excepted)
+#
+# WHAT IT CANNOT SEE — anything not committed: the git-ignored .claude/loop/ ledgers (only the summary
+# docs/progress/look-summary.tsv that bin/ready.sh and close-task.sh commit), screenshots, chat, and a
+# model changed without exec.sh and without a docs/BUILD-LOG.md row. No Mendix runtime, no mxcli: it
+# reads files only, in seconds.
+#
+# The toolkit repo defaults to the public one; set the repository variable MXTK_TOOLKIT_REPO to use a
+# fork (a private fork also needs a read token in the checkout step).
+name: toolkit-gates
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolkit at the commit PROJECT.md pins
+        env:
+          TOOLKIT_REPO: ${{ vars.MXTK_TOOLKIT_REPO || 'https://github.com/MendixMau/mxcli-project-toolkit.git' }}
+        run: |
+          sha="$(sed -n 's/^Toolkit commit:[[:space:]`]*\([0-9a-f]\{7,40\}\).*/\1/p' PROJECT.md | head -1)"
+          git clone -q --filter=blob:none "$TOOLKIT_REPO" "$RUNNER_TEMP/toolkit"
+          if [ -n "$sha" ] && git -C "$RUNNER_TEMP/toolkit" checkout -q "$sha" 2>/dev/null \
+             && [ -f "$RUNNER_TEMP/toolkit/bin/ci-gates.sh" ]; then
+            echo "toolkit pinned at $sha"
+          else
+            git -C "$RUNNER_TEMP/toolkit" checkout -q master
+            echo "::warning title=toolkit gates::PROJECT.md pins no usable toolkit commit (or one older than bin/ci-gates.sh); ran master instead"
+          fi
+      - name: Toolkit gates
+        run: bash "$RUNNER_TEMP/toolkit/bin/ci-gates.sh" .

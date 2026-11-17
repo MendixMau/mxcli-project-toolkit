@@ -14,6 +14,7 @@
 #      lists it as a ✋ decision to confirm; without auto no row is written
 #   K  Build type: poc (its own axis, not an entry-mode token) → gate-check reads Stages 0-4,
 #      6, 7 "not owed (mode: Build type: poc)"
+#   V  every token in artifact-manifest.tsv col 6 / obligations.tsv col 10 is one the reader emits
 #   G  init-project.sh over a hand-written PROJECT.md appends Current stage, Decisions, Open
 #      questions and Change log, says so, and keeps the hand-written lines
 #
@@ -117,6 +118,25 @@ for h in "## Current stage" "## Decisions" "## Open questions" "## Change log"; 
 grep -q '^Requirements live in specs/\.$' "$Q/PROJECT.md" && ok "G hand-written lines kept" || bad "G hand-written lines kept"
 MXTK_NO_GUIDE=1 HOME="$WORK/home" "$TOOLKIT/bin/init-project.sh" "$Q" 2>&1 | grep -q "Skip: PROJECT.md already exists" \
   && ok "G a second init appends nothing" || bad "G a second init appends nothing"
+
+echo "-- V: one vocabulary across both tables (drift guard)"
+# Every token in artifact-manifest.tsv column 6 and obligations.tsv's modes column (column 10, when
+# the table has one) must be a value the boundary reader _art_entry_mode can produce from a real
+# register line — otherwise a row reads "not owed (mode)" for the very mode that owes it: a silent
+# pass. The emitted set is computed, not listed, so a tokeniser change moves it too.
+EMIT="$(bash -c '. "$1/bin/lib/entry-mode.sh"; . "$1/bin/lib/artifact-check.sh"
+  for m in migration requirements-driven greenfield "Change an existing app" a-la-carte; do
+    d="$(mktemp -d)"; printf "Entry mode: %s\n" "$m" > "$d/PROJECT.md"; _art_kv_load "$d/PROJECT.md" 2>/dev/null
+    _art_entry_mode "$d/PROJECT.md" 2>/dev/null; rm -rf "$d"; done' _ "$TOOLKIT" | sort -u | tr '\n' ' ')"
+[ -n "$EMIT" ] && ok "V emitted set: $EMIT" || bad "V could not compute the emitted token set"
+for spec in "bin/lib/artifact-manifest.tsv:6" "bin/lib/obligations.tsv:10"; do
+  f="$TOOLKIT/${spec%%:*}"; col="${spec##*:}"; [ -f "$f" ] || continue
+  hdr="$(grep -m1 -v '^#' "$f" | awk -F'\t' -v c="$col" '{print $c}')"
+  [ "$hdr" = modes ] || { echo "  skip ${spec%%:*}: column $col is not 'modes' here"; continue; }
+  bad_t="$(grep -v '^#' "$f" | awk -F'\t' -v c="$col" 'NR>1 && NF>=c {n=split($c,a,","); for(i=1;i<=n;i++) print a[i]}' \
+    | sort -u | while read -r t; do case " $EMIT " in *" $t "*) ;; *) printf '%s ' "$t" ;; esac; done)"
+  [ -z "$bad_t" ] && ok "V ${spec%%:*} modes tokens all emitted by the tokeniser" || bad "V ${spec%%:*} has tokens nothing emits" "$bad_t"
+done
 
 echo ""
 echo "== $PASS passed, $FAIL failed"

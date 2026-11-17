@@ -773,8 +773,9 @@ take_score() {
 #     gate-check's readout at Stage 5+, or architecture/build-plan.md plus a module brief (root
 #     or apps/<App>/) — see mxtk_plan_evidence;
 #   - the clearing commands are gate-check.sh --adopt/--waive and writing the plan, none of which
-#     goes through here (guard rule 7), and the refusal is ONCE per clone (.mpr-snapshots/
-#     .plan-rule-refused): a re-run goes on, tagged "no plan" in every BUILD-LOG row;
+#     goes through here (guard rule 7), and the refusal is ONCE EVER per clone (.mpr-snapshots/
+#     .plan-rule-refused, git-ignored before it is written): every later write goes on, tagged
+#     "no plan" in its BUILD-LOG row, and no second refusal ever comes on that clone;
 #   - under `Interview mode: auto` there is no refuse-once: see the auto branch below;
 #   - never refused: --patch (opaque repair; doctor.sh's recovery path), `Build type: poc`,
 #     greenfield, change-an-existing-app, a-la-carte, and no declared mode at all.
@@ -811,12 +812,15 @@ if [ -f "$_XD/_position.sh" ]; then
       POS_NOTE="no plan (Entry mode $POS_ENTRY, before Stage 4)"
     else
       [ -d "$PROJECT_ROOT/.mpr-snapshots" ] || mkdir -p "$PROJECT_ROOT/.mpr-snapshots"
+      # Ignore the folder BEFORE the stamp lands in it: on a fresh repo snapshot-mpr.sh has not run
+      # yet, and a committed stamp would make "once per clone" once per repository.
+      mxtk_gitignore_ensure "$PROJECT_ROOT/.gitignore" ".mpr-snapshots" "/.mpr-snapshots/" || true
       if [ -n "${EPOCHSECONDS:-}" ]; then printf -v _pw '%(%Y-%m-%dT%H:%M:%S%z)T' -1; else _pw="now"; fi
       printf '%s %s\n' "$_pw" "$SCRIPT" > "$_PLAN_STAMP"
       result_line refused no skipped 1
       echo "✗ Plan rule: Entry mode $POS_ENTRY, and Stage 4 has not passed or been adopted — no build plan, no module briefs. NOTHING was written."
       echo "  Remedy: run stages 1-4 (conversion-runbook.md), or record why not: $_GC $PROJECT_ROOT --adopt 5 --reason \"...\" (it shows in the register)."
-      echo "  Refused once only: a re-run goes on, and its BUILD-LOG row says \"no plan\"."
+      echo "  This is the one refusal this clone will ever get: every later write goes on, its BUILD-LOG row tagged \"no plan\"."
       log_build "🚫 blocked" "plan rule: Entry mode $POS_ENTRY, no build plan/briefs and Stage 4 not adopted — refused once, nothing written"
       exit 1
     fi

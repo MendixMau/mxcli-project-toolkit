@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# _position.sh — where a project says it is: the ONE reader of the register's position lines
-# (Entry mode, Adopted at stage, Build type, Waived stage 4, the Current-stage readout) and the
-# ONE tokeniser for "Entry mode:". Sourced by project-bin/exec.sh (installed as bin/_position.sh)
-# and, through the shim bin/lib/entry-mode.sh, by bin/gate-check.sh, bin/status.sh and
-# bin/lib/artifact-check.sh.
+# _position.sh — the ONE shared tokeniser for "Entry mode:" (entry_mode_token), plus exec.sh's
+# in-shell reader of the register's position lines (mxtk_pos_read: Entry mode, Adopted at stage,
+# Build type, the Stage-4 waivers, the Current-stage readout). gate-check.sh and status.sh keep
+# their own register readers and use only the tokeniser and the banner text from here. Sourced by
+# project-bin/exec.sh (installed as bin/_position.sh) and, through the shim bin/lib/entry-mode.sh,
+# by bin/gate-check.sh, bin/status.sh and bin/lib/artifact-check.sh.
 #
 # PURE BASH, no process starts: exec.sh runs this on every model write and its per-exec budget is
 # counted (tests/wave2/test-exec-process-budget.sh). Bash 3.2 safe (macOS): no ${v,,}, no
@@ -74,7 +75,8 @@ _mxtk_emt() {
 #   POS_ENTRY     canonical token, or "" (none declared / not recognised)
 #   POS_ADOPTED   the "Adopted at stage:" stage (P|0-7), or ""
 #   POS_BUILD     "poc" when "Build type: poc", else "full"
-#   POS_WAIVED4   1 when a "Waived stage 4:" line carries a reason
+#   POS_WAIVED4   1 when a "Waived stage 4:" line carries a reason, or a "Waived stages:" line lists 4
+#                 before its dash with a reason after it (the two spellings gate-check.sh reads)
 #   POS_READOUT   the stage in gate-check.sh's "## Current stage" readout ("**Stage 5 — ..."), or ""
 #   POS_AUTO      1 when the interview mode resolves to auto (unattended): $CLAUDE_INTERVIEW_MODE,
 #                 else .claude/.interview-mode, else the register line — bin/interview-mode.sh's
@@ -103,6 +105,13 @@ mxtk_pos_read() {
       elif [ -z "$bt" ] && [[ "$key" == "build type" ]]; then bt="$val"
       elif [ -z "$im" ] && [[ "$key" == "interview mode" ]]; then im="$val"
       elif [[ "$key" == "waived stage 4" ]]; then POS_WAIVED4=1
+      elif [[ "$key" == "waived stages" ]]; then
+        # The aggregate spelling gate-check.sh also honours ("Waived stages: 1, 2, 3, 4 — reason"):
+        # 4 must be listed BEFORE the dash, and a reason must follow it (no reason, no waiver).
+        local _wh="" _wr=""
+        case "$val" in *—*) _wh="${val%%—*}"; _wr="${val#*—}" ;; *–*) _wh="${val%%–*}"; _wr="${val#*–}" ;;
+                       *" - "*) _wh="${val%% - *}"; _wr="${val#* - }" ;; esac
+        [[ ",${_wh//[[:blank:]]/}," == *",4,"* && -n "${_wr//[[:blank:]]/}" ]] && POS_WAIVED4=1
       fi
     done < "$reg"
   fi

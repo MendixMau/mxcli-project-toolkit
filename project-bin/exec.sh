@@ -800,6 +800,7 @@ if [ -f "$_XD/_position.sh" ]; then
     result_line refused no skipped 1
     echo "✗ Plan rule (Interview mode: auto): Entry mode $POS_ENTRY, and the pre-build steps are not done — $_GC $PROJECT_ROOT build-ready has not passed. NOTHING was written."
     echo "  Remedy: run stages 1-4, then $_GC $PROJECT_ROOT build-ready; or $_GC $PROJECT_ROOT --adopt 5 --reason \"...\" — under auto that is a ✋ human-pending decision, and Stage 6 FAILs until a person confirms it."
+    echo "  Already building past Stage 5? One build-ready pass clears it: its record is kept per clone (.mpr-snapshots/), so each fresh clone runs it once."
     log_build "🚫 blocked" "plan rule (auto): Entry mode $POS_ENTRY, build-ready not passed and no adoption — nothing written"
     exit 1
   elif [ "$PATCH_MODE" != "1" ] && [ "$POS_BUILD" != poc ] && [ "$POS_AUTO" != 1 ] \

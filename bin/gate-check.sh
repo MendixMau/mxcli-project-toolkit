@@ -2606,10 +2606,16 @@ check_build_ready() {
     echo "  ✓ Fit-gap: not owed — project joined the toolkit at stage $ADOPTED_AT"
   elif fg_w="$(artifact_waived fit-gap)"; then
     echo "  ✓ Fit-gap: WAIVED — $fg_w"
-  elif [ -z "$fg_path" ] && fg_w="$(stage_waiver 3)" && [ "${fg_w%%|*}" != "noreason" ]; then
-    echo "  ✓ Fit-gap: not owed — ${fg_w#*|}"
   elif [ -z "$fg_path" ] && case "$(printf '%s' "$bt_raw" | tr '[:upper:]' '[:lower:]')" in poc|poc[!a-z]*) true ;; *) false ;; esac; then
+    # Before stage_waiver: that now also excuses Stage 3 for poc, in its own words.
     echo "  ✓ Fit-gap: not owed — Build type: poc (skills/poc-build.md) and no fit-gap exists"
+  elif [ -z "$fg_path" ] && fg_w="$(stage_waiver 3)" && [ "${fg_w%%|*}" != "noreason" ]; then
+    # A mode reason reads "not owed (mode: <m>) — <why>"; this line already says "not owed".
+    fg_r="${fg_w#*|}"
+    case "$fg_r" in "not owed (mode: "*)
+      fg_m="${fg_r#not owed (mode: }"; fg_r="${fg_m%%)*} entry mode ${fg_m#*) }" ;;
+    esac
+    echo "  ✓ Fit-gap: not owed — $fg_r"
   else
     if ! type mxtk_fitgap_review >/dev/null 2>&1; then
       # shellcheck source=lib/marketplace-check.sh
@@ -4684,6 +4690,12 @@ if [ -n "$REQUESTED_STAGE" ]; then
       # "Declared position + plan rule"): exec cannot afford a gate-check per write. Sticky on
       # purpose — a later FAIL does not remove it, so a wiring repair is never blocked by the
       # rule it is repairing (guard rule 7). Local, gitignored, like the exec lock beside it.
+      # Ignored BEFORE the stamp lands, as exec.sh does for its own stamp (a committed stamp would
+      # clear the auto-mode plan rule in every clone of the repository).
+      if [ -r "$TOOLKIT_DIR/bin/lib/gitignore-ensure.sh" ]; then
+        . "$TOOLKIT_DIR/bin/lib/gitignore-ensure.sh"
+        mxtk_gitignore_ensure "$PROJECT_DIR/.gitignore" ".mpr-snapshots" "/.mpr-snapshots/" || true
+      fi
       mkdir -p "$PROJECT_DIR/.mpr-snapshots" 2>/dev/null \
         && printf '%s build-ready PASS (bin/gate-check.sh)\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$PROJECT_DIR/.mpr-snapshots/.build-ready-pass" 2>/dev/null || true
       exit 0

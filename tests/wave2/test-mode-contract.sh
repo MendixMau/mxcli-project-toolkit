@@ -116,7 +116,10 @@ case "$(cat "$WORK/init.out")" in *"PROJECT.md already existed WITHOUT the decis
 for h in "## Current stage" "## Decisions" "## Open questions" "## Change log"; do
   grep -q "^$h" "$Q/PROJECT.md" && ok "G $h present" || bad "G $h present"; done
 grep -q '^Requirements live in specs/\.$' "$Q/PROJECT.md" && ok "G hand-written lines kept" || bad "G hand-written lines kept"
-MXTK_NO_GUIDE=1 HOME="$WORK/home" "$TOOLKIT/bin/init-project.sh" "$Q" 2>&1 | grep -q "Skip: PROJECT.md already exists" \
+# Captured to a file, not piped into grep -q: under pipefail, grep -q closing the pipe early
+# SIGPIPEs init-project.sh and the pipeline reads as a failure.
+MXTK_NO_GUIDE=1 HOME="$WORK/home" "$TOOLKIT/bin/init-project.sh" "$Q" > "$WORK/init2.out" 2>&1
+grep -q "Skip: PROJECT.md already exists" "$WORK/init2.out" \
   && ok "G a second init appends nothing" || bad "G a second init appends nothing"
 
 echo "-- V: one vocabulary across both tables (drift guard)"

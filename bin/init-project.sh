@@ -49,6 +49,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # The PROJECT.md "## Change log" section (skills/change-intake.md) — one copy, shared with
 # sync-project.sh, which appends it to projects scaffolded before it existed.
 . "$SCRIPT_DIR/lib/change-log.sh"
+. "$SCRIPT_DIR/lib/register-skeleton.sh"
 
 # SOURCES_MODE: ask | ignore | track. "ask" prompts only when stdin is a TTY; with no TTY it
 # ignores and says so. Ignoring is the default because a source drop is routinely hundreds of
@@ -163,90 +164,45 @@ fi
 # a pattern that matches every file. Assign it once, unconditionally.
 PROJECT_NAME="$(basename "$PROJECT_DIR")"
 
-if [ -f "$PROJECT_MD" ]; then
-  echo "Skip: PROJECT.md already exists — not overwritten."
+# Stamp the toolkit sha this scaffold was built from.
+#
+# This line used to read "(set at session start — see CLAUDE.local.md)", which no sha pattern
+# matches, so gate-check.sh's freshness check FAILed on a project that was seconds old and
+# every stage request exited 1. A brand-new project could not pass its own freshness gate
+# until a human performed the four-step ritual — the gate blocking the very state it exists
+# to certify. Stamping it here is correct rather than a workaround: at this instant the
+# project provably IS current, because these files were just generated from this commit.
+TOOLKIT_SHA="$(git -C "$SCRIPT_DIR" rev-parse --short HEAD 2>/dev/null || echo "")"
+if [ -n "$TOOLKIT_SHA" ]; then
+  TOOLKIT_COMMIT_LINE="Toolkit commit: $TOOLKIT_SHA"
 else
-  # Stamp the toolkit sha this scaffold was built from.
-  #
-  # This line used to read "(set at session start — see CLAUDE.local.md)", which no sha pattern
-  # matches, so gate-check.sh's freshness check FAILed on a project that was seconds old and
-  # every stage request exited 1. A brand-new project could not pass its own freshness gate
-  # until a human performed the four-step ritual — the gate blocking the very state it exists
-  # to certify. Stamping it here is correct rather than a workaround: at this instant the
-  # project provably IS current, because these files were just generated from this commit.
-  TOOLKIT_SHA="$(git -C "$SCRIPT_DIR" rev-parse --short HEAD 2>/dev/null || echo "")"
-  if [ -n "$TOOLKIT_SHA" ]; then
-    TOOLKIT_COMMIT_LINE="Toolkit commit: $TOOLKIT_SHA"
-  else
-    # Not a git clone (a tarball install, say). Leave the prose, which still FAILs the freshness
-    # check — correct here, because freshness genuinely cannot be established without a repo.
-    TOOLKIT_COMMIT_LINE="Toolkit commit: (set at session start — see CLAUDE.local.md's session-start ritual)"
+  # Not a git clone (a tarball install, say). Leave the prose, which still FAILs the freshness
+  # check — correct here, because freshness genuinely cannot be established without a repo.
+  TOOLKIT_COMMIT_LINE="Toolkit commit: (set at session start — see CLAUDE.local.md's session-start ritual)"
+fi
+if [ -f "$PROJECT_MD" ]; then
+  # A PROJECT.md that is there is never overwritten — but one without the register's structure
+  # (hand-written before init ran; field run, 2026-11) gets the missing sections appended, loudly.
+  _reg_added="$(mxtk_register_fill "$PROJECT_MD" "$TOOLKIT_COMMIT_LINE" | tr '\n' ',' | sed 's/,$//; s/,/, /g')"
+  if [ -n "$_reg_added" ] && ! mxtk_change_log_has_section "$PROJECT_MD"; then
+    { printf '\n'; mxtk_change_log_section; } >> "$PROJECT_MD"; _reg_added="$_reg_added, Change log"
   fi
+  if [ -n "$_reg_added" ]; then
+    echo "⚠ PROJECT.md already existed WITHOUT the decision-register structure — appended: $_reg_added."
+    echo "  init-project.sh runs BEFORE any PROJECT.md or model write; a hand-written register has no"
+    echo "  Decisions table for the ✋ gates and no position. Review the appended sections."
+  else
+    echo "Skip: PROJECT.md already exists — not overwritten."
+  fi
+else
   {
-  cat <<EOF
-# PROJECT.md — ${PROJECT_NAME} Decision Register
-
-Every gate decision lands here as \`CONFIRMED\` or \`ASSUMED\`, never silently decided. See
-\`conversion-runbook.md\` §1 for the interview protocol this file supports.
-
-## Current stage
-
-**Stage P — Kickoff**, in progress.
-
-${TOOLKIT_COMMIT_LINE}
-Exec approval: auto
-Permission profile: project
-Unit tests default: no
-Gate mode: check
-Pipeline mode: balanced
-Build type: full
-
-<!-- Build type (intake Q16, asked FIRST at kickoff; this line is only the default until it is answered; no line = full): full | poc. poc = skills/poc-build.md. -->
-
-<!-- Pipeline mode (intake Q15; no line = balanced): high-speed = per row the exec gate only;
-     balanced = plus one LOOK at 1280 of a changed page; high-quality = journeys + LOOK at 390 and
-     1280 and unit tests per row. All three run journeys and the polish loop at module close
-     (skills/iterative-build-loop.md § Pipeline mode). -->
-
-<!-- Gate mode: check (the default, also without this line) = bin/exec.sh runs \`mx check\` per
-     script and the full mxbuild at module close (every push in the high-quality pipeline mode)
-     and when Java/theme files change (mxcli's own advice). \`Gate mode: full\` = a full mxbuild on every exec. -->
-
-<!-- Bug filing: auto — take this line out of the comment to let agents post this project's open
-     toolkit/mxcli bugs (docs/bugs.jsonl) as public GitHub issues with your own gh login, redacted and
-     deny-list checked, without a y/N per bug (bin/file-bugs.sh --auto). Left commented, a human files. -->
-
-<!-- The bold line above is a READOUT: bin/gate-check.sh rewrites it on every full run from the
-     verdicts it just produced (first stage neither PASS nor WAIVED). Do not edit it by hand.
-     Where this project joins the pipeline: nothing recorded, so it starts at Stage P — the
-     usual case. If work was already done outside the toolkit, record it once and the earlier
-     stages report WAIVED instead of a red row nobody can clear:
-       bin/gate-check.sh <project> --adopt 5 --reason "..."     every stage before 5
-       bin/gate-check.sh <project> --waive 2 --reason "..."     just that one (one line per stage)
-     Intake Q10 asks this. Never infer it from what happens to be on disk. (No example line is
-     written out here on purpose: gate-check reads these labels back out of this file, and a
-     sample value would waive stages in every project that never deleted it.) -->
-
-## Decisions
-
-| Stage | Decision | Status | Notes |
-|---|---|---|---|
-
-EOF
+  mxtk_reg_intro "$PROJECT_NAME"
+  mxtk_reg_current_stage "$TOOLKIT_COMMIT_LINE"
+  mxtk_reg_decisions
   # The change log — feedback captured BEFORE any edit (skills/change-intake.md). One copy of the
   # section lives in bin/lib/change-log.sh; sync-project.sh appends the same text to older projects.
   mxtk_change_log_section
-  cat <<EOF
-
-## Open questions
-
-| # | Question | Raised at | Status |
-|---|---|---|---|
-
-## Assumptions (ASSUMED, unresolved)
-
-None yet.
-EOF
+  mxtk_reg_tail
   } > "$PROJECT_MD"
   echo "Created: PROJECT.md"
 fi
@@ -326,6 +282,10 @@ $(mxtk_ritual_new "$TOOLKIT_ROOT")
 This project uses the shared toolkit at \`$TOOLKIT_ROOT\`. For ANY pipeline work
 (analysis, BRDs, architecture, design, build plan, build, test, cutover):
 
+0. **This file exists because \`init-project.sh\` ran — and it runs BEFORE any \`PROJECT.md\` or
+   model write.** A register written by hand first has no Decisions table and no position; re-run
+   init (it appends what is missing). Unattended run? Quote the kick-off brief in
+   \`$TOOLKIT_ROOT/CONVERSION-RUNBOOK.md\` → "Running unattended" instead of writing your own.
 1. **Read \`$TOOLKIT_ROOT/skills/conversion-runbook.md\` §1b plus your own stage's section FIRST —
    every session; not the whole file** (\`bin/gate-check.sh <project-root> <stage>\` prints the line
    spans). It is the executable spec. The toolkit README and toolkit-guide.html are orientation only; stage

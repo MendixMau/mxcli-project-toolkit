@@ -24,6 +24,28 @@ Then open your agent (Claude Code or equivalent) in `<project-root>` and say wha
 | Just an idea / existing plan | Greenfield | P (light), 5–6 |
 | A live Mendix app you are changing | Change an existing app | P, 0–6 per change |
 
+## Running unattended — the kick-off brief
+
+**The single source of the text an unattended run (`Interview mode: auto`) is started with.** A
+project brief quotes it, verbatim, instead of writing its own; add the project's own goal and
+sources under it, never a different definition of done.
+
+```text
+Follow the toolkit's process: skills/conversion-runbook.md, from Stage P, stage by stage.
+1. Run bin/init-project.sh <project-root> first, before writing PROJECT.md or touching the model.
+2. Declare the entry mode and build type at kickoff (intake Q1 and Q16); never switch them later
+   without a recorded decision (conversion-runbook.md → Entry Modes, "Mode changes are decisions").
+3. Stage 5 only after stages 1-4 pass their gates and bin/gate-check.sh <p> build-ready passes.
+4. Close every stage on a clean gate (bin/gate-check.sh <p> <stage>) and commit its output.
+5. Stop at a gate that does not pass; report it, do not route around it.
+"Done" is the declared mode's steps done and their gates clean — not only journeys passing.
+```
+
+*Failure it prevents (two field runs, 2026-11):* the project instructions said "follow the
+runbook", but the brief the agent read first defined done as journeys passing under a time
+budget and never mentioned stages. The agent built about 78 pages with no plan. Five earlier field
+builds, whose briefs said in effect what the lines above say, followed the stages.
+
 ## Where you run this — detected, not asked
 
 You do not pick an environment; `bin/doctor.sh` detects it from where the session started, and

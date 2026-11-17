@@ -775,6 +775,7 @@ take_score() {
 #   - the clearing commands are gate-check.sh --adopt/--waive and writing the plan, none of which
 #     goes through here (guard rule 7), and the refusal is ONCE per clone (.mpr-snapshots/
 #     .plan-rule-refused): a re-run goes on, tagged "no plan" in every BUILD-LOG row;
+#   - under `Interview mode: auto` there is no refuse-once: see the auto branch below;
 #   - never refused: --patch (opaque repair; doctor.sh's recovery path), `Build type: poc`,
 #     greenfield, change-an-existing-app, a-la-carte, and no declared mode at all.
 POS_NOTE=""
@@ -784,7 +785,23 @@ if [ -f "$_XD/_position.sh" ]; then
   if mxtk_pos_undeclared; then
     echo "⚠ $MXTK_POS_BANNER"
     POS_NOTE="no entry mode declared"
-  elif [ "$PATCH_MODE" != "1" ] && [ "$POS_BUILD" != poc ] \
+  elif [ "$PATCH_MODE" != "1" ] && [ "$POS_BUILD" != poc ] && [ "$POS_AUTO" = 1 ] \
+       && { [ "$POS_ENTRY" = migration ] || [ "$POS_ENTRY" = requirements-driven ]; } \
+       && [ ! -f "$PROJECT_ROOT/.mpr-snapshots/.build-ready-pass" ] && [ "$POS_WAIVED4" != 1 ] \
+       && case "$POS_ADOPTED" in 5|6|7) false ;; *) true ;; esac; then
+    # UNATTENDED (Interview mode: auto) — the primary case. No refuse-once here: an agent re-runs
+    # what refused it, so every write is refused until the mode's pre-build steps are done, i.e.
+    # `gate-check.sh <p> build-ready` has PASSed (it leaves .mpr-snapshots/.build-ready-pass), or
+    # the register adopts at 5+ / waives Stage 4 — an adoption under auto is recorded as a ✋
+    # human-pending decision that keeps Stage 6 FAILing until a person confirms it. A plan on disk
+    # alone does not clear it: nobody has checked it. Neither remedy runs through exec.sh.
+    _GC="${MXTK_ROOT:-${_TKR:-<toolkit>}}/bin/gate-check.sh"
+    result_line refused no skipped 1
+    echo "✗ Plan rule (Interview mode: auto): Entry mode $POS_ENTRY, and the pre-build steps are not done — $_GC $PROJECT_ROOT build-ready has not passed. NOTHING was written."
+    echo "  Remedy: run stages 1-4, then $_GC $PROJECT_ROOT build-ready; or $_GC $PROJECT_ROOT --adopt 5 --reason \"...\" — under auto that is a ✋ human-pending decision, and Stage 6 FAILs until a person confirms it."
+    log_build "🚫 blocked" "plan rule (auto): Entry mode $POS_ENTRY, build-ready not passed and no adoption — nothing written"
+    exit 1
+  elif [ "$PATCH_MODE" != "1" ] && [ "$POS_BUILD" != poc ] && [ "$POS_AUTO" != 1 ] \
        && { [ "$POS_ENTRY" = migration ] || [ "$POS_ENTRY" = requirements-driven ]; } \
        && ! mxtk_plan_evidence "$PROJECT_ROOT"; then
     _PLAN_STAMP="$PROJECT_ROOT/.mpr-snapshots/.plan-rule-refused"

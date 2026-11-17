@@ -220,7 +220,7 @@ _co_plain_gate_needs() {
 # ignored the modes column, so a requirements-driven Stage 0 PASS still said "still missing for
 # this stage: app-report" — a row only existing-app-change owes, which artifact-check.sh itself
 # reported as N/A on the same run.
-_co_owed() { [ -z "$2" ] && return 0; case ",$1," in *",$2,"*) return 0 ;; esac; return 1; }
+_co_owed() { [ -z "$2" ] && return 0; case ",$1," in *",$2,"*|*",all,"*) return 0 ;; esac; return 1; }
 
 # mxtk_plain_verdict <stage> <verdict text> <project-dir> [register]
 # The "In plain words" paragraph under a gate line: status first, then every reason the
@@ -316,7 +316,7 @@ _mxtk_closeout_report_body() {
       case "$id" in ''|'#'*|artifact) continue ;; esac
       [ "$stage" = "$st" ] || continue
       if ! _co_owed "$modes" "$mode"; then
-        [ "$absence" = "optin" ] || printf -- '- ⏭ `%s` — N/A: entry mode %s does not owe it\n' "$id" "$mode"
+        [ "$absence" = "optin" ] || printf -- '- ⏭ `%s` — N/A: not owed (mode %s)\n' "$id" "$mode"
         continue
       fi
       optin=""

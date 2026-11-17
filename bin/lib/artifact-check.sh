@@ -211,12 +211,15 @@ _art_stage_of_rank() { case "$1" in 0) echo P ;; [1-8]) echo $(( $1 - 1 )) ;; *)
 _art_entry_mode() {
   local raw
   raw="$(_art_field "$1" "entry mode" 2>/dev/null || true)"
-  # Shared tokeniser (see bin/lib/entry-mode.sh). This lib's own vocabulary says
-  # "requirements" where the canonical set says "requirements-driven"; translate at
-  # the boundary rather than changing what the manifest rows compare against.
+  # Shared tokeniser (see bin/lib/entry-mode.sh), translated at the boundary into the
+  # manifest's mode-contract vocabulary.
+  # The mode contract's vocabulary (artifact-manifest.tsv column 6): `Build type: poc` is its own
+  # contract whatever the entry mode says (skills/poc-build.md owes its steps, not stage gates).
+  local bt; bt="$(_art_field "$1" "build type" 2>/dev/null || true)"
+  case "$bt" in [Pp][Oo][Cc]|[Pp][Oo][Cc][!A-Za-z]*) echo "poc"; return 0 ;; esac
   local tok; tok="$(entry_mode_token "$raw")"
   case "$tok" in
-    requirements-driven) echo "requirements" ;;
+    existing-app-change) echo "existing-app" ;;
     *)                   echo "$tok" ;;
   esac
 }
@@ -414,8 +417,8 @@ mxtk_artifacts_report() {
     # (young register, no line yet) excuses nothing.
     if [ -n "$mode" ]; then
       case ",$modes," in
-        *",$mode,"*) ;;
-        *) printf 'Artifact %-24s N/A — entry mode %s does not owe it (manifest modes: %s)\n' \
+        *",$mode,"*|*",all,"*) ;;
+        *) printf 'Artifact %-24s N/A — not owed (mode %s; manifest modes: %s)\n' \
              "$id" "$mode" "$modes"
            continue ;;
       esac

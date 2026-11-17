@@ -72,6 +72,20 @@ _mxtk_emt() {
   _EMT="$tok"
 }
 
+# mxtk_auto_word <text> — true when the text's first word is `auto` or `unattended`, any case, with
+# markdown emphasis, backticks and trailing punctuation ignored ("**Auto** (questions to
+# questions.md)", "unattended — logged"). THE one reading of an Interview mode value as unattended:
+# exec.sh (through mxtk_pos_read), gate-check.sh's --adopt ✋ check and ready.sh all call it, so the
+# three cannot drift apart again (ready.sh had the first-word rule; the other two read exact values).
+mxtk_auto_word() {
+  local w="${1-}"
+  w="${w//[\`*_]/}"
+  [[ "$w" =~ ^[[:blank:]\>-]*([A-Za-z]+) ]] || return 1
+  w="${BASH_REMATCH[1]}"
+  case "$w" in [Aa][Uu][Tt][Oo]|[Uu][Nn][Aa][Tt][Tt][Ee][Nn][Dd][Ee][Dd]) return 0 ;; esac
+  return 1
+}
+
 # mxtk_pos_read <project-root> — reads <root>/PROJECT.md once (HTML comments skipped: the
 # scaffold's own comments name these labels) and, when the register has no Entry mode line, the
 # intake.md §1 answer. Sets, never prints:
@@ -82,9 +96,11 @@ _mxtk_emt() {
 #   POS_WAIVED4   1 when a "Waived stage 4:" line carries a reason, or a "Waived stages:" line lists 4
 #                 before its dash with a reason after it (the two spellings gate-check.sh reads)
 #   POS_READOUT   the stage in gate-check.sh's "## Current stage" readout ("**Stage 5 — ..."), or ""
-#   POS_AUTO      1 when the interview mode resolves to auto (unattended): $CLAUDE_INTERVIEW_MODE,
-#                 else .claude/.interview-mode, else the register line — bin/interview-mode.sh's
-#                 order. A value with trailing text is not auto there either (it reads steering).
+#   POS_AUTO      1 when ANY of $CLAUDE_INTERVIEW_MODE, .claude/.interview-mode or the register's
+#                 "Interview mode:" line starts with auto / unattended (mxtk_auto_word). The strictest
+#                 reading wins, as in ready.sh: a field register read `Interview mode: auto (gate
+#                 questions go to questions.md ...)`, the exact-value read called that attended, and the
+#                 second write of an unattended run got past the plan rule on refuse-once.
 mxtk_pos_read() {
   local root="$1" reg line key val in_c=0 in_cur=0 entry_raw="" ad="" bt="" im="" _nc=0
   POS_REG=0; POS_ENTRY=""; POS_ADOPTED=""; POS_BUILD="full"; POS_WAIVED4=0; POS_READOUT=""; POS_AUTO=0
@@ -133,11 +149,9 @@ mxtk_pos_read() {
     done < "$root/intake.md"
   fi
   [[ "$bt" =~ ^[[:blank:]]*poc([^a-z]|$) ]] && POS_BUILD="poc"
-  if [ -n "${CLAUDE_INTERVIEW_MODE:-}" ]; then im="$CLAUDE_INTERVIEW_MODE"
-  elif [ -f "$root/.claude/.interview-mode" ]; then IFS= read -r im < "$root/.claude/.interview-mode" || true
-  fi
-  im="${im//\`/}"; im="${im%.}"
-  [[ "$im" =~ ^[[:blank:]]*(auto|unattended)[[:blank:]]*$ ]] && POS_AUTO=1
+  local _imf=""
+  [ -f "$root/.claude/.interview-mode" ] && { IFS= read -r _imf < "$root/.claude/.interview-mode" || true; }
+  if mxtk_auto_word "${CLAUDE_INTERVIEW_MODE:-}" || mxtk_auto_word "$_imf" || mxtk_auto_word "$im"; then POS_AUTO=1; fi
   [[ "$ad" =~ ^[[:blank:]]*([Pp0-7])([^0-9]|$) ]] && POS_ADOPTED="${BASH_REMATCH[1]}"
   [ "$_nc" = 1 ] || shopt -u nocasematch
   if [ -n "$entry_raw" ]; then _mxtk_emt "$entry_raw" 2>/dev/null; POS_ENTRY="$_EMT"; fi

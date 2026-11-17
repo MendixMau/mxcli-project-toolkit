@@ -793,28 +793,38 @@ if [ -f "$_XD/_position.sh" ]; then
     POS_NOTE="entry mode greenfield retired, not synced"
     [ "$POS_AUTO" = 1 ] && POS_ENTRY=requirements-driven
   fi
+  # UNATTENDED (Interview mode: auto) — the primary case. No refuse-once here: an agent re-runs
+  # what refused it, so every write is refused until the mode's pre-build steps are done, i.e.
+  # `gate-check.sh <p> build-ready` has PASSed (it leaves .mpr-snapshots/.build-ready-pass), or
+  # the register adopts at 5+ / waives Stage 4 — an adoption under auto is recorded as a ✋
+  # human-pending decision that keeps Stage 6 FAILing, and ready.sh NOT READY, until a person
+  # confirms it. A plan on disk alone does not clear it: nobody has checked it. Neither remedy runs
+  # through exec.sh. _plan_auto_hold says whether this write is held; _plan_auto_refuse refuses it.
+  _plan_auto_hold() {
+    [ "$PATCH_MODE" != "1" ] && [ "$POS_BUILD" != poc ] && [ "$POS_AUTO" = 1 ] \
+      && [ ! -f "$PROJECT_ROOT/.mpr-snapshots/.build-ready-pass" ] && [ "$POS_WAIVED4" != 1 ] \
+      && case "$POS_ADOPTED" in 5|6|7) false ;; *) true ;; esac
+  }
+  _plan_auto_refuse() {  # $1 = what the register says, for the message
+    _GC="${MXTK_ROOT:-${_TKR:-<toolkit>}}/bin/gate-check.sh"
+    result_line refused no skipped 1
+    echo "✗ Plan rule (Interview mode: auto): $1, and the pre-build steps are not done — $_GC $PROJECT_ROOT build-ready has not passed. NOTHING was written."
+    echo "  Remedy: run stages 1-4, then $_GC $PROJECT_ROOT build-ready; or $_GC $PROJECT_ROOT --adopt 5 --reason \"...\" — under auto that is a ✋ human-pending decision, and Stage 6 FAILs until a person confirms it."
+    echo "  Already building past Stage 5? One build-ready pass clears it: its record is kept per clone (.mpr-snapshots/), so each fresh clone runs it once."
+    log_build "🚫 blocked" "plan rule (auto): $1, build-ready not passed and no adoption — nothing written"
+    exit 1
+  }
   if [ "$POS_ENTRY" = greenfield-retired ]; then
     :
   elif mxtk_pos_undeclared; then
     echo "⚠ $MXTK_POS_BANNER"
     POS_NOTE="no entry mode declared"
-  elif [ "$PATCH_MODE" != "1" ] && [ "$POS_BUILD" != poc ] && [ "$POS_AUTO" = 1 ] \
-       && { [ "$POS_ENTRY" = migration ] || [ "$POS_ENTRY" = requirements-driven ]; } \
-       && [ ! -f "$PROJECT_ROOT/.mpr-snapshots/.build-ready-pass" ] && [ "$POS_WAIVED4" != 1 ] \
-       && case "$POS_ADOPTED" in 5|6|7) false ;; *) true ;; esac; then
-    # UNATTENDED (Interview mode: auto) — the primary case. No refuse-once here: an agent re-runs
-    # what refused it, so every write is refused until the mode's pre-build steps are done, i.e.
-    # `gate-check.sh <p> build-ready` has PASSed (it leaves .mpr-snapshots/.build-ready-pass), or
-    # the register adopts at 5+ / waives Stage 4 — an adoption under auto is recorded as a ✋
-    # human-pending decision that keeps Stage 6 FAILing until a person confirms it. A plan on disk
-    # alone does not clear it: nobody has checked it. Neither remedy runs through exec.sh.
-    _GC="${MXTK_ROOT:-${_TKR:-<toolkit>}}/bin/gate-check.sh"
-    result_line refused no skipped 1
-    echo "✗ Plan rule (Interview mode: auto): Entry mode $POS_ENTRY, and the pre-build steps are not done — $_GC $PROJECT_ROOT build-ready has not passed. NOTHING was written."
-    echo "  Remedy: run stages 1-4, then $_GC $PROJECT_ROOT build-ready; or $_GC $PROJECT_ROOT --adopt 5 --reason \"...\" — under auto that is a ✋ human-pending decision, and Stage 6 FAILs until a person confirms it."
-    echo "  Already building past Stage 5? One build-ready pass clears it: its record is kept per clone (.mpr-snapshots/), so each fresh clone runs it once."
-    log_build "🚫 blocked" "plan rule (auto): Entry mode $POS_ENTRY, build-ready not passed and no adoption — nothing written"
-    exit 1
+    # Unattended with nothing declared is refused like a pipeline mode: the banner alone is what the
+    # field runs scrolled past. Attended keeps the banner only. Declaring `Entry mode: a-la-carte`
+    # (or greenfield's two doors: Build type: poc) is a register line, outside exec.sh.
+    if _plan_auto_hold; then _plan_auto_refuse "no Entry mode declared (declare it at kickoff: intake Q1; a-la-carte for audit or tooling use)"; fi
+  elif { [ "$POS_ENTRY" = migration ] || [ "$POS_ENTRY" = requirements-driven ]; } && _plan_auto_hold; then
+    _plan_auto_refuse "Entry mode $POS_ENTRY"
   elif [ "$PATCH_MODE" != "1" ] && [ "$POS_BUILD" != poc ] && [ "$POS_AUTO" != 1 ] \
        && { [ "$POS_ENTRY" = migration ] || [ "$POS_ENTRY" = requirements-driven ]; } \
        && ! mxtk_plan_evidence "$PROJECT_ROOT"; then

@@ -180,7 +180,7 @@ the title is about the *output*, not about whether an AST extractor ran.
 |---|---|
 | Migration | Path A extractor output, plus anything Paths B/C added. |
 | Requirements-driven | The KB that `kb-generation.md` built from the document corpus. The same over-reach happens — a document set covers more ground than the slice under discussion, and an LLM extraction pass will happily represent all of it. |
-| Greenfield | No KB, no checkpoint. Scope was settled at CAC-1 and there is no extraction result to diff it against. |
+| Requirements-driven from a conversation, or a POC (greenfield was retired) | No KB, no checkpoint. Scope was settled at CAC-1 and there is no extraction result to diff it against. |
 
 ---
 

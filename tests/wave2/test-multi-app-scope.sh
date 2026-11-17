@@ -14,7 +14,9 @@
 #      letter case, unknown refused listing apps; mxtk_app_of; MXTK_APP at source time beats the
 #      cwd auto-pick, a user's MPR_FILE beats MXTK_APP; find_mpr still refuses, naming MXTK_APP;
 #      an app folder with its own .claude/ + PROJECT.md resolves to the outer project when that
-#      holds a register (refinement of #489), keeps its own root when not; one line per app
+#      has two or more app folders (any PROJECT.md, a hand-written one too) or, for one app, a
+#      register (refinement of #489), keeps its own root otherwise; status.sh with no argument
+#      finds the project from an app subfolder; one line per app
 #      folder (a second .mpr is not a second app; "-" and a refusal when none is <App>.mpr)
 #   A2 single tree and two-tree: mxtk_apps prints nothing (rc 1) and mxtk_app_count is 0, even
 #      with an apps/ folder holding a model beside the root model
@@ -98,7 +100,16 @@ has "A1 find_mpr refuses" "$r" "refusing to guess"; has "A1 refusal names MXTK_A
 # outer project with a register they resolve to the OUTER project (refinement of #489).
 r="$(clean_env bash -c "cd '$P/apps/AppB/docs'; . '$COMMON'; echo \"\$PROJECT_ROOT|\$MPR_FILE\"")"
 eq "A1 app folder with its own .claude/ resolves to the outer project" "$r" "$P|$P/apps/AppB/AppB.mpr"
-# ... and keep their own root when the outer PROJECT.md holds no register lines (#489 unchanged)
+# ... also under a HAND-WRITTEN outer register (the field root: "- Mode: requirements-driven",
+# none of the toolkit's sections): two or more app folders make it the multi-app project
+cp "$P/PROJECT.md" "$T/root-register"
+printf '# Project\n\n- Owner: someone\n- Mode: requirements-driven (from specs)\n' > "$P/PROJECT.md"
+r="$(clean_env bash -c "cd '$P/apps/AppD'; . '$COMMON'; echo \"\$PROJECT_ROOT|\$MPR_FILE\"")"
+eq "A1 hand-written outer register: an app cwd resolves to the outer root" "$r" "$P|$P/apps/AppD/AppD.mpr"
+st="$(cd "$P/apps/AppB/docs" && clean_env bash "$TK/bin/status.sh" --brief 2>&1)"
+has "A1 status.sh with no argument, from an app subfolder, finds the project" "$st" "APP     AppF: apps/AppF/AppF.mpr"
+cp "$T/root-register" "$P/PROJECT.md"
+# ... and keep their own root when the outer folder holds ONE app and no register lines (#489 unchanged)
 N="$T/nested"; mkdir -p "$N/apps/X/.claude" "$N/.claude"; : > "$N/PROJECT.md"; : > "$N/apps/X/PROJECT.md"; : > "$N/apps/X/X.mpr"
 r="$(clean_env bash -c "cd '$N/apps/X'; . '$COMMON'; echo \"\$PROJECT_ROOT\"")"
 eq "A1 no outer register: the app folder keeps its own root" "$r" "$N/apps/X"

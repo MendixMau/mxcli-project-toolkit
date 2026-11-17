@@ -32,7 +32,13 @@ TOOLKIT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$TOOLKIT_ROOT/bin/lib/placeholders.sh"
 PROJECT_DIR="${1:-}"; BRIEF=0
 for a in "$@"; do case "$a" in --brief) BRIEF=1 ;; esac; done
-case "$PROJECT_DIR" in ""|--*) echo "usage: bin/status.sh <project-root> [--brief]" >&2; exit 1 ;; esac
+# No project named: the one the current folder belongs to, by _common.sh's own walk
+# (mxtk_walk_root, which resolves an app folder of a multi-app project to the project root).
+case "$PROJECT_DIR" in ""|--*)
+  PROJECT_DIR="$(unset PROJECT_ROOT MPR_FILE MXTK_APP; . "$TOOLKIT_ROOT/project-bin/_common.sh" >/dev/null 2>&1; mxtk_walk_root "$(pwd)" 2>/dev/null)" || PROJECT_DIR=""
+  [ -n "$PROJECT_DIR" ] && [ -f "$PROJECT_DIR/PROJECT.md" ] \
+    || { echo "usage: bin/status.sh <project-root> [--brief]   (no project found from $(pwd))" >&2; exit 1; } ;;
+esac
 PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd)" || { echo "not a directory: $1" >&2; exit 1; }
 REG="$PROJECT_DIR/PROJECT.md"
 [ -f "$REG" ] || { echo "no PROJECT.md in $PROJECT_DIR — run bin/init-project.sh first" >&2; exit 1; }

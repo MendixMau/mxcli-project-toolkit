@@ -57,9 +57,11 @@ _mxtk_is_project_dir() {
 #
 # REFINEMENT OF #489 (maintainer decision, a field run with six apps, 2026-11): an app folder
 # apps/<X>/ that is a project folder of its own BECAUSE `mxcli init` ran in it (its own .claude/
-# and PROJECT.md) resolves to the OUTER project when that outer folder is a toolkit multi-app
-# project: a PROJECT.md holding register lines (## Current stage, ## Decisions, Entry mode),
-# no model at its root or under app/, and apps/<X>/ holding a model. One register, one LOOK
+# and PROJECT.md) resolves to the OUTER project when that outer folder is a multi-app project:
+# no model at its root or under app/, apps/<X>/ holding a model, and a PROJECT.md that EITHER
+# sits beside two or more apps/<A>/ folders holding a model (any content: a field root register
+# was hand-written, "- Mode: requirements-driven", none of the sections below) OR holds register
+# lines (## Current stage, ## Decisions, Entry mode) — the one-app case. One register, one LOOK
 # ledger, one set of gates. Keeping the app folder as its root split the ledger (owe rows in
 # apps/<X>/.claude/loop/look/, seen rows at the root) and made MXTK_APP a no-op inside it. Any
 # other nested project keeps the #489 rule, so a standalone project inside another repo, or an
@@ -75,6 +77,12 @@ _mxtk_outer_project() {
   for f in "$d"/*.mpr; do [ -e "$f" ] && hit=1; done
   [ "$hit" = 1 ] || return 1
   for f in "$p"/*.mpr "$p"/app/*.mpr; do [ -e "$f" ] && return 1; done
+  # two or more app folders holding a model: the outer folder is the multi-app project
+  local a n=0
+  for a in "$p"/apps/*/; do
+    for f in "$a"*.mpr; do [ -e "$f" ] && { n=$((n + 1)); break; }; done
+    [ "$n" -ge 2 ] && { _MXTK_OUTER="$p"; return 0; }
+  done
   grep -qiE '^## (Current stage|Decisions)|^[*_ -]*entry mode[*_]*:' "$p/PROJECT.md" 2>/dev/null || return 1
   _MXTK_OUTER="$p"
 }

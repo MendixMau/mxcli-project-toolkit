@@ -18,6 +18,7 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 `docs/RELEASE-PROCESS.md` §8.
 
 ## Unreleased
+- new(doctor, bug ledger): **a guard for mxcli's silent MxBuild fallback**: when the project's Mendix version is not in `~/.mxcli/mxbuild/` (and no Studio Pro of that version exists), mxcli uses whichever other version is cached and says nothing; `bin/doctor.sh` now warns, naming the model version, the cached ones and `./mxcli setup mxbuild -p <app>.mpr` (`mxtk_mxbuild_cache_gap`, warning only, never changes a gate). Ledger entry `BUG-DRAFT-mxbuild-silent-version-fallback`; upstream issue not filed. Field run: a four-app Mendix build on one machine.
 - fix(exec): **`exec.sh` called by relative paths from another folder no longer skips the plan rule**: `_XD="${0%/*}"` stayed relative (`../../bin`), and after exec.sh's `cd` to the project root the guard `[ -f "$_XD/_position.sh" ]` failed in silence, so `cd apps/Orders && ../../bin/exec.sh ../../mdlsource/x.mdl` wrote under `Interview mode: auto` where the same call by absolute path was refused; a relative MDL script path broke every `[ -f "$SCRIPT" ]` guard the same way. Both are made absolute before the `cd`, only when the caller is not at the project root (a run from the root is unchanged). Arguments passed through to a `--patch` script are still taken as given. Fixture `test-mode-contract.sh` X — independent review of #789
 
 ## v2026.11.17

@@ -126,6 +126,20 @@ OUT=$(run_in "$MXB MODE=empty" "mxtk_mxbuild_error_count '$P/Fixture.mpr' 30" 2>
 OUT=$(run_in "$MXB MODE=clean" "mxtk_mxbuild_error_count '$P/Fixture.mpr' 30" 2>&1)
 [ "$OUT" = "0" ] && ok "[guard] 4d: {\"problems\":[]} + exit 0 -> 0" || fail "4d: -> '$OUT'"
 
+# ── 5: the cache-gap guard for mxcli's silent fallback (mxtk_mxbuild_cache_gap) ─────────────
+echo "== 5: mxtk_mxbuild_cache_gap warns when the model's MxBuild is not cached =="
+OUT=$(run_in "" "mxtk_mxbuild_cache_gap 11.12.2; echo rc=\$?")
+[ "$OUT" = "rc=0" ] && ok "[guard] 5a: model version cached -> silent, rc 0" || fail "5a: -> '$OUT'"
+OUT=$(run_in "" "mxtk_mxbuild_cache_gap 11.13.0; echo rc=\$?")
+case "$OUT" in
+  *"Mendix 11.13.0"*"11.12.2, 11.14.0"*"setup mxbuild"*"rc=1"*) ok "5b: 11.13.0 absent -> names model version, the cached ones, the repair; rc 1" ;;
+  *) fail "5b: -> '$OUT'" ;;
+esac
+OUT=$(env -i PATH="$PATH" HOME="$T/emptyhome" bash -c "set -u; source '$COMMON'; mxtk_mxbuild_cache_gap 11.13.0; echo rc=\$?")
+[ "$OUT" = "rc=0" ] && ok "[guard] 5c: empty cache -> silent (nothing to fall back to)" || fail "5c: -> '$OUT'"
+OUT=$(run_in "" "mxtk_mxbuild_cache_gap ''; echo rc=\$?")
+[ "$OUT" = "rc=0" ] && ok "[guard] 5d: unreadable model version -> silent" || fail "5d: -> '$OUT'"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

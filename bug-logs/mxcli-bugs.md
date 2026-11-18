@@ -7279,3 +7279,17 @@ Both flagged flows are Data grid 2 datasources on pages in the same module and w
 **Workaround:** write 404 (and 401) into the API contract and the proof script, or add an explicit role check in the operation's microflow that returns 403.
 
 **Toolkit side:** ledger only.
+
+## BUG-DRAFT-mxbuild-silent-version-fallback: mxcli resolves MxBuild from its cache and, when the project's version is not cached, silently uses another cached version (2026-11-18)
+
+> **NOT YET FILED UPSTREAM.** Draft issue text is in the PR that added the toolkit guard; the toolkit does not open issues on mxcli's behalf.
+
+**Discovered:** 2026-11, a four-app build on one machine. **mxcli version:** v0.32.0. **Mendix:** 11.13.0.
+
+**What happens.** `mxcli docker build`, `run --local` and `check` pick their MxBuild from `~/.mxcli/mxbuild/<version>/`. With the project's version absent and a different version cached, they use the cached one and print nothing about the mismatch. Depending on the gap the result is a refusal that reads like a model problem ("Project version 'X' does not exactly match MxBuild version 'Y'", exit 3, empty `problems[]`), or a build that quietly differs from the version the model targets.
+
+**Expected.** Use the version the `.mpr` records, or fail naming both versions; at minimum print the fallback.
+
+**Workaround:** `./mxcli setup mxbuild -p <app>.mpr` fetches the matching version into the cache. Check before a long build: `bin/doctor.sh` now warns ("this model is Mendix X but ~/.mxcli/mxbuild/ holds only Y").
+
+**Toolkit side:** the toolkit's own gate already matches versions (`find_mxbuild`, `mxtk_ensure_mxbuild`); the guard `mxtk_mxbuild_cache_gap` (`project-bin/_common.sh`, called from `bin/doctor.sh`) covers the paths that go through mxcli directly. Warning only; it never changes a gate verdict.

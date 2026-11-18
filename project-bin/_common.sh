@@ -730,6 +730,30 @@ EOF_SP
   return 1
 }
 
+# mxtk_mxbuild_cache_gap <model-version> — the guard for mxcli's SILENT MxBuild fallback.
+# `mxcli docker build`, `run --local` and `check` resolve their MxBuild from ~/.mxcli/mxbuild/ and,
+# when the model's version is not there, use whatever version IS cached without saying so (field
+# run: a four-app build on one machine — apps built, and failed or misbehaved, against a cached
+# MxBuild of another Mendix version, with no line in any log naming the mismatch). The toolkit's own
+# gate (find_mxbuild / mxtk_ensure_mxbuild) already matches the version; this covers every path that
+# goes through mxcli directly. Prints one line naming both versions and the repair, returns 1, when
+# the cache holds at least one MxBuild, none of them is <model-version>, and no Studio Pro install of
+# that version exists either. Silent (returns 0) when the version is unreadable, nothing is cached
+# (nothing to fall back to), or a match exists. Stat calls only; never downloads, never changes a gate.
+mxtk_mxbuild_cache_gap() {
+  local ver="${1:-}" root have="" d
+  [ -n "$ver" ] || return 0
+  root="${MXCLI_HOME:-$HOME/.mxcli}/mxbuild"
+  for d in "$root"/*/; do
+    [ -d "$d" ] || continue
+    have="$have${have:+, }$(basename "${d%/}")"
+  done
+  [ -n "$have" ] || return 0
+  mxtk_mxbuild_for_version "$ver" >/dev/null 2>&1 && return 0
+  printf 'this model is Mendix %s but ~/.mxcli/mxbuild/ holds only %s — mxcli falls back to a cached MxBuild of another version WITHOUT saying so (a build or check then runs against the wrong version). Fetch the right one: ./mxcli setup mxbuild -p <app>.mpr\n' "$ver" "$have"
+  return 1
+}
+
 # find_mxbuild — the mxbuild binary: $MXBUILD_PATH override, then the Studio Pro install
 # or mxcli cache entry matching the MODEL'S version, then (no match) the newest SP install,
 # then the newest mxcli download cache entry (see find_mxcli_cache). The SP-derived

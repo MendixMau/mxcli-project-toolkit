@@ -7280,14 +7280,14 @@ Both flagged flows are Data grid 2 datasources on pages in the same module and w
 
 **Toolkit side:** ledger only.
 
-## BUG-DRAFT-dg2-custom-content-column-ce0463: a Data Grid 2 `column (...) { widgets }` body is accepted by `mxcli check` and fails `mx check` with CE0463 (2026-11-18)
+## BUG-DRAFT-dg2-custom-content-column-ce0463: SUSPECTED — widget-bodied Data Grid 2 columns passed `mxcli check` and failed `mx check` with CE0463 on v0.32 (2026-11-18)
 
-> **NOT YET FILED UPSTREAM.** Not re-run on a scratch project by the author (no mxcli binary available there).
+> **SUSPECTED, NOT ISOLATED. NOT FILED UPSTREAM.** Not re-run on a scratch project (no mxcli binary available to the author). Possibly a v0.32 field instance of **BUG-DRAFT-dg2-write-defects-field**, **BUG-16** and **BUG-150 item 2** rather than a new defect.
 
 **Discovered:** 2026-11, a four-app build. **mxcli version:** v0.32.0. **Mendix:** 11.13.0.
 
-**What happens.** Any widget inside a DG2 column body (pill, button, dynamictext) passes `mxcli check`/`check --references`, then the exec gate's `mx check` reports CE0463 and the script is rolled back. Attribute-only columns build. Related to BUG-150 (the same bundled definition fixes slot-visibility properties).
+**What happened.** A page script with widget-bodied DG2 columns failed `mx check` 3 times in a row (CE0463, 2 errors); `mxcli check` printed nothing. Attribute-only columns built.
 
-**Workaround:** a listview table — see `skills/learned-dg2-patterns.md` → "mxcli v0.32 / Mendix 11.13: a column with a widget body fails CE0463".
+**Confounders (any one is enough for CE0463):** the failing script also set `showEmptyPlaceholder: 'custom'` with an emptyplaceholder slot (BUG-150 item 2); it had "Action" columns with no attribute; and no widget-bodied column set `ShowContentAs: customContent`, which the bundled v0.32 docs require (a pruned slot is CE0463). The probe page was not kept.
 
-**Toolkit side:** the skill section above; nothing mechanical (a lint rule would need the failing widget set).
+**Next step:** run the three probes listed in `skills/learned-dg2-patterns.md` with `mx check`; if (a) builds, close this as the known defects above. **Workaround meanwhile:** the order of things to try in that skill, ending in a listview table.

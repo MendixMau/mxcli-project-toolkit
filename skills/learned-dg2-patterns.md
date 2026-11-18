@@ -9,14 +9,19 @@ rule and the filter-persistence trap).
 
 ---
 
-## mxcli v0.32 / Mendix 11.13: a column with a widget body fails CE0463
+## Field evidence (unverified): widget-bodied DG2 columns failed CE0463 on mxcli v0.32 / Mendix 11.13
 
-**Rule.** Any Data Grid 2 `column (...) { widgets }` body — pills, countdowns, action buttons, a
-`dynamictext` — fails the `mx check` gate with **CE0463** ("definition of this widget has changed").
-A column with **only `Attribute:`/`Caption:`** builds. For a table whose rows need anything richer,
-build a **listview table** instead: a `region` `htmlelement` (`role`, `aria-label`, `tabindex` as
-`attribute` children) holds a header `container` of `dynamictext` cells and a `listview` whose row
-is a `container` of cells — each cell may hold any widget:
+**Try in this order** when a Data Grid 2 column with a widget body (pill, button, `dynamictext`)
+fails `mx check` with **CE0463** ("definition of this widget has changed"):
+
+1. `column (Caption: '…', ShowContentAs: customContent) { … }` — a **non-empty** caption and an
+   explicit `ShowContentAs: customContent` (the bundled v0.32 docs require it; a widget body without
+   it is a pruned slot, which is CE0463). See `learned-datagrid-customcontent-binding.md`.
+2. **No** `emptyplaceholder` slot and no `showEmptyPlaceholder` on the grid (BUG-150 item 2: CE0463
+   by itself), and no column without an `Attribute:` unless it is customContent.
+3. Only if CE0463 persists: a **listview table** — a `region` `htmlelement` (`role`, `aria-label`,
+   `tabindex` as `attribute` children) holding a header `container` of `dynamictext` cells and a
+   `listview` whose row is a `container` of cells, each cell any widget:
 
 ```mdl
 htmlelement regionCards (tagName: 'div', Class: 'pr-table-scroll') {
@@ -33,18 +38,18 @@ htmlelement regionCards (tagName: 'div', Class: 'pr-table-scroll') {
 }
 ```
 
-No `emptyplaceholder` / `showEmptyPlaceholder` on the grid either (BUG-150): an empty state is a
-container whose `Visible:` tests a count.
+**What was observed, and why it is not conclusive.** In a multi-app build a page script with
+widget-bodied columns failed the gate 3 times (CE0463, 2 errors) and a probe page failed on every
+retry, while attribute-only columns built and the listview-table rewrite built first time. But the
+failing script **also** had `showEmptyPlaceholder: 'custom'` with an emptyplaceholder slot (CE0463 by
+itself, BUG-150) and "Action" columns with no attribute, and no widget-bodied column set
+`ShowContentAs: customContent`. The probe page was not kept, so which cause fired cannot be
+separated. `mxcli check` printed no error each time: CE0463 is only visible to `mx check`.
 
-**Failure it prevents.** A page script written with widget-bodied columns failed the gate 3 times in a row
-and was rolled back (CE0463, 2 errors); `mxcli check` printed no error each time — CE0463 is
-only visible to `mx check`, so a pre-exec check proves nothing here. A probe page with
-attribute-only columns built clean; the same probe with a widget in one column failed on every
-retry; the listview rewrite built on its first run.
-
-**Provenance.** Observed through the exec gate (`mx check`) in a multi-app build on mxcli v0.32 /
-Mendix 11.13.0. Not re-run on a separate scratch project by the author of this note (no mxcli binary
-in that environment); retest on the next mxcli, then fold into the table above if it builds.
+**Provenance.** Observed through the exec gate in that build; not re-run on a scratch project here (no
+mxcli binary in the authoring environment). The three probes that settle it: (a) `customContent` +
+one `dynamictext`, no emptyplaceholder; (b) the same without `ShowContentAs`; (c) an attribute-only
+grid with an emptyplaceholder.
 
 ---
 

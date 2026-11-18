@@ -161,7 +161,18 @@ STACK_CONF="${STACK_CONF:-$ROOT/.claude/loop/stack.conf}"
 # shellcheck disable=SC1090
 [ -f "$STACK_CONF" ] && . "$STACK_CONF"
 
-APP_PORTS="${APP_PORTS:-8080 8081 8084}"
+# Default scan list (field run: a four-app build on 8081-8084). With no APP_PORTS the list is the
+# app's OWN configured port first (stack.conf RUN_LOCAL_APP_PORT, then APP_PORT in the .docker/.env
+# beside the .mpr — apps/<App>/.docker/.env in a multi-app layout, as reload.sh reads it — else the
+# one at the project root), then the old fixed tail. The first entry is also the port a restart
+# falls back to, which used to be 8080 for every app: see the refusal in the local-lane start.
+_PORTS_EXPLICIT="${APP_PORTS:-}"
+_cfg_port=""
+for _env in "$(dirname "$MPR")/.docker/.env" "$ROOT/.docker/.env"; do
+  _cfg_port="$(sed -n 's/^APP_PORT=//p' "$_env" 2>/dev/null | head -1 | tr -d '"[:space:]')"
+  case "$_cfg_port" in ''|*[!0-9]*) _cfg_port="" ;; *) break ;; esac
+done
+APP_PORTS="${APP_PORTS:-$(printf '%s\n' ${RUN_LOCAL_APP_PORT:-} ${_cfg_port} 8080 8081 8084 | awk 'NF && !s[$1]++' | tr '\n' ' ' | sed 's/ $//')}"
 JAEGER_PORT="${JAEGER_PORT:-16686}"
 MOCK_HEALTH_URL="${MOCK_HEALTH_URL:-}"
 MOCK_PORT="${MOCK_PORT:-}"
@@ -835,6 +846,15 @@ if [ $APP_FOUND -ne 0 ]; then
     _U0=$(find "$MODEL_DIR/mprcontents" -name '*.mxunit' 2>/dev/null | wc -l | tr -d ' ')
     check_run_local_ports || { bad "App not serving yet — this project's own runtime holds its port. Re-run --check when it answers."; exit 1; }
     read -r _LA _LM <<<"$(run_local_ports)"
+    # No configured port anywhere (no handshake, RUN_LOCAL_APP_PORT, APP_PORTS, .docker/.env APP_PORT)
+    # falls back to 8080 above. For a model under apps/ that pins every app to 8080 — the first
+    # binds it, the rest fail to start — so refuse and name the setting instead.
+    if [ -z "${RUN_LOCAL_APP_PORT:-}" ] && [ -z "$_PORTS_EXPLICIT" ] && [ -z "$_cfg_port" ] && ! pick_local_hs; then
+      case "$MPR" in "$ROOT"/apps/*)
+        bad "no port configured for this app (model under apps/): starting it would pin it to :$_LA. Set RUN_LOCAL_APP_PORT=<port> in .claude/loop/stack.conf (one distinct port per app)."
+        exit 4 ;;
+      esac
+    fi
     # mxbuild --serve listens on 6543 unless told otherwise, so a second project's local lane would
     # collide with the first. RUN_LOCAL_SERVE_PORT (stack.conf) wins; else the first free port from 6543.
     _LS="${RUN_LOCAL_SERVE_PORT:-}"

@@ -23,27 +23,37 @@ echo map > "$O/design/process-map.html"; echo model > "$O/design/process-model.j
 for i in $(seq 1 200); do head -c 6000 /dev/urandom | base64 > "$O/design/wireframes/w$i.html"; done
 at 1700000000; g "$O" add -A; g "$O" commit -qm one
 
-# 1. fresh clones: never stale, however the checkout ordered its writes (repeat to cross ticks)
-bad_n=0
+# 1. fresh clones: never stale, however the checkout ordered its writes (repeat to cross ticks).
+#    NEGATIVE CONTROL: on the same clones plain `-ot` must read stale at least once, or the clones
+#    here did not reproduce the defect (a filesystem that stamps a checkout in one tick) -> SKIP.
+bad_n=0; ot_n=0
 for i in 1 2 3; do
   rm -rf "$WORK/c"; git clone -q "$O" "$WORK/c"
-  C="$WORK/c/design"
+  C="$WORK/c/design"; mxtk_render_memo_reset
+  [ "$C/process-map.html" -ot "$C/process-model.json" ] && ot_n=$((ot_n+1))
   mxtk_render_is_stale "$C/process-map.html" "$C/process-model.json" && bad_n=$((bad_n+1))
-  for w in "$C"/wireframes/*.html; do mxtk_render_is_stale "$C/process-map.html" "$w" && { bad_n=$((bad_n+1)); break; }; done
+  for w in "$C"/wireframes/*.html; do
+    [ "$C/process-map.html" -ot "$w" ] && ot_n=$((ot_n+1))
+    mxtk_render_is_stale "$C/process-map.html" "$w" && { bad_n=$((bad_n+1)); break; }
+  done
 done
 [ "$bad_n" -eq 0 ] && ok "fresh clone x3: map not stale vs model or any of 200 wireframes" || bad "fresh clone read stale $bad_n time(s)"
+[ "$ot_n" -gt 0 ] && ok "negative control: plain -ot read stale $ot_n time(s) on these clones" \
+  || echo "  SKIP negative control: this filesystem stamped the checkouts in one tick, so the defect did not reproduce here"
 
 # 2. source edited in the working tree after the render -> stale
-sleep 1.1; echo changed > "$C/process-model.json"
+mxtk_render_memo_reset; sleep 1.1; echo changed > "$C/process-model.json"
 mxtk_render_is_stale "$C/process-map.html" "$C/process-model.json" && ok "uncommitted source edit -> stale" || bad "uncommitted source edit not seen"
 
 # 3. source committed in a LATER commit than the render -> stale (clean tree)
-at 1700000600; g "$WORK/c" commit -qam two
+mxtk_render_memo_reset; at 1700000600; g "$WORK/c" commit -qam two
 mxtk_render_is_stale "$C/process-map.html" "$C/process-model.json" && ok "source in a later commit -> stale" || bad "later-commit source not seen"
 
-# 4. re-rendered and committed after the source -> fresh again
+# 4. re-rendered and committed after the source -> fresh again, decided by git even though the
+#    render's mtime is made OLDER than the source's (so the -ot shortcut cannot answer)
 echo map2 > "$C/process-map.html"; at 1700001200; g "$WORK/c" commit -qam three
-mxtk_render_is_stale "$C/process-map.html" "$C/process-model.json" && bad "re-rendered map still stale" || ok "render committed after source -> fresh"
+touch -d '2020-01-01 00:00:00' "$C/process-map.html"; mxtk_render_memo_reset
+mxtk_render_is_stale "$C/process-map.html" "$C/process-model.json" && bad "re-rendered map still stale" || ok "render committed after source -> fresh (git path)"
 
 # 5. no git at all: whole-second mtimes. Same-second writes are fresh; a later source is stale.
 N="$WORK/plain"; mkdir -p "$N"; echo a > "$N/r.html"; echo b > "$N/s.md"

@@ -127,6 +127,7 @@ OUT=$(run_in "$MXB MODE=clean" "mxtk_mxbuild_error_count '$P/Fixture.mpr' 30" 2>
 [ "$OUT" = "0" ] && ok "[guard] 4d: {\"problems\":[]} + exit 0 -> 0" || fail "4d: -> '$OUT'"
 
 # ── 5: the cache-gap guard for mxcli's silent fallback (mxtk_mxbuild_cache_gap) ─────────────
+mv "$T/parked-11.12.2" "$H/.mxcli/mxbuild/11.12.2"   # case 3 parked it; case 5 needs both cached
 echo "== 5: mxtk_mxbuild_cache_gap warns when the model's MxBuild is not cached =="
 OUT=$(run_in "" "mxtk_mxbuild_cache_gap 11.12.2; echo rc=\$?")
 [ "$OUT" = "rc=0" ] && ok "[guard] 5a: model version cached -> silent, rc 0" || fail "5a: -> '$OUT'"
@@ -136,9 +137,15 @@ case "$OUT" in
   *) fail "5b: -> '$OUT'" ;;
 esac
 OUT=$(env -i PATH="$PATH" HOME="$T/emptyhome" bash -c "set -u; source '$COMMON'; mxtk_mxbuild_cache_gap 11.13.0; echo rc=\$?")
-[ "$OUT" = "rc=0" ] && ok "[guard] 5c: empty cache -> silent (nothing to fall back to)" || fail "5c: -> '$OUT'"
+[ "$OUT" = "rc=0" ] && ok "5c: empty cache -> silent (nothing to fall back to)" || fail "5c: -> '$OUT'"
 OUT=$(run_in "" "mxtk_mxbuild_cache_gap ''; echo rc=\$?")
-[ "$OUT" = "rc=0" ] && ok "[guard] 5d: unreadable model version -> silent" || fail "5d: -> '$OUT'"
+[ "$OUT" = "rc=0" ] && ok "5d: unreadable model version -> silent" || fail "5d: -> '$OUT'"
+
+# 5e: a half-downloaded dir (no executable modeler/mxbuild) does not count as cached
+mkdir -p "$H/.mxcli/mxbuild/11.13.0"
+OUT=$(run_in "" "mxtk_mxbuild_cache_gap 11.13.0; echo rc=\$?")
+case "$OUT" in *"rc=1"*) ok "5e: empty 11.13.0 dir is not a cached MxBuild" ;; *) fail "5e: -> '$OUT'" ;; esac
+rmdir "$H/.mxcli/mxbuild/11.13.0"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"

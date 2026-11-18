@@ -7280,16 +7280,28 @@ Both flagged flows are Data grid 2 datasources on pages in the same module and w
 
 **Toolkit side:** ledger only.
 
-## BUG-DRAFT-mxbuild-silent-version-fallback: mxcli resolves MxBuild from its cache and, when the project's version is not cached, silently uses another cached version (2026-11-18)
+## BUG-DRAFT-mxbuild-silent-version-fallback: `mxcli docker build` / `docker check` fall back to the newest cached MxBuild when the project's version is absent, with no warning that the version differs (2026-11-18)
 
 > **NOT YET FILED UPSTREAM.** Draft issue text is in the PR that added the toolkit guard; the toolkit does not open issues on mxcli's behalf.
 
 **Discovered:** 2026-11, a four-app build on one machine. **mxcli version:** v0.32.0. **Mendix:** 11.13.0.
 
-**What happens.** `mxcli docker build`, `run --local` and `check` pick their MxBuild from `~/.mxcli/mxbuild/<version>/`. With the project's version absent and a different version cached, they use the cached one and print nothing about the mismatch. Depending on the gap the result is a refusal that reads like a model problem ("Project version 'X' does not exactly match MxBuild version 'Y'", exit 3, empty `problems[]`), or a build that quietly differs from the version the model targets.
+**What happens.** `mxcli docker build` (`build.go:194`, falling through to `AnyCachedMxBuildPath`), `mxcli docker check` (`check.go:129`, `AnyCachedMxPath`) and the page check (`pagecheck_check.go:490`) fall back to the newest cached MxBuild/mx when the project's version is absent. They print the path chosen but give no warning that its version differs. Depending on the gap the result is a refusal that reads like a model problem ("Project version 'X' does not exactly match MxBuild version 'Y'", exit 3, empty `problems[]`) or a build against a version the model does not target. **Not affected:** plain `mxcli check` (MDL only), and `run --local` / `test --local`, which go through `ResolveMxBuildForLocal` and use the exact version or refuse.
 
-**Expected.** Use the version the `.mpr` records, or fail naming both versions; at minimum print the fallback.
+**Expected.** Use the version the `.mpr` records, or fail naming both versions; at minimum warn that the version differs.
 
 **Workaround:** `./mxcli setup mxbuild -p <app>.mpr` fetches the matching version into the cache. Check before a long build: `bin/doctor.sh` now warns ("this model is Mendix X but ~/.mxcli/mxbuild/ holds only Y").
 
-**Toolkit side:** the toolkit's own gate already matches versions (`find_mxbuild`, `mxtk_ensure_mxbuild`); the guard `mxtk_mxbuild_cache_gap` (`project-bin/_common.sh`, called from `bin/doctor.sh`) covers the paths that go through mxcli directly. Warning only; it never changes a gate verdict.
+**Toolkit side:** the toolkit's own gate already matches versions (`find_mxbuild`, `mxtk_ensure_mxbuild`); the guard `mxtk_mxbuild_cache_gap` (`project-bin/_common.sh`, called from `bin/doctor.sh`) covers the `docker build` / `docker check` paths. It looks only at the cache (usable = executable `modeler/mxbuild`), not at an mxbuild on PATH or a Studio Pro of another version. Warning only; it never changes a gate verdict.
+
+## BUG-DRAFT-dg2-custom-content-column-ce0463: SUSPECTED — widget-bodied Data Grid 2 columns passed `mxcli check` and failed `mx check` with CE0463 on v0.32 (2026-11-18)
+
+> **SUSPECTED, NOT ISOLATED. NOT FILED UPSTREAM.** Not re-run on a scratch project (no mxcli binary available to the author). Possibly a v0.32 field instance of **BUG-DRAFT-dg2-write-defects-field**, **BUG-16** and **BUG-150 item 2** rather than a new defect.
+
+**Discovered:** 2026-11, a four-app build. **mxcli version:** v0.32.0. **Mendix:** 11.13.0.
+
+**What happened.** A page script with widget-bodied DG2 columns failed `mx check` 3 times in a row (CE0463, 2 errors); `mxcli check` printed nothing. Attribute-only columns built.
+
+**Confounders (any one is enough for CE0463):** the failing script also set `showEmptyPlaceholder: 'custom'` with an emptyplaceholder slot (BUG-150 item 2); it had "Action" columns with no attribute; and no widget-bodied column set `ShowContentAs: customContent`, which the bundled v0.32 docs require (a pruned slot is CE0463). The probe page was not kept.
+
+**Next step:** run the three probes listed in `skills/learned-dg2-patterns.md` with `mx check`; if (a) builds, close this as the known defects above. **Workaround meanwhile:** the order of things to try in that skill, ending in a listview table.

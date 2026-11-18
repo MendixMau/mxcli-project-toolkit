@@ -160,9 +160,9 @@ running app with `NoClassDefFoundError`, .mpr unchanged; #278.)
 - **Multi-app projects: the container port is not the host port.** A Docker/PAD build always listens on
   **8080 inside the container** (admin 8090), whatever the model's runtime settings say — so 8080 is
   right for `docker exec` and container-to-container URLs and wrong as a host port. Each app publishes
-  its own host port (`<APP_PORT>:8080`, e.g. 8081–8084 for four apps; `.docker/.env` `APP_PORT`, or
+  its own host port (`<APP_PORT>:8080`, e.g. 8081–8084 for four apps; `APP_PORT` in the `.docker/.env` beside that app's `.mpr`, or
   `mxcli run --local --app-port N --admin-port N+10 --serve-port M` on the local lane). Never write
-  `localhost:8080` into a per-app config: read the port from `stack.env` / `.docker/.env`. Failure seen:
+  `localhost:8080` into a per-app config: read the port from `stack.env` / that `.docker/.env`. Failure seen:
   a four-app fresh start where every app was pinned to 8080 — the first app bound it, the other three
   failed to start.
 - **The admin/OQL route works — no `psql` needed for the Data rung.** Measured 2026-08-06 on Mendix

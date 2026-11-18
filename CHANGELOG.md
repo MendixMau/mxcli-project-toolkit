@@ -18,6 +18,7 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 `docs/RELEASE-PROCESS.md` §8.
 
 ## Unreleased
+- fix(gate-check): **a fresh clone no longer FAILs Stage 3 as "stale render"**: `blueprint.html` / `process-map.html` freshness used `[ render -ot source ]`, a nanosecond mtime compare, and a checkout stamps files in directory order (`process-map.html` lands before `process-model.json`), so an unedited project read stale on every clone (reproduced: a 200-wireframe checkout, false positive on every clone). New `bin/lib/render-fresh.sh` compares last-commit times when both files are tracked and clean, whole-second mtimes otherwise — field run: a four-app Mendix build checked out on a second machine.
 - fix(exec): **`exec.sh` called by relative paths from another folder no longer skips the plan rule**: `_XD="${0%/*}"` stayed relative (`../../bin`), and after exec.sh's `cd` to the project root the guard `[ -f "$_XD/_position.sh" ]` failed in silence, so `cd apps/Orders && ../../bin/exec.sh ../../mdlsource/x.mdl` wrote under `Interview mode: auto` where the same call by absolute path was refused; a relative MDL script path broke every `[ -f "$SCRIPT" ]` guard the same way. Both are made absolute before the `cd`, only when the caller is not at the project root (a run from the root is unchanged). Arguments passed through to a `--patch` script are still taken as given. Fixture `test-mode-contract.sh` X — independent review of #789
 
 ## v2026.11.17

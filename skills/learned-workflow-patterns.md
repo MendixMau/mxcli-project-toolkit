@@ -394,7 +394,8 @@ above is wrong.
 **Other statements in a workflow body:**
 
 - `PARALLEL SPLIT PATH 1 { ... } PATH 2 { ... } PATH 3 { ... };` — concurrent branches,
-  one or more activities each. Unaffected by the `DECISION` defect in §8.
+  one or more activities each. Unaffected by the `DECISION` defect (BUG-76); but see BUG-121 /
+  §18: retest a scripted split live before trusting it.
 - `CALL MICROFLOW Mod."Name" WITH (Mod."Name"."Param" = '<value>');` — see below.
 - `OVERVIEW PAGE Mod."Page"` — optional clause after `PARAMETER`, naming the instance
   overview page.
@@ -405,6 +406,27 @@ above is wrong.
 - Capitalize `$Context` / `$WorkflowContext` consistently. Lowercase inside an activity
   expression has been observed to produce CE0117 (seen in a `DECISION` expression, on an
   older binary — unverified for other activity types).
+
+**Only when no live retest is possible: route in a microflow, keep the workflow body to user
+tasks.** Upstream status: BUG-121 (split paths without their terminator) was fixed in mxcli
+v0.22.0 and has **not** been retested here — confirm with a live run and read the runtime's
+`system$workflowactivity` rows; a Boolean keyword `DECISION` built clean on v0.24.0 (note above,
+§8 Warning 1). If you can retest, do that instead of this workaround. A multi-app build on
+mxcli v0.32 / Mendix 11.13, with no retest budget, ran with no workflow decision and no split:
+
+- **A decision** = ONE user task with N outcomes whose bodies are **all empty**, completed by the
+  page's `complete_task` button, or by a microflow (`set task outcome $Task 'Outcome'`, signed-in
+  user, only when no page is involved — see the rule below) that writes the choice onto the case
+  and then starts the next step with an ordinary `if` on that flag.
+- **A parallel split** = one microflow that starts each branch's step in turn inside ONE
+  transaction (one `call microflow <StartStep>(...)` per branch): a failure rolls every branch
+  back. There is **no join**: each branch is its own record, and "all branches done" is a check the
+  last-finishing branch's completion microflow makes before starting the next step.
+- Cost: the process picture in Studio Pro shows a chain of tasks, not the fork, and these
+  extra microflows cut against §17 (fewer separately-created microflows).
+
+Reproducing BUG-76 / BUG-121 needs an mxcli binary; the ledger entries carry the scripts. The
+field build avoided both rather than hitting them, so this is the workaround, not a new repro.
 
 **`CALL MICROFLOW` inside a workflow:**
 
@@ -592,7 +614,8 @@ then `mxcli docker check` and count `EnumerationValueIdentifier` error lines aga
 pre-existing baseline. Two new ones means BUG-76 is live on that binary. Record the binary
 and the result in BUG-76 either way.
 
-Neither `PARALLEL SPLIT` (§18) nor a lowercase `$workflowContext` inside a decision
+`PARALLEL SPLIT` is not touched by this defect (BUG-76) but has its own, BUG-121 (§18): retest a
+scripted split live before trusting it. A lowercase `$workflowContext` inside a decision
 expression is affected — the latter was BUG-WF03, a separate casing defect, fixed in
 v0.17.0. BUG-WF03 being fixed did **not** make `DECISION` safe on v0.17.0; it fixed the
 expression compiler, not the storage serializer.

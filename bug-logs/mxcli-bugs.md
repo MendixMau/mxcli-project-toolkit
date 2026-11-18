@@ -7280,6 +7280,20 @@ Both flagged flows are Data grid 2 datasources on pages in the same module and w
 
 **Toolkit side:** ledger only.
 
+## BUG-DRAFT-mxbuild-silent-version-fallback: `mxcli docker build` / `docker check` fall back to the newest cached MxBuild when the project's version is absent, with no warning that the version differs (2026-11-18)
+
+> **NOT YET FILED UPSTREAM.** Draft issue text is in the PR that added the toolkit guard; the toolkit does not open issues on mxcli's behalf.
+
+**Discovered:** 2026-11, a four-app build on one machine. **mxcli version:** v0.32.0. **Mendix:** 11.13.0.
+
+**What happens.** `mxcli docker build` (`build.go:194`, falling through to `AnyCachedMxBuildPath`) and `mxcli docker check` (`check.go:129`, `AnyCachedMxPath`) fall back to the newest cached MxBuild/mx when the project's version is absent. They print the path chosen but give no warning that its version differs. (The page check, `pagecheck_check.go:490`, uses a cached MxBuild only as a fallback source for node; it neither prints the path nor builds against it.) Depending on the gap the result is a refusal that reads like a model problem ("Project version 'X' does not exactly match MxBuild version 'Y'", exit 3, empty `problems[]`) or a build against a version the model does not target. **Not affected:** plain `mxcli check` (MDL only), and `run --local` / `test --local`, which go through `ResolveMxBuildForLocal` and use the exact version or refuse.
+
+**Expected.** Use the version the `.mpr` records, or fail naming both versions; at minimum warn that the version differs.
+
+**Workaround:** `./mxcli setup mxbuild -p <app>.mpr` fetches the matching version into the cache. Check before a long build: `bin/doctor.sh` now warns ("this model is Mendix X but ~/.mxcli/mxbuild/ holds only Y").
+
+**Toolkit side:** the toolkit's own gate already matches versions (`find_mxbuild`, `mxtk_ensure_mxbuild`); the guard `mxtk_mxbuild_cache_gap` (`project-bin/_common.sh`, called from `bin/doctor.sh`) covers the `docker build` / `docker check` paths. It looks only at the cache (usable = executable `modeler/mxbuild`), not at an mxbuild on PATH or a Studio Pro of another version. Warning only; it never changes a gate verdict.
+
 ## BUG-DRAFT-dg2-custom-content-column-ce0463: SUSPECTED — widget-bodied Data Grid 2 columns passed `mxcli check` and failed `mx check` with CE0463 on v0.32 (2026-11-18)
 
 > **SUSPECTED, NOT ISOLATED. NOT FILED UPSTREAM.** Not re-run on a scratch project (no mxcli binary available to the author). Possibly a v0.32 field instance of **BUG-DRAFT-dg2-write-defects-field**, **BUG-16** and **BUG-150 item 2** rather than a new defect.

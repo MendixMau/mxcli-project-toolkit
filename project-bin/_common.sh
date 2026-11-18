@@ -730,6 +730,33 @@ EOF_SP
   return 1
 }
 
+# mxtk_mxbuild_cache_gap <model-version> — the guard for mxcli's unannounced MxBuild version fallback.
+# `mxcli docker build`, `mxcli docker check` and the page check resolve their MxBuild/mx from
+# ~/.mxcli/mxbuild/ and, when the model's version is absent, fall back to the newest cached one: they
+# print the path chosen but give no warning that its version differs (field run: a four-app build on
+# one machine, builds run against a cached MxBuild of another Mendix version). Not affected: plain
+# `mxcli check` (MDL only) and `run --local` / `test --local`, which use the exact version or refuse.
+# The toolkit's own gate (find_mxbuild / mxtk_ensure_mxbuild) already matches the version; this covers
+# the `docker build` / `docker check` paths. Prints one line naming both versions and the repair, returns 1, when
+# the cache holds at least one usable MxBuild (a directory with an executable modeler/mxbuild, so a
+# half-downloaded one does not count), none of them is <model-version>, and no Studio Pro install of
+# that version exists. Silent (returns 0) when the version is unreadable, nothing is cached, or a match
+# exists. It covers the cache only — not an mxbuild on PATH or a Studio Pro of another version. Stat
+# calls only; never downloads, never changes a gate.
+mxtk_mxbuild_cache_gap() {
+  local ver="${1:-}" root have="" d
+  [ -n "$ver" ] || return 0
+  root="${MXCLI_HOME:-$HOME/.mxcli}/mxbuild"
+  for d in "$root"/*/; do
+    [ -x "$d/modeler/mxbuild" ] || [ -x "$d/modeler/mxbuild.exe" ] || continue
+    have="$have${have:+, }$(basename "${d%/}")"
+  done
+  [ -n "$have" ] || return 0
+  mxtk_mxbuild_for_version "$ver" >/dev/null 2>&1 && return 0
+  printf 'this model is Mendix %s but ~/.mxcli/mxbuild/ holds only %s — `mxcli docker build` / `docker check` fall back to a cached MxBuild of another version and warn only about the path, not the version (they then run against the wrong version). Fetch the right one: ./mxcli setup mxbuild -p <app>.mpr\n' "$ver" "$have"
+  return 1
+}
+
 # find_mxbuild — the mxbuild binary: $MXBUILD_PATH override, then the Studio Pro install
 # or mxcli cache entry matching the MODEL'S version, then (no match) the newest SP install,
 # then the newest mxcli download cache entry (see find_mxcli_cache). The SP-derived

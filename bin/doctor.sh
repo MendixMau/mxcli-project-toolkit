@@ -1714,6 +1714,16 @@ if command -v mxtk_runtime_report >/dev/null 2>&1; then
   fi
 fi
 
+# Cached MxBuild of the model's version? `mxcli docker build` / `docker check` (and the page check)
+# fall back to the newest cached MxBuild/mx and print the path but no version warning; the toolkit's
+# gate matches versions, `run --local` / `test --local` use the exact version or refuse.
+# A warning only — never changes GATE_OK (the toolkit gate has its own refusal).
+if command -v mxtk_mxbuild_cache_gap >/dev/null 2>&1; then
+  if ! _MG="$(mxtk_mxbuild_cache_gap "$(mxtk_model_version 2>/dev/null || true)")"; then
+    warn "$_MG"
+  fi
+fi
+
 # Java: mxbuild is invoked with an explicit --java-exe-path; if none resolves, the gate skips.
 if [ -n "$JAVA_EXE" ] && [ -x "$JAVA_EXE" ]; then
   # -version writes to stderr, and wrappers can prepend noise (JAVA_TOOL_OPTIONS pickup

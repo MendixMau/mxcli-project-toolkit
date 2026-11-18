@@ -406,6 +406,27 @@ above is wrong.
   expression has been observed to produce CE0117 (seen in a `DECISION` expression, on an
   older binary — unverified for other activity types).
 
+**When the build cannot afford a retest of BUG-76 (decision) / BUG-121 (parallel split): route
+in a microflow, keep the workflow body to user tasks.** The "unaffected" in the first bullet above
+predates BUG-121 (split paths written without their terminator, tasks never opened); do not read it
+as a clearance for a binary you have not probed. The shape a multi-app build ran on mxcli v0.32 /
+Mendix 11.13 with no workflow decision and no parallel split at all:
+
+- **A decision** = ONE user task with N outcomes whose bodies are **all empty**, completed by a
+  microflow (`set task outcome $Task 'Outcome'`, signed-in user — see the rule below) that writes
+  the choice onto the case and then starts the next step. Branch there with a Boolean/flag
+  `if`, never an enumeration split.
+- **A parallel split** = one microflow that starts each branch's step in turn inside ONE
+  transaction (`call microflow SUB_Link_Start(...)` per branch): a failure rolls every branch back,
+  which a workflow split does not give you either.
+- A task page must exist **before** the workflow that names it (CE7412): create a stub page with its
+  `grant view`, then restate it with `create or modify`.
+
+Cost: the process picture in Studio Pro shows a chain of tasks, not the fork. Reproducing BUG-76 /
+BUG-121 themselves needs an mxcli binary and a Mendix 11 model (the ledger entries carry the exact
+scripts); the field build above avoided both rather than hitting them, so this section is the
+workaround, not a new repro.
+
 **`CALL MICROFLOW` inside a workflow:**
 
 ```sql

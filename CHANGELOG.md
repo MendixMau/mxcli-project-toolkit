@@ -18,6 +18,7 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 `docs/RELEASE-PROCESS.md` §8.
 
 ## Unreleased
+- learn(workflow): **route in a microflow when BUG-76 / BUG-121 cannot be retested**: `learned-workflow-patterns.md` gains the shape a four-app Mendix build ran on mxcli v0.32 — a decision is one user task with empty-bodied outcomes completed by a microflow that branches on a flag; a parallel split is one microflow starting each branch in one transaction — and the "parallel split unaffected" line no longer reads as a clearance (BUG-121). Not reproduced: the field build avoided both constructs, so no new repro exists; the existing ledger entries stay the repro source.
 - fix(exec): **`exec.sh` called by relative paths from another folder no longer skips the plan rule**: `_XD="${0%/*}"` stayed relative (`../../bin`), and after exec.sh's `cd` to the project root the guard `[ -f "$_XD/_position.sh" ]` failed in silence, so `cd apps/Orders && ../../bin/exec.sh ../../mdlsource/x.mdl` wrote under `Interview mode: auto` where the same call by absolute path was refused; a relative MDL script path broke every `[ -f "$SCRIPT" ]` guard the same way. Both are made absolute before the `cd`, only when the caller is not at the project root (a run from the root is unchanged). Arguments passed through to a `--patch` script are still taken as given. Fixture `test-mode-contract.sh` X — independent review of #789
 
 ## v2026.11.17

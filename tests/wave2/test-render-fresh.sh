@@ -55,6 +55,20 @@ echo map2 > "$C/process-map.html"; at 1700001200; g "$WORK/c" commit -qam three
 touch -d '2020-01-01 00:00:00' "$C/process-map.html"; mxtk_render_memo_reset
 mxtk_render_is_stale "$C/process-map.html" "$C/process-model.json" && bad "re-rendered map still stale" || ok "render committed after source -> fresh (git path)"
 
+# 4b. the four shapes a naive parse of `git status` / `git log` got wrong (each is stale by -ot too):
+#     an untracked dir, a path with a space, a non-ASCII path committed later, a staged rename + edit.
+R="$WORK/r4b"; mkdir -p "$R/d"; git init -q "$R"; echo m > "$R/d/model.json"; echo é > "$R/d/ünï.json"; echo r > "$R/d/ren-old.json"
+echo map > "$R/d/map.html"; at 1700002000; g "$R" add -A; g "$R" commit -qm base
+sleep 1.1
+mkdir -p "$R/d/newdir"; echo n > "$R/d/newdir/src.json"                      # untracked file in an untracked dir
+echo n > "$R/d/with space.json"                                              # untracked, space in the name
+echo é2 > "$R/d/ünï.json"; at 1700002600; g "$R" commit -qam uni            # non-ASCII, committed after the render
+git -C "$R" mv d/ren-old.json d/ren-new.json; echo edit >> "$R/d/ren-new.json"  # staged rename + edit
+for src in newdir/src.json "with space.json" "ünï.json" "ren-new.json"; do
+  mxtk_render_memo_reset
+  mxtk_render_is_stale "$R/d/map.html" "$R/d/$src" && ok "4b: '$src' newer than the render -> stale" || bad "4b: '$src' read fresh"
+done
+
 # 5. no git at all: whole-second mtimes. Same-second writes are fresh; a later source is stale.
 N="$WORK/plain"; mkdir -p "$N"; echo a > "$N/r.html"; echo b > "$N/s.md"
 touch -d '2026-01-01 00:00:00.100' "$N/r.html"; touch -d '2026-01-01 00:00:00.900' "$N/s.md"

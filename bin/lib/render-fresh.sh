@@ -22,7 +22,7 @@
 # so a passing verdict cannot flip. Git is consulted only where `-ot` would have FAILED, and then
 # ONCE PER RENDER, not once per source: one `git log -1` finds the commit that last touched the
 # render, one `git log --name-only <that>..HEAD` lists every path committed after it, one
-# `git status --porcelain` lists every dirty or untracked path. A source is stale when it is in the
+# `git status --porcelain -z` lists every dirty or untracked path. A source is stale when it is in the
 # first list, or dirty with a newer whole-second mtime. No git call per source.
 #
 # LIMIT (stated, not fixed): in a depth-1 shallow clone there is no history after the render's
@@ -53,9 +53,11 @@ _rf_load() {
   rel="${ra#"$_RF_TOP"/}"
   c="$(git -C "$_RF_TOP" log -1 --format=%H -- "$rel" 2>/dev/null)"
   [ -n "$c" ] || return 0                                   # render untracked
-  _RF_DIRTY="$(git -C "$_RF_TOP" status --porcelain 2>/dev/null | sed 's/^...//')"
+  # -z (no quoting of spaces/unicode), --untracked-files=all (no collapsed `?? dir/`), --no-renames
+  # (no `a -> b`): every dirty path appears on its own line, verbatim.
+  _RF_DIRTY="$(git -C "$_RF_TOP" status --porcelain -z --untracked-files=all --no-renames 2>/dev/null | tr '\0' '\n' | sed 's/^...//')"
   case "$_RF_NL$_RF_DIRTY$_RF_NL" in *"$_RF_NL$rel$_RF_NL"*) return 0 ;; esac   # render dirty
-  _RF_AFTER="$(git -C "$_RF_TOP" log --name-only --format= "$c..HEAD" 2>/dev/null)"
+  _RF_AFTER="$(git -C "$_RF_TOP" -c core.quotePath=false log --name-only --format= "$c..HEAD" 2>/dev/null)"
   _RF_GIT=1
 }
 
@@ -63,7 +65,7 @@ _rf_load() {
 mxtk_render_is_stale() {
   local r="$1" s="$2" sa rel
   [ "$r" -ot "$s" ] || return 1                             # not older by mtime: fresh, no git
-  [ "$_RF_MEMO_PATH" = "$r" ] || _rf_load "$r"
+  [ "$_RF_MEMO_PATH" = "$r" ] || _rf_load "$r"   # keyed on the raw path; mxtk_render_memo_reset after edits
   if [ "$_RF_GIT" = 1 ]; then
     # Fast path, no forks: an absolute (or $PWD-relative) path already under the physical top.
     case "$s" in /*) sa="$s" ;; *) sa="$PWD/$s" ;; esac

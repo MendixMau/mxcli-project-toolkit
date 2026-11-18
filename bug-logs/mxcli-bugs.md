@@ -7279,3 +7279,15 @@ Both flagged flows are Data grid 2 datasources on pages in the same module and w
 **Workaround:** write 404 (and 401) into the API contract and the proof script, or add an explicit role check in the operation's microflow that returns 403.
 
 **Toolkit side:** ledger only.
+
+## BUG-DRAFT-dg2-custom-content-column-ce0463: a Data Grid 2 `column (...) { widgets }` body is accepted by `mxcli check` and fails `mx check` with CE0463 (2026-11-18)
+
+> **NOT YET FILED UPSTREAM.** Not re-run on a scratch project by the author (no mxcli binary available there).
+
+**Discovered:** 2026-11, a four-app build. **mxcli version:** v0.32.0. **Mendix:** 11.13.0.
+
+**What happens.** Any widget inside a DG2 column body (pill, button, dynamictext) passes `mxcli check`/`check --references`, then the exec gate's `mx check` reports CE0463 and the script is rolled back. Attribute-only columns build. Related to BUG-150 (the same bundled definition fixes slot-visibility properties).
+
+**Workaround:** a listview table — see `skills/learned-dg2-patterns.md` → "mxcli v0.32 / Mendix 11.13: a column with a widget body fails CE0463".
+
+**Toolkit side:** the skill section above; nothing mechanical (a lint rule would need the failing widget set).

@@ -9,6 +9,45 @@ rule and the filter-persistence trap).
 
 ---
 
+## mxcli v0.32 / Mendix 11.13: a column with a widget body fails CE0463
+
+**Rule.** Any Data Grid 2 `column (...) { widgets }` body — pills, countdowns, action buttons, a
+`dynamictext` — fails the `mx check` gate with **CE0463** ("definition of this widget has changed").
+A column with **only `Attribute:`/`Caption:`** builds. For a table whose rows need anything richer,
+build a **listview table** instead: a `region` `htmlelement` (`role`, `aria-label`, `tabindex` as
+`attribute` children) holds a header `container` of `dynamictext` cells and a `listview` whose row
+is a `container` of cells — each cell may hold any widget:
+
+```mdl
+htmlelement regionCards (tagName: 'div', Class: 'pr-table-scroll') {
+  attribute aRole (attributeName: 'role', attributeValueType: 'expression', attributeValueExpression: '''region''')
+  tagcontentcontainer regionCardsBody {
+    container ctnHead (Class: 'pr-grid-5 ds-th') { dynamictext h1 (Content: 'Card') dynamictext h2 (Content: 'Status') }
+    listview lvCards (DataSource: MICROFLOW M.DS_Cards_List(Filter = $currentObject)) {
+      container ctnRow (Class: 'pr-grid-5 ds-td') {
+        container c1 { dynamictext txtNo (Attribute: CardNoMasked) }
+        container c2 { dynamictext txtSt (Attribute: Status, DynamicClasses: if $currentObject/Status = M.S.Blocked then 'ds-pill' else '') }
+      }
+    }
+  }
+}
+```
+
+No `emptyplaceholder` / `showEmptyPlaceholder` on the grid either (BUG-150): an empty state is a
+container whose `Visible:` tests a count.
+
+**Failure it prevents.** A page script written with widget-bodied columns failed the gate 3 times in a row
+and was rolled back (CE0463, 2 errors); `mxcli check` printed no error each time — CE0463 is
+only visible to `mx check`, so a pre-exec check proves nothing here. A probe page with
+attribute-only columns built clean; the same probe with a widget in one column failed on every
+retry; the listview rewrite built on its first run.
+
+**Provenance.** Observed through the exec gate (`mx check`) in a multi-app build on mxcli v0.32 /
+Mendix 11.13.0. Not re-run on a separate scratch project by the author of this note (no mxcli binary
+in that environment); retest on the next mxcli, then fold into the table above if it builds.
+
+---
+
 ## Two grid forms, and the contradiction resolved
 
 Two projects wrote opposite rules, both from real evidence:

@@ -18,6 +18,7 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 `docs/RELEASE-PROCESS.md` §8.
 
 ## Unreleased
+- learn(dg2): **a Data Grid 2 column with a widget body fails `mx check` with CE0463 on mxcli v0.32 / Mendix 11.13 while `mxcli check` passes it; the working pattern is a listview table** (`skills/learned-dg2-patterns.md`, ledger `BUG-DRAFT-dg2-custom-content-column-ce0463`). Attribute-only columns build. Field-observed through the exec gate across a four-app Mendix build; not re-run on a scratch project (no mxcli binary in the authoring environment) — retest on the next mxcli.
 - fix(exec): **`exec.sh` called by relative paths from another folder no longer skips the plan rule**: `_XD="${0%/*}"` stayed relative (`../../bin`), and after exec.sh's `cd` to the project root the guard `[ -f "$_XD/_position.sh" ]` failed in silence, so `cd apps/Orders && ../../bin/exec.sh ../../mdlsource/x.mdl` wrote under `Interview mode: auto` where the same call by absolute path was refused; a relative MDL script path broke every `[ -f "$SCRIPT" ]` guard the same way. Both are made absolute before the `cd`, only when the caller is not at the project root (a run from the root is unchanged). Arguments passed through to a `--patch` script are still taken as given. Fixture `test-mode-contract.sh` X — independent review of #789
 
 ## v2026.11.17

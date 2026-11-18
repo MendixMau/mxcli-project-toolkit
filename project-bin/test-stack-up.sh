@@ -161,7 +161,13 @@ STACK_CONF="${STACK_CONF:-$ROOT/.claude/loop/stack.conf}"
 # shellcheck disable=SC1090
 [ -f "$STACK_CONF" ] && . "$STACK_CONF"
 
-APP_PORTS="${APP_PORTS:-8080 8081 8084}"
+# Default scan list (field run: a four-app build on 8081-8084). It used to be a fixed "8080 8081
+# 8084": apps on 8082/8083 were never scanned, and with no handshake the restart fell back to the
+# FIRST entry, 8080, for every app. Now: this app's own configured port first (stack.conf
+# RUN_LOCAL_APP_PORT, then .docker/.env APP_PORT), then the usual 8080-8084 range, deduplicated.
+_cfg_port="$(sed -n 's/^APP_PORT=//p' "$ROOT/.docker/.env" 2>/dev/null | head -1 | tr -d '"[:space:]')"
+case "$_cfg_port" in ''|*[!0-9]*) _cfg_port="" ;; esac
+APP_PORTS="${APP_PORTS:-$(printf '%s\n' ${RUN_LOCAL_APP_PORT:-} ${_cfg_port} 8080 8081 8082 8083 8084 | awk 'NF && !s[$1]++' | tr '\n' ' ' | sed 's/ $//')}"
 JAEGER_PORT="${JAEGER_PORT:-16686}"
 MOCK_HEALTH_URL="${MOCK_HEALTH_URL:-}"
 MOCK_PORT="${MOCK_PORT:-}"

@@ -2,7 +2,7 @@
 # Fixture for bin/lib/render-fresh.sh: a rendered file is "stale" only when its SOURCE changed
 # after it — never because a fresh clone wrote the files in directory order.
 #
-#   tests/wave2/test-render-fresh.sh /path/to/render-fresh.sh
+# Usage: bash test-render-fresh.sh /path/to/render-fresh.sh
 #
 # Field run: a multi-app Mendix build checked out on a second machine; Stage 3 FAILed
 # "process-map.html is older than process-model.json" with nothing edited. Reproduced here with a

@@ -144,7 +144,8 @@ OUT=$(run_in "" "mxtk_mxbuild_cache_gap ''; echo rc=\$?")
 # 5e: a half-downloaded dir (no executable modeler/mxbuild) does not count as cached
 mkdir -p "$H/.mxcli/mxbuild/11.13.0"
 OUT=$(run_in "" "mxtk_mxbuild_cache_gap 11.13.0; echo rc=\$?")
-case "$OUT" in *"rc=1"*) ok "5e: empty 11.13.0 dir is not a cached MxBuild" ;; *) fail "5e: -> '$OUT'" ;; esac
+# The list must leave the empty 11.13.0 dir out (a bare `[ -d ]` would list it and fail this match).
+case "$OUT" in *"holds only 11.12.2, 11.14.0 —"*"rc=1") ok "5e: empty 11.13.0 dir is not a cached MxBuild" ;; *) fail "5e: -> '$OUT'" ;; esac
 rmdir "$H/.mxcli/mxbuild/11.13.0"
 
 echo ""

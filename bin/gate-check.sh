@@ -687,6 +687,7 @@ fi
 # replaces read "migration (not greenfield)" as greenfield, and stage_waiver() below
 # then excused stages on that label. See bin/lib/entry-mode.sh for why.
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")/lib" && pwd)/entry-mode.sh"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/lib" && pwd)/render-fresh.sh"
 ENTRY_MODE="$(entry_mode_token "$ENTRY_RAW")"
 BUILD_TYPE="$(reg_field "build type" 2>/dev/null || true)"
 case "$(printf '%s' "$BUILD_TYPE" | tr '[:upper:]' '[:lower:]')" in poc|poc[!a-z]*) BUILD_TYPE=poc ;; *) BUILD_TYPE=full ;; esac
@@ -1843,7 +1844,7 @@ check_stage_3() {
   arch_base="$(dirname "$blueprint_html")"
   local src
   for src in "$arch_base/blueprint.md" "$arch_base/fit-gap.md" "$arch_base/open-issues.md"; do
-    if [ -f "$src" ] && [ "$blueprint_html" -ot "$src" ]; then
+    if [ -f "$src" ] && mxtk_render_is_stale "$blueprint_html" "$src"; then
       echo "FAIL|architecture/blueprint.html is older than $(basename "$src") — stale render at a sign-off gate; regenerate (architecture-blueprint.md Step 7)"
       return
     fi
@@ -1860,7 +1861,7 @@ check_stage_3() {
       return
     fi
     for pb_src in "$pb_model" "$(dirname "$pb_model")/question-anchors.json" "$(dirname "$pb_model")"/wireframes/*.html; do
-      if [ -f "$pb_src" ] && [ "$pb_html" -ot "$pb_src" ]; then
+      if [ -f "$pb_src" ] && mxtk_render_is_stale "$pb_html" "$pb_src"; then
         echo "FAIL|design/process-map.html is older than $(basename "$pb_src"): stale render at a sign-off gate; regenerate (process-map.md Step 4)"
         return
       fi

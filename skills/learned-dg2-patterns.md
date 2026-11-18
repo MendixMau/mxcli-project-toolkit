@@ -9,6 +9,50 @@ rule and the filter-persistence trap).
 
 ---
 
+## Field evidence (unverified): widget-bodied DG2 columns failed CE0463 on mxcli v0.32 / Mendix 11.13
+
+**Try in this order** when a Data Grid 2 column with a widget body (pill, button, `dynamictext`)
+fails `mx check` with **CE0463** ("definition of this widget has changed"):
+
+1. `column (Caption: '…', ShowContentAs: customContent) { … }` — a **non-empty** caption and an
+   explicit `ShowContentAs: customContent` (the bundled v0.32 docs require it; a widget body without
+   it is a pruned slot, which is CE0463). See `learned-datagrid-customcontent-binding.md`.
+2. **No** `emptyplaceholder` slot and no `showEmptyPlaceholder` on the grid (BUG-150 item 2: CE0463
+   by itself), and no column without an `Attribute:` unless it is customContent.
+3. Only if CE0463 persists: a **listview table** — a `region` `htmlelement` (`role`, `aria-label`,
+   `tabindex` as `attribute` children) holding a header `container` of `dynamictext` cells and a
+   `listview` whose row is a `container` of cells, each cell any widget:
+
+```mdl
+htmlelement regionCards (tagName: 'div', Class: 'pr-table-scroll') {
+  attribute aRole (attributeName: 'role', attributeValueType: 'expression', attributeValueExpression: '''region''')
+  tagcontentcontainer regionCardsBody {
+    container ctnHead (Class: 'pr-grid-5 ds-th') { dynamictext h1 (Content: 'Card') dynamictext h2 (Content: 'Status') }
+    listview lvCards (DataSource: MICROFLOW M.DS_Cards_List(Filter = $currentObject)) {
+      container ctnRow (Class: 'pr-grid-5 ds-td') {
+        container c1 { dynamictext txtNo (Attribute: CardNoMasked) }
+        container c2 { dynamictext txtSt (Attribute: Status, DynamicClasses: if $currentObject/Status = M.S.Blocked then 'ds-pill' else '') }
+      }
+    }
+  }
+}
+```
+
+**What was observed, and why it is not conclusive.** In a multi-app build a page script with
+widget-bodied columns failed the gate 3 times (CE0463, 2 errors) and a probe page failed on every
+retry, while attribute-only columns built and the listview-table rewrite built first time. But the
+failing script **also** had `showEmptyPlaceholder: 'custom'` with an emptyplaceholder slot (CE0463 by
+itself, BUG-150) and "Action" columns with no attribute, and no widget-bodied column set
+`ShowContentAs: customContent`. The probe page was not kept, so which cause fired cannot be
+separated. `mxcli check` printed no error each time: CE0463 is only visible to `mx check`.
+
+**Provenance.** Observed through the exec gate in that build; not re-run on a scratch project here (no
+mxcli binary in the authoring environment). The three probes that settle it: (a) `customContent` +
+one `dynamictext`, no emptyplaceholder; (b) the same without `ShowContentAs`; (c) an attribute-only
+grid with an emptyplaceholder.
+
+---
+
 ## Two grid forms, and the contradiction resolved
 
 Two projects wrote opposite rules, both from real evidence:

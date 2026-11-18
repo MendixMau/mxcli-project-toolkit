@@ -544,16 +544,16 @@ OUT="$(runl "$P")"; RC=$?
 # configured port, never an unconditional 8080. mkcold's stack.conf pins APP_PORTS="1"; these drop it.
 noports() { sed -i.bak '/^APP_PORTS=/d' "$1/.claude/loop/stack.conf"; printf 'RUN_LOCAL_DB=hsqldb\n' >> "$1/.claude/loop/stack.conf"; }
 
-echo "== T28: APP_PORTS unset, single-tree .docker/.env APP_PORT=8083 -> --app-port 8083 =="
-P="$(mkcold t28)"; noports "$P"; mkdir -p "$P/.docker"; printf 'APP_PORT=8083\n' > "$P/.docker/.env"
+echo "== T28: APP_PORTS unset, single-tree .docker/.env APP_PORT=18083 -> --app-port 18083 =="
+P="$(mkcold t28)"; noports "$P"; mkdir -p "$P/.docker"; printf 'APP_PORT=18083\n' > "$P/.docker/.env"
 OUT="$(runl "$P")"; ARGS="$(cat "$P/mxcli.args" 2>/dev/null)"
-case "$ARGS" in *" --app-port 8083 "*) ok "configured port first" ;; *) bad "args: $ARGS" "$OUT" ;; esac
+case "$ARGS" in *" --app-port 18083 "*) ok "configured port first" ;; *) bad "args: $ARGS" "$OUT" ;; esac
 
 echo "== T29: APP_PORTS unset, multi-app: .docker/.env beside the .mpr (apps/X/) is honoured =="
 P="$(mkcold t29)"; noports "$P"; mkdir -p "$P/apps/X/.docker"; mv "$P/Fixture.mpr" "$P/mprcontents" "$P/apps/X/" 2>/dev/null
-printf 'APP_PORT=8082\n' > "$P/apps/X/.docker/.env"
+printf 'APP_PORT=18082\n' > "$P/apps/X/.docker/.env"
 OUT="$(cd "$P" && MPR_FILE=apps/X/Fixture.mpr LOGDIR="$WORK" bash bin/test-stack-up.sh --local 2>&1)"; ARGS="$(cat "$P/mxcli.args" 2>/dev/null)"
-case "$ARGS" in *" --app-port 8082 "*) ok "apps/X/.docker/.env APP_PORT=8082 used" ;; *) bad "args: $ARGS" "$OUT" ;; esac
+case "$ARGS" in *" --app-port 18082 "*) ok "apps/X/.docker/.env APP_PORT=18082 used" ;; *) bad "args: $ARGS" "$OUT" ;; esac
 
 echo "== T30: APP_PORTS unset, model under apps/, nothing configured -> refuses (exit 4), no --app-port 8080 =="
 P="$(mkcold t30)"; noports "$P"; mkdir -p "$P/apps/X"; mv "$P/Fixture.mpr" "$P/mprcontents" "$P/apps/X/" 2>/dev/null
@@ -564,9 +564,14 @@ printf '%s' "$OUT" | grep -q "RUN_LOCAL_APP_PORT" && ok "message names RUN_LOCAL
 
 echo "== T31: same, RUN_LOCAL_APP_PORT set -> starts on it =="
 P="$(mkcold t31)"; noports "$P"; mkdir -p "$P/apps/X"; mv "$P/Fixture.mpr" "$P/mprcontents" "$P/apps/X/" 2>/dev/null
-printf 'RUN_LOCAL_APP_PORT=8084\n' >> "$P/.claude/loop/stack.conf"
+printf 'RUN_LOCAL_APP_PORT=18084\n' >> "$P/.claude/loop/stack.conf"
 OUT="$(cd "$P" && MPR_FILE=apps/X/Fixture.mpr LOGDIR="$WORK" bash bin/test-stack-up.sh --local 2>&1)"; ARGS="$(cat "$P/mxcli.args" 2>/dev/null)"
-case "$ARGS" in *" --app-port 8084 "*) ok "RUN_LOCAL_APP_PORT honoured" ;; *) bad "args: $ARGS" "$OUT" ;; esac
+case "$ARGS" in *" --app-port 18084 "*) ok "RUN_LOCAL_APP_PORT honoured" ;; *) bad "args: $ARGS" "$OUT" ;; esac
+
+echo "== T32: APP_PORTS unset, single tree, nothing configured -> still starts (on 8080, as before) =="
+P="$(mkcold t32)"; noports "$P"
+OUT="$(runl "$P")"; ARGS="$(cat "$P/mxcli.args" 2>/dev/null)"
+case "$ARGS" in *" --app-port 8080 "*) ok "single-tree fallback unchanged" ;; *) bad "args: $ARGS" "$OUT" ;; esac
 
 echo
 echo "stack-up-local: $PASS passed, $FAIL failed"

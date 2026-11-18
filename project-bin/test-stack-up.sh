@@ -173,38 +173,6 @@ for _env in "$(dirname "$MPR")/.docker/.env" "$ROOT/.docker/.env"; do
   case "$_cfg_port" in ''|*[!0-9]*) _cfg_port="" ;; *) break ;; esac
 done
 APP_PORTS="${APP_PORTS:-$(printf '%s\n' ${RUN_LOCAL_APP_PORT:-} ${_cfg_port} 8080 8081 8084 | awk 'NF && !s[$1]++' | tr '\n' ' ' | sed 's/ $//')}"
-JAEGER_PORT=16686                                    # OTel collector UI (optional)
-#   MOCK_HEALTH_URL="http://localhost:3001/api/health"   # set to enable the mock rung
-#   MOCK_PORT=3001
-#   MOCK_DIR="source/mock-api"                           # dir containing server.js
-#   MOCK_START="node server.js"                          # command run inside MOCK_DIR
-#   BOOT_TIMEOUT=240
-#   MXTK_STALE_HOURS=4                                   # age at which a tracked process is stale
-#
-# With no MOCK_HEALTH_URL the mock rung is reported as "not configured" and does not gate — most
-# projects have no mock, and a rung that fails for everyone gets switched off, taking the real
-# rungs with it.
-
-set -uo pipefail
-
-. "$(dirname "${BASH_SOURCE[0]}")/_common.sh"
-cd "$PROJECT_ROOT" || { echo "cannot cd to project root" >&2; exit 2; }
-ROOT="$PROJECT_ROOT"
-
-MPR="$(find_mpr)" || exit 2
-PROJ="$(project_name)" || PROJ="app"
-
-STACK_CONF="${STACK_CONF:-$ROOT/.claude/loop/stack.conf}"
-# shellcheck disable=SC1090
-[ -f "$STACK_CONF" ] && . "$STACK_CONF"
-
-# Default scan list (field run: a four-app build on 8081-8084). It used to be a fixed "8080 8081
-# 8084": apps on 8082/8083 were never scanned, and with no handshake the restart fell back to the
-# FIRST entry, 8080, for every app. Now: this app's own configured port first (stack.conf
-# RUN_LOCAL_APP_PORT, then .docker/.env APP_PORT), then the usual 8080-8084 range, deduplicated.
-_cfg_port="$(sed -n 's/^APP_PORT=//p' "$ROOT/.docker/.env" 2>/dev/null | head -1 | tr -d '"[:space:]')"
-case "$_cfg_port" in ''|*[!0-9]*) _cfg_port="" ;; esac
-APP_PORTS="${APP_PORTS:-$(printf '%s\n' ${RUN_LOCAL_APP_PORT:-} ${_cfg_port} 8080 8081 8082 8083 8084 | awk 'NF && !s[$1]++' | tr '\n' ' ' | sed 's/ $//')}"
 JAEGER_PORT="${JAEGER_PORT:-16686}"
 MOCK_HEALTH_URL="${MOCK_HEALTH_URL:-}"
 MOCK_PORT="${MOCK_PORT:-}"
@@ -882,7 +850,7 @@ if [ $APP_FOUND -ne 0 ]; then
     # falls back to 8080 above. For a model under apps/ that pins every app to 8080 — the first
     # binds it, the rest fail to start — so refuse and name the setting instead.
     if [ -z "${RUN_LOCAL_APP_PORT:-}" ] && [ -z "$_PORTS_EXPLICIT" ] && [ -z "$_cfg_port" ] && ! pick_local_hs; then
-      case "$MPR" in */apps/*)
+      case "$MPR" in "$ROOT"/apps/*)
         bad "no port configured for this app (model under apps/): starting it would pin it to :$_LA. Set RUN_LOCAL_APP_PORT=<port> in .claude/loop/stack.conf (one distinct port per app)."
         exit 4 ;;
       esac

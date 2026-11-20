@@ -1741,12 +1741,15 @@ if [ ! -x "$MXBUILD" ] || [ ! -x "$JAVA_EXE" ]; then
   fi
 fi
 
-# The snapshot holds the .mpr and mprcontents/ only. `create module` also writes the module's source
-# folders beside the .mpr (mxcli v0.32: themesource/<module>/{settings.json,web/*,native/*}, measured
-# on a rolled-back real exec, fixtures/exec-rollback-module-dirs/), so a restore left them behind,
-# untracked, for a module the model no longer has. module_dirs lists the folders under the three roots
-# mxcli writes per module; after a successful restore, a folder that was not there at snapshot time
-# and holds no tracked file is removed. Anything that existed before the write is never touched.
+# The snapshot holds the .mpr and mprcontents/ only. A module the script creates gets source folders
+# beside the .mpr that the snapshot does not cover: the gate's own `mx check` generates
+# themesource/<module>/ (settings.json, web/*, native/*, public/) for every module that lacks one
+# (mxcli v0.32 + MxBuild 11.8.0, captured in fixtures/exec-rollback-module-dirs/). After a rollback
+# those folders stayed, untracked, for a module the model no longer has. So after a successful restore,
+# the folders of the modules THIS SCRIPT creates (`create module X`: themesource/<x>, javasource/<x>,
+# javascriptsource/<X> or <x>, the names mxcli's removeModuleSourceDirs uses) are moved into the
+# snapshot (stray-module-dirs/), when they were not there at snapshot time and hold no tracked file.
+# Nothing else is touched: another session's or the user's new folder in the same window stays put.
 module_dirs() {
   local d
   for d in "$MODEL_DIR"/themesource/*/ "$MODEL_DIR"/javasource/*/ "$MODEL_DIR"/javascriptsource/*/; do
@@ -1754,23 +1757,34 @@ module_dirs() {
   done
   return 0
 }
-remove_new_module_dirs() {
-  local d rel
-  while IFS= read -r d; do
-    [ -n "$d" ] || continue
-    printf '%s\n' "$MODDIRS_BEFORE" | grep -qxF -- "$d" && continue
-    rel="${d#"$PROJECT_ROOT"/}"
-    [ -n "$(git -C "$PROJECT_ROOT" ls-files -- "$rel" 2>/dev/null | head -1)" ] && continue
-    rm -rf -- "$d" && echo "  → Removed $rel/ (created by this write, not in the restored model)"
-  done <<EOF_MD
-$(module_dirs)
-EOF_MD
+script_created_modules() {  # module names from `create module X` statements in $SCRIPT
+  [ "$PATCH_MODE" = "1" ] || [ ! -f "$SCRIPT" ] && return 0
+  grep -iE '^[[:space:]]*create[[:space:]]+(or[[:space:]]+(modify|replace)[[:space:]]+)?module[[:space:]]' "$SCRIPT" 2>/dev/null \
+    | sed -E 's/^[[:space:]]*[Cc][Rr][Ee][Aa][Tt][Ee][[:space:]]+([Oo][Rr][[:space:]]+[A-Za-z]+[[:space:]]+)?[Mm][Oo][Dd][Uu][Ll][Ee][[:space:]]+"?([A-Za-z_][A-Za-z0-9_]*).*/\2/' \
+    | grep -E '^[A-Za-z_][A-Za-z0-9_]*$' || true
+}
+move_stray_module_dirs() {
+  local m lm d rel dest
+  [ -n "${NEWEST_SNAP:-}" ] || return 0
+  for m in $(script_created_modules); do
+    lm="$(printf '%s' "$m" | tr '[:upper:]' '[:lower:]')"
+    for d in "$MODEL_DIR/themesource/$lm" "$MODEL_DIR/javasource/$lm" \
+             "$MODEL_DIR/javascriptsource/$m" "$MODEL_DIR/javascriptsource/$lm"; do
+      [ -d "$d" ] && [ ! -L "$d" ] || continue
+      printf '%s\n' "$MODDIRS_BEFORE" | grep -qxF -- "$d" && continue
+      rel="${d#"$PROJECT_ROOT"/}"
+      [ -n "$(git -C "$PROJECT_ROOT" ls-files -- "$rel" 2>/dev/null | head -1)" ] && continue
+      dest="${NEWEST_SNAP%/}/stray-module-dirs/$rel"
+      mkdir -p "$(dirname "$dest")" && mv -- "$d" "$dest" \
+        && echo "  → Moved $rel/ (source folder of module $m, which this script created) to $dest"
+    done
+  done
 }
 step_done check
 echo "→ Snapshotting model..."
 ./bin/snapshot-mpr.sh
 step_done snapshot
-# Module source folders as they stand before the write (see module_dirs / restore_snapshot below).
+# Module source folders as they stand before the write (see module_dirs / move_stray_module_dirs above).
 MODDIRS_BEFORE="$(module_dirs)"
 # The snapshot just taken. A --patch run hands it to the script as MXPATCH_BACKUP_DIR, so the
 # .bak that bin/mxpatch.py keeps of each unit it rewrites lands beside the snapshot, OUTSIDE
@@ -1803,7 +1817,7 @@ restore_snapshot() {
   elif R_OUT=$(MXTK_RESTORE_SAME_LEDGER=1 bash "$RESTORER" "$NEWEST_SNAP" 2>&1); then
     RESTORED=1
     printf '%s\n' "$R_OUT" | sed 's/^/  → /'
-    [ -n "${MODDIRS_BEFORE+x}" ] && remove_new_module_dirs
+    [ -n "${MODDIRS_BEFORE+x}" ] && move_stray_module_dirs
     echo "  → Auto-restored from: $NEWEST_SNAP"
   else
     printf '%s\n' "$R_OUT" | sed 's/^/     /'

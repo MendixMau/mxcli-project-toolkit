@@ -81,6 +81,11 @@ So a demo or sandbox that must simply work is a deliberate decision to put worki
 the model — and to treat them as burned. Say so on the constant and in the register; do not
 discover it later.
 
+**Ask the platform which tier it is, at architecture time.** One `GET /apps/{id}` on the Deploy
+API returns `licenseType` and `planName`; `free` means channel 1 only, so decide the defaults then,
+not at the first deploy (2026-09-16: the answer had been in hand for days). Hiding a credential is
+entity access, not a constant property: Mendix has **no** "mark as password" setting on a constant.
+
 ---
 
 ## The Mendix PAT — resolve it before you report it missing
@@ -198,6 +203,11 @@ after-startup account create aborts the boot (`M2EE: Starting Mendix Runtime fai
 
 For `Encryption.EncryptionKey` specifically: **exactly 32 characters**. 31 or 33 fails at
 runtime inside the same misleading error family.
+
+**Validate a secret's shape at ingest, never by whether a tool accepted it.** Node's base64 decoder
+ignores a stray trailing `=` that Mendix's strict decoder rejects with a "copy the correct key from
+the Portal" message (a 1345-character key, `1345 % 4 == 1`). Check length, `length % 4`, a strict
+round trip, and stray whitespace or newline, and print the length and a verdict, never the value.
 
 ---
 

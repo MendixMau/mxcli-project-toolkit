@@ -1562,6 +1562,10 @@ ready: `a WMS demo project/bug-logs/mxcli-retest-2026-08-03/gh-issues-ready/05-B
 Workaround: retrieve the target object first, then filter, instead of filtering directly on
 the traversal expression.
 
+**Also on page widgets (2026-10-13, mxcli v0.25.0, Mendix 11.14):** a combo box data source
+`where [M.Level2_Level1 = $currentObject/M.Helper_Level1]` passed `check --references` and failed
+mxbuild with CE0161, once per cascading combo box. Workaround: a microflow data source per combo box.
+
 ## BUG-40: `ALTER WORKFLOW INSERT` does not support USER TASK activities
 
 **RESOLVED — archived 2026-08-06, see [archive-resolved-2026-08-06.md](archive-resolved-2026-08-06.md).**
@@ -7305,3 +7309,47 @@ Both flagged flows are Data grid 2 datasources on pages in the same module and w
 **Confounders (any one is enough for CE0463):** the failing script also set `showEmptyPlaceholder: 'custom'` with an emptyplaceholder slot (BUG-150 item 2); it had "Action" columns with no attribute; and no widget-bodied column set `ShowContentAs: customContent`, which the bundled v0.32 docs require (a pruned slot is CE0463). The probe page was not kept.
 
 **Next step:** run the three probes listed in `skills/learned-dg2-patterns.md` with `mx check`; if (a) builds, close this as the known defects above. **Workaround meanwhile:** the order of things to try in that skill, ending in a listview table.
+
+## BUG-DRAFT-test-local-drops-run-local-database: `mxcli test --local` restarts PostgreSQL on another data directory, and the `run --local` database is gone (2026-09-09)
+
+> **NOT YET FILED UPSTREAM. Not retested since v0.21.0.**
+
+**Discovered:** 2026-09, a requirements-driven build. **mxcli version:** v0.21.0. **Mendix:** 11.14.0, Linux, PostgreSQL 16. `test --help` promises its own `<project>_test` database "so a warm `run --local` loop can keep serving". After about eight `test --local` runs (18/18 tests passing), `psql -l` listed `appdb_test` and no `appdb`, the PostgreSQL server's start time fell inside the test window, and the next `run --local` failed `The database to be used does not exist.`
+
+**Workaround:** do not run `test --local` while the served database holds anything a seed cannot rebuild; recreate with `createdb` and restart. Prefer `project-bin/test-scratch.sh`.
+
+## BUG-DRAFT-page-param-date-format-inert: `format (dateFormat: …)` on a ContentParams page-parameter path is stored and ignored (2026-08-28)
+
+> **NOT YET FILED UPSTREAM. Not retested since mxcli v0.21.**
+
+`{1} = $Run.StartedOn format (dateFormat: Custom, customDateFormat: 'dd-MM-yyyy')` passes `check --references`, exec, `DESCRIBE PAGE` (reads it back) and mxbuild, and the page renders the locale default. The same clause on a bare attribute works. **Workaround:** a `dataview` on the parameter so the attribute binds bare.
+
+## BUG-DRAFT-datasource-sort-desc-ascending: `database from M.E sort by Attr desc` on a data grid renders ascending (2026-08-31)
+
+> **NOT YET FILED UPSTREAM. Not retested since mxcli v0.21.**
+
+`DESCRIBE PAGE` reads back `desc` and `check` passes; the header carries `aria-sort="ascending"` and the row order equals the `asc` build. **Detection:** read `aria-sort` off the rendered header. **Workaround:** a helper attribute whose ascending order is the wanted order, or set it in Studio Pro.
+
+## BUG-DRAFT-describe-omits-role-and-row-visibility: DESCRIBE prints no module-role visibility and no layout-grid row/column visibility, so a restatement silently drops both (2026-10-13)
+
+> **NOT YET FILED UPSTREAM.** Related: the `hasRole()` entry above (role visibility cannot be written).
+
+**Discovered:** 2026-10, an existing-app change. **mxcli version:** v0.25.0. **Mendix:** 11.14.0 (Classic client). A BSON scan found 97 role-locked widgets in 16 documents and row-visibility rules on form pages; DESCRIBE printed none. A drafted restatement of a side-menu snippet would have exposed 13 role-locked items with a clean build. **Probe:** set one widget visible to one module role and one layout row visible on an attribute in Studio Pro, `describe page`, grep for both (0 hits on v0.25.0). **Do instead:** `skills/existing-app-change.md` → "Restating a page from DESCRIBE".
+
+## BUG-DRAFT-tabpage-captionparams-visible-dropped: `tabpage` accepts `CaptionParams` and `Visible:` and writes neither (2026-10-13)
+
+> **NOT YET FILED UPSTREAM.**
+
+**mxcli version:** v0.25.0, Mendix 11.14.0. `tabpage t (Caption: 'Due · {1}', CaptionParams: ({1} = DueCount))` and `tabpage t2 (…, Visible: $currentObject/Show)` pass check, exec and mxbuild with no MDL-WIDGET07; the stored caption is literal (`· {1}`) and the tab has no visibility setting. **Workaround:** the count as a line inside the tab; anything conditional in a container with `Visible:`.
+
+## BUG-DRAFT-two-hop-datasource-path: a two-hop association data-view source is unwritable in both forms (2026-10-13)
+
+> **NOT YET FILED UPSTREAM.** Not BUG-20 (cross-module, fixed in v0.17.0): this is same-module.
+
+**mxcli version:** v0.25.0, Mendix 11.14.0. Short form `$Parent/M.A_B/M.B_C` (as DESCRIBE prints it): the last segment is stored as an entity, CE1613 ×5. Full form `$Parent/M.A_B/M.B/M.B_C/M.C`: `check` passes and the mxbuild loader crashes (`An error occurred when trying to set the 'DestinationEntity' property of a Entity ref step in a Page.`). **Workaround:** a microflow data source that retrieves hop by hop.
+
+## BUG-DRAFT-same-name-documents-resolve-differently: two documents with one qualified name, and commands disagree which one a name means (2026-10-12)
+
+> **NOT YET FILED UPSTREAM.**
+
+**mxcli version:** v0.25.0, Mendix 11.14.0, MPR v2. A live page and an excluded archived copy shared `M.Detail`: `DESCRIBE PAGE` found the live one, `SHOW ACCESS ON PAGE` the archive, so a `grant view` landed on the archive. No drop by folder or unit id exists. Deleting the archive's `Unit` row in an `exec.sh --patch` is refused (`mxcli fix hashes --repair`: ORPHAN file) and rolled back. **Workaround that built:** patch only the archive's top-level `Name` (round-trip check first), then `drop page if exists M.Detail_Archived;` through exec.sh.

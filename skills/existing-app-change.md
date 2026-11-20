@@ -260,6 +260,10 @@ script adds come before the hand edit that uses them.
 - `status.sh` counts the file: `manual steps pending N of M` (unticked Done lines of all Done lines).
   A round with pending manual steps is not `delivered`.
 
+**Restating a page from DESCRIBE drops role and row visibility** (BUG-DRAFT-describe-omits-role-and-row-visibility):
+it builds clean and shows every widget to every role. First count, per unit with `project-bin/mxunit_bson.py`,
+`ConditionalVisibilitySettings` with non-empty `ModuleRoles` or on a layout-grid row/column; after exec, read the unit back.
+
 ---
 
 ## Coverage in this mode

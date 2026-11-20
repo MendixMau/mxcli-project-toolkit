@@ -34,8 +34,9 @@ sources under it, never a different definition of done.
 ```text
 Follow the toolkit's process: skills/conversion-runbook.md, from Stage P, stage by stage.
 1. Run bin/init-project.sh <project-root> first, before writing PROJECT.md or touching the model.
-2. Declare the entry mode and build type at kickoff (intake Q1 and Q16); never switch them later
-   without a recorded decision (conversion-runbook.md → Entry Modes, "Mode changes are decisions").
+2. Declare the entry mode and build type at kickoff (intake Q1 and Q16) with bin/kickoff.sh <p> --mode
+   <m> --interview <i>; never switch them later without a recorded decision (conversion-runbook.md →
+   Entry Modes, "Mode changes are decisions").
 3. Full build: Stage 5 only after stages 1-4 pass their gates and bin/gate-check.sh <p> build-ready
    passes. Build type: poc: follow skills/poc-build.md instead (no build-ready; Stage 5 is MANUAL).
 4. Close every stage on a clean gate (bin/gate-check.sh <p> <stage>) and commit its output.

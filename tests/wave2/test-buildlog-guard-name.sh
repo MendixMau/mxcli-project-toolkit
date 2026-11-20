@@ -10,7 +10,7 @@
 # right after the detail text; metrics-trend.sh counts those per guard.
 #
 #   A  static, over the subject: every log_build call whose status is a stop (🚫, ✗ refused, ❌,
-#      ↩) passes a guard id from the known set; the denominator (25 calls on 2026-11-20) is
+#      ↩) passes a guard id from the known set; the denominator (27 calls on 2026-11-20) is
 #      printed, and a call with none fails. No applied/PARTIAL row passes one.
 #   B  three real refusals, run end to end on a stub project (pre-exec `mxcli check`, uncommitted
 #      model, mxbuild absent): the row carries guard=<id>; result cell, exit code and 5-cell
@@ -22,6 +22,11 @@
 #      hand-written), plus the captured verify-446 applied row and the same refusals with their
 #      token stripped (the shape a pre-change exec.sh writes): "blocked by guard:" names each
 #      guard with its count and counts the old rows as unnamed; --since filters it.
+#   D  --patch rollback rows (review of #813): that branch only sees a gate that was skipped,
+#      crashed or unverified, so it never says mxbuild-gate. Static over both rows, and one end
+#      to end run: baseline mxbuild ok, mxbuild crashes after the patch -> guard=mxbuild-crash.
+#      (skipped -> mxbuild-missing is static only: an absent toolchain refuses --patch before
+#      any write, at the mxbuild-missing refusal B already runs.)
 #
 # Synthetic project, stub mxcli. Nothing real runs.
 set -uo pipefail
@@ -151,6 +156,49 @@ rm -f "$P/docs/BUILD-LOG.md"
 s3="$(bash "$P/bin/metrics-trend.sh" 2>&1)"
 case "$s3" in *"blocked by guard: not counted (no docs/BUILD-LOG.md beside the ledger)"*) ok "C: missing BUILD-LOG said, not silent" ;;
   *) bad "C: missing BUILD-LOG said" "$(printf '%s' "$s3" | tr '\n' '~')" ;; esac
+
+# ---- D: --patch rollback rows -------------------------------------------------------------
+[ "$(gid '"↩ patch rolled back"')" = "mxbuild-crash mxbuild-missing " ] && ok "D: --patch rolled-back rows -> mxbuild-crash / mxbuild-missing, never mxbuild-gate" \
+  || bad "D: --patch rolled-back ids" "$(gid '"↩ patch rolled back"')"
+[ "$(gid '"❌ patch unverified"')" = "mxbuild-crash mxbuild-missing " ] && ok "D: --patch unverified rows -> mxbuild-crash / mxbuild-missing, never mxbuild-gate" \
+  || bad "D: --patch unverified ids" "$(gid '"❌ patch unverified"')"
+Q="$WORK/patchproj"
+mkdir -p "$Q/bin" "$Q/mprcontents" "$WORK/jdk/bin"
+printf 'not a real model\n' > "$Q/Fixture.mpr"
+printf 'bson\n' > "$Q/mprcontents/a.mxunit"
+cp "$TOOLKIT/project-bin/_common.sh" "$TOOLKIT/project-bin/restore-mpr.sh" "$Q/bin/"
+cp "$SUBJECT" "$Q/bin/exec.sh"
+cat > "$Q/bin/snapshot-mpr.sh" <<'SNAP'
+#!/usr/bin/env bash
+set -e
+cd "$(dirname "$0")/.."
+D=".mpr-snapshots/$(date +%Y%m%d-%H%M%S)-$$-$RANDOM"
+mkdir -p "$D"; cp Fixture.mpr "$D/"; cp -r mprcontents "$D/"
+echo "Snapshot saved: $D"
+SNAP
+printf '#!/usr/bin/env bash\necho "written by the patch" >> "$1"\nexit 0\n' > "$Q/patch.sh"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$Q/mxcli"
+# mxbuild: call 1 (baseline) ok, call 2 (after the patch) crashes with no errors file.
+cat > "$WORK/mxbuild" <<'MXB'
+#!/usr/bin/env bash
+n=$(( $(cat "$MXB_N" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$MXB_N"
+if [ "$n" -ge 2 ]; then echo "Unhandled exception: loader died" >&2; exit 137; fi
+for a in "$@"; do case "$a" in --write-errors=*) printf '{"problems":[]}' > "${a#--write-errors=}" ;; esac; done
+exit 0
+MXB
+printf '#!/usr/bin/env bash\nexit 0\n' > "$WORK/jdk/bin/java"
+chmod +x "$Q/bin/"*.sh "$Q/patch.sh" "$Q/mxcli" "$WORK/mxbuild" "$WORK/jdk/bin/java"
+( cd "$Q" && git init -q . && printf '.mpr-snapshots/\ndocs/\n.claude/\n' > .gitignore && git add -A \
+  && git -c user.email=t@t -c user.name=t commit -qm fixture ) >/dev/null 2>&1
+mkdir -p "$WORK/tq"
+( cd "$Q" && TMPDIR="$WORK/tq" SP_RESTART=0 MXTK_NO_INSTALL=1 MXTK_NO_SCORE=1 MXB_N="$WORK/mxb-n" \
+    MXBUILD_PATH="$WORK/mxbuild" JAVA_HOME="$WORK/jdk" ./bin/exec.sh --patch patch.sh ) >"$WORK/out.patch" 2>&1
+RC=$?
+ROW="$(grep '^| ' "$Q/docs/BUILD-LOG.md" 2>/dev/null | tail -1)"
+case "$ROW" in *"| ↩ patch rolled back | gate fail"*"· guard=mxbuild-crash"*) ok "D: --patch crash row carries guard=mxbuild-crash" ;;
+  *) bad "D: --patch crash row carries guard=mxbuild-crash" "${ROW:-<no row>} ~ $(tail -5 "$WORK/out.patch" | tr '\n' '~')" ;; esac
+grep -q 'written by the patch' "$Q/Fixture.mpr" && bad "D: crashed --patch write was kept" || ok "D: crashed --patch write rolled back"
+[ "$RC" = 1 ] && ok "D: exit code 1" || bad "D: exit code 1" "$RC"
 
 echo ""
 echo "== $PASS passed, $FAIL failed"

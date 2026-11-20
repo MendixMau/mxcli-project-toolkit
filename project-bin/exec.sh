@@ -2660,10 +2660,19 @@ if [ "$PATCH_MODE" = "1" ] && [ "$GATE_STATE" != "pass" ] && [ "$RESTORE_TRIED" 
   echo "  ✗ --patch: gate $GATE_STATE — nothing verified the patch, so it is rolled back."
   restore_snapshot
   if [ -x ./bin/model-stamp.sh ]; then ./bin/model-stamp.sh clear >/dev/null 2>&1 || true; fi
+  # Not a catch (review of #813): this branch only sees a gate that never ran (skipped ->
+  # mxbuild-missing) or ran and could not verify (fail = a crash, unverified -> mxbuild-crash).
+  # Never mxbuild-gate. Literal ids, so the static guard-name check can read them.
   if [ "$RESTORED" -eq 1 ]; then
-    log_build "↩ patch rolled back" "gate $GATE_STATE${MXB_WHY:+ (mxbuild: $MXB_WHY)} — an unverified patch is not kept" mxbuild-gate
+    if [ "$GATE_STATE" = "skipped" ]; then
+      log_build "↩ patch rolled back" "gate $GATE_STATE — an unverified patch is not kept" mxbuild-missing
+    else
+      log_build "↩ patch rolled back" "gate $GATE_STATE${MXB_WHY:+ (mxbuild: $MXB_WHY)} — an unverified patch is not kept" mxbuild-crash
+    fi
+  elif [ "$GATE_STATE" = "skipped" ]; then
+    log_build "❌ patch unverified" "gate $GATE_STATE — NOT rolled back (restore did not run)" mxbuild-missing
   else
-    log_build "❌ patch unverified" "gate $GATE_STATE — NOT rolled back (restore did not run)" mxbuild-gate
+    log_build "❌ patch unverified" "gate $GATE_STATE — NOT rolled back (restore did not run)" mxbuild-crash
   fi
   if [ "$RESTORED" -eq 1 ]; then result_line restored no no 1; else result_line failed unknown no 1; fi
   restore_close

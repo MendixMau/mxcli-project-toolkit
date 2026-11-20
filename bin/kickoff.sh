@@ -3,18 +3,23 @@
 #
 # usage: bin/kickoff.sh <project-root> --mode <poc|requirements-driven|migration|change>
 #                       [--build-type <full|poc>] [--interview <steering|assist|auto>]
-#                       [--answers <file>] [--by <who decided>] [--dry-run]
+#                       [--answers <file>] [--by <person who answered>] [--dry-run]
 #
 # WHY (#821 point 3; two simulated builds, 2026-11-20). Kickoff was hand-assembled from prose: both
 # agents wrote the 16 intake answer markers and the register lines with ad-hoc Python heredocs, and
 # the POC agent read three scripts to find an `Entry mode:` value it could legally write (there was
 # none). That was 13-15 calls before any project content. This writes, in one call:
-#   - PROJECT.md: `Entry mode:`, `Build type:` and `Interview mode:` lines, one Stage-P Decisions row
-#     each (CONFIRMED, consentBy <who> · consentAt <date>), and under `Interview mode: auto` one
-#     Assumptions line per intake default it assumed;
+#   - PROJECT.md: `Entry mode:`, `Build type:` and `Interview mode:` lines and one Stage-P Decisions
+#     row each — CONFIRMED (consentBy <person> · consentAt <date>) ONLY with --by <person>, the person
+#     who gave the answers; without --by the row is ASSUMED, "no person named", because nobody's
+#     consent can be inferred from a command line (review of #828) — and under `Interview mode: auto`
+#     one Assumptions line per intake default it assumed. Re-running with --by upgrades kickoff's
+#     own rows and markers;
 #   - intake.md: one answer marker per '## N.' section, in a form check_stage_P accepts —
 #     Q1 (mode), Q9 (interview) and Q16 (build type) from the flags; any question in --answers as
-#     `Answered (CONFIRMED): ...`; under a POC build the rest get poc-build.md's verbatim
+#     answers; an unstated --build-type / --interview is left UNANSWERED under steering/assist (Q16 is
+#     the question asked first; it is listed, never assumed) and assumed (full / steering) under auto
+#     only; under a POC build the rest get poc-build.md's verbatim
 #     `Unverified — how to verify: not asked, POC build ...`; under auto the rest get
 #     `Assumed (auto-mode): <the template's default>` where the template states one, else
 #     `Unverified — how to verify: not asked at kickoff (Interview mode: auto) ...`; under
@@ -44,7 +49,7 @@ INTERVIEWS="steering assist auto (aliases: attended = steering, unattended = aut
 usage() { sed -n '3,6p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
 die2() { echo "kickoff: $1" >&2; exit 2; }
 
-PROJECT=""; MODE=""; BUILD=""; IVIEW=""; ANSWERS=""; BY="the kick-off brief"; DRY=0
+PROJECT=""; MODE=""; BUILD=""; IVIEW=""; ANSWERS=""; BY=""; DRY=0
 BUILD_SET=0; IVIEW_SET=0   # given on the command line (CONFIRMED) or defaulted (ASSUMED)
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -62,17 +67,19 @@ done
 [ -n "$PROJECT" ] || usage
 [ -n "$MODE" ] || die2 "--mode is required — accepted: $MODES"
 case "$MODE" in poc|requirements-driven|migration|change) ;; *) die2 "unknown --mode '$MODE' — accepted: $MODES" ;; esac
-case "$BUILD" in "") if [ "$MODE" = poc ]; then BUILD=poc; BUILD_SET=1; else BUILD=full; fi ;; full|poc) ;; *) die2 "unknown --build-type '$BUILD' — accepted: $BUILDS" ;; esac
+case "$BUILD" in "") if [ "$MODE" = poc ]; then BUILD=poc; BUILD_SET=1; fi ;; full|poc) ;; *) die2 "unknown --build-type '$BUILD' — accepted: $BUILDS" ;; esac
 [ "$MODE" = poc ] && [ "$BUILD" = full ] && die2 "--mode poc is a POC build; --build-type full contradicts it (a full build declares requirements-driven, migration or change)"
-case "${IVIEW:-steering}" in
-  steering|attended) IVIEW=steering ;; assist) ;; auto|unattended) IVIEW=auto ;;
+case "$IVIEW" in
+  "") ;; steering|attended) IVIEW=steering ;; assist) ;; auto|unattended) IVIEW=auto ;;
   *) die2 "unknown --interview '$IVIEW' — accepted: $INTERVIEWS" ;;
 esac
 [ -d "$PROJECT" ] || die2 "not a directory: $PROJECT"
 PROJECT="$(cd "$PROJECT" && pwd)"
 REG="$PROJECT/PROJECT.md"; INTAKE="$PROJECT/intake.md"
 [ -f "$REG" ] && [ -f "$INTAKE" ] || die2 "no PROJECT.md / intake.md in $PROJECT — run bin/init-project.sh $PROJECT first"
-case "$BY" in *"|"*) die2 "--by must not contain '|' (it lands in a table cell)" ;; esac
+case "$BY" in *"|"*|*"("*|*")"*) die2 "--by must not contain '|', '(' or ')' (it lands in a table cell and an intake marker)" ;; esac
+# Under auto an unstated build type is the toolkit default, full (auto never picks poc, poc-build.md).
+[ -z "$BUILD" ] && [ "$IVIEW" = auto ] && BUILD=full
 
 case "$MODE" in
   poc) ENTRY="poc" ;; requirements-driven) ENTRY="requirements-driven" ;; migration) ENTRY="migration" ;;
@@ -121,12 +128,12 @@ if [ -n "$cur_entry" ] && [ "$(entry_mode_token "$cur_entry" 2>/dev/null)" != "$
   refuse="${refuse}  Entry mode: the register says '$cur_entry', this call says '$ENTRY'"$'\n'
 fi
 cb="$(printf '%s' "$cur_build" | tr '[:upper:]' '[:lower:]')"; cb="${cb%%[!a-z]*}"
-if [ -n "$cb" ] && [ "$cb" != "$BUILD" ] && has_kick_row "Build type"; then
-  refuse="${refuse}  Build type: the register says '$cur_build' (decided), this call says '$BUILD'"$'\n'
+if [ -n "$BUILD" ] && [ -n "$cb" ] && [ "$cb" != "$BUILD" ] && has_kick_row "Build type"; then
+  refuse="${refuse}  Build type: the register says '$cur_build' (a Decisions row records it), this call says '$BUILD'"$'\n'
 fi
 civ="$(printf '%s' "$cur_iv" | tr '[:upper:]' '[:lower:]')"; civ="${civ%%[!a-z]*}"
 case "$civ" in attended) civ=steering ;; unattended) civ=auto ;; esac
-if [ -n "$civ" ] && [ "$civ" != "$IVIEW" ]; then
+if [ -n "$IVIEW" ] && [ -n "$civ" ] && [ "$civ" != "$IVIEW" ]; then
   refuse="${refuse}  Interview mode: the register says '$cur_iv', this call says '$IVIEW'"$'\n'
 fi
 if [ -n "$refuse" ]; then
@@ -173,11 +180,18 @@ set_line() {
 }
 reg_get_tmp() { REG="$TMP/reg" reg_get "$1"; }
 
-# add_row <decision-text> <status> <notes> — a Stage-P row in the Decisions table, unless a row
-# with the same "<Key>:" decision already exists (same value: nothing to do).
+# add_row <decision-text> <status> <notes> — a Stage-P row in the Decisions table. A row with the
+# same decision and status is left alone (idempotent, whatever its date); a different row that
+# kickoff.sh wrote for the same key is replaced (an ASSUMED row upgraded by --by); a row a person
+# wrote for that key is never touched.
 add_row() {
-  local d="$1" st="$2" notes="$3" key="${1%%:*}"
-  grep -qE "^\\|[[:blank:]]*P[[:blank:]]*\\|[[:blank:]]*$key:" "$TMP/reg" && return 0
+  local d="$1" st="$2" notes="$3" key="${1%%:*}" old
+  grep -qF "| P | $d | $st |" "$TMP/reg" && return 0
+  old="$(grep -E "^\\|[[:blank:]]*P[[:blank:]]*\\|[[:blank:]]*$key:" "$TMP/reg" | head -1)"
+  if [ -n "$old" ]; then
+    case "$old" in *"(bin/kickoff.sh)"*) ;; *) return 0 ;; esac
+    KO_OLD="$old" awk 'BEGIN { o = ENVIRON["KO_OLD"] } $0 == o && !d { d = 1; next } { print }' "$TMP/reg" > "$TMP/reg.0" && mv "$TMP/reg.0" "$TMP/reg"
+  fi
   KO_ROW="| P | $d | $st | $notes |" awk '
     BEGIN { row = ENVIRON["KO_ROW"] }
     /^\| *Stage *\| *Decision/ { intab = 1; print; next }
@@ -235,22 +249,30 @@ mark() {
   CHANGES="${CHANGES}  intake.md Q$n: $m"$'\n'
 }
 
-STAMP="consentBy: $BY · consentAt: $TODAY"
-set_line "Entry mode" "$ENTRY"
-set_line "Build type" "$BUILD"
-set_line "Interview mode" "$IVIEW"
-add_row "Entry mode: $ENTRY" CONFIRMED "kickoff (bin/kickoff.sh) — $STAMP"
-# A value the call did not state is the toolkit default: recorded ASSUMED, and said so.
+# CONFIRMED needs a person: --by names who gave these answers. Without it a stated value is still
+# recorded, ASSUMED, "no person named" — never consent nobody gave (review of #828).
+if [ -n "$BY" ]; then
+  ST=CONFIRMED; NOTE="kickoff (bin/kickoff.sh) — consentBy: $BY · consentAt: $TODAY"; ANS="Answered (CONFIRMED by $BY)"
+else
+  ST=ASSUMED; NOTE="kickoff (bin/kickoff.sh), stated in the kickoff call, no person named — consentBy: none yet · consentAt: $TODAY; re-run with --by <name> once a person has answered"
+  ANS="Answered (kickoff call, no person named)"
+fi
+# Under auto only: a build type the call did not state is the default, full, ASSUMED by auto-mode.
 DEF="kickoff (bin/kickoff.sh), the default because the call did not state it — consentBy: auto-mode · consentAt: $TODAY; a person confirms or overturns it"
-if [ "$BUILD_SET" = 1 ]; then add_row "Build type: $BUILD" CONFIRMED "kickoff (bin/kickoff.sh) — $STAMP"; else add_row "Build type: $BUILD" ASSUMED "$DEF"; fi
-if [ "$IVIEW_SET" = 1 ]; then add_row "Interview mode: $IVIEW" CONFIRMED "kickoff (bin/kickoff.sh) — $STAMP"; else add_row "Interview mode: $IVIEW" ASSUMED "$DEF"; fi
+set_line "Entry mode" "$ENTRY"
+[ -n "$BUILD" ] && set_line "Build type" "$BUILD"
+[ -n "$IVIEW" ] && set_line "Interview mode" "$IVIEW"
+add_row "Entry mode: $ENTRY" "$ST" "$NOTE"
+if [ "$BUILD_SET" = 1 ]; then add_row "Build type: $BUILD" "$ST" "$NOTE"
+elif [ -n "$BUILD" ]; then add_row "Build type: $BUILD" ASSUMED "$DEF"; fi
+[ -n "$IVIEW" ] && add_row "Interview mode: $IVIEW" "$ST" "$NOTE"
 
 case "$MODE" in poc) Q1="poc — a demo (Build type: poc, skills/poc-build.md)" ;; *) Q1="$ENTRY" ;; esac
-mark 1 "Answered (CONFIRMED): $Q1" 1
-if [ "$IVIEW_SET" = 1 ]; then mark 9 "Answered (CONFIRMED): $IVIEW" 1; else mark 9 "Assumed: steering (the default; not stated at kickoff)" 0; fi
-if [ "$BUILD" = poc ]; then mark 16 "Answered (CONFIRMED): POC build" 1
-elif [ "$BUILD_SET" = 1 ]; then mark 16 "Answered (CONFIRMED): Full build" 1
-else mark 16 "Assumed: Full build (the default; not stated at kickoff)" 0; fi
+mark 1 "$ANS: $Q1" 1
+[ -n "$IVIEW" ] && mark 9 "$ANS: $IVIEW" 1
+if [ "$BUILD" = poc ]; then mark 16 "$ANS: POC build" 1
+elif [ "$BUILD_SET" = 1 ]; then mark 16 "$ANS: Full build" 1
+elif [ -n "$BUILD" ]; then mark 16 "Assumed (auto-mode): Full build (the default; not stated at kickoff)" 0; fi
 
 # Defaults the intake template states (bin/lib/intake-template.sh): assumed under auto only.
 default_for() {
@@ -264,7 +286,7 @@ POC_MARK="Unverified — how to verify: not asked, POC build (Build type: poc, s
 UNASKED=""
 for n in 2 3 4 5 6 7 8 10 11 12 13 14 15; do
   eval "a=\${ANS_$n:-}"
-  if [ -n "$a" ]; then mark "$n" "Answered (CONFIRMED): $a" 1; continue; fi
+  if [ -n "$a" ]; then mark "$n" "$ANS: $a" 1; continue; fi
   if [ "$BUILD" = poc ]; then mark "$n" "$POC_MARK" 0; continue; fi
   if [ "$IVIEW" = auto ]; then
     d="$(default_for "$n")"
@@ -279,15 +301,18 @@ for n in 2 3 4 5 6 7 8 10 11 12 13 14 15; do
   [ -n "$(marker_of "$n")" ] || UNASKED="$UNASKED Q$n"
 done
 
+# Q9 / Q16 not stated (steering/assist only): asked first, listed first, never assumed.
+[ -n "$BUILD" ] || [ -n "$(marker_of 16)" ] || UNASKED=" Q16$UNASKED"
+[ -n "$IVIEW" ] || [ -n "$(marker_of 9)" ] || UNASKED=" Q9$UNASKED"
 if [ -z "$CHANGES" ]; then
-  echo "kickoff: nothing to change — $PROJECT already declares Entry mode: $ENTRY, Build type: $BUILD, Interview mode: $IVIEW"
+  echo "kickoff: nothing to change — $PROJECT already declares Entry mode: $ENTRY, Build type: ${BUILD:-(not stated)}, Interview mode: ${IVIEW:-(not stated)}"
 else
   if [ "$DRY" = 1 ]; then echo "kickoff: DRY RUN — would write:"; printf '%s' "$CHANGES"; exit 0; fi
   cp "$TMP/reg" "$REG"; cp "$TMP/intake" "$INTAKE"
   echo "kickoff: wrote"; printf '%s' "$CHANGES"
 fi
 if [ -n "$UNASKED" ]; then
-  echo "Still to ask in chat (Interview mode: $IVIEW):$UNASKED — record each answer in intake.md, or put them in a file and re-run with --answers <file>."
+  echo "Still to ask in chat (Interview mode: ${IVIEW:-not stated, so steering}):$UNASKED — record each answer in intake.md, or put them in a file and re-run with --answers <file>."
 fi
 GC_OUT="$(bash "$TOOLKIT_DIR/bin/gate-check.sh" --no-html "$PROJECT" P 2>&1)"; GC_RC=$?
 echo "Stage P: $(printf '%s\n' "$GC_OUT" | grep -m1 '^Stage P ' | sed 's/^Stage P ([^)]*): //' | cut -c1-200) (bin/gate-check.sh $PROJECT P exit $GC_RC)"

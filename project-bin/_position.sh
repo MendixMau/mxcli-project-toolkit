@@ -22,8 +22,10 @@
 # quieter.
 
 # entry_mode_token <raw> -> canonical token on stdout, "" if unrecognised.
-# Canonical set: requirements-driven | migration | existing-app-change | a-la-carte, plus
-# greenfield-retired (a register sync-project.sh has not yet mapped)
+# Canonical set: requirements-driven | migration | existing-app-change | a-la-carte | poc, plus
+# greenfield-retired (a register sync-project.sh has not yet mapped). `poc` (#819 option 3) is
+# the same contract as `Build type: poc` (mxtk_pos_read sets POS_BUILD=poc for it): a demo from a
+# brief has no other mode to borrow, and an agent read three scripts looking for one.
 entry_mode_token() { _mxtk_emt "${1-}"; echo "$_EMT"; }
 
 # _mxtk_emt <raw> — the tokeniser itself; sets _EMT instead of printing, so exec.sh's reader
@@ -66,10 +68,19 @@ _mxtk_emt() {
   elif [[ "$v" == migration ]]; then tok="migration"
   elif [[ "$v" == existing-app-change || "$v" == existing-app || "$v" == existing ]]; then tok="existing-app-change"
   elif [[ "$v" == a-la-carte || "$v" == à-la-carte || "$v" == alacarte || "$v" == ala-carte ]]; then tok="a-la-carte"
+  elif [[ "$v" == poc ]]; then tok="poc"
   elif [ -n "$v" ]; then known=0; fi
   [ "$_nc" = 1 ] || shopt -u nocasematch
   [ "$known" = 1 ] || printf 'entry mode "%s" not recognised; no stage is excused\n' "$raw" >&2
   _EMT="$tok"
+}
+
+# mxtk_bt_names_full <build-type value> — true when the value names `full` as a WORD ("full",
+# "poc → full (CR-01)", "full build"), never as part of one ("fullscreen kiosk demo"). The one test
+# both mxtk_pos_read and gate-check.sh use for "this Build type line says full" (re-review of #828:
+# a substring test flipped `poc — CONFIRMED (user, fullscreen kiosk)` to a full build, silently).
+mxtk_bt_names_full() {
+  [[ "${1-}" =~ (^|[^A-Za-z])[Ff][Uu][Ll][Ll]([^A-Za-z]|$) ]]
 }
 
 # mxtk_auto_word <text> — true when the text's first word is `auto` or `unattended`, any case, with
@@ -92,7 +103,8 @@ mxtk_auto_word() {
 #   POS_REG       1 when PROJECT.md exists
 #   POS_ENTRY     canonical token, or "" (none declared / not recognised)
 #   POS_ADOPTED   the "Adopted at stage:" stage (P|0-7), or ""
-#   POS_BUILD     "poc" when "Build type: poc", else "full"
+#   POS_BUILD     "poc" when "Build type: poc" or "Entry mode: poc", else "full" (a Build type naming
+#                 full — as a word — wins over Entry mode: poc or a poc prefix; POS_POC_CONFLICT=1 then)
 #   POS_WAIVED4   1 when a "Waived stage 4:" line carries a reason, or a "Waived stages:" line lists 4
 #                 before its dash with a reason after it (the two spellings gate-check.sh reads)
 #   POS_READOUT   the stage in gate-check.sh's "## Current stage" readout ("**Stage 5 — ..."), or ""
@@ -103,7 +115,7 @@ mxtk_auto_word() {
 #                 second write of an unattended run got past the plan rule on refuse-once.
 mxtk_pos_read() {
   local root="$1" reg line key val in_c=0 in_cur=0 entry_raw="" ad="" bt="" im="" _nc=0
-  POS_REG=0; POS_ENTRY=""; POS_ADOPTED=""; POS_BUILD="full"; POS_WAIVED4=0; POS_READOUT=""; POS_AUTO=0
+  POS_REG=0; POS_ENTRY=""; POS_ADOPTED=""; POS_BUILD="full"; POS_POC_CONFLICT=0; POS_WAIVED4=0; POS_READOUT=""; POS_AUTO=0
   reg="$root/PROJECT.md"
   shopt -q nocasematch && _nc=1; shopt -s nocasematch
   if [ -f "$reg" ]; then
@@ -148,13 +160,22 @@ mxtk_pos_read() {
       fi
     done < "$root/intake.md"
   fi
-  [[ "$bt" =~ ^[[:blank:]]*poc([^a-z]|$) ]] && POS_BUILD="poc"
+  # poc only when the value starts with poc and never names the WORD full ("poc → full (CR-01)" is
+  # full; "poc (fullscreen kiosk)" is poc). A poc-prefixed line read as full sets POS_POC_CONFLICT.
+  POS_POC_CONFLICT=0
+  if [[ "$bt" =~ ^[[:blank:]]*poc([^a-z]|$) ]]; then
+    if mxtk_bt_names_full "$bt"; then POS_POC_CONFLICT=1; else POS_BUILD="poc"; fi
+  fi
   local _imf=""
   [ -f "$root/.claude/.interview-mode" ] && { IFS= read -r _imf < "$root/.claude/.interview-mode" || true; }
   if mxtk_auto_word "${CLAUDE_INTERVIEW_MODE:-}" || mxtk_auto_word "$_imf" || mxtk_auto_word "$im"; then POS_AUTO=1; fi
   [[ "$ad" =~ ^[[:blank:]]*([Pp0-7])([^0-9]|$) ]] && POS_ADOPTED="${BASH_REMATCH[1]}"
   [ "$_nc" = 1 ] || shopt -u nocasematch
   if [ -n "$entry_raw" ]; then _mxtk_emt "$entry_raw" 2>/dev/null; POS_ENTRY="$_EMT"; fi
+  # Entry mode: poc implies poc, unless a Build type line says full: full wins, and POS_POC_CONFLICT says so.
+  if [ "$POS_ENTRY" = poc ]; then
+    if mxtk_bt_names_full "$bt"; then POS_POC_CONFLICT=1; else POS_BUILD="poc"; fi
+  fi
   return 0
 }
 

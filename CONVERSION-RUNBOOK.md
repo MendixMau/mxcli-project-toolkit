@@ -34,9 +34,12 @@ sources under it, never a different definition of done.
 ```text
 Follow the toolkit's process: skills/conversion-runbook.md, from Stage P, stage by stage.
 1. Run bin/init-project.sh <project-root> first, before writing PROJECT.md or touching the model.
-2. Declare the entry mode and build type at kickoff (intake Q1 and Q16); never switch them later
-   without a recorded decision (conversion-runbook.md → Entry Modes, "Mode changes are decisions").
-3. Stage 5 only after stages 1-4 pass their gates and bin/gate-check.sh <p> build-ready passes.
+2. Ask the entry mode and build type at kickoff (intake Q16 first, then Q1); after the user answers,
+   record them with bin/kickoff.sh <p> --mode <m> --build-type <b> --interview <i> --by <name>; never
+   switch them later without a recorded decision (conversion-runbook.md → Entry Modes, "Mode changes
+   are decisions").
+3. Full build: Stage 5 only after stages 1-4 pass their gates and bin/gate-check.sh <p> build-ready
+   passes. Build type: poc: follow skills/poc-build.md instead (no build-ready; Stage 5 is MANUAL).
 4. Close every stage on a clean gate (bin/gate-check.sh <p> <stage>) and commit its output.
 5. Stop at a gate that does not pass; report it, do not route around it.
 "Done" is the declared mode's steps done and their gates clean — not only journeys passing.

@@ -1,0 +1,27 @@
+tests/wave2/fixtures/runtime-mx118/ — provenance (captured 2026-11-20, Linux x86-64)
+
+Every file here is captured from a LIVE Mendix 11.8.0 runtime. Nothing was hand-written except
+this file.
+
+THE APP
+  A blank Mendix 11.8.0 app scaffolded with bin/init-project.sh, plus a Tasks module written
+  through exec.sh: entity Tasks.Task (Title string(200) NOT NULL with no error message, Notes,
+  Done), page Task_Overview (Atlas_Core.Atlas_Default, one DataGrid2 v3.5.0 "dgTasks"), the same
+  page under Atlas_Core.Atlas_SideBar ("dgSideBar"), and a popup Task_NewEdit. 35 Task rows.
+  Run with `mxcli run --local --db-type hsqldb` (mxcli v0.32.0), viewed in Playwright Chromium at
+  1280x900, deviceScaleFactor 1, logged in as the demo administrator.
+
+FILES
+  xas-551-empty-required.json
+      The /xas/ answer to Save on the new-task popup with the required Title left empty:
+      status, method, URL, response headers and body, verbatim (Playwright response.text()).
+      Used by test-journey-551-validation.sh (#818).
+  overview-SideBar-1280x900.mhtml.gz
+      CDP Page.captureSnapshot (MHTML: DOM plus CSS) of the SideBar overview. The document is
+      900 px; .mx-scrollcontainer-center is 1244 px of content in a 900 px box (inner scroll).
+      Used by test-fullpageshot-inner-scroll.sh (#812) and test-page-audit-datagrid-count.sh.
+  overview-Default-1280x900.mhtml.gz
+      The same page under Atlas_Default: the document scrolls (1278 px), the centre does not.
+      Used by test-fullpageshot-inner-scroll.sh (#812), the shape that must keep plain fullPage.
+  Both MHTML files are gzip -9 -n of the snapshot bytes. Chromium renders them from file://
+  with scripting off; the fixtures measure layout and run DOM probes, never the app's JS.

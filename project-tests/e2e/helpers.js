@@ -634,6 +634,16 @@ async function fullPageShot(page, file) {
   await page.screenshot({ path: file, fullPage: true }).catch(() => {});
 }
 
+// A refused save on Mendix is HTTP 551 with a `{"datavalidation":[…]}` body: designed validation
+// feedback, not a server error (#818, captured on mx 11.8: an empty required Title). Only that
+// exact shape is exempt. A 551 with any other body (or one whose body could not be read) stays a
+// 5xx: the safer reading, since an unknown 551 is not proven to be feedback.
+function isValidationFeedback(status, body) {
+  if (status !== 551) return false;
+  try { const o = JSON.parse(body); return !!o && typeof o === 'object' && Array.isArray(o.datavalidation); }
+  catch (e) { return false; }
+}
+
 async function computedStyles(page, checks) {
   return await page.evaluate((checks) => {
     return checks.map((c) => {
@@ -849,6 +859,6 @@ module.exports = {
   humanMove, humanClick, humanType, humanTypeKeys, humanScroll,
   navTo, ensureSidebar, copilotText, askCopilot, approveConfirmCard,
   login, logout, assertIdentity, dismissModal, gotoTarget, visibleWithin,
-  screenshotEl, fullPageShot, computedStyles, oql, oqlRows, oqlScalar, oqlAliases, parseOqlOutput, scalarOf, mxcliBin, makeReporter,
+  screenshotEl, fullPageShot, isValidationFeedback, computedStyles, oql, oqlRows, oqlScalar, oqlAliases, parseOqlOutput, scalarOf, mxcliBin, makeReporter,
   ensureDirs, parseTokens, path, fs,
 };

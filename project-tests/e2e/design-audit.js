@@ -282,7 +282,9 @@ function readCompleteness(doc) {
   // must span the whole `column X ( … )` head, not one line of it.
   const customContentCols = [...mdl.matchAll(/^\s*column\s+("?)([A-Za-z_][\w]*)\1\s*\(([^)]*)\)/gm)]
     .filter((m) => /ShowContentAs:\s*customContent/.test(m[3])).map((m) => m[2]);
-  const controlbars = [...mdl.matchAll(/^\s*controlbar\s+([A-Za-z_][\w]*)/gm)].map((m) => m[1]);
+  // mxcli writes a data grid's control bar unnamed (`controlbar {`); a name is optional.
+  const controlbars = [...mdl.matchAll(/^[ \t]*controlbar\b[ \t]*([A-Za-z_]\w*)?/gm)]
+    .map((m) => m[1] || `(unnamed, mdlSource line ${mdl.slice(0, m.index).split('\n').length})`);
 
   // An empty group in the tree where the MDL has a body is the accordion/object-list
   // shape from #891 verbatim.

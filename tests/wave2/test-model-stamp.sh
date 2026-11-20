@@ -164,8 +164,10 @@ PROJECT_ROOT="$W" ./bin/install-project-hooks.sh >/dev/null
 git add -A >/dev/null; MODEL_UNVERIFIED_OK=1 git commit -qm init 2>/dev/null
 [ -f "$G/hooks/pre-commit" ] && ok "hook installed in the separate git dir" || bad "no hook in $G/hooks"
 printf u1d > app/mprcontents/a.mxunit && git add app
-out="$(git commit -qm x 2>&1)" && bad "GIT_DIR/GIT_WORK_TREE commit inside an outer repo waved an unverified model through" "$out" \
-  || ok "GIT_DIR/GIT_WORK_TREE commit inside an outer repo refused the unverified model"
+# Refused for the right reason: a hook crash also refuses, so the check reads the UNVERIFIED line.
+if out="$(git commit -qm x 2>&1)"; then bad "GIT_DIR/GIT_WORK_TREE commit inside an outer repo waved an unverified model through" "$out"
+elif echo "$out" | grep -q "UNVERIFIED"; then ok "GIT_DIR/GIT_WORK_TREE commit inside an outer repo refused the unverified model (UNVERIFIED)"
+else bad "GIT_DIR/GIT_WORK_TREE commit refused, but not as UNVERIFIED" "$out"; fi
 unset GIT_DIR GIT_WORK_TREE
 
 echo; echo "model-stamp: $PASS passed, $FAIL failed"

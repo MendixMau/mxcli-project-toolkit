@@ -22,8 +22,10 @@
 # quieter.
 
 # entry_mode_token <raw> -> canonical token on stdout, "" if unrecognised.
-# Canonical set: requirements-driven | migration | existing-app-change | a-la-carte, plus
-# greenfield-retired (a register sync-project.sh has not yet mapped)
+# Canonical set: requirements-driven | migration | existing-app-change | a-la-carte | poc, plus
+# greenfield-retired (a register sync-project.sh has not yet mapped). `poc` (#819 option 3) is
+# the same contract as `Build type: poc` (mxtk_pos_read sets POS_BUILD=poc for it): a demo from a
+# brief has no other mode to borrow, and an agent read three scripts looking for one.
 entry_mode_token() { _mxtk_emt "${1-}"; echo "$_EMT"; }
 
 # _mxtk_emt <raw> — the tokeniser itself; sets _EMT instead of printing, so exec.sh's reader
@@ -66,6 +68,7 @@ _mxtk_emt() {
   elif [[ "$v" == migration ]]; then tok="migration"
   elif [[ "$v" == existing-app-change || "$v" == existing-app || "$v" == existing ]]; then tok="existing-app-change"
   elif [[ "$v" == a-la-carte || "$v" == à-la-carte || "$v" == alacarte || "$v" == ala-carte ]]; then tok="a-la-carte"
+  elif [[ "$v" == poc ]]; then tok="poc"
   elif [ -n "$v" ]; then known=0; fi
   [ "$_nc" = 1 ] || shopt -u nocasematch
   [ "$known" = 1 ] || printf 'entry mode "%s" not recognised; no stage is excused\n' "$raw" >&2
@@ -92,7 +95,7 @@ mxtk_auto_word() {
 #   POS_REG       1 when PROJECT.md exists
 #   POS_ENTRY     canonical token, or "" (none declared / not recognised)
 #   POS_ADOPTED   the "Adopted at stage:" stage (P|0-7), or ""
-#   POS_BUILD     "poc" when "Build type: poc", else "full"
+#   POS_BUILD     "poc" when "Build type: poc" or "Entry mode: poc", else "full"
 #   POS_WAIVED4   1 when a "Waived stage 4:" line carries a reason, or a "Waived stages:" line lists 4
 #                 before its dash with a reason after it (the two spellings gate-check.sh reads)
 #   POS_READOUT   the stage in gate-check.sh's "## Current stage" readout ("**Stage 5 — ..."), or ""
@@ -155,6 +158,7 @@ mxtk_pos_read() {
   [[ "$ad" =~ ^[[:blank:]]*([Pp0-7])([^0-9]|$) ]] && POS_ADOPTED="${BASH_REMATCH[1]}"
   [ "$_nc" = 1 ] || shopt -u nocasematch
   if [ -n "$entry_raw" ]; then _mxtk_emt "$entry_raw" 2>/dev/null; POS_ENTRY="$_EMT"; fi
+  [ "$POS_ENTRY" = poc ] && POS_BUILD="poc"
   return 0
 }
 

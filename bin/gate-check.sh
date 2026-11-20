@@ -691,6 +691,8 @@ fi
 ENTRY_MODE="$(entry_mode_token "$ENTRY_RAW")"
 BUILD_TYPE="$(reg_field "build type" 2>/dev/null || true)"
 case "$(printf '%s' "$BUILD_TYPE" | tr '[:upper:]' '[:lower:]')" in poc|poc[!a-z]*) BUILD_TYPE=poc ;; *) BUILD_TYPE=full ;; esac
+# `Entry mode: poc` (#819 option 3) is the same contract as `Build type: poc` (project-bin/_position.sh).
+[ "$ENTRY_MODE" = poc ] && BUILD_TYPE=poc
 
 # stage_waiver <stage> — "<scope>|<reason>", or nothing. Most specific source of truth first.
 #
@@ -2285,7 +2287,11 @@ EOF
   local how="$n_seen opened"
   [ "$n_proof" -gt 0 ] && how="$how, $n_proof by PROOF-OF-LOOK"
   [ "$n_waived" -gt 0 ] && how="$how, $n_waived waived"
-  if [ "$n_unseen" -gt 0 ]; then
+  if [ "$n_unseen" -gt 0 ] && [ "$BUILD_TYPE" = poc ]; then
+    # Build type: poc (#819): skills/poc-build.md owes its LOOK in steps 7-8 and promises Stage 5
+    # MANUAL, not a gate. The count stays in the line, so an unseen page is still visible.
+    echo "MANUAL|look (Build type: poc — skills/poc-build.md steps 7-8 own the LOOK, not this gate): $n_unseen of $n built page(s)${scope:+ in $scope} not looked at since their last build$src: $unseen"
+  elif [ "$n_unseen" -gt 0 ]; then
     echo "FAIL|look: $n_unseen of $n built page(s)${scope:+ in $scope} never looked at since their last build$src: $unseen — screenshot each, open the PNG (a file name containing the page name, or the journey screenshot bin/look-ledger.sh shots lists), compare it to its wireframe (skills/ui-loop.md); or --waive look/<Module> --reason \"...\""
   else
     echo "MANUAL|look: $n of $n built page(s)${scope:+ in $scope} accounted for ($how)$src; the rest of Stage 5 is manual"
@@ -2456,6 +2462,10 @@ check_stage_manual() {
 check_build_ready() {
   local fails=0 f found
   echo "Build-ready check for: $PROJECT_DIR"
+  # Build type: poc (#819 option 1): skills/poc-build.md owes no build-ready, and exec.sh's plan rule
+  # already exempts it. The list below still prints, informational, so a POC that continues as a
+  # full build sees what it would owe; the verdict line says N/A and the exit is 0.
+  [ "$BUILD_TYPE" = poc ] && echo "  (Build type: poc — informational only: skills/poc-build.md owes its own steps, not build-ready)"
   echo ""
 
   # 1. Project wired: CLAUDE.local.md with a Wiring block
@@ -2619,14 +2629,13 @@ check_build_ready() {
   #    `full` in the copies it printed the ADVISORY 'no architecture/fit-gap.md' line on both and the
   #    fail count stayed 2 (other items); waived it read 'Fit-gap: WAIVED'. Exit 1 each time, from
   #    the other items. The has-a-fit-gap case was fixture-only: no real app had one.
-  local fg_path fg_w="" bt_raw
+  local fg_path fg_w=""
   fg_path="$(resolve_artifact_nonempty "architecture/fit-gap.md")"
-  bt_raw="$(reg_field "build type" 2>/dev/null || true)"
   if [ -n "$ADOPTED_AT" ] && [ "$(stage_rank "$ADOPTED_AT")" -gt "$(stage_rank 3)" ]; then
     echo "  ✓ Fit-gap: not owed — project joined the toolkit at stage $ADOPTED_AT"
   elif fg_w="$(artifact_waived fit-gap)"; then
     echo "  ✓ Fit-gap: WAIVED — $fg_w"
-  elif [ -z "$fg_path" ] && case "$(printf '%s' "$bt_raw" | tr '[:upper:]' '[:lower:]')" in poc|poc[!a-z]*) true ;; *) false ;; esac; then
+  elif [ -z "$fg_path" ] && [ "$BUILD_TYPE" = poc ]; then
     # Before stage_waiver: that now also excuses Stage 3 for poc, in its own words.
     echo "  ✓ Fit-gap: not owed — Build type: poc (skills/poc-build.md) and no fit-gap exists"
   elif [ -z "$fg_path" ] && fg_w="$(stage_waiver 3)" && [ "${fg_w%%|*}" != "noreason" ]; then
@@ -2654,6 +2663,10 @@ check_build_ready() {
   fi
 
   echo ""
+  if [ "$BUILD_TYPE" = poc ]; then
+    echo "BUILD-READY: N/A (Build type: poc) — not owed (skills/poc-build.md); $fails item(s) above would block a full build"
+    return 0
+  fi
   if [ "$fails" -eq 0 ]; then
     echo "BUILD-READY: PASS — all wiring checks passed"
     return 0
@@ -4711,6 +4724,10 @@ if [ -n "$REQUESTED_STAGE" ]; then
   if [ "$REQUESTED_STAGE" = "build-ready" ]; then
     echo ""
     if check_build_ready; then
+      # POC: N/A, exit 0, no open-questions escalation (a POC has no BRDs to collect them from; a
+      # field run fabricated an sme-questions.md to clear it) and no stamp (it would clear the
+      # auto-mode plan rule if the build type later became full).
+      [ "$BUILD_TYPE" = poc ] && exit 0
       enforce_open_questions build-ready
       # The record exec.sh's plan rule reads under Interview mode: auto (project-bin/exec.sh,
       # "Declared position + plan rule"): exec cannot afford a gate-check per write. Sticky on

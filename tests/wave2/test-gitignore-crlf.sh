@@ -18,6 +18,10 @@ bad() { FAIL=$((FAIL+1)); echo "  FAIL — $1"; }
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/gicrlf.XXXXXX")" || exit 2
 WORK="$(cd "$WORK" && pwd -P)"
 trap 'rm -rf "$WORK"' EXIT
+# init-project.sh registers each scaffolded project's name in the toolkit clone's .leakguard-deny
+# unless told otherwise; run alone (outside run-all.sh) this fixture would leave its project names
+# there and the pre-commit leak guard would flag every file for the next committer.
+export MXTK_LEAKGUARD_DENYFILE="$WORK/leakguard-deny"
 CR="$(printf '\r')"
 nlines()  { tr -d '\r' < "$1" | wc -l | tr -d ' '; }
 ncrlf()   { grep -c "${CR}\$" "$1"; }

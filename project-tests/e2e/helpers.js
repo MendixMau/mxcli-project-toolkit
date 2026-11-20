@@ -630,8 +630,70 @@ async function screenshotEl(page, selector, file) {
   return true;
 }
 
+// A full-height shot (#812). `fullPage: true` measures the DOCUMENT, and Atlas_SideBar /
+// Atlas_TopBar (mx 11.8) scroll an inner `.mx-scrollcontainer-center` inside a viewport-tall
+// document: measured 1244 px of content behind a 900 px document, shot cut at 900. Atlas_Default
+// scrolls the document, and that shape keeps the plain fullPage path. When an element scrolls,
+// the viewport is grown by its hidden height (width unchanged, so no breakpoint moves), the shot
+// is taken, and the viewport is restored. Returns a record, never a bare boolean: `complete` is
+// false when the capture still came up short, so a cropped shot says so on its own record.
+const SHOT_MAX_PX = 16000;   // Chromium's texture limit is 16384; past this the shot is cut and says so
+async function innerScrollExtra(page) {
+  return page.evaluate(() => {
+    let best = null;
+    for (const el of document.querySelectorAll('body *')) {
+      const oy = getComputedStyle(el).overflowY;
+      if (oy !== 'auto' && oy !== 'scroll') continue;
+      const extra = el.scrollHeight - el.clientHeight;
+      // Only a scroller that spans most of the viewport is the page's scroll root; a 300 px
+      // panel with its own scrollbar does not grow with the window and is shot as it is.
+      if (extra > 4 && el.clientHeight >= innerHeight / 2 && (!best || extra > best.extra)) {
+        best = { extra, contentPx: el.scrollHeight, clientPx: el.clientHeight,
+                 root: `${el.tagName.toLowerCase()}.${String(el.className).trim().split(/\s+/)[0]}` };
+      }
+    }
+    return { best, docPx: document.documentElement.scrollHeight };
+  }).catch(() => ({ best: null, docPx: null }));
+}
+// One retry: under load Chromium can answer "Unable to capture screenshot" once, and the old
+// `.catch(() => {})` then left no file and no word about it (seen 1 in 10 fixture runs on 4 busy CPUs).
+async function screenshotRetry(page, opts) {
+  try { await page.screenshot(opts); }
+  catch (e) { await page.waitForTimeout(300); await page.screenshot(opts); }
+}
 async function fullPageShot(page, file) {
-  await page.screenshot({ path: file, fullPage: true }).catch(() => {});
+  const vp = page.viewportSize();
+  let m = await innerScrollExtra(page);
+  const rec = { file, scrollRoot: m.best ? m.best.root : 'document', documentPx: m.docPx,
+                contentPx: m.best ? m.best.contentPx : m.docPx, capturedPx: null, method: 'fullPage', complete: null };
+  if (m.best && vp) {
+    rec.method = 'viewport grown by the inner scroller\'s hidden height, then fullPage';
+    try {
+      // Grown up to three times: content tied to the viewport height can grow with it.
+      for (let i = 0; i < 3 && m.best; i++) {
+        const cur = page.viewportSize();
+        const before = m.best.extra;
+        const h = Math.min(SHOT_MAX_PX, cur.height + before);
+        if (h <= cur.height) break;
+        await page.setViewportSize({ width: cur.width, height: h });
+        // A Node-side wait, not requestAnimationFrame: a page with scripting off (a saved MHTML)
+        // never runs rAF, and reading scrollHeight below forces layout anyway. The wait is for
+        // the app's own resize handlers.
+        await page.waitForTimeout(250);
+        m = await innerScrollExtra(page);
+        if (m.best && m.best.extra >= before) break;   // not tied to the viewport: growing more adds nothing
+      }
+      await screenshotRetry(page, { path: file, fullPage: true });
+      rec.capturedPx = Math.max(page.viewportSize().height, m.docPx || 0);
+      rec.complete = !m.best;
+    } catch (e) { rec.error = String(e.message).split('\n')[0]; }
+    finally { await page.setViewportSize(vp).catch(() => {}); }
+    return rec;
+  }
+  await screenshotRetry(page, { path: file, fullPage: true }).then(() => {
+    rec.capturedPx = m.docPx; rec.complete = true;
+  }, (e) => { rec.error = String(e.message).split('\n')[0]; });
+  return rec;
 }
 
 // A refused save on Mendix is HTTP 551 with a `{"datavalidation":[…]}` body: designed validation

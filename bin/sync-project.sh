@@ -852,9 +852,25 @@ if [ -f "$PROJECT_DIR/PROJECT.md" ]; then
       if (tolower(l) ~ /^entry mode[ \t]*:/) { print NR "\t" $0; exit } }' "$PROJECT_DIR/PROJECT.md")"
   if [ -n "$_gf_line" ] && _gf_v="${_gf_line#*	}" && [ "$(entry_mode_token "${_gf_v#*:}" 2>/dev/null)" = greenfield-retired ]; then
     mxtk_pos_read "$PROJECT_DIR"
-    _gf_n="${_gf_line%%	*}"; _gf_old="${_gf_line#*	}"; _gf_at=""
-    case "$POS_ADOPTED" in "") case "$POS_READOUT" in [1-7]) _gf_at="$POS_READOUT" ;; esac ;; esac
-    echo "⚠ ${DRY:-}Mapped: PROJECT.md Entry mode greenfield → requirements-driven (greenfield retired, mapped at sync)${_gf_at:+; adopted at stage $_gf_at, its current stage}. Stages before the adoption point are not re-owed; from here the requirements-driven steps apply (conversion-runbook.md → Entry Modes)."
+    _gf_n="${_gf_line%%	*}"; _gf_old="${_gf_line#*	}"; _gf_at=""; _gf_why=""
+    case "$POS_ADOPTED" in "") case "$POS_READOUT" in [1-7]) _gf_at="$POS_READOUT"; _gf_why="its current stage" ;; esac ;; esac
+    # A greenfield readout is usually Stage 0 or P: greenfield excused stages 1-4 by mode, never
+    # Stage 0, so gate-check's readout stayed there however far the build had gone. Mapped with no
+    # adoption, stages 0-4 turned PENDING and under Interview mode: auto every exec was refused
+    # (exec.sh plan rule). A project with model work (an exec row in docs/BUILD-LOG.md, a
+    # mdlsource/*.mdl script or a build plan) is past planning: adopt at 5. Without model work
+    # nothing is adopted, and the stages it now owes are said out loud.
+    if [ -z "$POS_ADOPTED" ] && [ -z "$_gf_at" ] && case "$POS_READOUT" in ""|0|[Pp]) true ;; *) false ;; esac; then
+      if ls "$PROJECT_DIR"/mdlsource/*.mdl >/dev/null 2>&1 || [ -f "$PROJECT_DIR/architecture/build-plan.md" ] \
+         || { [ -f "$PROJECT_DIR/docs/BUILD-LOG.md" ] && awk '/^\| 20/ && !/🚫 blocked/ { f = 1; exit } END { exit !f }' "$PROJECT_DIR/docs/BUILD-LOG.md"; }; then
+        _gf_at=5; _gf_why="model work present (readout: Stage ${POS_READOUT:-none})"
+      fi
+    fi
+    if [ -n "$_gf_at" ] || [ -n "$POS_ADOPTED" ]; then
+      echo "⚠ ${DRY:-}Mapped: PROJECT.md Entry mode greenfield → requirements-driven (greenfield retired, mapped at sync)${_gf_at:+; adopted at stage $_gf_at, $_gf_why}. Stages before the adoption point are not re-owed; from here the requirements-driven steps apply (conversion-runbook.md → Entry Modes)."
+    else
+      echo "⚠ ${DRY:-}Mapped: PROJECT.md Entry mode greenfield → requirements-driven (greenfield retired, mapped at sync). NO adoption recorded (readout: Stage ${POS_READOUT:-none}, no model work found): stages 0-4 are now OWED — triage, analysis, BRDs, architecture, build plan (conversion-runbook.md → Entry Modes). Already building? Record it: $SCRIPT_DIR/gate-check.sh $PROJECT_DIR --adopt 5 --reason \"...\"."
+    fi
     if [ "$DRY_RUN" -ne 1 ]; then
       _gf_tmp="$(mktemp "${TMPDIR:-/tmp}/sync-gf.XXXXXX")"
       awk -v n="$_gf_n" -v d="$(date -u +%Y-%m-%d)" '

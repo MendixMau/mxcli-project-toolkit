@@ -767,6 +767,15 @@ async function appSweep(pages, navMap, controlNotes) {
     return { checks, ran: false, reason: '--static-only' };
   }
 
+  const faultAll = (why) => {
+    for (const qn of pages) for (const [k, title] of Object.entries(titles)) {
+      checks.push(row({
+        id: `design-audit/rung7/${k}/${qn}`, module: moduleOf(qn), page: qn, title,
+        verdict: 'fault', detail: why,
+      }));
+    }
+    return { checks, ran: false, reason: why };
+  };
   let helpers, cfg, chromium, axeSource;
   try {
     helpers = require('./helpers');
@@ -774,16 +783,15 @@ async function appSweep(pages, navMap, controlNotes) {
     ({ chromium } = require('playwright'));
     axeSource = fs.readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8');
   } catch (e) {
-    for (const qn of pages) for (const [k, title] of Object.entries(titles)) {
-      checks.push(row({
-        id: `design-audit/rung7/${k}/${qn}`, module: moduleOf(qn), page: qn, title,
-        verdict: 'fault', detail: `harness dependency missing: ${e.message}`,
-      }));
-    }
-    return { checks, ran: false, reason: e.message };
+    return faultAll(`harness dependency missing: ${e.message}`);
   }
 
-  const browser = await chromium.launch({ headless: true });
+  // A Playwright whose browser was never downloaded (a project-local `npm i -D playwright`
+  // shadowing a global one) throws here. That is "rung 7 did not run", a FAULT row per page —
+  // not a crash that leaves the previous run's design-audit.json in place.
+  let browser;
+  try { browser = await chromium.launch({ headless: true }); }
+  catch (e) { return faultAll(`browser did not launch: ${String(e.message).split('\n')[0]}`); }
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await ctx.newPage();
   let loggedIn = false;
@@ -1038,7 +1046,14 @@ async function runControls(pages, css, wf) {
     fs.writeFileSync(p, wrap(v)); files[k] = p;
   }
 
-  const browser = await chromium.launch({ headless: true });
+  let browser;
+  try { browser = await chromium.launch({ headless: true }); }
+  catch (e) {
+    for (const n of ['rung7-a11y', 'rung7-overflow', 'rung7-structure']) {
+      out.push(ctlRow(n, `rung 7 ${n}`, false, `browser did not launch: ${String(e.message).split('\n')[0]}`));
+    }
+    return out;
+  }
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const pg = await ctx.newPage();
   const measure = async (file) => {
@@ -1204,6 +1219,12 @@ async function main() {
   write({ startedAt, checks, instruments, pages, perPage: st.perPage, stats: st.stats, controlRows });
 }
 
+function outFile() {
+  return OPT.out
+    ? path.resolve(ROOT, OPT.out)
+    : path.join(ARTIFACTS, OPT.positiveControl ? 'design-audit-control.json' : 'design-audit.json');
+}
+
 function write({ startedAt, checks, instruments, pages, perPage, stats, controlRows = [] }) {
   const tally = {};
   for (const c of checks) tally[c.verdict] = (tally[c.verdict] || 0) + 1;
@@ -1231,9 +1252,7 @@ function write({ startedAt, checks, instruments, pages, perPage, stats, controlR
     instruments,
     checks,
   };
-  const out = OPT.out
-    ? path.resolve(ROOT, OPT.out)
-    : path.join(ARTIFACTS, OPT.positiveControl ? 'design-audit-control.json' : 'design-audit.json');
+  const out = outFile();
   fs.writeFileSync(out, JSON.stringify(doc, null, 2));
 
   // console: short, honest, no green where there is none
@@ -1270,4 +1289,17 @@ function write({ startedAt, checks, instruments, pages, perPage, stats, controlR
   }
 }
 
-main().catch((e) => { console.error('design-audit crashed:', e); process.exit(1); });
+// A crash writes no artifact, so the previous run's would be read as this run's: a stale green.
+// Remove it — report-normalize then reads design-audit as `fault` ("did not run"), which it is.
+main().catch((e) => {
+  console.error('design-audit crashed:', e);
+  try {
+    const out = outFile();
+    if (fs.existsSync(out)) {
+      fs.unlinkSync(out);
+      console.error(`design-audit: removed the previous run's ${path.relative(ROOT, out)} — this run wrote none, `
+        + 'and the old file would read as current.');
+    }
+  } catch (e2) { console.error(`design-audit: could not remove the stale artifact: ${e2.message}`); }
+  process.exit(1);
+});

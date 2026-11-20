@@ -241,7 +241,10 @@ _MXTK_MDL_LEX='
       start_depth = depth
       tmp = clean; o = gsub(/[({]/, "", tmp); tmp = clean; cl = gsub(/[)}]/, "", tmp)
       depth += o - cl; if (depth < 0) depth = 0
-    }'
+    }
+    # For DISPLAY only: a blanked literal reads as "\047…\047", not as an empty string. The text
+    # is never shown — a statement head can carry a password (`demo user ... Password: ...`).
+    function shown(s) { gsub("\047\047", "\047…\047", s); return s }'
 mxtk_change_class() {  # $1 = MDL script; prints "<class>\t<why>"
   awk "$_MXTK_MDL_LEX"'
     function head_class(w1, w2, w4,    obj) {
@@ -267,7 +270,7 @@ mxtk_change_class() {  # $1 = MDL script; prints "<class>\t<why>"
         if (k == "ui") ui++
         else if (k == "logic" && logic == "") {
           h = t; if (length(h) > 60) h = substr(h, 1, 60) "..."
-          logic = "line " NR ": " h
+          logic = "line " NR ": " shown(h)
         }
       }
     }
@@ -440,7 +443,7 @@ mxtk_watch_compat() {  # $1 = MDL script; prints "restart\t<reasons>" | "unknown
           else if (v == "CREATE" && o1 == "PAGE" && j == 2)
             add("new page", NR)
           else if (v == "CREATE" && o1 == "PAGE") {
-            if (maybe == "") maybe = "line " NR ": " substr(t, 1, 60)
+            if (maybe == "") maybe = "line " NR ": " shown(substr(t, 1, 60))
           }
           # The watch-safe list (skills/ui-loop.md "What watch picks up", left column): an
           # ALTER PAGE / ALTER SNIPPET edit, a new or changed snippet. Everything else that is
@@ -454,7 +457,7 @@ mxtk_watch_compat() {  # $1 = MDL script; prints "restart\t<reasons>" | "unknown
             ;
           else if (nunk < 3) {
             h = t; if (length(h) > 50) h = substr(h, 1, 50) "..."
-            unk = unk (nunk++ ? "; " : "") "line " NR ": " h
+            unk = unk (nunk++ ? "; " : "") "line " NR ": " shown(h)
           } else nunk++
         }
       }
@@ -470,7 +473,7 @@ mxtk_watch_compat() {  # $1 = MDL script; prints "restart\t<reasons>" | "unknown
         if (lc ~ re_act) add("widget action changed (the runtime registers actions at boot)", NR)
         else if (!ui_unk && lc ~ re_ds) {
           ui_unk = 1
-          if (nunk < 3) { h = t; if (length(h) > 50) h = substr(h, 1, 50) "..."; unk = unk (nunk++ ? "; " : "") "line " NR ": " h " (microflow/nanoflow data source)" }
+          if (nunk < 3) { h = t; if (length(h) > 50) h = substr(h, 1, 50) "..."; unk = unk (nunk++ ? "; " : "") "line " NR ": " shown(h) " (microflow/nanoflow data source)" }
           else nunk++
         }
       }

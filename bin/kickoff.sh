@@ -269,7 +269,10 @@ elif [ -n "$BUILD" ]; then add_row "Build type: $BUILD" ASSUMED "$DEF"; fi
 
 case "$MODE" in poc) Q1="poc — a demo (Build type: poc, skills/poc-build.md)" ;; *) Q1="$ENTRY" ;; esac
 mark 1 "$ANS: $Q1" 1
-[ -n "$IVIEW" ] && mark 9 "$ANS: $IVIEW" 1
+POC_MARK="Unverified — how to verify: not asked, POC build (Build type: poc, skills/poc-build.md); ask it if the build continues as a full build"
+# A POC asks no question but Q16 (poc-build.md "Who asks"): an unstated Q9 takes the POC marker.
+if [ -n "$IVIEW" ]; then mark 9 "$ANS: $IVIEW" 1
+elif [ "$BUILD" = poc ]; then mark 9 "$POC_MARK" 0; fi
 if [ "$BUILD" = poc ]; then mark 16 "$ANS: POC build" 1
 elif [ "$BUILD_SET" = 1 ]; then mark 16 "$ANS: Full build" 1
 elif [ -n "$BUILD" ]; then mark 16 "Assumed (auto-mode): Full build (the default; not stated at kickoff)" 0; fi
@@ -282,7 +285,6 @@ default_for() {
     *) echo "" ;;
   esac
 }
-POC_MARK="Unverified — how to verify: not asked, POC build (Build type: poc, skills/poc-build.md); ask it if the build continues as a full build"
 UNASKED=""
 for n in 2 3 4 5 6 7 8 10 11 12 13 14 15; do
   eval "a=\${ANS_$n:-}"

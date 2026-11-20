@@ -14,7 +14,8 @@
 #       nothing written; no scaffold: exit 2 naming init-project.sh
 #   K2  requirements-driven + auto: Stage P PASS; register lines and Stage-P rows written; the
 #       template's defaults ASSUMED (intake + Assumptions); a second run changes no byte
-#   K3  --mode poc: Build type: poc and poc-build.md's verbatim markers; Stage P PASS; Stage 1 not owed
+#   K3  --mode poc: Build type: poc and poc-build.md's verbatim markers; Stage P PASS; Stage 1 not owed;
+#       without --interview too (Q9 takes the POC marker, re-review of #828)
 #   K4  requirements-driven + steering: the unasked questions are listed and Stage P stays FAIL; an
 #       --answers file for them makes it PASS, each answer verbatim; Q1 in --answers is refused
 #   K5  a declared mode is never changed by a re-run: exit 3, files byte-identical
@@ -81,6 +82,10 @@ grep -qx 'Unverified — how to verify: not asked, POC build (Build type: poc, s
   && grep -qx 'Answered (kickoff call, no person named): POC build' <<<"$(sec "$P" 16)" && ok "K3 poc-build.md's verbatim markers" || bad "K3 poc markers" "$(sec "$P" 4 | head -3)"
 g="$(bash "$TK/bin/gate-check.sh" --no-html "$P" 2>&1)"
 grep -q '^Stage 1 (Analysis): WAIVED.* not owed (mode: Build type: poc)' <<<"$g" && ok "K3 Stage 1 not owed (mode: Build type: poc)" || bad "K3 Stage 1 not owed"
+
+mkp; ko "$P" --mode poc --by "the sponsor"
+[ "$rc" = 0 ] && gcP "$P" && grep -qx 'Unverified — how to verify: not asked, POC build (Build type: poc, skills/poc-build.md); ask it if the build continues as a full build' <<<"$(sec "$P" 9)" \
+  && ok "K3 --mode poc without --interview: Q9 gets the POC marker, Stage P PASS" || bad "K3 poc without --interview" "rc=$rc $(sec "$P" 9 | head -3)"
 
 echo "-- K4: steering, then --answers"
 mkp; ko "$P" --mode requirements-driven --build-type full --interview steering --by "the sponsor"

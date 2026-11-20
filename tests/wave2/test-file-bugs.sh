@@ -37,7 +37,8 @@
 #     repo has it or the user may create it, exact-title duplicate recorded not reposted, no gh or not
 #     signed in -> links and exit 0, no deny list refused; --add --log redaction and drop; the
 #     permissions deny --file/--all but not --auto
-#   S #759 a `\b.\b` deny line (from `init-project.sh .`) is dropped with a warning; attribute names
+#   S #759 a `\b.\b` deny line (from `init-project.sh .`) is dropped with a warning, but one that
+#     also holds a name (`Acmecorp|Initrode|`) is refused (fail closed); attribute names
 #     that are English words (Round, Used) leave prose alone and are still caught in code
 set -uo pipefail
 TOOLKIT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -690,6 +691,13 @@ printf '# Leak-guard denylist — gitignored. See bin/check-no-client-data.sh he
 G="$(MXTK_LEAKGUARD_DENYFILE="$W/tk-deny-dot" P2DENY='Snarfle\b' bodyof "$T759. The widget inside the list view item whose text matches is used. Frobnozzle too.")"
 chk "#759 a \\b.\\b deny line leaves the reported text unchanged and the row is not refused" 'echo "$G" | grep -qF "$T759. The widget inside the list view item whose text matches is used."'
 chk "#759 the dropped line is warned about, by pattern; the other lines in that file still redact" 'grep -qF "deny pattern \`\\b.\\b\` matches ordinary text" "$W/p2.err" && ! echo "$G" | grep -qi frobnozzle'
+# Fail closed (review of #815): a probe-matching line that still names someone is refused, not dropped.
+G="$(P2DENY='Acmecorp|Initrode|' bodyof "Acmecorp and Initrode staff saw it.")"
+chk "#759 a deny line holding names that also matches everything (Acmecorp|Initrode|) is refused; the names never reach a body" '! echo "$G" | grep -q "Acmecorp\|Initrode" && grep -q "invalid deny pattern.*Acmecorp|Initrode|.*matches ordinary text" "$W/p2.err"'
+G="$(P2DENY='Snarfle\b' LEAKGUARD_DENY='(Acmecorp)?' bodyof "Acmecorp saw it.")"
+chk "#759 the same for \$LEAKGUARD_DENY (Acmecorp)?: refused, never posted in clear" '! echo "$G" | grep -q Acmecorp && grep -q "invalid deny pattern" "$W/p2.err"'
+G="$(MXTK_LEAKGUARD_DENYFILE="$W/tk-deny-dot" P2DENY='Snarfle\b' bodyof "Plain text, no names.")"
+chk "#759 a nameless line (\\b.\\b) is still dropped with a warning, not refused" 'echo "$G" | grep -qF "Plain text, no names." && grep -qF "deny pattern \`\\b.\\b\` matches ordinary text" "$W/p2.err" && ! grep -q "invalid deny pattern" "$W/p2.err"'
 KMDL759='CREATE PERSISTENT ENTITY Quuxmod.Gadget (
   Round: Integer,
   Used: Boolean

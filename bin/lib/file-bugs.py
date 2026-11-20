@@ -200,7 +200,10 @@ def attr_pat(name):
     after it (Kundennummer2, kundennummerold, KundennummerCheck), but only where an identifier segment
     starts: the attribute Round no longer turns "Workaround" into "WorkaAttr1", and ACT_Round_Save,
     $w/Round and myRound are still caught (so is a whole word "round": case-insensitive, as before). A weak one (short or a common word: Used) matches as a whole
-    word or segment in its model spelling only, so "used" in prose survives and $w/Used does not."""
+    word or segment in its model spelling only, so "used" in prose survives and $w/Used does not.
+    Known limits, accepted for readable reports (were redacted before #759): a distinctive attribute
+    inside a lowercase compound (`prekundennummer`) and a weak one in all caps (`USED`) are left in
+    clear. Module and entity names still go through name_pat; hosts, emails and paths are unaffected."""
     n = norm(name)
     core = LB.join(re.escape(c) for c in n)
     seg = r"(?<=[a-z0-9])" + LB.join(re.escape(c) for c in n[:1].upper() + n[1:])
@@ -324,12 +327,17 @@ class Redactor:
             except re.error:
                 rx = None
             if rx is not None:
-                if any(rx.search(p) for p in DENY_PROBES):
+                if not any(rx.search(p) for p in DENY_PROBES):
+                    pats.append(rx)
+                elif not re.search(r"[A-Za-z0-9]{3,}", pat):
+                    # holds no name at all (`\b.\b`, `\b\b`): dropping it loses nothing
                     self.warnings.append("deny pattern `%s` matches ordinary text (empty, a space, a hyphen or a "
                                          "one-letter word), so it is ignored. Remove that line from %s"
                                          % (pat[:60], src))
                 else:
-                    pats.append(rx)
+                    # holds a name but also matches everything (`Acme|Initrode|`, `(Acme)?`): fail closed,
+                    # since dropping it would post those names in clear (review of #815)
+                    self.bad_deny.append("%s: %r matches ordinary text" % (src, pat[:60]))
                 return
             # invalid as a whole: nothing is kept, posting/--links/--json are refused until it is fixed
             self.bad_deny.append("%s: %r" % (src, pat[:60]))

@@ -136,10 +136,11 @@ function validate(j, brds) {
         add(aat, `back \`timeout\` must be a positive number of ms (got ${JSON.stringify(a.timeout)})`);
       if (a.do === 'wait' && a.settleMs !== undefined && a.ms === undefined)
         add(aat, 'wait reads `ms`, not `settleMs`');
-      if (a.row !== undefined && (a.do !== 'click' || typeof a.row !== 'string'))
-        add(aat, a.do !== 'click' ? `\`row\` is read only by click (got it on ${a.do})` : '`row` must be a string: text of the one row to click in');
-      if (a.in !== undefined && (a.do !== 'click' || typeof a.in !== 'string' || a.in.startsWith('.')))
-        add(aat, a.do !== 'click' ? `\`in\` is read only by click (got it on ${a.do})` : '`in` takes a bare Mendix widget name (the container); the runner prepends .mx-name-');
+      const scoped = a.do === 'click' || a.do === 'fill';
+      if (a.row !== undefined && (!scoped || typeof a.row !== 'string'))
+        add(aat, !scoped ? `\`row\` is read only by click and fill (got it on ${a.do})` : `\`row\` must be a string: text of the one row to ${a.do} in`);
+      if (a.in !== undefined && (!scoped || typeof a.in !== 'string' || a.in.startsWith('.')))
+        add(aat, !scoped ? `\`in\` is read only by click and fill (got it on ${a.do})` : '`in` takes a bare Mendix widget name (the container); the runner prepends .mx-name-');
       if (a.widget && a.widget.startsWith('.'))
         add(aat, `\`widget\` takes a bare Mendix name; the runner prepends .mx-name- (got "${a.widget}")`);
     }
@@ -299,7 +300,8 @@ function selftest() {
     ['pseudoText strings are accepted', j => { j.steps[0].ui.pseudoText = ['No rows yet']; return j; }, null],
     ['comment object inside pseudoText', j => { j.steps[0].ui.pseudoText = [{ _note: 'x' }]; return j; }, 'non-string'],
     ['row-scoped click is accepted', j => { j.steps[0].actions[0].row = '{{a}}'; j.steps[0].actions[0].in = 'gridOrders'; return j; }, null],
-    ['row on a fill', j => { j.steps[0].actions.push({ do: 'fill', widget: 'tb', value: 'x', row: 'A' }); return j; }, 'read only by click'],
+    ['row-scoped fill is accepted (#760)', j => { j.steps[0].actions.push({ do: 'fill', widget: 'tb', value: 'x', row: 'A', in: 'lv' }); return j; }, null],
+    ['row on a combobox', j => { j.steps[0].actions.push({ do: 'combobox', widget: 'cb', match: 'x', row: 'A' }); return j; }, 'read only by click and fill'],
     ['in given a selector', j => { j.steps[0].actions[0].in = '.mx-name-grid'; return j; }, 'bare Mendix widget name'],
     ['misspelt step key', j => { j.steps[0].spams = j.steps[0].spans; delete j.steps[0].spans; return j; }, 'likely a typo for `spans`'],
     ['short note keys (note, node, url) are not typos', j => { Object.assign(j.steps[0], { note: 'x', node: 'y', url: 'z' }); return j; }, null],

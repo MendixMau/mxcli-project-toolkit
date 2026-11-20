@@ -66,10 +66,10 @@ echo
 echo "engine -> $DST   ($copied copied, $skipped kept)"
 echo
 echo "Next, in this order:"
-echo "  1. node $DST/project.config.js        # print what it derived; check id and .mpr"
-echo "  2. edit NAV / TARGETS / PAGE_WIREFRAME / exemplars / walkthroughs in project.config.js"
+echo "  1. node $DST/project.config.js        # what it derived (check id and .mpr), and each block still empty"
+echo "  2. fill the FILL ME blocks in project.config.js: NAV, ROLES, WALKTHROUGH, PAGE_WIREFRAME, exemplars"
 echo "  3. node $DST/report-normalize.js --selftest   # must print 'all ok'"
 echo "  4. node $DST/journey-runner.selftest.js"
 echo
-echo "Step 2 is not optional. Unedited, the audits walk another app's page names and report"
-echo "fault on every page — which looks like a broken harness, not an unedited config."
+echo "Step 2 is not optional. The blocks ship empty: until they are filled, monkey.js and"
+echo "full-app-walkthrough.js stop with NOT CONFIGURED (exit 2) instead of measuring anything."

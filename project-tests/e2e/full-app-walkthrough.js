@@ -351,6 +351,15 @@ async function runStep(page, meta, s) {
   }
 }
 
+// An act's arrival: its leading `nav` steps. `checks` describe the page the act lands on, so they
+// are read after these (and after a handoffAssert), never on the page the previous act left.
+function splitArrival(act) {
+  const steps = act.steps || [];
+  let i = 0;
+  while (i < steps.length && steps[i] && steps[i].do === 'nav') i++;
+  return { arrive: steps.slice(0, i), rest: steps.slice(i) };
+}
+
 function describe(s) {
   switch (s.do) {
     case 'nav': return `navigate to ${[s.group, s.item].filter(Boolean).join(' › ')}`;
@@ -533,22 +542,30 @@ async function switchTo(page, roleKey, handoffMeta) {
 
       console.log(`\n── ${meta.label} ──`);
 
-      // Widget presence for the act's landing page, recorded as widgets[] so the
-      // report groups them the way it groups every other walkthrough's.
-      for (const name of act.checks || []) {
-        const visible = await H.visibleWithin(page.locator(`.mx-name-${name}`).first(), 2500);
-        meta.widgets.push({ name, status: visible ? 'ok' : 'missing',
-                            detail: visible ? '' : `.mx-name-${name} not visible` });
-        if (visible) R.pass(`${meta.key}:widget:${name}`, `Widget ${name} present`);
-        else R.fail(`${meta.key}:widget:${name}`, `Widget ${name} present`, `.mx-name-${name} not visible`);
-      }
-
-      for (const s of act.steps || []) {
-        const ok = await runStep(page, meta, s);
-        // `fatal` is the config's way of saying "there is no point continuing" —
-        // a form that never opened, a record that was never created. Everything
-        // after it is reported NOT REACHED rather than left absent.
-        if (!ok && s.fatal) { stoppedAt = `${meta.label}: ${s.label || describe(s)}`; break; }
+      const runSteps = async (list) => {
+        for (const s of list) {
+          const ok = await runStep(page, meta, s);
+          // `fatal` is the config's way of saying "there is no point continuing" —
+          // a form that never opened, a record that was never created. Everything
+          // after it is reported NOT REACHED rather than left absent.
+          if (!ok && s.fatal) { stoppedAt = `${meta.label}: ${s.label || describe(s)}`; return false; }
+        }
+        return true;
+      };
+      // The act's LEADING nav steps are how it arrives on its landing page (a first act has
+      // no handoffAssert to navigate for it), so they run before its widget checks are read.
+      const { arrive, rest } = splitArrival(act);
+      if (await runSteps(arrive)) {
+        // Widget presence for the act's landing page, recorded as widgets[] so the
+        // report groups them the way it groups every other walkthrough's.
+        for (const name of act.checks || []) {
+          const visible = await H.visibleWithin(page.locator(`.mx-name-${name}`).first(), 2500);
+          meta.widgets.push({ name, status: visible ? 'ok' : 'missing',
+                              detail: visible ? '' : `.mx-name-${name} not visible` });
+          if (visible) R.pass(`${meta.key}:widget:${name}`, `Widget ${name} present`);
+          else R.fail(`${meta.key}:widget:${name}`, `Widget ${name} present`, `.mx-name-${name} not visible`);
+        }
+        await runSteps(rest);
       }
       if (!meta.screenshot) await shot(page, meta, `act-${String(i + 1).padStart(2, '0')}-${meta.key}`);
       if (stoppedAt) break;

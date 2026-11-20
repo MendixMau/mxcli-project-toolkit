@@ -21,6 +21,12 @@
 #   C  the screen still shows mxcli's own output, and mxcli check ran exactly once
 #   D  a plain one-line refusal (no rule bracket) is recorded too
 #   E  a reason in non-Latin text longer than 160 bytes is cut on a character boundary, not to "..."
+#   F  a v0.32 two-line reference error keeps its cause, not only the header line
+#
+# reference-v0.32.0.out is `mxcli check reference-v0.32.0.mdl -p ProbeApp.mpr --references`, stdout
+# and stderr as exec.sh captures them, from a real mxcli v0.32.0-374-g591bcd73e on a blank Mendix
+# 11.8.0 app (2026-11-20). Under "Reference errors:" each error is a header ending in ":" and the
+# cause on the next line as "  - ...". Before the fix the row kept only the header.
 #
 # Synthetic project, stub mxcli replaying the capture. Nothing real runs.
 set -uo pipefail
@@ -101,6 +107,13 @@ _why="${ROW#*check: }"; _why="${_why%%...*}"
 if printf '%s' "$_why" | iconv -f UTF-8 -t UTF-8 >/dev/null 2>&1 && [ "$(printf '%s' "$_why" | wc -c)" -le 160 ] \
    && [ "$(printf '%s' "$_why" | wc -c)" -ge 157 ]; then ok "E: cut is valid UTF-8, 157-160 bytes"
 else bad "E: cut is valid UTF-8, 157-160 bytes" "$(printf '%s' "$_why" | wc -c) bytes"; fi
+
+# F
+run "$GOLD/reference-v0.32.0.out"
+case "$ROW" in *"check: statement 3: microflow 'Broken2.ACT_Thing' has reference errors: entity not found: Broken2.Missing (referenced by create)"*)
+  ok "F: v0.32 reference error keeps its cause line" ;;
+  *) bad "F: v0.32 reference error keeps its cause line" "$ROW" ;; esac
+[ "$(cells "$ROW")" = 6 ] && ok "F: row still has 5 cells" || bad "F: row still has 5 cells" "$(cells "$ROW") bars: $ROW"
 
 echo ""
 echo "== $PASS passed, $FAIL failed"

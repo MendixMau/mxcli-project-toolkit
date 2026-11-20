@@ -1589,11 +1589,15 @@ step_done guards
 # Shapes are real mxcli v0.26.0 captures (tests/wave2/fixtures/exec-check-refusal/): an error
 # violation is "✗ <message> [RULE]" after any warnings, in ANSI colour even when piped; a parse
 # failure is "- line N:M ..." under "Syntax errors found:". Rule id first, so truncation keeps it.
+# v0.32 reference errors take two lines under "Reference errors:", a header ending in ":" and the
+# cause as "  - ..." (fixtures/exec-check-refusal/reference-v0.32.0.out); both go in the row,
+# because the header alone ("microflow 'X' has reference errors:") names no cause.
 check_refusal_reason() {  # $1 = captured check output
   _esc="$(printf '\033')"
   tr -d '\r' < "$1" 2>/dev/null | sed "s/${_esc}\[[0-9;]*m//g" | awk '
     /^(Syntax|Reference) errors( found)?:$/ { hdr = 1; next }
-    hdr && h == "" && NF { h = $0 }
+    hd == 1 { hd = 2; if ($0 ~ /^ *- /) { d = $0; sub(/^ *- */, "", d); h = h " " d } }
+    hdr && h == "" && NF { h = $0; if (h ~ /:$/) hd = 1 }
     e == "" && /^ *✗ / && !/ found$/ { e = $0 }
     f == "" && /[Ee]rror/ && !/^WARNING: / { f = $0 }
     END { r = (e != "") ? e : ((h != "") ? h : f); print r }' \

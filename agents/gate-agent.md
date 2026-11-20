@@ -46,10 +46,10 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/learned-detection-gaps.md` | Before trusting a green check/exec/DESCRIBE result as proof, or when a runtime symptom appears over a fully green model — the register of constructs that pass early rungs and fail later ones |
 | `skills/security-is-not-a-later-script.md` | Creating any entity, or calling a module security-ready — entity and grants land in one script, and ready means SHOW SECURITY MATRIX proves it |
 | `bin/bug-lookup.sh` | A CE error (mx check or mxbuild: CE0066, CE0117…), a cited BUG-n, or behavior that looks like a known mxcli quirk rather than a modeling mistake — `bin/bug-lookup.sh CE0117` / `BUG-102` / "keyword" / the whole pasted error message (ranked top 3) prints the matching ledger entries, so the session reads one entry, not the whole ledger |
-| `bin/file-bugs.sh` | You hit, or worked around, a bug in mxcli or the toolkit, or log a FINDINGS.md entry about either — `bin/file-bugs.sh` (the `--add` line is in learned-detection-gaps.md) keeps docs/bugs.jsonl, redacts, shows duplicates, files with `--auto` when PROJECT.md says `Bug filing: auto`, else only a human files (`!`, `--file PBUG-NN`, y/N, denied to agents), or prints new-issue links (`--links`, `--json`) |
+| `bin/file-bugs.sh` | A toolkit script or hook (bin/, project-bin/, pre-commit) or mxcli misbehaves, aborts silently or refuses wrongly, or you worked around such a bug or log a FINDINGS.md entry about one — log it before working around it: `bin/file-bugs.sh` (the `--add` line is in learned-detection-gaps.md) keeps docs/bugs.jsonl, redacts, shows duplicates, files with `--auto` when PROJECT.md says `Bug filing: auto`, else only a human files (`!`, `--file PBUG-NN`, y/N, denied to agents), or prints new-issue links (`--links`, `--json`) |
 | `bin/status.sh` | The first command of every session, and any time someone asks "where are we" or "what next" — one screen: stage, done/overdue, the ONE next action, from the instruments, never from memory |
 | `skills/teamserver-alignment.md` | Any session that will push a model to Mendix Team Server, and BEFORE telling the user a Team Server push is blocked — which remote is authoritative, settle-then-push order, and the four checks that have to fail first |
-| `skills/retesting-learned-rules.md` | Before obeying any learned-* STOP or workaround that costs a detour — probe the binary you actually have, then stamp the verdict back into the rule |
+| `skills/retesting-learned-rules.md` | Before obeying any learned-* STOP or workaround that costs a detour, or when a newer mxcli may have fixed it — probe the binary you actually have, then stamp the verdict back into the rule |
 | `skills/checkpoints/checkpoint-cutover.md` | Going live / cutover: CAC-6, after Stage 6 passes and before any cutover or old-data migration step |
 | `skills/image-transcription.md` | Images to read listed by images-to-md or the documents index |
 | `skills/mendix-best-practices-index.md` | Asked "is there a Mendix best practice for this", or mapping a lint rule that rose in the ratchet back to the practice and the skill that prevents it |
@@ -59,7 +59,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/cloud-dev-environment.md` | Setting up or resuming an mxcli project in a cloud/ephemeral container |
 | `skills/coverage-ledger.md` | Building the Stage 4 coverage ledger |
 | `bin/coverage-check.sh` | Checking a coverage ledger against its BRD |
-| `skills/iterative-build-loop.md` | An exec.sh guard refused a write (not a permission prompt), or building a module with mxcli |
+| `skills/iterative-build-loop.md` | An exec.sh guard (exec lock, uncommitted model, Studio Pro open, mxbuild gate) refused a write (not a permission prompt), or building a module with mxcli |
 | `project-bin/conformance-check.sh` | Running the ledger rung alone |
 | `project-bin/graph-sweep.sh` | Running the wiring rung alone |
 | `project-bin/test-stack-up.sh` | Before any runtime test |

@@ -95,7 +95,8 @@ mxtk_auto_word() {
 #   POS_REG       1 when PROJECT.md exists
 #   POS_ENTRY     canonical token, or "" (none declared / not recognised)
 #   POS_ADOPTED   the "Adopted at stage:" stage (P|0-7), or ""
-#   POS_BUILD     "poc" when "Build type: poc" or "Entry mode: poc", else "full"
+#   POS_BUILD     "poc" when "Build type: poc" or "Entry mode: poc", else "full" (a Build type naming
+#                 full wins over Entry mode: poc; POS_POC_CONFLICT=1 then)
 #   POS_WAIVED4   1 when a "Waived stage 4:" line carries a reason, or a "Waived stages:" line lists 4
 #                 before its dash with a reason after it (the two spellings gate-check.sh reads)
 #   POS_READOUT   the stage in gate-check.sh's "## Current stage" readout ("**Stage 5 — ..."), or ""
@@ -106,7 +107,7 @@ mxtk_auto_word() {
 #                 second write of an unattended run got past the plan rule on refuse-once.
 mxtk_pos_read() {
   local root="$1" reg line key val in_c=0 in_cur=0 entry_raw="" ad="" bt="" im="" _nc=0
-  POS_REG=0; POS_ENTRY=""; POS_ADOPTED=""; POS_BUILD="full"; POS_WAIVED4=0; POS_READOUT=""; POS_AUTO=0
+  POS_REG=0; POS_ENTRY=""; POS_ADOPTED=""; POS_BUILD="full"; POS_POC_CONFLICT=0; POS_WAIVED4=0; POS_READOUT=""; POS_AUTO=0
   reg="$root/PROJECT.md"
   shopt -q nocasematch && _nc=1; shopt -s nocasematch
   if [ -f "$reg" ]; then
@@ -151,14 +152,19 @@ mxtk_pos_read() {
       fi
     done < "$root/intake.md"
   fi
-  [[ "$bt" =~ ^[[:blank:]]*poc([^a-z]|$) ]] && POS_BUILD="poc"
+  # poc only when the value starts with poc and never names full ("poc → full (CR-01)" is full).
+  [[ "$bt" =~ ^[[:blank:]]*poc([^a-z]|$) ]] && [[ "$bt" != *full* ]] && POS_BUILD="poc"
   local _imf=""
   [ -f "$root/.claude/.interview-mode" ] && { IFS= read -r _imf < "$root/.claude/.interview-mode" || true; }
   if mxtk_auto_word "${CLAUDE_INTERVIEW_MODE:-}" || mxtk_auto_word "$_imf" || mxtk_auto_word "$im"; then POS_AUTO=1; fi
   [[ "$ad" =~ ^[[:blank:]]*([Pp0-7])([^0-9]|$) ]] && POS_ADOPTED="${BASH_REMATCH[1]}"
   [ "$_nc" = 1 ] || shopt -u nocasematch
   if [ -n "$entry_raw" ]; then _mxtk_emt "$entry_raw" 2>/dev/null; POS_ENTRY="$_EMT"; fi
-  [ "$POS_ENTRY" = poc ] && POS_BUILD="poc"
+  # Entry mode: poc implies poc, unless a Build type line says full: full wins, and POS_POC_CONFLICT says so.
+  POS_POC_CONFLICT=0
+  if [ "$POS_ENTRY" = poc ]; then
+    if [[ "$bt" == *[Ff][Uu][Ll][Ll]* ]]; then POS_POC_CONFLICT=1; else POS_BUILD="poc"; fi
+  fi
   return 0
 }
 

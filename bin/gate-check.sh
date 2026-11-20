@@ -691,10 +691,21 @@ fi
 # The accepted shape of each parsed format, printed with its FAIL (#821 point 1; bin/lib/format-hints.sh).
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")/lib" && pwd)/format-hints.sh"
 ENTRY_MODE="$(entry_mode_token "$ENTRY_RAW")"
-BUILD_TYPE="$(reg_field "build type" 2>/dev/null || true)"
-case "$(printf '%s' "$BUILD_TYPE" | tr '[:upper:]' '[:lower:]')" in poc|poc[!a-z]*) BUILD_TYPE=poc ;; *) BUILD_TYPE=full ;; esac
-# `Entry mode: poc` (#819 option 3) is the same contract as `Build type: poc` (project-bin/_position.sh).
-[ "$ENTRY_MODE" = poc ] && BUILD_TYPE=poc
+BUILD_TYPE_RAW="$(reg_field "build type" 2>/dev/null || true)"
+# poc only when the value starts with the word poc AND never names full: "poc → full (CR-01)" is a
+# switch to full, and reading it as poc excused every stage of a build that left POC (review of #828).
+_bt_l="$(printf '%s' "$BUILD_TYPE_RAW" | tr '[:upper:]' '[:lower:]')"
+case "$_bt_l" in *full*) BUILD_TYPE=full ;; poc|poc[!a-z]*) BUILD_TYPE=poc ;; *) BUILD_TYPE=full ;; esac
+# `Entry mode: poc` (#819 option 3) is the same contract as `Build type: poc` (project-bin/_position.sh)
+# — unless a Build type line says full: then full wins, loudly (POC_CONFLICT, printed in the summary).
+# The louder reading: a POC switched to full by editing only its Build type line keeps its gates.
+POC_CONFLICT=""
+if [ "$ENTRY_MODE" = poc ]; then
+  case "$_bt_l" in
+    *full*) POC_CONFLICT="Entry mode: poc but Build type: $BUILD_TYPE_RAW — read as a FULL build (stages owed); make the two lines agree (a POC: Build type: poc; a full build: the real Entry mode)" ;;
+    *) BUILD_TYPE=poc ;;
+  esac
+fi
 
 # stage_waiver <stage> — "<scope>|<reason>", or nothing. Most specific source of truth first.
 #
@@ -2292,7 +2303,8 @@ EOF
   if [ "$n_unseen" -gt 0 ] && [ "$BUILD_TYPE" = poc ]; then
     # Build type: poc (#819): skills/poc-build.md owes its LOOK in steps 7-8 and promises Stage 5
     # MANUAL, not a gate. The count stays in the line, so an unseen page is still visible.
-    echo "MANUAL|look (Build type: poc — skills/poc-build.md steps 7-8 own the LOOK, not this gate): $n_unseen of $n built page(s)${scope:+ in $scope} not looked at since their last build$src: $unseen"
+    # The "look: N of M ... never looked at ... — screenshot" wording is what bin/ready.sh parses.
+    echo "MANUAL|look: $n_unseen of $n built page(s)${scope:+ in $scope} never looked at since their last build$src: $unseen — screenshot each and compare it to its wireframe; MANUAL, not FAIL, under Build type: poc (skills/poc-build.md steps 7-8 own the LOOK)"
   elif [ "$n_unseen" -gt 0 ]; then
     echo "FAIL|look: $n_unseen of $n built page(s)${scope:+ in $scope} never looked at since their last build$src: $unseen — screenshot each, open the PNG (a file name containing the page name, or the journey screenshot bin/look-ledger.sh shots lists), compare it to its wireframe (skills/ui-loop.md); or --waive look/<Module> --reason \"...\""
   else
@@ -4228,6 +4240,7 @@ printf "Summary: %d passed · %d not started · %d waived · %d need attention �
 if [ -z "$ENTRY_MODE" ] && [ -z "$ADOPTED_AT" ] && [ -n "${MXTK_POS_BANNER:-}" ]; then
   printf '⚠ %s\n' "$MXTK_POS_BANNER"
 fi
+[ -n "$POC_CONFLICT" ] && echo "⚠ $POC_CONFLICT"
 if [ "$ENTRY_MODE" = greenfield-retired ] && [ -n "${MXTK_POS_RETIRED:-}" ]; then
   printf '⚠ %s\n' "${MXTK_POS_RETIRED/<project>/$PROJECT_DIR}"
 fi

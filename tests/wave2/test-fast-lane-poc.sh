@@ -20,6 +20,9 @@
 #   P3  Stage 5 under poc, with an unseen built page in docs/progress/look-summary.tsv: MANUAL and
 #       the page still named; the full build FAILs on the same summary (control)
 #   P4  the kick-off brief (CONVERSION-RUNBOOK.md) no longer demands build-ready of a POC
+#   P5  Entry mode: poc with Build type: full reads as FULL, loudly (gate-check, exec.sh's reader);
+#       `Build type: poc → full (CR-01)` reads as full (review of #828)
+#   P6  bin/ready.sh on a POC with an unseen page names the page (it parses Stage 5's look text)
 set -uo pipefail
 
 TK="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
@@ -86,7 +89,7 @@ look_summary() {
 }
 mkp; setline "$P/PROJECT.md" "Build type" poc; look_summary "$P"
 gc "$P"
-grep -q '^Stage 5 (Build): MANUAL.* look (Build type: poc.*Rooms.Booking_Overview' <<<"$out" \
+grep -q '^Stage 5 (Build): MANUAL.* look: 1 of 2 built page(s) never looked at.*Rooms.Booking_Overview.*Build type: poc' <<<"$out" \
   && ok "P3 Stage 5 MANUAL under poc, page named" || bad "P3 Stage 5 MANUAL under poc" "$(printf '%s\n' "$out" | grep '^Stage 5')"
 mkp; setline "$P/PROJECT.md" "Build type" full; look_summary "$P"
 gc "$P"
@@ -97,6 +100,27 @@ echo "-- P4: kick-off brief"
 brief="$(awk '/^```text/{f=1;next} /^```/{f=0} f' "$TK/CONVERSION-RUNBOOK.md")"
 grep -q 'Build type: poc: follow skills/poc-build.md instead (no build-ready' <<<"$brief" \
   && ok "P4 the kick-off brief exempts a POC from build-ready" || bad "P4 the kick-off brief exempts a POC" "$(printf '%s\n' "$brief" | grep -n 'build-ready')"
+
+echo "-- P5: a Build type line naming full wins over Entry mode: poc"
+mkp; setline "$P/PROJECT.md" "Build type" full; setline "$P/PROJECT.md" "Entry mode" poc
+mxtk_pos_read "$P"
+[ "$POS_BUILD" = full ] && [ "$POS_POC_CONFLICT" = 1 ] && ok "P5 mxtk_pos_read: full, conflict flagged" || bad "P5 mxtk_pos_read" "build=$POS_BUILD conflict=${POS_POC_CONFLICT:-}"
+gc "$P"
+case "$out" in *"⚠ Entry mode: poc but Build type: full — read as a FULL build"*) ok "P5 gate-check prints the conflict" ;; *) bad "P5 gate-check prints the conflict" ;; esac
+grep -q '^Stage 1 (Analysis): WAIVED.* not owed (mode: Build type: poc)' <<<"$out" && bad "P5 Stage 1 must be owed again" || ok "P5 Stage 1 is owed again (not excused as poc)"
+gc "$P" build-ready
+case "$out" in *"BUILD-READY: N/A"*) bad "P5 build-ready is not N/A for the full build" ;; *) ok "P5 build-ready is checked again" ;; esac
+mkp; setline "$P/PROJECT.md" "Build type" "poc → full (CR-01)"
+mxtk_pos_read "$P"; gc "$P" build-ready
+[ "$POS_BUILD" = full ] && case "$out" in *"BUILD-READY: N/A"*) false ;; *) true ;; esac \
+  && ok "P5 'Build type: poc → full (CR-01)' reads as full (exec reader and gate-check)" || bad "P5 poc → full reads as full" "build=$POS_BUILD"
+
+echo "-- P6: ready.sh names a POC's unseen page"
+mkp; setline "$P/PROJECT.md" "Build type" poc; look_summary "$P"
+( cd "$P" && git init -q . && git add -A && git -c user.email=t@t -c user.name=t commit -qm s ) >/dev/null 2>&1
+r="$(bash "$TK/bin/ready.sh" "$P" 2>&1)"
+grep -q 'unseen: Rooms.Booking_Overview' <<<"$r" && ! grep -q 'nothing measured' <<<"$r" \
+  && ok "P6 ready.sh names the unseen page, not 'nothing measured'" || bad "P6 ready.sh names the unseen page" "$(grep -E 'gate5|look ' <<<"$r")"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"

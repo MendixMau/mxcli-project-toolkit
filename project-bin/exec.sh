@@ -322,8 +322,16 @@ mxtk_subjects() {  # $1 = MDL script
 # `[--commit-first] [--cr CR-NN]`; in that order commit-first committed the model and the run
 # went on with "--cr" as its script path.
 CR_ID=""; COMMIT_FIRST="${MXTK_COMMIT_FIRST:-0}"; PATCH_MODE=0; ADVISORY=""
+exec_usage() {  # stdout; --help / -h (#820)
+  echo "Usage: ./bin/exec.sh [--commit-first] [--cr CR-NN] <script.mdl>"
+  echo "       ./bin/exec.sh [--commit-first] [--cr CR-NN] --patch <script> [args...]"
+  echo "       ./bin/exec.sh --change-class | --watch-compat | --subjects <script.mdl>   (advisory; writes nothing)"
+  echo "Flags go BEFORE the script. Only --patch takes arguments after it (passed to the patch script)."
+  echo "Exit codes and the MXTK-RESULT line: the header of bin/exec.sh."
+}
 while [ $# -gt 0 ]; do
   case "$1" in
+    --help|-h) exec_usage; exit 0 ;;
     --cr)
       CR_ID="${2:-}"
       case "$CR_ID" in
@@ -342,12 +350,24 @@ while [ $# -gt 0 ]; do
   esac
 done
 case "${1:-}" in
+  --help|-h) exec_usage; exit 0 ;;
   --*)
     echo "✗ Unknown option or misplaced flag '$1' — nothing was committed, snapshotted or executed." >&2
     echo "  Usage: ./bin/exec.sh [--commit-first] [--cr CR-NN] <script.mdl>" >&2
     echo "         ./bin/exec.sh [--commit-first] [--cr CR-NN] --patch <script> [args...]" >&2
     exit 2 ;;
 esac
+# Arguments AFTER the script (#820). They used to be ignored, so `exec.sh s.mdl --help` (an agent
+# checking usage) or a flag typed after the script ran a real model write. Only --patch takes
+# trailing args (they go to the patch script, so `--patch s.py --help` still passes --help on).
+# Anywhere else: --help / -h prints usage, anything else is refused — both before the lock, the
+# commit, the snapshot, BUILD-LOG and mxcli.
+if [ "$PATCH_MODE" != "1" ] && [ $# -gt 1 ]; then
+  for _a in "${@:2}"; do case "$_a" in --help|-h) exec_usage; exit 0 ;; esac; done
+  echo "✗ unexpected argument after the script: '$2' — nothing was executed." >&2
+  echo "  Flags go before the script: ./bin/exec.sh [--commit-first] [--cr CR-NN] <script.mdl> (./bin/exec.sh --help)" >&2
+  exit 2
+fi
 if [ "$ADVISORY" = "--change-class" ]; then
   [ -f "${1:-}" ] || { echo "Usage: ./bin/exec.sh --change-class <script.mdl>" >&2; exit 2; }
   mxtk_change_class "$1"
@@ -528,7 +548,7 @@ MPR_BASE="${MPR##*/}"
 NAME="${MPR_BASE%.mpr}"
 SCRIPT="${1:-}"
 [ $# -gt 0 ] && shift
-# Remaining args go to the patch script, after the model path. An MDL run takes none.
+# Remaining args go to the patch script, after the model path. An MDL run takes none (refused above, #820).
 LOG_NAME="${SCRIPT##*/}"
 [ "$PATCH_MODE" = "1" ] && LOG_NAME="patch: $LOG_NAME"
 

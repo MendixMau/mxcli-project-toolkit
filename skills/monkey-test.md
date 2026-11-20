@@ -65,7 +65,8 @@ tested "did the browser blow up" — the weaker half.
 
 "Did it crash?" is otherwise a judgement call that drifts run to run. It is defined as, and
 only as: an uncaught page exception, a Mendix error page or error dialog, a 5xx on an
-in-flight request, or an ERROR-status span. Widening it to "looked wrong" turns the net into
+in-flight request, or an ERROR-status span. An HTTP 551 whose body is `{"datavalidation":[…]}`
+is not a 5xx crash: it is Mendix validation feedback (a refused save), reported as info (#803). Widening it to "looked wrong" turns the net into
 an opinion generator. Narrowing it to "page exception only" makes it blind to caught errors.
 
 ## Reporting

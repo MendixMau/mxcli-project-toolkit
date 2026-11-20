@@ -6,6 +6,7 @@
 # text contains it, `in` scopes to one container widget. Drives act() in a real headless Chromium on a
 # localhost page (SKIPs without Playwright): the bare click hits row A, the scoped one row B, a
 # Data Grid 2 style `role=row` with display:contents works, and a row nobody shows throws.
+# #760: `fill` honours `row` / `in` the same way (a list view repeats one textbox name per item).
 
 set -uo pipefail
 
@@ -44,6 +45,7 @@ out('E:shown', [R.shown('Open {{order}}'), R.shown('Open {{nope}}'), R.shown('pl
 out('E:label', R.describeAct({ do: 'click', widget: 'b', label: 'Ship {{order}}' }, { order: 'SO-1001' }).target);
 out('E:label-missing', R.describeAct({ do: 'click', widget: 'b', label: 'Ship {{nope}}' }, {}).target);
 out('D:row', R.describeAct({ do: 'click', widget: 'btnShip', label: 'Ship', row: '{{code}}' }, { code: 'B-200' }).target);
+out('D:fillrow', R.describeAct({ do: 'fill', widget: 'txtValue', value: '42', row: '{{code}}' }, { code: 'R-2' }).target);
 (async () => {
   let H; try { H = require('./helpers.js'); if (!H.deviceProfiles()) throw new Error('no playwright'); } catch (e) { out('SKIPB', e.message); return; }
   const html = '<script>window.hits=[]</script><div class="mx-name-grid1"><table>' +
@@ -66,6 +68,15 @@ out('D:row', R.describeAct({ do: 'click', widget: 'btnShip', label: 'Ship', row:
     // guard case (shape NOT verified against a real page): widgets inside the item carry the index class too
     '<div class="mx-name-grid6"><ul><li class="mx-name-index-0"><span class="mx-name-txt1 mx-name-index-0">Order Q-1</span>' +
     '<button class="mx-name-btnShip mx-name-index-0" onclick="hits.push(\'Q1\')">Ship</button></li></ul></div>' +
+    // #760: a list view whose item template repeats one textbox name. PROVENANCE: built from the
+    // reporter's DOM excerpt quoted in issue #759/#760 (div.mx-listview.mx-name-<lv> > ul >
+    // li.mx-name-index-0 > div.mx-dataview > ...), NOT a captured page: no captured Mendix 11 list view
+    // DOM exists in the repo. The textbox shape (div.mx-name-<w> > input) is the standard Mendix one.
+    '<div class="mx-listview mx-name-lvRows"><ul>' +
+    '<li class="mx-name-index-0"><div class="mx-dataview"><span class="mx-name-txtCode">Row R-1</span>' +
+    '<div class="mx-name-txtValue form-group"><input type="text" value=""></div></div></li>' +
+    '<li class="mx-name-index-1"><div class="mx-dataview"><span class="mx-name-txtCode">Row R-2</span>' +
+    '<div class="mx-name-txtValue form-group"><input type="text" value=""></div></div></li></ul></div>' +
     '<div class="mx-name-grid4"><table><tr><td>Order 7</td><td><button class="mx-name-btnShip">Ship</button></td></tr>' +
     '<tr><td>Order 7</td><td><button class="mx-name-btnShip">Ship</button></td></tr></table></div>';
   const srv = http.createServer((q, s) => { s.setHeader('content-type', 'text/html'); s.end(html); });
@@ -83,6 +94,12 @@ out('D:row', R.describeAct({ do: 'click', widget: 'btnShip', label: 'Ship', row:
   out('B:amb', await R.act(page, { do: 'click', widget: 'btnShip', row: 'Order 7', in: 'grid4', settleMs: 0 }, {}, note).then(() => 'no error', x => x.message));
   out('B:err', await R.act(page, { do: 'click', widget: 'btnShip', row: 'Z-999', in: 'grid1', settleMs: 0 }, {}, note).then(() => 'no error', x => x.message));
   out('B:hits', await page.evaluate(() => window.hits));
+  await R.act(page, { do: 'fill', widget: 'txtValue', row: '{{code}}', in: 'lvRows', value: '42', settleMs: 0 }, { code: 'R-2' }, note);
+  await R.act(page, { do: 'fill', widget: 'txtValue', row: 'R-1', value: '7', settleMs: 0 }, {}, note);
+  out('B:fill', await page.$$eval('.mx-name-lvRows input', els => els.map(e => e.value)));
+  out('B:fillbare', await R.act(page, { do: 'fill', widget: 'txtValue', value: 'x', settleMs: 0 }, {}, note)
+    .then(() => page.$$eval('.mx-name-lvRows input', els => els.map(e => e.value)), x => x.message));
+  out('B:fillerr', await R.act(page, { do: 'fill', widget: 'txtValue', row: 'R-9', in: 'lvRows', value: '1', settleMs: 0 }, {}, note).then(() => 'no error', x => x.message));
   await browser.close(); srv.close();
 })();
 JSEOF
@@ -94,11 +111,15 @@ else
   [ "$(get E:shown)" = '["Open SO-1001","Open {{nope}}","plain"]' ] && ok "displayed text resolves seeds; an unknown placeholder stays visible (#668)" || bad "shown" "$(get E:shown)"
   [ "$(get E:label)" = '"Ship SO-1001"' ] && [ "$(get E:label-missing)" = '"Ship {{nope}}"' ] && ok "action labels in the walk resolve seeds, unresolved stay as-is (#668)" || bad "label" "$(get E:label) / $(get E:label-missing)"
   [ "$(get D:row)" = '"Ship in the row \"B-200\""' ] && ok "the walk narrates which row was clicked" || bad "describeAct row" "$(get D:row)"
+  [ "$(get D:fillrow)" = '"\"42\" into txtValue in the row \"R-2\""' ] && ok "the walk narrates which row was filled (#760)" || bad "describeAct fill row" "$(get D:fillrow)"
   if [ -n "$(get SKIPB)" ]; then echo "  skip — no Playwright browser here ($(get SKIPB))"
   else
     [ "$(get B:hits)" = '["A","B","B2","O1","P2","Q1"]' ] && ok "bare click hits the first row (the defect); row+in hits the named row, also in a display:contents role=row grid; row \"Order 1\" never hits \"Order 10\"; a plain-div row carrying mx-name-index-N is found by fallback (#665)" || bad "row-scoped click" "$(get B:hits)"
     [ "$(get B:amb)" = '"ambiguous: 2 rows in .mx-name-grid4 say \"Order 7\""' ] && ok "two rows that both say the text throw 'ambiguous' (step FAIL), never pick one" || bad "ambiguous row" "$(get B:amb)"
     [ "$(get B:err)" = '"no row in .mx-name-grid1 says \"Z-999\""' ] && ok "a row nobody shows throws (step FAIL), never falls back to the first row" || bad "missing row" "$(get B:err)"
+    [ "$(get B:fill)" = '["7","42"]' ] && ok "fill with row+in types into the named list view item (li.mx-name-index-N), not row 1; row alone works too (#760)" || bad "row-scoped fill" "$(get B:fill)"
+    [ "$(get B:fillbare)" = '["x","42"]' ] && ok "fill without row/in keeps the old first-match behaviour" || bad "bare fill" "$(get B:fillbare)"
+    [ "$(get B:fillerr)" = '"no row in .mx-name-lvRows says \"R-9\""' ] && ok "a fill row nobody shows throws (step FAIL), never types into row 1" || bad "fill missing row" "$(get B:fillerr)"
   fi
 fi
 

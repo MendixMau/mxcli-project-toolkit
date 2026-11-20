@@ -130,18 +130,22 @@ if not build_log:
     build_log = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(ledger)))), "docs", "BUILD-LOG.md")
 STOP = ("blocked", "refused", "gate failed", "gate could not run", "rolled back", "patch failed", "patch unverified")
 if os.path.isfile(build_log):
-    per, unnamed = {}, 0
+    per, unnamed, failed = {}, 0, 0
     for line in open(build_log, encoding="utf-8", errors="replace"):
         m = re.match(r"^\|\s*(\d{4}-\d\d-\d\d)", line)
         if not m or (since and m.group(1) < since): continue
         c = line.strip().strip("|").split("|")
         if len(c) < 5 or not any(k in c[3].lower() for k in STOP): continue
-        g = re.search(r"guard=([a-z0-9-]+)", line)
-        if g: per[g.group(1)] = per.get(g.group(1), 0) + 1
-        else: unnamed += 1
+        # Anchored on exec.sh's own " · guard=" separator: detail text quoting mxcli or a CE
+        # message can carry a bare "guard=" and must not be counted.
+        g = re.search(r" · guard=([a-z0-9-]+)", line)
+        if not g: unnamed += 1
+        elif g.group(1) == "patch-exit": failed += 1   # the script failed; no guard stopped it
+        else: per[g.group(1)] = per.get(g.group(1), 0) + 1
     named = ", ".join("%s %d" % kv for kv in sorted(per.items(), key=lambda kv: (-kv[1], kv[0])))
     if unnamed: named = (named + ", " if named else "") + "unnamed %d" % unnamed
     print("  blocked by guard: %s" % (named or "none"))
+    if failed: print("  script failed (--patch exit, not a guard): %d" % failed)
 else:
     print("  blocked by guard: not counted (no docs/BUILD-LOG.md beside the ledger)")
 print()

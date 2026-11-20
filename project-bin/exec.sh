@@ -685,7 +685,11 @@ done
 # $3 (refusal, rollback and blocked rows only) names the guard that stopped the write, as a
 # stable token " · guard=<id>" right after the detail text: plan-rule · stop-row-scan ·
 # row-group-gate · lock-studio-pro · commit-first · uncommitted-model · marketplace-gate ·
-# mxcli-check · mxbuild-gate · patch-exit · hash-verify. WHY (overengineering audit,
+# mxcli-check · mxbuild-missing (toolchain absent: environment, not a catch) ·
+# pre-existing-errors (model already broken, not by this script) · mxbuild-crash (gate could
+# not run) · mxbuild-gate (errors this script introduced: the real catches) · hash-verify.
+# patch-exit is NOT a guard: the --patch script itself exited non-zero, and metrics-trend.sh
+# counts it apart, as "script failed". WHY (overengineering audit,
 # 2026-11-20): 13 of 136 field execs were "blocked or refused" and no row said which guard,
 # so nobody could weigh a guard's catches against its false refusals. Counted per guard by
 # project-bin/metrics-trend.sh. Inside the detail cell, so the row keeps its 5 cells and every
@@ -1740,7 +1744,7 @@ if [ ! -x "$MXBUILD" ] || [ ! -x "$JAVA_EXE" ]; then
       echo "  To write anyway, unverified: ALLOW_UNVERIFIED=1 ./bin/exec.sh $SCRIPT  — the commit hook will then" >&2
       echo "  refuse the result until ./bin/verify-model.sh has run the gate over it." >&2
     fi
-    log_build "✗ refused" "mxbuild gate cannot run (mxbuild: $([ -x "$MXBUILD" ] && echo ok || echo missing), java: $([ -x "$JAVA_EXE" ] && echo ok || echo missing)); nothing written" mxbuild-gate
+    log_build "✗ refused" "mxbuild gate cannot run (mxbuild: $([ -x "$MXBUILD" ] && echo ok || echo missing), java: $([ -x "$JAVA_EXE" ] && echo ok || echo missing)); nothing written" mxbuild-missing
     exit 1
   fi
 fi
@@ -2589,7 +2593,7 @@ EOF
                 echo "       CE0066  security overview → update entity access"
                 echo "       CE0463  right-click a widget → Update all widgets" ;;
             esac
-            log_build "🚫 blocked" "PRE-EXISTING $BASE_CODES — not caused by this script; needs Studio Pro" mxbuild-gate
+            log_build "🚫 blocked" "PRE-EXISTING $BASE_CODES — not caused by this script; needs Studio Pro" pre-existing-errors
           elif [ "$BASE_COUNT" = "?" ]; then
             echo "  → The restored model could not be measured, so whose error it is stays open: [$CE_CODES]."
             log_build "❌ gate failed" "$CE_COUNT error(s): $CE_CODES — script rolled back; restored model not measured" mxbuild-gate
@@ -2618,15 +2622,15 @@ EOF
       echo "  ✗ mxbuild ran on this model before the write and crashed after it — rolling the write back."
       restore_snapshot
       if [ "$RESTORED" -eq 1 ]; then
-        log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT on the written model (ran on the baseline) — script rolled back${MXB_WHY:+; mxbuild: $MXB_WHY}" mxbuild-gate
+        log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT on the written model (ran on the baseline) — script rolled back${MXB_WHY:+; mxbuild: $MXB_WHY}" mxbuild-crash
       else
         echo "  STOP: the model may not load. Restore it before the next exec: ./bin/restore-mpr.sh <newest .mpr-snapshots/ dir>"
-        log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT on the written model — NOT rolled back (restore did not run)" mxbuild-gate
+        log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT on the written model — NOT rolled back (restore did not run)" mxbuild-crash
       fi
     else
       echo "  → Snapshot preserved. Open in SP to verify manually before proceeding."
       # --patch logs its own row below, after rolling back; one row per run.
-      [ "$PATCH_MODE" = "1" ] || log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT" mxbuild-gate
+      [ "$PATCH_MODE" = "1" ] || log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT" mxbuild-crash
     fi
   else
     GATE_STATE="pass"; GATE_ERRORS=0

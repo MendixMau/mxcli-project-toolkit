@@ -42,7 +42,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `bin/ready.sh` | Claiming READY or done for a module or the app — the only way to write READY: `bin/ready.sh <project-root> [--module M]` runs the Stage 5/6 gates, the look ledger, the must-have list and (unattended) the independent review, prints K of N for each and commits the evidence; a READY line it did not write is not READY and FAILs Stage 6 and CI |
 | `skills/tool-output-is-not-ground-truth.md` | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude |
 | `bin/status.sh` | The first command of every session, and any time someone asks "where are we" or "what next" — one screen: stage, done/overdue, the ONE next action, from the instruments, never from memory |
-| `skills/retesting-learned-rules.md` | Before obeying any learned-* STOP or workaround that costs a detour — probe the binary you actually have, then stamp the verdict back into the rule |
+| `skills/retesting-learned-rules.md` | Before obeying any learned-* STOP or workaround that costs a detour, or when a newer mxcli may have fixed it — probe the binary you actually have, then stamp the verdict back into the rule |
 | `skills/checkpoints/checkpoint-cutover.md` | Going live / cutover: CAC-6, after Stage 6 passes and before any cutover or old-data migration step |
 | `skills/image-transcription.md` | Images to read listed by images-to-md or the documents index |
 | `skills/mendix-best-practices-index.md` | Asked "is there a Mendix best practice for this", or mapping a lint rule that rose in the ratchet back to the practice and the skill that prevents it |
@@ -54,7 +54,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/e2e-harness-base.md` | Standing up or extending the Playwright e2e harness |
 | `skills/learned-db-assertions.md` | Writing DB assertion tests that cross-check UI state against the database |
 | `skills/fixture-seeding.md` | Seed data, test data, demo data or fixtures are needed, or pages come up empty |
-| `skills/journey-proof.md` | Proving a module's user journey end-to-end |
+| `skills/journey-proof.md` | Proving a module's user journey end-to-end, or a trace/OTel check reads zero spans or Jaeger answers 404/unreachable |
 | `skills/unhappy-path-testing.md` | Writing or running e2e cases beyond the happy journeys (blank/whitespace required fields, over-length, duplicates, cancel, double submit, wrong state, wrong role, backend down, stale write, empty search) |
 | `skills/monkey-test.md` | Running the fuzz/crash net on a module whose journeys are already green |
 | `skills/load-test.md` | Load, performance or stress testing a page ("will it hold 1000 users", concurrent users, k6, JMeter) |
@@ -73,7 +73,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/live-demo-autopilot.md` | Running a customer demo LIVE instead of a video |
 | `skills/share-demo-package.md` | Sending a demo guide, screenshots or a quickstart doc OUTSIDE the repo |
 | `skills/improvement-register.md` | Any review pass that runs more than once |
-| `skills/journey-examples.md` | Writing an actual .journey.json |
+| `skills/journey-examples.md` | Writing or fixing a .journey.json step |
 | `skills/wiring-sweep.md` | Every module before it is called done; buttons, links or actions that do nothing when clicked |
 | `skills/must-haves.md` | Closing any module with pages, any build type |
 | `skills/rest-between-mendix-apps.md` | App-to-app REST or microservices: two or more Mendix apps you build that read each other over REST |

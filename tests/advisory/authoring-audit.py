@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """authoring-audit.py -- maintainer-side, ADVISORY authoring audit. Never ships to projects.
 
-  dupes    near-duplicate rules across skills/, agents/, CLAUDE.md and README "Baseline routing"
+  dupes    near-duplicate rules across skills/ (not skills/generated/), agents/, CLAUDE.md and README "Baseline routing"
            (sparse TF-IDF cosine on 1-2-grams). Each hit is a rule stated twice: pick the canonical
            home and make the other a pointer, or allowlist it in dupes-allow.tsv with a reason.
   routing  BM25 over the trigger text (column 3) of bin/lib/skill-routing.tsv, scored against the
@@ -63,7 +63,11 @@ def chunks_of(lines, lo=0, hi=None):
     return out
 
 def corpus(root):
-    files = sorted(glob.glob(os.path.join(root, 'skills', '**', '*.md'), recursive=True))
+    # skills/generated/ is renderer output (bin/mdl-rules.sh): its paragraphs are copies of their
+    # source skill by design, not rules stated twice. Left in, they were 135 of the top 300 pairs.
+    gen = os.path.join(root, 'skills', 'generated') + os.sep
+    files = sorted(f for f in glob.glob(os.path.join(root, 'skills', '**', '*.md'), recursive=True)
+                   if not f.startswith(gen))
     files += sorted(glob.glob(os.path.join(root, 'agents', '*.md'))) + [os.path.join(root, 'CLAUDE.md')]
     out = []
     def add(rel, lines, lo=0, hi=None):

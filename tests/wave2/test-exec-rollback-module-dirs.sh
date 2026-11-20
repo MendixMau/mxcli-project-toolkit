@@ -22,6 +22,12 @@
 #   D  a clean apply keeps the new module's folder
 #   E  a folder something else created during the exec window (themesource/peerwork/, made by
 #      the stub mxbuild) survives the rollback: only the script's own module is moved
+#   F  `create or modify module Sales` on an existing module ("Module 'Sales' already exists") whose
+#      folder the gate generates in the window is NOT moved; `create module if not exists Foo`
+#      ("Created module: Foo") is. Names come from mxcli's exec stdout, never the script text.
+#
+# The stub `mxcli exec` replays captured stdout (exec-*-v0.32.0.out, from the .mdl beside each, run
+# with the real mxcli v0.32.0-374 on a scaffolded Mendix 11.8.0 app that has a Sales module).
 #
 # Synthetic project, stub mxcli / mxbuild / java. The real snapshot-mpr.sh and restore-mpr.sh run.
 set -uo pipefail
@@ -55,8 +61,11 @@ mode="$(printf '%s\n' "$MXB_MODES" | tr ',' '\n' | sed -n "${n}p")"; mode="${mod
 # Like the real mx check: generate themesource/<module>/ for a module that has none. The model
 # holds module SlipTwo once the script's write is in it.
 M="$(dirname "${proj:-$MXB_MODEL}")"; [ -f "$M/Fixture.mpr" ] || M="$MXB_MODEL"
-if grep -q written "$M/Fixture.mpr" 2>/dev/null && [ ! -d "$M/themesource/sliptwo" ]; then
-  cp -R "$GOLD/generated-by-mx-check/sliptwo" "$M/themesource/sliptwo"
+# MXB_GEN: the module folders this "mx check" generates (default sliptwo), each from the captured set.
+if grep -q written "$M/Fixture.mpr" 2>/dev/null; then
+  for g in ${MXB_GEN:-sliptwo}; do
+    [ -d "$M/themesource/$g" ] || cp -R "$GOLD/generated-by-mx-check/sliptwo" "$M/themesource/$g"
+  done
 fi
 # E: another session writes its own new folder during the window.
 if [ -n "${MXB_PEER:-}" ] && [ "$mode" = err ]; then mkdir -p "$M/themesource/peerwork"; printf 'peer\n' > "$M/themesource/peerwork/x.scss"; fi
@@ -80,7 +89,8 @@ mk() {
   cat > "$P/mxcli" <<MXCLI
 #!/usr/bin/env bash
 case "\${1:-}" in
-  exec) echo "written" >> "$M/Fixture.mpr"; echo x >> "$M/mprcontents/a.mxunit"; echo "Created module: SlipTwo"; exit 0 ;;
+  exec) echo "written" >> "$M/Fixture.mpr"; echo x >> "$M/mprcontents/a.mxunit"
+        cat "$GOLD/\${EXEC_CAP:-exec-sliptwo-v0.32.0.out}"; exit 0 ;;
 esac
 exit 0
 MXCLI
@@ -92,7 +102,7 @@ MXCLI
 run() {  # run <project> <modes> -> RC   (MXB_MODEL: the model dir, for the stub mxbuild)
   rm -f "$WORK/n"; mkdir -p "$WORK/tmp"
   _m="$1"; [ -d "$1/app" ] && _m="$1/app"
-  ( cd "$1" && MXB_MODEL="$_m" MXB_PEER="${MXB_PEER:-}" TMPDIR="$WORK/tmp" SP_RESTART=0 MXTK_NO_INSTALL=1 SKIP_LINT=fixture MXB_N="$WORK/n" MXB_MODES="$2" \
+  ( cd "$1" && MXB_MODEL="$_m" MXB_PEER="${MXB_PEER:-}" MXB_GEN="${MXB_GEN:-}" EXEC_CAP="${EXEC_CAP:-}" TMPDIR="$WORK/tmp" SP_RESTART=0 MXTK_NO_INSTALL=1 SKIP_LINT=fixture MXB_N="$WORK/n" MXB_MODES="$2" \
       MXBUILD_PATH="$WORK/mxbuild" JAVA_HOME="$WORK/jdk" ./bin/exec.sh mdlsource/test.mdl ) >"$WORK/out" 2>&1
   RC=$?
 }
@@ -111,7 +121,7 @@ ls "$WORK/a/.mpr-snapshots"/*/stray-module-dirs/themesource/sliptwo/settings.jso
   && ok "A: moved into the snapshot (stray-module-dirs/), recoverable" || bad "A: not found under the snapshot"
 [ -z "$(git -C "$WORK/a" status --porcelain --untracked-files=all -- themesource | grep -v userwork)" ] \
   && ok "A: no untracked file left under themesource/ but the user's" || bad "A: untracked files remain" "$(git -C "$WORK/a" status --porcelain -- themesource)"
-grep -q 'Moved themesource/sliptwo/ (source folder of module SlipTwo, which this script created) to .*stray-module-dirs/themesource/sliptwo' "$WORK/out" \
+grep -q 'Moved themesource/sliptwo/ (source folder of module SlipTwo, which this run created: mxcli printed "Created module: SlipTwo") to .*stray-module-dirs/themesource/sliptwo' "$WORK/out" \
   && ok "A: the move and its destination said on screen" || bad "A: move not said" "$(grep -i 'moved\|removed' "$WORK/out")"
 grep -q 'not in the restored model' "$WORK/out" && bad "A: old wording" || ok "A: no 'not in the restored model' claim"
 kept_old "$WORK/a" "C(single)"
@@ -138,6 +148,22 @@ grep -q 'verdict=restored' "$WORK/out" && ok "E: restored" || bad "E: not restor
 [ -f "$WORK/e/themesource/peerwork/x.scss" ] && ok "E: themesource/peerwork/ (not the script's module) kept in place" \
   || bad "E: a peer's new folder was removed" "$(grep -i 'moved\|removed' "$WORK/out")"
 [ ! -e "$WORK/e/themesource/sliptwo" ] && ok "E: the script's own module folder still moved" || bad "E: sliptwo left behind"
+
+echo "== F: an existing module (create or modify) is not moved; a module made by 'if not exists' is =="
+# Script and mxcli output both verbatim (exec-existing-and-ifnotexists-v0.32.0.*): mxcli printed
+# "Module 'Sales' already exists" and "Created module: Foo". The gate generates themesource/sales/
+# (this project tracks none) and themesource/foo/ during the window.
+mk "$WORK/f" ""
+( cd "$WORK/f" && git rm -rq themesource/sales && git -c user.email=t@t -c user.name=t commit -qm "no sales theme" ) >/dev/null 2>&1
+cp "$GOLD/exec-existing-and-ifnotexists-v0.32.0.mdl" "$WORK/f/mdlsource/test.mdl"
+( cd "$WORK/f" && git add mdlsource && git -c user.email=t@t -c user.name=t commit -qm s ) >/dev/null 2>&1
+MXB_GEN="sales foo" EXEC_CAP=exec-existing-and-ifnotexists-v0.32.0.out run "$WORK/f" ok,err,ok
+grep -q 'verdict=restored' "$WORK/out" && ok "F: restored" || bad "F: not restored" "rc=$RC $(tail -5 "$WORK/out")"
+[ -d "$WORK/f/themesource/sales" ] && ok "F: themesource/sales/ (existing module, 'already exists') left in place" \
+  || bad "F: an existing module's folder was moved" "$(grep -i 'moved' "$WORK/out")"
+grep -q 'Moved themesource/sales/' "$WORK/out" && bad "F: claimed the run created Sales" || ok "F: no move claimed for Sales"
+[ ! -e "$WORK/f/themesource/foo" ] && ls "$WORK/f/.mpr-snapshots"/*/stray-module-dirs/themesource/foo/settings.json >/dev/null 2>&1 \
+  && ok "F: themesource/foo/ ('if not exists', created) moved into the snapshot" || bad "F: foo not moved" "$(grep -i 'moved' "$WORK/out")"
 
 echo ""
 echo "== $PASS passed, $FAIL failed"

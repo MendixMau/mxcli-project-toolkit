@@ -1,0 +1,3 @@
+mdl 1;
+create or modify module Sales;
+create module if not exists Foo;

@@ -1066,7 +1066,7 @@ if [ "$LOCK_TAKEN" != 1 ]; then
   echo "  → Wait for the other exec to finish, then re-run. Nothing was written."
   exit 1
 fi
-trap 'mxtk_resume_watchers; exec_lock_release; [ "$_PROFILING" != 1 ] || _prof_report' EXIT
+trap 'mxtk_resume_watchers; exec_lock_release; [ -z "${EXEC_OUT:-}" ] || rm -f -- "$EXEC_OUT"; [ "$_PROFILING" != 1 ] || _prof_report' EXIT
 mxtk_resume_leftover "$PROJECT_ROOT"   # a watcher an earlier, SIGKILLed exec.sh left stopped
 
 # 3. A raw `mxcli exec` elsewhere on the machine is NOT this project's business. The old guard
@@ -1746,9 +1746,10 @@ fi
 # themesource/<module>/ (settings.json, web/*, native/*, public/) for every module that lacks one
 # (mxcli v0.32 + MxBuild 11.8.0, captured in fixtures/exec-rollback-module-dirs/). After a rollback
 # those folders stayed, untracked, for a module the model no longer has. So after a successful restore,
-# the folders of the modules THIS SCRIPT creates (`create module X`: themesource/<x>, javasource/<x>,
+# the folders of the modules THIS RUN created (`Created module: X`: themesource/<x>, javasource/<x>,
 # javascriptsource/<X> or <x>, the names mxcli's removeModuleSourceDirs uses) are moved into the
 # snapshot (stray-module-dirs/), when they were not there at snapshot time and hold no tracked file.
+# "Creates" is read from mxcli's own exec output (script_created_modules), not from the script text.
 # Nothing else is touched: another session's or the user's new folder in the same window stays put.
 module_dirs() {
   local d
@@ -1757,11 +1758,15 @@ module_dirs() {
   done
   return 0
 }
-script_created_modules() {  # module names from `create module X` statements in $SCRIPT
-  [ "$PATCH_MODE" = "1" ] || [ ! -f "$SCRIPT" ] && return 0
-  grep -iE '^[[:space:]]*create[[:space:]]+(or[[:space:]]+(modify|replace)[[:space:]]+)?module[[:space:]]' "$SCRIPT" 2>/dev/null \
-    | sed -E 's/^[[:space:]]*[Cc][Rr][Ee][Aa][Tt][Ee][[:space:]]+([Oo][Rr][[:space:]]+[A-Za-z]+[[:space:]]+)?[Mm][Oo][Dd][Uu][Ll][Ee][[:space:]]+"?([A-Za-z_][A-Za-z0-9_]*).*/\2/' \
-    | grep -E '^[A-Za-z_][A-Za-z0-9_]*$' || true
+# Modules mxcli actually created in this run, from its exec stdout (captured verbatim, mxcli v0.32:
+# "Created module: X"; an existing module prints "Module 'X' already exists", `if not exists` on an
+# existing one "module X already exists, skipped (if not exists)", a module role "Created module role:
+# M.R" — none of those match). Not the script text: `create or modify module Sales` on an existing
+# module named a folder the gate regenerates, and the move then claimed the script created it.
+# No captured exec output (a --patch run, or no write) = no names = nothing is moved.
+script_created_modules() {
+  [ -n "${EXEC_OUT:-}" ] && [ -f "$EXEC_OUT" ] || return 0
+  tr -d '\r' < "$EXEC_OUT" | sed -n 's/^Created module: \([A-Za-z_][A-Za-z0-9_]*\)$/\1/p' || true
 }
 move_stray_module_dirs() {
   local m lm d rel dest
@@ -1776,7 +1781,7 @@ move_stray_module_dirs() {
       [ -n "$(git -C "$PROJECT_ROOT" ls-files -- "$rel" 2>/dev/null | head -1)" ] && continue
       dest="${NEWEST_SNAP%/}/stray-module-dirs/$rel"
       mkdir -p "$(dirname "$dest")" && mv -- "$d" "$dest" \
-        && echo "  → Moved $rel/ (source folder of module $m, which this script created) to $dest"
+        && echo "  → Moved $rel/ (source folder of module $m, which this run created: mxcli printed \"Created module: $m\") to $dest"
     done
   done
 }
@@ -2370,7 +2375,9 @@ EOF_HV
     rm -f "$HV_BASE" "$HV_POST"
   fi
 else
-  "${PMXCLI:-./mxcli}" exec "$SCRIPT" -p "$MPR" || EXEC_STATUS=$?
+  # stdout is kept (EXEC_OUT) for move_stray_module_dirs, which reads its "Created module:" lines.
+  EXEC_OUT="$(mktemp "${TMPDIR:-/tmp}/exec-out.XXXXXX")"
+  "${PMXCLI:-./mxcli}" exec "$SCRIPT" -p "$MPR" | tee "$EXEC_OUT"; EXEC_STATUS=${PIPESTATUS[0]}
 fi
 
 if [ "$EXEC_STATUS" -ne 0 ]; then

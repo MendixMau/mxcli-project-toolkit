@@ -1741,10 +1741,37 @@ if [ ! -x "$MXBUILD" ] || [ ! -x "$JAVA_EXE" ]; then
   fi
 fi
 
+# The snapshot holds the .mpr and mprcontents/ only. `create module` also writes the module's source
+# folders beside the .mpr (mxcli v0.32: themesource/<module>/{settings.json,web/*,native/*}, measured
+# on a rolled-back real exec, fixtures/exec-rollback-module-dirs/), so a restore left them behind,
+# untracked, for a module the model no longer has. module_dirs lists the folders under the three roots
+# mxcli writes per module; after a successful restore, a folder that was not there at snapshot time
+# and holds no tracked file is removed. Anything that existed before the write is never touched.
+module_dirs() {
+  local d
+  for d in "$MODEL_DIR"/themesource/*/ "$MODEL_DIR"/javasource/*/ "$MODEL_DIR"/javascriptsource/*/; do
+    [ -d "$d" ] && printf '%s\n' "${d%/}"
+  done
+  return 0
+}
+remove_new_module_dirs() {
+  local d rel
+  while IFS= read -r d; do
+    [ -n "$d" ] || continue
+    printf '%s\n' "$MODDIRS_BEFORE" | grep -qxF -- "$d" && continue
+    rel="${d#"$PROJECT_ROOT"/}"
+    [ -n "$(git -C "$PROJECT_ROOT" ls-files -- "$rel" 2>/dev/null | head -1)" ] && continue
+    rm -rf -- "$d" && echo "  → Removed $rel/ (created by this write, not in the restored model)"
+  done <<EOF_MD
+$(module_dirs)
+EOF_MD
+}
 step_done check
 echo "→ Snapshotting model..."
 ./bin/snapshot-mpr.sh
 step_done snapshot
+# Module source folders as they stand before the write (see module_dirs / restore_snapshot below).
+MODDIRS_BEFORE="$(module_dirs)"
 # The snapshot just taken. A --patch run hands it to the script as MXPATCH_BACKUP_DIR, so the
 # .bak that bin/mxpatch.py keeps of each unit it rewrites lands beside the snapshot, OUTSIDE
 # the model tree, and is pruned with it. Until 2026-10-15 it was <unit>.mxunit.bak inside
@@ -1776,6 +1803,7 @@ restore_snapshot() {
   elif R_OUT=$(MXTK_RESTORE_SAME_LEDGER=1 bash "$RESTORER" "$NEWEST_SNAP" 2>&1); then
     RESTORED=1
     printf '%s\n' "$R_OUT" | sed 's/^/  → /'
+    [ -n "${MODDIRS_BEFORE+x}" ] && remove_new_module_dirs
     echo "  → Auto-restored from: $NEWEST_SNAP"
   else
     printf '%s\n' "$R_OUT" | sed 's/^/     /'

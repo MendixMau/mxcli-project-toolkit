@@ -638,22 +638,36 @@ async function screenshotEl(page, selector, file) {
 // is taken, and the viewport is restored. Returns a record, never a bare boolean: `complete` is
 // false when the capture still came up short, so a cropped shot says so on its own record.
 const SHOT_MAX_PX = 16000;   // Chromium's texture limit is 16384; past this the shot is cut and says so
-async function innerScrollExtra(page) {
-  return page.evaluate(() => {
-    let best = null;
+const SHOT_ATTR = 'data-mxtk-shot-root';
+// Picks the page's scroll root: the OUTERMOST element that scrolls vertically, hides content and
+// spans at least half the viewport. A fixed-height grid body inside the Atlas centre also
+// qualifies on size, but it sits inside the centre, so the centre wins. The pick is tagged, so
+// it is the same element that is re-measured after the window grows.
+async function pickScrollRoot(page) {
+  return page.evaluate((attr) => {
+    for (const el of document.querySelectorAll(`[${attr}]`)) el.removeAttribute(attr);
+    const cands = [];
     for (const el of document.querySelectorAll('body *')) {
       const oy = getComputedStyle(el).overflowY;
       if (oy !== 'auto' && oy !== 'scroll') continue;
-      const extra = el.scrollHeight - el.clientHeight;
-      // Only a scroller that spans most of the viewport is the page's scroll root; a 300 px
-      // panel with its own scrollbar does not grow with the window and is shot as it is.
-      if (extra > 4 && el.clientHeight >= innerHeight / 2 && (!best || extra > best.extra)) {
-        best = { extra, contentPx: el.scrollHeight, clientPx: el.clientHeight,
-                 root: `${el.tagName.toLowerCase()}.${String(el.className).trim().split(/\s+/)[0]}` };
-      }
+      if (el.scrollHeight - el.clientHeight > 4 && el.clientHeight >= innerHeight / 2) cands.push(el);
     }
-    return { best, docPx: document.documentElement.scrollHeight };
-  }).catch(() => ({ best: null, docPx: null }));
+    const outer = cands.filter(el => !cands.some(o => o !== el && o.contains(el)));
+    outer.sort((a, b) => b.clientHeight - a.clientHeight);
+    const el = outer[0];
+    if (el) el.setAttribute(attr, '1');
+    return { root: el ? `${el.tagName.toLowerCase()}.${String(el.className).trim().split(/\s+/)[0]}` : null,
+             contentPx: el ? el.scrollHeight : null, clientPx: el ? el.clientHeight : null,
+             docPx: document.documentElement.scrollHeight };
+  }, SHOT_ATTR).catch(() => ({ root: null, docPx: null }));
+}
+// The tagged root's own numbers now (null when it is gone).
+async function measureRoot(page) {
+  return page.evaluate((attr) => {
+    const el = document.querySelector(`[${attr}]`);
+    return { contentPx: el ? el.scrollHeight : null, clientPx: el ? el.clientHeight : null,
+             docPx: document.documentElement.scrollHeight };
+  }, SHOT_ATTR).catch(() => ({ contentPx: null, clientPx: null, docPx: null }));
 }
 // One retry: under load Chromium can answer "Unable to capture screenshot" once, and the old
 // `.catch(() => {})` then left no file and no word about it (seen 1 in 10 fixture runs on 4 busy CPUs).
@@ -663,35 +677,50 @@ async function screenshotRetry(page, opts) {
 }
 async function fullPageShot(page, file) {
   const vp = page.viewportSize();
-  let m = await innerScrollExtra(page);
-  const rec = { file, scrollRoot: m.best ? m.best.root : 'document', documentPx: m.docPx,
-                contentPx: m.best ? m.best.contentPx : m.docPx, capturedPx: null, method: 'fullPage', complete: null };
-  if (m.best && vp) {
-    rec.method = 'viewport grown by the inner scroller\'s hidden height, then fullPage';
+  const pick = await pickScrollRoot(page);
+  const rec = { file, scrollRoot: pick.root || 'document', documentPx: pick.docPx,
+                contentPx: pick.root ? pick.contentPx : pick.docPx, capturedPx: null, method: 'fullPage', complete: null };
+  // A Node-side wait, not requestAnimationFrame: a page with scripting off (a saved MHTML) never
+  // runs rAF, and reading scrollHeight forces layout anyway. The wait is for the app's resize handlers.
+  const settle = () => page.waitForTimeout(250);
+  let grown = false;
+  if (pick.root && vp) {
     try {
+      let m = { contentPx: pick.contentPx, clientPx: pick.clientPx };
       // Grown up to three times: content tied to the viewport height can grow with it.
-      for (let i = 0; i < 3 && m.best; i++) {
+      for (let i = 0; i < 3; i++) {
+        const left = m.contentPx - m.clientPx;
+        if (left <= 4) break;
         const cur = page.viewportSize();
-        const before = m.best.extra;
-        const h = Math.min(SHOT_MAX_PX, cur.height + before);
+        const h = Math.min(SHOT_MAX_PX, cur.height + left);
         if (h <= cur.height) break;
         await page.setViewportSize({ width: cur.width, height: h });
-        // A Node-side wait, not requestAnimationFrame: a page with scripting off (a saved MHTML)
-        // never runs rAF, and reading scrollHeight below forces layout anyway. The wait is for
-        // the app's own resize handlers.
-        await page.waitForTimeout(250);
-        m = await innerScrollExtra(page);
-        if (m.best && m.best.extra >= before) break;   // not tied to the viewport: growing more adds nothing
+        await settle();
+        const n = await measureRoot(page);
+        // Viewport-tied means the root's own box grew with the window. A fixed-height scroller
+        // (a 480 px grid body) does not: growing the window would only add blank page below it.
+        if (n.clientPx == null || n.clientPx - m.clientPx < (h - cur.height) / 2) break;
+        grown = true; m = n;
       }
-      await screenshotRetry(page, { path: file, fullPage: true });
-      rec.capturedPx = Math.max(page.viewportSize().height, m.docPx || 0);
-      rec.complete = !m.best;
+      if (grown) {
+        rec.method = 'viewport grown by the scroll root\'s hidden height, then fullPage';
+        await screenshotRetry(page, { path: file, fullPage: true });
+        rec.capturedPx = Math.max(page.viewportSize().height, m.docPx || 0);
+        rec.contentPx = m.contentPx;
+        rec.complete = m.contentPx - m.clientPx <= 4;   // the root's OWN leftover, not a re-pick
+      } else {
+        rec.method = 'fullPage (the scroller is not tied to the viewport; shot as it is)';
+      }
     } catch (e) { rec.error = String(e.message).split('\n')[0]; }
-    finally { await page.setViewportSize(vp).catch(() => {}); }
-    return rec;
+    finally {
+      if (page.viewportSize() && page.viewportSize().height !== vp.height) { await page.setViewportSize(vp).catch(() => {}); await settle().catch(() => {}); }
+      await page.evaluate((attr) => { for (const el of document.querySelectorAll(`[${attr}]`)) el.removeAttribute(attr); }, SHOT_ATTR).catch(() => {});
+    }
+    if (grown || rec.error) return rec;
+    rec.skippedScroller = pick.root; rec.scrollRoot = 'document'; rec.contentPx = pick.docPx;
   }
-  await screenshotRetry(page, { path: file, fullPage: true }).then(() => {
-    rec.capturedPx = m.docPx; rec.complete = true;
+  await screenshotRetry(page, { path: file, fullPage: true }).then(async () => {
+    rec.capturedPx = (await measureRoot(page)).docPx; rec.complete = true;
   }, (e) => { rec.error = String(e.message).split('\n')[0]; });
   return rec;
 }

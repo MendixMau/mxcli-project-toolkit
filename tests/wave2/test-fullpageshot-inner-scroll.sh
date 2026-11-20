@@ -8,8 +8,15 @@
 # Atlas_Default scrolls the document, and that shape must keep its full shot.
 #
 # Golden input is CAPTURED (fixtures/runtime-mx118/overview-*-1280x900.mhtml.gz): CDP MHTML
-# snapshots (DOM plus CSS) of the same 29-row overview page under both layouts, from a live
-# Mendix 11.8.0 runtime. Chromium loads them from file:// at 1280x900 — no app needed.
+# snapshots (DOM plus CSS) of the same overview page (30 rows, 20 per page) under both layouts,
+# from a live Mendix 11.8.0 runtime. Chromium loads them from file:// at 1280x900 — no app needed.
+#
+# Review of #825: a scroller that does NOT grow with the window (a fixed-height grid body) must
+# never make the shot balloon. The same captures are re-run with one CSS rule appended that turns
+# .widget-datagrid-grid-body into a fixed 480 px or 800 px scroller — the only non-captured input,
+# and it is a style override on the captured DOM, not a hand-written page. The old pick (largest
+# hidden height among scrollers of at least half the viewport) shot 4196 px, mostly blank, for the
+# 480 px case on the live app.
 
 set -uo pipefail
 
@@ -47,22 +54,26 @@ const fs = require('fs'); const path = require('path');
   let H, chromium;
   try { H = require('./helpers.js'); ({ chromium } = require('playwright')); } catch (e) { console.log('SKIP ' + e.message.split('\n')[0]); return; }
   let b; try { b = await chromium.launch(); } catch (e) { console.log('SKIP ' + e.message.split('\n')[0]); return; }
-  for (const l of ['SideBar', 'Default']) {
+  for (const [l, gridPx] of [['SideBar', 0], ['Default', 0], ['SideBar', 480], ['Default', 480], ['SideBar', 800]]) {
     const p = await b.newPage({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 1 });
     await p.goto(require('url').pathToFileURL(path.join(process.env.WORK, l + '.mhtml')).href);
+    // addStyleTag waits for a load event a scripting-off MHTML page never fires; append directly.
+    if (gridPx) await p.evaluate((px) => { const st = document.createElement('style');
+      st.textContent = `.widget-datagrid-grid-body{display:block !important;height:${px}px !important;overflow-y:auto !important}`;
+      document.head.appendChild(st); }, gridPx);
     const m = await p.evaluate(() => { const c = document.querySelector('.mx-scrollcontainer-center');
       return { doc: document.documentElement.scrollHeight, center: c.scrollHeight, client: c.clientHeight }; });
-    const file = path.join(process.env.WORK, l + '.png');
+    const file = path.join(process.env.WORK, `${l}-${gridPx}.png`);
     const rec = await H.fullPageShot(p, file);
     const png = fs.existsSync(file) ? fs.readFileSync(file) : null;
-    console.log(`${l} ` + JSON.stringify({ ...m, shotH: png ? png.readUInt32BE(20) : 0, shotW: png ? png.readUInt32BE(16) : 0,
+    console.log(`${l}${gridPx ? '-g' + gridPx : ''} ` + JSON.stringify({ ...m, shotH: png ? png.readUInt32BE(20) : 0, shotW: png ? png.readUInt32BE(16) : 0,
       vpAfter: p.viewportSize().height, complete: rec && rec.complete, root: rec && rec.scrollRoot, error: rec && rec.error }));
     await p.close();
   }
   await b.close();
 })().catch(e => console.log('ERR ' + e.message));
 JSEOF
-OUT="$(cd "$WORK/tests/e2e" && printf '%s' "$JS" | WORK="$WORK" APP_PORT=1 timeout 120 node - 2>&1)"
+OUT="$(cd "$WORK/tests/e2e" && printf '%s' "$JS" | WORK="$WORK" APP_PORT=1 timeout 240 node - 2>&1)"
 get() { printf '%s\n' "$OUT" | sed -n "s/^$1 //p"; }
 if [ -n "$(get SKIP)" ]; then
   echo "  skip — $(get SKIP)"
@@ -82,6 +93,17 @@ else
   [ "$(num "$SB" vpAfter)" = 900 ] && [ "$(num "$SB" shotW)" = 1280 ] && ok "SideBar: viewport restored to 900 px, width unchanged" || bad "viewport not restored" "$SB"
   [ "$(num "$DF" shotH)" = "$(num "$DF" doc)" ] \
     && ok "Default: shot is the full document ($(num "$DF" shotH) px), the plain fullPage path kept" || bad "Default shot" "$DF"
+  # Fixed-height grid body: the shot is never taller than the page's real content (+60 px).
+  for k in SideBar-g480 Default-g480 SideBar-g800; do
+    R="$(get "$k")"; SH="$(num "$R" shotH)"; D="$(num "$R" doc)"; CC="$(num "$R" center)"
+    MAXC=$D; [ "${CC:-0}" -gt "$MAXC" ] && MAXC=$CC
+    [ -n "$SH" ] && [ "$SH" -ge "$D" ] && [ "$SH" -le $((MAXC + 60)) ] && [ "$(num "$R" vpAfter)" = 900 ] \
+      && printf '%s' "$R" | grep -q '"complete":true' \
+      && ok "$k: fixed-height grid body → shot ${SH} px for ${MAXC} px of page content, viewport restored, complete" \
+      || bad "$k: shot ballooned or record wrong" "$R"
+  done
+  printf '%s' "$(get SideBar-g800)" | grep -q '"root":"div.mx-scrollcontainer-center"' \
+    && ok "SideBar-g800: the outermost scroller (the centre) is the root, not the grid body inside it" || bad "SideBar-g800 root" "$(get SideBar-g800)"
 fi
 [ -n "$(get ERR)" ] && bad "fixture threw" "$(get ERR)"
 

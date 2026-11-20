@@ -93,7 +93,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/share-demo-package.md` | Sending a demo guide, screenshots or a quickstart doc OUTSIDE the repo |
 | `skills/lint-that-actually-runs.md` | Reading a lint result, or writing/repairing any .star rule |
 | `skills/improvement-register.md` | Any review pass that runs more than once |
-| `skills/journey-examples.md` | Writing or fixing a .journey.json step |
+| `skills/journey-examples.md` | Writing or fixing a .journey.json step or a row/fill selector that matches nothing in a list view or grid row |
 | `skills/wiring-sweep.md` | Every module before it is called done; buttons, links or actions that do nothing when clicked |
 | `skills/must-haves.md` | Closing any module with pages, any build type |
 | `skills/workflow-structure-rules.md` | Designing or reviewing a Workflow's SHAPE before or after the MDL |

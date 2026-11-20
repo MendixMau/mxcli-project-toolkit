@@ -73,7 +73,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/live-demo-autopilot.md` | Running a customer demo LIVE instead of a video |
 | `skills/share-demo-package.md` | Sending a demo guide, screenshots or a quickstart doc OUTSIDE the repo |
 | `skills/improvement-register.md` | Any review pass that runs more than once |
-| `skills/journey-examples.md` | Writing or fixing a .journey.json step |
+| `skills/journey-examples.md` | Writing or fixing a .journey.json step or a row/fill selector that matches nothing in a list view or grid row |
 | `skills/wiring-sweep.md` | Every module before it is called done; buttons, links or actions that do nothing when clicked |
 | `skills/must-haves.md` | Closing any module with pages, any build type |
 | `skills/rest-between-mendix-apps.md` | App-to-app REST or microservices: two or more Mendix apps you build that read each other over REST |

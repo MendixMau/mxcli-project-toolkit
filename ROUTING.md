@@ -102,7 +102,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Turning BRDs plus architecture into a numbered, dependency-ordered build plan | `skills/brd-to-build-plan.md` | architect | 3,4 | ondemand |
 | Building the Stage 4 coverage ledger — every requirement either claimed by a build-plan row or catalogued with a reason, never invisible | `skills/coverage-ledger.md` | architect,gate | 4 | ondemand |
 | Checking a coverage ledger against its BRD — every scalar leaf CLAIMED, LEDGERED, UNCLAIMED, PHANTOM or DOUBLE-CLAIMED, so coverage is measured rather than remembered | `bin/coverage-check.sh` | architect,gate | 4 | ondemand |
-| Writing or fixing a .journey.json step — a row/fill selector that matches nothing (list view item, grid row), a seed value, a span claim — the worked field-by-field reference for the contract journey-proof.md argues for | `skills/journey-examples.md` | test,review | 5,6 | ondemand |
+| Writing or fixing a .journey.json step or a row/fill selector that matches nothing in a list view or grid row — a seed value, a span claim — the worked field-by-field reference for the contract journey-proof.md argues for | `skills/journey-examples.md` | test,review | 5,6 | ondemand |
 | Extracting structured requirements from a large delivered document corpus into per-scope knowledge-base files | `skills/corpus-extraction-integrity.md` | ba | P,0,1 | ondemand |
 
 #### Architecture — how it is shaped
@@ -198,7 +198,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 
 | Always relevant for | Load this | Agent(s) | Stage(s) | Tier |
 |---|---|---|---|---|
-| Writing or debugging a Mendix native Workflow (CREATE WORKFLOW/USER TASK/OUTCOMES) — syntax, the 11 workflow microflow statements, DECISION vs CALL MICROFLOW, and the two corruption classes (binary-version $Type, and create-before-reference), and routing decisions or parallel splits through a microflow when BUG-76/121 blocks the native form | `skills/learned-workflow-patterns.md` | mdl | 5 | ondemand |
+| Writing or debugging a Mendix native Workflow (CREATE WORKFLOW/USER TASK/OUTCOMES), or routing decisions/parallel splits via a microflow when BUG-76/121 blocks it — syntax, the 11 workflow microflow statements, DECISION vs CALL MICROFLOW, and the two corruption classes (binary-version $Type, and create-before-reference) | `skills/learned-workflow-patterns.md` | mdl | 5 | ondemand |
 | Designing or reviewing a Workflow's SHAPE before or after the MDL — where a path may end, boundary event vs event sub-process, parallel-split limits, outcome minimums, targeting from the sentence, multi-user decision methods, which edits break running instances; and any CE6689/CE1844/CE1845/MW0012 after a clean mxcli check | `skills/workflow-structure-rules.md` | architect,mdl,review | 3,4,5,6 | ondemand |
 
 #### Build · Integration

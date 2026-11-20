@@ -95,7 +95,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/improvement-register.md` | Any review pass that runs more than once |
 | `skills/wiring-sweep.md` | Every module before it is called done; buttons, links or actions that do nothing when clicked |
 | `skills/must-haves.md` | Closing any module with pages, any build type |
-| `skills/learned-workflow-patterns.md` | Writing or debugging a Mendix native Workflow (CREATE WORKFLOW/USER TASK/OUTCOMES) |
+| `skills/learned-workflow-patterns.md` | Writing or debugging a Mendix native Workflow (CREATE WORKFLOW/USER TASK/OUTCOMES), or routing decisions/parallel splits via a microflow when BUG-76/121 blocks it |
 | `skills/workflow-structure-rules.md` | Designing or reviewing a Workflow's SHAPE before or after the MDL |
 | `skills/rest-integration-first-time-right.md` | Building a REST integration (consumed or published) for the first time on a project |
 | `skills/rest-between-mendix-apps.md` | App-to-app REST or microservices: two or more Mendix apps you build that read each other over REST |

@@ -32,7 +32,7 @@ Before the retest:
 
 ### STOP #12 — expressions in ContentParams
 
-**CHANGED on v0.32.0-374.** An expression builds when every attribute in it is written `$currentObject/Attr`: `$currentObject/Name`, `toString($currentObject/Status)` and `if $currentObject/Name = '' then 'none' else $currentObject/Name` pass `check`, are stored as expressions, and give `mx check` 0 errors. A bare attribute inside a function — `toString(Status)`, in a data view, in a customContent column, or in the `[ … ]` list spelling — still passes `check` and `exec` and fails `mx check` with CE0117 (was CE1613). The live row now states the v0.32.0-374 rule.
+**CHANGED on v0.32.0-374.** An expression builds when every attribute in it is written `$currentObject/Attr`: `$currentObject/Name`, `toString($currentObject/Status)` and `if $currentObject/Name = '' then 'none' else $currentObject/Name` pass `check`, are stored as expressions, and give `mx check` 0 errors. A bare attribute inside a function — `toString(Status)`, in a data view, in a customContent column, or in the `[ … ]` list spelling — still passes `check` and `exec` and fails `mx check` with CE0117 (was CE1613). A format-string function, `formatDecimal($currentObject/Amount, '0.00')`, also passes `check` and fails CE0117 (behaviour A/B, 2026-11-20). The live row now states the v0.32.0-374 rule.
 
 Before the retest:
 

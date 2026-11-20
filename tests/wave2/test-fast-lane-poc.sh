@@ -22,6 +22,7 @@
 #   P4  the kick-off brief (CONVERSION-RUNBOOK.md) no longer demands build-ready of a POC
 #   P5  Entry mode: poc with Build type: full reads as FULL, loudly (gate-check, exec.sh's reader);
 #       `Build type: poc → full (CR-01)` reads as full (review of #828)
+#   P7  a word merely containing "full" ("fullscreen") does not flip a POC (re-review of #828)
 #   P6  bin/ready.sh on a POC with an unseen page names the page (it parses Stage 5's look text)
 set -uo pipefail
 
@@ -114,6 +115,17 @@ mkp; setline "$P/PROJECT.md" "Build type" "poc → full (CR-01)"
 mxtk_pos_read "$P"; gc "$P" build-ready
 [ "$POS_BUILD" = full ] && case "$out" in *"BUILD-READY: N/A"*) false ;; *) true ;; esac \
   && ok "P5 'Build type: poc → full (CR-01)' reads as full (exec reader and gate-check)" || bad "P5 poc → full reads as full" "build=$POS_BUILD"
+case "$out" in *"⚠ Build type: poc → full (CR-01) starts with poc but names full"*) ok "P5 gate-check warns when a poc-prefixed line reads as full" ;; *) bad "P5 gate-check warns on poc → full" ;; esac
+
+echo "-- P7: 'fullscreen' is not 'full'"
+mkp; setline "$P/PROJECT.md" "Build type" "poc — CONFIRMED (user, fullscreen kiosk)"; setline "$P/PROJECT.md" "Interview mode" auto
+mxtk_pos_read "$P"; gc "$P" build-ready
+[ "$POS_BUILD" = poc ] && [ "$POS_POC_CONFLICT" = 0 ] && ok "P7 exec's reader keeps it poc, no conflict" || bad "P7 exec reader" "build=$POS_BUILD conflict=$POS_POC_CONFLICT"
+[ "$rc" = 0 ] && case "$out" in *"BUILD-READY: N/A (Build type: poc)"*) true ;; *) false ;; esac && ! grep -q 'names full\|read as a FULL' <<<"$out" \
+  && ok "P7 gate-check keeps it poc (build-ready N/A), no warning" || bad "P7 gate-check" "rc=$rc $(grep -E 'BUILD-READY|FULL' <<<"$out")"
+mkp; setline "$P/PROJECT.md" "Entry mode" poc; setline "$P/PROJECT.md" "Build type" "poc (fullscreen kiosk)"
+mxtk_pos_read "$P"
+[ "$POS_BUILD" = poc ] && [ "$POS_POC_CONFLICT" = 0 ] && ok "P7 Entry mode: poc + 'poc (fullscreen kiosk)' stays poc" || bad "P7 entry poc + fullscreen" "build=$POS_BUILD conflict=$POS_POC_CONFLICT"
 
 echo "-- P6: ready.sh names a POC's unseen page"
 mkp; setline "$P/PROJECT.md" "Build type" poc; look_summary "$P"

@@ -75,6 +75,14 @@ _mxtk_emt() {
   _EMT="$tok"
 }
 
+# mxtk_bt_names_full <build-type value> — true when the value names `full` as a WORD ("full",
+# "poc → full (CR-01)", "full build"), never as part of one ("fullscreen kiosk demo"). The one test
+# both mxtk_pos_read and gate-check.sh use for "this Build type line says full" (re-review of #828:
+# a substring test flipped `poc — CONFIRMED (user, fullscreen kiosk)` to a full build, silently).
+mxtk_bt_names_full() {
+  [[ "${1-}" =~ (^|[^A-Za-z])[Ff][Uu][Ll][Ll]([^A-Za-z]|$) ]]
+}
+
 # mxtk_auto_word <text> — true when the text's first word is `auto` or `unattended`, any case, with
 # markdown emphasis, backticks and trailing punctuation ignored ("**Auto** (questions to
 # questions.md)", "unattended — logged"). THE one reading of an Interview mode value as unattended:
@@ -96,7 +104,7 @@ mxtk_auto_word() {
 #   POS_ENTRY     canonical token, or "" (none declared / not recognised)
 #   POS_ADOPTED   the "Adopted at stage:" stage (P|0-7), or ""
 #   POS_BUILD     "poc" when "Build type: poc" or "Entry mode: poc", else "full" (a Build type naming
-#                 full wins over Entry mode: poc; POS_POC_CONFLICT=1 then)
+#                 full — as a word — wins over Entry mode: poc or a poc prefix; POS_POC_CONFLICT=1 then)
 #   POS_WAIVED4   1 when a "Waived stage 4:" line carries a reason, or a "Waived stages:" line lists 4
 #                 before its dash with a reason after it (the two spellings gate-check.sh reads)
 #   POS_READOUT   the stage in gate-check.sh's "## Current stage" readout ("**Stage 5 — ..."), or ""
@@ -152,8 +160,12 @@ mxtk_pos_read() {
       fi
     done < "$root/intake.md"
   fi
-  # poc only when the value starts with poc and never names full ("poc → full (CR-01)" is full).
-  [[ "$bt" =~ ^[[:blank:]]*poc([^a-z]|$) ]] && [[ "$bt" != *full* ]] && POS_BUILD="poc"
+  # poc only when the value starts with poc and never names the WORD full ("poc → full (CR-01)" is
+  # full; "poc (fullscreen kiosk)" is poc). A poc-prefixed line read as full sets POS_POC_CONFLICT.
+  POS_POC_CONFLICT=0
+  if [[ "$bt" =~ ^[[:blank:]]*poc([^a-z]|$) ]]; then
+    if mxtk_bt_names_full "$bt"; then POS_POC_CONFLICT=1; else POS_BUILD="poc"; fi
+  fi
   local _imf=""
   [ -f "$root/.claude/.interview-mode" ] && { IFS= read -r _imf < "$root/.claude/.interview-mode" || true; }
   if mxtk_auto_word "${CLAUDE_INTERVIEW_MODE:-}" || mxtk_auto_word "$_imf" || mxtk_auto_word "$im"; then POS_AUTO=1; fi
@@ -161,9 +173,8 @@ mxtk_pos_read() {
   [ "$_nc" = 1 ] || shopt -u nocasematch
   if [ -n "$entry_raw" ]; then _mxtk_emt "$entry_raw" 2>/dev/null; POS_ENTRY="$_EMT"; fi
   # Entry mode: poc implies poc, unless a Build type line says full: full wins, and POS_POC_CONFLICT says so.
-  POS_POC_CONFLICT=0
   if [ "$POS_ENTRY" = poc ]; then
-    if [[ "$bt" == *[Ff][Uu][Ll][Ll]* ]]; then POS_POC_CONFLICT=1; else POS_BUILD="poc"; fi
+    if mxtk_bt_names_full "$bt"; then POS_POC_CONFLICT=1; else POS_BUILD="poc"; fi
   fi
   return 0
 }

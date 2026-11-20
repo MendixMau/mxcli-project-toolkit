@@ -694,15 +694,26 @@ ENTRY_MODE="$(entry_mode_token "$ENTRY_RAW")"
 BUILD_TYPE_RAW="$(reg_field "build type" 2>/dev/null || true)"
 # poc only when the value starts with the word poc AND never names full: "poc → full (CR-01)" is a
 # switch to full, and reading it as poc excused every stage of a build that left POC (review of #828).
+# "Names full" is the WORD full (mxtk_bt_names_full, project-bin/_position.sh): "fullscreen" is not.
 _bt_l="$(printf '%s' "$BUILD_TYPE_RAW" | tr '[:upper:]' '[:lower:]')"
-case "$_bt_l" in *full*) BUILD_TYPE=full ;; poc|poc[!a-z]*) BUILD_TYPE=poc ;; *) BUILD_TYPE=full ;; esac
+POC_CONFLICT=""
+case "$_bt_l" in
+  poc|poc[!a-z]*)
+    if mxtk_bt_names_full "$_bt_l"; then
+      BUILD_TYPE=full
+      POC_CONFLICT="Build type: $BUILD_TYPE_RAW starts with poc but names full — read as a FULL build (stages owed); write Build type: poc or Build type: full"
+    else BUILD_TYPE=poc; fi ;;
+  *) BUILD_TYPE=full ;;
+esac
 # `Entry mode: poc` (#819 option 3) is the same contract as `Build type: poc` (project-bin/_position.sh)
 # — unless a Build type line says full: then full wins, loudly (POC_CONFLICT, printed in the summary).
 # The louder reading: a POC switched to full by editing only its Build type line keeps its gates.
-POC_CONFLICT=""
 if [ "$ENTRY_MODE" = poc ]; then
-  case "$_bt_l" in
-    *full*) POC_CONFLICT="Entry mode: poc but Build type: $BUILD_TYPE_RAW — read as a FULL build (stages owed); make the two lines agree (a POC: Build type: poc; a full build: the real Entry mode)" ;;
+  case "$BUILD_TYPE:$_bt_l" in
+    full:*) mxtk_bt_names_full "$_bt_l" || { BUILD_TYPE=poc; _bt_l=poc; } ;;
+  esac
+  case "$BUILD_TYPE" in
+    full) POC_CONFLICT="Entry mode: poc but Build type: $BUILD_TYPE_RAW — read as a FULL build (stages owed); make the two lines agree (a POC: Build type: poc; a full build: the real Entry mode)" ;;
     *) BUILD_TYPE=poc ;;
   esac
 fi

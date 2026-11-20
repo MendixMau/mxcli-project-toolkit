@@ -803,9 +803,13 @@ if [ -f "$_XD/_position.sh" ]; then
   # POC entry line. Read as full, said once per run, and under auto held to the requirements-driven
   # plan rule like a retired greenfield register, so editing one line cannot drop every pre-build step.
   if [ "${POS_POC_CONFLICT:-0}" = 1 ]; then
-    echo "⚠ Entry mode: poc but the Build type line says full — read as a full build; make the two lines agree (gate-check.sh prints the same)."
-    POS_NOTE="entry mode poc vs build type full"
-    [ "$POS_AUTO" = 1 ] && POS_ENTRY=requirements-driven
+    if [ "$POS_ENTRY" = poc ]; then
+      echo "⚠ Entry mode: poc but the Build type line names full — read as a full build; make the two lines agree (gate-check.sh prints the same)."
+    else
+      echo "⚠ Build type starts with poc but names full — read as a full build; write Build type: poc or Build type: full (gate-check.sh prints the same)."
+    fi
+    POS_NOTE="poc vs build type full"
+    [ "$POS_AUTO" = 1 ] && [ "$POS_ENTRY" = poc ] && POS_ENTRY=requirements-driven
   fi
   if [ "$POS_ENTRY" = greenfield-retired ]; then
     echo "⚠ ${MXTK_POS_RETIRED/<project>/$PROJECT_ROOT}"

@@ -302,6 +302,7 @@
     <tr><td><strong>Reach for it when</strong></td><td>you have nothing set up, or want a stakeholder preview link</td><td>you want a reproducible headless build, a clean machine, or a Mac/Linux without Studio Pro</td><td>UI polish, live MCP edits, Studio-Pro-only settings, the final look</td></tr>
   </table>
   <p style="font-size:13.5px; color:var(--ink-soft); margin-top:10px;"><strong>Short answer:</strong> the Dev Container is where the build is <em>reproducible</em> — a colleague clones and gets the identical toolchain. Local is where the build is <em>visible</em> — Studio Pro open, MCP live. Most projects use both, and nothing about the project changes when you switch.</p>
+  <p style="font-size:13.5px; color:var(--ink-soft); margin-top:6px;"><strong>Local lane, no Docker:</strong> MxBuild comes from the Studio Pro install of the model's version (never opened), the app and the database run as host processes, and Playwright drives its own Chromium. The <code>~/.mxcli/mxbuild/</code> download is Linux only. Docker Desktop may need a paid subscription in larger organisations; Podman serves the container lane. Where each part runs: <code>README.md</code> → <em>What runs where: the local lane</em>.</p>
 
   <h2>6 · Where everything lands</h2>
   <pre class="tree">&lt;project-root&gt;/               <span class="c">← ONE folder per project — everything lives inside it</span>

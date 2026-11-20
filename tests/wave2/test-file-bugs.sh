@@ -696,6 +696,8 @@ G="$(P2DENY='Acmecorp|Initrode|' bodyof "Acmecorp and Initrode staff saw it.")"
 chk "#759 a deny line holding names that also matches everything (Acmecorp|Initrode|) is refused; the names never reach a body" '! echo "$G" | grep -q "Acmecorp\|Initrode" && grep -q "invalid deny pattern.*Acmecorp|Initrode|.*matches ordinary text" "$W/p2.err"'
 G="$(P2DENY='Snarfle\b' LEAKGUARD_DENY='(Acmecorp)?' bodyof "Acmecorp saw it.")"
 chk "#759 the same for \$LEAKGUARD_DENY (Acmecorp)?: refused, never posted in clear" '! echo "$G" | grep -q Acmecorp && grep -q "invalid deny pattern" "$W/p2.err"'
+G="$(P2DENY='Öko|' bodyof "Öko staff saw it.")"
+chk "#759 a non-ASCII name that matches everything (Öko|) is refused too, never dropped and posted in clear" '! echo "$G" | grep -q "Öko" && grep -q "invalid deny pattern.*matches ordinary text" "$W/p2.err"'
 G="$(MXTK_LEAKGUARD_DENYFILE="$W/tk-deny-dot" P2DENY='Snarfle\b' bodyof "Plain text, no names.")"
 chk "#759 a nameless line (\\b.\\b) is still dropped with a warning, not refused" 'echo "$G" | grep -qF "Plain text, no names." && grep -qF "deny pattern \`\\b.\\b\` matches ordinary text" "$W/p2.err" && ! grep -q "invalid deny pattern" "$W/p2.err"'
 KMDL759='CREATE PERSISTENT ENTITY Quuxmod.Gadget (

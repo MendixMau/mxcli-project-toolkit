@@ -329,8 +329,9 @@ class Redactor:
             if rx is not None:
                 if not any(rx.search(p) for p in DENY_PROBES):
                     pats.append(rx)
-                elif not re.search(r"[A-Za-z0-9]{3,}", pat):
-                    # holds no name at all (`\b.\b`, `\b\b`): dropping it loses nothing
+                elif not re.search(r"[^\W_]{3,}", pat):
+                    # holds no name at all (`\b.\b`, `\b\b`): dropping it loses nothing. Unicode-aware, so
+                    # `Öko|` counts as a name (review of #815)
                     self.warnings.append("deny pattern `%s` matches ordinary text (empty, a space, a hyphen or a "
                                          "one-letter word), so it is ignored. Remove that line from %s"
                                          % (pat[:60], src))

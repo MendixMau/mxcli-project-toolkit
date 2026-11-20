@@ -575,3 +575,4 @@ end;
 | STUB_ call | `$Result = call microflow Module.STUB_OpName(Param = $val) on error rollback` | Identical signature to real op |
 | Navigate after action | `show page Module.Page($Param = $var)` | After last commit, before return |
 | Safe sub-call | `... on error rollback` | On every CALL MICROFLOW that modifies data |
+| Retry an external call | `while $Outcome = 'retry'` around `call` + `SUB_HandleResponse(Body, State)` returning `'stored'`/`'retry'`/`'failed'`; return after the loop | No `return` inside the loop: `while true` + `return` gets one MDL-FLOW01 per `return` (v0.27.0). The sub-flow owns the `State/Attempt` counter, so a unit test hands it any attempt without the service (5/5 tests, Mendix 10.24.18, 2026-10-21) |

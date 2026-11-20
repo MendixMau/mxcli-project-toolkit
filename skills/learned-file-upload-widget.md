@@ -143,7 +143,9 @@ Patched build (simple .txt plus advanced .zip, written from a DESCRIBE round tri
 
 ## 7. Not covered
 
-- Image mode (`uploadMode: 'images'`, `associatedImages`, `System.Image`) was not tested.
+- Image mode (`uploadMode: 'images'`, `associatedImages`) failed the build once: `check` passed, mxbuild
+  `CE0463 The definition of this widget has changed` (mxcli v0.25.0, Mendix 11.14, 2026-10-13). What built:
+  **files** mode against an entity extending `System.Image`, with a separate `dynamicimage` preview.
 - Custom buttons, `maxFilesPerUpload`, and the delete-from-widget path were not tested.
 - Only the `mxcli run --local` runtime with HSQLDB was used. Not tested on PostgreSQL, in Docker, or opened in Studio Pro.
 - #1199 (DESCRIBE round trip) is fixed upstream (mxcli commit 51b36dc0, 2026-09-25); retest on the next release before dropping that workaround.

@@ -351,8 +351,9 @@ async function runStep(page, meta, s) {
   }
 }
 
-// An act's arrival: its leading `nav` steps. `checks` describe the page the act lands on, so they
-// are read after these (and after a handoffAssert), never on the page the previous act left.
+// An act's arrival when no handoffAssert brought it there: its leading `nav` steps. `checks`
+// describe the page the act lands on, so they are read after these, never on the page the
+// previous act left. After a non-empty handoffAssert the checks are read straight away.
 function splitArrival(act) {
   const steps = act.steps || [];
   let i = 0;
@@ -521,6 +522,8 @@ async function switchTo(page, roleKey, handoffMeta) {
 
       // A role change is a HANDOFF, and it gets its own page in the report so the
       // seam is visible as a thing that was tested rather than buried inside an act.
+      // An act that arrives through a handoffAssert is ON its landing page once that assert ran.
+      const arrivedByHandoff = act.role !== currentRole && (act.handoffAssert || []).length > 0;
       if (act.role !== currentRole) {
         const from = currentRole ? (ROLES[currentRole].label || currentRole) : '(nobody)';
         const to = (ROLES[act.role] && ROLES[act.role].label) || act.role;
@@ -552,9 +555,10 @@ async function switchTo(page, roleKey, handoffMeta) {
         }
         return true;
       };
-      // The act's LEADING nav steps are how it arrives on its landing page (a first act has
-      // no handoffAssert to navigate for it), so they run before its widget checks are read.
-      const { arrive, rest } = splitArrival(act);
+      // An act's landing page is where its handoffAssert left it. An act WITHOUT one (the first
+      // act, or one with no role change) arrives by its LEADING nav steps, so those run before its
+      // widget checks are read. A handoff act's steps, a leading nav included, run after them.
+      const { arrive, rest } = arrivedByHandoff ? { arrive: [], rest: act.steps || [] } : splitArrival(act);
       if (await runSteps(arrive)) {
         // Widget presence for the act's landing page, recorded as widgets[] so the
         // report groups them the way it groups every other walkthrough's.

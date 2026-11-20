@@ -311,8 +311,8 @@ if (require.main === module) (async () => {
   // template sample lands on nothing this app has — a run that measures nothing, and costs a login.
   if (!NAV || !Object.keys(NAV).length) {
     console.log('  SETUP  NOT CONFIGURED: NAV in tests/e2e/project.config.js is empty — monkey has no menu item ' +
-      'to fuzz. Fill it from `mxcli -p <mpr> -c "describe navigation"` (key: [\'Group\', \'Item\'] or [\'Item\']). ' +
-      'Monkey NOT run: not measured.');
+      'to fuzz. Fill it from `mxcli -p <mpr> -c "describe navigation"` (key: [\'Group\', \'Item\'] or [\'Item\']); ' +
+      'an app with no menu to fuzz runs verify-module.sh with --skip-monkey instead. Monkey NOT run: not measured.');
     process.exit(2);
   }
   if (navIsTemplate()) {

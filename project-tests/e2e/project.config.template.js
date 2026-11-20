@@ -339,8 +339,9 @@ const ROLES = {
 //   seeds: [{ name: 'orderNo', sql: "SELECT OrderNo AS o FROM Sales.Order WHERE Status = 'Open' LIMIT 1" }],
 //   acts: [
 //     { key: 'raise', role: 'requester', module: 'Sales', label: 'raise an order',
-//       // `checks` are read on the act's landing page: after its handoffAssert, and
-//       // after its LEADING `nav` steps — so a first act may simply start with a nav.
+//       // `checks` are read on the act's landing page: straight after its handoffAssert
+//       // when it has one; otherwise after its LEADING `nav` steps — so a first act may
+//       // simply start with a nav.
 //       checks: ['dgOrders'],
 //       steps: [
 //         { do: 'nav', group: 'Sales', item: 'Orders', ready: 'dgOrders', fatal: true },

@@ -88,6 +88,12 @@ module.exports = {
       { key: 'approve', role: 'r2', module: 'M2', checks: ['dgQueue'],
         handoffAssert: [{ do: 'nav', item: 'Queue', ready: 'dgQueue', fatal: true }],
         steps: [{ do: 'expect', widget: 'btnApprove', label: 'Approve is offered' }] },
+      // A handoff act whose steps OPEN with a nav elsewhere (independent review of #826): its
+      // checks describe the handoffAssert's page, so they are read there, before that nav.
+      { key: 'back', role: 'r1', module: 'M1', checks: ['dgOrders'],
+        handoffAssert: [{ do: 'nav', item: 'Orders', ready: 'dgOrders', fatal: true }],
+        steps: [{ do: 'nav', item: 'Queue', ready: 'dgQueue', label: 'Queue opens' },
+                { do: 'expect', widget: 'dgQueue', label: 'the queue is listed' }] },
       // A fatal arrival that fails: checks must be NOT REACHED, not read on the wrong page.
       { key: 'gone', role: 'r2', module: 'M2', checks: ['dgGone'],
         steps: [{ do: 'nav', item: 'Gone', ready: 'dgGone', label: 'Gone opens', fatal: true }] },
@@ -106,6 +112,7 @@ const pg = (k) => d.pages.find((p) => p.key === k) || { widgets: [], steps: [] }
 const w = (k, n) => (pg(k).widgets.find((x) => x.name === n) || {});
 console.log('RAISE ' + w('raise', 'dgOrders').status + ',' + w('raise', 'btnNew').status);
 console.log('APPROVE ' + w('approve', 'dgQueue').status);
+console.log('BACK ' + w('back', 'dgOrders').status + '|' + pg('back').steps.map((s) => s.label + ':' + s.status).join(','));
 console.log('GONE ' + w('gone', 'dgGone').status + '|' + /NOT REACHED/.test(w('gone', 'dgGone').detail || ''));
 console.log('STEPS ' + pg('raise').steps.map((s) => s.label + ':' + s.status).join(','));
 EOF
@@ -114,6 +121,8 @@ EOF
   [ "$(line RAISE)" = "ok,ok" ] && ok "first act: checks read AFTER its leading nav (dgOrders, btnNew present)" \
     || bad "first act's checks were read before it navigated" "$(line RAISE)"
   [ "$(line APPROVE)" = "ok" ] && ok "handoff act: checks read after handoffAssert (unchanged)" || bad "handoff act checks" "$(line APPROVE)"
+  case "$(line BACK)" in ok\|*"Queue opens:pass"*) ok "handoff act opening with a nav: checks read on the handoffAssert page, then its nav runs" ;;
+    *) bad "handoff act's checks were read after its own leading nav (on the wrong page)" "$(line BACK)" ;; esac
   [ "$(line GONE)" = "missing|true" ] && ok "a fatal arrival leaves its checks NOT REACHED, not read on the previous page" \
     || bad "fatal-arrival checks" "$(line GONE)"
   printf '%s\n' "$(line STEPS)" | grep -q 'Orders opens:pass' && printf '%s\n' "$(line STEPS)" | grep -q 'New is offered:pass' \

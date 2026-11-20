@@ -89,7 +89,8 @@ grep -qF 'process.exit(code);' "$SUT" && grep -qF 'const code = exitCode({ crash
 echo "== monkey.js main: the shipped (empty) NAV exits 2 BEFORE the browser =="
 RUNOUT="$(cd "$WORK/tests/e2e" && env -u ALLOW_TEMPLATE_NAV APP_PORT=1 timeout 120 node monkey.js --rounds 1 2>&1)"; RC=$?
 [ "$RC" -eq 2 ] && ok "empty NAV → exit 2 (not measured)" || bad "empty NAV exit code" "rc=$RC $(printf '%s' "$RUNOUT" | tail -3)"
-printf '%s\n' "$RUNOUT" | grep -q 'SETUP  NOT CONFIGURED: NAV' && ok "a SETUP line says NAV is not configured and how to fill it" \
+printf '%s\n' "$RUNOUT" | grep -q 'SETUP  NOT CONFIGURED: NAV' && printf '%s\n' "$RUNOUT" | grep -q -- '--skip-monkey' \
+  && ok "a SETUP line says NAV is not configured, how to fill it, and names --skip-monkey" \
   || bad "no NOT CONFIGURED line for the empty NAV" "$(printf '%s' "$RUNOUT" | tail -3)"
 printf '%s\n' "$RUNOUT" | grep -qE 'INSTRUMENT FAULT|\(login\)|MONKEY SUMMARY|page\.goto|loginOnce' \
   && bad "the empty-NAV run went past the check (browser/login reached)" "$(printf '%s' "$RUNOUT" | tail -3)" \

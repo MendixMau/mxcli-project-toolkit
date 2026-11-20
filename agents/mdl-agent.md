@@ -57,6 +57,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/image-transcription.md` | Images to read listed by images-to-md or the documents index |
 | `skills/learned-mdl-preflight.md` | Writing ANY MDL script |
 | `skills/learned-microflow-patterns.md` | Writing or fixing any microflow |
+| `skills/learned-rules-archive.md` | On an mxcli older than v0.32.0-374, before writing a construct a learned-* rule calls retired or "older mxcli only" |
 | `skills/microflow-preflight.md` | Writing a microflow with any loop, a retrieve/commit/call inside a loop, nested or multiple loops, >20 activities counting loop bodies, or a list built from a list |
 | `skills/mendix-best-practices-index.md` | Asked "is there a Mendix best practice for this", or mapping a lint rule that rose in the ratchet back to the practice and the skill that prevents it |
 | `skills/ui-preflight-pages.md` | Building any page or snippet |

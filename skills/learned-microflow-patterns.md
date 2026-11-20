@@ -1,7 +1,7 @@
 # Microflow Patterns — MDL Microflow & Association Rules for This Project
 **Applies to:** any mxcli project.
 
-Re-probed on mxcli v0.24.0 / Mendix 11.13.0 (2026-09-30); rules that now work or that `mxcli check` catches were removed.
+Re-probed on mxcli v0.24.0 / Mendix 11.13.0 (2026-09-30); rules that now work or that `mxcli check` catches were removed. Retested on v0.32.0-374 (2026-11-20): changed rows say so; old text in `learned-rules-archive.md`.
 
 ---
 
@@ -177,7 +177,7 @@ Studio Pro visual (ground truth): ChoiceOrg (*) ──► (1) OrderApplicationHe
 
 ## Association Paths in Expressions — Module-Prefix Every Step
 
-**Rule:** In a Mendix expression, write each association step **and** each entity step with its module prefix: `$Line/Shop.Line_Order/Shop.Order/Name`. The unprefixed form `$Line/Line_Order/Name` passes `mxcli check` and `exec`, then fails `mx check` with CE0117 (v0.24.0, measured in a microflow expression; `mxcli lint` does not flag it). Only a bare `= empty` test does not need the long form.
+**Rule:** In a Mendix expression, module-prefix each association step **and** each entity step: `$Line/Shop.Line_Order/Shop.Order/Name`. v0.32.0-374 refuses the short `$Line/Line_Order/Name` at `check`; older mxcli passes it and `mx check` fails CE0117. A bare `= empty` test does not need the long form.
 
 ---
 
@@ -261,7 +261,7 @@ An `@annotation` sits immediately before the statement it explains — an activi
 
 ## Additional MDL Syntax Rules
 
-- **Microflow header:** `create microflow M.N ()` keeps its `()` even when empty, then `returns`, then `folder '…'` (not `in`). The `check` errors point at `returns`/`List of`. BUG-DRAFT-microflow-header-grammar.
+- **Microflow header:** `create microflow M.N ()` keeps its `()` even when empty, then `returns`, then `folder '…'` (not `in`). v0.32.0-374 says so at `check`; older binaries point their errors at `returns`/`List of`.
 - **Cross-module association `change` from the non-owner side (CE0854):** `check` and `exec` pass it; `mx check` gives `[CE0854] Cross-module association 'Mod.Assoc' is not reachable from entity 'ModB.Entity'`. Change from the owner side — see "Association Direction — Setting in Microflows".
 - **`validation feedback $Obj message '...'` with no attribute → CE0091:** `check` and `exec` pass it; `mx check` gives `[CE0091] No member selected.` Always name the attribute: `validation feedback $Obj/Attr message '...'` (that form builds at 0 errors). **Where it goes:** in a `VAL_`/`SUB_` microflow, never an `ACT_` one — see the next section.
 - **Microflow canvas layout — omit layout annotations (LESSON-01+02, corrected 2026-09-25):**
@@ -398,7 +398,7 @@ refusal text is unchanged in v0.30.0.
 
 ## Enum Attribute in String Context — Use `toString($Obj/Attr)`
 
-**Rule:** Wrap an enum attribute read in `toString()` when the result is used as a String. v0.24.0: `return $Order/Status` from a String microflow and `change $Order (Note = $Order/Status)` pass `check` and `exec`, then fail `mx check` with CE0117 (`mxcli lint` does not flag it). The concatenation form is flagged E004 by `check`, but `exec` still writes it.
+**Rule:** Wrap an enum attribute read in `toString()` when the result is used as a String. A `return`, a `change` into a String attribute and a concatenation each fail `mx check` with CE0117. `check` flags the `change` (E009, v0.32.0-374) and the concatenation (E004), never the `return`, and `exec` writes all three.
 
 ```mdl
 -- WRONG: enum used as string directly

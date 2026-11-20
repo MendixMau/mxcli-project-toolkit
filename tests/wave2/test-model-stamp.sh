@@ -134,11 +134,39 @@ echo docs > NOTES.md && git add NOTES.md bin .gitignore
 out="$(MPR_FILE="$M/App.mpr" git commit -qm docs 2>&1)" && ok "docs-only commit accepted (model in another repo)" || bad "docs-only commit refused" "$out"
 echo more >> NOTES.md && git add NOTES.md
 out="$(GIT_INDEX_FILE=.git/index MPR_FILE="$M/App.mpr" ./bin/model-stamp.sh check --staged 2>&1)"; rc=$?
-[ "$rc" -eq 0 ] && echo "$out" | grep -q "another repository" && ok "check --staged names the other repository" || bad "check rc=$rc" "$out"
+[ "$rc" -eq 0 ] && echo "$out" | grep -q "outside this work tree (.*model-repo)" && ok "check --staged names the other repository" || bad "check rc=$rc" "$out"
 # The model repo's own commits are still checked: there the model IS in the committing repo.
 cd "$M" && printf u1x > mprcontents/a.mxunit && git add mprcontents
 out="$(MPR_FILE="$M/App.mpr" GIT_INDEX_FILE="$M/.git/index" "$X/bin/model-stamp.sh" check --staged 2>&1)" \
   && bad "unverified model staged in its own repo passed" "$out" || ok "unverified model staged in its own repo still refused"
+
+# Nested: the model is its own repo INSIDE this work tree (untracked here). This commit cannot
+# stage it either, so a docs-only commit passes.
+N="$WORK/n"; mkdir -p "$N/bin" "$N/model/mprcontents"
+( cd "$N/model" && git init -q . && git config user.email t@t && git config user.name t
+  printf mpr > App.mpr; printf u1 > mprcontents/a.mxunit; git add -A >/dev/null; git commit -qm model )
+cd "$N" && git init -q . && git config user.email t@t && git config user.name t
+cp "$TK/project-bin/_common.sh" "$TK/project-bin/model-stamp.sh" "$TK/project-bin/install-project-hooks.sh" bin/
+printf '/.claude/\n' > .gitignore
+PROJECT_ROOT="$N" ./bin/install-project-hooks.sh >/dev/null
+echo docs > NOTES.md && git add NOTES.md bin .gitignore
+out="$(MPR_FILE="$N/model/App.mpr" git commit -qm docs 2>&1)" && ok "docs-only commit accepted (model is a separate repo nested here)" || bad "nested model repo: docs-only commit refused" "$out"
+# GIT_DIR/GIT_WORK_TREE: the work tree has no .git and sits inside an unrelated OUTER repo, so the
+# model folder's "own top" (git variables unset) is the outer repo. Comparing tops alone called
+# that "another repository" and waved an unverified model through (independent review of #810).
+O="$WORK/outer"; W="$O/wt"; G="$WORK/sep.git"; mkdir -p "$W/bin" "$W/app/mprcontents"
+( cd "$O" && git init -q . && git config user.email t@t && git config user.name t && echo o > o.txt && git add o.txt && git commit -qm outer )
+export GIT_DIR="$G" GIT_WORK_TREE="$W"
+git init -q && git config user.email t@t && git config user.name t
+cd "$W" && cp "$TK/project-bin/_common.sh" "$TK/project-bin/model-stamp.sh" "$TK/project-bin/install-project-hooks.sh" bin/
+printf mpr > app/App.mpr; printf u1 > app/mprcontents/a.mxunit; printf '/.claude/\n' > .gitignore
+PROJECT_ROOT="$W" ./bin/install-project-hooks.sh >/dev/null
+git add -A >/dev/null; MODEL_UNVERIFIED_OK=1 git commit -qm init 2>/dev/null
+[ -f "$G/hooks/pre-commit" ] && ok "hook installed in the separate git dir" || bad "no hook in $G/hooks"
+printf u1d > app/mprcontents/a.mxunit && git add app
+out="$(git commit -qm x 2>&1)" && bad "GIT_DIR/GIT_WORK_TREE commit inside an outer repo waved an unverified model through" "$out" \
+  || ok "GIT_DIR/GIT_WORK_TREE commit inside an outer repo refused the unverified model"
+unset GIT_DIR GIT_WORK_TREE
 
 echo; echo "model-stamp: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

@@ -688,6 +688,8 @@ fi
 # then excused stages on that label. See bin/lib/entry-mode.sh for why.
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")/lib" && pwd)/entry-mode.sh"
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")/lib" && pwd)/render-fresh.sh"
+# The accepted shape of each parsed format, printed with its FAIL (#821 point 1; bin/lib/format-hints.sh).
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/lib" && pwd)/format-hints.sh"
 ENTRY_MODE="$(entry_mode_token "$ENTRY_RAW")"
 BUILD_TYPE="$(reg_field "build type" 2>/dev/null || true)"
 case "$(printf '%s' "$BUILD_TYPE" | tr '[:upper:]' '[:lower:]')" in poc|poc[!a-z]*) BUILD_TYPE=poc ;; *) BUILD_TYPE=full ;; esac
@@ -4135,6 +4137,7 @@ if ! reg_unavailable; then
   [ -n "$AUTO_HAND" ] && AUTO_HAND_N=$(printf '%s\n' "$AUTO_HAND" | wc -l | tr -d ' ')
 fi
 AUTO_HAND_IDS="$(printf '%s' "$AUTO_HAND" | tr '\n' ',' | sed 's/,/, /g')"
+FH_QUEUE=""   # format-hint ids owed by this run's FAILs, printed once after the stage list
 for stage in "${STAGE_NAMES[@]}"; do
   case "$stage" in
     0) result="$(check_stage_0)" ;;
@@ -4184,7 +4187,23 @@ for stage in "${STAGE_NAMES[@]}"; do
   tbl_add NOTES_TBL "$stage" "$note"
   tbl_get "$stage" "$STAGE_TITLES_TBL" || TBL_VALUE="(untitled stage)"
   printf "Stage %s (%s): %s%s — %s\n" "$stage" "$TBL_VALUE" "$status" "$(stage_surface_suffix "$stage")" "$note"
+  # A FAIL on a format this script parses owes the reader its whole accepted shape (#821 point 1).
+  if [ "$status" = FAIL ]; then
+    case "$stage:$note" in
+      5:*"look: "*) FH_QUEUE="$FH_QUEUE look-report" ;;
+    esac
+    case "$stage:$note" in
+      4:*"closing rows"*|4:*"depend on rows"*|4:*"no module brief"*) FH_QUEUE="$FH_QUEUE build-plan" ;;
+    esac
+    case "$stage:$note" in 4:*"coverage ledger"*) FH_QUEUE="$FH_QUEUE coverage-ledger" ;; esac
+  fi
 done
+# Stage P is evaluated before the loop (P_STATUS); its FAIL is about the intake markers.
+[ "${P_STATUS:-}" = FAIL ] && FH_QUEUE="intake$FH_QUEUE"
+if [ -n "$FH_QUEUE" ]; then
+  echo "Accepted shapes for the FAIL(s) above — a minimal example that passes, so no gate source needs reading:"
+  for _fh in $FH_QUEUE; do mxtk_format_hint_once "$_fh"; done
+fi
 # Said once, after the list, because it calibrates every line above it. A reader who
 # does not know that a missing Surface left the exit code alone will read the first one
 # they see as a failure the gate somehow let through.
@@ -4668,6 +4687,7 @@ if [ -n "$REQUESTED_STAGE" ]; then
     echo "Gate BLOCKED by report-disposition-check: $DISP_NOTE" >&2
     echo "Route the findings via skills/close-the-loop.md into docs/improvement-register.md" >&2
     echo "(skills/finding-disposition.md), then re-run this gate." >&2
+    mxtk_format_hint_once report-disposition >&2
     exit 1
   fi
   # No gate passes while questions this stage owns were never put to the user.

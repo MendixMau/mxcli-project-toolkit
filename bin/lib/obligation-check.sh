@@ -693,6 +693,7 @@ mxtk_obligations_report() {
     fi
   fi
   local ob performer scope match artifact denom degradable from_stage skill
+  local _ob_fh=""   # format-hint ids owed by a FAULT (#821 point 1, bin/lib/format-hints.sh)
 
   # Stage limit (#583): rows owed from a stage AFTER the one asked about are not evaluated —
   # they cannot change the requested stage's verdict, and each one walks every module's
@@ -861,6 +862,13 @@ mxtk_obligations_report() {
       printf 'Obligation %-10s FAULT — %d of %d discharged%s; %s (%s)\n' \
         "$ob" "$done_n" "$scoped" "$tail" "$why_bits" "$skill"
       MXTK_OB_STATUS="FAULT"; MXTK_OB_N_FAULT=$((MXTK_OB_N_FAULT+1))
+      # The whole accepted report shape, once per run (#821 point 1, bin/lib/format-hints.sh): a
+      # prototype LOOK took five gate runs to learn one requirement at a time.
+      # Printed after the obligation lines (below), not between a row and its detail lines.
+      case "$ob" in
+        prototype-look) _ob_fh="$_ob_fh prototype-look" ;;
+        look|final-look) _ob_fh="$_ob_fh look-report" ;;
+      esac
     elif [ -n "$pending" ]; then
       printf 'Obligation %-10s PENDING — %d of %d discharged%s; NOT DONE:%s — owner: %s-agent, governed by %s\n' \
         "$ob" "$done_n" "$scoped" "$tail" "$pending" "$performer" "$skill"
@@ -888,6 +896,9 @@ mxtk_obligations_report() {
     [ -n "$noproof" ] && printf 'Obligation %-10s   NO PROOF-OF-LOOK:%s — the pixel rule, made mechanical (module-review.md stage 5, PROOF-OF-LOOK)\n' \
       "$ob" "$noproof"
   done < "$OBLIGATIONS_TSV"
+  if [ -n "$_ob_fh" ] && type mxtk_format_hint_once >/dev/null 2>&1; then
+    local _h; for _h in $_ob_fh; do mxtk_format_hint_once "$_h"; done
+  fi
 
   if [ "$skipped_n" -gt 0 ]; then
     printf 'Obligations: %s row(s) owed from stages after %s not evaluated — a stage query reads its own stage and earlier; run without a stage for every row\n' \

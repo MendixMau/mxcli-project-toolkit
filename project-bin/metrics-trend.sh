@@ -5,6 +5,10 @@
 # through metrics-ledger.sh, plus one module-close row per module from bin/module-close.sh and
 # any score-only rows from `metrics-ledger.sh record`) and prints:
 #   - outcomes: execs, applied share, gate failures, restores, lint rises
+#   - blocked by guard: refusal / rollback / blocked rows per guard, read from the guard=<id>
+#     token exec.sh's log_build puts in docs/BUILD-LOG.md beside the ledger (the ledger itself
+#     has no guard column; MXTK_BUILD_LOG overrides the path). Rows written before the token
+#     existed count as "unnamed", so the denominator stays visible.
 #   - speed: median and worst elapsed, first-half vs second-half median
 #   - lint: total findings first → last (only rows where lint ran)
 #   - score: `mxcli report` overall and per category, first → last, with the delta, from every
@@ -63,9 +67,9 @@ if [ ! -f "$LEDGER" ]; then
   exit 2
 fi
 
-"$PY" - "$LEDGER" "$MODE" "$SINCE" <<'PYEOF'
-import csv, statistics, sys
-ledger, mode, since = sys.argv[1:4]
+"$PY" - "$LEDGER" "$MODE" "$SINCE" "${MXTK_BUILD_LOG:-}" <<'PYEOF'
+import csv, os, re, statistics, sys
+ledger, mode, since, build_log = sys.argv[1:5]
 rows = [r for r in csv.DictReader(open(ledger), delimiter="\t")]
 if since:
     rows = [r for r in rows if r["ts"][:10] >= since]
@@ -119,6 +123,27 @@ print("  applied, other             %s" % pct(len(applied) - len(clean) - len(li
 print("  gate failed / rolled back  %s" % pct(len(gate_failed)))
 print("  blocked / refused          %s" % pct(len(blocked)))
 print("  snapshot restores          %d" % len(restored))
+
+# Per guard, from docs/BUILD-LOG.md (<project>/.claude/loop/metrics-ledger.tsv -> <project>/docs/).
+# A stopped row is one whose result cell exec.sh writes for a refusal, rollback or blocked write.
+if not build_log:
+    build_log = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(ledger)))), "docs", "BUILD-LOG.md")
+STOP = ("blocked", "refused", "gate failed", "gate could not run", "rolled back", "patch failed", "patch unverified")
+if os.path.isfile(build_log):
+    per, unnamed = {}, 0
+    for line in open(build_log, encoding="utf-8", errors="replace"):
+        m = re.match(r"^\|\s*(\d{4}-\d\d-\d\d)", line)
+        if not m or (since and m.group(1) < since): continue
+        c = line.strip().strip("|").split("|")
+        if len(c) < 5 or not any(k in c[3].lower() for k in STOP): continue
+        g = re.search(r"guard=([a-z0-9-]+)", line)
+        if g: per[g.group(1)] = per.get(g.group(1), 0) + 1
+        else: unnamed += 1
+    named = ", ".join("%s %d" % kv for kv in sorted(per.items(), key=lambda kv: (-kv[1], kv[0])))
+    if unnamed: named = (named + ", " if named else "") + "unnamed %d" % unnamed
+    print("  blocked by guard: %s" % (named or "none"))
+else:
+    print("  blocked by guard: not counted (no docs/BUILD-LOG.md beside the ledger)")
 print()
 if el:
     half = len(el) // 2

@@ -2376,8 +2376,11 @@ EOF_HV
   fi
 else
   # stdout is kept (EXEC_OUT) for move_stray_module_dirs, which reads its "Created module:" lines.
-  EXEC_OUT="$(mktemp "${TMPDIR:-/tmp}/exec-out.XXXXXX")"
-  "${PMXCLI:-./mxcli}" exec "$SCRIPT" -p "$MPR" | tee "$EXEC_OUT"; EXEC_STATUS=${PIPESTATUS[0]}
+  # Neither the capture nor tee may stop exec.sh under set -e once mxcli has written: a failed
+  # mktemp leaves EXEC_OUT empty (tee then only passes stdout through, and nothing is moved later),
+  # and a failed tee is swallowed. EXEC_STATUS is mxcli's own exit code either way.
+  EXEC_OUT="$(mktemp "${TMPDIR:-/tmp}/exec-out.XXXXXX" 2>/dev/null)" || EXEC_OUT=""
+  { "${PMXCLI:-./mxcli}" exec "$SCRIPT" -p "$MPR" | tee ${EXEC_OUT:+"$EXEC_OUT"}; EXEC_STATUS=${PIPESTATUS[0]}; } || true
 fi
 
 if [ "$EXEC_STATUS" -ne 0 ]; then

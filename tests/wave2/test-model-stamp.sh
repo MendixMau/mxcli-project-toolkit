@@ -119,5 +119,26 @@ out="$(PROJECT_ROOT="$R" ./bin/model-stamp.sh check 2>&1)"; rc=$?
 mkdir -p app/mprcontents && printf u > app/mprcontents/x.mxunit && git add app
 PROJECT_ROOT="$R" git commit -qm stray 2>/dev/null && bad "staged mprcontents with no .mpr committed" || ok "staged model with no .mpr refused"
 
+echo "T11 model in ANOTHER git repository (#805): a commit here cannot stage it, so the hook passes"
+# git commit exports GIT_INDEX_FILE; model-stamp.sh exported it absolute (the T9 fix) and then
+# `git -C <model repo>` read the PROJECT repo's index, found no model files there and refused
+# every commit, docs-only included.
+M="$WORK/model-repo"; X="$WORK/x"; mkdir -p "$M/mprcontents" "$X/bin"
+( cd "$M" && git init -q . && git config user.email t@t && git config user.name t
+  printf mpr > App.mpr; printf u1 > mprcontents/a.mxunit; git add -A >/dev/null; git commit -qm model )
+cd "$X" && git init -q . && git config user.email t@t && git config user.name t
+cp "$TK/project-bin/_common.sh" "$TK/project-bin/model-stamp.sh" "$TK/project-bin/install-project-hooks.sh" bin/
+printf '/.claude/\n' > .gitignore
+PROJECT_ROOT="$X" ./bin/install-project-hooks.sh >/dev/null
+echo docs > NOTES.md && git add NOTES.md bin .gitignore
+out="$(MPR_FILE="$M/App.mpr" git commit -qm docs 2>&1)" && ok "docs-only commit accepted (model in another repo)" || bad "docs-only commit refused" "$out"
+echo more >> NOTES.md && git add NOTES.md
+out="$(GIT_INDEX_FILE=.git/index MPR_FILE="$M/App.mpr" ./bin/model-stamp.sh check --staged 2>&1)"; rc=$?
+[ "$rc" -eq 0 ] && echo "$out" | grep -q "another repository" && ok "check --staged names the other repository" || bad "check rc=$rc" "$out"
+# The model repo's own commits are still checked: there the model IS in the committing repo.
+cd "$M" && printf u1x > mprcontents/a.mxunit && git add mprcontents
+out="$(MPR_FILE="$M/App.mpr" GIT_INDEX_FILE="$M/.git/index" "$X/bin/model-stamp.sh" check --staged 2>&1)" \
+  && bad "unverified model staged in its own repo passed" "$out" || ok "unverified model staged in its own repo still refused"
+
 echo; echo "model-stamp: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

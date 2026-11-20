@@ -9,6 +9,8 @@ holding the base model in Appendix A.
 Every probe document has a unique name, so each `mx check` error is attributed to its probe by
 document name. The probe MDL is in Appendix B, under the probe IDs the tables cite.
 
+**Version guard:** `v0.32.0-374` is the build 374 commits after the v0.32.0 release (`mxcli version v0.32.0-374-g591bcd73e`); v0.32.0 itself and every earlier release count as older.
+
 **Caveat:** the gate is **Mendix 11.8.0**; most rules were measured on 11.12–11.13. Where Mendix
 itself raises the error (#29 constant, #30 dynamicimage) a non-reproduction may depend on the Mendix
 version: those rows are marked "11.8 only" and were kept. Studio Pro's loader (rung 5) and the
@@ -38,9 +40,9 @@ and got a stamp instead (rename module, `[Assoc = 'literal']` = BUG-78, constant
    - mxcli now says so at `check`: `✗ [%BeginOfToday%] is not a Mendix token (mxbuild: CE0161 …) [MDL-TOKEN01]`.
    - The real tokens `[%BeginOfCurrentDay%]` and `[%EndOfCurrentDay%]` in the same `retrieve … where` give `mx check` **0 errors** (`L17b`).
    - The entry's loop-filter and Java-action workarounds were never needed.
-2. **Preflight STOP #12 (`learned-mdl-preflight.md:36`, 95 words) and STOP #1's ContentParams clause (`:33`) are FIXED.**
+2. **Preflight STOP #12 (`learned-mdl-preflight.md:36`, 95 words) and STOP #1's ContentParams clause (`:33`) are out of date (CHANGED, not FIXED — see the correction below).**
    - The rule bans `toString(Attr)`, `$currentObject/Attr` and `if … then … else` in `ContentParams`.
-   - All of them now build at `mx check` 0 errors (`PF12a/b/c/e`). That includes the toolkit's `[ … ]` list spelling and the in-`customContent` case.
+   - **Corrected by the independent review (re-run 2026-11-20):** only the `$currentObject/` forms build (`PF12b/c`, and `toString($currentObject/Status)` in a data view and a customContent column: `mx check` 0 errors). `PF12a` and `PF12e` — `toString(Status)`, a bare attribute inside a function, in customContent and in the `[ … ]` list spelling — pass `check` and `exec` and fail `mx check` with CE0117 at `Expression of text template parameter {1}`. So the rule CHANGED, not FIXED: on v0.32.0-374 write every attribute in the expression as `$currentObject/Attr`.
    - `describe` stores each one as an expression.
    - The row now forbids working code and pushes agents to add String attributes they do not need. The same claim is in `learned-detection-gaps.md:51`.
 3. **STOP #32 (`:50`) is over-broad.**
@@ -71,7 +73,7 @@ and got a stamp instead (rename module, `[Assoc = 'literal']` = BUG-78, constant
 | STOP #1: visible expr in DG2 customContent | :33 | **FIXED** at rungs 1–4. BSON `ConditionalVisibilitySettings.Attribute:""` with the expression stored; `mx check` 0 errors. The original BUG-18 symptom was a StorageLoadException *at mx check*, and that is gone. The SP loader is untested. The ContentParams clause in the row is FIXED (see #12). | PF01 (+bson.json), BUG18b | 69 |
 | STOP #1b: Editable quoted | :34 | **STILL accurate.** It is version-guarded: on v0.32 the quoted form is stored as an expression, as the row says for ≥v0.28. | PF01b | 71 |
 | STOP #4: bind AutoChangedBy | :35 | **STILL.** `CE1613 "The selected attribute 'Shop.Audited.changedBy' no longer exists."`, and `check` passes. | PF04 | 38 |
-| STOP #12: ContentParams expressions | :36 | **FIXED.** Wrong text (top 2). | PF12a–e | 95 |
+| STOP #12: ContentParams expressions | :36 | **CHANGED** (corrected on review). `$currentObject/Attr` expressions build (PF12b/c); a bare attribute inside a function, `toString(Status)`, still gives CE0117 (PF12a, PF12e). | PF12a–e | 95 |
 | STOP #14: narrowing grant merges | :37 | **STILL.** exec prints `Unchanged entity access: Shop.Secret (Shop.User)`, and the rule keeps `Name, Note: ReadWrite`. There is now at least a visible signal. | PF14a/b | 51 |
 | STOP #16: path inside `[%CurrentUser/…%]` | :39 | **CHANGED.** It is now refused at `check`/`exec`: `[%CurrentUser/Administration.Account_Language%] is not a Mendix token (mxbuild: CE0161) [MDL-TOKEN01]`. The prescribed bare-token fix passes. | PF16, PF16b | 121 |
 | STOP #18: callee in same script as workflow | :38 | **CHANGED/FIXED.** exec auto-fills `(Order = $WorkflowContext)` and `mx check` reports **0 errors**, not CE0117. If the callee already exists, `check` now *demands* the mapping (`parameter 'Order' is not mapped`). | PF18, L76c | 73 |
@@ -124,7 +126,7 @@ and got a stamp instead (rename module, `[Assoc = 'literal']` = BUG-78, constant
 | DG2 column REPLACE | :44 | **CHANGED** (refused at `check`). | M04b, M11b | 80 |
 | `if` without `else` in an `on error` handler | :45 | **FIXED**, as the row says for ≥v0.29 (0 errors). | MP14 | 58 |
 | Reserved names `Case`/`Context`/`New` | :46-47 | **Split.** `Context` and `New` are now refused at `check` (MDL021/MDL010). `Case` as an entity name still passes `check` and gives `mx check` `CE7247 The name 'Case' is a reserved word` (still a gap). | MP15, MP15b | 76+39 |
-| ContentParams expression | :51 | **FIXED** (see #12). | PF12* | 71 |
+| ContentParams expression | :51 | **CHANGED** (see #12): the bare-attribute-in-function case is still a gap. | PF12* | 71 |
 | `get workflows for` an entity no workflow uses gives CE1870 | :52 | **STILL**, `check` passes. | MP16 | 41 |
 | XPath `= null` | :54 | **CHANGED.** Refused at `check`: `the constraint names "null" … CE0161`. | MP12 | 99 |
 
@@ -171,7 +173,7 @@ and got a stamp instead (rename module, `[Assoc = 'literal']` = BUG-78, constant
 | BUG-126 SET Label discarded | 5228 | **FIXED** (`Label: 'Order name'` read back) | L126 |
 | BUG-128 CREATE MODULE ROLE not idempotent | 5396 | **STILL** for plain `create` (`module role already exists`, exit 1). `create or modify module role` is idempotent. | L128b/c |
 | BUG-140 parameterized microflow datasource on a top-level data view | 5267 | **FIXED** (describe shows `microflow Shop.DS_OrderOfLine(Line = $Line)`, 0 errors) | L140 |
-| BUG-142 ContentParams | 5699 | **FIXED** | PF12* |
+| BUG-142 ContentParams | 5699 | **CHANGED**: `$currentObject/` forms build, `toString(Status)` still CE0117 | PF12* |
 | BUG-144 user role without CheckSecurity | 5755 | **FIXED** (`CheckSecurity: true`) | L144 |
 | BUG-145 narrowing grant | 5784 | **STILL** | PF14 |
 | BUG-146 diff false `- Attribute` | 5806 | **Not reproduced** | L146-diff |
@@ -207,8 +209,8 @@ and got a stamp instead (rename module, `[Assoc = 'literal']` = BUG-78, constant
 
 | Verdict | Rows |
 |---|---|
-| FIXED: old failure gone through rung 4. 3 of these are static only, because the runtime is untested (BUG-121, BUG-151, calculated by) | 55 |
-| CHANGED: now refused at `check`/exec, or fails differently, so the rule text is stale | 19 |
+| FIXED: old failure gone through rung 4. 3 of these are static only, because the runtime is untested (BUG-121, BUG-151, calculated by) | 52 (55 before the review moved 3 PF12 rows to CHANGED) |
+| CHANGED: now refused at `check`/exec, or fails differently, so the rule text is stale | 22 |
 | STILL-REPRODUCES / rule still needed: 22 reproduce, 3 version-guarded rules still accurate | 25 |
 | Not reproduced: #29 and #30 on Mendix 11.8 only, BUG-146 | 3 |
 | WRONG diagnosis: BUG-17 | 1 |

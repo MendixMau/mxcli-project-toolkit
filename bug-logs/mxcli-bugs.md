@@ -5797,7 +5797,7 @@ Detection-gap register: `skills/learned-detection-gaps.md` (the row that cites B
 
 ## BUG-142: `ContentParams` on v0.24.0 — any value other than a bare attribute or a quoted literal is stored as an attribute path (CE1613 at mxbuild); `check` refuses the parenthesised forms and passes `if … then … else`
 
-> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: `toString(Status)`, `$currentObject/Name`, `if … then … else` and the `[ … ]` list spelling, in a data view and in a customContent column: each passes `check`, is stored as an expression, and builds at `mx check` 0 errors. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+> **Changed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: an expression builds when every attribute in it is written `$currentObject/Attr` — `$currentObject/Name`, `toString($currentObject/Status)` and `if $currentObject/Name = '' then 'none' else $currentObject/Name`, in a data view and in a customContent column: stored as an expression, `mx check` 0 errors. A bare attribute inside a function, `toString(Status)` (also in the `[ … ]` list spelling), still passes `check` and `exec` and fails `mx check`: `CE0117 | Page 'F12a_Bare' | Expression of text template parameter {1} of text 'txtA' | Error(s) in expression.` On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
 
 **mxcli:** v0.24.0 (f18c307) · **Mendix:** 11.13.0 · **Not filed upstream.**
 **Discovered:** 2026-09-26, a card-disbursement requirements-driven build: twice on a list-view

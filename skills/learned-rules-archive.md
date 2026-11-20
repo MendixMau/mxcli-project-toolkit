@@ -4,6 +4,8 @@
 
 **Purpose:** the full text of every `learned-mdl-preflight.md`, `learned-detection-gaps.md` and `learned-microflow-patterns.md` rule that the 2026-11-20 retest found fixed or changed, kept word for word so a project pinned to an older binary still has it. Projects pin different binaries; a rule deleted outright strands them (`retesting-learned-rules.md`, "Keep the old rule underneath").
 
+**Version guard:** `v0.32.0-374` is the build 374 commits after the v0.32.0 release (`mxcli version v0.32.0-374-g591bcd73e`); v0.32.0 itself and every earlier release count as older.
+
 **Evidence:** retest 2026-11-20 on mxcli `v0.32.0-374-g591bcd73e` (source build) against real MxBuild `mx check` 11.8.0, every probe on a fresh blank Mendix 11.8.0 app, rungs 1–4 (`check`, `exec`, `describe`/BSON read-back, `mx check`). Verdicts and the probe MDL: `bug-logs/mxcli-v0.32.0-retest-2026-11-20.md`. Studio Pro's loader and the runtime were not available, so a rule whose failure lived there is kept in the live file.
 
 **How to read an entry:** the verdict and the v0.32.0-374 proof line, then the rule as it stood before the retest. Your mxcli is older → the old rule applies as written. Not sure → `./mxcli --version`, then the probe in `retesting-learned-rules.md`.
@@ -20,7 +22,7 @@ Before the retest:
 
 ### STOP #1, its ContentParams clause
 
-**FIXED (clause only) on v0.32.0-374.** `ContentParams: ({1} = toString(Status))` inside a customContent column: `mx check` 0 errors, `describe` shows the expression. The row's main rule (conditional Visible/Editable inside customContent) stays: `mx check` is 0 errors on v0.32.0-374 too, but its symptom was on Studio Pro open, which was not retested.
+**CHANGED (clause only) on v0.32.0-374.** `ContentParams: ({1} = toString(Status))` inside a customContent column still fails — `mx check` CE0117 at `Expression of text template parameter {1}`, no longer CE1613 — while `toString($currentObject/Status)` builds at 0 errors. The live STOP #12 row now carries that rule. The row's main rule (conditional Visible/Editable inside customContent) stays: `mx check` is 0 errors on v0.32.0-374, but its symptom was on Studio Pro open, which was not retested.
 
 Before the retest:
 
@@ -30,7 +32,7 @@ Before the retest:
 
 ### STOP #12 — expressions in ContentParams
 
-**FIXED on v0.32.0-374.** `toString(Status)`, `$currentObject/Name`, `if … then … else`, the `[ … ]` list spelling and the in-customContent case: each `check` passes and `mx check` 0 errors; `describe` stores each as an expression. The row now keeps only a version-guarded pointer.
+**CHANGED on v0.32.0-374.** An expression builds when every attribute in it is written `$currentObject/Attr`: `$currentObject/Name`, `toString($currentObject/Status)` and `if $currentObject/Name = '' then 'none' else $currentObject/Name` pass `check`, are stored as expressions, and give `mx check` 0 errors. A bare attribute inside a function — `toString(Status)`, in a data view, in a customContent column, or in the `[ … ]` list spelling — still passes `check` and `exec` and fails `mx check` with CE0117 (was CE1613). The live row now states the v0.32.0-374 rule.
 
 Before the retest:
 
@@ -234,7 +236,7 @@ Before the retest:
 
 ### Expression in `ContentParams:`
 
-**FIXED on v0.32.0-374.** See STOP #12 above.
+**CHANGED on v0.32.0-374.** See STOP #12 above. The bare-attribute-inside-a-function case keeps a live register row.
 
 Before the retest:
 

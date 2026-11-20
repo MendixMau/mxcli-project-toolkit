@@ -14,7 +14,7 @@ Each block names the skill it comes from; the skill is the authority if they eve
 
 **Source:** Generalized from a live Mendix 11.12.0 Beta project, 2026-07-06/07. Incident detail stays in that project's own `bug-logs/` — only the generalizable rule is here.
 
-**Version context:** a retired row keeps its number (other skills cite `STOP #n`). Why each went, the version notes and every row's full root cause: `process/baseline-incident-history.md` § PF1; rows the 2026-11-20 retest (mxcli v0.32.0-374) retired or rewrote: `learned-rules-archive.md`. If in doubt about a rule, retest on your version and stamp the result in `bug-logs/mxcli-bugs.md`.
+**Version context:** a retired row keeps its number (other skills cite `STOP #n`). Why each went, the version notes and every row's full root cause: `process/baseline-incident-history.md` § PF1; rows the 2026-11-20 retest (mxcli v0.32.0-374) retired or rewrote: `learned-rules-archive.md`. `v0.32.0-374` is the build 374 commits after the v0.32.0 release (`mxcli version v0.32.0-374-g591bcd73e`); v0.32.0 itself and every earlier release count as older. If in doubt about a rule, retest on your version and stamp the result in `bug-logs/mxcli-bugs.md`.
 
 **Workflow `DECISION`:** on mxcli v0.32.0-374 write enum outcomes `'Module.Enum.Value'` plus `'' -> { }` (`check` refuses the rest: MDL-WF03, MDL-WF06); on an older mxcli it is a STOP (BUG-76, `learned-workflow-patterns.md` §8 Warning 1). Never `--no-check`. Restart safety: BUG-141. Before a first `marketplace install`, read the #879 entry in `bug-logs/mxcli-bugs.md`.
 
@@ -90,7 +90,7 @@ fail later, with the **first oracle that catches each**. Use it before trusting 
 and when a runtime symptom appears over a green model.
 
 Every row was found in the field: **a green result only certifies what its rung can see.**
-Rows the 2026-11-20 retest (mxcli v0.32.0-374) found fixed: `learned-rules-archive.md`; read them there on an older mxcli.
+Rows the 2026-11-20 retest (mxcli v0.32.0-374) found fixed: `learned-rules-archive.md`; read them there on an older mxcli (older = v0.32.0 and before).
 
 **Hit or worked around a tool bug, or writing a FINDINGS.md entry about the toolkit or mxcli (not this project)?** Append a row now: `bin/file-bugs.sh --add --target mxcli|toolkit --title T --repro R --expected E --actual A [--log FILE]` (`docs/bugs.jsonl`, local id `PBUG-NN`); the same script later redacts it. PROJECT.md says `Bug filing: auto`: run `bin/file-bugs.sh --auto`. Otherwise only a human files it (`!bin/file-bugs.sh --file PBUG-NN`, denied to agents).
 

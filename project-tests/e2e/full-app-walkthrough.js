@@ -51,8 +51,8 @@
 // ENGINE / CONFIG LINE
 // Nothing in this file knows a module, an entity, a page, a widget, a menu
 // caption, a user or a URL. All of that is `WALKTHROUGH` and `ROLES` in
-// project.config.js — see project.config.template.js, which ships a worked
-// example and the mxcli command that produces the right answer for each field.
+// project.config.js — see project.config.template.js, which ships the shape of
+// each block (empty) and the mxcli command that produces the right answer for each field.
 // ============================================================================
 
 const H = require(__dirname + '/helpers.js');
@@ -75,7 +75,8 @@ if (!WT || !Array.isArray(WT.acts) || WT.acts.length === 0) {
     '\n  NOT CONFIGURED — project.config.js exports no `walkthrough` with acts.\n' +
     '  This instrument walks ONE business process across modules and roles; the process\n' +
     '  is a statement about your application, so it lives in project.config.js.\n' +
-    '  Copy the WALKTHROUGH / ROLES blocks from project.config.template.js and fill them in.\n' +
+    '  Fill the WALKTHROUGH and ROLES blocks in tests/e2e/project.config.js (the comment above\n' +
+    '  WALKTHROUGH shows the shape; `node tests/e2e/project.config.js` lists what is still empty).\n' +
     '  Writing an empty findings.json here would report a clean walkthrough that never ran.\n');
   process.exit(2);
 }

@@ -40,7 +40,7 @@ const path = require('path');
 // exactly two levels below the root", which is a project layout assumption like
 // any other. The two-levels-up answer is kept only as the last resort, so a
 // project with no .mpr on disk yet still gets a usable root instead of a crash.
-// F-042 (MarkUseCase, 2026-08-28): a two-tree layout — tests/e2e at the repo root, the
+// F-042 (field run, 2026-08-28): a two-tree layout — tests/e2e at the repo root, the
 // model under a sibling app/ — defeats a pure ancestor walk, because app/ is never an
 // ancestor of tests/e2e. The walk therefore probes each ancestor's app/ child too, and
 // two explicit overrides win over any walking: PROJECT_ROOT names the root outright,
@@ -130,8 +130,8 @@ function mprPath() {
 // NAME_OVERRIDE to null in a project whose directory name is correct.
 //
 // Two-tree layout: ROOT is app/, and "app" names nothing — `id` came out as `app`, so every
-// trace assertion queried a service called `app` (card-disbursement requirements-driven
-// build, 2026-09-25). There the model's own name is the identity, and it is also what
+// trace assertion queried a service called `app` (a requirements-driven field build,
+// 2026-09-25). There the model's own name is the identity, and it is also what
 // `mxcli run --local --trace` defaults OTEL_SERVICE_NAME to. Read inside a try: this file
 // must not throw on require, and a missing .mpr still throws where `mpr` is accessed.
 const NAME_OVERRIDE = null;   // TEMPLATE: set only if your checkout dir != the app name
@@ -145,7 +145,13 @@ const DISPLAY_NAME = process.env.PROJECT_DISPLAY_NAME || ID.replace(/[-_]+/g, ' 
 
 // ============================================================================
 // CONFIGURED — everything below this line is a statement about THIS model.
-// A new project MUST edit every block below. None of it can be derived.
+// A new project MUST fill every block below. None of it can be derived.
+//
+// THIS FILE SHIPS EMPTY ON PURPOSE. It used to ship one sample app's menu, pages,
+// users and process, which a fresh scaffold then ran as if they were its own: monkey
+// reached "0 of 8 targets" and the walkthrough died on an OQL error for an entity the
+// app never had. An empty block makes each instrument stop with "NOT CONFIGURED: fill
+// <block>" instead. `node tests/e2e/project.config.js` lists what is still empty.
 // ============================================================================
 
 // ── CONFIGURED: credentials ──────────────────────────────────────────────────
@@ -191,16 +197,12 @@ function credentials() {
 const DEFAULT_PORT = '8081';
 
 // ── CONFIGURED: post-login readiness selectors ───────────────────────────────
-// Proof that the SPA finished routing into the app shell. The first two are
-// generic to every Mendix app and are the engine's own default; the rest are
-// THIS project's widget names, needed because the phone layout has no nav tree
-// (it auto-routes straight to the FieldScan tiles).
+// Proof that the SPA finished routing into the app shell. The two below are
+// generic to every Mendix app. Add THIS project's widget names only when a
+// layout has neither (a phone layout with no nav tree, say).
 //   Read the real names with: ./mxcli -p <mpr> -c "DESCRIBE PAGE <Module>.<Page>"
 const READY_SELECTORS = [
   '.mx-navigationtree',
-  '.mx-name-btnSendMessage',
-  '.mx-name-tileMove',
-  '.mx-name-bM',
   '.mx-page',
 ];
 
@@ -220,123 +222,19 @@ const DS_CSS = designPath('design', 'ds.css');
 
 // ── CONFIGURED: navigation captions ──────────────────────────────────────────
 // navClick() clicks the real <a title="..."> in the Mendix nav tree, so these
-// must match the menu captions EXACTLY.
+// must match the menu captions EXACTLY. One entry per menu item monkey.js fuzzes:
+//   key: ['Item']  for a top-level item,  key: ['Group', 'Item']  for a nested one.
 //   Produce the right answer with: ./mxcli -p <mpr> -c "DESCRIBE NAVIGATION"
+// FILL ME — empty, monkey.js exits 2 "NOT CONFIGURED: NAV" without a browser.
 const NAV = {
-  dashboard:    ['Dashboard'],
-  equipment:    ['Assets & Barcodes', 'Equipment'],
-  locations:    ['Assets & Barcodes', 'Locations'],
-  fieldScan:    ['Assets & Barcodes', 'Field Scan'],
-  barcodeLabel: ['Assets & Barcodes', 'Barcode Labels'],
-  aiAssistant:  ['AI', 'AI Assistant'],
-  aiAdmin:      ['AI', 'AI Admin'],
-  designSystem: ['Configuration', 'Design System'],
 };
 
-// ── CONFIGURED: full-app walkthrough steps ───────────────────────────────────
-// One entry per stop on the golden path. Every `.mx-name-*` selector and every
-// `checks` entry is a widget name; every `oql` statement names domain entities.
-// None of it is guessable.
-//   Widget names:  ./mxcli -p <mpr> -c "DESCRIBE PAGE <Module>.<Page>"
-//   Entity names:  ./mxcli -p <mpr> -c "SHOW ENTITIES IN <Module>"
+// ── CONFIGURED: page stops (legacy) ──────────────────────────────────────────
+// A map of named page-stop lists, read only through config.js resolveTarget().
+// No shipped instrument calls it; kept so a project's own script that does keeps
+// working. Shape: { '<name>': { label, ready, pages: [{ key, label, nav, ready,
+// checks: [widget names], oql: [{ label, sql }] }] } }.
 const TARGETS = {
-  'full-app': {
-    label: `${ID} — Full App Walkthrough`,
-    ready: '.mx-page',
-    pages: [
-      {
-        key: 'dashboard', label: 'Dashboard', nav: NAV.dashboard,
-        ready: '.mx-name-dvKPI',
-        checks: ['dvKPI', 'dtTotal', 'dtActive', 'dtMfr', 'dtUnclass', 'btnNewItem', 'btnItemMgmt',
-                 'cChartEquip', 'cChartMfr', 'cChartTrend', 'lvActivityFeed'],
-        oql: [
-          { label: 'Total equipment',  sql: 'SELECT COUNT(*) AS n FROM Equipment.Item' },
-          { label: 'Active equipment', sql: 'SELECT COUNT(*) AS n FROM Equipment.Item WHERE Active = true' },
-          { label: 'Total locations',  sql: 'SELECT COUNT(*) AS n FROM Location.Location' },
-          { label: 'Placements',       sql: 'SELECT COUNT(*) AS n FROM FieldScan.ItemPlacement' },
-        ],
-      },
-      {
-        key: 'equipment-list', label: 'Equipment — Overview', nav: NAV.equipment,
-        ready: '.mx-name-dgItems',
-        checks: ['dgItems', 'btnRegister', 'btnExportItems', 'btnResetItems', 'btnEditItem1'],
-        oql: [{ label: 'Equipment rows', sql: 'SELECT COUNT(*) AS n FROM Equipment.Item' }],
-      },
-      {
-        key: 'equipment-detail', label: 'Equipment — Detail (read + cancel)', nav: null,
-        ready: '.mx-name-dvItem',
-        checks: ['dvItem', 'dynItemCode', 'dynModelName', 'txtDesc1', 'btnCancel'],
-        oql: [],
-      },
-      {
-        key: 'equipment-create', label: 'Equipment — Create + Cancel (no DB write)', nav: NAV.equipment,
-        ready: '.mx-name-dgItems',
-        checks: [],
-        oql: [],
-      },
-      {
-        key: 'locations', label: 'Locations — Overview', nav: NAV.locations,
-        ready: '.mx-name-dgLocations',
-        checks: ['dgLocations', 'btnRegisterLoc', 'btnExportLoc', 'btnResetLoc', 'btnDetailLoc1'],
-        oql: [{ label: 'Location rows', sql: 'SELECT COUNT(*) AS n FROM Location.Location' }],
-      },
-      {
-        key: 'location-detail', label: 'Locations — Detail (edit remark + cancel)', nav: null,
-        ready: '.mx-name-dvLocation',
-        checks: ['dvLocation', 'dynLocId', 'dynLocName', 'txtRemark', 'btnBack'],
-        oql: [],
-      },
-      {
-        key: 'barcode-label', label: 'Barcode Labels', nav: NAV.barcodeLabel,
-        ready: '.mx-name-lvItems',
-        checks: ['lvItems', 'btnPrint', 'ctnLabelPreview', 'txtItemInfo'],
-        oql: [{ label: 'Print-enabled equipment',
-                sql: 'SELECT COUNT(*) AS n FROM Equipment.Item WHERE PrintEnabled = true' }],
-      },
-      {
-        key: 'fieldscan-home', label: 'Field Scan — Home', nav: NAV.fieldScan,
-        ready: '.mx-name-bR',
-        checks: ['bR', 'bM', 'bC', 'tileReceive', 'tileMove', 'tileCount'],
-        oql: [],
-      },
-      {
-        key: 'fieldscan-receive', label: 'Field Scan — Receive (resolve a real barcode)', nav: null,
-        ready: '.mx-name-dvScanCtx',
-        checks: ['dvScanCtx', 'tbScannedCode', 'btnResolve', 'tbQuantity', 'btnReceive', 'lvHistory'],
-        oql: [{ label: 'ItemPlacement rows', sql: 'SELECT COUNT(*) AS n FROM FieldScan.ItemPlacement' }],
-      },
-      {
-        key: 'fieldscan-move', label: 'Field Scan — Move (resolve item + location)', nav: NAV.fieldScan,
-        ready: '.mx-name-dvScanCtx',
-        checks: ['dvScanCtx', 'tbScannedCode', 'btnResolve', 'btnMove'],
-        oql: [{ label: 'MovementLog rows', sql: 'SELECT COUNT(*) AS n FROM FieldScan.MovementLog' }],
-      },
-      {
-        key: 'fieldscan-count', label: 'Field Scan — Stock Count', nav: NAV.fieldScan,
-        ready: '.mx-name-dvCtx',
-        checks: ['dvCtx', 'tbLocCode', 'btnResolveLoc', 'btnStart', 'tbAssetCode', 'btnScanAsset'],
-        oql: [{ label: 'CountSession rows', sql: 'SELECT COUNT(*) AS n FROM FieldScan.CountSession' }],
-      },
-      {
-        key: 'ai-chat', label: 'AI Assistant — Chat', nav: NAV.aiAssistant,
-        ready: '.mx-name-dvChat',
-        checks: ['heading', 'cHead', 'dvChat', 'cCopilot'],
-        oql: [],
-      },
-      {
-        key: 'ai-admin', label: 'AI Assistant — Admin (buttons present, not clicked)', nav: NAV.aiAdmin,
-        ready: '.mx-name-btnLoadItemKB',
-        checks: ['btnLoadItemKB', 'btnLoadLocKB', 'cItemKB', 'cLocKB'],
-        oql: [],
-      },
-      {
-        key: 'design-system', label: 'Design System — Component Gallery', nav: NAV.designSystem,
-        ready: '.mx-page',
-        checks: [],
-        oql: [],
-      },
-    ],
-  },
 };
 
 // ── CONFIGURED: the page -> wireframe map ────────────────────────────────────
@@ -345,34 +243,16 @@ const TARGETS = {
 // drift and no way to notice.
 //
 // Explicit and hand-verified against each wireframe's own <title>, NOT
-// fuzzy-matched. A token heuristic once paired AIAssistant.AIAdmin_Home with
-// home.html at 0.67 ("home" is in both names) and then reported 31 findings from
-// a wireframe that has nothing to do with that page. A wrong mapping does not
-// produce a weak finding, it produces a confident wrong one — so an unmapped
-// page is `skipped` in design-audit (covered by rung 7) and graded as a coverage
-// gap in page-audit (requirement R4).
+// fuzzy-matched. A token heuristic once paired an admin page with home.html at
+// 0.67 ("home" is in both names) and then reported 31 findings from a wireframe
+// that has nothing to do with that page. A wrong mapping does not produce a weak
+// finding, it produces a confident wrong one — so an unmapped page is `skipped`
+// in design-audit (covered by rung 7) and graded as a coverage gap in page-audit
+// (requirement R4).
 //   Produce the candidate list with: ls design/wireframes
 //   Confirm each pairing by reading that wireframe's <title>.
+// FILL ME — shape: '<Module>.<Page>': '<file>.html',   // "<the wireframe's <title>>"
 const PAGE_WIREFRAME = {
-  'Analytics.Dashboard_Home': 'home.html',                                 // "Home Dashboard"
-  'Equipment.Item_Overview': 'item-management.html',                       // "Equipment"
-  'Equipment.Item_Detail': 'item-edit.html',                               // "Item Edit modal"
-  'Equipment.BarcodeLabel_Overview': 'barcode-labels.html',                // "Barcode Label Renderer"
-  'Location.Location_Overview': 'location-management.html',
-  'Location.Location_Detail': 'location-detail.html',
-  'FieldScan.MobileScan_Count': 'mobile-scan.html',                        // "Mobile Field-Scan"
-  'FieldScan.Receive_Scan': 'movement-scan.html',                          // "Movement Scan (Receive · Move)"
-  'FieldScan.Move_Scan': 'movement-scan.html',
-  'RoutingManagement.Route_List': 'route-list.html',
-  'RoutingManagement.Route_Detail': 'route-detail.html',
-  'OperationManagement.Operation_List': 'operation-list.html',
-  'ProcessVariant.ProcessVariant_List': 'processvariant-list.html',
-  'ReworkDeviationRouting.ReworkRoute_List': 'reworkroute-list.html',
-  // Deliberately unmapped — no wireframe was ever drawn for these five. Not a
-  // mapping bug, a coverage gap, and reported as a finding on each page rather
-  // than silently omitted:
-  //   AIAssistant.Chat_Home, AIAssistant.AIAdmin_Home, StyleGallery.Gallery_Home,
-  //   Equipment.Item_Overview_Lab, FieldScan.FieldScan_Home
 };
 
 // ── CONFIGURED: the live positive-control probe page ─────────────────────────
@@ -384,7 +264,7 @@ const PAGE_WIREFRAME = {
 // choice because it may happen to be fully readable.
 //   Find a candidate with: ./mxcli -p <mpr> describe --format elk page <Module>.<Page>
 //   and compare the tree node count against the page's own mdlSource.
-const PROBE_PAGE = process.env.PROBE_PAGE || 'RoutingManagement.Route_List';
+const PROBE_PAGE = process.env.PROBE_PAGE || null;   // FILL ME, or leave null for the page-scope fallback
 
 function probePage(scopeFile) {
   if (PROBE_PAGE) return PROBE_PAGE;
@@ -399,12 +279,13 @@ function probePage(scopeFile) {
 // ── CONFIGURED: exemplar pages quoted in page-audit advice strings ───────────
 // page-audit-rules.js's rule LOGIC is generic; its `exemplar` and `remediate`
 // text points a reader at a page in THIS project that already does the thing
-// right. Repoint these at the equivalent pages of a new project — an exemplar
-// naming a page that does not exist is worse than no exemplar.
+// right. Name the equivalent pages of this project — an exemplar naming a page
+// that does not exist is worse than no exemplar, so null prints "no exemplar set".
+// FILL ME — '<Module>.<Page>' each, or leave null.
 const EXEMPLARS = {
-  listPage:     'RoutingManagement.Route_List',
-  overviewPage: 'Equipment.Item_Overview',
-  detailPage:   'Equipment.Item_Detail',
+  listPage:     null,
+  overviewPage: null,
+  detailPage:   null,
 };
 
 // ── CONFIGURED: the roles the business process passes through ────────────────
@@ -413,19 +294,14 @@ const EXEMPLARS = {
 // exactly one business role: an account carrying two of them cannot fail a role
 // boundary and every negative check below it is vacuous.
 //   Find the roles:     ./mxcli -p <mpr> -c "SHOW SECURITY ROLES"
-//   Find the accounts:  the app's own Administration → Accounts page
+//   Find the accounts:  the app's own Administration → Accounts page, or the
+//                       demo users (`create or modify demo user` sets a known password)
 // Env overrides exist so CI can inject credentials without editing this file.
+// FILL ME — shape:
+//   requester: { label: '<role as the business says it>',
+//                user: process.env.ROLE_REQUESTER_USER || '<user>',
+//                pass: process.env.ROLE_REQUESTER_PASS || '<password>' },
 const ROLES = {
-  requester: {
-    label: 'Manufacturing Engineer',
-    user: process.env.ROLE_REQUESTER_USER || 'erika.engineer',
-    pass: process.env.ROLE_REQUESTER_PASS || 'Engineer2025!',
-  },
-  approver: {
-    label: 'Production Planner',
-    user: process.env.ROLE_APPROVER_USER || 'paul.planner',
-    pass: process.env.ROLE_APPROVER_PASS || 'Planner2025!',
-  },
 };
 
 // ── CONFIGURED: the one cross-module, cross-role business process ────────────
@@ -457,94 +333,44 @@ const ROLES = {
 // Any step may carry `label` (what the report calls it) and `fatal: true` (nothing
 // after this is worth attempting — later steps are then reported NOT REACHED
 // rather than left silently absent). `{{name}}` interpolates a seed or a capture.
+// FILL ME — `acts` is empty, so full-app-walkthrough.js exits 2 "NOT CONFIGURED".
+// The shape of one process (illustrative names; replace every one of them):
+//
+//   seeds: [{ name: 'orderNo', sql: "SELECT OrderNo AS o FROM Sales.Order WHERE Status = 'Open' LIMIT 1" }],
+//   acts: [
+//     { key: 'raise', role: 'requester', module: 'Sales', label: 'raise an order',
+//       // `checks` are read on the act's landing page: after its handoffAssert, and
+//       // after its LEADING `nav` steps — so a first act may simply start with a nav.
+//       checks: ['dgOrders'],
+//       steps: [
+//         { do: 'nav', group: 'Sales', item: 'Orders', ready: 'dgOrders', fatal: true },
+//         { do: 'baseline', name: 'orders', sql: 'SELECT COUNT(*) AS n FROM Sales.Order' },
+//         { do: 'click', widget: 'btnNew', fatal: true },
+//         { do: 'fill', widget: 'txtReference', value: 'E2E walkthrough' },
+//         { do: 'click', widget: 'btnSave', settle: 3000 },
+//         { do: 'oql', label: 'the order was written', deltaFrom: 'orders', by: 1,
+//           sql: 'SELECT COUNT(*) AS n FROM Sales.Order', fatal: true },
+//         { do: 'expectAbsent', widget: 'btnApprove', label: 'the requester cannot approve' },
+//       ] },
+//     { key: 'approve', role: 'approver', module: 'Approvals', label: 'approve it',
+//       handoffAssert: [   // runs right after the sign-in: can role B SEE role A's work?
+//         { do: 'nav', group: 'Approvals', item: 'My Queue', ready: 'dgQueue', fatal: true },
+//         { do: 'expectText', widget: 'dgQueue', text: '{{orderNo}}' } ],
+//       checks: ['dgQueue', 'btnApprove'],
+//       steps: [ { do: 'click', widget: 'btnApprove', settle: 3000 } ] },
+//   ],
+//   cleanup: { role: 'approver', steps: [ /* oql checks that put the data back */ ] },
 const WALKTHROUGH = {
   label: `${ID} — cross-role business process`,
   // One sentence, in the language the business uses. It is printed in the report.
-  process: 'Engineer raises a routing change → planner approves it → the change is visible on the shop floor',
-
-  // Live values, never literals: a walk pinned to 'RT-PCBA-008' reports "the
+  process: '',
+  // Live values, never literals: a walk pinned to one record number reports "the
   // feature is broken" the first time somebody reseeds the database.
-  seeds: [
-    { name: 'routeCode', sql: "SELECT RoutingCode AS c FROM RoutingManagement.Route WHERE LifecycleState = 'Released' LIMIT 1" },
-  ],
-
-  acts: [
-    {
-      key: 'raise', role: 'requester', module: 'RoutingManagement',
-      label: 'raise a change request against a released route',
-      checks: ['dgRoutes', 'btnSearch'],
-      steps: [
-        { do: 'nav', group: 'Routing', item: 'Route List', ready: 'dgRoutes', label: 'Route List opens for the engineer', fatal: true },
-        { do: 'fill', widget: 'txtRoutingCode', value: '{{routeCode}}', debounceMs: 2500, label: 'search for the seeded route' },
-        { do: 'click', widget: 'btnSearch', label: 'run the search' },
-        { do: 'expectRows', widget: 'dgRoutes', min: 1, label: 'the route is found' },
-        { do: 'baseline', name: 'requests', sql: 'SELECT COUNT(*) AS n FROM RoutingManagement.ChangeRequest' },
-        { do: 'click', widget: 'btnRequestChange', label: 'open the change request form', fatal: true },
-        { do: 'fill', widget: 'txtReason', value: 'E2E cross-role walkthrough', label: 'state a reason' },
-        { do: 'click', widget: 'btnSubmit', settle: 3000, label: 'submit the request' },
-        { do: 'oql', label: 'the request was written', deltaFrom: 'requests', by: 1,
-          sql: 'SELECT COUNT(*) AS n FROM RoutingManagement.ChangeRequest', fatal: true },
-        { do: 'capture', name: 'requestNo',
-          sql: 'SELECT RequestNo AS r FROM RoutingManagement.ChangeRequest ORDER BY CreatedDate DESC LIMIT 1' },
-        { do: 'oql', label: 'it is queued for approval, not auto-approved', expect: 'Submitted',
-          sql: "SELECT Status AS s FROM RoutingManagement.ChangeRequest WHERE RequestNo = '{{requestNo}}'" },
-        { do: 'expectAbsent', widget: 'btnApprove', label: 'the engineer cannot approve their own request' },
-        { do: 'shot', name: 'act-raise' },
-      ],
-    },
-    {
-      key: 'approve', role: 'approver', module: 'ApprovalManagement',
-      label: 'approve the request the engineer raised',
-      // handoffAssert runs immediately after the sign-in, on the HANDOFF page of the
-      // report, and it is the point of this whole instrument: proof that the second
-      // role can SEE the first role's work. Nothing in a per-module journey can make
-      // that claim, because no per-module journey ever changes identity.
-      handoffAssert: [
-        { do: 'nav', group: 'Approvals', item: 'My Queue', ready: 'dgApprovals', label: 'the planner has an approval queue', fatal: true },
-        { do: 'expectText', widget: 'dgApprovals', text: '{{requestNo}}',
-          label: "the engineer's request appears in the planner's queue" },
-      ],
-      checks: ['dgApprovals', 'btnApprove'],
-      steps: [
-        { do: 'click', widget: 'btnOpenRequest', label: 'open the request', fatal: true },
-        { do: 'expectText', widget: 'dvRequest', text: '{{routeCode}}', label: 'it is the route the engineer picked' },
-        { do: 'click', widget: 'btnApprove', settle: 3000, label: 'approve it' },
-        { do: 'oql', label: 'approval is recorded against the request', expect: 'Approved',
-          sql: "SELECT Status AS s FROM RoutingManagement.ChangeRequest WHERE RequestNo = '{{requestNo}}'" },
-        { do: 'oql', label: 'the approver on the record is the planner, not the engineer',
-          expect: ROLES.approver.user,
-          sql: "SELECT ApprovedBy AS u FROM RoutingManagement.ChangeRequest WHERE RequestNo = '{{requestNo}}'" },
-        { do: 'shot', name: 'act-approve' },
-      ],
-    },
-    {
-      key: 'consume', role: 'requester', module: 'ProcessVariant',
-      label: 'the engineer sees the approved change downstream',
-      handoffAssert: [
-        { do: 'nav', group: 'Routing', item: 'Route List', ready: 'dgRoutes', label: 'the engineer is back in Route List' },
-        { do: 'expectText', widget: 'dgRoutes', text: '{{routeCode}}', label: "the planner's approval is visible to the engineer" },
-      ],
-      checks: ['dgRoutes'],
-      steps: [
-        { do: 'expectMatchesDb', widget: 'dtOpenRequests',
-          sql: 'SELECT COUNT(*) AS n FROM RoutingManagement.ChangeRequest WHERE Status = \'Submitted\'',
-          label: 'the open-requests tile agrees with the database' },
-        { do: 'shot', name: 'act-consume' },
-      ],
-    },
-  ],
-
+  seeds: [],
+  acts: [],
   // Put the data back. A walk that writes and does not restore makes the second
-  // run measure the first run's leftovers — and the cleanup itself is reported,
-  // because a cleanup that silently failed is exactly what the next reader needs
-  // to know before believing anything.
-  cleanup: {
-    role: 'approver',
-    steps: [
-      { do: 'oql', label: 'no walkthrough request left in Submitted state', expect: '0',
-        sql: "SELECT COUNT(*) AS n FROM RoutingManagement.ChangeRequest WHERE Reason = 'E2E cross-role walkthrough' AND Status = 'Submitted'" },
-    ],
-  },
+  // run measure the first run's leftovers — and the cleanup itself is reported.
+  cleanup: null,
 };
 
 // ── CONFIGURED: the weak walkthrough instruments ─────────────────────────────
@@ -560,7 +386,7 @@ const WALKTHROUGH = {
 // run, or ran without writing", which reads as a broken app and sends the reader
 // to debug configuration that was never wrong. That is not hypothetical: this
 // template declared `full-app-walkthrough` for months while no such file had ever
-// existed in the toolkit, and PROJECT-A's 6-module pass reported exactly that
+// existed in the toolkit, and a 6-module field pass reported exactly that
 // (2026-08-20, process/improvement-plan-e2e-reporting.md Finding 5).
 const WALKTHROUGHS = [
   { instrument: 'full-app-walkthrough', input: 'findings', script: 'full-app-walkthrough.js', tags: [] },
@@ -627,17 +453,21 @@ if (require.main === module) {
   // "undefined", which reads as "not configured" when it only means "not an array".
   const n = (v) => (Array.isArray(v) ? v.length : v && typeof v === 'object' ? Object.keys(v).length : 0);
   const e = module.exports;
-  console.log(`  NAV             ${n(e.NAV)}`);
+  // An empty block says which instrument it stops, so the first run is a to-do list, not a guess.
+  const fill = (k, why) => (n(e[k]) ? '' : `   ← FILL ME: ${why}`);
+  const setEx = Object.values(e.exemplars || {}).filter(Boolean).length;
+  console.log(`  NAV             ${n(e.NAV)}${fill('NAV', 'monkey.js exits 2 NOT CONFIGURED')}`);
   console.log(`  TARGETS         ${n(e.TARGETS)}`);
-  console.log(`  PAGE_WIREFRAME  ${n(e.PAGE_WIREFRAME)}`);
-  console.log(`  exemplars       ${n(e.exemplars)}`);
+  console.log(`  PAGE_WIREFRAME  ${n(e.PAGE_WIREFRAME)}${fill('PAGE_WIREFRAME', 'every page reads as unmapped')}`);
+  console.log(`  exemplars       ${setEx} of ${n(e.exemplars)} set`);
   console.log(`  walkthroughs    ${n(e.walkthroughs)}`);
-  console.log(`  roles           ${n(e.roles)}`);
+  console.log(`  roles           ${n(e.roles)}${fill('roles', 'full-app-walkthrough.js cannot sign in as anyone')}`);
   // Roles and modules, not act count: a walk with ten acts and one role is the
   // single-persona blind spot this instrument exists to close, and it should be
   // visible as such the moment somebody prints this file.
   const acts = (e.walkthrough && e.walkthrough.acts) || [];
   const uniq = (k) => [...new Set(acts.map((a) => a[k]).filter(Boolean))];
   console.log(`  walkthrough     ${acts.length} act(s), ${uniq('role').length} role(s), ${uniq('module').length} module(s)`
-              + `${uniq('role').length < 2 ? '   ← SINGLE PERSONA: this is a module journey, not a process' : ''}`);
+              + `${!acts.length ? '   ← FILL ME: full-app-walkthrough.js exits 2 NOT CONFIGURED'
+                : uniq('role').length < 2 ? '   ← SINGLE PERSONA: this is a module journey, not a process' : ''}`);
 }

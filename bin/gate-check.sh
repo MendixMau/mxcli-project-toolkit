@@ -2514,17 +2514,25 @@ check_build_ready() {
   # ended up with zero occurrences of "refuse to proceed", because a false
   # positive made deleting the safety net the cheapest way to get a green gate.
   # A check that punishes the correct state trains people to break it.
-  local remaining
+  # _br_slots <file...> — the unfilled slots in those stubs, one space-separated line.
   # tr joins each file's lines first so a placeholder wrapped over several lines counts (#509);
   # per file, and the body excludes `{`, so the `'{{'` quoted in prose on line 11 of every stub
   # cannot run on to a later slot's `}}` (see bin/lib/placeholders.sh).
   # A slot longer than 80 characters (a wrapped one carries its whole hint text) is printed as
-  # {{NAME…}} so the failure line stays readable; shorter slots print unchanged.
-  remaining=$(for _af in "$agents_dir"/*.md; do
-                [ -f "$_af" ] && sed 's/{{DOUBLE_BRACE}}//g' "$_af" 2>/dev/null | tr '\n' ' '; echo
-              done | grep -o '{{[^{}]*}}' | sort -u \
-                   | awk '{ if (length($0) > 80) { n=$0; sub(/^\{\{/, "", n); sub(/[^A-Za-z0-9_].*$/, "", n); print "{{" n "…}}" } else print }' \
-                   | tr '\n' ' ')
+  # {{NAME…}} so the line stays readable; shorter slots print unchanged. The perl scan adds the
+  # one shape the count cannot match, a slot whose own text contains a single `{`.
+  _br_slots() {
+    local _af
+    { for _af in "$@"; do
+        [ -f "$_af" ] && sed 's/{{DOUBLE_BRACE}}//g' "$_af" 2>/dev/null | tr '\n' ' '; echo
+      done | grep -o '{{[^{}]*}}' \
+           | awk '{ if (length($0) > 80) { n=$0; sub(/^\{\{/, "", n); sub(/[^A-Za-z0-9_].*$/, "", n); print "{{" n "…}}" } else print }'
+      sed 's/{{DOUBLE_BRACE}}//g' "$@" 2>/dev/null \
+        | perl -0777 -ne 'while (/\{\{([A-Z][A-Z0-9_]+)[^}\n]*\n.*?\}\}/sg) { print "{{$1…}}\n" }' 2>/dev/null
+    } | sort -u | tr '\n' ' '
+  }
+  local remaining
+  remaining="$(_br_slots "$agents_dir"/*.md)"
   if [ -n "$missing_agents" ]; then
     echo "  ✗ missing agent(s):$missing_agents — run bin/init-agents.sh"
     fails=$((fails+1))
@@ -2534,24 +2542,26 @@ check_build_ready() {
     # bytes into the variable NAME on byte-oriented bash 3.2, and set -u then
     # aborts the whole run. Only the failure branch ever built that string, so
     # a pass-path-only test would have shipped it.
-    echo "  ✗ agent(s) still have unfilled placeholders: ${remaining}— complete them (agent-roles.md)"
-    fails=$((fails+1))
-  else
-    # Decision (maintainer, 2026-11-13, supersedes the #509 warning): an unfilled multi-line
-    # placeholder FAILs build-ready, like any other unfilled slot. The joined-lines count above
-    # already catches it; this perl scan is kept only for the one shape that count cannot match,
-    # a slot whose own text contains a single `{` (the count's body is `[^{}]*`).
-    local multi=""
-    multi=$(sed 's/{{DOUBLE_BRACE}}//g' "$agents_dir"/*.md 2>/dev/null \
-            | perl -0777 -ne 'while (/\{\{([A-Z][A-Z0-9_]+)[^}\n]*\n.*?\}\}/sg) { print "{{$1…}}\n" }' 2>/dev/null \
-            | sort -u | tr '\n' ' ')
-    if [ -n "$multi" ]; then
-      echo "  ✗ agent(s) still have unfilled multi-line placeholders: ${multi}— complete them (agent-roles.md)"
+    #
+    # WARN, not FAIL, unless the role is dispatched (#821 point 2; supersedes the 2026-11-13
+    # decision that any unfilled slot FAILs). Two simulated builds (2026-11-20) dispatched 0
+    # subagents and still spent 3 and 6 calls filling ~12 slots across six stubs only to clear this
+    # line, and exec.sh's auto-mode plan rule holds every write until build-ready passes. A stub
+    # guards itself at dispatch: line 11 of every template says to refuse while a slot remains.
+    # The one dispatch record the toolkit keeps is mdl-agent's (.claude/loop/dispatch/<Module>/
+    # scripts.tsv, agents/README.md step 8a): once it exists, mdl-agent's own slots FAIL again.
+    local _br_mdl=""
+    ls "$PROJECT_DIR"/.claude/loop/dispatch/*/scripts.tsv >/dev/null 2>&1 \
+      && _br_mdl="$(_br_slots "$agents_dir/mdl-agent.md")"
+    if [ -n "$_br_mdl" ]; then
+      echo "  ✗ mdl-agent is dispatched (.claude/loop/dispatch/ has its log) and still has unfilled placeholders: ${_br_mdl}— complete them (agent-roles.md)"
       fails=$((fails+1))
-    else
-      echo "  ✓ all 6 agents present, no unfilled placeholders"
     fi
+    echo "  ⚠ agent(s) still have unfilled placeholders: ${remaining}— not counted while that role is never dispatched (each stub refuses to run with a slot left); fill a role's stub before you dispatch it (agent-roles.md)"
+  else
+    echo "  ✓ all 6 agents present, no unfilled placeholders"
   fi
+  unset -f _br_slots
 
   # 3b. Crash net present. Stage 5 writes to a binary .mpr that Studio Pro holds
   # open; without snapshot/restore a bad exec is recovered from git or not at all.

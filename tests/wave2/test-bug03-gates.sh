@@ -364,6 +364,8 @@ echo "== T18: build-ready names a multi-line {{PLACEHOLDER}} left in an agent st
 # per-line grep never saw it, so an untouched stub read "no unfilled placeholders". Counted as a
 # FAIL like any other unfilled slot since the joined-lines count (was a WARN while only the perl scan saw it).
 # Decision: an unfilled multi-line placeholder fails build-ready (maintainer, 2026-11-13; supersedes the #509 warning).
+# Since #821 point 2 every unfilled slot is a ⚠ until its role is dispatched; it must still be NAMED
+# (tests/wave2/test-fast-lane-agent-slots.sh covers WARN vs FAIL).
 TK="$(cd "$(dirname "$GATE")/.." && pwd)"
 P="$(mkproj t18)"; mkdir -p "$P/.claude/agents"
 for a in ba-agent architect-agent mdl-agent gate-agent test-agent review-agent; do
@@ -371,7 +373,7 @@ for a in ba-agent architect-agent mdl-agent gate-agent test-agent review-agent; 
   sed -E 's/\{\{[A-Z][A-Z0-9_]*[^}]*\}\}/filled/g' "$TK/agents/$a.md" > "$P/.claude/agents/$a.md"
 done
 OUT="$("$GATE" --no-html "$P" build-ready 2>&1)"
-case "$OUT" in *'still have unfilled placeholders: {{PROJECT_LOCAL_SOURCES_OF_TRUTH'*) ok "names the multi-line placeholder as a FAIL" ;;
+case "$OUT" in *'still have unfilled placeholders: {{PROJECT_LOCAL_SOURCES_OF_TRUTH'*) ok "names the multi-line placeholder" ;;
   *) bad "multi-line placeholder not named as unfilled: $(printf '%s' "$OUT" | grep -i placeholder)" ;; esac
 case "$OUT" in *'no unfilled placeholders'*) bad "still claims no unfilled placeholders" ;; *) ok "does not claim the stubs are complete" ;; esac
 # Filled: the failure is gone.

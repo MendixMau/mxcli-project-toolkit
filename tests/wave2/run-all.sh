@@ -22,7 +22,12 @@ FAILED=0; RAN=0; SKIPPED=0
 # Belt for the denylist pollution (2026-09-08): fixtures scaffold through init-project.sh, which
 # registers the project name in the toolkit's gitignored denylist unless told otherwise. Send it
 # to scratch here for every fixture, and refuse at the end if the real one appeared anyway.
+# The scratch path doubles as a SENTINEL: it is emptied before each fixture, and a fixture that
+# leaves it non-empty scaffolded without exporting its own MXTK_LEAKGUARD_DENYFILE, so run ALONE
+# (the scoped way) it writes its project names into the clone's real .leakguard-deny and the
+# pre-commit leak guard flags every file for the next committer (2026-11-19: `\bhand\b`, `\bc6\b`).
 export MXTK_LEAKGUARD_DENYFILE="${TMPDIR:-/tmp}/mxtk-runall-denylist.$$"
+SENTINEL="$MXTK_LEAKGUARD_DENYFILE"
 # Same idea for the browser: every fixture that scaffolds a fresh project through init-project.sh
 # would open toolkit-guide.html in the developer's real browser, one tab per fixture, all run long.
 # test-guide-reopen.sh unsets this and uses a fake `open` to test the opening itself.
@@ -72,8 +77,14 @@ for t in "$DIR"/test-*.sh; do
     fi
   fi
 
+  rm -f "$SENTINEL"
   out=$(bash "$t" $subject 2>&1); rc=$?
   RAN=$((RAN+1))
+  if [ -s "$SENTINEL" ]; then
+    printf "  FAIL  %-34s scaffolds via init-project.sh without exporting its own MXTK_LEAKGUARD_DENYFILE (run alone it writes %s: %s)\n" \
+      "$name" "$ROOT_DENY" "$(grep -v '^#' "$SENTINEL" | tr '\n' ' ')"
+    FAILED=$((FAILED+1))
+  fi
   tail_line=$(printf '%s' "$out" | grep -E 'PASS=|SCORE:|ok,|FAIL' | tail -1)
   if [ "$rc" -eq 0 ]; then
     printf "  ok    %-34s %s\n" "$name" "$tail_line"
@@ -87,7 +98,7 @@ done
 
 echo ""
 echo "ran $RAN fixture(s), skipped $SKIPPED, failing $FAILED"
-rm -f "$MXTK_LEAKGUARD_DENYFILE"
+rm -f "$SENTINEL"
 if [ "$ROOT_DENY_BEFORE" -eq 0 ] && [ -f "$ROOT_DENY" ]; then
   echo "FAIL  a fixture wrote $ROOT_DENY — the real toolkit denylist (the pollution MXTK_LEAKGUARD_DENYFILE exists to stop)"
   FAILED=$((FAILED+1))

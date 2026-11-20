@@ -27,8 +27,8 @@
 #           built in place with an app recorded asks app-restart.sh --if-client-gone and reports the
 #           restart done; E4 a full gate built in the copy (.mxtk/build/) asks nothing; E5 a Java
 #           action written with 0 units changed, E6 an opaque --patch script → restart still asked.
-#   #820:   args after the script — --help/-h print usage (exit 0), anything else exits 2; neither
-#           calls mxcli, snapshots or writes BUILD-LOG; a plain run still reaches mxcli; args after a
+#   #820:   args after the script — --help/-h print usage (exit 2), anything else exits 2; neither
+#           calls mxcli, snapshots or writes BUILD-LOG; bare --help exits 0; a plain run still reaches mxcli; args after a
 #           --patch script still pass through to it.
 #
 # NOTHING here touches a real .mpr, mxcli, mxbuild or app. Throwaway git repos with stubs, as
@@ -254,7 +254,7 @@ has "  and named" "$OUT" "'--bogus'"
 hasnt "  and nothing executed" "$OUT" "fake mxcli exec"
 ( cd "$P" && git checkout -q -- mprcontents )
 
-echo "-- arguments after the script (#820): --help prints usage, anything else is refused"
+echo "-- arguments after the script (#820): --help prints usage (exit 2), anything else is refused"
 # Field finding (simulated build, 2026-11-20): an agent ran `exec.sh <script> --help` to read the
 # usage and the script was applied to the model — args after the script were silently ignored.
 ML="$WORK/mxcli.calls"
@@ -263,13 +263,19 @@ for t in "--help" "-h" "--commit-first --help"; do
   rm -f "$ML"; B0="$(blog)"; NSNAP="$(ls "$P/.mpr-snapshots" | grep -c .)"
   case "$t" in --commit-first*) OUT="$(MXCLI_LOG="$ML" run "$P" --commit-first mdlsource/test.mdl --help)" ;;
     *) OUT="$(MXCLI_LOG="$ML" run "$P" mdlsource/test.mdl "$t")" ;; esac; RC=$?
-  [ "$RC" -eq 0 ] && ok "script $t: exit 0" || bad "script $t: rc $RC (want 0)"
+  [ "$RC" -eq 2 ] && ok "script $t: exit 2 (usage only, not run)" || bad "script $t: rc $RC (want 2)"
   has "  prints the usage" "$OUT" "Usage: ./bin/exec.sh"
   [ ! -s "$ML" ] && ok "  mxcli never called" || bad "  mxcli was called: $(cat "$ML")"
   [ "$(blog)" = "$B0" ] && ok "  BUILD-LOG unchanged" || bad "  BUILD-LOG changed"
   [ "$(ls "$P/.mpr-snapshots" | grep -c .)" = "$NSNAP" ] && ok "  no snapshot taken" || bad "  a snapshot was taken"
 done
 rm -f "$ML"; B0="$(blog)"; NSNAP="$(ls "$P/.mpr-snapshots" | grep -c .)"
+OUT="$(MXCLI_LOG="$ML" run "$P" --help)"; RC=$?
+[ "$RC" -eq 0 ] && ok "bare exec.sh --help: exit 0" || bad "bare --help: rc $RC (want 0)"
+has "  prints the usage" "$OUT" "Usage: ./bin/exec.sh"
+[ ! -s "$ML" ] && ok "  mxcli never called" || bad "  mxcli was called: $(cat "$ML")"
+[ "$(blog)" = "$B0" ] && ok "  BUILD-LOG unchanged" || bad "  BUILD-LOG changed"
+[ "$(ls "$P/.mpr-snapshots" | grep -c .)" = "$NSNAP" ] && ok "  no snapshot taken" || bad "  a snapshot was taken"
 OUT="$(MXCLI_LOG="$ML" run "$P" mdlsource/test.mdl --bogus)"; RC=$?
 [ "$RC" -eq 2 ] && ok "script --bogus: exit 2" || bad "script --bogus: rc $RC (want 2)"
 has "  names the argument and says nothing ran" "$OUT" "unexpected argument after the script: '--bogus' — nothing was executed"

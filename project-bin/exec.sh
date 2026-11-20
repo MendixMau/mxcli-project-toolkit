@@ -28,7 +28,9 @@
 #   1  NOT applied, or rolled back: a refusal, a failed pre-exec check, a gate that failed or
 #      could not run, a patch that failed or was not verified. Also a PARTIAL application.
 #      Exception: a LINT ROSE under `Lint gate: hard` (write KEPT; read the last line).
-#   2  usage error (no script, bad argument, missing or unrunnable file); nothing was touched
+#   2  usage error (no script, bad argument, missing or unrunnable file); nothing was touched.
+#      Also `<script> --help|-h` (#820): usage is printed and the script is NOT run.
+#      Only a bare or leading `--help|-h` (no script before it) exits 0, with usage only.
 #   4  applied and the gate passed, but LINT ROSE or LINT BLIND. The write is KEPT: do not
 #      re-apply it. The last line of output reads "gate passed, lint only". Opt-in: with
 #      `Lint gate: hard` in PROJECT.md a LINT ROSE exits 1 instead (write still kept, #496).
@@ -54,7 +56,7 @@
 #   blind    lint could not run or measure (a blind rule, reverted rules, lint-gate fault, no baseline)
 #   skipped  lint was skipped (SKIP_LINT) or bin/lint-gate.sh is not installed
 #   na       lint never ran on this path (a refusal, a restored write, a --patch)
-# NO LINE: exit 2 (usage error), a missing .mpr, and any abort under `set -e` before a verdict
+# NO LINE: exit 2 (usage error, including `<script> --help`), `exec.sh --help` (exit 0, usage only), a missing .mpr, and any abort under `set -e` before a verdict
 # (for example a failing snapshot step) print no MXTK-RESULT line. Read "no MXTK-RESULT line" as
 # "no verdict reached", never as success. The line goes to STDOUT; some refusal text goes to
 # STDERR, so capture both streams (2>&1) when reading a run.
@@ -360,10 +362,11 @@ esac
 # Arguments AFTER the script (#820). They used to be ignored, so `exec.sh s.mdl --help` (an agent
 # checking usage) or a flag typed after the script ran a real model write. Only --patch takes
 # trailing args (they go to the patch script, so `--patch s.py --help` still passes --help on).
-# Anywhere else: --help / -h prints usage, anything else is refused — both before the lock, the
-# commit, the snapshot, BUILD-LOG and mxcli.
+# Anywhere else: --help / -h prints usage and exits 2 (exit 0 means "applied, gate passed" when a
+# script was named), anything else is refused — both before the lock, the commit, the snapshot,
+# BUILD-LOG and mxcli. A bare/leading `exec.sh --help` (no script) exits 0.
 if [ "$PATCH_MODE" != "1" ] && [ $# -gt 1 ]; then
-  for _a in "${@:2}"; do case "$_a" in --help|-h) exec_usage; exit 0 ;; esac; done
+  for _a in "${@:2}"; do case "$_a" in --help|-h) exec_usage; echo "(usage only: the script was NOT run — exit 2)" >&2; exit 2 ;; esac; done
   echo "✗ unexpected argument after the script: '$2' — nothing was executed." >&2
   echo "  Flags go before the script: ./bin/exec.sh [--commit-first] [--cr CR-NN] <script.mdl> (./bin/exec.sh --help)" >&2
   exit 2

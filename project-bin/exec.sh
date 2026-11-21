@@ -1066,6 +1066,7 @@ if [ "$LOCK_TAKEN" != 1 ]; then
   echo "  → Wait for the other exec to finish, then re-run. Nothing was written."
   exit 1
 fi
+EXEC_OUT=""   # never an inherited value: the EXIT trap removes it
 trap 'mxtk_resume_watchers; exec_lock_release; [ -z "${EXEC_OUT:-}" ] || rm -f -- "$EXEC_OUT"; [ "$_PROFILING" != 1 ] || _prof_report' EXIT
 mxtk_resume_leftover "$PROJECT_ROOT"   # a watcher an earlier, SIGKILLed exec.sh left stopped
 
@@ -2375,12 +2376,23 @@ EOF_HV
     rm -f "$HV_BASE" "$HV_POST"
   fi
 else
-  # stdout is kept (EXEC_OUT) for move_stray_module_dirs, which reads its "Created module:" lines.
+  # stdout is kept (EXEC_OUT) for move_stray_module_dirs, which reads its "Created module:" lines,
+  # but only when the script can create a module: mktemp + tee are two process starts, a per-row cost
+  # every other exec must not pay (test-exec-process-budget.sh). The test reads the script with the
+  # `read` builtin and a bash pattern (case-insensitive by bracket classes; bash 3.2-safe, no fork).
+  # It may over-match (a comment, `create module role`): that only captures, the moves still need
+  # mxcli's own "Created module:" line. Otherwise exec runs exactly as before the capture existed.
   # Neither the capture nor tee may stop exec.sh under set -e once mxcli has written: a failed
   # mktemp leaves EXEC_OUT empty (tee then only passes stdout through, and nothing is moved later),
   # and a failed tee is swallowed. EXEC_STATUS is mxcli's own exit code either way.
-  EXEC_OUT="$(mktemp "${TMPDIR:-/tmp}/exec-out.XXXXXX" 2>/dev/null)" || EXEC_OUT=""
-  { "${PMXCLI:-./mxcli}" exec "$SCRIPT" -p "$MPR" | tee ${EXEC_OUT:+"$EXEC_OUT"}; EXEC_STATUS=${PIPESTATUS[0]}; } || true
+  _SCRIPT_TXT=""; IFS= read -r -d '' _SCRIPT_TXT < "$SCRIPT" || true
+  if [[ "$_SCRIPT_TXT" == *[Cc][Rr][Ee][Aa][Tt][Ee][[:space:]]*[Mm][Oo][Dd][Uu][Ll][Ee]* ]]; then
+    EXEC_OUT="$(mktemp "${TMPDIR:-/tmp}/exec-out.XXXXXX" 2>/dev/null)" || EXEC_OUT=""
+    { "${PMXCLI:-./mxcli}" exec "$SCRIPT" -p "$MPR" | tee ${EXEC_OUT:+"$EXEC_OUT"}; EXEC_STATUS=${PIPESTATUS[0]}; } || true
+  else
+    "${PMXCLI:-./mxcli}" exec "$SCRIPT" -p "$MPR" || EXEC_STATUS=$?
+  fi
+  unset _SCRIPT_TXT
 fi
 
 if [ "$EXEC_STATUS" -ne 0 ]; then

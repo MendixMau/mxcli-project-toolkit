@@ -13,3 +13,14 @@ written with project-bin/mxpatch.py (ContentsHash kept in step; `fix hashes` cle
                                                 v0.29.0 alike — mendixlabs/mxcli#1498, since v0.28)
     show-modules-marketplace-protected-v0.29.0  "marketplace": "Marketplace v2.1.0, Protected AddOn"
   show-pages-in-myfirstmodule-v0.29.0.out       mxcli -c 'SHOW PAGES IN MyFirstModule' on "protected"
+
+v0.32.0 additions (2026-11-20, Linux x86-64): mxcli source build `mxcli version v0.32.0-374-g591bcd73e
+(2026-11-20T18:31:01Z)`, sha256 e3e841024add7a2b65488d9c4f8851802902a83933d31ae3e5f33d79e70ead7f.
+Model: a blank Mendix 11.8.0 app (`mxcli new ProbeApp --version 11.8.0 --skip-build`: Atlas,
+Administration and seven marketplace modules), then a `Sales` module (2 entities, 1 enumeration,
+the page Sales.Customer_Edit, 1 microflow) written through bin/exec.sh. v0.32 adds the Version and
+Type columns after Source, leaves both empty for System, and ends the table with "(N modules)" /
+"(N pages)".
+  show-modules-v0.32.0.out / .exit          mxcli -p ProbeApp.mpr -c 'show modules' (stdout; exit code)
+  show-pages-in-sales-v0.32.0.out           mxcli -p ProbeApp.mpr -c 'SHOW PAGES IN Sales' (stdout)
+  show-pages-in-myfirstmodule-v0.32.0.out   mxcli -p ProbeApp.mpr -c 'SHOW PAGES IN MyFirstModule' (stdout)

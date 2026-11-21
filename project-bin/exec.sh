@@ -1066,7 +1066,8 @@ if [ "$LOCK_TAKEN" != 1 ]; then
   echo "  → Wait for the other exec to finish, then re-run. Nothing was written."
   exit 1
 fi
-trap 'mxtk_resume_watchers; exec_lock_release; [ "$_PROFILING" != 1 ] || _prof_report' EXIT
+EXEC_OUT=""   # never an inherited value: the EXIT trap removes it
+trap 'mxtk_resume_watchers; exec_lock_release; [ -z "${EXEC_OUT:-}" ] || rm -f -- "$EXEC_OUT"; [ "$_PROFILING" != 1 ] || _prof_report' EXIT
 mxtk_resume_leftover "$PROJECT_ROOT"   # a watcher an earlier, SIGKILLed exec.sh left stopped
 
 # 3. A raw `mxcli exec` elsewhere on the machine is NOT this project's business. The old guard
@@ -1589,11 +1590,15 @@ step_done guards
 # Shapes are real mxcli v0.26.0 captures (tests/wave2/fixtures/exec-check-refusal/): an error
 # violation is "✗ <message> [RULE]" after any warnings, in ANSI colour even when piped; a parse
 # failure is "- line N:M ..." under "Syntax errors found:". Rule id first, so truncation keeps it.
+# v0.32 reference errors take two lines under "Reference errors:", a header ending in ":" and the
+# cause as "  - ..." (fixtures/exec-check-refusal/reference-v0.32.0.out); both go in the row,
+# because the header alone ("microflow 'X' has reference errors:") names no cause.
 check_refusal_reason() {  # $1 = captured check output
   _esc="$(printf '\033')"
   tr -d '\r' < "$1" 2>/dev/null | sed "s/${_esc}\[[0-9;]*m//g" | awk '
     /^(Syntax|Reference) errors( found)?:$/ { hdr = 1; next }
-    hdr && h == "" && NF { h = $0 }
+    hd == 1 { hd = 2; if ($0 ~ /^ *- /) { d = $0; sub(/^ *- */, "", d); h = h " " d } }
+    hdr && h == "" && NF { h = $0; if (h ~ /:$/) hd = 1 }
     e == "" && /^ *✗ / && !/ found$/ { e = $0 }
     f == "" && /[Ee]rror/ && !/^WARNING: / { f = $0 }
     END { r = (e != "") ? e : ((h != "") ? h : f); print r }' \
@@ -1737,10 +1742,56 @@ if [ ! -x "$MXBUILD" ] || [ ! -x "$JAVA_EXE" ]; then
   fi
 fi
 
+# The snapshot holds the .mpr and mprcontents/ only. A module the script creates gets source folders
+# beside the .mpr that the snapshot does not cover: the gate's own `mx check` generates
+# themesource/<module>/ (settings.json, web/*, native/*, public/) for every module that lacks one
+# (mxcli v0.32 + MxBuild 11.8.0, captured in fixtures/exec-rollback-module-dirs/). After a rollback
+# those folders stayed, untracked, for a module the model no longer has. So after a successful restore,
+# the folders of the modules THIS RUN created (`Created module: X`: themesource/<x>, javasource/<x>,
+# javascriptsource/<X> or <x>, the names mxcli's removeModuleSourceDirs uses) are moved into the
+# snapshot (stray-module-dirs/), when they were not there at snapshot time and hold no tracked file.
+# "Creates" is read from mxcli's own exec output (script_created_modules), not from the script text.
+# Nothing else is touched: another session's or the user's new folder in the same window stays put.
+module_dirs() {
+  local d
+  for d in "$MODEL_DIR"/themesource/*/ "$MODEL_DIR"/javasource/*/ "$MODEL_DIR"/javascriptsource/*/; do
+    [ -d "$d" ] && printf '%s\n' "${d%/}"
+  done
+  return 0
+}
+# Modules mxcli actually created in this run, from its exec stdout (captured verbatim, mxcli v0.32:
+# "Created module: X"; an existing module prints "Module 'X' already exists", `if not exists` on an
+# existing one "module X already exists, skipped (if not exists)", a module role "Created module role:
+# M.R" — none of those match). Not the script text: `create or modify module Sales` on an existing
+# module named a folder the gate regenerates, and the move then claimed the script created it.
+# No captured exec output (a --patch run, or no write) = no names = nothing is moved.
+script_created_modules() {
+  [ -n "${EXEC_OUT:-}" ] && [ -f "$EXEC_OUT" ] || return 0
+  tr -d '\r' < "$EXEC_OUT" | sed -n 's/^Created module: \([A-Za-z_][A-Za-z0-9_]*\)$/\1/p' || true
+}
+move_stray_module_dirs() {
+  local m lm d rel dest
+  [ -n "${NEWEST_SNAP:-}" ] || return 0
+  for m in $(script_created_modules); do
+    lm="$(printf '%s' "$m" | tr '[:upper:]' '[:lower:]')"
+    for d in "$MODEL_DIR/themesource/$lm" "$MODEL_DIR/javasource/$lm" \
+             "$MODEL_DIR/javascriptsource/$m" "$MODEL_DIR/javascriptsource/$lm"; do
+      [ -d "$d" ] && [ ! -L "$d" ] || continue
+      printf '%s\n' "$MODDIRS_BEFORE" | grep -qxF -- "$d" && continue
+      rel="${d#"$PROJECT_ROOT"/}"
+      [ -n "$(git -C "$PROJECT_ROOT" ls-files -- "$rel" 2>/dev/null | head -1)" ] && continue
+      dest="${NEWEST_SNAP%/}/stray-module-dirs/$rel"
+      mkdir -p "$(dirname "$dest")" && mv -- "$d" "$dest" \
+        && echo "  → Moved $rel/ (source folder of module $m, which this run created: mxcli printed \"Created module: $m\") to $dest"
+    done
+  done
+}
 step_done check
 echo "→ Snapshotting model..."
 ./bin/snapshot-mpr.sh
 step_done snapshot
+# Module source folders as they stand before the write (see module_dirs / move_stray_module_dirs above).
+MODDIRS_BEFORE="$(module_dirs)"
 # The snapshot just taken. A --patch run hands it to the script as MXPATCH_BACKUP_DIR, so the
 # .bak that bin/mxpatch.py keeps of each unit it rewrites lands beside the snapshot, OUTSIDE
 # the model tree, and is pruned with it. Until 2026-10-15 it was <unit>.mxunit.bak inside
@@ -1772,6 +1823,7 @@ restore_snapshot() {
   elif R_OUT=$(MXTK_RESTORE_SAME_LEDGER=1 bash "$RESTORER" "$NEWEST_SNAP" 2>&1); then
     RESTORED=1
     printf '%s\n' "$R_OUT" | sed 's/^/  → /'
+    [ -n "${MODDIRS_BEFORE+x}" ] && move_stray_module_dirs
     echo "  → Auto-restored from: $NEWEST_SNAP"
   else
     printf '%s\n' "$R_OUT" | sed 's/^/     /'
@@ -2324,7 +2376,23 @@ EOF_HV
     rm -f "$HV_BASE" "$HV_POST"
   fi
 else
-  "${PMXCLI:-./mxcli}" exec "$SCRIPT" -p "$MPR" || EXEC_STATUS=$?
+  # stdout is kept (EXEC_OUT) for move_stray_module_dirs, which reads its "Created module:" lines,
+  # but only when the script can create a module: mktemp + tee are two process starts, a per-row cost
+  # every other exec must not pay (test-exec-process-budget.sh). The test reads the script with the
+  # `read` builtin and a bash pattern (case-insensitive by bracket classes; bash 3.2-safe, no fork).
+  # It may over-match (a comment, `create module role`): that only captures, the moves still need
+  # mxcli's own "Created module:" line. Otherwise exec runs exactly as before the capture existed.
+  # Neither the capture nor tee may stop exec.sh under set -e once mxcli has written: a failed
+  # mktemp leaves EXEC_OUT empty (tee then only passes stdout through, and nothing is moved later),
+  # and a failed tee is swallowed. EXEC_STATUS is mxcli's own exit code either way.
+  _SCRIPT_TXT=""; IFS= read -r -d '' _SCRIPT_TXT < "$SCRIPT" || true
+  if [[ "$_SCRIPT_TXT" == *[Cc][Rr][Ee][Aa][Tt][Ee][[:space:]]*[Mm][Oo][Dd][Uu][Ll][Ee]* ]]; then
+    EXEC_OUT="$(mktemp "${TMPDIR:-/tmp}/exec-out.XXXXXX" 2>/dev/null)" || EXEC_OUT=""
+    { "${PMXCLI:-./mxcli}" exec "$SCRIPT" -p "$MPR" | tee ${EXEC_OUT:+"$EXEC_OUT"}; EXEC_STATUS=${PIPESTATUS[0]}; } || true
+  else
+    "${PMXCLI:-./mxcli}" exec "$SCRIPT" -p "$MPR" || EXEC_STATUS=$?
+  fi
+  unset _SCRIPT_TXT
 fi
 
 if [ "$EXEC_STATUS" -ne 0 ]; then

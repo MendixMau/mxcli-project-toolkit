@@ -23,3 +23,10 @@ v0.29.0 additions (2026-10-30; binary sha256 in fixtures/property-sets/CAPTURE-v
   list-modules-marketplace-protected-v0.29.0.txt  the same on mkt/TestApp.mpr
   Models: fixtures/mxpatch/model/ with MyFirstModule set Protected, and additionally marked a
   Marketplace module v2.1.0 — exact mutations in fixtures/show-modules/CAPTURE.txt.
+
+v0.32.0 addition (2026-11-20):
+  list-modules-v0.32.0.txt   `mxcli -p ProbeApp.mpr list modules > file 2>&1` with mxcli v0.32.0-374-g591bcd73e,
+  on the model described in fixtures/show-modules/CAPTURE.txt (v0.32.0 additions). New Version and Type
+  columns after Source, "(10 modules)" trailer. Own modules: MyFirstModule, Sales (2). Marketplace: 7
+  (Administration, Atlas_Core, Atlas_Web_Content, DataWidgets, FeedbackModule, NanoflowCommons,
+  WebActions are "Marketplace vX"; System excluded).

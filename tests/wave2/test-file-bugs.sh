@@ -685,8 +685,10 @@ chk "--import default cap is 20 bugs" '[ $RC -ne 0 ] && echo "$OUT" | grep -q "h
 chk "--import refuses a bug that still fails the scan after re-redaction" 'echo "$OUT" | grep -q "^REFUSED: after re-redaction" && ! grep -qi "A8f3" "$GHLOG" && echo "$OUT" | grep -q "refused 1"'
 
 echo "S. #759 ordinary English survives: a match-everything deny line, attribute names that are words"
-# The reported title, byte for byte, and the toolkit-clone denylist `init-project.sh .` wrote.
-T759="journey-runner: 'row' never matches a Mendix 11 list view item"
+# The reported title's shape (hyphen, quotes, digits, spaces) and the toolkit-clone denylist
+# `init-project.sh .` wrote. Not the title byte for byte: it said `journey-runner`, and on a GitHub
+# runner the OS user is `runner`, which file-bugs redacts as the reporter's own name, by design.
+T759="journey-step: 'row' never matches a Mendix 11 list view item"
 printf '# Leak-guard denylist — gitignored. See bin/check-no-client-data.sh header.\n\\b.\\b\n\\bFrobnozzle\\b\n' > "$W/tk-deny-dot"
 G="$(MXTK_LEAKGUARD_DENYFILE="$W/tk-deny-dot" P2DENY='Snarfle\b' bodyof "$T759. The widget inside the list view item whose text matches is used. Frobnozzle too.")"
 chk "#759 a \\b.\\b deny line leaves the reported text unchanged and the row is not refused" 'echo "$G" | grep -qF "$T759. The widget inside the list view item whose text matches is used."'

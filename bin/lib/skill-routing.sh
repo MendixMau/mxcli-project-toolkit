@@ -316,7 +316,10 @@ routing_render() {
       # full text: README and the runbook are read on purpose, not loaded every turn.
       echo "Triggers, not a reading list: open a row's file only when its trigger happens now, at *every stage* or the stage PROJECT.md records. Main session = **lead**; a role stub reads only its own rows and *every role*; a role named *on demand* opens that row only when its trigger fires."
       echo ""
-      echo "Full trigger text and the why behind each row: \`${prefix%/}/ROUTING.md\`."
+      # Worded as an instruction, not a reference (2026-11-20 routing experiment): with only this
+      # block in context, 0 of 96 runs named ROUTING.md under the old "Full trigger text …: ROUTING.md"
+      # line and off-baseline situations hit 44% top-2; the full table inlined hit 98%.
+      echo "No row matches what just happened? Grep \`${prefix%/}/ROUTING.md\` for the symptom word before acting — it routes every on-demand skill, with full triggers."
       echo ""
       echo "| Trigger | Reference this (under \`${prefix%/}/\`) | Stage(s) | Role(s) |"
       echo "|---|---|---|---|"

@@ -271,7 +271,7 @@ wait_ready() {  # exits: 0 up, 1 not proven up
   "This app was not started with \`mxcli run --local\` (v0.24+), or it is not running. This script never" \
   "stops a process found by name or pattern, so there is nothing it may stop." \
   "→ Start it:   ./mxcli run --local --watch -p $(basename "$MPR")" \
-  "→ Docker app: ./bin/test-stack-up.sh --restart"
+  "→ If this app runs in a container: ./bin/test-stack-up.sh --restart"
 PID="$(hs_num pid "$HS")"; PORT="$(hs_num appPort "$HS")"; HS_PROJECT="$(hs_str project "$HS")"
 [ -n "$PORT" ] || refuse "the record $HS names no appPort — cannot tell which app it is."
 [ -n "$HS_PROJECT" ] || refuse "the record $HS names no project — cannot prove it is this project's app." \
@@ -300,7 +300,13 @@ fi
 REC_ADMIN="$(hs_num adminPort "$HS")"   # the probe uses only a recorded admin port, never a guess
 ADMIN_PORT="$REC_ADMIN"; [ -n "$ADMIN_PORT" ] || ADMIN_PORT=$((PORT + 10))
 REC_DIR="$PROJECT_ROOT/.claude/loop/app-restart"; REC="$REC_DIR/start.cmd"
-LOG="${LOGDIR:-${TMPDIR:-/tmp}}/$(basename "$MPR" .mpr)-run-local.log"
+# The start log is this project's: <project>/.claude/loop/app-restart/run-local.log (self-gitignored,
+# beside start.cmd). It was ${TMPDIR:-/tmp}/<mpr name>-run-local.log, one file for every project whose
+# model shares a name (field run 2026-11-20: several apps called ProbeApp.mpr wrote into one log).
+# LOGDIR still overrides. Created only when something is written, so --probe / --dry-run touch nothing.
+LOG="${LOGDIR:+$LOGDIR/$(basename "$MPR" .mpr)-run-local.log}"; LOG="${LOG:-$REC_DIR/run-local.log}"
+log_dir() { [ -n "${LOGDIR:-}" ] && return 0
+  mkdir -p "$REC_DIR" 2>/dev/null && { [ -f "$REC_DIR/.gitignore" ] || printf '*\n' > "$REC_DIR/.gitignore"; }; }
 
 # ── 1b. --probe / --if-client-gone: look before touching anything ───────────
 if [ "$MODE" = probe ]; then
@@ -328,7 +334,7 @@ if [ "$MODE" = client ]; then
   _mx="$(find_project_mxcli 2>/dev/null || command -v mxcli 2>/dev/null || true)"
   if [ -n "$_rs" ] && [ -n "$_mx" ]; then
     echo "  mxcli run restart -p $(basename "$MPR")   (a --detach run: mxcli restarts it with its own arguments)"
-    "$_mx" run restart -p "$MPR" >>"$LOG" 2>&1 </dev/null || echo "  ! mxcli run restart exited $? — see $LOG; checking the app anyway"
+    log_dir; "$_mx" run restart -p "$MPR" >>"$LOG" 2>&1 </dev/null || echo "  ! mxcli run restart exited $? — see $LOG; checking the app anyway"
     wait_ready
   fi
   # No run-state.json (not a --detach run) or no mxcli here: the recorded-pid restart below.
@@ -454,6 +460,7 @@ fi
 
 # ── 4. Start it the same way, detached, and remember how ────────────────────
 rm -f "$HS" 2>/dev/null || true   # a SIGKILLed mxcli leaves its record behind; the new one must be new
+log_dir
 if command -v setsid >/dev/null 2>&1; then
   ( cd "$START_CWD" && exec setsid nohup "${ARGV[@]}" >>"$LOG" 2>&1 </dev/null ) &
 else

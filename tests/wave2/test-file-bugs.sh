@@ -37,6 +37,9 @@
 #     repo has it or the user may create it, exact-title duplicate recorded not reposted, no gh or not
 #     signed in -> links and exit 0, no deny list refused; --add --log redaction and drop; the
 #     permissions deny --file/--all but not --auto
+#   S #759 a `\b.\b` deny line (from `init-project.sh .`) is dropped with a warning, but one that
+#     also holds a name (`Acmecorp|Initrode|`) is refused (fail closed); attribute names
+#     that are English words (Round, Used) leave prose alone and are still caught in code
 set -uo pipefail
 TOOLKIT="$(cd "$(dirname "$0")/../.." && pwd)"
 SUBJ="${1:-$TOOLKIT/bin/file-bugs.sh}"
@@ -680,6 +683,40 @@ PYX
 chk "--import default cap is 20 bugs" '[ $RC -ne 0 ] && echo "$OUT" | grep -q "holds 21 bugs, more than the cap of 20" && [ ! -s "$GHLOG" ]'
 : > "$GHLOG"; OUT="$(rr --import "$W/unsafe.md" 2>&1)"
 chk "--import refuses a bug that still fails the scan after re-redaction" 'echo "$OUT" | grep -q "^REFUSED: after re-redaction" && ! grep -qi "A8f3" "$GHLOG" && echo "$OUT" | grep -q "refused 1"'
+
+echo "S. #759 ordinary English survives: a match-everything deny line, attribute names that are words"
+# The reported title's shape (hyphen, quotes, digits, spaces) and the toolkit-clone denylist
+# `init-project.sh .` wrote. Not the title byte for byte: it said `journey-runner`, and on a GitHub
+# runner the OS user is `runner`, which file-bugs redacts as the reporter's own name, by design.
+T759="journey-step: 'row' never matches a Mendix 11 list view item"
+printf '# Leak-guard denylist — gitignored. See bin/check-no-client-data.sh header.\n\\b.\\b\n\\bFrobnozzle\\b\n' > "$W/tk-deny-dot"
+G="$(MXTK_LEAKGUARD_DENYFILE="$W/tk-deny-dot" P2DENY='Snarfle\b' bodyof "$T759. The widget inside the list view item whose text matches is used. Frobnozzle too.")"
+chk "#759 a \\b.\\b deny line leaves the reported text unchanged and the row is not refused" 'echo "$G" | grep -qF "$T759. The widget inside the list view item whose text matches is used."'
+chk "#759 the dropped line is warned about, by pattern; the other lines in that file still redact" 'grep -qF "deny pattern \`\\b.\\b\` matches ordinary text" "$W/p2.err" && ! echo "$G" | grep -qi frobnozzle'
+# Fail closed (review of #815): a probe-matching line that still names someone is refused, not dropped.
+G="$(P2DENY='Acmecorp|Initrode|' bodyof "Acmecorp and Initrode staff saw it.")"
+chk "#759 a deny line holding names that also matches everything (Acmecorp|Initrode|) is refused; the names never reach a body" '! echo "$G" | grep -q "Acmecorp\|Initrode" && grep -q "invalid deny pattern.*Acmecorp|Initrode|.*matches ordinary text" "$W/p2.err"'
+G="$(P2DENY='Snarfle\b' LEAKGUARD_DENY='(Acmecorp)?' bodyof "Acmecorp saw it.")"
+chk "#759 the same for \$LEAKGUARD_DENY (Acmecorp)?: refused, never posted in clear" '! echo "$G" | grep -q Acmecorp && grep -q "invalid deny pattern" "$W/p2.err"'
+G="$(P2DENY='Öko|' bodyof "Öko staff saw it.")"
+chk "#759 a non-ASCII name that matches everything (Öko|) is refused too, never dropped and posted in clear" '! echo "$G" | grep -q "Öko" && grep -q "invalid deny pattern.*matches ordinary text" "$W/p2.err"'
+G="$(MXTK_LEAKGUARD_DENYFILE="$W/tk-deny-dot" P2DENY='Snarfle\b' bodyof "Plain text, no names.")"
+chk "#759 a nameless line (\\b.\\b) is still dropped with a warning, not refused" 'echo "$G" | grep -qF "Plain text, no names." && grep -qF "deny pattern \`\\b.\\b\` matches ordinary text" "$W/p2.err" && ! grep -q "invalid deny pattern" "$W/p2.err"'
+KMDL759='CREATE PERSISTENT ENTITY Quuxmod.Gadget (
+  Round: Integer,
+  Used: Boolean
+);'
+G="$(P2MDL="$KMDL759" bodyof 'The value is used here. ### Workaround: none. Flow ACT_Round_Save reads $w/Used and myRound.')"
+chk "#759 attribute Round leaves Workaround alone; attribute Used leaves prose used alone" 'echo "$G" | grep -qF "The value is used here. ### Workaround: none."'
+chk "#759 the same attributes are still redacted in code: ACT_Round_Save, \$w/Used, myRound" '! echo "$G" | grep -q "Round_Save\|/Used\|myRound" && echo "$G" | grep -q "ACT_Attr[0-9]*_Save"'
+# init-project.sh no longer writes the line: the name is resolved, escaped, deduped, and a short one refused.
+IP="$W/ip"; mkdir -p "$IP/Wobblecorp" "$IP/my.app"; : > "$W/ip-deny"
+( cd "$IP/Wobblecorp" && MXTK_NO_GUIDE=1 MXTK_LEAKGUARD_DENYFILE="$W/ip-deny" bash "$TOOLKIT/bin/init-project.sh" . --ignore-sources </dev/null >/dev/null 2>&1
+  cd "$IP/Wobblecorp" && MXTK_NO_GUIDE=1 MXTK_LEAKGUARD_DENYFILE="$W/ip-deny" bash "$TOOLKIT/bin/init-project.sh" . --ignore-sources </dev/null >/dev/null 2>&1
+  MXTK_NO_GUIDE=1 MXTK_LEAKGUARD_DENYFILE="$W/ip-deny" bash "$TOOLKIT/bin/init-project.sh" "$IP/my.app" --ignore-sources </dev/null >/dev/null 2>&1
+  MXTK_NO_GUIDE=1 MXTK_LEAKGUARD_DENYFILE="$W/ip-deny" bash "$TOOLKIT/bin/init-project.sh" "$IP/ab" --ignore-sources </dev/null >/dev/null 2>&1 )
+chk "#759 init-project.sh . registers the folder's name, once, never \\b.\\b" '[ "$(grep -cxF "\\bWobblecorp\\b" "$W/ip-deny")" = 1 ] && ! grep -qxF "\\b.\\b" "$W/ip-deny"'
+chk "#759 init-project.sh escapes a dotted name and refuses one under 3 characters" 'grep -qxF "\\bmy\\.app\\b" "$W/ip-deny" && ! grep -q "ab\\\\b" "$W/ip-deny"'
 
 echo "Z. no real issue was ever created"
 chk "every gh call went through the stub (log exists, no network tool used)" '[ -s "$GHLOG" ]'

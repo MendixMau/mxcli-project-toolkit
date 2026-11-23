@@ -39,5 +39,20 @@ printf 'should this be a script or a skill\tskills/no-such-skill.md\t-\tmust_hit
 "$PY" "$SUT" --root "$TOOLKIT" routing --phrasings "$TMP/p.tsv" --strict >/dev/null 2>&1; rc=$?
 [ "$rc" -eq 1 ] && ok "must_hit miss under --strict exits 1" || bad "must_hit miss under --strict exits 1" "rc=$rc"
 
+# dupes skips skills/generated/ (renderer output of bin/mdl-rules.sh, copies by design), and still
+# reports the same paragraph stated twice in two hand-written skills.
+R="$TMP/root"; mkdir -p "$R/skills/generated" "$R/agents"
+para='Never stage with git add -A in a shared clone: pass explicit paths to git commit so a peer session staged work never lands inside your commit by accident.'
+printf '# A\n\n%s\n' "$para" > "$R/skills/a.md"
+printf '# Gen\n\n%s\n' "$para" > "$R/skills/generated/rules-any.md"
+printf '# R\n' > "$R/README.md"
+dout="$("$PY" "$SUT" --root "$R" dupes 2>&1)"
+if printf '%s\n' "$dout" | grep -q 'skills/generated/'; then bad "dupes skips skills/generated/" "$(printf '%s\n' "$dout" | grep -m1 'skills/generated/')"
+else ok "dupes skips skills/generated/"; fi
+printf '# B\n\n%s\n' "$para" > "$R/skills/b.md"
+dout="$("$PY" "$SUT" --root "$R" dupes 2>&1)"
+printf '%s\n' "$dout" | grep -q 'skills/a.md' && printf '%s\n' "$dout" | grep -q 'skills/b.md' \
+  && ok "dupes still reports a hand-written pair" || bad "dupes still reports a hand-written pair" "$(printf '%s\n' "$dout" | head -3)"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

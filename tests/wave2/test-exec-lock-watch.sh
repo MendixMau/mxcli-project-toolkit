@@ -27,6 +27,9 @@
 #           built in place with an app recorded asks app-restart.sh --if-client-gone and reports the
 #           restart done; E4 a full gate built in the copy (.mxtk/build/) asks nothing; E5 a Java
 #           action written with 0 units changed, E6 an opaque --patch script → restart still asked.
+#   #820:   args after the script — --help/-h print usage (exit 2), anything else exits 2; neither
+#           calls mxcli, snapshots or writes BUILD-LOG; bare --help exits 0; a plain run still reaches mxcli; args after a
+#           --patch script still pass through to it.
 #
 # NOTHING here touches a real .mpr, mxcli, mxbuild or app. Throwaway git repos with stubs, as
 # in test-bug07-08.sh.
@@ -69,6 +72,7 @@ echo "Snapshot saved: $D"
 SNAP
   cat > "$P/mxcli" <<'MXCLI'
 #!/usr/bin/env bash
+[ -n "${MXCLI_LOG:-}" ] && echo "$*" >> "$MXCLI_LOG"
 case "${1:-}" in check) exit 0 ;; exec) echo "fake mxcli exec"; exit 0 ;; esac
 exit 0
 MXCLI
@@ -249,6 +253,43 @@ has "  and named" "$OUT" "'--bogus'"
 [ "$(ls "$P/.mpr-snapshots" | grep -c .)" = "$NSNAP" ] && ok "  and before any snapshot" || bad "a snapshot was taken before the refusal"
 hasnt "  and nothing executed" "$OUT" "fake mxcli exec"
 ( cd "$P" && git checkout -q -- mprcontents )
+
+echo "-- arguments after the script (#820): --help prints usage (exit 2), anything else is refused"
+# Field finding (simulated build, 2026-11-20): an agent ran `exec.sh <script> --help` to read the
+# usage and the script was applied to the model — args after the script were silently ignored.
+ML="$WORK/mxcli.calls"
+blog() { cat "$P/docs/BUILD-LOG.md" 2>/dev/null | cksum; }
+for t in "--help" "-h" "--commit-first --help"; do
+  rm -f "$ML"; B0="$(blog)"; NSNAP="$(ls "$P/.mpr-snapshots" | grep -c .)"
+  case "$t" in --commit-first*) OUT="$(MXCLI_LOG="$ML" run "$P" --commit-first mdlsource/test.mdl --help)" ;;
+    *) OUT="$(MXCLI_LOG="$ML" run "$P" mdlsource/test.mdl "$t")" ;; esac; RC=$?
+  [ "$RC" -eq 2 ] && ok "script $t: exit 2 (usage only, not run)" || bad "script $t: rc $RC (want 2)"
+  has "  prints the usage" "$OUT" "Usage: ./bin/exec.sh"
+  [ ! -s "$ML" ] && ok "  mxcli never called" || bad "  mxcli was called: $(cat "$ML")"
+  [ "$(blog)" = "$B0" ] && ok "  BUILD-LOG unchanged" || bad "  BUILD-LOG changed"
+  [ "$(ls "$P/.mpr-snapshots" | grep -c .)" = "$NSNAP" ] && ok "  no snapshot taken" || bad "  a snapshot was taken"
+done
+rm -f "$ML"; B0="$(blog)"; NSNAP="$(ls "$P/.mpr-snapshots" | grep -c .)"
+OUT="$(MXCLI_LOG="$ML" run "$P" --help)"; RC=$?
+[ "$RC" -eq 0 ] && ok "bare exec.sh --help: exit 0" || bad "bare --help: rc $RC (want 0)"
+has "  prints the usage" "$OUT" "Usage: ./bin/exec.sh"
+[ ! -s "$ML" ] && ok "  mxcli never called" || bad "  mxcli was called: $(cat "$ML")"
+[ "$(blog)" = "$B0" ] && ok "  BUILD-LOG unchanged" || bad "  BUILD-LOG changed"
+[ "$(ls "$P/.mpr-snapshots" | grep -c .)" = "$NSNAP" ] && ok "  no snapshot taken" || bad "  a snapshot was taken"
+OUT="$(MXCLI_LOG="$ML" run "$P" mdlsource/test.mdl --bogus)"; RC=$?
+[ "$RC" -eq 2 ] && ok "script --bogus: exit 2" || bad "script --bogus: rc $RC (want 2)"
+has "  names the argument and says nothing ran" "$OUT" "unexpected argument after the script: '--bogus' — nothing was executed"
+[ ! -s "$ML" ] && ok "  mxcli never called" || bad "  mxcli was called: $(cat "$ML")"
+[ "$(blog)" = "$B0" ] && ok "  BUILD-LOG unchanged" || bad "  BUILD-LOG changed"
+[ "$(ls "$P/.mpr-snapshots" | grep -c .)" = "$NSNAP" ] && ok "  no snapshot taken" || bad "  a snapshot was taken"
+[ ! -e "$LOCK" ] && ok "  no lock left" || bad "  lock left behind"
+OUT="$(MXCLI_LOG="$ML" run "$P" --subjects mdlsource/test.mdl extra)"; RC=$?
+[ "$RC" -eq 2 ] && ok "an advisory mode with a trailing arg is refused too (rc 2)" || bad "--subjects s.mdl extra: rc $RC"
+rm -f "$ML"; B0="$(blog)"
+OUT="$(MXCLI_LOG="$ML" run "$P" mdlsource/test.mdl)"; RC=$?
+[ "$RC" -eq 0 ] && ok "control: plain exec.sh s.mdl still runs (rc 0)" || bad "control run failed (rc $RC): $(printf '%s' "$OUT" | tail -3)"
+grep -q '^exec' "$ML" 2>/dev/null && ok "  and reaches mxcli exec" || bad "  mxcli exec not called: $(cat "$ML" 2>/dev/null)"
+[ "$(blog)" != "$B0" ] && ok "  and writes its BUILD-LOG row" || bad "  no BUILD-LOG row"
 
 echo "-- two-tree checkout (.mpr under app/): lock and --commit-first (#304 review; CLAUDE.md field-proof rule 2)"
 T="$WORK/twotree"; mkproj "$T"
@@ -505,6 +546,15 @@ case "$OUT" in *"→ Watch:"*)
   hasnt "E6   not 'changed nothing'" "$OUT" "changed nothing in the model" ;;
   *) bad "E6 [setup] the --patch exec did not reach the watch advisory: $(printf '%s' "$OUT" | tail -4)" ;;
 esac
+# #820: args after a --patch script still pass through to it (only an MDL run refuses them).
+printf '#!/usr/bin/env bash\nshift; printf "%%s\\n" "$@" > "$(dirname "$0")/../.patch-args"\n' > "$P/mdlsource/args-patch.sh"
+( cd "$P" && git add mdlsource && git -c user.email=t@t -c user.name=t commit -qm argspatch ) >/dev/null 2>&1
+rm -f "$P/.patch-args"
+OUT="$(run "$P" --patch mdlsource/args-patch.sh --help --x 1)"; RC=$?
+[ "$(cat "$P/.patch-args" 2>/dev/null | tr '\n' ' ')" = "--help --x 1 " ] && ok "#820 --patch <script> --help --x 1: args reach the patch script" \
+  || bad "#820 --patch args not passed through (rc $RC): $(cat "$P/.patch-args" 2>/dev/null) $(printf '%s' "$OUT" | tail -3)"
+hasnt "#820   --patch did not print exec.sh usage instead" "$OUT" "Usage: ./bin/exec.sh"
+rm -f "$P/.patch-args"
 # E5b: the same Java rewrite in a project whose path holds a space. An unquoted `find $_side`
 # split the path, failed silently and called the model "same" (#721 review).
 SP="$WORK/my proj"; cp -a "$P" "$SP"

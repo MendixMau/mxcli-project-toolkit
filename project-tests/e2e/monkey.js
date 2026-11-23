@@ -94,9 +94,31 @@ function finding(severity, target, what, detail) {
 // ── the crash oracle ────────────────────────────────────────────────────────
 // Concretely defined, because "did it crash?" is otherwise a judgement call that
 // drifts between runs. Five signals, and the fifth is the one only OTel can see.
+//
+// HTTP 551 WITH A `datavalidation` BODY IS NOT A CRASH (#803). It is how the Mendix runtime
+// returns validation feedback: a required field emptied, a save refused with "Enter the customer
+// name" shown at the field. That is the app working. Scored as "HTTP 5xx: 551" it was crash-class,
+// and a monkey round that empties a field and clicks Save is the commonest round there is. Only a
+// 551 whose body parses to an object with a `datavalidation` array is exempt; any other 5xx,
+// and a 551 with any other body, is still a crash.
+function isValidationFeedback(status, body) {
+  if (status !== 551) return false;
+  try { const o = JSON.parse(body); return !!o && typeof o === 'object' && Array.isArray(o.datavalidation); }
+  catch (e) { return false; }
+}
 function installClientWatch(page, bucket) {
   page.on('pageerror', e => bucket.jsErrors.push(String(e.message).slice(0, 200)));
-  page.on('response', r => { if (r.status() >= 500) bucket.http5xx.push(`${r.status()} ${r.url().slice(0, 120)}`); });
+  page.on('response', r => {
+    const status = r.status();
+    if (status < 500) return;
+    const line = `${status} ${r.url().slice(0, 120)}`;
+    if (status !== 551) { bucket.http5xx.push(line); return; }
+    // The body is read only for a 551. The round's own arrays are captured now, so a body that
+    // resolves after the next round began is filed under the round that caused it.
+    const crash = bucket.http5xx, valid = (bucket.validation = bucket.validation || []);
+    (bucket.pending = bucket.pending || []).push(r.text().catch(() => '')
+      .then(body => (isValidationFeedback(status, body) ? valid : crash).push(line)));
+  });
 }
 
 // A spinner still up after 8 s is NOT one of the four crash signals monkey-test.md defines
@@ -105,6 +127,8 @@ function installClientWatch(page, bucket) {
 async function oracle(page, t0, bucket) {
   const hits = [];
   const slow = [];
+  if (bucket.pending && bucket.pending.length) await Promise.all(bucket.pending.splice(0));
+  const validation = (bucket.validation || []).slice();
   if (bucket.jsErrors.length) hits.push(`unhandled JS: ${bucket.jsErrors[0]}`);
   if (bucket.http5xx.length) hits.push(`HTTP 5xx: ${bucket.http5xx[0]}`);
 
@@ -136,7 +160,7 @@ async function oracle(page, t0, bucket) {
     if (errs.length) hits.push(`ERROR span: ${O.describeError(errs[0])}`);
   }
   const traceRan = spans.length > 0;
-  return { hits: hits.filter(Boolean), slow, traceRan };
+  return { hits: hits.filter(Boolean), slow, validation, traceRan };
 }
 
 // ── typing without shelling ─────────────────────────────────────────────────
@@ -232,7 +256,7 @@ async function land(page, group, item) {
 
 // ── one round ───────────────────────────────────────────────────────────────
 async function round(page, target, bucket) {
-  bucket.jsErrors = []; bucket.http5xx = [];
+  bucket.jsErrors = []; bucket.http5xx = []; bucket.validation = []; bucket.pending = [];
   const t0 = Date.now();
 
   const inputs = page.locator('.mx-page input:visible, .mx-page textarea:visible');
@@ -283,31 +307,40 @@ async function round(page, target, bucket) {
   }
 
   await page.waitForTimeout(1800);
-  const { hits, slow, traceRan } = await oracle(page, t0, bucket);
+  const { hits, slow, validation, traceRan } = await oracle(page, t0, bucket);
   if (hits.length) finding('crash', target, what, hits.join(' | '));
   else if (slow.length) finding('slow', target, what, slow.join(' | ') + ' — not a crash signal; check whether the action finished before calling it a hang');
+  else if (validation.length) finding('info', target, what, `validation feedback: HTTP ${validation[0]} with a datavalidation body — the app refused the input as designed, not a crash`);
   else finding('ok', target, what, traceRan ? '' : 'no spans — OTel arm of the oracle did NOT run');
   return traceRan;
 }
 
-// Exit codes (#679): 1 = a crash-class finding; 2 = instrument fault, NOT measured (the NAV is
-// the template's sample, or 0 of N targets were reached); 3 = unknown --target; 0 otherwise.
+// Exit codes (#679): 1 = a crash-class finding; 2 = instrument fault, NOT measured (NAV is empty
+// or the old template sample, or 0 of N targets were reached — N = 0 included: a fresh scaffold's
+// NAV is empty, and "reached 0 of 0" fuzzed nothing); 3 = unknown --target; 0 otherwise.
 // "0 of 8 reached" and "8 of 8 reached, no crash" used to both exit 0.
 function exitCode({ crashes, targets, unreached }) {
   if (crashes > 0) return 1;
-  if (targets > 0 && unreached >= targets) return 2;
+  if (targets === 0 || unreached >= targets) return 2;
   return 0;
 }
 
 // leftApp is exported for tests/wave2/test-monkey-left-app.sh; requiring this file runs nothing.
-module.exports = { leftApp, SIGN_OUT, SIGN_OUT_DEFAULT, signOutPattern, isSignOutLabel, typeSafely, oracle, land, exitCode };
+module.exports = { leftApp, SIGN_OUT, SIGN_OUT_DEFAULT, signOutPattern, isSignOutLabel, typeSafely, oracle, land, exitCode,
+                   installClientWatch, isValidationFeedback };
 
 // ── main ────────────────────────────────────────────────────────────────────
 if (require.main === module) (async () => {
   console.log(`MONKEY_SEED=${SEED}   rounds=${ROUNDS}   (re-run exactly: --seed ${SEED})`);
 
-  // Before the browser (#679): a NAV still equal to the template's sample would land on menu
-  // captions this app does not have — a run that measures nothing, and costs a login.
+  // Before the browser (#679): an empty NAV (a fresh scaffold's) or one still equal to the old
+  // template sample lands on nothing this app has — a run that measures nothing, and costs a login.
+  if (!NAV || !Object.keys(NAV).length) {
+    console.log('  SETUP  NOT CONFIGURED: NAV in tests/e2e/project.config.js is empty — monkey has no menu item ' +
+      'to fuzz. Fill it from `mxcli -p <mpr> -c "describe navigation"` (key: [\'Group\', \'Item\'] or [\'Item\']); ' +
+      'an app with no menu to fuzz runs verify-module.sh with --skip-monkey instead. Monkey NOT run: not measured.');
+    process.exit(2);
+  }
   if (navIsTemplate()) {
     console.log('  SETUP  NAV is the unedited sample from project.config.template.js — none of its menu ' +
       'captions are this app\'s. Fill NAV in tests/e2e/project.config.js from ' +
@@ -317,7 +350,7 @@ if (require.main === module) (async () => {
   }
 
   const { browser, page } = await H.launchBrowser();
-  const bucket = { jsErrors: [], http5xx: [] };
+  const bucket = { jsErrors: [], http5xx: [], validation: [], pending: [] };
   installClientWatch(page, bucket);
 
   const li = await H.login(page);

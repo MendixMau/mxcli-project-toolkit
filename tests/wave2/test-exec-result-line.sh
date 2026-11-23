@@ -16,6 +16,10 @@
 #   I  exec exit 3 + gate error + broken restore -> verdict=failed applied=unknown (same as H); I2 restore ok -> restored
 #   J-L --patch: clean applied; script fails half-way -> restored (K) / failed when the restore is broken (K2); unverified gate -> restored (L)
 #   M  lint_new words: skipped (SKIP_LINT, lint not installed), blind (lint-gate fault); B: unknown (rise not itemised)
+#   N  the exec-output capture fails AFTER mxcli wrote (#823 review): mktemp of exec-out.* fails (N1, N3)
+#      or tee into it fails (N2); exec.sh still reaches the gate / restore, prints its RESULT line,
+#      and keeps mxcli's own exit code (N3: exec exit 3 -> partial). PATH wrappers fail only for the
+#      exec-out.* capture; every other mktemp/tee call runs the real tool.
 #   Every case: exactly one RESULT line, and it is not the last line.
 #
 # Synthetic only: throwaway git repo, stub mxcli, stub mxbuild, stub java. Nothing real runs.
@@ -228,6 +232,32 @@ mv "$P/bin/lint-gate.sh.off" "$P/bin/lint-gate.sh"
 RC=$(LINT_MODE=fault run M3 ok,ok)
 [ "$RC" -eq 0 ] && kept && ok "exit 0" || bad "M3 rc=$RC" "$(tail -6 "$WORK/out.M3")"
 res M3 "MXTK-RESULT exec verdict=applied applied=yes verified=yes lint_new=blind exit=0"
+
+echo "== N: exec-output capture fails after the write =="
+W="$WORK/wrap"; mkdir -p "$W"
+RMK="$(command -v mktemp)"; RTEE="$(command -v tee)"
+cat > "$W/mktemp" <<WR
+#!/usr/bin/env bash
+case "\$*" in *exec-out.*) [ -n "\${FAIL_MKTEMP:-}" ] && { echo "mktemp: failed (fixture)" >&2; exit 1; } ;; esac
+exec "$RMK" "\$@"
+WR
+cat > "$W/tee" <<WR
+#!/usr/bin/env bash
+case "\$*" in *exec-out.*) [ -n "\${FAIL_TEE:-}" ] && { cat; exit 1; } ;; esac
+exec "$RTEE" "\$@"
+WR
+chmod +x "$W/mktemp" "$W/tee"
+RC=$(PATH="$W:$PATH" FAIL_MKTEMP=1 run N1 ok,err,ok)
+[ "$RC" -eq 1 ] && ! kept && ok "N1: mktemp fails -> gate ran, restored, exit 1" || bad "N1 rc=$RC" "$(tail -6 "$WORK/out.N1")"
+res N1 "MXTK-RESULT exec verdict=restored applied=no verified=no lint_new=na exit=1"
+grep -q 'fake mxcli exec' "$WORK/out.N1" && ok "N1: mxcli's stdout still on screen" || bad "N1: exec stdout lost"
+RC=$(PATH="$W:$PATH" FAIL_TEE=1 run N2 ok,err,ok)
+[ "$RC" -eq 1 ] && ! kept && ok "N2: tee fails -> gate ran, restored, exit 1" || bad "N2 rc=$RC" "$(tail -6 "$WORK/out.N2")"
+res N2 "MXTK-RESULT exec verdict=restored applied=no verified=no lint_new=na exit=1"
+RC=$(PATH="$W:$PATH" FAIL_MKTEMP=1 MXCLI_EXEC_RC=3 run N3 ok,ok)
+[ "$RC" -eq 1 ] && kept && ok "N3: mxcli exit 3 kept through a failed capture -> partial" || bad "N3 rc=$RC" "$(tail -6 "$WORK/out.N3")"
+res N3 "MXTK-RESULT exec verdict=partial applied=partial verified=yes lint_new=na exit=1"
+ls "$WORK/tmp"/exec-out.* >/dev/null 2>&1 && bad "N: an exec-out.* temp file was left behind" || ok "N: no exec-out.* temp file left"
 
 echo ""
 echo "PASS: $PASS  FAIL: $FAIL"

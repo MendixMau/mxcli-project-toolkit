@@ -432,7 +432,11 @@ _ob_negative_verdict() {
   case "$1" in
     skeleton)
       local line frag n m
-      line="$(head -c 4000 "$2" 2>/dev/null | tr -d '\r\0' \
+      # The verdict line is the one walking-skeleton.md prescribes ("Skeleton proven …" / "Skeleton
+      # NOT proven …"); only without one, the first line that states a denominator.
+      local txt; txt="$(head -c 4000 "$2" 2>/dev/null | tr -d '\r\0')"
+      line="$(printf '%s\n' "$txt" | grep -iE -m1 -- 'skeleton[[:space:]]+(not[[:space:]]+)?proven')"
+      [ -n "$line" ] || line="$(printf '%s\n' "$txt" \
         | grep -iE -m1 -- '[0-9]+[[:space:]]+of[[:space:]]+[0-9]+|[0-9]+[[:space:]]*/[[:space:]]*[0-9]+')" || return 1
       if printf '%s' "$line" | grep -qiE -- 'not[[:space:]]+met|not[[:space:]]+proven|unproven'; then
         printf 'FAIL:%s' "$(printf '%s' "$line" | cut -c1-120)"; return 0
@@ -917,6 +921,11 @@ mxtk_obligations_report() {
       printf 'Obligation %-10s FAIL — %d of %d discharged%s; THE MARK SAYS NO:%s — present and wrong, not absent (%s)\n' \
         "$ob" "$done_n" "$scoped" "$tail" "$failed" "$skill"
       MXTK_OB_STATUS="FAIL"; MXTK_OB_N_FAIL=$((MXTK_OB_N_FAIL+1))
+      # Other units still owed must not vanish behind the FAIL.
+      if [ -n "$pending" ]; then
+        printf 'Obligation %-10s   ALSO NOT DONE:%s\n' "$ob" "$pending"
+        MXTK_OB_N_PENDING=$((MXTK_OB_N_PENDING+1))
+      fi
     elif [ -n "$faulted" ] || [ -n "$noproof" ] || [ -n "$unstamped" ] || [ -n "$noproto" ]; then
       local why_bits=""
       [ -n "$faulted" ] && why_bits="NO DENOMINATOR:$faulted — a pass that cannot say what it covered has not covered it"

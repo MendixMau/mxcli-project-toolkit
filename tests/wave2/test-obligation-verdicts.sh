@@ -68,5 +68,22 @@ expect "no denominator still FAULT" "FAULT" "$(line "$d" skeleton)"
 d="$(sk 'Skeleton proven 2026/11/17: 5 of 5 rows')"
 expect "date with slashes is not a denominator" "PASS — 1 of 1" "$(line "$d" skeleton)"
 
+d="$(sk 'Criteria 1 of 6 .. 6 of 6 — see below
+Skeleton proven 2026-09-04: exec pass, journey pass/fail-control, look done — 6 of 6 rows')"
+expect "header N of M above a proven verdict line" "PASS — 1 of 1" "$(line "$d" skeleton)"
+d="$(sk 'Row 1 of 5 - fail-control NOT MET earlier, fixed
+Skeleton proven 2026-09-04 — 5 of 5 rows')"
+expect "earlier NOT MET text on a non-verdict line" "PASS — 1 of 1" "$(line "$d" skeleton)"
+d="$(sk 'Skeleton proven 2026-09-04 — 4 of 5 rows, row 3 NOT MET')"
+expect "NOT MET only (no NOT proven)" "FAIL — 0 of 1" "$(line "$d" skeleton)"
+d="$(sk 'Skeleton unproven — 2 of 5 rows')"
+expect "unproven only" "FAIL — 0 of 1" "$(line "$d" skeleton)"
+echo "journeys: a control row that is FAULT / SKIPPED is no verdict, said out loud"
+for v in FAULT SKIPPED; do
+  d="$(newproj)"; awk -F'\t' -v OFS='\t' -v v="$v" '$1 ~ /positive control/ {$2=v} {print}' "$FX/clean.summary.tsv" > "$d/.claude/loop/verify/MyFirstModule/summary.tsv"
+  expect "control $v" "PASS — 1 of 1" "$(line "$d" journeys)"
+  case "$(note "$d" journeys)" in *"NO CONTROL VERDICT RECORDED"*) ok "control $v → named" ;; *) bad "control $v not named" ;; esac
+done
+
 echo "passed $PASS, failed $FAIL"
 [ "$FAIL" -eq 0 ]

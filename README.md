@@ -291,6 +291,34 @@ the same `.mpr` in Studio Pro from Git Bash for the steps MDL cannot express and
 The only rule is one writer at a time: do not have the container building or writing the `.mpr`
 while Studio Pro holds it open (`skills/handoff-to-studio-pro.md`).
 
+#### What runs where: the local lane
+
+On the `local` lane every part runs as a process on your own machine. **No Docker or Podman is
+needed**, and a running Docker Desktop is simply not used. Studio Pro does not have to be open.
+
+| Part | Where it runs | How the toolkit finds it |
+|---|---|---|
+| Model check (MxBuild) in `exec.sh` and the gates | Studio Pro's own `mxbuild`, inside the install of the model's Mendix version (macOS `….app/Contents/modeler/mxbuild`, Mendix 11 or later only; Windows `modeler\mxbuild.exe`). Studio Pro itself never starts. | `find_mxbuild` → `mxtk_mxbuild_for_version` (`project-bin/_common.sh`): a Studio Pro install of that version first, then `~/.mxcli/mxbuild/<version>/` |
+| The `~/.mxcli/mxbuild/` cache | **Linux (WSL included) only.** The Mendix CDN publishes Linux mxbuild only, so on macOS and Windows `mxcli setup mxbuild` refuses, and `doctor.sh` sends you to Studio Pro of the model's version or to the Dev Container. On a Mac, run `file ~/.mxcli/mxbuild/<ver>/modeler/mx` before trusting an entry. An ELF build cannot run there: `mxcli new` can leave one (mxcli#1605). A Mach-O build did not come from the CDN, so treat it as the Studio Pro lane (`skills/doctor-triage.md` Step 4). | as above, only after the Studio Pro lookup |
+| The app | `mxcli run --local`: the Mendix runtime as a normal host (Java) process | `./mxcli run status`; the record `.mxcli/run-local.json` (what `bin/app-restart.sh` reads) |
+| Database | whatever `run --local` is pointed at: PostgreSQL on the host (`--ensure-db`), or HSQLDB inside the runtime (`--db-type hsqldb`) | the `run --local` flags |
+| E2E / journeys | Playwright (Node) drives its own Chromium against `http://127.0.0.1:<port>`. It does not care how the app is hosted. | `tests/e2e/` |
+| Unit tests | `mxcli test --local` and `bin/test-scratch.sh` start a temporary second runtime on other ports, locally | — |
+
+Local versus container (Docker or Podman), for choosing a lane:
+
+| | Local (host processes) | Container (Dev Container, `bin/test-stack-up.sh`) |
+|---|---|---|
+| Speed | fastest; a restart takes seconds | slower on macOS and Windows (a Linux VM sits in between) |
+| Setup | Java, PostgreSQL or HSQLDB, mxcli, Studio Pro of the model's version on the host | one definition, identical on a colleague's machine or in CI |
+| Matches Mendix Cloud | not exactly (host OS) | closer (Linux) |
+| Isolation | shared host state: ports, the database server, `.mxcli/` files | fresh and separate per copy |
+| Cost | none | **Docker Desktop may need a paid subscription in larger organisations**: check Docker's current terms. Podman, Rancher Desktop and colima are free and serve the same lane (`skills/doctor-triage.md` Step 4) |
+| Resources | low | the VM reserves memory and CPU |
+
+A local run cannot prove offline-PWA behaviour, whichever way the app is hosted: the service-worker
+cache starts empty (mendixlabs/mxcli#1613, as reported in #525).
+
 ![Where you run this: cloud, Dev Container and local + Studio Pro all work on one project folder, one git repo, one .mpr; Windows: Docker Desktop's WSL2 backend is fine, a WSL prompt as your shell next to Studio Pro is not; build headless, polish in Studio Pro, one writer at a time](docs/where-you-run-this.svg)
 
 *Source: `toolkit-guide.html` → section 5, which also has the side-by-side table.*

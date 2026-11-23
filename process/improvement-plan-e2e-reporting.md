@@ -470,8 +470,8 @@ When Finding 5's fix lands, that file is the reference implementation, not a bla
 
 **It did not run in PROJECT-C either**, for a third reason independent of both halves:
 `tests/e2e/project.config.js` still carries another project's placeholder values — module
-`RoutingManagement` against an app whose module is `RoutingMgmt`, users `erika.engineer` against demo
-users named `route.*`, a `PROBE_PAGE` naming a page that does not exist here, port 8081 against an
+named for a different app than this one, users from that other app against this app's demo
+users, a `PROBE_PAGE` naming a page that does not exist here, port 8081 against an
 app served on 8080. The run logged this and made an explicit, recorded judgement call to substitute a
 hand-driven live browser walk. That substitution is what found IR-15, so it was not a bad call — but
 porting the config is a real per-project cost that no stage currently owns.
@@ -491,8 +491,8 @@ file is the reference implementation, not a blank page.
 
 **It did not run in PROJECT-C either**, for a reason that is neither the banner nor Finding 5:
 `tests/e2e/project.config.js` still carries another project's placeholder values — module
-`RoutingManagement` against an app whose module is `RoutingMgmt`, users `erika.engineer` against demo
-users named `route.*`, `PROBE_PAGE` naming a page that does not exist here, port 8081 against an app
+named for a different app than this one, users from that other app against this app's demo
+users, `PROBE_PAGE` naming a page that does not exist here, port 8081 against an app
 served on 8080. The run logged this as friction and made an explicit, recorded judgement call to
 substitute a hand-driven live browser walk. That substitution is what found IR-15, so it was not a
 bad call — but it is a per-project porting cost that currently has no step that owns it.
@@ -618,7 +618,7 @@ and 13: the artifact is specified, its trigger is specified, and nothing makes t
 **16b — the Step 1 module definition doc is not produced, and the path shape disagrees.**
 `architecture-blueprint.md` Step 1 mandates one module definition doc per module, and its own
 "Output of This Skill" tree names `architecture/modules/<ModuleName>.md` — entities, key microflows,
-pages, security, dependencies, at Stage 3. PROJECT-C has `architecture/modules/RoutingMgmt/module-brief.md`,
+pages, security, dependencies, at Stage 3. PROJECT-C has `architecture/modules/<Module>/module-brief.md`,
 which is the **Stage 4** artifact from a different skill. The Stage 3 doc does not exist.
 
 Note the path shape: the skill says `modules/<ModuleName>.md` (a file), the project has

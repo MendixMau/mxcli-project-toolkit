@@ -93,9 +93,9 @@ function makeDb(table, rows) {
 
 // The two rung-4 verdicts, computed exactly as journey-runner.js computes them, but
 // against a fixture. Kept in one place so the controls below differ only in their data.
-function judge(rows, { scoped, entity = 'FieldScan.ItemPlacement',
-                       assoc = 'FieldScan.ItemPlacement_Location',
-                       target = 'Location.Location', attr = 'LocId', want = 'LOC-SEED',
+function judge(rows, { scoped, entity = 'Sample.ItemPlacement',
+                       assoc = 'Sample.ItemPlacement_Location',
+                       target = 'Sample.Location', attr = 'LocId', want = 'LOC-SEED',
                        newRowsBy = 'id', writeRow = null } = {}) {
   const before = rows.slice();
   const scalar = makeDb(entity, before);
@@ -125,8 +125,8 @@ function judge(rows, { scoped, entity = 'FieldScan.ItemPlacement',
   };
 }
 
-const LINK_SEED = { 'FieldScan.ItemPlacement_Location': { LocId: 'LOC-SEED' } };
-const LINK_OTHER = { 'FieldScan.ItemPlacement_Location': { LocId: 'LOC-OTHER' } };
+const LINK_SEED = { 'Sample.ItemPlacement_Location': { LocId: 'LOC-SEED' } };
+const LINK_OTHER = { 'Sample.ItemPlacement_Location': { LocId: 'LOC-OTHER' } };
 
 console.log('\n=== rung-4 scoping — non-vacuity controls ===\n');
 
@@ -208,11 +208,11 @@ console.log('\nCONTROL 5 — a step that wrote no row does not pass vacuously');
 console.log('\nCONTROL 6 — contract compatibility and instrument honesty');
 {
   const rows = [{ id: 1000, PlacedOn: '2026-08-01 09:00:00', links: LINK_SEED }];
-  const scalar = makeDb('FieldScan.ItemPlacement', rows);
+  const scalar = makeDb('Sample.ItemPlacement', rows);
   const num = (s) => Number(scalar(s));
 
   // No scope declared: the old journey still runs, unchanged SQL, but labelled weak.
-  const unscoped = R.captureScope('FieldScan.ItemPlacement', undefined, num, scalar);
+  const unscoped = R.captureScope('Sample.ItemPlacement', undefined, num, scalar);
   check('a journey with no scope still runs', unscoped.state, 'unscoped');
   check('...and its SQL is byte-identical to the pre-fix query',
         R.sqlMustPointAt('E', 'A', 'T', 'LocId', 'X', unscoped),
@@ -229,7 +229,7 @@ console.log('\nCONTROL 6 — contract compatibility and instrument honesty');
   // The runtime refuses MAX(<attr>) on a non-empty table → INVALID, never a quiet
   // fall back to the whole table.
   const refuses = (sql) => (/^SELECT MAX/.test(sql) ? null : scalar(sql));
-  const broken = R.captureScope('FieldScan.ItemPlacement', { newRowsBy: 'id' },
+  const broken = R.captureScope('Sample.ItemPlacement', { newRowsBy: 'id' },
                                 (s) => { const v = refuses(s); return v === null ? null : Number(v); },
                                 refuses);
   check('an unreadable watermark is BROKEN, not silently unscoped', broken.state, 'broken');

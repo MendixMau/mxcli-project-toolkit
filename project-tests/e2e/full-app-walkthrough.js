@@ -13,7 +13,7 @@
 // journey-runner.js walks ONE persona down ONE golden path and grades it on five
 // rungs. Run it once per module and you get what PROJECT-A got on 2026-08-20:
 // six per-module journey files, every one of them recording
-// `configuredUser == actualUser == erika.engineer`, `usedFallback:false`, no role
+// `configuredUser == actualUser == <one persona>`, `usedFallback:false`, no role
 // change anywhere in the run. Six isolated single-persona smoke tests. The thing
 // a business process actually does — engineer raises it, planner approves it,
 // operator consumes it — was measured by nothing, because the handoff between two
@@ -500,7 +500,7 @@ async function switchTo(page, roleKey, handoffMeta) {
         : `full run: all ${WT.acts.length} of ${WT.acts.length} acts in scope`);
 
     // ── SEEDS ────────────────────────────────────────────────────────────────
-    // Live values, never literals. A walkthrough pinned to 'RT-PCBA-008' reports
+    // Live values, never literals. A walkthrough pinned to 'ORD-0008' reports
     // "the feature is broken" the first time somebody reseeds — a false finding,
     // the mirror image of a false green and just as expensive.
     for (const s of WT.seeds || []) {

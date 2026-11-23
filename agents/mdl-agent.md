@@ -56,7 +56,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/checkpoints/checkpoint-build.md` | CAC-5, after design sign-off and before the build plan |
 | `skills/image-transcription.md` | Images to read listed by images-to-md or the documents index |
 | `skills/mdl-deltas-card.md` | Writing ANY MDL script |
-| `skills/learned-mdl-preflight.md` | A STOP #n cited (by the card, a review, a bug entry) and needed in full, the write mode in doubt (Step 0: exec.sh, Studio Pro by hand, --patch), or the final self-check of a long or multi-owner script |
+| `skills/learned-mdl-preflight.md` | Choosing the write mode per operation, up front, on every MDL task (Step 0: exec.sh by default, Studio Pro by hand only for what MDL cannot express, --patch), a STOP #n cited and needed in full, or the final self-check of a long or multi-owner script |
 | `skills/learned-microflow-patterns.md` | Writing or fixing any microflow |
 | `skills/learned-rules-archive.md` | On an mxcli older than v0.32.0-374, before writing a construct a learned-* rule calls retired or "older mxcli only" |
 | `skills/microflow-preflight.md` | Writing a microflow with any loop, a retrieve/commit/call inside a loop, nested or multiple loops, >20 activities counting loop bodies, or a list built from a list |

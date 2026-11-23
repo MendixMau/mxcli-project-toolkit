@@ -74,6 +74,22 @@ Each row keeps one failure clause; the full root cause is in `process/baseline-i
 **Workflow `DECISION`:** on mxcli v0.32.0-374 write enum outcomes `'Module.Enum.Value'` plus `'' -> { }` (`check` refuses the rest: MDL-WF03, MDL-WF06); on an older mxcli it is a STOP (BUG-76, `learned-workflow-patterns.md` §8 Warning 1). Never `--no-check`. Restart safety: BUG-141. Before a first `marketplace install`, read the #879 entry in `bug-logs/mxcli-bugs.md`.
 
 
+> Source: `skills/learned-mdl-preflight.md` § Step 0 — choose the write mode
+## Step 0 — choose the write mode (do this first, before the STOP table)
+
+**Default: the mxcli CLI, through `./bin/exec.sh script.mdl`** (Studio Pro closed). On mxcli v0.24.0 it writes everything MDL can express — domain model, microflows (inline association sets included), pages (combobox and `DropdownFilter` in association mode, cross-module association datasources), access rules, security level and project settings, navigation, workflows, marketplace installs. `exec.sh` snapshots first, runs the mxbuild gate after, and restores on failure. Run `mxcli check <script> -p <app>.mpr --references` before it — `exec` refuses less than `check` flags (last gotcha below).
+
+**Studio Pro by hand — only for what MDL cannot express**, e.g. the DataGrid2 customContent conditionals in row 1 and the items in `learned-mdl-cannot-express.md`. Save and close Studio Pro before the next CLI write, and snapshot first; a CLI write under an open Studio Pro with unsaved changes is a split-brain.
+
+**Not MDL at all.** Sometimes no mode can express the change, e.g. an association owner change, and the answer is a script that edits the `.mpr` directly. Run it as `./bin/exec.sh --patch <script> [args]`, never bare. The script gets the model path as its first argument. It gets the same snapshot, mxbuild gate, restore and BUILD-LOG row as MDL, and it is kept only on a verified gate. The header of `project-bin/exec.sh` has the details. Build the script on `bin/mxpatch.py` (find unit/element, set with an expected old value, write the unit and its ContentsHash together): a unit written without its hash is restored by the run's `mxcli fix hashes` check (mxbuild cannot see a stale hash). Owner **both** and the association type can be changed in MDL (0 errors, v0.24.0). Flipping FROM/TO with `create or modify association` prints "Modified association" but `describe` still shows the old direction — a silent no-op, so read it back.
+
+**Also decide, per document, where it lands.** Any operation that *creates* a document — page, snippet, microflow, nanoflow — needs its folder chosen now and written into the `folder` property of the same statement, not fixed afterwards. Read the path off the brief's `### Document folder plan`; when there is no row for it, derive it per `module-folder-convention.md` ("Deciding the path"), and escalate rather than guess when the feature group is unclear. Omitting `folder` is legal MDL that silently drops the document at module root — no error, no gate, and a cleanup job later that nobody schedules.
+
+**Companion skills:** `bug-logs/mxcli-bugs.md` (bug detail), `iterative-build-loop.md` (exec discipline), `learned-microflow-patterns.md` (annotation and association rules)
+
+---
+
+
 > Source: `skills/learned-mdl-preflight.md` § Every-script gotchas
 ## Every-script gotchas
 

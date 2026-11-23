@@ -735,7 +735,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 
 | Task | Skill to load |
 |---|---|
-| A STOP #n cited (by the card, a review, a bug entry) and needed in full, the write mode in doubt (Step 0: exec.sh, Studio Pro by hand, --patch), or the final self-check of a long or multi-owner script — the full STOP table with root causes behind mdl-deltas-card.md | `skills/learned-mdl-preflight.md` |
+| Choosing the write mode per operation, up front, on every MDL task (Step 0: exec.sh by default, Studio Pro by hand only for what MDL cannot express, --patch), a STOP #n cited and needed in full, or the final self-check of a long or multi-owner script — the full STOP table with root causes behind mdl-deltas-card.md | `skills/learned-mdl-preflight.md` |
 | Writing or fixing any microflow — MDL gotchas plus annotation discipline | `skills/learned-microflow-patterns.md` |
 | On an mxcli older than v0.32.0-374, before writing a construct a learned-* rule calls retired or "older mxcli only" — the old rule text, word for word | `skills/learned-rules-archive.md` |
 | Writing a microflow with any loop, a retrieve/commit/call inside a loop, nested or multiple loops, >20 activities counting loop bodies, or a list built from a list — post the checklist before the first MDL line | `skills/microflow-preflight.md` |

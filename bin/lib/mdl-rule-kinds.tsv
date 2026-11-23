@@ -50,10 +50,10 @@ access	skills/learned-mdl-preflight.md	stop	The checklist — run before writing
 workflow	skills/learned-mdl-preflight.md	stop	The checklist — run before writing a single line of MDL
 entity	skills/learned-mdl-preflight.md	stop	The checklist — run before writing a single line of MDL
 script	skills/learned-mdl-preflight.md	top	-
+script	skills/learned-mdl-preflight.md	section	Step 0 — choose the write mode
 script	skills/learned-mdl-preflight.md	stop	The checklist — run before writing a single line of MDL
 script	skills/learned-mdl-preflight.md	section	Every-script gotchas
 script	skills/learned-mdl-preflight.md	section	Final self-check
--	skills/learned-mdl-preflight.md	exclude	Step 0 — choose the write mode::write mode and exec.sh process; the card's "Every script" line says it in short, the preflight routing row opens it on demand
 page	skills/learned-mdl-preflight.md	bullet	MDL gotchas::**Cross-module association paths
 microflow	skills/learned-mdl-preflight.md	bullet	MDL gotchas::**Cross-module association paths
 page	skills/learned-mdl-preflight.md	bullet	MDL gotchas::**Changing an existing DataGrid 2 column

@@ -24,7 +24,7 @@
 #       baseline block, on a single-tree and a two-tree (.mpr under app/) layout; an old table that
 #       still names ui-preflight-pages passes; a CLAUDE.local.md with neither still fails
 #   T14 the core is skills/mdl-deltas-card.md (2026-11-23): `any` prints the card and none of the
-#       preflight; every other kind still prints the preflight's header, full rows 21–23, every-script
+#       preflight; every other kind still prints the preflight's header, Step 0, full rows 21–23, every-script
 #       gotchas and Final self-check (kind `script`); n/n counts each STOP number once; the pre-rewording
 #       rows 21/23 are archived; the core stays under 800 words
 #   T15 text above a file's first `##` that no `top` row selects and no "(top)" exclude names fails
@@ -79,7 +79,7 @@ for spec in "page|skills/ui-preflight-pages.md|skills/microflow-preflight.md" \
     has "$OUT" "$core" || bad "$k: core part missing: $core"
   done
   if [ "$k" != any ]; then
-    for sp in "## The ladder" "## Final self-check" "## Every-script gotchas" "bin/describe-baseline.sh stamp" "Never \`--no-check\`"; do
+    for sp in "## The ladder" "## Step 0 — choose the write mode" "## Final self-check" "## Every-script gotchas" "bin/describe-baseline.sh stamp" "Never \`--no-check\`"; do
       has "$OUT" "$sp" || bad "$k: every-script part missing: $sp"
     done
   fi

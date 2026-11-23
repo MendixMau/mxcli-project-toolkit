@@ -291,6 +291,34 @@ the same `.mpr` in Studio Pro from Git Bash for the steps MDL cannot express and
 The only rule is one writer at a time: do not have the container building or writing the `.mpr`
 while Studio Pro holds it open (`skills/handoff-to-studio-pro.md`).
 
+#### What runs where: the local lane
+
+On the `local` lane every part runs as a process on your own machine. **No Docker or Podman is
+needed**, and a running Docker Desktop is simply not used. Studio Pro does not have to be open.
+
+| Part | Where it runs | How the toolkit finds it |
+|---|---|---|
+| Model check (MxBuild) in `exec.sh` and the gates | Studio Pro's own `mxbuild`, inside the install of the model's Mendix version (macOS `….app/Contents/modeler/mxbuild`, Mendix 11 or later only; Windows `modeler\mxbuild.exe`). Studio Pro itself never starts. | `find_mxbuild` → `mxtk_mxbuild_for_version` (`project-bin/_common.sh`): a Studio Pro install of that version first, then `~/.mxcli/mxbuild/<version>/` |
+| The `~/.mxcli/mxbuild/` cache | **Linux (WSL included) only.** The Mendix CDN publishes Linux mxbuild only, so on macOS and Windows `mxcli setup mxbuild` refuses, and `doctor.sh` sends you to Studio Pro of the model's version or to the Dev Container. On a Mac, run `file ~/.mxcli/mxbuild/<ver>/modeler/mx` before trusting an entry. An ELF build cannot run there: `mxcli new` can leave one (mxcli#1605). A Mach-O build did not come from the CDN, so treat it as the Studio Pro lane (`skills/doctor-triage.md` Step 4). | as above, only after the Studio Pro lookup |
+| The app | `mxcli run --local`: the Mendix runtime as a normal host (Java) process | `./mxcli run status`; the record `.mxcli/run-local.json` (what `bin/app-restart.sh` reads) |
+| Database | whatever `run --local` is pointed at: PostgreSQL on the host (`--ensure-db`), or HSQLDB inside the runtime (`--db-type hsqldb`) | the `run --local` flags |
+| E2E / journeys | Playwright (Node) drives its own Chromium against `http://127.0.0.1:<port>`. It does not care how the app is hosted. | `tests/e2e/` |
+| Unit tests | `mxcli test --local` and `bin/test-scratch.sh` start a temporary second runtime on other ports, locally | — |
+
+Local versus container (Docker or Podman), for choosing a lane:
+
+| | Local (host processes) | Container (Dev Container, `bin/test-stack-up.sh`) |
+|---|---|---|
+| Speed | fastest; a restart takes seconds | slower on macOS and Windows (a Linux VM sits in between) |
+| Setup | Java, PostgreSQL or HSQLDB, mxcli, Studio Pro of the model's version on the host | one definition, identical on a colleague's machine or in CI |
+| Matches Mendix Cloud | not exactly (host OS) | closer (Linux) |
+| Isolation | shared host state: ports, the database server, `.mxcli/` files | fresh and separate per copy |
+| Cost | none | **Docker Desktop may need a paid subscription in larger organisations**: check Docker's current terms. Podman, Rancher Desktop and colima are free and serve the same lane (`skills/doctor-triage.md` Step 4) |
+| Resources | low | the VM reserves memory and CPU |
+
+A local run cannot prove offline-PWA behaviour, whichever way the app is hosted: the service-worker
+cache starts empty (mendixlabs/mxcli#1613, as reported in #525).
+
 ![Where you run this: cloud, Dev Container and local + Studio Pro all work on one project folder, one git repo, one .mpr; Windows: Docker Desktop's WSL2 backend is fine, a WSL prompt as your shell next to Studio Pro is not; build headless, polish in Studio Pro, one writer at a time](docs/where-you-run-this.svg)
 
 *Source: `toolkit-guide.html` → section 5, which also has the side-by-side table.*
@@ -656,7 +684,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Turning BRDs plus architecture into a numbered, dependency-ordered build plan | `skills/brd-to-build-plan.md` |
 | Building the Stage 4 coverage ledger — every requirement either claimed by a build-plan row or catalogued with a reason, never invisible | `skills/coverage-ledger.md` |
 | Checking a coverage ledger against its BRD — every scalar leaf CLAIMED, LEDGERED, UNCLAIMED, PHANTOM or DOUBLE-CLAIMED, so coverage is measured rather than remembered | `bin/coverage-check.sh` |
-| Writing an actual .journey.json — the worked field-by-field reference for the contract journey-proof.md argues for | `skills/journey-examples.md` |
+| Writing or fixing a .journey.json step or a row/fill selector that matches nothing in a list view or grid row — a seed value, a span claim — the worked field-by-field reference for the contract journey-proof.md argues for | `skills/journey-examples.md` |
 | Extracting structured requirements from a large delivered document corpus into per-scope knowledge-base files | `skills/corpus-extraction-integrity.md` |
 
 **Architecture — how it is shaped**
@@ -691,7 +719,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Task | Skill to load |
 |---|---|
 | Dispatching a build step to a helper — generate its one-file pack (the brief's Build steps row, mxcli brain brief, live DESCRIBEs, example, folder) and hand over the path instead of a reading list. Measured: 25-38% fewer tool calls and 30-41% less time, same quality; the token saving is not proven | `project-bin/context-pack.sh` |
-| An exec.sh guard refused a write (not a permission prompt), or building a module with mxcli — verified, iterative, coverage-checklist gated; on a refusal: commit, wait or stop, never FORCE_EXEC | `skills/iterative-build-loop.md` |
+| An exec.sh guard (exec lock, uncommitted model, Studio Pro open, mxbuild gate) refused a write (not a permission prompt), or building a module with mxcli — verified, iterative, coverage-checklist gated; on a refusal: commit, wait or stop, never FORCE_EXEC | `skills/iterative-build-loop.md` |
 | Adding a second language, a language picker or a translation script — and the moment a language picker errors, shows a blank label or changes nothing: source language, enabled languages, the user's starting language, a switch a non-admin role can use | `skills/learned-multilingual-app.md` |
 | After marking a module done, or any time "how much is built vs proven" is asked — renders progress-report.html from done- prefixes and verify-module.sh/improvement-register.md, kept as two honestly separate views; --json writes architecture/build-plan.json parsed from build-plan.md's Phase headings (a plan with no Phase headings gets no file); --refresh keeps an existing build-plan.json current but never creates one | `project-bin/build-plan-status.sh` |
 | Turning a client-derived Mendix app into a clean, shareable demo with zero client fingerprint — branding, data, custom widgets | `skills/anonymize-client-app-for-demo.md` |
@@ -739,7 +767,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 
 | Task | Skill to load |
 |---|---|
-| Writing or debugging a Mendix native Workflow (CREATE WORKFLOW/USER TASK/OUTCOMES) — syntax, the 11 workflow microflow statements, DECISION vs CALL MICROFLOW, and the two corruption classes (binary-version $Type, and create-before-reference) | `skills/learned-workflow-patterns.md` |
+| Writing or debugging a Mendix native Workflow (CREATE WORKFLOW/USER TASK/OUTCOMES), or routing decisions/parallel splits via a microflow when BUG-76/121 blocks it — syntax, the 11 workflow microflow statements, DECISION vs CALL MICROFLOW, and the two corruption classes (binary-version $Type, and create-before-reference) | `skills/learned-workflow-patterns.md` |
 | Designing or reviewing a Workflow's SHAPE before or after the MDL — where a path may end, boundary event vs event sub-process, parallel-split limits, outcome minimums, targeting from the sentence, multi-user decision methods, which edits break running instances; and any CE6689/CE1844/CE1845/MW0012 after a clean mxcli check | `skills/workflow-structure-rules.md` |
 
 **Build · Integration**
@@ -770,7 +798,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Standing up or extending the Playwright e2e harness | `skills/e2e-harness-base.md` |
 | Writing DB assertion tests that cross-check UI state against the database | `skills/learned-db-assertions.md` |
 | Seed data, test data, demo data or fixtures are needed, or pages come up empty — BEFORE a journey run. Explore the data structure, choose rows by use case, scan for reset/delete actions, derive and measure with project-bin/fixture-manifest.sh, interview only the residue, never seed from inside the harness | `skills/fixture-seeding.md` |
-| Proving a module's user journey end-to-end — the deep form of step 3 PROVE; use whenever an instrument reports green and you cannot say what would have made it red | `skills/journey-proof.md` |
+| Proving a module's user journey end-to-end, or a trace/OTel check reads zero spans or Jaeger answers 404/unreachable — the deep form of step 3 PROVE; use whenever an instrument reports green and you cannot say what would have made it red | `skills/journey-proof.md` |
 | Writing or running e2e cases beyond the happy journeys (blank/whitespace required fields, over-length, duplicates, cancel, double submit, wrong state, wrong role, backend down, stale write, empty search) — every case cites a requirement first, UNSPECIFIED is re-scored against house rules, GAP counts carry the denominator; runs after journey-proof and before monkey-test | `skills/unhappy-path-testing.md` |
 | Running the fuzz/crash net on a module whose journeys are already green — and reading the result, which is NOT evidence the module works | `skills/monkey-test.md` |
 | Load, performance or stress testing a page ("will it hold 1000 users", concurrent users, k6, JMeter) — record the real /xas/ calls with Playwright and replay them instead of correlating tokens by hand, and report what the number does NOT prove (requests vs users, empty data, whose limit was hit) | `skills/load-test.md` |
@@ -815,7 +843,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Needing Studio Pro load evidence without a human at the GUI — direct-binary launch and log capture; a capture technique, NOT a validated pass/fail oracle | `skills/scriptable-sp-verification.md` |
 | A runtime test or seed reads/writes data that then is not there (the test wrote a row, the DB query shows nothing), or vice versa — three local Postgres instances can answer on this box; resolve the real port from the project's own compose file first | `skills/learned-local-db-confusion.md` |
 | gate-check.sh reports a Stage 0 file not found that plainly exists — ANALYSIS_BASE falls back to project root until Stage 1; move the file, do not debug the script | `skills/gate-check-file-locations.md` |
-| The user says the toolkit, an exec or the gate is slow, or asks to update the toolkit, run doctor and check whether it can be faster on their machine (werk de toolkit bij, draai doctor, controleer of het sneller kan) | `skills/speed-setup.md` |
+| The user says the toolkit, an exec or the gate is slow (an exec taking many minutes), or asks to update the toolkit, run doctor and check whether it can be faster on their machine (werk de toolkit bij, draai doctor, controleer of het sneller kan) | `skills/speed-setup.md` |
 
 **Reference — lookup tables, not method**
 
@@ -887,7 +915,7 @@ Then filter by Role(s). A helper dispatched with a role stub (ba, architect, mdl
 | Script or skill? Before writing any .js or bash/.sh for a check, checker, linter, gate or report, or adding a rule or regex to an existing one — judgement goes in a skill, code only fetches facts a reader cannot | `skills/skills-over-scripts.md` | every stage | every role except mdl, review (on demand for those) |
 | Any pass whose input is missing, stale or unresolvable — before recording UNMEASURED, N/A or a silent skip: name what was missing, say what you assessed against instead, still deliver a verdict | `skills/degrade-to-judgement.md` | every stage | every role |
 | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude | `skills/tool-output-is-not-ground-truth.md` | every stage | every role |
-| Before obeying any learned-* STOP or workaround that costs a detour — probe the binary you actually have, then stamp the verdict back into the rule | `skills/retesting-learned-rules.md` | every stage | every role except mdl (on demand for those) |
+| Before obeying any learned-* STOP or workaround that costs a detour, or when a newer mxcli may have fixed it — probe the binary you actually have, then stamp the verdict back into the rule | `skills/retesting-learned-rules.md` | every stage | every role except mdl (on demand for those) |
 | Any pipeline work at all — every session, before producing any stage artifact: read §1b plus your own stage's section, not the whole file (gate-check.sh prints the line spans); READMEs and the guide are orientation only | `skills/conversion-runbook.md` | P,0,1,2,3,4,5,6,7 | lead, ba, architect |
 | Any pipeline work at all, as a helper — every dispatch, before producing anything: run the toolkit's bin/runbook-slice.sh <stage>, which prints §1b plus your stage's section of the conversion runbook; never open skills/conversion-runbook.md whole | `bin/runbook-slice.sh` | P,0,1,2,3,4,5,6,7 | mdl, gate, test, review |
 | Any question before asking the user or writing anything — query the model, then read the source, then ask the human, in that order | `skills/query-the-model.md` | P,0,1,2,3,4,5,6,7 | every role |
@@ -921,7 +949,7 @@ Then filter by Role(s). A helper dispatched with a role stub (ba, architect, mdl
 | Before trusting a green check/exec/DESCRIBE result as proof, or when a runtime symptom appears over a fully green model — the register of constructs that pass early rungs and fail later ones | `skills/learned-detection-gaps.md` | 5,6 | gate, review (mdl: on demand) |
 | Creating any entity, or calling a module security-ready — entity and grants land in one script, and ready means SHOW SECURITY MATRIX proves it | `skills/security-is-not-a-later-script.md` | 5 | gate, review (mdl: on demand) |
 | A CE error (mx check or mxbuild: CE0066, CE0117…), a cited BUG-n, or behavior that looks like a known mxcli quirk rather than a modeling mistake — `bin/bug-lookup.sh CE0117` / `BUG-102` / "keyword" / the whole pasted error message (ranked top 3) prints the matching ledger entries, so the session reads one entry, not the whole ledger | `bin/bug-lookup.sh` | 5,6 | mdl, gate |
-| You hit, or worked around, a bug in mxcli or the toolkit, or log a FINDINGS.md entry about either — `bin/file-bugs.sh` (the `--add` line is in learned-detection-gaps.md) keeps docs/bugs.jsonl, redacts, shows duplicates, files with `--auto` when PROJECT.md says `Bug filing: auto`, else only a human files (`!`, `--file PBUG-NN`, y/N, denied to agents), or prints new-issue links (`--links`, `--json`) | `bin/file-bugs.sh` | 5,6 | mdl, gate |
+| A toolkit script or hook (bin/, project-bin/, pre-commit) or mxcli misbehaves, aborts silently or refuses wrongly, or you worked around such a bug or log a FINDINGS.md entry about one — log it before working around it: `bin/file-bugs.sh` (the `--add` line is in learned-detection-gaps.md) keeps docs/bugs.jsonl, redacts, shows duplicates, files with `--auto` when PROJECT.md says `Bug filing: auto`, else only a human files (`!`, `--file PBUG-NN`, y/N, denied to agents), or prints new-issue links (`--links`, `--json`) | `bin/file-bugs.sh` | 5,6 | mdl, gate |
 | The first command of every session, and any time someone asks "where are we" or "what next" — one screen: stage, done/overdue, the ONE next action, from the instruments, never from memory | `bin/status.sh` | P,0,1,2,3,4,5,6,7 | every role |
 | Any session that will push a model to Mendix Team Server, and BEFORE telling the user a Team Server push is blocked — which remote is authoritative, settle-then-push order, and the four checks that have to fail first | `skills/teamserver-alignment.md` | 5,6,7 | gate (mdl, review: on demand) |
 <!-- ROUTING:END -->

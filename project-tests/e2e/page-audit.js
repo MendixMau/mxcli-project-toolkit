@@ -396,7 +396,10 @@ function auditPageStatic(qn, wfFiles) {
 const DOM_PROBE = function () {
   const txt = (document.body && document.body.innerText) || '';
   const errEl = document.querySelector('.mx-dialog-error, .modal-dialog .alert-danger, .mx-name-alerts .alert-danger');
-  const listSel = '.mx-datagrid, [class*="widget-datagrid"], .mx-listview, [class*="widget-gallery"]';
+  // `.widget-datagrid` is a class TOKEN: DataGrid2's root. The substring form `[class*=…]` also
+  // matched its -content, -grid, -grid-head, -grid-body, -footer, -paging-bottom, -pb-start and
+  // -pb-end parts (captured, mx 11.8 DataGrid2 3.5.0), so one 20-row grid read "9 lists; 4 empty".
+  const listSel = '.mx-datagrid, .widget-datagrid, .mx-listview, [class*="widget-gallery"]';
   const lists = Array.prototype.slice.call(document.querySelectorAll(listSel)).map(function (el) {
     const rows = el.querySelectorAll('tbody tr, [role="row"]:not([role="columnheader"]), .mx-listview-item, [class*="widget-gallery-item"]').length;
     const name = (String(el.className).match(/mx-name-[\w-]+/) || ['(unnamed)'])[0];

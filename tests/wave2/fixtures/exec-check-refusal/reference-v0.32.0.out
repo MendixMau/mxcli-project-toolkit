@@ -1,0 +1,27 @@
+WARNING: This is a vibe-coded PoC, alpha quality, use with caution.
+Checking syntax: mdl/02-broken.mdl
+✓ Syntax OK (4 statements)
+Connected to: ProbeApp.mpr (Mendix 11.8.0)
+
+[36m(no module)[0m
+-----------
+  [33m⚠[0m page Broken2.Thing_Edit: DataView `dv1` contains input fields but is not inside a layout grid — label and input widths only render correctly inside a layoutgrid [2m[MPR010][0m
+      at [2m[0m
+      [32m→[0m Wrap dataview `dv1` in `layoutgrid { row { column (desktopwidth: autofill) { … } } }`
+
+  [33m⚠[0m line 21: `Params: { $P: M.E }  /  Variables: { $v: Boolean = 'true' }` is deprecated; write `Params: ( $P: M.E )  /  Variables: ( $v: Boolean = 'true' )` — same meaning. Refused from `mdl 2`. (mxcli help MDL-DEPR123) [2m[MDL-DEPR123][0m
+      at [2m[0m
+      [32m→[0m Rewrite the header map: the braces become ( ). In a page's and a snippet's header. A map is a property list, so it is in ( ); { } holds children (R2).
+
+
+Validating references against: ProbeApp.mpr
+(Note: References to objects created within the script are skipped)
+Reference errors:
+  statement 3: microflow 'Broken2.ACT_Thing' has reference errors:
+  - entity not found: Broken2.Missing (referenced by create)
+  statement 4: page 'Broken2.Thing_Edit' has attribute binding errors:
+  - widget `tb1` (textbox) binds `Nmae`, but Broken2.Thing has no attribute Nmae (attributes: Name) — mxbuild reports CE1613 "The selected attribute 'Broken2.Thing.Nmae' no longer exists"
+
+✗ 2 reference error(s) found
+
+4 issues: 2 errors, 2 warnings, 0 info

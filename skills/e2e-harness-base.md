@@ -26,8 +26,13 @@ Build after completing a module build phase:
 ## Prerequisites
 
 - Node.js available
-- Playwright installed: `npm init -y && npm i -D playwright`
-- `npx playwright install chromium`
+- Playwright, once: first try `node -e "require('playwright').chromium.launch().then(b => b.close())"`
+  from the project root. If it exits 0, a Playwright with its browser is already there (a global
+  install, a container image): **do not** `npm i -D playwright` — a project-local copy shadows it
+  with a version whose browser is not downloaded, and every browser instrument then fails with
+  `Executable doesn't exist`. Otherwise: `npm init -y && npm i -D playwright && npx playwright install chromium`.
+- axe-core: `npm i -D axe-core` — `tests/e2e/design-audit.js` rung 7 (accessibility) needs it; without
+  it every rung-7 row is a FAULT ("harness dependency missing").
 - App running at `http://localhost:8080` — or, when this session cannot reach that host (a
   cloud container, a devcontainer, a phone), at the public URL from `mxcli run --local --hub`.
   Point the harness `BASE_URL` at whichever one actually answers; never assume `localhost:8080`.

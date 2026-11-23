@@ -1,6 +1,6 @@
 **Repo:** `mendixlabs/mxcli`
 **Source:** field run 2026-11-16 — Windows 11, Git Bash, mxcli **v0.32.0**, no Studio Pro, no Docker, an empty project folder under OneDrive. Code read on `main` at 121c9b5 (2026-11-15).
-**Status:** NOT YET FILED
+**Status:** NOT YET FILED by the toolkit — upstream duplicate: mendixlabs/mxcli#1605 (ledger `BUG-DRAFT-mxcli-new-linux-mxbuild-on-macos`)
 **Severity:** Medium — no data loss; costs an ~800 MB download and a session, and ends without a reason.
 
 ---

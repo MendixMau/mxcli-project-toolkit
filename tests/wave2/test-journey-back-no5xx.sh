@@ -69,7 +69,7 @@ awk '/const watch5xx = !!\(step\.ui && step\.ui\.no5xx === true\)/{w=1} w&&/if \
      off&&/for \(const a of step\.actions/{a=1} END{exit !(w&&on&&off&&a)}' "$SUT" \
   && ok "no5xx is opt-in (exactly true), listens from before the first action, and seal() removes the listener" \
   || bad "no5xx listener wiring missing or out of order"
-awk '/leg\.reached = onPage;/{r=1} r&&/^    record5xx\(\);/{x=1} x&&/if \(!onPage\) \{/{b=1} END{exit !b}' "$SUT" \
+awk '/leg\.reached = onPage;/{r=1} r&&/^    (await )?record5xx\(\);/{x=1} x&&/if \(!onPage\) \{/{b=1} END{exit !b}' "$SUT" \
   && awk '/ACTION-FAILED/{f=1} f&&/record5xx\(\);/{g=1} g&&/seal\(\);/{h=1;exit} END{exit !h}' "$SUT" \
   && ok "the no5xx row is recorded before the not-reached bail-out and on the action-failed path" \
   || bad "the no5xx row can be skipped by a bail-out — the 5xx that caused it would not show"

@@ -315,12 +315,13 @@ async function round(page, target, bucket) {
   return traceRan;
 }
 
-// Exit codes (#679): 1 = a crash-class finding; 2 = instrument fault, NOT measured (the NAV is
-// the template's sample, or 0 of N targets were reached); 3 = unknown --target; 0 otherwise.
+// Exit codes (#679): 1 = a crash-class finding; 2 = instrument fault, NOT measured (NAV is empty
+// or the old template sample, or 0 of N targets were reached — N = 0 included: a fresh scaffold's
+// NAV is empty, and "reached 0 of 0" fuzzed nothing); 3 = unknown --target; 0 otherwise.
 // "0 of 8 reached" and "8 of 8 reached, no crash" used to both exit 0.
 function exitCode({ crashes, targets, unreached }) {
   if (crashes > 0) return 1;
-  if (targets > 0 && unreached >= targets) return 2;
+  if (targets === 0 || unreached >= targets) return 2;
   return 0;
 }
 
@@ -332,8 +333,14 @@ module.exports = { leftApp, SIGN_OUT, SIGN_OUT_DEFAULT, signOutPattern, isSignOu
 if (require.main === module) (async () => {
   console.log(`MONKEY_SEED=${SEED}   rounds=${ROUNDS}   (re-run exactly: --seed ${SEED})`);
 
-  // Before the browser (#679): a NAV still equal to the template's sample would land on menu
-  // captions this app does not have — a run that measures nothing, and costs a login.
+  // Before the browser (#679): an empty NAV (a fresh scaffold's) or one still equal to the old
+  // template sample lands on nothing this app has — a run that measures nothing, and costs a login.
+  if (!NAV || !Object.keys(NAV).length) {
+    console.log('  SETUP  NOT CONFIGURED: NAV in tests/e2e/project.config.js is empty — monkey has no menu item ' +
+      'to fuzz. Fill it from `mxcli -p <mpr> -c "describe navigation"` (key: [\'Group\', \'Item\'] or [\'Item\']); ' +
+      'an app with no menu to fuzz runs verify-module.sh with --skip-monkey instead. Monkey NOT run: not measured.');
+    process.exit(2);
+  }
   if (navIsTemplate()) {
     console.log('  SETUP  NAV is the unedited sample from project.config.template.js — none of its menu ' +
       'captions are this app\'s. Fill NAV in tests/e2e/project.config.js from ' +

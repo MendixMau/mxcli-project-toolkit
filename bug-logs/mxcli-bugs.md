@@ -49,6 +49,8 @@ Collapsing them to "a project" throws away the corroboration.
 
 ## BUG-04: `grant execute` on microflows in modules with no roles silently fails or errors
 
+> **Changed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: A new microflow starts with no allowed roles (`No module roles granted execute access on NoRoles.MyFlow`), and a grant to a role that does not exist is refused at `check`: `grant execute on microflow NoRoles.MyFlow to NoRoles.User: module role NoRoles.User does not exist`. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 > **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** CHANGED in v0.27.0 (mendixlabs/mxcli#1474, breaking): mxcli no longer creates a module role on its own — a new document starts with no allowed roles. Rewrite this guidance; retest.
 
 **Severity:** Low — confusing behavior  
@@ -132,6 +134,8 @@ set $OrderDetail/OrderRegistration.OrderAreaData_OrderDetail = $OrderAreaData;
 
 ## BUG-07: `ALTER PAGE SET content` fails on DYNAMICTEXT widgets with ContentParams
 
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: `alter page … set content` on a dynamic text with ContentParams sets the content (the old `ContentParams ({1} = Name)` stays, harmless). On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 **Severity:** Low — silent failure (SET returns success but value doesn't change)  
 **Reproducible:** Yes  
 **Mendix version:** 11.10.0  
@@ -164,6 +168,8 @@ Use `REPLACE widgetName WITH { dynamictext newName (Content: 'New Text') }` — 
 ---
 
 ## BUG-08: `ALTER PAGE REPLACE widgetName WITH { widgetName }` fails with duplicate name
+
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: REPLACE with the same name and with a reused child name both print `Altered page` and re-run cleanly. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
 
 **Severity:** Low — easy to work around once known  
 **Reproducible:** Yes  
@@ -270,6 +276,8 @@ Any gallery filter that needs to filter on an **associated entity's attribute** 
 
 ## BUG-10: Filter `Attributes` list — syntax checker and executor are inconsistent
 
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: `textfilter tf1 (attributes: [Name])` persists; `mx check` 0 errors. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 **Severity:** Medium — requires workaround to configure multi-attribute or correctly-bound filters via mxcli  
 **Reproducible:** Yes, consistently  
 **Mendix version:** 11.10.0  
@@ -311,6 +319,8 @@ The mxcli parser grammar does not allow dots inside `[]` attribute lists (treats
 ---
 
 ## BUG-11: `ALTER PAGE` cannot change a DataView's datasource type
+
+> **Still reproduces on v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)** (as narrowed): setting a data view's DataSource to an association is refused, now with a pointer to `replace`. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
 
 > ### ⚠️ PARTIALLY FIXED in mxcli v0.18.0 — retested 2026-08-20
 >
@@ -414,6 +424,8 @@ When Studio Pro manually sets Type = Context and traverses via the association t
 
 ## BUG-14: `ALTER PAGE DROP + INSERT BEFORE` with MICROFLOW action corrupts page BSON
 
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: DROP + INSERT BEFORE with a microflow-action button: `mx check` 0 errors, no crash. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 > **NOT RETESTED this round (v0.21.0, 2026-09-14) — pre-v0.13.0 vintage; reproducing needs the specific DROP+INSERT-BEFORE-with-MICROFLOW-action fixture, which this round did not have time to build.** See [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).
 
 **Severity:** High — MPR becomes unloadable by `mx` after execution  
@@ -484,6 +496,8 @@ Wire the button action manually in Studio Pro:
 
 ## BUG-16: `datagrid` (DataGrid 2) with `ShowContentAs: customContent` columns corrupts pluggable widget BSON
 
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: at rungs 1–4: a customContent column with a conditional Visible container builds, `mx check` 0 errors. Studio Pro's loader was not retested, so preflight STOP #1 stays. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 > **NOT RETESTED this round (v0.21.0, 2026-09-14) — pre-v0.13.0 vintage; `mxcli syntax page` no longer documents `ShowContentAs: customContent` as an explicit property (DATAGRID now routes through the unified DataGrid2 engine per the v0.21.0 changelog), and a control probe built for BUG-93 (same customContent-column family) came back inconsistent with that bug's own control — see BUG-93's note below and the retest report's "grammar-shape uncertainty" section before re-probing this one.** See [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).
 
 **Severity:** High — `mx check` crashes on project load with NullReferenceException; page is unloadable  
@@ -551,7 +565,24 @@ DataGrid 2 is a pluggable widget. Its custom content column schema (`ShowContent
 
 ---
 
-## BUG-17: `[%BeginOfToday%]` / `[%EndOfToday%]` tokens in `retrieve ... where` are serialised with single quotes → CE0161
+## BUG-17: `[%BeginOfToday%]` / `[%EndOfToday%]` tokens in `retrieve ... where` are serialised with single quotes → CE0161 — SUPERSEDED: misdiagnosis, these are not Mendix tokens
+
+> **MISDIAGNOSED — retest 2026-11-20 on mxcli v0.32.0-374, Mendix 11.8.0.** `[%BeginOfToday%]` and
+> `[%EndOfToday%]` are **not Mendix tokens**; the CE0161 below was Mendix rejecting an unknown token,
+> not mxcli quoting a real one (single quotes around a token are correct XPath). The real tokens are
+> `[%BeginOfCurrentDay%]` and `[%EndOfCurrentDay%]`, and in the same `retrieve … where` they build at
+> `mx check` 0 errors. v0.32.0-374 says so at `check`:
+> `✗ [%BeginOfToday%] is not a Mendix token (mxbuild: CE0161 "Error(s) in XPath constraint.") [MDL-TOKEN01]`.
+> The loop-filter and Java-action workarounds below were never needed, on any version: use the real
+> tokens. On an mxcli without MDL-TOKEN01 the wrong token still passes `check` and fails CE0161.
+> Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+>
+> ```mdl
+> create microflow Shop.L17b_Today ()
+> begin
+>   retrieve $Items from Shop.Order where [DueDate >= '[%BeginOfCurrentDay%]' and DueDate < '[%EndOfCurrentDay%]'];
+> end;
+> ```
 
 > **CONFIRMED STILL OPEN on v0.21.0 — verified 2026-09-14: `DESCRIBE MICROFLOW` now round-trips the token unquoted, but native mxbuild still fails `[CE0161] "Error(s) in XPath constraint."` — the underlying BSON storage is still wrong even though the describe text looks clean.** See [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).
 
@@ -636,6 +667,8 @@ Find the correct mxunit by running `git diff --name-only` and reading each chang
 
 ## BUG-18: `visible: [expr]` on CONTAINER inside datagrid customContent column corrupts MPR
 
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: at rungs 1–4: same probe as BUG-16, `mx check` 0 errors; the stored `ConditionalVisibilitySettings` carries the expression. Studio Pro's loader was not retested, so preflight STOP #1 stays. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 > **NOT RETESTED this round (v0.21.0, 2026-09-14) — pre-v0.13.0 vintage; needs a customContent-column-with-conditional-Visible-CONTAINER fixture, which overlaps the same DataGrid2-engine-unification uncertainty flagged on BUG-16/BUG-93.** See [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).
 
 > ### ⚠️ CORRECTION — "does NOT affect" claim narrowed (2026-08-20)
@@ -707,6 +740,8 @@ Studio Pro itself cannot open the MPR. Gate 2 (javac) still passes because it do
 ---
 
 ## BUG-19: `ALTER PAGE` — REPLACE wrapping existing widget in CONTAINER corrupts BSON (DivContainer/WidgetObject type clash)
+
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: REPLACE wrapping an existing widget in a container builds at 0 errors. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
 
 **Severity:** Critical — project becomes unopenable in Studio Pro with InvalidCastException  
 **Reproducible:** Yes, consistently  
@@ -1299,6 +1334,8 @@ Confirmed from the engalar/mxcli fork's `24-workflow-examples.mdl`: workflow `CA
 
 ## Bare `Status` attribute name in a `retrieve ... where` clause → CE0161 (reserved-word conflict)
 
+> **Not reproduced on v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: a bare `Status` in `retrieve … where` builds at `mx check` 0 errors. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 **Discovered:** 2026-07-23 (a PLM parts-flow project, mxcli v0.16.0, Mendix 11.12.1), same debugging session as the AND/OR bug above.
 
 `retrieve $X from PLM.PLMStub where ... and Status != Enum.Archived` passes `mxcli check` but fails a real `mx check` with CE0161. Quoting the attribute (`"Status" != Enum.Archived`) fixes it. Notably, this project's own domain model already quotes `"Status"` specifically in `PLMStub`'s access-rule read lists, while every sibling attribute in the same list is unquoted — a pre-existing signal (visible via `DESCRIBE ENTITY`) that this specific attribute name needs quoting, which would have shortened the debugging cycle if checked first. Added to the "Keyword collisions" bullet in `learned-mdl-preflight.md`.
@@ -1536,6 +1573,8 @@ Engalar `26f2866`, whose grammar/lexer never wired up these three token types (o
 **RESOLVED — archived 2026-08-06, see [archive-resolved-2026-08-06.md](archive-resolved-2026-08-06.md).**
 
 ## BUG-37: COMBOBOX in association mode rejected by mxcli despite Studio Pro requiring it
+
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: a combobox in association mode (`attribute: Assoc` + `datasource:`) builds at 0 errors; the enumeration-mode spelling on an association is refused with guidance. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
 
 **Status: ENGALAR-ONLY 2026-08-03** — RnD `504aec67` already fixed this (commit `240e7d2c`:
 reads the association ref from `Association:`/`attribute:`, adds an `MDL-WIDGET16`
@@ -2287,6 +2326,8 @@ layout, with no detection for the mismatch.
 
 ## BUG-67: `CREATE SNIPPET ... (Params: { $X: String })` — a primitive-typed snippet parameter, documented in `mxcli syntax snippet.create`'s own example, fails at exec time with "entity not found"
 
+> **Changed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: refused at `check` with the Mendix reason — not an mxcli bug: `snippet 'Shop.L67_Snip' declares parameter $X with the primitive type String. A snippet parameter must be an entity — mxbuild rejects a primitive one with CE0046 ("Invalid data type 'String'.")` [MDL087]. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 > **CONFIRMED STILL OPEN on v0.21.0 — verified 2026-09-14: `mxcli syntax snippet.create` still documents `Params: { $P: Module.Entity, $Label: String }` as valid; `Params: { $Label: String }` still fails at exec with `entity not found: String`.** See [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).
 
 > **CONFIRMED STILL OPEN on v0.20.0 — verified 2026-08-31: `Params: { $X: String }` still fails at exec with `entity not found: String`.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
@@ -2348,6 +2389,8 @@ quote-stripping gap is a separate, narrower mxcli parser fix (snippet param-type
 strip quotes the same way page param resolution already does).
 
 ## BUG-68: Snippet datagrid columns/sort bars cannot reference system (`autocreateddate`) or generalized (inherited) attributes — resolves fine in a PAGE datagrid, fails under native mxbuild in a SNIPPET datagrid
+
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: a snippet DG2 column on a system attribute builds at 0 errors. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
 
 **NOT REPRODUCED (mxcli v0.21.0) — retested and archived 2026-09-14, see [archive-resolved-2026-09-14.md](archive-resolved-2026-09-14.md) and [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).**
 
@@ -2527,6 +2570,8 @@ MCP JSON-RPC calls instead of `--mcp exec` to create the affected microflow.
 
 ## BUG-73: `raise error;` in a microflow's main flow always fails mxbuild with CE0710 — a genuine flow-graph codegen defect, not an MDL authoring issue
 
+> **Changed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: refused at `check` with the reason ("`raise error;` outside an ON ERROR handler builds an error event on the main flow, which Mendix does not allow … CE0710", MDL084). Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 > **CONFIRMED STILL OPEN on v0.21.0 — verified 2026-09-14: a microflow whose entire body is `RAISE ERROR;` still passes `mxcli check`/`exec` and fails native mxbuild `[CE0710]`.** See [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).
 
 > **CONFIRMED STILL OPEN on v0.20.0 — verified 2026-08-31: `raise error` in a main flow (inside IF) still builds to CE0710 on native mxbuild 11.13.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
@@ -2598,6 +2643,8 @@ semantics from generated MDL should use the Java-action-throw workaround above i
 **RESOLVED (FIXED in ≤v0.20.0) — retested and archived 2026-08-31, see [archive-resolved-2026-08-31.md](archive-resolved-2026-08-31.md) and [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).**
 
 ## BUG-75: a quoted attribute path used as a call-microflow argument value keeps its literal quotes in the compiled expression, causing native mxbuild CE0117 — invisible to `mxcli check`/`describe microflow`
+
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: `$Order/"Name"` as a call-microflow argument and in `change` builds at 0 errors. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
 
 > **PARTIALLY RESOLVED in ≤v0.20.0 — verified 2026-08-31 for the call-argument form: `"P" = $Item/"StatusCode"` now builds at 0 errors. The BUG-77 create/change extension was not separately retested.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
 
@@ -2719,6 +2766,8 @@ actually resolves a given CE0117, use a scratch copy (`rsync -a --exclude='.git'
 before touching the live one.
 
 ## BUG-76: `DECISION` activities in a native `WORKFLOW` are unconditionally storage-corrupted — mxcli writes the outcome label as a raw string into a field that must be a real `EnumerationValueIdentifier`, on every DECISION regardless of the underlying expression's type
+
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: in the qualified spelling. A bare outcome is refused at `check`: `decision outcome 'Draft' is not fully qualified — Mendix cannot load a project whose EnumerationValueConditionOutcome.Value is not Module.Enumeration.Value` [MDL-WF03]; a missing empty outcome too [MDL-WF06]. Outcomes `'Shop.OrderStatus.Draft'`, `'Shop.OrderStatus.Closed'`, `''`: `mx check` 0 errors, `describe` reads them back; a Boolean decision builds too. Restart safety is BUG-141, not testable here. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
 
 > **RETESTED on v0.24.0 / Mendix 11.13.0, 2026-09-26 (a card-disbursement requirements-driven build) — the entry has split in two.** (1) **Enum half: guarded, not fixed.** A `DECISION` on an enumeration attribute with bare outcome labels is now refused before the write by `MDL-WF03` ("decision outcome '…' is not fully qualified"); `exec` refuses too. Forced with `exec --no-check` it still writes the unloadable model — native `mx check` rc 1, `StorageLoadException`. (2) **Boolean half: clean for the keyword form.** `decision N '$WorkflowContext/Attr = ''X''' outcomes true -> { … } false -> { };` passes `check --references`, `exec` and native `mx check` at 0 errors, and `DESCRIBE WORKFLOW` reads the expression and both arms back. **Not re-run on v0.24.0:** the string-labelled `decision '1 = 1' outcomes 'OutcomeA' … 'OutcomeB'` repro below — keep the STOP rule for that shape until someone runs it. Skills updated: `learned-workflow-patterns.md` §8, `workflow-structure-rules.md` §11.
 
@@ -2863,6 +2912,8 @@ spelling; (2) give `DECISION` an expression clause.
 
 ## BUG-77: BUG-75's "create/change attribute values are safe" scope claim is wrong — quoted attribute segments (`$Var/"Attr"`) DO cause CE0117 in create/change statements too, just not consistently
 
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: with BUG-75: a quoted attribute segment in `change` and call arguments builds at 0 errors. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 **NOT REPRODUCED (mxcli v0.21.0) — retested and archived 2026-09-14, see [archive-resolved-2026-09-14.md](archive-resolved-2026-09-14.md) and [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).**
 
 > **REPRODUCED on v0.24.0 (2026-09-26), with one trigger isolated.** A card-disbursement
@@ -2876,6 +2927,8 @@ spelling; (2) give `DECISION` an expression clause.
 > segment of `$Var/Attr`, in any statement.
 
 ## BUG-78: CE0161 on a reference-set-to-string-literal retrieve WHERE clause (`where [Assoc = 'Value']`) — fixed by comparing the association to a retrieved object instead
+
+> **Still reproduces on v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: `retrieve … where [Assoc = 'literal']` passes `check` and `exec`, then `mx check` CE0161 "Error(s) in XPath constraint." Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
 
 **Project:** PROJECT-A, script 64 (`Approval.ACT_ApprovalWorkflow_TargetEngineering`, same Phase
 15 rebuild). **mxcli version:** v0.17.0.
@@ -2922,6 +2975,8 @@ reference-set association to a scalar in a bracket-predicate retrieve, not an ID
 
 ## BUG-82: neither `create or modify entity` (full redeclare) nor `ALTER ENTITY MODIFY ATTRIBUTE` can clear an existing "not null error" validation rule — silent no-op with a misleading success message
 
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: the not-null rule clears; `describe` shows no rule, 0 errors. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 **RESOLVED (FIXED in ≤v0.20.0 — the working removal spelling is `MODIFY ATTRIBUTE … NULLABLE`; redeclare-without-constraint now deliberately preserves) — retested and archived 2026-08-31, see [archive-resolved-2026-08-31.md](archive-resolved-2026-08-31.md) and [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).**
 
 ## BUG-83: reverse cross-module association traversal is silently mis-qualified — the target entity is inserted regardless of direction, leaving a dangling four-step path
@@ -2954,6 +3009,8 @@ time, not to rewrite it into something else.
 ---
 
 ## BUG-84: `ALTER PAGE … SET DataSource = DATABASE Module.Entity` on a DataView silently wipes the datasource and reports success
+
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: no silent wipe: refused with `a data view cannot take a database datasource — a data view binds to a single object …`. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
 
 > **CONFIRMED STILL OPEN on v0.21.0 — verified 2026-09-14: `SET DataSource = DATABASE Mod.Entity ON <dataview>` (braced ALTER PAGE form) still reports success and wipes the datasource; CE7007 downstream.** See [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).
 
@@ -2988,6 +3045,8 @@ form should be rejected the same way, rather than half-applied.
 **RESOLVED (FIXED in v0.19.0) — retested and archived 2026-08-31, see [archive-resolved-2026-08-31.md](archive-resolved-2026-08-31.md) and [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).**
 
 ## BUG-86: MDL044's new write barrier is microflow-only — the identical expression in a `create nanoflow` passes `check`, is written, and fails the build with `CE0117`
+
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: MDL044 refuses `currentDateTime()` in a nanoflow too. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
 
 > **STILL OPEN on v0.21.0 — verified 2026-09-14: `currentDeviceType()` in a CREATE NANOFLOW still passes `check`/`exec` (no MDL044 warning fires outside microflows) and native mxbuild still fails `[CE0117]` at the Create-variable activity.** See [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).
 
@@ -3106,6 +3165,8 @@ refuses elsewhere.
 **RESOLVED (FIXED in ≤v0.20.0 — `SET DynamicCellClass … ON grid.col` now lands) — retested and archived 2026-08-31, see [archive-resolved-2026-08-31.md](archive-resolved-2026-08-31.md) and [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).**
 
 ## BUG-92: `ALTER PAGE INSERT` silently no-ops against a wrong-but-plausible anchor, and drops the whole INSERT on an empty caption — both can leave invisible orphaned duplicate widgets
+
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)** (trap 1): a wrong anchor is refused, `widget "btnDoesNotExist" not found`, nothing written. Trap 2 was not retested. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
 
 > **NOT RETESTED this round (v0.21.0, 2026-09-14) — the multi-trap repro (customContent-column anchor, empty-caption drop, then a 5-retry sequence to expose orphaned duplicates via native mxbuild CE0495) needs more fixture-building time than this round had.** See [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).
 
@@ -3249,6 +3310,8 @@ risking the silent-drop path.
 
 ## BUG-94: `hasRole('Module.Role')` is not a valid Mendix expression-language function — MDL has no syntax to set a widget's module-role-scoped `Visible` condition
 
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: `Visible: roles (Shop.Admin)` persists, 0 errors. `hasRole()` is still not a Mendix function. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 > **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED in v0.27.0 (mendixlabs/mxcli#1460): use `Visible: roles (Mod.A, …)` instead of the Studio Pro step below. `hasRole()` is still not a Mendix function — keep that warning.
 
 > **CONFIRMED STILL OPEN on v0.21.0 — verified 2026-09-14: `SET Visible = [hasRole('Module.Role')] ON widget` still passes `mxcli check`/`exec` clean and fails native mxbuild `[CE0117]`. No MDL syntax for module-role-scoped visibility exists in this release.** See [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).
@@ -3387,6 +3450,8 @@ attempts before reverting the widget to restore a green build.
 
 ## BUG-96: cross-module `ALTER PAGE ... INSERT AFTER <col> { column ... }` into a DataGrid2 writes a malformed widget unit — Studio Pro loader crashes, `DESCRIBE` hides the evidence, `DROP PAGE` does not clear it
 
+> **Changed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: every DG2 column `INSERT AFTER` is refused at `check` ("the insertion point … is in no data container"), cross-module or not — see BUG-DRAFT-dg2-column-alter-refused. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 > **NOT RETESTED this round (v0.21.0, 2026-09-14) — needs a second module plus a cross-module column-insert fixture, which this round did not have time to build.** See [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).
 
 **Severity:** Fatal — whole project refuses to load in Studio Pro / `mx check`
@@ -3450,6 +3515,8 @@ before trusting any session that used this construct.
 ---
 
 ## BUG-98: `calculated by` on an attribute is silently dropped at write time — the attribute is stored as a plain stored value, BSON-verified
+
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: statically: `describe` shows `calculated by Shop.L98_Calc`, `show callers` lists the entity, 0 errors. The runtime value was not retested. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
 
 **RESOLVED (≤v0.21.0) — retested and archived 2026-09-14, see [archive-resolved-2026-09-14.md](archive-resolved-2026-09-14.md) and [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).**
 
@@ -3620,9 +3687,13 @@ discipline.
 
 ## BUG-103: `DESCRIBE MICROFLOW` emits `log` strings with embedded doubled quotes that `mxcli check` then rejects — round-trip asymmetry
 
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: the `describe` output re-checks clean. It prints `log node 'N' …` with no level — BUG-DRAFT-describe-log-level-omitted. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 **RESOLVED (v0.21.0) — retested and archived 2026-09-14, see [archive-resolved-2026-09-14.md](archive-resolved-2026-09-14.md) and [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).**
 
 ## BUG-104: quoting a microflow parameter as `"$Name"` silently keeps the `$` in the parameter name — CE1613 at mxbuild while `check --references` passes
+
+> **Changed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: refused at `check`: `declare '$s' reads $Stub, which nothing in this microflow defines — the build fails CE0109` [MDL098]. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
 
 > **CONFIRMED STILL OPEN on v0.21.0 — verified 2026-09-14: `"$Stub": String` as a microflow parameter still parses; `DESCRIBE` shows the stored name as `$$Stub`, the body reference resolves wrong, and native mxbuild fails `[CE0109] "Undefined variable 'Stub'."`.** See [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).
 
@@ -3686,6 +3757,8 @@ widget names.
 
 ## BUG-107: an **unquoted** value in a workflow `CALL MICROFLOW … WITH (…)` segfaults the binary instead of erroring
 
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: an unquoted `WITH` value is a parse error, no panic. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 > **CONFIRMED STILL OPEN (CRASH) on v0.21.0 — verified 2026-09-14: `CALL MICROFLOW Mod.MF WITH (Ctx = $WorkflowContext);` still panics `mxcli check` with the identical SIGSEGV at `mdl/visitor/visitor_workflow.go:565`. Note: the mxcli source clone used to build v0.21.0 was sitting on an unmerged branch named `fix/workflow-with-unquoted-value-segfault` — a fix is visibly in progress upstream, but is not part of the tagged v0.21.0 release, and the crash is confirmed against the actual release binary.** See [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).
 
 **RESOLVED (FIXED in v0.22.0, [mendixlabs/mxcli#1023](https://github.com/mendixlabs/mxcli/issues/1023)) — pending report dropped 2026-09-18.** The v0.21.0 crash above is superseded by this fix; kept for the record since it is the last confirmed-open reading before the upstream patch landed.
@@ -3745,6 +3818,8 @@ segfault.
 
 ## BUG-108 (**SUPERSEDED BY BUG-76** — keep as an addendum, do not file separately): enumeration `DECISION` outcomes — mxcli accepts only the form that writes an unloadable `.mpr`, and rejects both forms Mendix accepts (CRITICAL)
 
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: with BUG-76: the qualified `Module.Enum.Value` spelling is now the one `check` accepts, and it builds at 0 errors. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 > **Filed in ignorance of BUG-76, found immediately after.** BUG-76 (2026-08-13, re-confirmed
 > on v0.18.0 and v0.20.0) already states the general defect: mxcli writes every `DECISION`
 > outcome label as a raw string into a field that must hold an `EnumerationValueIdentifier`, so
@@ -3795,6 +3870,8 @@ free-text outcomes are unaffected; only the enumeration path is wrong.
 ---
 
 ## BUG-109: `JUMP TO` inside a boundary-event body writes a Jump with no Target, named after its own target
+
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: `JUMP TO` in a boundary-event body: 0 errors, no CE6680. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
 
 > **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** CHANGED in v0.29.0: "an interrupting boundary path ends with an End, as Studio Pro writes it". Retest the `jump to` workaround.
 
@@ -3853,6 +3930,8 @@ the general case separately from #1005.
 
 ## BUG-110: `DESCRIBE WORKFLOW` emits MDL it cannot re-parse when a targeting XPath contains quotes
 
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: `describe workflow` output with a quoted targeting XPath re-parses. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 **Severity:** Medium — breaks the documented round-trip; an agent using DESCRIBE as ground truth gets un-executable output
 **mxcli version:** v0.20.0 (2026-08-28)
 **Mendix version:** 11.14.0
@@ -3897,6 +3976,8 @@ fixes before it runs — double the XPath quotes, strip the annotations, repoint
 ---
 
 ## BUG-111: `mxcli syntax` drill-down rejects the example printed in its own help text
+
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: all three `mxcli syntax` drill-down topics exit 0. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
 
 **Severity:** Low — costs a discovery round-trip; pushes agents to guess grammar
 **mxcli version:** v0.20.0 (2026-08-28)
@@ -4380,6 +4461,8 @@ working copies) is additionally needed, and only for SDK-driven model edits.
 
 ## BUG-117: Widget-property writer silently drops any unsupported property name, on any widget type, with no MDL-WIDGET07 warning
 
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: an unknown widget property is a `check` error (MDL-WIDGET52) and exec refuses. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 > **STILL OPEN (narrowed) on v0.21.0 — verified 2026-09-14: v0.21.0 fixed only the two properties this ledger's own upstream note named (`editable`/`contentparams` — MDL-WIDGET20/21). The general case is unfixed: a LISTVIEW with `PageSize: 1, Pagination: buttons, PagingPosition: bottom` still drops `Pagination`/`PagingPosition` silently — only `PageSize` (a real LISTVIEW property) survives `DESCRIBE PAGE`, with no MDL-WIDGET07 warning at check time.** See [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).
 
 > **v0.24.0 field instances (2026-09-26, a card-disbursement requirements-driven build, Mendix
@@ -4610,6 +4693,8 @@ native `mx check` — the full-page writer binds template-scoped `ContentParams`
 ---
 
 ## BUG-119: the bundled `write-nanoflows.md` skill teaches a `SHOW MESSAGE` grammar the shipped binary rejects, and `mxcli syntax` documents the activity nowhere
+
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: `show message` builds at 0 errors. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
 
 **Severity:** Medium — an agent that finds the skill and follows it gets a parse error and reasonably concludes the activity does not exist. That conclusion made it into this toolkit and stood for three weeks.
 **mxcli version:** built from source at `4b58b89` (2026-08-26)
@@ -5015,6 +5100,8 @@ checker is simply not consulting it -- and add `dateFormat` / `customDateFormat`
 
 ## BUG-121: `PARALLEL SPLIT` paths are written without their terminator node, so none of them ever opens a task (2026-09-04)
 
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: statically: the unit holds 4 `EndOfParallelSplitPath` markers. A live run was not possible. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 > **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED in v0.22.0 — every parallel-split path now ends with `EndOfParallelSplitPathActivity`; since v0.29.0 (ako/mxcli#1163) the marker is left out below Mendix 10.21, where the type does not exist. Do NOT run `wf-add-path-terminators.py` on mxcli ≥ v0.22: it is redundant, and below 10.21 it makes the project unloadable. Retest, then archive.
 
 **This is the most expensive class of defect this project has hit: a write mxcli itself reads
@@ -5143,6 +5230,8 @@ at load, BUG-121 fails silently at run, which makes it the worse of the two.
 
 ## BUG-122: `ALTER PAGE … SET PageSize` fails on a DataGrid 2 that `CREATE` accepted
 
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: `set (PageSize: 50)` on a DG2 prints `Altered page`. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 > **CONFIRMED STILL OPEN on v0.21.0 — verified 2026-09-14: `CREATE PAGE` accepts `PageSize: 20` on a DATAGRID; `ALTER PAGE { SET PageSize = 10 ON grid; }` still rejects the identical property with `Error: failed to set: failed to set PageSize on grid: pluggable property "PageSize" not found`.** See [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).
 
 **Found:** 2026-09-07, script `87b`, mxcli against Mendix 11.13.0.
@@ -5181,6 +5270,8 @@ alter.
 ---
 
 ## BUG-123: `SHOW CALLERS OF` indexes neither page button actions nor `show page` targets
+
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: `show callers` lists the page whose button shows the target (`Shop.M06_Page`). On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
 
 **Found:** 2026-09-03 (noted), confirmed and measured 2026-09-07 clearing script `87`'s drop set.
 
@@ -5221,11 +5312,15 @@ kinds it covers, so its silence is readable as "not indexed" rather than "not re
 
 ## BUG-125: `mxcli check --references` cannot resolve ANY enumeration in an attribute declaration
 
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: an enumeration in an attribute declaration resolves at `check --references`. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 **NOT REPRODUCED (mxcli v0.21.0) — retested and archived 2026-09-14, see [archive-resolved-2026-09-14.md](archive-resolved-2026-09-14.md) and [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).**
 
 ---
 
 ## BUG-126: `ALTER PAGE … SET Label` reports success and discards the value
+
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: `set Label` persists (`Label: 'Order name'` read back). On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
 
 > **CONFIRMED STILL OPEN on v0.21.0 — verified 2026-09-14: `ALTER PAGE { SET Label = 'New Label' ON widget; }` still prints `Altered page`, and `DESCRIBE PAGE` immediately afterward shows the old Label unchanged.** See [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).
 
@@ -5265,6 +5360,8 @@ is the opposite and much more dangerous.
 ---
 
 ## BUG-140: full page regeneration never wires a parameterized microflow datasource on a top-level `dataview` — only implicit binding through nesting works
+
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: `describe` shows `microflow Shop.DS_OrderOfLine(Line = $Line)`, 0 errors. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
 
 > **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** CHANGED in v0.25.0 (ako/mxcli#533, #751): datasource arguments are named `Param = $x` only; a positional argument is an error. Retest in the new syntax.
 
@@ -5394,6 +5491,8 @@ Do not trust the render — an unbound combobox looks identical to a bound one.
 widget's schema lacks) — same silent-drop shape; whether it is the same code path is not established.
 
 ## BUG-128: `CREATE MODULE ROLE` is not idempotent, and the abort silently discards every statement after it
+
+> **Still reproduces on v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)** for plain `create module role` (`module role already exists`, exit 1). `create or modify module role` is idempotent. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
 
 > **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED: `create or modify module role` is idempotent since v0.25.0 (commit `59d6970a`, #731) and keeps the description since v0.29.0 (ako/mxcli#1218); since v0.27.0 a failed statement rolls back the whole run (#1408) instead of discarding the rest. Retest, then rewrite as "use `create or modify module role`".
 
@@ -5698,6 +5797,8 @@ Detection-gap register: `skills/learned-detection-gaps.md` (the row that cites B
 
 ## BUG-142: `ContentParams` on v0.24.0 — any value other than a bare attribute or a quoted literal is stored as an attribute path (CE1613 at mxbuild); `check` refuses the parenthesised forms and passes `if … then … else`
 
+> **Changed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: an expression builds when every attribute in it is written `$currentObject/Attr` — `$currentObject/Name`, `toString($currentObject/Status)` and `if $currentObject/Name = '' then 'none' else $currentObject/Name`, in a data view and in a customContent column: stored as an expression, `mx check` 0 errors. A bare attribute inside a function, `toString(Status)` (also in the `[ … ]` list spelling), still passes `check` and `exec` and fails `mx check`: `CE0117 | Page 'F12a_Bare' | Expression of text template parameter {1} of text 'txtA' | Error(s) in expression.` On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 **mxcli:** v0.24.0 (f18c307) · **Mendix:** 11.13.0 · **Not filed upstream.**
 **Discovered:** 2026-09-26, a card-disbursement requirements-driven build: twice on a list-view
 snippet, then again on a form's payload preview, each time `check` green and exec.sh's mxbuild
@@ -5754,6 +5855,8 @@ token. Bind every `--btn-<intent>-*` the map has a token for. Add a topbar token
 
 ## BUG-144: `create user role` writes a role without `CheckSecurity`, `GUID` and three other keys — mxbuild then skips that role's security consistency check
 
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: `create user role` writes `CheckSecurity: true`. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 > **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED in v0.26.0 (mendixlabs/mxcli#1373: full property set; old roles get a GUID from `$ID`); `describe user role` states `CheckSecurity` since v0.27.0 (#1427). Retest the CheckSecurity value, then archive and retire the fixup script.
 
 **mxcli:** v0.24.0 (`mdl/backend/modelsdk/security_write.go`, `AddUserRole`) · **Mendix:** 11.13.0 ·
@@ -5783,6 +5886,8 @@ exec that touches security. The fix belongs upstream in `AddUserRole`.
 
 ## BUG-145: entity-access `grant` merges into an existing rule, so a narrowing grant narrows nothing — and `(read *)` writes no member access for the audit system members
 
+> **Still reproduces on v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: a narrowing grant keeps `Name, Note: ReadWrite`. exec now prints `Unchanged entity access: Shop.Secret (Shop.User)`, a visible signal. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 **mxcli:** v0.24.0 · **Mendix:** 11.13.0 · **Not filed upstream.**
 **Discovered:** 2026-09-25, a card-disbursement requirements-driven build.
 **Reproducible:** (a) yes, `SHOW SECURITY MATRIX` before and after. (b) yes, a BSON count of
@@ -5804,6 +5909,8 @@ denied, grant the member explicitly and update this entry.
 ---
 
 ## BUG-146: `mxcli diff` reports false modifications on an already-applied script, and a multi-line doc comment can read as a dropped attribute
+
+> **Not reproduced on v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: `diff` printed no false `- Attribute` lines on an applied script. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
 
 **mxcli:** v0.24.0 · **Mendix:** 11.13.0 · **Not filed upstream.**
 **Discovered:** 2026-09-25, a card-disbursement requirements-driven build, re-running `diff`
@@ -5835,6 +5942,8 @@ against `DESCRIBE ENTITY` before either trusting or dismissing it. Verify grants
 
 ## BUG-147: `check --references` and `exec` disagree about documents the same script creates — a forward `call microflow` passes check and half-applies at exec; an `ALTER PAGE` naming something created earlier in the script is refused before exec
 
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: a forward `call microflow` to a flow created later in the same script: both created, 0 errors. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 **mxcli:** v0.24.0 · **Mendix:** 11.13.0 · **Not filed upstream.**
 **Discovered:** 2026-09-25 and 2026-09-26, a card-disbursement requirements-driven build. Each
 direction was hit three times.
@@ -5862,6 +5971,8 @@ anything.
 ---
 
 ## BUG-148: a quoted enumeration literal as the LAST member of a `create` member list draws E007 at `check`
+
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: a quoted enumeration literal last in a member list passes `check`. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
 
 **mxcli:** v0.24.0 · **Mendix:** 11.13.0 · **Not filed upstream.**
 **Discovered:** 2026-09-25 and 2026-09-26, a card-disbursement requirements-driven build. Three
@@ -5965,6 +6076,8 @@ grid 2 for the StyleGallery.
 
 ## BUG-151: `rest call … body $Var` sends the literal text `$Var`, not the variable's value
 
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: statically: stored as `Body: template '{1}' with ({1} = $Body)`. The runtime was not retested. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 > **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED in v0.29.0 source (ako/mxcli#1444, mendixlabs/mxcli#1546: an expression body or URL is sent as its value, template `{1}`), not named in the changelog. Retest, then archive.
 
 **Severity:** High. The payload is wrong and nothing says so: `check`, exec and mxbuild are green.
@@ -6045,6 +6158,8 @@ With `--json`, the array goes to stdout and the alpha banner to stderr, so parse
 
 ## BUG-154: MDL surface gaps on v0.24.0 — missing `if exists` forms, and spellings the syntax reference does not state
 
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: `if exists` works for microflow, page, entity and association drops. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 > **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** PARTLY FIXED / CHANGED: `if exists` on every document-level `drop` since v0.25.0 (commit `78a35a63`, #531); v0.25.0 also changed datasource arguments to named form and, under `mdl 1`, stores a backslash as typed (ako/mxcli#810). Retest the drop rows and update the spellings.
 
 **mxcli:** v0.24.0 · **Mendix:** 11.13.0 · **Not filed upstream.**
@@ -6064,6 +6179,8 @@ With `--json`, the array goes to stdout and the alpha banner to stderr, so parse
 
 ---
 ## BUG-155: `alter page … set RenderMode` is refused on a dynamic text, though `create page` writes it — fix ready on a fork branch
+
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: `set RenderMode` on a dynamic text persists (`RenderMode: H2` read back). On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
 
 **Severity:** Low — loud refusal, clean workaround; costs a full widget restatement per heading-level change
 **mxcli version:** main `31eee45` / v0.21.0
@@ -6114,6 +6231,8 @@ applies. The planning rule is row 28 there.
 "no flow change exec would refuse" when it has not.
 
 ## BUG-DRAFT-loop-var-expression-typecheck: the expression type checker is skipped inside a `LOOP` body — the identical expression is caught on a parameter and missed on a loop variable (2026-09-15)
+
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: at `check`: the loop-body assignment is flagged (E009, exit 1). `exec` still writes it and `mx check` gives CE0117 — BUG-DRAFT-exec-writes-what-check-refuses. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
 
 > **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED in v0.23.0 (mendixlabs/mxcli#1100: type checking covers every locally declared variable). Retest, then archive.
 
@@ -6172,6 +6291,8 @@ over `LOOP` bodies. Worth auditing whether other block-scoped variables (`FILTER
 ---
 
 ## BUG-DRAFT-nested-aggregate-over-filter: `COUNT(FILTER(...))` writes an Aggregate activity with no List, passing `check` and failing the build with CE0012 (2026-09-15)
+
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: `COUNT(FILTER(...))` is refused under `mdl 1;`. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
 
 > **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED in v0.23.0 (mendixlabs/mxcli#1101: a list operation nested in another is now refused, MDL-LISTOP02). Retest, then archive.
 
@@ -6434,6 +6555,8 @@ So the rule's premise, "the only client on 11", does not hold for this project.
 
 ## BUG-DRAFT-partial-revoke-association-noop: `revoke R on E (write (<association>))` reports success and changes nothing (2026-09-26)
 
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: revoking write on an association leaves `Shop.Line_Order: ReadOnly`. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 > **NOT YET FILED.**
 
 **Discovered:** 2026-09-26, on an existing-app change project, while making a component admin's guest links read-only.
@@ -6472,6 +6595,8 @@ Never take the exec's "applied" as proof.
 
 ## BUG-DRAFT-xpath-system-member-case: an XPath system member written in the wrong case (`[CreatedDate >= $Since]`) passes `check --references` and fails the build with CE0161 (2026-09-27)
 
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: the wrong-case system member is refused at `check`. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 > **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED in v0.25.0 (a member the entity lacks, including `CreatedDate` for `createdDate`, is a reference error). Retest, then archive.
 
 > **NOT YET FILED.** Upstream draft kept with the project's harvest.
@@ -6498,6 +6623,8 @@ The checker does not match their case, so the capitalised form passes it and fai
 **Expected:** `check --references` rejects a system member in the wrong case, the same way it rejects an unknown attribute.
 
 ## BUG-DRAFT-association-owner-ignored: `create or modify association … owner Both` reports "Modified" and leaves the owner unchanged (2026-09-27)
+
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: `owner Both` persists (`describe`: `owner Both;`). Flipping FROM/TO is still a no-op: BUG-DRAFT-association-flip-direction-noop. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
 
 > **NOT YET FILED.**
 
@@ -6558,6 +6685,8 @@ Two machines on one project can differ here without anyone noticing.
 
 ## BUG-DRAFT-rename-module-leaves-xpath: `rename module` reports its references updated but leaves every XPath constraint naming the old module — mxbuild CE1613 (2026-09-25)
 
+> **Still reproduces on v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: `Renamed module: RenMe → Renamed`, `check` passes, then `mx check` CE1613 `The selected association 'RenMe.Thing_Other' no longer exists.` and `The selected entity 'RenMe.Other' no longer exists.` in the retrieve's XPath. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 > **NOT YET FILED** — paste-ready draft in `bug-logs/pending-github-issues/rename-module-leaves-xpath.md`.
 
 > **Status:** reported on v0.23.0 by a colleague; **v0.24.0: verified** 2026-09-25 on a scratch copy of a small PoC model (Mendix 11.12.1). `mxcli rename -p app.mpr module RenA RenB` printed `Renamed module: RenA → RenB` / `Updated 6 reference(s) in 4 document(s)`; `describe microflow RenB.SUB_Find` then still showed `where RenA.Item/Name = 'x';` and `RenB.SUB_Assoc` still showed `where RenA.Item_Owner/RenA.Owner/Label = 'x';`; `grep -rl 'RenA' mprcontents/` listed the 2 units that still name it. Upstream: no fix found on `main` (2026-09-24). The XPath rewrite that does exist there (35efa0207, #910, unreleased) covers **attribute** rename only.
@@ -6593,6 +6722,8 @@ Find the affected units with `grep -rl 'ModuleA\.' mprcontents/` on the renamed 
 `SEARCH 'ModuleA.'` returned "No matches found." for the stale XPath. Run `mx check` after the rename; the success line does not replace it.
 
 ## BUG-DRAFT-rename-page-renames-folder: `rename page` renames a same-named folder instead of the page, and reports success (2026-09-25)
+
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: `Renamed page: Shop.Twin → Shop.TwinRenamed`. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
 
 > **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED in v0.29.0 source (commit `63ad914b`, ako/mxcli#1443, mendixlabs/mxcli#1545; also microflows, nanoflows, constants, enumerations, Java actions, workflows). Retest, then archive and drop the pending draft.
 
@@ -6634,6 +6765,8 @@ try `drop folder '<old-case path>' in ModuleA` and confirm with `show pages`/`gi
 removed the *empty* twin.
 
 ## BUG-DRAFT-dg2-association-path-bindings: a Data Grid 2 column or `sort by` over an association passes `check` in forms that build to CE1613 — quoting the path stores one attribute named `Assoc/Attr` (2026-09-25)
+
+> **Still reproduces on v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: the quoted DG2 column path passes `check`, then `CE1613 The selected attribute 'Shop.Line."Line_Order/Name"' no longer exists.`; the unquoted path builds at 0 errors. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
 
 > **NOT YET FILED** — paste-ready draft in `bug-logs/pending-github-issues/dg2-association-path-bindings.md`.
 
@@ -6923,6 +7056,8 @@ before filing; record which warnings were false.
 
 ## BUG-DRAFT-index-on-createddate: `index on createdDate` fails — "attribute createdDate not found for index" (2026-09-29)
 
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: `index on createdDate` builds at 0 errors. On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 > **Status:** reported by the same field comparison build (#168). **Not re-probed here.** Related:
 > the `sort by createdDate` CE1613 note above ("C."), which is a different cause (system date
 > storage off on the entity).
@@ -7024,6 +7159,8 @@ guard catches this inside the gate. Nothing catches it when lint is run directly
 
 ## BUG-DRAFT-dg2-replace-column-attribute-passes-check: `ALTER PAGE … REPLACE` of a DataGrid 2 column with a new `Attribute:` passes `check --references`, then fails mxbuild (2026-10-14)
 
+> **Changed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: the REPLACE no longer passes `check` — every DG2 column REPLACE is refused, see BUG-DRAFT-dg2-column-alter-refused. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 **Severity:** Low. No damage: `exec.sh`'s mxbuild gate fails and auto-restores the snapshot. The cost is one wasted exec/mxbuild cycle, and the form is tempting because `check` approves it.
 **mxcli version:** v0.26.0. **Mendix version:** 11.15.0, macOS.
 **Discovered:** 2026-10-14, an Ollama connector app (existing-app mode): one build row swapped the `Attribute` of an existing DG2 column (raw bytes → a formatted String attribute on the same entity, same module). Reported by joshuamoesa (#356).
@@ -7046,6 +7183,8 @@ Three forms, as tried (placeholders are the reporter's):
 **Rule:** any change to an existing DG2 column — insert, re-attribute, re-sort — is a whole-page re-emit, never `ALTER PAGE` (`skills/learned-dg2-patterns.md` rule 1; `skills/learned-detection-gaps.md` register). Related: BUG-96 (cross-module column insert via `ALTER PAGE`, which corrupts).
 
 ## BUG-DRAFT-microflow-header-grammar: a microflow header without `()` fails `check` with three parse errors that point at `returns` and `List of`, not at the missing parentheses (2026-10-14)
+
+> **Fixed in v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: one precise parse error, "a microflow header needs its parameter list in parentheses, even when it is empty — they are not optional: write `create microflow … () returns …`". On an older mxcli the entry below still applies. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
 
 > **Upstream status 2026-10-30 (from the mxcli changelog/source; not yet retested):** FIXED in v0.28.0 (mendixlabs/mxcli#1514: a header without parentheses is one error at the mistake). Do not file. Retest, then archive.
 
@@ -7194,6 +7333,8 @@ Both flagged flows are Data grid 2 datasources on pages in the same module and w
 
 ## BUG-DRAFT-describe-show-constants-print-secrets: `describe constant` and `show constants` print the stored default, so a demo password lands in the transcript (2026-10-15), HIGH
 
+> **Still reproduces on v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0)**: `describe constant` prints `DefaultValue: 'hunter2-demo'` and `show constants` lists it in its Default column. Record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
 > **NOT YET FILED.** Upstream issue drafted. The v0.27.0 source has no masking and no `--reveal` flag.
 
 **Discovered:** 2026-10-14/15, a five-app lab project. **mxcli version:** v0.26.0 (checked against the v0.27.0 source). **Mendix:** 11.15.0. macOS.
@@ -7318,6 +7459,151 @@ Both flagged flows are Data grid 2 datasources on pages in the same module and w
 
 **Next step:** run the three probes listed in `skills/learned-dg2-patterns.md` with `mx check`; if (a) builds, close this as the known defects above. **Workaround meanwhile:** the order of things to try in that skill, ending in a listview table.
 
+## BUG-DRAFT-dg2-column-alter-refused: `ALTER PAGE … REPLACE` and `INSERT AFTER` on any Data grid 2 column are refused at `check` — "the insertion point is in no data container" — even on a plain database grid (2026-11-20)
+
+> **NOT YET FILED UPSTREAM.** Found by the retest recorded in [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
+**Severity:** Low (no damage: nothing is written). The cost is that a DG2 column cannot be changed in place at all; only a whole-page `create or modify page` re-emit works, which the toolkit already prescribes (`learned-dg2-patterns.md` rule 1).
+**mxcli version:** v0.32.0-374 (`v0.32.0-374-g591bcd73e`, source build). **Mendix version:** 11.8.0.
+**Discovered:** 2026-11-20, a retest of this ledger on a blank Mendix 11.8.0 probe app.
+**Reproducible:** yes — REPLACE and INSERT AFTER, on a grid with and without sort and filters, 4 probes, all refused.
+
+```mdl
+mdl 1;
+create page Shop.M11_Page (title: 'M11', layout: Atlas_Core.Atlas_Default) {
+  datagrid dg1 (datasource: database Shop.Line) {
+    column (attribute: Name, caption: 'Name')
+    column (attribute: Qty, caption: 'Qty')
+  }
+};
+-- then, in a second script:
+alter page Shop.M11_Page { replace Qty with { column (attribute: Name, caption: 'Name again') } };
+-- or: alter page Shop.M11_Page { insert after Name { column (attribute: Qty, caption: 'Qty again') } };
+```
+
+**Expected:** the column is replaced or inserted, its attribute resolved against the grid's entity (`Shop.Line`).
+**Actual (`check` and `exec`, exit 1):**
+```
+Reference error: alter page Shop.M11_Page: the insertion point (`Qty`) is in no data container, so no entity is in scope and these bindings cannot be qualified: column `` (Attribute: Name). Written without an entity, a template parameter is stored bare (Mendix can no longer load the project) and an attribute binding is dropped (CE7005). Qualify them (Module.Entity.Attribute), or insert into a data container whos…
+Refusing to execute: 1 unresolved reference(s) above. Nothing was written.
+```
+A DG2 column's scope is the grid's datasource entity; the resolver does not treat the grid as a data container. Supersedes the "passes `check`, fails mxbuild" failure mode of BUG-96 and BUG-DRAFT-dg2-replace-column-attribute-passes-check on this version.
+**Workaround:** re-emit the whole page with `create or modify page`.
+
+## BUG-DRAFT-dg2-derived-column-name-collision: a DG2 column over an association derives the same name as an attribute column, so `ALTER PAGE` calls the name ambiguous (2026-11-20)
+
+> **NOT YET FILED UPSTREAM.** Retest record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
+**Severity:** Low. **mxcli version:** v0.32.0-374. **Mendix version:** 11.8.0.
+**Discovered:** 2026-11-20, the same retest. **Reproducible:** yes, on the grid below (the one the retest built).
+
+```mdl
+mdl 1;
+create page Shop.M04_Page (title: 'M04', layout: Atlas_Core.Atlas_Default) {
+  datagrid dg1 (datasource: database from Shop.Line sort by Name asc) {
+    column colName (attribute: Name, caption: 'Name') { textfilter tf1 (attributes: [Name]) }
+    column colQty (attribute: Qty, caption: 'Qty')
+    column colOrd (attribute: Line_Order/Name, caption: 'Order') {
+      dropdownfilter ddf1 (Association: Shop.Line_Order, datasource: database Shop.Order, CaptionAttribute: Name)
+    }
+  }
+};
+-- then:
+alter page Shop.M04_Page { insert after Name { column colNew (attribute: Name, caption: 'New') } };
+```
+
+**Actual (`check`, exit 1), besides the BUG-DRAFT-dg2-column-alter-refused error:**
+```
+alter page Shop.M04_Page: column "Name" is ambiguous: 2 columns on this page derive that name — either identical captions in one grid (dynamic-text/custom columns are keyed by caption), or a same-named column in more than one grid. Give the columns distinct captions, or qualify the reference as `ON gridName.Name`, to address one
+```
+The grid has one `Name` column and one `Line_Order/Name` column with distinct captions (`'Name'`, `'Order'`) and distinct explicit names.
+**Expected:** the association column derives a distinct name (`Line_Order/Name` or its caption), so `Name` addresses one column.
+**Workaround:** address columns by their explicit names (`colName`), or re-emit the whole page.
+
+## BUG-DRAFT-association-flip-direction-noop: `create or modify association` with FROM and TO swapped prints "Modified association" and changes nothing (2026-11-20)
+
+> **NOT YET FILED UPSTREAM.** Documented as a read-back rule in `learned-mdl-preflight.md` Step 0 since v0.24.0; this entry gives it a stamp. Retest record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
+**Severity:** Medium (a silent no-op reported as success). **mxcli version:** v0.32.0-374 (also v0.24.0). **Mendix version:** 11.8.0.
+**Discovered:** 2026-11-20, the same retest. **Reproducible:** yes.
+
+```mdl
+mdl 1;
+create persistent entity Shop.LOA ( Name: string(10) );
+create persistent entity Shop.LOB ( Name: string(10) );
+create association Shop.LOA_LOB from Shop.LOA to Shop.LOB type reference owner default;
+-- then:
+create or modify association Shop.LOA_LOB from Shop.LOB to Shop.LOA type reference owner default;
+describe association Shop.LOA_LOB
+```
+
+**Actual:** exec prints `Modified association: Shop.LOA_LOB` (exit 0); `describe` still prints `from Shop.LOA to Shop.LOB`.
+**Expected:** the direction is flipped, or the statement is refused ("the direction of an existing association cannot be changed; drop and create it").
+**Workaround:** drop and create the association (re-grant its access), or patch the `.mpr` with `./bin/exec.sh --patch`; always read the direction back with `describe`. `owner Both` does persist on this version (BUG-DRAFT-association-owner-ignored is fixed).
+
+## BUG-DRAFT-reserved-entity-name-case-passes-check: an entity named `Case` passes `check` and `exec`, then fails `mx check` with CE7247 (2026-11-20)
+
+> **NOT YET FILED UPSTREAM.** Retest record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
+**Severity:** Low (the gate catches it; one wasted exec). **mxcli version:** v0.32.0-374. **Mendix version:** 11.8.0.
+**Discovered:** 2026-11-20, the same retest. **Reproducible:** yes.
+
+```mdl
+mdl 1;
+create persistent entity Shop."Case" ( Name: string(100) );
+```
+
+**Actual:** `check` passes, exec prints `Created entity: Shop.Case`, then `mx check`: `CE7247 | Domain model | Entity 'Shop.Case' | The name 'Case' is a reserved word.`
+**Expected:** refused at `check`, as the same version already refuses `Context` as an attribute (`attribute 'Context' is a reserved word (CE7247) [MDL021]`) and `New` as an enumeration value (`enumeration value 'New' is a reserved word (CE7247) [MDL010]`). The reserved-word check does not cover entity names.
+**Workaround:** qualify the name (`CustomerCase`). `learned-detection-gaps.md` carries the row.
+
+## BUG-DRAFT-exec-writes-what-check-refuses: `exec` writes expression type errors that `check` reports with exit 1 — and `check` misses an enum returned from a String microflow (2026-11-20)
+
+> **NOT YET FILED UPSTREAM.** Retest record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
+**Severity:** Medium (a build-breaking write that `check` already knew about; the gate restores, one wasted exec). **mxcli version:** v0.32.0-374. **Mendix version:** 11.8.0.
+**Discovered:** 2026-11-20, the same retest. **Reproducible:** yes, 3 probes.
+
+```mdl
+mdl 1;
+create microflow Shop.G05_Concat ($Order: Shop.Order) returns string as $s
+begin
+  declare $s string = 'S: ' + $Order/Status;   -- Status is an enumeration
+  return $s;
+end;
+create microflow Shop.MP09_Ret ($Order: Shop.Order) returns string as $s
+begin
+  change $Order (Note = $Order/Status);
+  return $Order/Status;
+end;
+create microflow Shop.LD_Loop ($Orders: list of Shop.Order)
+begin
+  loop $O in $Orders
+  begin
+    change $O (Note = $O/Status);
+  end loop;
+end;
+```
+
+**Actual:** `check` exits 1 on each — `The '+' operator concatenates Strings. The other operand is Enumeration, which cannot be concatenated with a String directly. [E004]` and `Attribute Note of Shop.Order is a String, but the value assigned to it is an Enumeration Shop.OrderStatus. … [E009]` (in the loop too) — yet `exec` exits 0 and writes all three (`Created microflow: Shop.MP09_Ret`). `mx check` then gives CE0117 at each, including `CE0117 | Microflow 'MP09_Ret' | End event | Error(s) in expression.` for the `return $Order/Status`, which `check` did not report at all.
+**Expected:** exec refuses what `check` reports as an error, as it already does for MDL044, MDL-TOKEN01 and MDL-WIDGET11; `check` flags an enumeration returned from a String microflow.
+**Workaround:** run `mxcli check -p <app>.mpr --references` before exec and treat every error as blocking (`learned-mdl-preflight.md`, "`exec` is not `check`"); wrap enum reads in `toString()`.
+
+## BUG-DRAFT-describe-log-level-omitted: `describe microflow` prints a `log info` activity as `log node 'N' '…'` with no level (2026-11-20)
+
+> **NOT YET FILED UPSTREAM. Possibly by design** (Info may be the default level that `describe` leaves out); confirm with a `log warning` before filing. Retest record: [mxcli-v0.32.0-retest-2026-11-20.md](mxcli-v0.32.0-retest-2026-11-20.md).
+
+**Severity:** Low (cosmetic; the read-back re-checks clean). **mxcli version:** v0.32.0-374. **Mendix version:** 11.8.0.
+**Discovered:** 2026-11-20, the BUG-103 retest. **Reproducible:** yes.
+
+```mdl
+mdl 1;
+create microflow Shop.L103_Log () begin log info node 'N' 'It''s here'; end;
+describe microflow Shop.L103_Log
+```
+
+**Actual:** the read-back prints `log node 'N' 'It''s here';` — the level a reader looks for is not visible.
+**Expected:** `log info node 'N' 'It''s here';`, as written.
 ## BUG-DRAFT-mxcli-new-linux-mxbuild-on-macos: `mxcli new` on macOS picks or downloads the Linux mxbuild, which cannot run there (upstream mendixlabs/mxcli#1605) (2026-11-20)
 
 > **FILED UPSTREAM as mendixlabs/mxcli#1605** (not by the toolkit). The toolkit's own draft of the same report, `bug-logs/pending-github-issues/mxcli-new-downloads-linux-mxbuild-on-windows-macos.md`, is a duplicate of it.

@@ -7317,3 +7317,13 @@ Both flagged flows are Data grid 2 datasources on pages in the same module and w
 **Confounders (any one is enough for CE0463):** the failing script also set `showEmptyPlaceholder: 'custom'` with an emptyplaceholder slot (BUG-150 item 2); it had "Action" columns with no attribute; and no widget-bodied column set `ShowContentAs: customContent`, which the bundled v0.32 docs require (a pruned slot is CE0463). The probe page was not kept.
 
 **Next step:** run the three probes listed in `skills/learned-dg2-patterns.md` with `mx check`; if (a) builds, close this as the known defects above. **Workaround meanwhile:** the order of things to try in that skill, ending in a listview table.
+
+## BUG-DRAFT-mxcli-new-linux-mxbuild-on-macos: `mxcli new` on macOS picks or downloads the Linux mxbuild, which cannot run there (upstream mendixlabs/mxcli#1605) (2026-11-20)
+
+> **FILED UPSTREAM as mendixlabs/mxcli#1605** (not by the toolkit). The toolkit's own draft of the same report, `bug-logs/pending-github-issues/mxcli-new-downloads-linux-mxbuild-on-windows-macos.md`, is a duplicate of it.
+
+**Discovered:** 2026-11-05, macOS, mxcli nightly-20261105-f3c4d531d, Mendix 11.15.0 (maintainer, on toolkit issue #525); the same shape on Windows 11 / mxcli v0.32.0 in the 2026-11-16 field run behind #775.
+
+**What happens.** `mxcli new` resolves `mx` with a fallback that downloads from the Mendix CDN when no Studio Pro of the requested version is found. The CDN publishes Linux mxbuild only, so on macOS the cache under `~/.mxcli/mxbuild/<version>/` can hold a Linux ELF that never runs there. The cause was traced to `cmd/mxcli/docker/check.go:511`, as of that nightly. `mxcli setup mxbuild` and `run --local` refuse up front on a non-Linux host; `new` does not.
+
+**Workaround:** before trusting a cached build on macOS, run `file ~/.mxcli/mxbuild/<version>/modeler/mx`. `Mach-O` can run (it did not come from the CDN; treat it as the Studio Pro lane). `ELF` cannot: install Studio Pro of the model's version (Mendix 11 or later on macOS) or use the Dev Container. `bin/doctor.sh` on macOS / Git Bash no longer offers the CDN download (#775). `skills/doctor-triage.md` Step 4 has the lane table; `README.md` → *What runs where: the local lane* has the per-part answer.

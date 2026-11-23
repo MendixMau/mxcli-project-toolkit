@@ -438,7 +438,7 @@ _ob_negative_verdict() {
       line="$(printf '%s\n' "$txt" | grep -iE -m1 -- 'skeleton[[:space:]]+(not[[:space:]]+)?proven')"
       [ -n "$line" ] || line="$(printf '%s\n' "$txt" \
         | grep -iE -m1 -- '[0-9]+[[:space:]]+of[[:space:]]+[0-9]+|[0-9]+[[:space:]]*/[[:space:]]*[0-9]+')" || return 1
-      if printf '%s' "$line" | grep -qiE -- 'not[[:space:]]+met|not[[:space:]]+proven|unproven'; then
+      if grep -qiE -- 'not[[:space:]]+met|not[[:space:]]+proven|unproven' <<<"$line"; then
         printf 'FAIL:%s' "$(printf '%s' "$line" | cut -c1-120)"; return 0
       fi
       # "N of M" first: a slash form can be a date (2026/11/17).

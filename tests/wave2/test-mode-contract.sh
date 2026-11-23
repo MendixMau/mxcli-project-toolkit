@@ -32,6 +32,10 @@ case "$SUBJECT" in /*) ;; *) SUBJECT="$PWD/$SUBJECT" ;; esac
 GOLD="$TOOLKIT/tests/wave2/fixtures/entry-mode-plan-rule"
 WORK="$(cd "$(mktemp -d "${TMPDIR:-/tmp}/mode-contract.XXXXXX")" && pwd -P)" || exit 2
 trap 'rm -rf "$WORK"' EXIT
+# init-project.sh registers each scaffolded project's name in the toolkit clone's .leakguard-deny
+# unless told otherwise; run alone (outside run-all.sh) this fixture would leave its project names
+# there and the pre-commit leak guard would flag every file for the next committer.
+export MXTK_LEAKGUARD_DENYFILE="$WORK/leakguard-deny"
 PASS=0; FAIL=0
 ok()  { PASS=$((PASS+1)); echo "  ok   - $1"; }
 bad() { FAIL=$((FAIL+1)); echo "  FAIL - $1${2:+: $2}"; }

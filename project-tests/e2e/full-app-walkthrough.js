@@ -51,8 +51,8 @@
 // ENGINE / CONFIG LINE
 // Nothing in this file knows a module, an entity, a page, a widget, a menu
 // caption, a user or a URL. All of that is `WALKTHROUGH` and `ROLES` in
-// project.config.js — see project.config.template.js, which ships a worked
-// example and the mxcli command that produces the right answer for each field.
+// project.config.js — see project.config.template.js, which ships the shape of
+// each block (empty) and the mxcli command that produces the right answer for each field.
 // ============================================================================
 
 const H = require(__dirname + '/helpers.js');
@@ -75,7 +75,8 @@ if (!WT || !Array.isArray(WT.acts) || WT.acts.length === 0) {
     '\n  NOT CONFIGURED — project.config.js exports no `walkthrough` with acts.\n' +
     '  This instrument walks ONE business process across modules and roles; the process\n' +
     '  is a statement about your application, so it lives in project.config.js.\n' +
-    '  Copy the WALKTHROUGH / ROLES blocks from project.config.template.js and fill them in.\n' +
+    '  Fill the WALKTHROUGH and ROLES blocks in tests/e2e/project.config.js (the comment above\n' +
+    '  WALKTHROUGH shows the shape; `node tests/e2e/project.config.js` lists what is still empty).\n' +
     '  Writing an empty findings.json here would report a clean walkthrough that never ran.\n');
   process.exit(2);
 }
@@ -350,6 +351,16 @@ async function runStep(page, meta, s) {
   }
 }
 
+// An act's arrival when no handoffAssert brought it there: its leading `nav` steps. `checks`
+// describe the page the act lands on, so they are read after these, never on the page the
+// previous act left. After a non-empty handoffAssert the checks are read straight away.
+function splitArrival(act) {
+  const steps = act.steps || [];
+  let i = 0;
+  while (i < steps.length && steps[i] && steps[i].do === 'nav') i++;
+  return { arrive: steps.slice(0, i), rest: steps.slice(i) };
+}
+
 function describe(s) {
   switch (s.do) {
     case 'nav': return `navigate to ${[s.group, s.item].filter(Boolean).join(' › ')}`;
@@ -511,6 +522,8 @@ async function switchTo(page, roleKey, handoffMeta) {
 
       // A role change is a HANDOFF, and it gets its own page in the report so the
       // seam is visible as a thing that was tested rather than buried inside an act.
+      // An act that arrives through a handoffAssert is ON its landing page once that assert ran.
+      const arrivedByHandoff = act.role !== currentRole && (act.handoffAssert || []).length > 0;
       if (act.role !== currentRole) {
         const from = currentRole ? (ROLES[currentRole].label || currentRole) : '(nobody)';
         const to = (ROLES[act.role] && ROLES[act.role].label) || act.role;
@@ -532,22 +545,31 @@ async function switchTo(page, roleKey, handoffMeta) {
 
       console.log(`\n── ${meta.label} ──`);
 
-      // Widget presence for the act's landing page, recorded as widgets[] so the
-      // report groups them the way it groups every other walkthrough's.
-      for (const name of act.checks || []) {
-        const visible = await H.visibleWithin(page.locator(`.mx-name-${name}`).first(), 2500);
-        meta.widgets.push({ name, status: visible ? 'ok' : 'missing',
-                            detail: visible ? '' : `.mx-name-${name} not visible` });
-        if (visible) R.pass(`${meta.key}:widget:${name}`, `Widget ${name} present`);
-        else R.fail(`${meta.key}:widget:${name}`, `Widget ${name} present`, `.mx-name-${name} not visible`);
-      }
-
-      for (const s of act.steps || []) {
-        const ok = await runStep(page, meta, s);
-        // `fatal` is the config's way of saying "there is no point continuing" —
-        // a form that never opened, a record that was never created. Everything
-        // after it is reported NOT REACHED rather than left absent.
-        if (!ok && s.fatal) { stoppedAt = `${meta.label}: ${s.label || describe(s)}`; break; }
+      const runSteps = async (list) => {
+        for (const s of list) {
+          const ok = await runStep(page, meta, s);
+          // `fatal` is the config's way of saying "there is no point continuing" —
+          // a form that never opened, a record that was never created. Everything
+          // after it is reported NOT REACHED rather than left absent.
+          if (!ok && s.fatal) { stoppedAt = `${meta.label}: ${s.label || describe(s)}`; return false; }
+        }
+        return true;
+      };
+      // An act's landing page is where its handoffAssert left it. An act WITHOUT one (the first
+      // act, or one with no role change) arrives by its LEADING nav steps, so those run before its
+      // widget checks are read. A handoff act's steps, a leading nav included, run after them.
+      const { arrive, rest } = arrivedByHandoff ? { arrive: [], rest: act.steps || [] } : splitArrival(act);
+      if (await runSteps(arrive)) {
+        // Widget presence for the act's landing page, recorded as widgets[] so the
+        // report groups them the way it groups every other walkthrough's.
+        for (const name of act.checks || []) {
+          const visible = await H.visibleWithin(page.locator(`.mx-name-${name}`).first(), 2500);
+          meta.widgets.push({ name, status: visible ? 'ok' : 'missing',
+                              detail: visible ? '' : `.mx-name-${name} not visible` });
+          if (visible) R.pass(`${meta.key}:widget:${name}`, `Widget ${name} present`);
+          else R.fail(`${meta.key}:widget:${name}`, `Widget ${name} present`, `.mx-name-${name} not visible`);
+        }
+        await runSteps(rest);
       }
       if (!meta.screenshot) await shot(page, meta, `act-${String(i + 1).padStart(2, '0')}-${meta.key}`);
       if (stoppedAt) break;

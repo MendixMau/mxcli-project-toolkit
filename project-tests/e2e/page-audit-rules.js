@@ -37,7 +37,9 @@
 
 const PROJ = require('./project.config');
 const MPR = PROJ.mprName;
-const EX = PROJ.exemplars;
+// A fresh scaffold leaves them null: the advice then says what to set, never "null's ...".
+const EX = Object.fromEntries(['listPage', 'overviewPage', 'detailPage'].map((k) =>
+  [k, (PROJ.exemplars || {})[k] || `<no exemplar: set exemplars.${k} in tests/e2e/project.config.js>`]));
 
 // ── MDL parsing ──────────────────────────────────────────────────────────────
 // A widget declaration is `<type> <name> ( props ) { body }`, where props may span

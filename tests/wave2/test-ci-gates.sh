@@ -20,6 +20,10 @@ ok()  { PASS=$((PASS+1)); echo "  ok   — $1"; }
 bad() { FAIL=$((FAIL+1)); echo "  FAIL — $1"; }
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/citest.XXXXXX")" || exit 2
 trap 'rm -rf "$WORK"' EXIT
+# init-project.sh registers each scaffolded project's name in the toolkit clone's .leakguard-deny
+# unless told otherwise; run alone (outside run-all.sh) this fixture would leave its project names
+# there and the pre-commit leak guard would flag every file for the next committer.
+export MXTK_LEAKGUARD_DENYFILE="$WORK/leakguard-deny"
 echo "== subject: $SUBJECT"
 [ -f "$SUBJECT" ] && [ -d "$FXS" ] || { echo "FAIL — subject or fixture missing"; echo "PASS=0 FAIL=1"; exit 1; }
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t

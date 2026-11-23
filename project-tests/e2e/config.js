@@ -233,10 +233,10 @@ function resolveTarget() {
   return t;
 }
 
-// The NAV project.config.template.js ships: the toolkit's sample app, not this project (#679).
-// A project.config.js still carrying it navigates menu captions the app does not have, so a
-// monkey run reaches nothing and measures nothing. Compared like TEMPLATE_PASSWORDS above;
-// tests/wave2/test-monkey-template-nav.sh asserts this copy equals the template's.
+// The NAV project.config.template.js used to ship: a sample app's, not this project's (#679).
+// The template now ships NAV empty, but a project.config.js installed before that still carries
+// this one and navigates menu captions the app does not have, so a monkey run reaches nothing
+// and measures nothing. Kept as the signature that recognises it; compared like TEMPLATE_PASSWORDS.
 const TEMPLATE_NAV = {
   dashboard:    ['Dashboard'],
   equipment:    ['Assets & Barcodes', 'Equipment'],

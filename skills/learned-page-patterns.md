@@ -343,9 +343,19 @@ move and it is exactly the shape that raises CE1571: the stored model carries an
 **Attributes in the control bar resolve against the grid's entity, not the context.** A widget in
 the control bar showing a bare attribute (`Attribute: OpenCount`) is resolved by mxcli against the
 **grid's** entity, although at runtime the context there is the enclosing data view's object. So
-mxbuild fails with CE1613 naming `<GridEntity>.OpenCount`. Inside the control bar, name the data
-view's attributes fully qualified. (mxcli v0.24.0, BUG-150 item 5; a card-disbursement
-requirements-driven build, 2026-09-25.)
+mxbuild fails with CE1613 naming `<GridEntity>.OpenCount`.
+- **mxcli v0.31.0 and later: bind through the page or snippet parameter, `Attribute: $Report.Status`**
+  (`$<Param>.<Attr>`). exec and mxbuild are clean, and the filters behave as the Studio Pro original.
+  The fully qualified form (`Attribute: M.Report.Status`) is refused by exec with CE7247 ("… is an
+  attribute of M.Report, not of M.GridEntity … read the other object through a page or snippet
+  parameter"), and the whole script is rolled back. A bare `Attribute: Status` binds to the grid's
+  entity: mxbuild CE7247 when the grid's entity has no `Status`, and when it **has** one the name
+  binds to the grid's attribute, not the enclosing object's. Use `$Param.Attr` for every
+  enclosing-object attribute, or rename the clashing grid-entity attribute.
+  (mxcli v0.31.0, Mendix 11.12.4, BUG-150 item 5: a Data Grid 2 moved to a `database from` view
+  entity, 10 filter sets compared old vs new on screen and in the Excel export.)
+- **mxcli v0.24.0:** name the data view's attributes fully qualified. (BUG-150 item 5; a
+  card-disbursement requirements-driven build, 2026-09-25.)
 
 ## List view `Editable`: every list view on the path to an input
 

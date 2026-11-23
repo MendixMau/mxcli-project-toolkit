@@ -53,9 +53,10 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/learned-detection-gaps.md` | Before trusting a green check/exec/DESCRIBE result as proof, or when a runtime symptom appears over a fully green model — the register of constructs that pass early rungs and fail later ones |
 | `skills/security-is-not-a-later-script.md` | Creating any entity, or calling a module security-ready — entity and grants land in one script, and ready means SHOW SECURITY MATRIX proves it |
 | `bin/status.sh` | The first command of every session, and any time someone asks "where are we" or "what next" — one screen: stage, done/overdue, the ONE next action, from the instruments, never from memory |
-| `skills/retesting-learned-rules.md` | Before obeying any learned-* STOP or workaround that costs a detour — probe the binary you actually have, then stamp the verdict back into the rule |
+| `skills/retesting-learned-rules.md` | Before obeying any learned-* STOP or workaround that costs a detour, or when a newer mxcli may have fixed it — probe the binary you actually have, then stamp the verdict back into the rule |
 | `skills/skills-over-scripts.md` | Script or skill? Before writing any .js or bash/.sh for a check, checker, linter, gate or report, or adding a rule or regex to an existing one |
 | `skills/image-transcription.md` | Images to read listed by images-to-md or the documents index |
+| `skills/learned-rules-archive.md` | On an mxcli older than v0.32.0-374, before writing a construct a learned-* rule calls retired or "older mxcli only" |
 | `skills/mendix-best-practices-index.md` | Asked "is there a Mendix best practice for this", or mapping a lint rule that rose in the ratchet back to the practice and the skill that prevents it |
 | `project-bin/assemble-prototype.js` | After every wireframe edit: assembles design/wireframes/*.html into design/prototype.html, one hash-routed page a stakeholder can click through instead of twenty separate files. Generated, never edited (design-artifacts.md Step 3). Before the Stage 3 sign-off question, review-agent LOOKs at its output at 390/360/320/1280 px (design-artifacts.md Step 3d, obligation prototype-look) |
 | `project-bin/check-prototype-links.js` | Before wireframes pass to the build loop, and with --brd before a BRD is signed off: dead #/route links, orphan screens, controls with no data-bind and no data-cut, BRD routes no screen has, screens no use case walks (design-artifacts.md Step 3c, brd-validation.md check 8) |
@@ -71,7 +72,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `project-bin/conformance-check.sh` | Running the ledger rung alone |
 | `project-bin/graph-sweep.sh` | Running the wiring rung alone |
 | `skills/fixture-seeding.md` | Seed data, test data, demo data or fixtures are needed, or pages come up empty |
-| `skills/journey-proof.md` | Proving a module's user journey end-to-end |
+| `skills/journey-proof.md` | Proving a module's user journey end-to-end, or a trace/OTel check reads zero spans or Jaeger answers 404/unreachable |
 | `skills/unhappy-path-testing.md` | Writing or running e2e cases beyond the happy journeys (blank/whitespace required fields, over-length, duplicates, cancel, double submit, wrong state, wrong role, backend down, stale write, empty search) |
 | `skills/monkey-test.md` | Running the fuzz/crash net on a module whose journeys are already green |
 | `skills/load-test.md` | Load, performance or stress testing a page ("will it hold 1000 users", concurrent users, k6, JMeter) |
@@ -93,7 +94,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/share-demo-package.md` | Sending a demo guide, screenshots or a quickstart doc OUTSIDE the repo |
 | `skills/lint-that-actually-runs.md` | Reading a lint result, or writing/repairing any .star rule |
 | `skills/improvement-register.md` | Any review pass that runs more than once |
-| `skills/journey-examples.md` | Writing an actual .journey.json |
+| `skills/journey-examples.md` | Writing or fixing a .journey.json step or a row/fill selector that matches nothing in a list view or grid row |
 | `skills/wiring-sweep.md` | Every module before it is called done; buttons, links or actions that do nothing when clicked |
 | `skills/must-haves.md` | Closing any module with pages, any build type |
 | `skills/workflow-structure-rules.md` | Designing or reviewing a Workflow's SHAPE before or after the MDL |

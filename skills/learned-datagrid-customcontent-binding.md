@@ -11,6 +11,12 @@ Studio Pro error pane before and after. Not confirmed by `mxcli check` — see t
 customContent columns — only a bare attribute or a quoted literal builds. `check --references`
 now refuses the parenthesised forms but still passes `if … then … else`.
 
+**CHANGED on mxcli v0.32.0-374 (retest 2026-11-20, Mendix 11.8.0):** an expression in `ContentParams` builds
+when every attribute in it is written `$currentObject/Attr` — `toString($currentObject/Status)` and
+`$currentObject/Name`, in a customContent column and in a data view, gave `mx check` 0 errors. A bare
+attribute inside a function, `toString(Status)`, still passes `check` and `exec` and fails CE0117.
+On an older mxcli (v0.32.0 and before) the rule below holds as written.
+
 ---
 
 ## The rule

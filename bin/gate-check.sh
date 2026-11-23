@@ -4262,7 +4262,10 @@ fi
 _roll=""; _owed=0
 if [ -n "${MXTK_OB_N_PENDING:-}" ]; then
   _roll="Obligations: ${MXTK_OB_N_PENDING} pending · ${MXTK_OB_N_FAULT:-0} fault"
-  _owed=$(( _owed + MXTK_OB_N_PENDING + ${MXTK_OB_N_FAULT:-0} ))
+  # A mark that says no itself (#835/#836) is counted, but only named when there is one: the
+  # existing roll-up text, and what parses it, stays byte-identical for every other project.
+  [ "${MXTK_OB_N_FAIL:-0}" -gt 0 ] && _roll="$_roll · ${MXTK_OB_N_FAIL} fail"
+  _owed=$(( _owed + MXTK_OB_N_PENDING + ${MXTK_OB_N_FAULT:-0} + ${MXTK_OB_N_FAIL:-0} ))
 else
   _roll="Obligations: NOT CHECKED"
 fi

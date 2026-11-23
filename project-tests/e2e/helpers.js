@@ -102,7 +102,7 @@ async function launchBrowserAt(x, y, w, h, { videoDir = null, trace = false, mob
   const browser = await chromium.launch(launchOpts);
   // mobile:true → use the real Playwright device profile (iPhone 14 by default).
   // This gives the correct UA, viewport, deviceScaleFactor and touch flags so the
-  // Mendix app's device-routing sends the user to the FieldScan (PhoneScan) home.
+  // Mendix app's device-routing sends the user to its phone home page.
   const device = mobile ? devices[deviceName] || devices['iPhone 14'] : {};
   const context = await browser.newContext({
     ...device,
@@ -435,7 +435,7 @@ async function loginOnce(page, user, pass) {
   }
   // Wait for the SPA to actually finish routing into the app shell — NOT a fixed
   // sleep. Device-agnostic: desktop shows the nav tree / copilot; the PHONE
-  // layout has neither (it auto-routes to the FieldScan tiles), so we accept any
+  // layout has neither (it auto-routes to the phone home tiles), so we accept any
   // real app content and only require that we've left the login page.
   // The selector list is cfg.readySelectors (project.config), not a literal:
   // three of the five entries here were this project's own widget names.

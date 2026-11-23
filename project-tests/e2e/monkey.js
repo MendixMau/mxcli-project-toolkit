@@ -4,7 +4,7 @@
 // ----------------------------------------------------------------------------
 //   node tests/e2e/monkey.js                       # all targets, random seed
 //   node tests/e2e/monkey.js --seed 12345          # reproduce a previous run
-//   node tests/e2e/monkey.js --target fieldscan-receive --rounds 40
+//   node tests/e2e/monkey.js --target order-create --rounds 40
 //
 // HONEST WEIGHTING, UP FRONT
 // PROJECT-E's monkey pass scored 0 fail / 27 pass / 5 info while its scripted journeys

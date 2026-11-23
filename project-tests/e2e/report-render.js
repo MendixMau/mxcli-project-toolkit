@@ -1846,8 +1846,8 @@ function renderNextSteps(d) {
  *
  *  DERIVED FROM THAT PAGE'S OWN CHECKS, not from the project-wide group. First cut
  *  reused the group row, and a project-wide group carries whichever member's action
- *  happened to be first: the panel under FieldScan.Receive_Scan told the reader to go
- *  fix Equipment.Item_Detail. A per-page panel must quote the per-page remediation.
+ *  happened to be first: the panel under one scan page told the reader to go
+ *  fix an unrelated detail page. A per-page panel must quote the per-page remediation.
  *  The group is still used, but only for its RANK, so the ordering here and the
  *  ordering at the top of the report cannot disagree. */
 function nextStepsFor(d, page) {

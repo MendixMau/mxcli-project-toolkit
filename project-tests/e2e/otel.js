@@ -157,7 +157,7 @@ const errorSpans = spans => spans.filter(s =>
  * Activity spans carry no `mx.microflow.name`. The owning microflow appears
  * only inside the status description, as:
  *   Error calling REST service
- *     at RoutingManagement.ACT_Route_Search (CallRest : 'Call REST (GET)')
+ *     at Sales.ACT_Order_Search (CallRest : 'Call REST (GET)')
  * Returns a one-line human summary per error span.
  */
 function describeError(s) {

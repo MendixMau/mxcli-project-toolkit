@@ -212,8 +212,8 @@ const classesOf = (node) => String(unquote(prop(node, 'Class')) || '').split(/\s
 // behind it, so the card wrapper that keeps blocks apart on a full page has nothing to
 // separate.
 //
-// MEASURED on this project (2026-09-11): ManagerCoaching.ManagerRequest_New and
-// DealQualification.ClarificationQuestion_Answer are both
+// MEASURED on a field project (2026-09-11): two popup pages, a request form and an
+// answer form, are both
 // `Layout: Atlas_Core.PopupLayout, PopupWidth: 560`, both correctly built, and both
 // were reported twice over -- "0 H1 heading widget(s)" and "no card class". Four
 // findings, none of them a defect, on two of the eleven pages in scope. A rule that

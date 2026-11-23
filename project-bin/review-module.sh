@@ -384,7 +384,7 @@ else
   # hands review-report.js a full set of rows to turn into `pass` checks stamped with this
   # run's timestamp, under an instrument row that says `fault`.
   #
-  # Measured 2026-08-18, RM_TMO_CONFORMANCE=1 on RoutingManagement: conformance got through
+  # Measured 2026-08-18, RM_TMO_CONFORMANCE=1 on a field module: conformance got through
   # 1 of 22 rows and logged "nothing was measured"; the report carried 13 pass / 5 fail
   # conformance checks anyway, all from the previous run's file.
   #

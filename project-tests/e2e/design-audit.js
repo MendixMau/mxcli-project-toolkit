@@ -4,7 +4,7 @@
 // ----------------------------------------------------------------------------
 //   node tests/e2e/design-audit.js                      # full run (needs the app up)
 //   node tests/e2e/design-audit.js --static-only        # model+CSS only, app may be down
-//   node tests/e2e/design-audit.js --page Equipment.Item_Detail
+//   node tests/e2e/design-audit.js --page Sales.Order_Detail
 //   node tests/e2e/design-audit.js --positive-control   # prove each rung can go red
 //
 // Output: tests/e2e/artifacts/design-audit.json  (checks[] merge into docs/report.json)
@@ -18,7 +18,7 @@
 //    with a reason, never silence.
 //
 // 2. It refuses to sweep a tree it knows is incomplete and call the result clean.
-//    MEASURED on this project (RoutingManagement.Route_List, 2026-08-18): the ELK
+//    MEASURED on a field project (a list page, 2026-08-18): the ELK
 //    describe tree contains 13 widget nodes; the page's own `mdlSource` in the SAME
 //    response declares 27. The entire `controlbar` subtree and both `customContent`
 //    column bodies are absent from the tree — with them, the classes `filter-stack`,
@@ -52,7 +52,7 @@ const { settle } = require(__dirname + '/settle.js');
 
 const ROOT = PROJ.root;
 const MPR = PROJ.mprName;
-// F-042 (MarkUseCase, 2026-08-28): in a two-tree layout ROOT is the model's app/
+// F-042 (field build, 2026-08-28): in a two-tree layout ROOT is the model's app/
 // directory while design/, .claude/ and the mxcli wrapper sit beside it at the
 // repo root. Every ROOT-joined path here silently pointed at nothing on that
 // layout, so probe ROOT first and fall back to ROOT's parent when the ROOT copy
@@ -230,7 +230,7 @@ function splitClasses(s) {
 // so it is the primary source for classes and the yardstick for completeness.
 // Structural MDL keywords that are not widget instances and never appear as ELK nodes.
 // `placeholder` belongs here: it is a layout slot, its children DO come through, and
-// counting it as unread reported two phantom findings on FieldScan.Move_Scan.
+// counting it as unread reported two phantom findings on a field app's scan page.
 const MDL_NON_WIDGET_TYPES = new Set([
   'row', 'column', 'controlbar', 'create', 'grant', 'menu', 'page', 'snippet', 'layout',
   'placeholder',
@@ -893,7 +893,7 @@ async function runControls(pages, css, wf) {
   // differ must then report exactly that class as invented — no more, no less.
   {
     // Scan the scope for a page that actually references a DEFINED class. Taking
-    // pages[0] blindly picked AIAssistant.AIAdmin_Home, whose one class is itself a
+    // pages[0] blindly picked a field app's admin page, whose one class is itself a
     // finding — there was nothing to rename and the rung reported UNPROVEN for a
     // reason that had nothing to do with the differ. Prefer a class that is in BOTH
     // ds.css and the theme, so the same victim can drive both mutants.

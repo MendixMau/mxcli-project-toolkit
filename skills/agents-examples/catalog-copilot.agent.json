@@ -22,7 +22,7 @@
         },
         {
           "Name": "GetRouteDetail",
-          "Description": "Get the full field set for one routing by its exact routing code, e.g. RT-PCBA-001.",
+          "Description": "Get the full field set for one routing by its exact routing code, e.g. RT-0001.",
           "Microflow": "RoutingManagement.TOOL_Route_GetDetail",
           "UserAccessApproval": "HiddenForUser",
           "IsEnabled": true,

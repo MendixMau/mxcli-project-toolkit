@@ -2,7 +2,7 @@
 // ============================================================================
 // journey-runner.js — walk a persona down a golden path and check all four rungs
 // ----------------------------------------------------------------------------
-//   node tests/e2e/journey-runner.js journeys/FieldScan.journey.json
+//   node tests/e2e/journey-runner.js journeys/Sales.journey.json
 //   node tests/e2e/journey-runner.js journeys/*.journey.json --positive-control
 //
 // A suite PREFLIGHT runs before the browser opens (see "Suite preflight" below): admin
@@ -261,7 +261,7 @@ async function act(page, a, vars, note) {
       // position:fixed OUTSIDE the widget container, so a locator scoped to
       // .mx-name-<widget> finds nothing and a plain fill() does not commit a
       // selection. Toggle, then keyboard-select — the technique proven in
-      // spec-fieldscan-otel.js.
+      // a field project's OTel spec.
       const box = w(a.widget);
       if (!(await H.visibleWithin(box, 6000)))
         throw new Error(`.mx-name-${a.widget} not visible`);
@@ -787,8 +787,8 @@ function checkOql(q, vars) {
 // construction, and immune to an UPDATE — unlike a stamped DateTime.
 //
 // `newRowsBy: "PlacedOn"` (or any stamped DateTime) also works and is the fallback if the
-// runtime's OQL will not aggregate `id`, with one documented weakness: FieldScan's Move
-// RE-STAMPS PlacedOn (mdlsource/fieldscan/04-microflows.mdl:165), so a pre-existing row
+// runtime's OQL will not aggregate `id`, with one documented weakness: a field app's Move
+// microflow RE-STAMPS PlacedOn, so a pre-existing row
 // that some other actor moves during the step re-enters scope. `id` cannot do that.
 //
 // A declared scope that cannot be measured is INVALID, never a quiet fall back to the
@@ -939,7 +939,7 @@ function controlMutants(j) {
   add('trace-order', 'expect a microflow that never fires', (c) => {
     const s = c.steps.find(x => x.spans && x.spans.ordered);
     if (!s) return false;
-    s.spans.ordered = ['FieldScan.__ACT_This_Microflow_Does_Not_Exist__'];
+    s.spans.ordered = ['Sample.__ACT_This_Microflow_Does_Not_Exist__'];
     delete s.spans.mustNotFire;
   }, named('ordered'));
 
@@ -1201,7 +1201,7 @@ async function runJourney(page, j) {
 
     // What the page SAYS, not just which widgets exist. Every other rung answers
     // "did the machine do the work"; only this one answers "does the screen tell the
-    // user the truth about it". FieldScan's Receive commits the row correctly and
+    // user the truth about it". A field app's Receive commits the row correctly and
     // then renders "No placements yet" on the panel listing that very row — a defect
     // that mxbuild, the microflow span, the activity spans and the OQL delta all
     // agree is fine, because by their own lights it is.

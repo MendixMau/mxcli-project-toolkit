@@ -688,9 +688,35 @@ fi
 # then excused stages on that label. See bin/lib/entry-mode.sh for why.
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")/lib" && pwd)/entry-mode.sh"
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")/lib" && pwd)/render-fresh.sh"
+# The accepted shape of each parsed format, printed with its FAIL (#821 point 1; bin/lib/format-hints.sh).
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/lib" && pwd)/format-hints.sh"
 ENTRY_MODE="$(entry_mode_token "$ENTRY_RAW")"
-BUILD_TYPE="$(reg_field "build type" 2>/dev/null || true)"
-case "$(printf '%s' "$BUILD_TYPE" | tr '[:upper:]' '[:lower:]')" in poc|poc[!a-z]*) BUILD_TYPE=poc ;; *) BUILD_TYPE=full ;; esac
+BUILD_TYPE_RAW="$(reg_field "build type" 2>/dev/null || true)"
+# poc only when the value starts with the word poc AND never names full: "poc → full (CR-01)" is a
+# switch to full, and reading it as poc excused every stage of a build that left POC (review of #828).
+# "Names full" is the WORD full (mxtk_bt_names_full, project-bin/_position.sh): "fullscreen" is not.
+_bt_l="$(printf '%s' "$BUILD_TYPE_RAW" | tr '[:upper:]' '[:lower:]')"
+POC_CONFLICT=""
+case "$_bt_l" in
+  poc|poc[!a-z]*)
+    if mxtk_bt_names_full "$_bt_l"; then
+      BUILD_TYPE=full
+      POC_CONFLICT="Build type: $BUILD_TYPE_RAW starts with poc but names full — read as a FULL build (stages owed); write Build type: poc or Build type: full"
+    else BUILD_TYPE=poc; fi ;;
+  *) BUILD_TYPE=full ;;
+esac
+# `Entry mode: poc` (#819 option 3) is the same contract as `Build type: poc` (project-bin/_position.sh)
+# — unless a Build type line says full: then full wins, loudly (POC_CONFLICT, printed in the summary).
+# The louder reading: a POC switched to full by editing only its Build type line keeps its gates.
+if [ "$ENTRY_MODE" = poc ]; then
+  case "$BUILD_TYPE:$_bt_l" in
+    full:*) mxtk_bt_names_full "$_bt_l" || { BUILD_TYPE=poc; _bt_l=poc; } ;;
+  esac
+  case "$BUILD_TYPE" in
+    full) POC_CONFLICT="Entry mode: poc but Build type: $BUILD_TYPE_RAW — read as a FULL build (stages owed); make the two lines agree (a POC: Build type: poc; a full build: the real Entry mode)" ;;
+    *) BUILD_TYPE=poc ;;
+  esac
+fi
 
 # stage_waiver <stage> — "<scope>|<reason>", or nothing. Most specific source of truth first.
 #
@@ -2285,7 +2311,12 @@ EOF
   local how="$n_seen opened"
   [ "$n_proof" -gt 0 ] && how="$how, $n_proof by PROOF-OF-LOOK"
   [ "$n_waived" -gt 0 ] && how="$how, $n_waived waived"
-  if [ "$n_unseen" -gt 0 ]; then
+  if [ "$n_unseen" -gt 0 ] && [ "$BUILD_TYPE" = poc ]; then
+    # Build type: poc (#819): skills/poc-build.md owes its LOOK in steps 7-8 and promises Stage 5
+    # MANUAL, not a gate. The count stays in the line, so an unseen page is still visible.
+    # The "look: N of M ... never looked at ... — screenshot" wording is what bin/ready.sh parses.
+    echo "MANUAL|look: $n_unseen of $n built page(s)${scope:+ in $scope} never looked at since their last build$src: $unseen — screenshot each and compare it to its wireframe; MANUAL, not FAIL, under Build type: poc (skills/poc-build.md steps 7-8 own the LOOK)"
+  elif [ "$n_unseen" -gt 0 ]; then
     echo "FAIL|look: $n_unseen of $n built page(s)${scope:+ in $scope} never looked at since their last build$src: $unseen — screenshot each, open the PNG (a file name containing the page name, or the journey screenshot bin/look-ledger.sh shots lists), compare it to its wireframe (skills/ui-loop.md); or --waive look/<Module> --reason \"...\""
   else
     echo "MANUAL|look: $n of $n built page(s)${scope:+ in $scope} accounted for ($how)$src; the rest of Stage 5 is manual"
@@ -2456,6 +2487,10 @@ check_stage_manual() {
 check_build_ready() {
   local fails=0 f found
   echo "Build-ready check for: $PROJECT_DIR"
+  # Build type: poc (#819 option 1): skills/poc-build.md owes no build-ready, and exec.sh's plan rule
+  # already exempts it. The list below still prints, informational, so a POC that continues as a
+  # full build sees what it would owe; the verdict line says N/A and the exit is 0.
+  [ "$BUILD_TYPE" = poc ] && echo "  (Build type: poc — informational only: skills/poc-build.md owes its own steps, not build-ready)"
   echo ""
 
   # 1. Project wired: CLAUDE.local.md with a Wiring block
@@ -2619,14 +2654,13 @@ check_build_ready() {
   #    `full` in the copies it printed the ADVISORY 'no architecture/fit-gap.md' line on both and the
   #    fail count stayed 2 (other items); waived it read 'Fit-gap: WAIVED'. Exit 1 each time, from
   #    the other items. The has-a-fit-gap case was fixture-only: no real app had one.
-  local fg_path fg_w="" bt_raw
+  local fg_path fg_w=""
   fg_path="$(resolve_artifact_nonempty "architecture/fit-gap.md")"
-  bt_raw="$(reg_field "build type" 2>/dev/null || true)"
   if [ -n "$ADOPTED_AT" ] && [ "$(stage_rank "$ADOPTED_AT")" -gt "$(stage_rank 3)" ]; then
     echo "  ✓ Fit-gap: not owed — project joined the toolkit at stage $ADOPTED_AT"
   elif fg_w="$(artifact_waived fit-gap)"; then
     echo "  ✓ Fit-gap: WAIVED — $fg_w"
-  elif [ -z "$fg_path" ] && case "$(printf '%s' "$bt_raw" | tr '[:upper:]' '[:lower:]')" in poc|poc[!a-z]*) true ;; *) false ;; esac; then
+  elif [ -z "$fg_path" ] && [ "$BUILD_TYPE" = poc ]; then
     # Before stage_waiver: that now also excuses Stage 3 for poc, in its own words.
     echo "  ✓ Fit-gap: not owed — Build type: poc (skills/poc-build.md) and no fit-gap exists"
   elif [ -z "$fg_path" ] && fg_w="$(stage_waiver 3)" && [ "${fg_w%%|*}" != "noreason" ]; then
@@ -2654,6 +2688,10 @@ check_build_ready() {
   fi
 
   echo ""
+  if [ "$BUILD_TYPE" = poc ]; then
+    echo "BUILD-READY: N/A (Build type: poc) — not owed (skills/poc-build.md); $fails item(s) above would block a full build"
+    return 0
+  fi
   if [ "$fails" -eq 0 ]; then
     echo "BUILD-READY: PASS — all wiring checks passed"
     return 0
@@ -4112,6 +4150,7 @@ if ! reg_unavailable; then
   [ -n "$AUTO_HAND" ] && AUTO_HAND_N=$(printf '%s\n' "$AUTO_HAND" | wc -l | tr -d ' ')
 fi
 AUTO_HAND_IDS="$(printf '%s' "$AUTO_HAND" | tr '\n' ',' | sed 's/,/, /g')"
+FH_QUEUE=""   # format-hint ids owed by this run's FAILs, printed once after the stage list
 for stage in "${STAGE_NAMES[@]}"; do
   case "$stage" in
     0) result="$(check_stage_0)" ;;
@@ -4161,7 +4200,23 @@ for stage in "${STAGE_NAMES[@]}"; do
   tbl_add NOTES_TBL "$stage" "$note"
   tbl_get "$stage" "$STAGE_TITLES_TBL" || TBL_VALUE="(untitled stage)"
   printf "Stage %s (%s): %s%s — %s\n" "$stage" "$TBL_VALUE" "$status" "$(stage_surface_suffix "$stage")" "$note"
+  # A FAIL on a format this script parses owes the reader its whole accepted shape (#821 point 1).
+  if [ "$status" = FAIL ]; then
+    case "$stage:$note" in
+      5:*"look: "*) FH_QUEUE="$FH_QUEUE look-report" ;;
+    esac
+    case "$stage:$note" in
+      4:*"closing rows"*|4:*"depend on rows"*|4:*"no module brief"*) FH_QUEUE="$FH_QUEUE build-plan" ;;
+    esac
+    case "$stage:$note" in 4:*"coverage ledger"*) FH_QUEUE="$FH_QUEUE coverage-ledger" ;; esac
+  fi
 done
+# Stage P is evaluated before the loop (P_STATUS); its FAIL is about the intake markers.
+[ "${P_STATUS:-}" = FAIL ] && FH_QUEUE="intake$FH_QUEUE"
+if [ -n "$FH_QUEUE" ]; then
+  echo "Accepted shapes for the FAIL(s) above — a minimal example that passes, so no gate source needs reading:"
+  for _fh in $FH_QUEUE; do mxtk_format_hint_once "$_fh"; done
+fi
 # Said once, after the list, because it calibrates every line above it. A reader who
 # does not know that a missing Surface left the exit code alone will read the first one
 # they see as a failure the gate somehow let through.
@@ -4186,6 +4241,7 @@ printf "Summary: %d passed · %d not started · %d waived · %d need attention �
 if [ -z "$ENTRY_MODE" ] && [ -z "$ADOPTED_AT" ] && [ -n "${MXTK_POS_BANNER:-}" ]; then
   printf '⚠ %s\n' "$MXTK_POS_BANNER"
 fi
+[ -n "$POC_CONFLICT" ] && echo "⚠ $POC_CONFLICT"
 if [ "$ENTRY_MODE" = greenfield-retired ] && [ -n "${MXTK_POS_RETIRED:-}" ]; then
   printf '⚠ %s\n' "${MXTK_POS_RETIRED/<project>/$PROJECT_DIR}"
 fi
@@ -4645,6 +4701,7 @@ if [ -n "$REQUESTED_STAGE" ]; then
     echo "Gate BLOCKED by report-disposition-check: $DISP_NOTE" >&2
     echo "Route the findings via skills/close-the-loop.md into docs/improvement-register.md" >&2
     echo "(skills/finding-disposition.md), then re-run this gate." >&2
+    mxtk_format_hint_once report-disposition >&2
     exit 1
   fi
   # No gate passes while questions this stage owns were never put to the user.
@@ -4711,6 +4768,10 @@ if [ -n "$REQUESTED_STAGE" ]; then
   if [ "$REQUESTED_STAGE" = "build-ready" ]; then
     echo ""
     if check_build_ready; then
+      # POC: N/A, exit 0, no open-questions escalation (a POC has no BRDs to collect them from; a
+      # field run fabricated an sme-questions.md to clear it) and no stamp (it would clear the
+      # auto-mode plan rule if the build type later became full).
+      [ "$BUILD_TYPE" = poc ] && exit 0
       enforce_open_questions build-ready
       # The record exec.sh's plan rule reads under Interview mode: auto (project-bin/exec.sh,
       # "Declared position + plan rule"): exec cannot afford a gate-check per write. Sticky on

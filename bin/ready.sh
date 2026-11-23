@@ -182,6 +182,9 @@ case "$rc5" in
   124) row fail gate5 "NOT MEASURED — gate-check stage 5 did not finish in ${STEP_T}s (MXTK_READY_STEP_TIMEOUT)" ;;
   0) row ok gate5 "Stage 5 $v5" ;;
   2) if printf '%s' "$look5" | grep -q 'accounted for'; then row ok gate5 "Stage 5 MANUAL with the look accounted for (its sign-off is a Decisions row)"
+     # Build type: poc reports unseen pages as MANUAL, not FAIL (gate-check.sh check_stage_5); the
+     # look row below names them, and ready is still not ready while one is unseen.
+     elif printf '%s' "$look5" | grep -q 'never looked at'; then row fail gate5 "Stage 5 MANUAL (Build type: poc) with page(s) never looked at — see the look row"
      else row fail gate5 "Stage 5 MANUAL with nothing measured — no page recorded as built"; fi ;;
   *) row fail gate5 "Stage 5 ${v5:-exit $rc5}: $(printf '%s' "$l5" | sed 's/^[A-Z]* · //; s/^Surface MISSING: [^—]*— //' | cut -c1-200)" ;;
 esac

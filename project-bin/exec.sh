@@ -837,6 +837,18 @@ if [ -f "$_XD/_position.sh" ]; then
   # auto it is held to the requirements-driven plan rule below, or an unattended agent could
   # write that one line, or skip sync, and build with no plan (review of #792). The remedy is
   # sync-project.sh or the --adopt it performs, neither of which runs through here (guard rule 7).
+  # `Entry mode: poc` with a Build type line naming full (review of #828): a full build that kept its
+  # POC entry line. Read as full, said once per run, and under auto held to the requirements-driven
+  # plan rule like a retired greenfield register, so editing one line cannot drop every pre-build step.
+  if [ "${POS_POC_CONFLICT:-0}" = 1 ]; then
+    if [ "$POS_ENTRY" = poc ]; then
+      echo "⚠ Entry mode: poc but the Build type line names full — read as a full build; make the two lines agree (gate-check.sh prints the same)."
+    else
+      echo "⚠ Build type starts with poc but names full — read as a full build; write Build type: poc or Build type: full (gate-check.sh prints the same)."
+    fi
+    POS_NOTE="poc vs build type full"
+    [ "$POS_AUTO" = 1 ] && [ "$POS_ENTRY" = poc ] && POS_ENTRY=requirements-driven
+  fi
   if [ "$POS_ENTRY" = greenfield-retired ]; then
     echo "⚠ ${MXTK_POS_RETIRED/<project>/$PROJECT_ROOT}"
     POS_NOTE="entry mode greenfield retired, not synced"

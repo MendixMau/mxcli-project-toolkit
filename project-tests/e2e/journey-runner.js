@@ -191,7 +191,7 @@ function describeAct(a, vars) {
   switch (a.do) {
     case 'nav':      return { verb: 'Navigate', target: [a.group, a.item].filter(Boolean).join(' › '), selector: null };
     case 'click':    return { verb: 'Click', target: (lab || a.widget) + (a.row !== undefined ? ` in the row "${v(a.row)}"` : ''), selector: `.mx-name-${a.widget}` };
-    case 'fill':     return { verb: 'Type', target: `"${v(a.value)}" into ${lab || a.widget}`, selector: `.mx-name-${a.widget}` };
+    case 'fill':     return { verb: 'Type', target: `"${v(a.value)}" into ${lab || a.widget}` + (a.row !== undefined ? ` in the row "${v(a.row)}"` : ''), selector: `.mx-name-${a.widget}` };
     case 'combobox': return { verb: 'Select', target: `"${v(a.match)}" in ${lab || a.widget}`, selector: `.mx-name-${a.widget}` };
     case 'wait':     return { verb: 'Wait', target: `${a.ms || 0}ms`, selector: null };
     case 'back':     return { verb: 'Browser Back', target: '', selector: null };
@@ -245,7 +245,12 @@ async function act(page, a, vars, note) {
       break;
     }
     case 'fill': {
-      const el = page.locator(`.mx-name-${a.widget} input, .mx-name-${a.widget} textarea`).first();
+      // `row` / `in` scope a fill exactly as they scope a click (#760): a list view or grid repeats
+      // one textbox name per item, and the bare locator types into row 1, so a step meant for row 2
+      // could PASS on the wrong row. Neither field → the old page-wide first match, unchanged.
+      const el = (a.row !== undefined || a.in)
+        ? (await scopedWidget(page, a, vars)).locator('input, textarea').first()
+        : page.locator(`.mx-name-${a.widget} input, .mx-name-${a.widget} textarea`).first();
       if (!(await H.visibleWithin(el, 6000)))
         throw new Error(`.mx-name-${a.widget} input not visible`);
       await el.fill(String(subst(a.value, vars)));

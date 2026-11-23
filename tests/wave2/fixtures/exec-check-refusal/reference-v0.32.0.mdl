@@ -1,0 +1,27 @@
+mdl 1;
+create module Broken2;
+
+create persistent entity Broken2.Thing (
+  Name: string(100)
+);
+
+create microflow Broken2.ACT_Thing ()
+returns boolean as $ok
+begin
+  $T = create Broken2.Thing (Nmae = 'x');
+  $L = create Broken2.Missing (Name = 'y');
+  declare $ok boolean = true;
+  return $ok;
+end;
+
+create page Broken2.Thing_Edit
+(
+  title: 'Edit',
+  layout: Atlas_Core.NoSuchLayout,
+  params: { $Thing: Broken2.Thing }
+)
+{
+  dataview dv1 (datasource: $Thing) {
+    textbox tb1 (label: 'Name', attribute: Nmae)
+  }
+};

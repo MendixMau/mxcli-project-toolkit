@@ -162,7 +162,10 @@ fi
 # second run the variable was simply unset. The leak-guard registration further
 # down reads it, and an unset name there writes a bare `\b\b` to the denylist:
 # a pattern that matches every file. Assign it once, unconditionally.
-PROJECT_NAME="$(basename "$PROJECT_DIR")"
+#
+# Resolved first (#759): `init-project.sh .` took basename "." as the name, and the denylist
+# line `\b.\b` below then matched every space and hyphen in every bug report and every file.
+PROJECT_NAME="$(basename "$(cd "$PROJECT_DIR" 2>/dev/null && pwd || printf '%s' "$PROJECT_DIR")")"
 
 # Stamp the toolkit sha this scaffold was built from.
 #
@@ -634,11 +637,20 @@ if [ -w "$TOOLKIT_ROOT" ]; then
   # matching the name with `[^A-Za-z0-9]` boundaries — never fires, because the
   # stored form is `\bName\b` and the character immediately before the name is
   # the `b` of `\b`, which is alphanumeric. Every re-run appended a duplicate.
-  # -F also removes any need to escape names containing `.`, `+` or `-`.
-  if [ ! -f "$DENYFILE" ] || ! grep -qiF -- "$PROJECT_NAME" "$DENYFILE" 2>/dev/null; then
+  #
+  # The name is written regex-escaped (#759): a `.` or `+` in it is a metacharacter in the
+  # extended-regex list, and `my.app` would also match `my-app` and `myXapp`. The dedupe looks
+  # for that exact line. A name under 3 characters is not registered: as a pattern it matches
+  # ordinary words everywhere.
+  DENY_LINE="\\b$(printf '%s' "$PROJECT_NAME" | sed 's/[][\.*^$+?(){}|]/\\&/g')\\b"
+  if [ "${#PROJECT_NAME}" -lt 3 ]; then
+    echo ""
+    echo "NOTE: \"$PROJECT_NAME\" is too short to register with the toolkit leak guard (it would match"
+    echo "  ordinary words). Add a longer pattern for this project to $DENYFILE by hand."
+  elif [ ! -f "$DENYFILE" ] || ! grep -qixF -- "$DENY_LINE" "$DENYFILE" 2>/dev/null; then
     {
       [ -f "$DENYFILE" ] || printf '# Leak-guard denylist — gitignored. See bin/check-no-client-data.sh header.\n'
-      printf '\\b%s\\b\n' "$PROJECT_NAME"
+      printf '%s\n' "$DENY_LINE"
     } >> "$DENYFILE" 2>/dev/null && {
       echo ""
       echo "Registered \"$PROJECT_NAME\" with the toolkit leak guard ($DENYFILE)."

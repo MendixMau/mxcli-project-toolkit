@@ -8,7 +8,9 @@
 # the right things, or whether a page looks right. Those verdicts live in the skills the table's
 # ninth column names (skills-over-scripts.md). This script fetches one fact per obligation —
 # "is there a mark, and does it state its denominator" — and prints it. It is an instrument: it
-# may report FAULT (I could not measure), never FAIL (this is wrong).
+# may report FAULT (I could not measure). It reports FAIL (there and wrong) in exactly one case:
+# the mark states its OWN verdict and the verdict is no — a skeleton proof that says NOT MET, a
+# journeys run whose positive control went red. It reads that sentence; it still judges nothing.
 #
 # Sourced by bin/gate-check.sh. Also runnable directly for a quick read:
 #     bin/lib/obligation-check.sh <project-dir>
@@ -17,6 +19,8 @@
 #   PASS     the mark is there and states its denominator
 #   PENDING  not yet — the unit is in scope and no mark exists
 #   FAULT    a mark exists but cannot be read as evidence (no denominator on a pass that owes one)
+#   FAIL     a mark exists and says no itself (skeleton-proof "NOT MET"/"NOT proven"; journeys'
+#            positive control row FINDING). Counted in the roll-up; never changes an exit code.
 #   WAIVED   the register says this one is out of scope, with a reason
 #   ADOPTED  the project joined the pipeline above this obligation's stage
 #   NOT YET DUE  final-look only: gate-check's derived Current stage has not reached its from-stage
@@ -412,6 +416,57 @@ _ob_journeys_ran() {
     END { exit ok ? 0 : 1 }' "$1" 2>/dev/null
 }
 
+# _ob_negative_verdict <obligation> <mark> → prints "FAIL:<why>" or "INCOMPLETE:<why>" and returns 0
+# when the mark discharges the row by presence but states a negative verdict itself; returns 1
+# otherwise. Field regression run, 2026-11-17: `skeleton` read "PASS — 1 of 1 discharged" over a
+# docs/skeleton-proof.md that said "3 of 6 rows - row 2 NOT MET ... Skeleton NOT proven", and
+# `journeys` read PASS over a summary.tsv whose positive-control row was FINDING.
+#   skeleton  the line that states the denominator (walking-skeleton.md completion 6): an explicit
+#             NOT MET / NOT proven / unproven is FAIL; a plain "N of M" with N<M is INCOMPLETE (the
+#             skill's own `4 of 5 — <row> NOT RUN`: honest, but the skeleton is not proven).
+#             Deliberately NOT keyed on the word "fail": the prescribed line contains "fail-control".
+#   journeys  the positive-control row of summary.tsv: FINDING is FAIL. PASS passes. No row (--quick,
+#             a summary from before the row existed) or a FAULT/SKIPPED row is no verdict: NOT
+#             negative; _ob_control_unrecorded says so out loud instead.
+_ob_negative_verdict() {
+  case "$1" in
+    skeleton)
+      local line frag n m
+      # The verdict line is the one walking-skeleton.md prescribes ("Skeleton proven …" / "Skeleton
+      # NOT proven …"); only without one, the first line that states a denominator.
+      local txt; txt="$(head -c 4000 "$2" 2>/dev/null | tr -d '\r\0')"
+      line="$(printf '%s\n' "$txt" | grep -iE -m1 -- 'skeleton[[:space:]]+(not[[:space:]]+)?proven')"
+      [ -n "$line" ] || line="$(printf '%s\n' "$txt" \
+        | grep -iE -m1 -- '[0-9]+[[:space:]]+of[[:space:]]+[0-9]+|[0-9]+[[:space:]]*/[[:space:]]*[0-9]+')" || return 1
+      if grep -qiE -- 'not[[:space:]]+met|not[[:space:]]+proven|unproven' <<<"$line"; then
+        printf 'FAIL:%s' "$(printf '%s' "$line" | cut -c1-120)"; return 0
+      fi
+      # "N of M" first: a slash form can be a date (2026/11/17).
+      frag="$(printf '%s' "$line" | grep -oiE -m1 '[0-9]+[[:space:]]+of[[:space:]]+[0-9]+' | head -1)"
+      [ -n "$frag" ] || frag="$(printf '%s' "$line" | grep -oE -m1 '[0-9]+[[:space:]]*/[[:space:]]*[0-9]+' | head -1)"
+      n="${frag%%[!0-9]*}"; m="${frag##*[!0-9]}"
+      if [ -n "$n" ] && [ -n "$m" ] && [ "$n" -lt "$m" ]; then
+        printf 'INCOMPLETE:%s of %s rows' "$n" "$m"; return 0
+      fi
+      return 1 ;;
+    journeys)
+      [ "$(_ob_control_row "$2")" = FINDING ] || return 1
+      printf 'FAIL:positive control FINDING — the runner could not prove every rung able to go red (21-journeys-control.log)'
+      return 0 ;;
+  esac
+  return 1
+}
+
+# _ob_control_row <summary.tsv> → the verdict cell of the journeys positive-control row, or empty.
+_ob_control_row() {
+  awk -F'\t' '$1 ~ /^journeys/ && $1 ~ /positive control/ { v = $2 } END { print v }' "$1" 2>/dev/null
+}
+
+# _ob_control_unrecorded <summary.tsv> → 0 when no control verdict was recorded (PASS/FINDING absent).
+_ob_control_unrecorded() {
+  case "$(_ob_control_row "$1")" in PASS|FINDING) return 1 ;; *) return 0 ;; esac
+}
+
 # A denominator is a first line that counts something out of something: "12 of 12 pages reviewed".
 # Deliberately loose — the wording belongs to the skill, only the shape is mechanical.
 _ob_has_denominator() {
@@ -648,7 +703,7 @@ mxtk_obligations_report() {
   # Counts for the run summary. The verdict lines are printed here, far above the
   # summary a reader actually quotes; without these the summary said "0 need
   # attention" over three passes nobody had performed.
-  MXTK_OB_N_PENDING=0; MXTK_OB_N_FAULT=0
+  MXTK_OB_N_PENDING=0; MXTK_OB_N_FAULT=0; MXTK_OB_N_FAIL=0
 
   if [ ! -f "$OBLIGATIONS_TSV" ]; then
     # The table is the thing this check IS. Missing table is a fault in the check, and it says so
@@ -774,7 +829,7 @@ mxtk_obligations_report() {
     case "$ob" in look|final-look|prototype-look) is_look=1 ;; esac
     [ "$ob" = "final-look" ] && needs_stamp=1
     [ "$ob" = "prototype-look" ] && needs_proto=1
-    local total=0 done_n=0 waived_n=0 pending="" faulted="" stale="" noproof="" unstamped="" noproto="" norun="" u hit reason stale_at proof_why candidates c newest
+    local total=0 done_n=0 waived_n=0 failed="" incomplete="" noctl="" negv pending="" faulted="" stale="" noproof="" unstamped="" noproto="" norun="" u hit reason stale_at proof_why candidates c newest
     while IFS= read -r u; do
       [ -n "$u" ] || continue
       total=$((total+1))
@@ -813,7 +868,16 @@ mxtk_obligations_report() {
       done <<< "$candidates"
 
       if [ -n "$hit" ]; then
-        done_n=$((done_n+1))
+        if negv="$(_ob_negative_verdict "$ob" "$hit")"; then
+          # Present and states a negative verdict itself: not discharged (#835, #836).
+          case "$negv" in
+            FAIL:*)       failed="$failed $u(${negv#FAIL:})" ;;
+            INCOMPLETE:*) pending="$pending $u"; incomplete="$incomplete $u(${negv#INCOMPLETE:})" ;;
+          esac
+        else
+          done_n=$((done_n+1))
+          [ "$ob" = "journeys" ] && _ob_control_unrecorded "$hit" && noctl="$noctl $u"
+        fi
       elif [ -z "$newest" ]; then
         pending="$pending $u"
       # Nothing qualified: report why the NEWEST one failed. It is the report the author most
@@ -853,6 +917,15 @@ mxtk_obligations_report() {
       # Reported, not counted: the module list stays visible, the pending total does not move.
       printf 'Obligation %-10s ADVISORY — %d of %d discharged%s; NOT DONE:%s%s — register: Must-haves: %s (%s)\n' \
         "$ob" "$done_n" "$scoped" "$tail" "$pending" "${faulted:+; NO DENOMINATOR:$faulted}" "$advisory" "$skill"
+    elif [ -n "$failed" ]; then
+      printf 'Obligation %-10s FAIL — %d of %d discharged%s; THE MARK SAYS NO:%s — present and wrong, not absent (%s)\n' \
+        "$ob" "$done_n" "$scoped" "$tail" "$failed" "$skill"
+      MXTK_OB_STATUS="FAIL"; MXTK_OB_N_FAIL=$((MXTK_OB_N_FAIL+1))
+      # Other units still owed must not vanish behind the FAIL.
+      if [ -n "$pending" ]; then
+        printf 'Obligation %-10s   ALSO NOT DONE:%s\n' "$ob" "$pending"
+        MXTK_OB_N_PENDING=$((MXTK_OB_N_PENDING+1))
+      fi
     elif [ -n "$faulted" ] || [ -n "$noproof" ] || [ -n "$unstamped" ] || [ -n "$noproto" ]; then
       local why_bits=""
       [ -n "$faulted" ] && why_bits="NO DENOMINATOR:$faulted — a pass that cannot say what it covered has not covered it"
@@ -891,6 +964,10 @@ mxtk_obligations_report() {
       printf 'Obligation %-10s   STALE:%s — the model was built past the report; re-run the pass (module-review.md stage 5, VALID AT)\n' \
         "$ob" "$stale"
     fi
+    [ -n "$incomplete" ] && printf 'Obligation %-10s   INCOMPLETE:%s — the proof states fewer rows proven than rows owed; a skeleton with a NOT RUN row is not proven (%s)\n' \
+      "$ob" "$incomplete" "$skill"
+    [ -n "$noctl" ] && printf 'Obligation %-10s   NO CONTROL VERDICT RECORDED:%s — summary.tsv has no positive-control PASS/FINDING row (--quick, or the control rung did not run); the journeys ran, but nothing shows they can fail\n' \
+      "$ob" "$noctl"
     [ -n "$norun" ] && printf 'Obligation %-10s   NOT RUN:%s — summary.tsv has no journeys PASS/FINDING row (runtime down, skipped, or the runner faulted); run bin/verify-module.sh with the app up\n' \
       "$ob" "$norun"
     [ -n "$noproof" ] && printf 'Obligation %-10s   NO PROOF-OF-LOOK:%s — the pixel rule, made mechanical (module-review.md stage 5, PROOF-OF-LOOK)\n' \

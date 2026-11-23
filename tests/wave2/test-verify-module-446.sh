@@ -271,6 +271,16 @@ if [ -n "${CAPTURE:-}" ]; then
   vm MyFirstModule --skip-journeys; cp "$P/.claude/loop/verify/MyFirstModule/summary.tsv" "$CAPTURE/skip-journeys.summary.tsv"
   printf '#!/usr/bin/env bash\necho "stub: 1 STALE row"\nexit 1\n' > "$P/bin/conformance-check.sh"
   vm MyFirstModule; cp "$P/.claude/loop/verify/MyFirstModule/summary.tsv" "$CAPTURE/finding.summary.tsv"
+  # Golden for test-obligation-verdicts.sh (field regression run 2026-11-17): a run whose positive
+  # control did not prove every rung. The real runner exits 1 then (control verdict: FAIL — see
+  # test-journey-control-exit.sh); the stub does the same, so verify-module.sh's own _report_result
+  # writes the row. Also --quick, which skips the control rung entirely (no control row at all).
+  printf '#!/usr/bin/env bash\necho "stub conformance-check.sh: clean"\nexit 0\n' > "$P/bin/conformance-check.sh"
+  cp "$P/tests/e2e/journey-runner.js" "$WORK/stub/journey-runner.js.keep"
+  printf 'console.log("control verdict: FAIL");process.exit(process.argv.includes("--positive-control")?1:0);\n' > "$P/tests/e2e/journey-runner.js"
+  vm MyFirstModule; cp "$P/.claude/loop/verify/MyFirstModule/summary.tsv" "$CAPTURE/control-fail.summary.tsv"
+  vm MyFirstModule --quick; cp "$P/.claude/loop/verify/MyFirstModule/summary.tsv" "$CAPTURE/quick.summary.tsv"
+  cp "$WORK/stub/journey-runner.js.keep" "$P/tests/e2e/journey-runner.js"
 fi
 
 grep -q 'VM_TMO_COVERAGE:-1200' "$SUT" && ! grep -q 'VM_TMO_COVERAGE:-300' "$SUT" \

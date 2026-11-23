@@ -218,7 +218,7 @@ NEED_ATTN="$(printf '%s\n' "$GC" | awk '/^Needs attention/{f=1;next} /^Next up:|
 # the approval row is what everyone reads afterwards and the gate is read by nobody.
 APPROVED_OVER="$(printf '%s\n' "$GC" | grep -m1 '^Approved over a failing gate:' | sed -E 's/^Approved over a failing gate: *//; s/ — .*$//')"
 N_ATTN="$(printf '%s\n' "$GC" | grep -oE '[0-9]+ need attention' | grep -oE '^[0-9]+' || echo 0)"
-OB_PENDING="$(printf '%s\n' "$GC" | grep -E '^Obligation ' | grep -E ' (PENDING|FAULT) ' | awk '{print $2": "$3}' | tr '\n' ',' | sed 's/,$//; s/,/, /g')"
+OB_PENDING="$(printf '%s\n' "$GC" | grep -E '^Obligation ' | grep -E ' (PENDING|FAULT|FAIL) ' | awk '{print $2": "$3}' | tr '\n' ',' | sed 's/,$//; s/,/, /g')"
 # NEXT never sends a project to final-look (the Stage 6 whole-app LOOK) before Stage 6: a Stage 1
 # project was told "discharge: final-look" and never saw gate-check's "Next up:" hint behind it
 # (review of #303). final-look ONLY, and only when the stage line is gate-check's own derived

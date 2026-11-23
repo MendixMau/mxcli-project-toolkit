@@ -172,7 +172,7 @@ pack() {
     else printf '.ai-context/skills/%s.md' "$1"; fi
   }
   printf '## Rules — read these before drafting (the pack does not replace them)\n\n'
-  printf -- '- `%sskills/learned-mdl-preflight.md` — STOP table; check every planned operation\n' "$tk"
+  printf -- '- `%sskills/mdl-deltas-card.md` — the MDL rules mxcli does not teach; check every row against every planned operation\n' "$tk"
   # the per-kind MDL rules (STOP rows, gotchas, page/microflow preflights) — some of these reach
   # a pack-fed helper ONLY through mdl-rules, so name the command with the step's kinds
   local rk=""

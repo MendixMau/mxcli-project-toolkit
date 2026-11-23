@@ -137,7 +137,7 @@ this summary. The hard STOPs below are inline on purpose; never route around the
 For a genuinely mechanical script — a forward-reference stub, an added enum value, a rename, a
 constant, a pure domain-attribute add with no page — skip the UI pre-flight and per-page review
 (there's no rendered surface to verify). Still required: read the brief for names, the
-`learned-mdl-preflight.md` STOP check, `mxcli check`, and the mxbuild gate. Anything that adds/alters
+`mdl-deltas-card.md` row check, `mxcli check`, and the mxbuild gate. Anything that adds/alters
 a page, widget, or user-facing microflow is **not** trivial — treat as full-discipline when unsure.
 
 ## Workflow

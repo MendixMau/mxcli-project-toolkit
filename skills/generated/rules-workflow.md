@@ -7,33 +7,33 @@ count in your PREFLIGHT as "STOP rows for kinds any, workflow: n/n checked". A s
 not listed here needs that kind's rules too: `bin/mdl-rules.sh --for <script>` after drafting.
 Each block names the skill it comes from; the skill is the authority if they ever differ.
 
-> Source: `skills/learned-mdl-preflight.md` § top
-# MDL Pre-flight Checklist — STOP conditions before writing any script
+> Source: `skills/mdl-deltas-card.md` § top
+# MDL deltas card — what the toolkit knows that mxcli's guidance does not
 **Applies to:** any mxcli project.
-**Purpose:** Before drafting any MDL script, check every planned operation against this table. Each STOP row was born from a real MPR corruption or silent runtime failure — not theoretical concerns. Skipping this check has caused project-unloadable corruption every time.
+**Purpose:** the MDL rules read before every script. mxcli's `CLAUDE.md`, `.ai-context` skills, `mxcli syntax` and `check --references` teach the language and win where this card is silent (`mdl 1;` first, `create or modify`). Each row: trigger, rule, the error it prevents. Measured on mxcli v0.32.0-374, Mendix 11.8.
 
-**Source:** Generalized from a live Mendix 11.12.0 Beta project, 2026-07-06/07. Incident detail stays in that project's own `bug-logs/` — only the generalizable rule is here.
-
-**Version context:** a retired row keeps its number (other skills cite `STOP #n`). Why each went, the version notes and every row's full root cause: `process/baseline-incident-history.md` § PF1; rows the 2026-11-20 retest (mxcli v0.32.0-374) retired or rewrote: `learned-rules-archive.md`. `v0.32.0-374` is the build 374 commits after the v0.32.0 release (`mxcli version v0.32.0-374-g591bcd73e`); v0.32.0 itself and every earlier release count as older. If in doubt about a rule, retest on your version and stamp the result in `bug-logs/mxcli-bugs.md`.
-
-**Workflow `DECISION`:** on mxcli v0.32.0-374 write enum outcomes `'Module.Enum.Value'` plus `'' -> { }` (`check` refuses the rest: MDL-WF03, MDL-WF06); on an older mxcli it is a STOP (BUG-76, `learned-workflow-patterns.md` §8 Warning 1). Never `--no-check`. Restart safety: BUG-141. Before a first `marketplace install`, read the #879 entry in `bug-logs/mxcli-bugs.md`.
+**Every script:** `mxcli check <script> -p <app>.mpr --references`, read every error and warning, exec (`./bin/exec.sh` in a wired project), then real `mx check` — `exec` writes some scripts `check` flags, and most rows below pass `check`. An identifier fails quoted or unquoted → try the other form.
 
 
-> Source: `skills/learned-mdl-preflight.md` § Step 0 — choose the write mode
-## Step 0 — choose the write mode (do this first, before the STOP table)
+> Source: `skills/mdl-deltas-card.md` § The rows
+## The rows
 
-**Default: the mxcli CLI, through `./bin/exec.sh script.mdl`** (Studio Pro closed). On mxcli v0.24.0 it writes everything MDL can express — domain model, microflows (inline association sets included), pages (combobox and `DropdownFilter` in association mode, cross-module association datasources), access rules, security level and project settings, navigation, workflows, marketplace installs. `exec.sh` snapshots first, runs the mxbuild gate after, and restores on failure. Run `mxcli check <script> -p <app>.mpr --references` before it — `exec` refuses less than `check` flags (last gotcha below).
+| # | If your script will… | Then… | Fails as | Kind |
+|---|---|---|---|---|
+| 18 | Write workflow MDL | Read `learned-workflow-patterns.md`; exec callees before checking the workflow (below v0.32.0-374: an EARLIER script) | `check`: callee `not found`; older mxcli: CE0117 | workflow |
+| 21 | Restate a document another script also edits (aggregator, startup chain, navigation) | `describe` it and diff your restatement against the dump; prefer `alter navigation` / `alter microflow` | A sibling's call silently vanishes; `mx check` 0 errors | any |
+| 22 | Write a non-idempotent statement (`alter entity … add attribute`, bare `create`) | `create or modify` everywhere; ONE owning script per document | Re-run: `Error: attribute 'X' already exists on entity M.E`, exit 1, nothing written | any |
+| 23 | `create or modify` something that may exist | `mxcli diff -p <app>.mpr <script>.mdl --format struct` first; read every `-` line | Attributes replaced, not extended; only warning `removes 2 member(s) … [MDL087]` | any |
+| G | Create a microflow, page or entity | Its grant in the same script | No error; blank screen or CE2729 for non-admins | any |
+| P | Walk an association across modules | Prefix every step: `$Item/ModA.Item_Other/ModB.Other/Attr` | `Order_Customer is an association: an expression names it qualified … CE0117` | any |
+| W1 | `get workflows for $X`, no workflow on that entity yet | Same step as that workflow | `CE1870 The selected 'Workflow context' is not being used by any workflow.` | workflow |
+| E2 | `rename module` | Rewrite each XPath naming the old module | `CE1613 The selected association 'RenMe.Thing_Other' no longer exists.` | any |
 
-**Studio Pro by hand — only for what MDL cannot express**, e.g. the DataGrid2 customContent conditionals in row 1 and the items in `learned-mdl-cannot-express.md`. Save and close Studio Pro before the next CLI write, and snapshot first; a CLI write under an open Studio Pro with unsaved changes is a split-brain.
 
-**Not MDL at all.** Sometimes no mode can express the change, e.g. an association owner change, and the answer is a script that edits the `.mpr` directly. Run it as `./bin/exec.sh --patch <script> [args]`, never bare. The script gets the model path as its first argument. It gets the same snapshot, mxbuild gate, restore and BUILD-LOG row as MDL, and it is kept only on a verified gate. The header of `project-bin/exec.sh` has the details. Build the script on `bin/mxpatch.py` (find unit/element, set with an expected old value, write the unit and its ContentsHash together): a unit written without its hash is restored by the run's `mxcli fix hashes` check (mxbuild cannot see a stale hash). Owner **both** and the association type can be changed in MDL (0 errors, v0.24.0). Flipping FROM/TO with `create or modify association` prints "Modified association" but `describe` still shows the old direction — a silent no-op, so read it back.
+> Source: `skills/mdl-deltas-card.md` § When this card is not enough
+## When this card is not enough
 
-**Also decide, per document, where it lands.** Any operation that *creates* a document — page, snippet, microflow, nanoflow — needs its folder chosen now and written into the `folder` property of the same statement, not fixed afterwards. Read the path off the brief's `### Document folder plan`; when there is no row for it, derive it per `module-folder-convention.md` ("Deciding the path"), and escalate rather than guess when the feature group is unclear. Omitting `folder` is legal MDL that silently drops the document at module root — no error, no gate, and a cleanup job later that nobody schedules.
-
-**Companion skills:** `bug-logs/mxcli-bugs.md` (bug detail), `iterative-build-loop.md` (exec discipline), `learned-microflow-patterns.md` (annotation and association rules)
-
----
-
+A numbered row is `STOP #n` of `learned-mdl-preflight.md` (full text, root causes, write mode in Step 0). Other CE code → `bin/bug-lookup.sh <code>`. Full rules for your kinds → `bin/mdl-rules.sh <kinds>`. mxcli older than v0.32.0-374 → `learned-rules-archive.md`.
 
 > Source: `skills/learned-mdl-preflight.md` § The checklist — run before writing a single line of MDL
 ## The checklist — run before writing a single line of MDL
@@ -46,42 +46,11 @@ Each row keeps one failure clause; the full root cause is in `process/baseline-i
 |---|---|---|---|---|
 | 18 | Write **any workflow MDL** — `CREATE`/`ALTER WORKFLOW`, a `CALL MICROFLOW` step, a `JUMP TO`, user-task outcomes | **STOP → read [[learned-workflow-patterns]] first, then script.** Read the BRD lifecycle + wireframe before writing a single outcome. Exec the callee microflows before you `check --references` the workflow script (any version: `check` reports them `not found` otherwise); on mxcli < v0.32.0-374, put them in an EARLIER script than the workflow. | Older mxcli, callee in the same script: `mx check` CE0117 (v0.32.0-374 builds it). | workflow |
 | 34 | Write a **microflow a workflow calls**, or a `call microflow` step in a workflow | **Return nothing by default; call it with no `outcomes`.** Return Boolean or an enumeration only when at least two outcomes lead to *different* activities. Every decision and outcome-bearing step gets a readable caption (*'Waiting for the back office?'*), never the default `Decision`. Before exec, grep the script for `true -> { }` followed by `false -> { }` and treat every hit as a defect. | Every gate stays green: a Boolean callee ending in `return true` draws a true/false split whose branches both do nothing. Reviewers read it as an unhandled failure path, and the next agent "fixes" the empty `false` branch with error handling that can never run. Field count, 2026-11-03: 91 such splits in 5 workflows across 3 apps, mx check 0 errors, journeys all passing ([[learned-workflow-patterns]] §16). | workflow |
-| 21 | `DROP` + `CREATE`, `create or modify` or `create or replace` any document **another script also edits** — an aggregator microflow, an after-startup chain, a navigation profile | **STOP → `describe` the live document first, diff your restatement against that dump, and name in the script header which call sites you preserved. A new owner adds `-- supersedes: <script>`; drafting ahead of unrun scripts, `bin/describe-baseline.sh stamp <script>` after the DESCRIBE (exec.sh only warns).** Prefer an in-place edit where your mxcli has one: `alter navigation` / `alter menu` (v0.28+, mendixlabs/mxcli#1522; below it a parse error, `no viable alternative at input 'alternavigation'`), and `alter microflow` (v0.25+; inside loop bodies and `replace body of` v0.29+, ako/mxcli#1693). Whole-document restatement makes losing a sibling script's edit the *default* outcome, not an unlikely one. | A sibling script's call silently vanished; `mx check` 0 errors, lint's orphan rule exempts `ACT_` (2026-08-26). | any |
-| 22 | Write a script containing ANY non-idempotent statement — `alter entity … add attribute`, bare `CREATE ASSOCIATION`, bare `CREATE MICROFLOW`/`CREATE PAGE` on a name that may already exist | **STOP → use the `create or modify` form for every statement, and give every document exactly ONE owning script.** From mxcli v0.27 any write failure **rolls back the whole run**, so one non-idempotent statement, even last, fails every re-run. The property to hold is that `mdlsource/` replays cleanly against an EMPTY app; that is one command and it is the only thing that proves it. | v0.27+: nothing written; older: earlier statements stay written. `mx check` 0 errors — the exit code is the only signal: never ignore it. | any |
-| 23 | Name any document or entity that **might already exist** — `create or modify` on an entity, or any `create or replace` on a page, layout or microflow | **STOP → run `mxcli diff -p <app>.mpr <script>.mdl --format struct` FIRST** (read-only) and read every `-` line before you exec. | `create or modify` on an entity **replaces** its attribute set; `mx check` stays clean. Only warnings say so: `exec`, and `check` from v0.32.0-374 (MDL087). Older `diff` prints false `- Attribute` lines (BUG-146): check each against `DESCRIBE ENTITY`. | any |
 | 1c 2 3 5 6 6b 7 8 9 10 11 13 15 17 27 | *(retired 2026-09-30 — numbers kept for `STOP #n` citations; why each went: `process/baseline-incident-history.md` § PF1)* | | | |
 | 31 | *(retired 2026-11-20 on mxcli v0.32.0-374: `learned-rules-archive.md`)* | | | |
 
 **Default to the CLI for everything in the table above that is not a STOP row** (`./bin/exec.sh`, Studio Pro closed).
 
-
-> Source: `skills/learned-mdl-preflight.md` § MDL gotchas
-## MDL gotchas (quick reference — common traps)
-
-None of these needs a STOP; each passed `mxcli check` on the version named and failed later — at native `mx check`, on SP open, or silently at runtime. The generated project `CLAUDE.md` already covers `EXTENDS` placement and the missing `CASE`/`TRY` statements; [[learned-microflow-patterns]] covers `toString()` on enums. Only what lives nowhere else is kept here.
-
-- **Quote / unquote retry rule:** when any identifier fails at `mxcli check`, `mx check`, or runtime, try the other form before concluding anything. Applies to every identifier position. One form always works; the other may parse and still write wrong BSON.
-- **Grants are co-located with the element, never deferred to one `security.mdl`:** `grant execute` ends the microflow script, `grant view` the page script, entity access the domain script — the entity and its access rule are one unit, same script, same commit. mxbuild raises no error for a missing grant; the only symptom is a blank screen or CE2729 once a non-admin role opens the page. A `roles.mdl` that only *creates* roles is fine. Pre-flight per entity: access rule in the same script? every module role that needs it granted? every module role composed into a user role? non-persistent DTOs — read/write only (CONV006)?
-- **`mxcli check` does not catch corruption.** Most STOP rows above are valid MDL that `check` passes; only mxbuild or SP open reveals the damage. Run the real mxbuild gate after every exec (`iterative-build-loop.md`).
-- **mxcli v0.25 — keep the skills' spellings, never add `mdl 1;`.** The spellings in these skills (`count($L)`, `on error { … }`, `show page M.P($Obj = $Obj)`, `create or replace`) parse on v0.24.0 *and* v0.25.0; v0.25 only warns (`MDL-DEPR*`, "refused from `mdl 2`"). The new spellings (`count $L`, `on error begin … end error`, `P(Obj = $Obj)`) fail `check` on v0.24 — don't "modernise" a script the team may still run there. The hazard is the dialect header: v0.24 rejects it (`line 1:4 extraneous input '1'`), and under it v0.25 changes meanings — `show entity M.E` becomes an error (use `describe entity` / `list entities`; `-c` and the REPL already read this way), and `retrieve … limit 1` returns a *list* (use `first`; v0.32.0-374 `check` catches it). So strip the `mdl 1;` line from `describe` output before pasting it into a script, and never mix dialects in one file. Moving a whole file to mdl 1 on purpose: `mxcli fmt --upgrade -w -p <app>.mpr <script>`, then `check -p --references`, then exec once and run `bin/idempotence-check.sh <script>` (one `mxcli diff`; must say PASS, never a second exec).
-- **`exec` is not `check`.** v0.24.0 (still on v0.32.0-374): `exec` refuses on reference errors and a few hard checks (MDL043, MDL044, MDL070, MDL-WIDGET14/19/24) but still writes scripts that plain `mxcli check` flags — e.g. an enum concatenation (E004). Run `mxcli check <script> -p <app>.mpr --references` yourself and read every error and warning before `exec`; a clean `exec` is not a clean `check`.
-
-> Source: `skills/learned-mdl-preflight.md` § Final self-check
-## Final self-check (mandatory before reporting back)
-
-After drafting a script, re-read it line by line against the table above — not just the mental pre-check you did before writing. Conditional visibility inside datagrid customContent columns, quoted DataGrid 2 association paths, unprefixed association steps in expressions and a quoted `Editable:` can creep in during drafting without intent. `mxcli check --references` will not catch them. This re-read is the actual corruption-prevention step.
-
-**Then diff it before you exec it** (rule 23): `mxcli diff -p <app>.mpr <script>.mdl --format struct` is read-only and prints what the script would add *and remove*. The re-read above catches what you wrote; the diff catches what you did not know was already there — a name you believed free, an entity whose attribute set your `create or modify` would replace rather than extend. Read every `-` line.
-
-**And check the size before you execute:** could you diagnose a failure of this script from the
-error output alone, or would you be re-reading the whole file to find which unit broke? If the
-latter, split it and say so in chat before executing — even when the build plan handed it to
-you whole. A per-layer plan does not mean a layer is one script; see
-`brd-to-build-plan.md` Step 3. Observed failure: a plan that put 13 microflows in one exec.
-
-Isolate anything the other units depend on, group the rest by "would one failure explain the
-others?", and do not over-split — every extra script is another approval prompt, and approval
-fatigue hollows out RULE 1 as surely as an opaque mega-script does.
 
 > Source: `skills/learned-detection-gaps.md` § top
 # Detection gaps — what each verification rung is blind to
@@ -216,4 +185,4 @@ check is not optional: the show-message incident had the correct knowledge in
 **at the same time**, in the same repo, for three weeks. Two files, two answers, no one reading
 both.
 
-Rules for kinds any, workflow: STOP rows 5/5 listed
+Rules for kinds any, workflow: STOP rows 10/10 listed

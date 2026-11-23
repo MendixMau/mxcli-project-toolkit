@@ -11,13 +11,18 @@
 # A heading that no longer exists makes bin/mdl-rules.sh fail loudly — it never prints empty.
 #
 # Format: TAB-separated, four columns. Blank lines and #-comments ignored.
-#   1 kind      page | microflow | access | workflow | entity | any   (any = every script)
+#   1 kind      page | microflow | access | workflow | entity | any | script
+#               any    = every script, every kind asked or none: the core (skills/mdl-deltas-card.md)
+#               script = every script that writes at least one of the five kinds (not the core alone)
 #   2 file      repo-relative path
 #   3 selector  file     the whole file
 #               top      everything above the file's first "## " heading
 #               section  the heading and everything under it, down to the next heading of its level
 #               stop     the STOP table under that heading, rows filtered by their Kind column
-#                        (the kinds asked for, plus `any`; the retired-numbers row always)
+#                        (the kinds asked for, plus `any`; the retired-numbers row always). A stop
+#                        table listed under kind `any` (the card's) is the core; one listed only
+#                        under the five kinds (the preflight's) leaves out its Kind `any` rows,
+#                        which the card condenses (they stay in the file, on demand)
 #               bullet   one bullet under that heading: arg is "<heading>::<bullet lead text>"
 #               rows     the table rows under that heading whose FIRST cell matches an ERE
 #                        (case-insensitive): arg is "<heading>::<ERE>"
@@ -34,21 +39,23 @@
 # silently stop reaching the mdl helper. Headings inside code fences are not headings.
 #
 # kind	file	selector	arg
-any	skills/learned-mdl-preflight.md	top	-
-any	skills/learned-mdl-preflight.md	section	Step 0 — choose the write mode
-any	skills/learned-mdl-preflight.md	stop	The checklist — run before writing a single line of MDL
-any	skills/learned-mdl-preflight.md	bullet	MDL gotchas::**Quote / unquote retry rule:**
-any	skills/learned-mdl-preflight.md	bullet	MDL gotchas::**Grants are co-located
-any	skills/learned-mdl-preflight.md	bullet	MDL gotchas::**`mxcli check` does not catch corruption.**
-any	skills/learned-mdl-preflight.md	bullet	MDL gotchas::**mxcli v0.25 — keep the skills' spellings
-any	skills/learned-mdl-preflight.md	bullet	MDL gotchas::**`exec` is not `check`.**
+any	skills/mdl-deltas-card.md	top	-
+any	skills/mdl-deltas-card.md	stop	The rows
+any	skills/mdl-deltas-card.md	section	When this card is not enough
+page	skills/learned-mdl-preflight.md	stop	The checklist — run before writing a single line of MDL
+microflow	skills/learned-mdl-preflight.md	stop	The checklist — run before writing a single line of MDL
+access	skills/learned-mdl-preflight.md	stop	The checklist — run before writing a single line of MDL
+workflow	skills/learned-mdl-preflight.md	stop	The checklist — run before writing a single line of MDL
+entity	skills/learned-mdl-preflight.md	stop	The checklist — run before writing a single line of MDL
+-	skills/learned-mdl-preflight.md	exclude	Step 0 — choose the write mode::write mode and exec.sh process; the card's "Every script" line says it in short, the preflight routing row opens it on demand
+-	skills/learned-mdl-preflight.md	exclude	Every-script gotchas::the card carries these in short (rows G, P and its "Every script" line); full text on demand
+-	skills/learned-mdl-preflight.md	exclude	Final self-check::the card's "Every script" line and row 23 carry check, diff and mx check; the full re-read and size check open on demand
 page	skills/learned-mdl-preflight.md	bullet	MDL gotchas::**Cross-module association paths
 microflow	skills/learned-mdl-preflight.md	bullet	MDL gotchas::**Cross-module association paths
 page	skills/learned-mdl-preflight.md	bullet	MDL gotchas::**Changing an existing DataGrid 2 column
 page	skills/learned-mdl-preflight.md	bullet	MDL gotchas::**No `elseif` in page/widget expressions**
 entity	skills/learned-mdl-preflight.md	bullet	MDL gotchas::**Enumeration values named with reserved words**
 access	skills/learned-mdl-preflight.md	bullet	MDL gotchas::**Demo users:**
-any	skills/learned-mdl-preflight.md	section	Final self-check
 page	skills/ui-preflight-pages.md	file	-
 page	skills/design-spacing.md	top	-
 page	skills/design-spacing.md	section	1. The scale
@@ -62,13 +69,13 @@ access	skills/learned-microflow-patterns.md	section	Current User — Two Separat
 entity	skills/learned-microflow-patterns.md	section	Association Direction — Reading SHOW ASSOCIATIONS Correctly
 access	skills/security-is-not-a-later-script.md	file	-
 entity	skills/security-is-not-a-later-script.md	file	-
-any	skills/learned-detection-gaps.md	top	-
-any	skills/learned-detection-gaps.md	section	The ladder
-any	skills/learned-detection-gaps.md	rows	The register::non-idempotent|mxcli < v0\.26
+script	skills/learned-detection-gaps.md	top	-
+script	skills/learned-detection-gaps.md	section	The ladder
+script	skills/learned-detection-gaps.md	rows	The register::non-idempotent|mxcli < v0\.26
 page	skills/learned-detection-gaps.md	rows	The register::page|widget|datagrid|dg2|dropdownfilter|navigation|dynamictext|contentparams|elseif|bindings|combo box|snippetcall
 microflow	skills/learned-detection-gaps.md	rows	The register::java action|getvalue|commit|microflow|on error|create entity|xpath|currentuser|import mapping|get workflows|loop
 entity	skills/learned-detection-gaps.md	rows	The register::entity|attribute|enumeration|reserved|calculated by|autocreated
 workflow	skills/learned-detection-gaps.md	rows	The register::workflow|parallel split
 access	skills/learned-detection-gaps.md	rows	The register::access|currentuser|role
-any	skills/learned-detection-gaps.md	section	Operating rules that fall out of this table
-any	skills/retesting-learned-rules.md	file	-
+script	skills/learned-detection-gaps.md	section	Operating rules that fall out of this table
+script	skills/retesting-learned-rules.md	file	-

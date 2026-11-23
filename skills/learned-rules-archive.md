@@ -132,6 +132,14 @@ Before the retest:
 
 - **No `elseif` in page/widget expressions** (DynamicClasses, Visible, ContentParams, …): nest `else if … then … else …`. Microflow `IF/ELSEIF` compiles into decision splits; a page expression passes through to Mendix's parser, which has no `elseif` token. v0.24.0: `check` and `exec` pass it, `mx check` gives `[CE0117] Error(s) in expression at Container '…'`; lint does not flag it.
 
+### Gotcha — mxcli v0.25 dialect, "never add `mdl 1;`" (retired 2026-11-23)
+
+**CONTRADICTED on v0.32.0-374.** mxcli's own generated `CLAUDE.md` says "Each starts with `mdl 1;`. A headerless one is `mdl 0`: upgrade it first", and the MDLBENCH run of 2026-11-20 (122 runs, real `mx check`) found every agent script in every arm starting with `mdl 1;` and building. The two hazards the gotcha named are now caught or warned: a headerless script parses as `mdl 0` with `MDL-DEPR*` deprecation warnings (retest probe M01), and under `mdl 1;` a `retrieve … limit 1` used as one object is refused at `check` ("$O was retrieved as a list (under `mdl 1;` `limit 1` is a list of one) …" [MDL-RETRIEVE03], probe M02). The `create or replace` spelling it told agents to keep is flagged MDL-DEPR001; write `create or modify`. Still true for a team that also runs mxcli v0.24: v0.24 rejects the header (`line 1:4 extraneous input '1'`), so keep such a team's scripts headerless until it upgrades.
+
+Before the retirement:
+
+- **mxcli v0.25 — keep the skills' spellings, never add `mdl 1;`.** The spellings in these skills (`count($L)`, `on error { … }`, `show page M.P($Obj = $Obj)`, `create or replace`) parse on v0.24.0 *and* v0.25.0; v0.25 only warns (`MDL-DEPR*`, "refused from `mdl 2`"). The new spellings (`count $L`, `on error begin … end error`, `P(Obj = $Obj)`) fail `check` on v0.24 — don't "modernise" a script the team may still run there. The hazard is the dialect header: v0.24 rejects it (`line 1:4 extraneous input '1'`), and under it v0.25 changes meanings — `show entity M.E` becomes an error (use `describe entity` / `list entities`; `-c` and the REPL already read this way), and `retrieve … limit 1` returns a *list* (use `first`; v0.32.0-374 `check` catches it). So strip the `mdl 1;` line from `describe` output before pasting it into a script, and never mix dialects in one file. Moving a whole file to mdl 1 on purpose: `mxcli fmt --upgrade -w -p <app>.mpr <script>`, then `check -p --references`, then exec once and run `bin/idempotence-check.sh <script>` (one `mxcli diff`; must say PASS, never a second exec).
+
 ## From `learned-detection-gaps.md` (the register)
 
 ### `CREATE` result discarded → CE6005

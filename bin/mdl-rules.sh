@@ -7,9 +7,11 @@
 #   bin/mdl-rules.sh --check               # coverage + drift of those files (CI); prints nothing else
 #
 # Kinds: page, microflow, access, workflow, entity, any. The output is the always-needed core
-# (learned-mdl-preflight.md's Step 0, its `any` STOP rows, gotchas and final self-check; the
-# detection-gaps ladder; retesting-learned-rules.md), then the sections bin/lib/mdl-rule-kinds.tsv
-# maps to each kind asked for, then one closing line:
+# (skills/mdl-deltas-card.md: its rows of Kind `any` and of the kinds asked for), then — when at
+# least one of the five kinds is asked — the every-script sections (table kind `script`: the
+# detection-gaps ladder, retesting-learned-rules.md), then the sections bin/lib/mdl-rule-kinds.tsv
+# maps to each kind asked for (among them learned-mdl-preflight.md's STOP rows of those kinds),
+# then one closing line:
 #   Rules for kinds <K>: STOP rows <n>/<n> listed
 # The mdl helper reports that count back as "STOP rows for kinds <K>: n/n checked" in its PREFLIGHT.
 #
@@ -19,6 +21,14 @@
 # way bin/runbook-slice.sh prints one stage of the runbook and bin/bug-lookup.sh one ledger entry.
 # The skills keep every word; only who preloads them changes. Harnesses that cannot run a script
 # (Copilot, Cursor, Windsurf) read the same output as a file: skills/generated/rules-<kind>.md.
+#
+# THE CORE IS THE CARD (2026-11-23). The core used to be learned-mdl-preflight.md's Step 0, `any`
+# STOP rows, gotchas and self-check plus the detection-gaps ladder and retesting-learned-rules.md:
+# 3,441 words before every script. A 122-run benchmark scored by real `mx check` (MDLBENCH,
+# 2026-11-20) saw no success difference with or without that text, at +29..57% cost, and only two
+# STOP rows naming a real agent error. The core is now the ~800-word skills/mdl-deltas-card.md; the
+# preflight's `any` parts stay in that file, on demand. Its STOP rows of the five kinds still print
+# with their kinds, so the STOP numbers mdl-scan.sh and the citations use are unchanged.
 #
 # --for reuses exec.sh's statement classifier (`project-bin/exec.sh --subjects`, the one lexer
 # exec.sh, affected-tests.sh and the change class share) rather than a second copy of it. Subject
@@ -47,13 +57,22 @@ die() { echo "mdl-rules: $*" >&2; exit 1; }
 [ -f "$TSV" ] || die "no kind table at $TSV"
 
 valid_kind() { case " $ALL_KINDS " in *" $1 "*) return 0 ;; esac; return 1; }
+# A table row may also carry kind `script`: printed whenever a script writes one of the five kinds.
+valid_table_kind() { [ "$1" = script ] || valid_kind "$1"; }
+# _want <kinds...> — the table kinds an output selects: any, the kinds asked, and `script` when a
+# kind other than `any` was asked.
+_want() {
+  local w=" any" k s=""
+  for k in "$@"; do w="$w $k"; [ "$k" = any ] || s=" script"; done
+  printf '%s%s ' "$w" "$s"
+}
 
 # _extract <kinds...> — the rules text for those kinds (plus any) on stdout, or exit 1. One awk
 # program reads the table and every file it names: rows are grouped by (file, selector, heading),
 # so two kinds selecting the same gotcha or register row print it once, and a whole-file row
 # suppresses that file's section rows.
 _extract() {
-  awk -v want=" any $* " -v root="$ROOT" -v tsv="$TSV" '
+  awk -v want="$(_want "$@")" -v root="$ROOT" -v tsv="$TSV" '
     function err(m) { print "mdl-rules: " m > "/dev/stderr"; failed = 1 }
     function load(f,    p, l, n) {
       if (f in N) return N[f] > 0
@@ -94,6 +113,7 @@ _extract() {
         nf = split(row, t, "\t")
         if (nf < 4) { err("malformed table row: " row); continue }
         if (index(want, " " t[1] " ") == 0) continue
+        if (t[1] == "any" && t[3] == "stop") anystop = 1
         f = t[2]; sel = t[3]; arg = t[4]; h = arg; part = ""
         if (sel == "bullet" || sel == "rows") {
           k = index(arg, "::"); if (k == 0) { err("no :: in " sel " arg: " arg); continue }
@@ -103,6 +123,7 @@ _extract() {
         key = f SUBSEP sel SUBSEP h
         if (!(key in seen)) { seen[key] = ++ng; gf[ng] = f; gs[ng] = sel; gh[ng] = h }
         g = seen[key]
+        if (t[1] == "any") gany[g] = 1
         if (sel == "bullet") { nb[g]++; lead[g, nb[g]] = part }
         if (sel == "rows")   { nr[g]++; rx[g, nr[g]] = part }
         if (sel == "file")   whole[f] = 1
@@ -159,37 +180,46 @@ _extract() {
             } else {
               kd = c[n - 1]
               if (kd == "") { emit(line); continue }       # the retired-numbers row: kept for citations
-              if (index(want, " " kd " ")) { emit(line); stops_listed++ }
+              # A kind-only STOP table (the preflight) leaves its Kind `any` rows to the core card.
+              if (index(want, " " kd " ") && (gany[g] || kd != "any")) { emit(line); stops_listed++ }
             }
           }
           if (tab == 0) err(f ": no table under \"" h "\"")
           if (sel == "rows") for (i = 1; i <= nr[g]; i++) if (!rhit[i]) err(f ": no row under \"" h "\" matches /" rx[g, i] "/")
-          if (sel == "stop") stops_file = f SUBSEP h
           continue
         }
         err("unknown selector " sel " in " tsv)
       }
-      if (stops_file == "") err("the table has no stop row for kind any — nothing would list the STOP table")
+      if (!anystop) err("the table has no stop row for kind any — nothing would list the core STOP table")
       if (failed) exit 1
       printf "%s", buf
       printf "STOPS\t%d\n", stops_listed > "/dev/stderr"
     }'
 }
 
-# _stop_total <kinds...> — the denominator, counted by a second, independent pass over the STOP
-# table: rows whose Kind cell is one of the kinds (or any). The two must agree or the run fails.
+# _stop_total <kinds...> — the denominator, counted by a second, independent pass over every STOP
+# table the kinds select: rows whose Kind cell is one of the kinds (or any), leaving out the Kind
+# `any` rows of a table no `any` row selects — the same rule _extract applies. The two must agree.
 _stop_total() {
-  local f h
-  f="$(awk -F'\t' '$1 == "any" && $3 == "stop" { print $2; exit }' "$TSV")"
-  h="$(awk -F'\t' '$1 == "any" && $3 == "stop" { print $4; exit }' "$TSV")"
-  awk -v want=" any $* " -v h="$h" '
-    /^[ \t]*(```|~~~)/ { fe = !fe; next }
-    fe { next }
-    index($0, "## " h) == 1 { on = 1; next }
-    on && /^## / { exit }
-    on && /^\|/ { n = split($0, c, "|"); k = c[n - 1]; gsub(/^[ \t]+|[ \t]+$/, "", k)
-                  if (k != "" && k != "Kind" && k !~ /^-+$/ && index(want, " " k " ")) t++ }
-    END { print t + 0 }' "$ROOT/$f"
+  local want t=0 f h ga n
+  want="$(_want "$@")"
+  while IFS=$'\t' read -r f h ga; do
+    [ -n "$f" ] || continue
+    n="$(awk -v want="$want" -v h="$h" -v ga="$ga" '
+      /^[ \t]*(```|~~~)/ { fe = !fe; next }
+      fe { next }
+      index($0, "## " h) == 1 { on = 1; next }
+      on && /^## / { exit }
+      on && /^\|/ { n = split($0, c, "|"); k = c[n - 1]; gsub(/^[ \t]+|[ \t]+$/, "", k)
+                    if (k != "" && k != "Kind" && k !~ /^-+$/ && index(want, " " k " ") && (ga == 1 || k != "any")) t++ }
+      END { print t + 0 }' "$ROOT/$f")"
+    t=$((t + n))
+  done <<EOF
+$(awk -F'\t' -v want="$want" '!/^[ \t]*#/ && NF >= 4 && $3 == "stop" && index(want, " " $1 " ") {
+    k = $2 SUBSEP $4; if (!(k in s)) { s[k] = 0; o[++n] = k; F[k] = $2; H[k] = $4 }; if ($1 == "any") s[k] = 1 }
+  END { for (i = 1; i <= n; i++) printf "%s\t%s\t%d\n", F[o[i]], H[o[i]], s[o[i]] }' "$TSV")
+EOF
+  echo "$t"
 }
 
 # print_rules <label> <kinds...> — the full output: header, rules, closing count line.
@@ -266,23 +296,25 @@ coverage() {
       [ "$sel" = exclude ] && [ "$k" = - ] || echo "  table: kind '-' goes with selector exclude, and only with it ($f $sel)"
       case "$arg" in *::?*) : ;; *) echo "  table: exclude row without '<heading>::<reason>' ($f: $arg)" ;; esac
     else
-      valid_kind "$k" || echo "  table: unknown kind '$k' ($f $sel)"
+      valid_table_kind "$k" || echo "  table: unknown kind '$k' ($f $sel)"
     fi
     [ -f "$ROOT/$f" ] || echo "  table: no such file $f"
     case "$sel" in file|top|section|stop|bullet|rows|exclude) : ;; *) echo "  table: unknown selector '$sel'" ;; esac
   done > "$WORK/cov"
-  # STOP rows: every non-retired row's Kind is a known kind.
-  h="$(awk -F'\t' '$3 == "stop" { print $4; exit }' "$TSV")"; f="$(awk -F'\t' '$3 == "stop" { print $2; exit }' "$TSV")"
-  awk -v h="$h" -v ok=" $ALL_KINDS " '
-    /^[ \t]*(```|~~~)/ { fe = !fe; next }
-    fe { next }
-    index($0, "## " h) == 1 { on = 1; next }
-    on && /^## / { exit }
-    on && /^\|/ { r++; if (r <= 2) next
-                  n = split($0, c, "|"); k = c[n - 1]; gsub(/^[ \t]+|[ \t]+$/, "", k)
-                  if (k == "" && $0 ~ /retired/) next
-                  if (!index(ok, " " k " ")) { id = c[2]; gsub(/^[ \t]+|[ \t]+$/, "", id); print "  STOP row " id ": Kind \"" k "\" is not one of" ok } }' \
-    "$ROOT/$f" >> "$WORK/cov"
+  # STOP rows: every non-retired row's Kind is a known kind, in every STOP table the table names.
+  awk -F'\t' '!/^[ \t]*#/ && NF >= 4 && $3 == "stop" { print $2 "\t" $4 }' "$TSV" | sort -u |
+  while IFS=$'\t' read -r f h; do
+    awk -v h="$h" -v ok=" $ALL_KINDS " -v f="$f" '
+      /^[ \t]*(```|~~~)/ { fe = !fe; next }
+      fe { next }
+      index($0, "## " h) == 1 { on = 1; next }
+      on && /^## / { exit }
+      on && /^\|/ { r++; if (r <= 2) next
+                    n = split($0, c, "|"); k = c[n - 1]; gsub(/^[ \t]+|[ \t]+$/, "", k)
+                    if (k == "" && $0 ~ /retired/) next
+                    if (!index(ok, " " k " ")) { id = c[2]; gsub(/^[ \t]+|[ \t]+$/, "", id); print "  STOP row " id ": Kind \"" k "\" is not one of" ok " (" f ")" } }' \
+      "$ROOT/$f"
+  done >> "$WORK/cov"
   # Bullets and register rows: the union of the table's selections covers every one, and each
   # register ERE matches some row by itself (a dead ERE hides behind its siblings in the union).
   awk -F'\t' '!/^#/ && ($3 == "bullet" || $3 == "rows") { split($4, a, "::"); print $2 "\t" $3 "\t" a[1] }' "$TSV" | sort -u |

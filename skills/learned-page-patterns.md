@@ -174,6 +174,12 @@ A regular textbox outside the gallery has no filter binding → CE0544 + CE7005.
 - Context datasource: `DataSource: $OrderDetail/OrderRegistration.OrderDetail_OrderCustomerBase`
 - Simpler, faster, no extra microflow needed.
 - Only use microflow datasource when retrieval requires filtering, aggregation, or multi-hop XPath logic.
+- **Two hops is multi-hop: never a data-view path.** `$Parent/M.A_B/M.B_C` is stored with the last
+  segment as an entity (CE1613); the full form `…/M.A_B/M.B/M.B_C/M.C` passes `check` and crashes the
+  mxbuild loader (`DestinationEntity` of an Entity ref step). Retrieve hop by hop in a microflow data source (BUG-DRAFT-two-hop-datasource-path).
+- **In an existing app, check the keyword resolves to a web widget.** `DESCRIBE WIDGET TYPE radiobuttons`
+  (and `image`) can resolve to a `com.mendix.widget.native.*` id, so DESCRIBE output re-executed writes a
+  native widget into a web page. Boolean → `checkbox`, enumeration → `combobox`, images → `dynamicimage` (2026-10-13).
 - **In a snippet**, a text or dynamic text at the snippet's top level has no context object. Wrap it in a DataView whose datasource is the snippet parameter (retro, 2026-10-12, #282).
 
 **mxcli limitation:** `ALTER PAGE` has no syntax for changing a DataView's datasource type. This must be done manually in Studio Pro: DataView properties → Data source → Type: Context → navigate association tree from page parameter.

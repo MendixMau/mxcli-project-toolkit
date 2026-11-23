@@ -182,6 +182,9 @@ count them separately.
 | Removing a user from a role as sole target | the snapshot's own demo users lose the role, and the rows they own are owned by nobody who can log in; re-own a few rows to the test user's object |
 | Role names differ per app (`QualityManager` here, `DepartmentManager` there) | users file lists a role the database does not have; read the roles from the actual database, not habit |
 | File-bearing rows (Image, FileDocument) | row exists, `FileNotFoundInStorageException` in the log; copy files after every start, or leave those rows out on purpose |
+| No row fails an access-rule conjunct (one organisation, one team) | delete the conjunct from the model and no count in the row-scoping test changes. A constraint is tested only if some fixture row fails it: move one row out for the test and back in a `finally` (measured 2 → 1 → 2 of 227 rows, 2026-09-13) |
+| Seeder guard tests a sibling child (`if any child exists, skip`) | an attribute a later build step added is never written to the long-running environments, the demo first: the page shows a title, a dangling `·` separator and an empty body. Guard on the thing you are about to write |
+| Seeded table nobody reads | every count-based test passes over it. For each table with rows, name the model elements that **read** it; empty, or only its own seeders, means dead data. A "zero inbound refs" sweep cannot find it: the seeders' writes are refs |
 
 Every write here is a model or database write. **Get approval before each one.**
 

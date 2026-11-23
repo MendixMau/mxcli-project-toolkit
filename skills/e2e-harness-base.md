@@ -88,6 +88,9 @@ test window; no exec, no commit and no model restore until the clean stop. Resto
 under a running endpoint deletes `MxTest`, and the next `--attach` refuses with "needs a runtime
 restart". After the stop, `git status` on the model must be empty. (Field case: the same build,
 v0.24.0, 2026-09-26: 11 model paths with the endpoint up, back to 2 after the stop.)
+A stop by **signal** (`kill`, an agent's background-task stop) skips that restore and leaves
+`AfterStartupMicroflow` on `MxTest.RegisterEndpoint`; deleting `MxTest` afterwards makes it CE1613.
+Repair through exec.sh: `alter settings runtime (AfterStartupMicroflow: '<Module>.<own after-startup>');` (#244).
 
 **`run --local` starts with scheduled events off.** The runtime log reads "Synchronizing scheduled
 events: None", so job-driven behaviour is never exercised and a journey over it can only pass
@@ -103,6 +106,11 @@ exec.sh's gate run `mxbuild --target=deploy`, which rewrites `deployment/web/` a
 licence failure. The tell is `404 - file not found for file: dist%2Findex.js` in
 `.mxcli/runtime.log`. Restart `run --local` after every gate build; never probe across one.
 (Field case: the card-disbursement requirements-driven build, Mendix 11.13.0, 2026-09-25.)
+
+**No local password logs in when the app replaces the login.** An app whose `javasource/` registers
+its own login handler at startup (verifying against a remote identity service) refuses every demo
+user locally; grep for it before the first journey and report "local login needs a patch", not an
+SSO-module fault, which is how a test agent misread it (2026-09-27, a field project).
 
 **`--hub` is what makes a container-hosted run reachable.** A cloud/devcontainer session has no
 shared filesystem with a laptop and cannot serve `localhost` to one. Before `--hub` the only answer

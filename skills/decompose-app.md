@@ -32,6 +32,11 @@ Bound: every line below is a `PROJECT.md` register line, `CONFIRMED` or `ASSUMED
    launcher rejects JDK 17, `Java 11 is required`). Budget the one-time fixes
    (marketplace and widget updates, Java API edits): on the field-service template they cost more than the
    seam itself (increment 4).
+   Booting the 9.24.2 runtime headless (increment 4): it needs Java 11 (17 is refused, `Java 11 is
+   required`) and `MX_INSTALL_PATH` (else `Error finding mx install path.`); pass every constant in
+   `update_configuration` (else it fails on `MendixSSO.TokenEncryptionKey`); mxbuild 9.24 builds with
+   `--java-home=<jdk17>`. The Java API edits on the 10.24 copy: `final` generated parameters
+   (DeepClone) and `rollbackTransAction` → `rollbackTransaction`.
 4. **Lanes are OData and REST only.** No Event Broker licence, so Business Events is not a lane; an
    edge that is neither OData nor REST blocks.
 5. **Scope interview** (`interview-protocol.md`; ask, then stop): why split (team, cadence, licence,

@@ -114,6 +114,11 @@ Podman — and `doctor.sh` currently probes only the `docker` command, so such a
 confirm the lane by running your own runtime's `info`, and leave it: a separate in-flight fix is
 widening the probe. **Do not patch doctor from inside a triage.**
 
+**Mendix 10 on a Mac: the gate runs through an `MXBUILD_PATH` shim.** A script that reads the model's
+version, runs the matching cached Linux `mx check -j` in a container, writes `problems[]`, and exits
+0 / 1 / 3 (3 = not checked) served `exec.sh`'s gate on 10.24.18 (2026-10-21). It is `mx check`, not a
+deploy build. It must answer `--version` and `--help` with exit 0, or doctor reports "mxbuild cannot run".
+
 ## Step 5 — Check that your findings are about the machine you mean
 
 If the session is running in a VM, container or mounted sandbox, every binary finding is about

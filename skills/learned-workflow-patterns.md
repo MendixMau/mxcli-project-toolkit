@@ -1280,6 +1280,12 @@ exclusive split anywhere. The lesson generalises past the bug: an approval chain
 branching on *data*. If the first draft of an approval workflow has a split after every task,
 the split is redundant before it is dangerous.
 
+**The opposite failure: one user task for every role.** A task whose every outcome is `jump to`
+itself, with "whose turn" in an attribute read by a targeting microflow, hides the whole chain in
+microflows and gives the inbox one caption for every step. One user task per role or decision point,
+named for it; a jump is for a loop the business names (a return to the owner) — STOP and redesign
+(2026-10-02, a four-role approval prototype, Mendix 11.15).
+
 ### `CE6681` on a dangling jump describes the wrong fault
 
 The obvious reject path is "jump back to the previous task". The **first** task has nothing

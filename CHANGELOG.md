@@ -1396,7 +1396,7 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 - fix(portability): `fixture-manifest.sh` and `report-disposition-check.sh` invoked a bare Python name — now resolve through `_common.sh` `require_py` (surfaced by promoting `check-portability.sh` to CI)
 
 ## 2026-08-28
-- fix(page-scope): SHOW PAGES header rows with Excluded/Folder/Params columns were counted as pages — 6 real pages inflated to 13 (F-042, found in a field build) — field session
+- fix(page-scope): SHOW PAGES header rows with Excluded/Folder/Params columns were counted as pages — 6 real pages inflated to 13 (F-042, found in a field build) — a contributor
 - fix(e2e): two-tree layouts (`.mpr` under `app/`) now resolve — `project.config.template.js` root walk probes `app/`, `design-audit.js` probes beside the root; same bug as F-020, found twice (F-042 cluster)
 - fix(verify-module): `page-scope.sh` wired in as a mandatory rung before the design audit — its artifact finally has a producer in the chain
 - new(check-scripts): `bin/check-scripts.sh` parses every shipped script under its own interpreter at setup time (CRLF, bashisms, syntax); wired into `doctor.sh`, `init-project.sh`, `sync-project.sh`
@@ -1404,7 +1404,7 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 - process(shipping): "field-proof before merge" rule in `CLAUDE.md` — golden input captured never hand-written, both layouts, both platforms, one cited field run, a producer for every consumed artifact (root cause of the whole F-042 cluster)
 - learn(theme): token port is not the component-CSS port — the theme-apply trap, from a field build
 - new(page-fidelity): every score appended to the project's `docs/PAGE-FIDELITY.tsv`; first non-stub row per page is the first-build score of record vs the ≥80% target; `--stub` exempts declared forward-reference stubs
-- process(install): `report-disposition-check.sh` declared noinstall — gate-check runs it from the toolkit clone — field session
+- process(install): `report-disposition-check.sh` declared noinstall — gate-check runs it from the toolkit clone — a contributor
 
 ## 2026-08-27
 - new(doctor): build-toolchain verification — mxbuild/java executed not just found (exit 126 = wrong-platform binary), Docker recommended for the self-verification stack

@@ -271,7 +271,7 @@ wait_ready() {  # exits: 0 up, 1 not proven up
   "This app was not started with \`mxcli run --local\` (v0.24+), or it is not running. This script never" \
   "stops a process found by name or pattern, so there is nothing it may stop." \
   "→ Start it:   ./mxcli run --local --watch -p $(basename "$MPR")" \
-  "→ Docker app: ./bin/test-stack-up.sh --restart"
+  "→ If this app runs in a container: ./bin/test-stack-up.sh --restart"
 PID="$(hs_num pid "$HS")"; PORT="$(hs_num appPort "$HS")"; HS_PROJECT="$(hs_str project "$HS")"
 [ -n "$PORT" ] || refuse "the record $HS names no appPort — cannot tell which app it is."
 [ -n "$HS_PROJECT" ] || refuse "the record $HS names no project — cannot prove it is this project's app." \

@@ -14,6 +14,11 @@
 #      ENTRY-MODE-MAPPED + TOOLKIT-ADOPTED-AT to docs/BUILD-LOG.md, says so once
 #   A  under auto the adoption also writes the ASSUMED consentBy: auto-mode Stage-4 row
 #   I  a second sync maps nothing; a readout at Stage P maps without adopting
+#   G  a real scaffold (init-project.sh) whose readout gate-check itself wrote (Stage P or 0 — the
+#      greenfield norm: Stage 0 was never excused): with model work (a mdlsource/*.mdl script, or
+#      an exec row in docs/BUILD-LOG.md) sync adopts at 5, Stage 4 is not PENDING and an exec
+#      under Interview mode: auto is not refused; with none, nothing is adopted and the owed
+#      stages are said out loud — never "not re-owed" (found in the #792 review)
 #
 # Golden register: fixtures/entry-mode-plan-rule/PROJECT.md (captured from init-project.sh).
 set -uo pipefail
@@ -27,7 +32,7 @@ PASS=0; FAIL=0
 ok()  { PASS=$((PASS+1)); echo "  ok   - $1"; }
 bad() { FAIL=$((FAIL+1)); echo "  FAIL - $1${2:+: $2}"; }
 echo "== subject: $SYNC"
-export MXTK_NO_GUIDE=1 HOME="$WORK/home"
+export MXTK_NO_GUIDE=1 HOME="$WORK/home" MXTK_LEAKGUARD_DENYFILE="$WORK/denylist"   # init-project.sh (case G) must not touch the real one
 
 # mkproj <readout stage> <extra register lines> -> P
 N=0
@@ -73,6 +78,46 @@ mkproj P 'Entry mode: greenfield\n'
 "$SYNC" "$P" > /dev/null 2>&1
 grep -q '^Entry mode: requirements-driven$' "$P/PROJECT.md" && ! grep -q '^Adopted at stage' "$P/PROJECT.md" \
   && ok "I Stage P readout: mapped, not adopted" || bad "I Stage P readout: mapped, not adopted"
+
+echo "-- G: real scaffold, readout written by gate-check (Stage P/0), model work decides"
+S0="$WORK/scaffold"
+"$TOOLKIT/bin/init-project.sh" "$S0" > /dev/null 2>&1 || bad "G init-project.sh scaffold"
+printf 'Entry mode: greenfield\nInterview mode: auto\n' >> "$S0/PROJECT.md"
+mkdir -p "$S0/mprcontents"; printf 'not a real model\n' > "$S0/App.mpr"; printf 'bson\n' > "$S0/mprcontents/a.mxunit"
+cat > "$S0/mxcli" <<'MXCLI'
+#!/usr/bin/env bash
+case "${1:-}" in check) echo check >> "$CALLS"; echo "stub refuses [STUB01]" >&2; exit 1 ;; esac
+exit 0
+MXCLI
+chmod +x "$S0/mxcli"
+# gfproj <name> <work: mdl|log|none> -> P, scaffold copy with its readout stamped by gate-check
+gfproj() {
+  P="$WORK/$1"; cp -R "$S0" "$P"
+  case "$2" in
+    mdl) mkdir -p "$P/mdlsource"; printf 'CREATE ENTITY Orders.Thing (Name: String);\n' > "$P/mdlsource/01-thing.mdl" ;;
+    log) mkdir -p "$P/docs"; printf '| when | script | gate | result | detail |\n|---|---|---|---|---|\n| 2026-11-01T10:00:00+0000 | `01-thing.mdl` | pass | ✓ applied | x |\n' > "$P/docs/BUILD-LOG.md" ;;
+  esac
+  ( cd "$P" && { [ -d .git ] || git init -q .; } && git add -A && git -c user.email=t@t -c user.name=t commit -qm f -n ) >/dev/null 2>&1
+  "$TOOLKIT/bin/gate-check.sh" "$P" > /dev/null 2>&1
+  GF_RO="$(sed -n 's/^\*\*Stage \([P0-7]\) .*/\1/p' "$P/PROJECT.md" | head -1)"
+}
+gfproj g1 mdl
+case "$GF_RO" in P|0) ok "G gate-check's own readout is Stage $GF_RO" ;; *) bad "G gate-check's own readout" "Stage '$GF_RO'" ;; esac
+"$SYNC" "$P" > "$WORK/sg1" 2>&1
+grep -q '^Adopted at stage: 5 — greenfield retired, mapped at sync$' "$P/PROJECT.md" && ok "G model work (mdlsource) → adopted at stage 5" || bad "G model work (mdlsource) → adopted at stage 5" "$(grep -n 'Adopted\|Mapped' "$WORK/sg1" "$P/PROJECT.md" | head -3)"
+"$TOOLKIT/bin/gate-check.sh" "$P" > "$WORK/gg1" 2>&1
+grep -q '^Stage 4 ([^)]*): PENDING' "$WORK/gg1" && bad "G Stage 4 not PENDING" "$(grep '^Stage 4' "$WORK/gg1" | cut -c1-120)" || ok "G Stage 4 not PENDING"
+( cd "$P" && CALLS="$WORK/calls-g1" SP_RESTART=0 MXTK_NO_INSTALL=1 SKIP_DOCTOR=1 TMPDIR="$WORK" ./bin/exec.sh mdlsource/01-thing.mdl ) > "$WORK/eg1" 2>&1
+grep -q 'Plan rule (Interview mode: auto)' "$WORK/eg1" && bad "G exec under auto not refused by the plan rule" || \
+  { [ -s "$WORK/calls-g1" ] && ok "G exec under auto not refused by the plan rule (reached mxcli check)" || bad "G exec reached mxcli check" "$(tail -3 "$WORK/eg1")"; }
+gfproj g2 log
+"$SYNC" "$P" > /dev/null 2>&1
+grep -q '^Adopted at stage: 5 — greenfield retired, mapped at sync$' "$P/PROJECT.md" && ok "G model work (BUILD-LOG exec row) → adopted at stage 5" || bad "G model work (BUILD-LOG exec row) → adopted at stage 5"
+gfproj g3 none
+"$SYNC" "$P" > "$WORK/sg3" 2>&1
+grep -q '^Adopted at stage' "$P/PROJECT.md" && bad "G no model work → not adopted" || ok "G no model work → not adopted"
+grep -q 'stages 0-4 are now OWED' "$WORK/sg3" && ok "G no model work → owed stages said out loud" || bad "G no model work → owed stages said out loud"
+grep -q 'not re-owed' "$WORK/sg3" && bad "G no adoption → never says 'not re-owed'" || ok "G no adoption → never says 'not re-owed'"
 
 echo ""
 echo "== $PASS passed, $FAIL failed"

@@ -5946,8 +5946,20 @@ grid 2 for the StyleGallery.
      check, so a stock update cannot go unnoticed.
 5. **A bare attribute name in a widget in the grid's control bar** is resolved against the
    **grid's** entity, although at runtime the context there is the enclosing data view's object.
-   mxbuild fails with CE1613. Inside the control bar, name the data view's attributes fully
-   qualified. For buttons there, see `learned-page-patterns.md` → control-bar buttons.
+   mxbuild fails with CE1613. On v0.24.0: inside the control bar, name the data view's attributes
+   fully qualified. For buttons there, see `learned-page-patterns.md` → control-bar buttons.
+   - **Retest, mxcli v0.31.0 / Mendix 11.12.4 (2026-11, a field build):** the fully qualified form
+     no longer works. exec refuses `Attribute: M.Report.Status` with CE7247 ("… is an attribute of
+     M.Report, not of M.GridEntity … read the other object through a page or snippet parameter:
+     `$Param.Status`") and rolls the whole script back. A bare `Attribute: Status` still binds to
+     the grid's entity (mxbuild CE7247 "Attribute 'M.GridEntity.Status' is not an attribute of
+     entity 'M.Report'"); exec.sh auto-restored the model. **Workaround on v0.31.0: the page or
+     snippet parameter, `Attribute: $Report.Status`**: exec OK, mxbuild clean, and 10 filter sets
+     behaved as the original, on screen and in the Excel export.
+   - **Name collision:** when the grid's entity also has an attribute of that name (`Status`,
+     `ClientCode`), a bare name binds to the grid's attribute, not the enclosing object's. Use
+     `$Param.Attr`, or rename the grid-entity attribute (the field build renamed its view-entity
+     attributes).
 
 ---
 

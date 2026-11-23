@@ -1190,6 +1190,7 @@ mxtk_gate_mxbuild() {
   # deploy build. No infra retry: mx check has no deploy stage to collide on.
   if [ "${MXTK_GATE_KIND:-full}" = "check" ]; then
     mxtk_mx_check_error_count "$_mpr" "$_timeout" "$_ef" >/dev/null || _rc=$?
+    mxtk_theme_inject "$_ef" || true   # mx check never compiles the theme (#837)
     return "$_rc"
   fi
   mxtk_pause_watchers "${PROJECT_ROOT:-$(dirname "$_mpr")}"
@@ -1202,6 +1203,8 @@ mxtk_gate_mxbuild() {
       # is persistent, not a collision: building a 4th time would only cost time.
       if [ -n "$MXTK_GATE_INFRA_PERSISTENT" ] && [ "${MXTK_MXBUILD_WHY:-}" = "$MXTK_GATE_INFRA_PERSISTENT" ]; then
         echo "  ⚠ no retry: mxbuild failed with the same deploy-stage message on the earlier build and its retry (${MXTK_MXBUILD_WHY})" >&2
+      elif { mxtk_theme_check || true; } && [ "$MXTK_THEME_STATE" = fail ]; then
+        :   # a theme that does not compile fails the same way twice: not infra, no 15-20 s retry (#837)
       elif ! grep -Eq -- 'CE[0-9]{4}' <<<"${MXTK_MXBUILD_OUT:-}" \
          && { [ ! -s "$_ef" ] || mxtk_mxbuild_infra_only "$_ef"; }; then
         echo "  ⚠ retry after infra exit: mxbuild exited $MXTK_MXBUILD_EXIT with no CE code and no model problem${MXTK_MXBUILD_WHY:+ ($MXTK_MXBUILD_WHY)}; building once more" >&2
@@ -1221,6 +1224,9 @@ mxtk_gate_mxbuild() {
   esac
   [ "${MXTK_BUILD_LOCK_KEEP:-0}" = 1 ] || mxtk_build_lock_release   # exec.sh releases it with its own lock
   mxtk_resume_watchers
+  # A deploy build reads a broken theme as an errors[] entry with no problem (exit 3) or as a CE6093
+  # without a file; the direct compile names file:line and makes it a countable Error (#837).
+  mxtk_theme_inject "$_ef" || true
   return "$_rc"
 }
 
@@ -1557,6 +1563,164 @@ mxtk_find_mx() {
   _d="${_mb%/*}"; [ "$_d" != "$_mb" ] || _d=.
   for _c in "$_d/mx" "$_d/mx.exe"; do [ -x "$_c" ] && { echo "$_c"; return 0; }; done
   return 1
+}
+
+# ---------------------------------------------------------------------------
+# Theme (SCSS) compile check — #837.
+#
+# WHY. `mx check` never compiles the theme, and a deploy build only compiles it when it gets that
+# far (cold copy: CE6093 with no file or line; warm: an errors[] entry and exit 3). So a gate could
+# read "0 errors" on a model whose app then fails `mxcli run` with "[CE6093] The theme could not be
+# compiled ... main.scss 254:58" (field regression run, 2026-11-17, Mendix 11.8.0: `mx check` said
+# "The app contains: 0 errors." on a project whose theme/web/main.scss held a syntax error).
+# mxbuild ships the very compiler it uses (dart-sass, <mxbuild dir>/tools/sass/<platform>/sass), and
+# it compiles in ~0.4 s where a deploy build takes 15-20 s, so the gate runs it directly.
+#
+# What is compiled: the entry file mxbuild itself generated, <model dir>/deployment/sass/main.scss
+# (or the copy under .mxtk/build/model/, whichever is newer): the same @use list in the same order.
+# Its "../../X" paths are re-pointed at the real tree through --load-path, and an entry whose file no
+# longer exists (a module removed since that build) is dropped and counted, never an error. The
+# denominator is stated: "N of M entries".
+#
+# mxtk_theme_check [model-dir] — sets, and returns 0 pass · 1 the theme does not compile · 2 not run:
+#   MXTK_THEME_STATE   pass | fail | notrun
+#   MXTK_THEME_FILE / _LINE / _COL / _MSG   where it broke (fail): the first trace frame of sass's
+#                      own error, relative to the model dir
+#   MXTK_THEME_WHY     why it was not run (notrun) · MXTK_THEME_DENOM "N of M" entries compiled
+# Never "pass" when it did not compile anything: no sass beside mxbuild, no generated entry file
+# (no full build yet) and zero usable entries are all notrun, reported, never green.
+# Golden input: tests/wave2/fixtures/theme-check/ (sass 1.49.11 from mxbuild 11.8.0, captured).
+# MXTK_SASS_PATH overrides the binary (tests, odd installs).
+mxtk_find_sass() {
+  local _mb _d _c
+  if [ -n "${MXTK_SASS_PATH:-}" ]; then [ -x "$MXTK_SASS_PATH" ] && { echo "$MXTK_SASS_PATH"; return 0; }; return 1; fi
+  _mb="${MXBUILD_PATH:-$(find_mxbuild 2>/dev/null || true)}"
+  [ -n "$_mb" ] || return 1
+  _d="${_mb%/*}"; [ "$_d" != "$_mb" ] || _d=.
+  for _c in "$_d"/tools/sass/*/sass "$_d"/tools/sass/*/sass.exe; do [ -x "$_c" ] && { echo "$_c"; return 0; }; done
+  return 1
+}
+
+mxtk_theme_check() {
+  local _md="${1:-}" _mk _nw _sass _entry _alt _tmp _in _out _err _rc=0 _line _rel _n=0 _m=0 _re _sassmd
+  MXTK_THEME_STATE=notrun; MXTK_THEME_FILE=""; MXTK_THEME_LINE=""; MXTK_THEME_COL=""; MXTK_THEME_MSG=""
+  MXTK_THEME_WHY=""; MXTK_THEME_DENOM=""; MXTK_THEME_CACHED=0
+  [ -n "$_md" ] || _md="$(find_model_dir 2>/dev/null || true)"
+  if [ -z "$_md" ] || [ ! -d "$_md" ]; then MXTK_THEME_WHY="no model directory"; return 2; fi
+  if ! _sass="$(mxtk_find_sass)"; then
+    MXTK_THEME_WHY="no sass compiler beside mxbuild (<mxbuild dir>/tools/sass/*/sass; MXTK_SASS_PATH= overrides)"; return 2
+  fi
+  _entry="$_md/deployment/sass/main.scss"
+  _alt="${PROJECT_ROOT:-$_md}/.mxtk/build/model/deployment/sass/main.scss"
+  if [ ! -f "$_entry" ] || { [ -f "$_alt" ] && [ "$_alt" -nt "$_entry" ]; }; then [ -f "$_alt" ] && _entry="$_alt"; fi
+  if [ ! -f "$_entry" ]; then
+    MXTK_THEME_WHY="no deployment/sass/main.scss yet (mxbuild writes it; run bin/verify-model.sh once)"; return 2
+  fi
+  # Cache (exec.sh's per-row gate only: MXTK_THEME_CACHE=1): a PASS is remembered in .mxtk/theme-ok and
+  # reused while no .scss/.sass/.css file or folder under theme/ or themesource/, and not the entry file,
+  # is newer than it, so a row that touched no styling pays one `find`, not a compile. Only a pass is
+  # ever cached; verify-model.sh, module-close.sh and bin/theme-check.sh always compile.
+  _mk="${PROJECT_ROOT:-$_md}/.mxtk/theme-ok"
+  if [ "${MXTK_THEME_CACHE:-0}" = 1 ] && [ -f "$_mk" ]; then
+    _nw="$(find "$_md/theme" "$_md/themesource" "$_entry" \( -type d -o -name '*.scss' -o -name '*.sass' -o -name '*.css' \) -newer "$_mk" -print 2>/dev/null | head -n 1)"
+    if [ -z "$_nw" ]; then
+      IFS= read -r MXTK_THEME_DENOM < "$_mk" || true
+      MXTK_THEME_DENOM="${MXTK_THEME_DENOM:-?}"; MXTK_THEME_CACHED=1; MXTK_THEME_STATE=pass; return 0
+    fi
+  fi
+  _tmp="$(mktemp -d "${TMPDIR:-/tmp}/mxtk-theme.XXXXXX")" || { MXTK_THEME_WHY="no temp dir"; return 2; }
+  _in="$_tmp/entry.scss"; _out="$_tmp/out.css"; _err="$_tmp/err.txt"
+  _re='^@use[[:space:]]+"\.\./\.\./([^"]+)"(.*)$'
+  while IFS= read -r _line || [ -n "$_line" ]; do
+    _line="${_line%$'\r'}"
+    [[ "$_line" =~ $_re ]] || continue
+    _m=$((_m + 1)); _rel="${BASH_REMATCH[1]}"
+    [ -f "$_md/$_rel" ] || continue
+    _n=$((_n + 1)); printf '@use "%s"%s\n' "$_rel" "${BASH_REMATCH[2]}" >> "$_in"
+  done < "$_entry"
+  MXTK_THEME_DENOM="$_n of $_m"
+  if [ "$_n" -eq 0 ]; then
+    rm -rf "$_tmp"; MXTK_THEME_WHY="no usable @use entry in $_entry (0 of $_m)"; return 2
+  fi
+  _sassmd="$(native_path "$_md")"
+  "$_sass" --no-source-map --no-color --no-unicode --quiet --load-path="$_sassmd" \
+    "$(native_path "$_in")" "$(native_path "$_out")" > "$_err" 2>&1 < /dev/null || _rc=$?
+  if [ "$_rc" -eq 0 ]; then
+    rm -rf "$_tmp"; MXTK_THEME_STATE=pass
+    if [ "${MXTK_THEME_CACHE:-0}" = 1 ] && mkdir -p "${_mk%/*}" 2>/dev/null; then printf '%s\n' "$MXTK_THEME_DENOM" > "$_mk" 2>/dev/null || true; fi
+    return 0
+  fi
+  rm -f "$_mk" 2>/dev/null || true   # a failing theme voids any remembered pass
+  # sass's own error: "Error: <message>" then a frame, then the trace, innermost first:
+  #   "  themesource/mod/web/main.scss 4:24  @use". The first trace line is where it broke.
+  _re='^[[:space:]]+(.+\.(scss|sass|css))[[:space:]]+([0-9]+):([0-9]+)[[:space:]]'
+  while IFS= read -r _line || [ -n "$_line" ]; do
+    _line="${_line%$'\r'}"
+    case "$_line" in "Error: "*) [ -n "$MXTK_THEME_MSG" ] || MXTK_THEME_MSG="${_line#Error: }"; continue ;; esac
+    if [ -z "$MXTK_THEME_FILE" ] && [[ "$_line" =~ $_re ]]; then
+      MXTK_THEME_FILE="${BASH_REMATCH[1]}"; MXTK_THEME_LINE="${BASH_REMATCH[3]}"; MXTK_THEME_COL="${BASH_REMATCH[4]}"
+    fi
+  done < "$_err"
+  MXTK_THEME_FILE="${MXTK_THEME_FILE#$_sassmd/}"
+  if [ -z "$MXTK_THEME_MSG" ]; then
+    # sass failed without an "Error:" line (crash, bad flag): that is not a verdict on the theme.
+    MXTK_THEME_WHY="sass exited $_rc without an error report: $(tr '\n' ' ' < "$_err" | cut -c1-200)"
+    rm -rf "$_tmp"; return 2
+  fi
+  rm -rf "$_tmp"; MXTK_THEME_STATE=fail; return 1
+}
+
+# mxtk_theme_place — "<file>:<line>:<col>" of the last failing mxtk_theme_check, or just the file.
+mxtk_theme_place() {
+  [ -n "$MXTK_THEME_FILE" ] || return 0
+  printf '%s' "$MXTK_THEME_FILE"; [ -z "$MXTK_THEME_LINE" ] || printf ':%s:%s' "$MXTK_THEME_LINE" "$MXTK_THEME_COL"
+}
+
+# mxtk_theme_inject <errors-file> [model-dir] — the gate's use of the check. Runs mxtk_theme_check;
+# on a failing theme, makes sure <errors-file> (mxbuild --write-errors shape: what err_count, err_set,
+# err_report, verify-model.sh and the delta gate all read) carries ONE Error problem CE6093 whose
+# message names file:line:col. An existing CE6093 (mxbuild's, or mx check's, which have no file and
+# line) is rewritten in place, never duplicated; none present, one is added; an empty or missing
+# file is created. A passing or unrunnable check leaves the file untouched. Same return codes as
+# mxtk_theme_check; nothing is printed (callers print from the MXTK_THEME_* globals).
+mxtk_theme_inject() {
+  local _ef="$1" _py _msg
+  mxtk_theme_check "${2:-}" || { [ "$?" -eq 1 ] || return 2; }
+  [ "$MXTK_THEME_STATE" = fail ] || return 2
+  _py="${PY:-${MXTK_PY_MEMO:-$(resolve_py 2>/dev/null || true)}}"
+  [ -n "$_py" ] || { MXTK_THEME_WHY="no Python 3 to record the theme error"; MXTK_THEME_STATE=notrun; return 2; }
+  _msg="The theme could not be compiled: $(mxtk_theme_place) $MXTK_THEME_MSG"
+  "$_py" -c "
+import json, sys
+p, msg, f, l = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+try:
+    d = json.load(open(p))
+    if not isinstance(d, dict): d = {}
+except Exception:
+    d = {}
+d.setdefault('errors', []); probs = d.setdefault('problems', [])
+loc = [{'module': '-', 'document': f, 'element': 'line ' + l}]
+for x in probs:
+    if x.get('errorCode') == 'CE6093' and x.get('severity') == 'Error':
+        x['message'] = msg; x['locations'] = loc; break
+else:
+    probs.append({'name': None, 'severity': 'Error', 'message': msg, 'locations': loc, 'errorCode': 'CE6093',
+                  'documentationUrl': '', 'studioMessage': None, 'studioDocumentationUrl': None})
+json.dump(d, open(p, 'w'))
+" "$(native_path "$_ef")" "$_msg" "$MXTK_THEME_FILE" "${MXTK_THEME_LINE:-0}" 2>/dev/null || { MXTK_THEME_WHY="could not write the theme error into $_ef"; MXTK_THEME_STATE=notrun; return 2; }
+  return 1
+}
+
+# mxtk_theme_say — the one-line result of the last theme check, in the gate's own output style
+# (a ✓ / ✗ / ⚠ line, two-space indent). Printed once per exec by exec.sh; verify-model.sh and
+# theme-check.sh print the same text. A fail line carries file:line:col and sass's message.
+mxtk_theme_say() {
+  case "$MXTK_THEME_STATE" in
+    pass) if [ "${MXTK_THEME_CACHED:-0}" = 1 ]; then echo "  ✓ theme: SCSS compiles ($MXTK_THEME_DENOM entries; none changed since the last compile)."
+          else echo "  ✓ theme: SCSS compiles ($MXTK_THEME_DENOM entries)."; fi ;;
+    fail) echo "  ✗ theme: [CE6093] the theme does not compile — $(mxtk_theme_place): $MXTK_THEME_MSG" ;;
+    *)    echo "  ⚠ theme: NOT CHECKED — ${MXTK_THEME_WHY:-not run}. A theme that does not compile stops the app from starting." ;;
+  esac
 }
 
 # mxtk_mx_check_to_mxbuild <mx-check.json> <out.json> [python] — rewrite `mx check -j` output

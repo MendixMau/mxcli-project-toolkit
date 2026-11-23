@@ -2144,6 +2144,7 @@ gate_kind_decide() {
   fi
 }
 gate_kind_decide
+export MXTK_THEME_CACHE=1   # theme compile: reuse a pass while no SCSS changed (_common.sh mxtk_theme_check, #837)
 if [ "$GATE_KIND" = "check" ]; then
   export MXTK_GATE_KIND=check
   echo "→ Gate: mx check ($GATE_KIND_WHY; no Java compile)"
@@ -2162,9 +2163,16 @@ BASELINE_SET=""
 BASE_KNOWN=0
 if [ "${SKIP_BASELINE:-0}" != "1" ] && [ -x ./bin/model-stamp.sh ] \
    && ./bin/model-stamp.sh check -q --clean >/dev/null 2>&1; then
-  echo "→ Pre-flight: model unchanged since its last clean mxbuild (verification stamp) — baseline 0, not re-measured"
-  _BC=0; _BCODES=""; BASE_KNOWN=1
-  SKIP_BASELINE=1
+  # The stamp fingerprints the model, never theme/ or themesource/: a theme broken since the stamp
+  # would read as baseline 0 and the gate's CE6093 as this script's own, rolling good work back (#837).
+  _th_rc=0; mxtk_theme_check "" || _th_rc=$?
+  if [ "$_th_rc" -eq 1 ]; then
+    echo "→ Pre-flight: the stamp says clean, but the theme does not compile ($(mxtk_theme_place)) — measuring the baseline"
+  else
+    echo "→ Pre-flight: model unchanged since its last clean mxbuild (verification stamp) — baseline 0, not re-measured"
+    _BC=0; _BCODES=""; BASE_KNOWN=1
+    SKIP_BASELINE=1
+  fi
 fi
 if [ "${SKIP_BASELINE:-0}" != "1" ] && [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
   echo "→ Pre-flight: checking whether the model already has errors..."
@@ -2519,6 +2527,10 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
   MXBUILD_OUT="$MXTK_MXBUILD_OUT"
   MXB_WHY="${MXTK_MXBUILD_WHY:-}"
   step_done gate
+  # The theme (SCSS) compile, which `mx check` never runs and a deploy build reports without a place
+  # (#837): mxtk_gate_mxbuild has already folded a failure into the errors file as CE6093 with
+  # file:line:col; this is the one visible line, and a check that could not run says so.
+  [ -z "${MXTK_THEME_STATE:-}" ] || mxtk_theme_say
 
   # Keep the gate's full mxbuild output when the gate did not pass. The screen shows only the
   # top lines (the failure detail is often in the tail), and the temp file behind
@@ -2610,6 +2622,14 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
       if [ -n "$DELTA_KIND" ]; then
         GATE_STATE="pass"; GATE_ERRORS="$CE_COUNT"
         KEEP_CODES=$(err_codes "$ERRORS_FILE")
+        # A theme that does not compile is the one pre-existing error that never closes a row green:
+        # the app cannot start (CE6093), and nothing in this script could have fixed or caused it
+        # (#837). Kept, but UNVERIFIED: exit 5, no stamp, bin/verify-model.sh fails until it compiles.
+        case ",$KEEP_CODES," in
+          *,CE6093,*)
+            GATE_STATE="unverified"
+            MXB_WHY="the theme does not compile (CE6093)${MXTK_THEME_FILE:+: $(mxtk_theme_place) $MXTK_THEME_MSG} — fix it, then bin/verify-model.sh" ;;
+        esac
         if [ "$DELTA_KIND" = "subset" ]; then
           echo "  ⚠  mxbuild: $CE_COUNT error(s) — a STRICT SUBSET of the $_BC pre-flight baseline error(s), no new ones."
           echo "     Pre-existing [$KEEP_CODES] remain; this script reduced the error count. KEEPING the changes."
@@ -2655,6 +2675,7 @@ EOF
         err_report print "$ERRORS_FILE" || true
         cp "$ERRORS_FILE" "$LAST_ERRS"
         echo "  → Full error detail: .mpr-snapshots/last-mxbuild-errors.json"
+        case ",$CE_CODES," in *,CE6093,*) echo "  → CE6093 is the theme (theme/ or themesource/ SCSS), not this script's MDL: fix the file:line above (bin/theme-check.sh re-checks in under a second), then re-run." ;; esac
 
         if [ "$RESTORED" -ne 1 ]; then
           # Nothing was rolled back, so rebuilding now would measure the script's own

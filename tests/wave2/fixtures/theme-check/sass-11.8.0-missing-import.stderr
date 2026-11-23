@@ -1,0 +1,7 @@
+Error: Can't find stylesheet to import.
+   ,
+24 | @import "does-not-exist";
+   |         ^^^^^^^^^^^^^^^^
+   '
+  theme/web/main.scss 24:9  @use
+  /tmp/entry.scss 13:1      root stylesheet

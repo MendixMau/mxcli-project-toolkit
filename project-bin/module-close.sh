@@ -8,7 +8,8 @@
 #   2. model score (bin/metrics-ledger.sh record --module <M> → mxcli report), once, and one
 #      .claude/loop/metrics-ledger.tsv row (result module-close) carrying it. Since 2026-11-05
 #      this is where the score is taken; exec.sh scores per exec only under `Score: every exec`.
-#   3. mxcli docker check (= mx check), plus a full mxbuild (bin/verify-model.sh) under `Gate mode: check`
+#   3. mxcli docker check (= mx check) and bin/theme-check.sh (the SCSS compile mx check lacks; a
+#      theme that does not compile exits 1), plus a full mxbuild (bin/verify-model.sh) under `Gate mode: check`
 #      when the model has not had one since its last change
 #   4. bin/conformance-check.sh --module <M> --mark-built: the ledger rows this module built go
 #      planned -> built, once per module instead of by hand per row (#671); then
@@ -57,6 +58,14 @@ case "$score" in *"unknown mode"*) score=$(bash bin/metrics-ledger.sh score 2>&1
 _chk_out=$(mktemp "${TMPDIR:-/tmp}/module-close-check.XXXXXX")
 mxtk_reaped "$MX" docker check -p "$MPR" ${MXB:+--mxbuild-path "$MXB"} > "$_chk_out" 2>&1 < /dev/null || true
 chk=$(grep -v WARNING "$_chk_out" | tail -3); rm -f "$_chk_out"
+# `mx check` / `docker check` never compile the theme (SCSS): a module cannot close green on an app
+# that will not start (CE6093, #837). bin/theme-check.sh: seconds; "not checked" is shown, never green.
+theme_rc=0
+if [ -f bin/theme-check.sh ]; then
+  theme_out=$(bash bin/theme-check.sh 2>&1) || theme_rc=$?
+  chk="$chk
+$(printf '%s\n' "$theme_out" | tail -2)"
+fi
 # `Gate mode: check` (exec.sh): the module's execs were `mx check`ed, which compiles no Java. The
 # module boundary is one of the natural places for the full build, so run it here when the stamp
 # says the model has not had one (bin/verify-model.sh: mxbuild deploy build, stamps when clean).
@@ -134,4 +143,5 @@ if bash bin/model-stamp.sh check -q --full >/dev/null 2>&1; then
   { mkdir -p .claude/loop && touch .claude/loop/prepush-build.last && rm -f .claude/loop/prepush-deferred; } 2>/dev/null
 fi
 echo "module-close $mod: $nmine lint ⚠, verify-module exit $vm_rc, report $rep"
+[ "$theme_rc" -ne 1 ] || { echo "module-close $mod: the theme does not compile (section 3) — fix it, then re-run"; exit 1; }
 [ "$nmine" -eq 0 ] || exit 1

@@ -21,6 +21,8 @@
 # closed, empty errors file + exit 0 = 0 errors (SP 11 writes the file only when there
 # are errors). When mxbuild is missing it is downloaded first (mxtk_ensure_mxbuild).
 # Exit 0 = clean and stamped; 1 = errors; 2 = the gate could not run (nothing verified).
+# A theme (SCSS) that does not compile is an error here (CE6093, file:line:col, exit 1, no stamp): #837,
+# project-bin/_common.sh "Theme (SCSS) compile check". A check that cannot run prints "theme: NOT CHECKED".
 set -e
 . "$(dirname "$0")/_common.sh"
 
@@ -68,6 +70,16 @@ fi
 _out_txt=""; [ "$RC" -eq 0 ] || _mxtk_slurp _out_txt "$OUT"
 mxtk_mxbuild_oom_note "$RC" "$_out_txt" && WHY="$MXTK_MXBUILD_OOM"
 
+# The theme (SCSS) compile (#837): neither a cold deploy build (CE6093 with no file) nor a warm one
+# (errors[] only, exit 3 → "NOTHING was verified") names the file and line, and `mx check` never
+# compiles it. mxtk_theme_inject folds a failing theme into $ERR as one Error CE6093 with file:line:col,
+# so it counts here, fails the run and withholds the stamp; one that cannot run is said so, never green.
+THEME_LINE=""
+if command -v mxtk_theme_inject >/dev/null 2>&1; then
+  mxtk_theme_inject "$ERR" || true
+  THEME_LINE="$(mxtk_theme_say)"
+fi
+
 if [ ! -s "$ERR" ] && [ "$RC" -eq 0 ]; then
   COUNT=0; CODES=""
 elif [ -s "$ERR" ]; then
@@ -90,6 +102,7 @@ if [ "$COUNT" = "?" ]; then
   else
     echo "✗ mxbuild exited $RC and its errors file could not be read — NOTHING was verified."
   fi
+  [ -z "$THEME_LINE" ] || echo "$THEME_LINE"
   grep -v '^$' "$OUT" | tail -15 | sed 's/^/    /'
   rm -f "$ERR" "$OUT"; exit 2
 fi
@@ -102,6 +115,7 @@ for x in [p for p in d.get('problems',[]) if p.get('severity')=='Error'][:15]:
   rm -f "$ERR" "$OUT"; exit 1
 fi
 echo "✓ mxbuild: 0 errors — model is clean."
+[ -z "$THEME_LINE" ] || echo "$THEME_LINE"
 [ "$PLACE" = copy ] && echo "  (built in .mxtk/build/ — the running app's deployment/ was not touched)"
 rm -f "$ERR" "$OUT"
 [ "$STAMP" = 1 ] && MXTK_STAMP_KIND=full MXTK_STAMP_ERRORS=0 ./bin/model-stamp.sh write pass "verify-model.sh"

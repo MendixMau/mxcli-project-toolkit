@@ -705,7 +705,19 @@ for _ea in "${MXTK_ROOT:-}/bin/exec-approval.sh" "$_TKR/bin/exec-approval.sh"; d
   break
 done
 
-log_build() {   # $1=status  $2=detail
+# $3 (refusal, rollback and blocked rows only) names the guard that stopped the write, as a
+# stable token " · guard=<id>" right after the detail text: plan-rule · stop-row-scan ·
+# row-group-gate · lock-studio-pro · commit-first · uncommitted-model · marketplace-gate ·
+# mxcli-check · mxbuild-missing (toolchain absent: environment, not a catch) ·
+# pre-existing-errors (model already broken, not by this script) · mxbuild-crash (gate could
+# not run) · mxbuild-gate (errors this script introduced: the real catches) · hash-verify.
+# patch-exit is NOT a guard: the --patch script itself exited non-zero, and metrics-trend.sh
+# counts it apart, as "script failed". WHY (overengineering audit,
+# 2026-11-20): 13 of 136 field execs were "blocked or refused" and no row said which guard,
+# so nobody could weigh a guard's catches against its false refusals. Counted per guard by
+# project-bin/metrics-trend.sh. Inside the detail cell, so the row keeps its 5 cells and every
+# column reader is unchanged; a parameter expansion, so no process start.
+log_build() {   # $1=status  $2=detail  [$3=guard id]
   [ -d "${BUILD_LOG%/*}" ] || mkdir -p "${BUILD_LOG%/*}"
   [ -f "$BUILD_LOG" ] || cat > "$BUILD_LOG" <<'HDR'
 # Build log — auto-appended by bin/exec.sh
@@ -738,7 +750,7 @@ HDR2
   # The gate cell is read from GATE_STATE rather than passed in, so no caller
   # can omit it — a blank cell in this table reads as "fine", which is the exact
   # false-green the gate exists to prevent.
-  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${POS_NOTE:+ · $POS_NOTE}${SCAN_NOTE:+ · $SCAN_NOTE}${ROWS_NOTE:+ · $ROWS_NOTE}${MKT_NOTE:+ · $MKT_NOTE}${RESTATE_NOTE:+ · $RESTATE_NOTE}${GATE_NOTE:+ · $GATE_NOTE}${MXB_LOG_NOTE:+ · $MXB_LOG_NOTE}${HV_NOTE:+ · $HV_NOTE}${SCOPE_NOTE:+ · $SCOPE_NOTE}$_EXEC_APPROVAL_SUFFIX${STEP_TIMES:+ · steps: $STEP_TIMES}"
+  _detail="$2${3:+ · guard=$3}${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${POS_NOTE:+ · $POS_NOTE}${SCAN_NOTE:+ · $SCAN_NOTE}${ROWS_NOTE:+ · $ROWS_NOTE}${MKT_NOTE:+ · $MKT_NOTE}${RESTATE_NOTE:+ · $RESTATE_NOTE}${GATE_NOTE:+ · $GATE_NOTE}${MXB_LOG_NOTE:+ · $MXB_LOG_NOTE}${HV_NOTE:+ · $HV_NOTE}${SCOPE_NOTE:+ · $SCOPE_NOTE}$_EXEC_APPROVAL_SUFFIX${STEP_TIMES:+ · steps: $STEP_TIMES}"
   if [ -n "${EPOCHSECONDS:-}" ]; then printf -v _when '%(%Y-%m-%dT%H:%M:%S%z)T' -1; else _when="$(date '+%Y-%m-%dT%H:%M:%S%z')"; fi
   printf '| %s | `%s` | %s | %s | %s |\n' \
     "$_when" "$LOG_NAME" \
@@ -845,7 +857,7 @@ if [ -f "$_XD/_position.sh" ]; then
     echo "✗ Plan rule (Interview mode: auto): $1, and the pre-build steps are not done — $_GC $PROJECT_ROOT build-ready has not passed. NOTHING was written."
     echo "  Remedy: run stages 1-4, then $_GC $PROJECT_ROOT build-ready; or $_GC $PROJECT_ROOT --adopt 5 --reason \"...\" — under auto that is a ✋ human-pending decision, and Stage 6 FAILs until a person confirms it."
     echo "  Already building past Stage 5? One build-ready pass clears it: its record is kept per clone (.mpr-snapshots/), so each fresh clone runs it once."
-    log_build "🚫 blocked" "plan rule (auto): $1, build-ready not passed and no adoption — nothing written"
+    log_build "🚫 blocked" "plan rule (auto): $1, build-ready not passed and no adoption — nothing written" plan-rule
     exit 1
   }
   if [ "$POS_ENTRY" = greenfield-retired ]; then
@@ -878,7 +890,7 @@ if [ -f "$_XD/_position.sh" ]; then
       echo "✗ Plan rule: Entry mode $POS_ENTRY, and Stage 4 has not passed or been adopted — no build plan, no module briefs. NOTHING was written."
       echo "  Remedy: run stages 1-4 (conversion-runbook.md), or record why not: $_GC $PROJECT_ROOT --adopt 5 --reason \"...\" (it shows in the register)."
       echo "  This is the one refusal this clone will ever get: every later write goes on, its BUILD-LOG row tagged \"no plan\"."
-      log_build "🚫 blocked" "plan rule: Entry mode $POS_ENTRY, no build plan/briefs and Stage 4 not adopted — refused once, nothing written"
+      log_build "🚫 blocked" "plan rule: Entry mode $POS_ENTRY, no build plan/briefs and Stage 4 not adopted — refused once, nothing written" plan-rule
       exit 1
     fi
   fi
@@ -928,7 +940,7 @@ if [ "$PATCH_MODE" != "1" ]; then
             echo "✗ STOP-row scan: refusing exec on a blocking rule. NOTHING was locked, snapshotted or written."
             echo "  Each line above names its learned-mdl-preflight.md row and the rewrite. Fix the script."
             echo "  Only the user may override, with a reason: MXTK_SCAN_OVERRIDE=\"<why>\" ./bin/exec.sh $SCRIPT"
-            log_build "🚫 blocked" "STOP-row scan: $(printf '%s\n' "$_scan_out" | grep -c ' \[block\]$') blocking hit(s), $(scan_ids block) — nothing written"
+            log_build "🚫 blocked" "STOP-row scan: $(printf '%s\n' "$_scan_out" | grep -c ' \[block\]$') blocking hit(s), $(scan_ids block) — nothing written" stop-row-scan
             exit 1 ;;
           *)
             echo "⚠ STOP-row scan OVERRIDDEN by MXTK_SCAN_OVERRIDE: ${MXTK_SCAN_OVERRIDE}" >&2
@@ -961,7 +973,7 @@ if [ "$PATCH_MODE" != "1" ] && [ -x "$PROJECT_ROOT/bin/row-groups.sh" ]; then
       result_line refused no skipped 1
       echo "✗ Row-group gate: refusing exec. NOTHING was locked, snapshotted or written."
       echo "  See the groups: bin/row-groups.sh. Override with a reason: MXTK_ROWS_OVERRIDE=\"<why>\" ./bin/exec.sh $SCRIPT"
-      log_build "🚫 blocked" "row-group gate: $(printf '%s' "$_rg_out" | head -1 | tr '|' '/' | cut -c1-200) — nothing written"
+      log_build "🚫 blocked" "row-group gate: $(printf '%s' "$_rg_out" | head -1 | tr '|' '/' | cut -c1-200) — nothing written" row-group-gate
       exit 1
     fi
     echo "⚠ Row-group gate OVERRIDDEN: ${MXTK_ROWS_OVERRIDE}" >&2
@@ -1113,7 +1125,7 @@ commit_model_first() {
     echo "✗ --commit-first refused: Studio Pro holds $NAME (PID $SP_PID). Its in-memory model is not"
     echo "  what is on disk, so a commit now would record a state nobody is looking at."
     echo "  → Save and close the project in Studio Pro, then re-run. Nothing was committed or executed."
-    log_build "🚫 blocked" "--commit-first refused: Studio Pro holds the model"
+    log_build "🚫 blocked" "--commit-first refused: Studio Pro holds the model" lock-studio-pro
     return 1
   fi
   echo "→ --commit-first: committing ONLY these model paths (nothing else is staged or committed):"
@@ -1129,7 +1141,7 @@ commit_model_first() {
     IFS="$_IFS"; set +f
     result_line refused no skipped 1
     echo "✗ --commit-first: git add of the model paths failed — nothing was committed or executed."
-    log_build "🚫 blocked" "--commit-first: git add failed"
+    log_build "🚫 blocked" "--commit-first: git add failed" commit-first
     return 1
   fi
   if ! _cout="$(git commit -q -m "model: commit pending model changes before exec.sh $LOG_NAME" \
@@ -1141,7 +1153,7 @@ commit_model_first() {
     echo "✗ --commit-first: git commit was refused — nothing was executed. The model paths are left staged."
     echo "  If the model-stamp hook refused it: ./bin/verify-model.sh (one mxbuild, stamps a clean model),"
     echo "  then re-run with --commit-first."
-    log_build "🚫 blocked" "--commit-first: git commit refused"
+    log_build "🚫 blocked" "--commit-first: git commit refused" commit-first
     return 1
   fi
   IFS="$_IFS"; set +f
@@ -1166,7 +1178,7 @@ if [ -n "$MPR_DIRTY" ]; then
     # A refusal here is otherwise invisible in docs/BUILD-LOG.md — nothing runs
     # after this exit, so the row has to be written before it, same shape as
     # every other blocked-exec row this script writes.
-    log_build "🚫 blocked" "uncommitted model changes — refusing exec to prevent snapshot regression"
+    log_build "🚫 blocked" "uncommitted model changes — refusing exec to prevent snapshot regression" uncommitted-model
     exit 1
   fi
   echo "  (FORCE_EXEC set — proceeding despite uncommitted changes)"
@@ -1336,7 +1348,7 @@ if [ "$PATCH_MODE" != "1" ] && [ -f "$SCRIPT" ] && [ -n "$_MKT_LIB" ] \
         echo "  or record it as deliberately not installed: bin/gate-check.sh --waive marketplace/<Name> --reason \"...\""
         echo "  The PAT the install needs: skills/learned-constants-and-secrets.md § \"Creating a PAT for Marketplace installs\"."
         echo "  Override with a reason: MXTK_MKT_OVERRIDE=\"<why>\" ./bin/exec.sh $SCRIPT"
-        log_build "🚫 blocked" "marketplace install gate: $(printf '%s' "$_mkt_nt" | tr '|' '/' | cut -c1-200) — nothing written"
+        log_build "🚫 blocked" "marketplace install gate: $(printf '%s' "$_mkt_nt" | tr '|' '/' | cut -c1-200) — nothing written" marketplace-gate
         exit 1
       fi
       echo "⚠ Marketplace install gate OVERRIDDEN: ${MXTK_MKT_OVERRIDE}" >&2
@@ -1645,7 +1657,7 @@ elif [ "${SKIP_CHECK:-0}" != "1" ] && [ -n "$PMXCLI" ]; then
     echo ""
     echo "  ✗ mxcli check failed — refusing to exec. NOTHING was written to the model."
     echo "    Fix the script, or re-run with SKIP_CHECK=1 if you know why the parser is wrong."
-    log_build "🚫 blocked" "mxcli check failed pre-exec — nothing written to the model${_why:+; check: $_why}"
+    log_build "🚫 blocked" "mxcli check failed pre-exec — nothing written to the model${_why:+; check: $_why}" mxcli-check
     exit 1
   fi
   rm -f "$_co"
@@ -1755,7 +1767,7 @@ if [ ! -x "$MXBUILD" ] || [ ! -x "$JAVA_EXE" ]; then
       echo "  To write anyway, unverified: ALLOW_UNVERIFIED=1 ./bin/exec.sh $SCRIPT  — the commit hook will then" >&2
       echo "  refuse the result until ./bin/verify-model.sh has run the gate over it." >&2
     fi
-    log_build "✗ refused" "mxbuild gate cannot run (mxbuild: $([ -x "$MXBUILD" ] && echo ok || echo missing), java: $([ -x "$JAVA_EXE" ] && echo ok || echo missing)); nothing written"
+    log_build "✗ refused" "mxbuild gate cannot run (mxbuild: $([ -x "$MXBUILD" ] && echo ok || echo missing), java: $([ -x "$JAVA_EXE" ] && echo ok || echo missing)); nothing written" mxbuild-missing
     exit 1
   fi
 fi
@@ -2246,9 +2258,9 @@ if [ "$PATCH_MODE" = "1" ]; then
     restore_snapshot
     if [ -x ./bin/model-stamp.sh ]; then ./bin/model-stamp.sh clear >/dev/null 2>&1 || true; fi
     if [ "$RESTORED" -eq 1 ]; then
-      log_build "❌ patch failed" "script exit $EXEC_STATUS — rolled back, gate not run"
+      log_build "❌ patch failed" "script exit $EXEC_STATUS — rolled back, gate not run" patch-exit
     else
-      log_build "❌ patch failed" "script exit $EXEC_STATUS — NOT rolled back (restore did not run)"
+      log_build "❌ patch failed" "script exit $EXEC_STATUS — NOT rolled back (restore did not run)" patch-exit
     fi
     rm -f "$HV_BASE"
     if [ "$RESTORED" -eq 1 ]; then result_line restored no skipped 1; else result_line failed unknown skipped 1; fi
@@ -2336,9 +2348,9 @@ EOF_HV
       if [ -x ./bin/model-stamp.sh ]; then ./bin/model-stamp.sh clear >/dev/null 2>&1 || true; fi
       rm -f "$HV_BASE" "$HV_POST"
       if [ "$RESTORED" -eq 1 ]; then
-        log_build "❌ patch refused" "$_hv_detail — rolled back, gate not run"
+        log_build "❌ patch refused" "$_hv_detail — rolled back, gate not run" hash-verify
       else
-        log_build "❌ patch refused" "$_hv_detail — NOT rolled back (restore did not run)"
+        log_build "❌ patch refused" "$_hv_detail — NOT rolled back (restore did not run)" hash-verify
       fi
       if [ "$RESTORED" -eq 1 ]; then result_line restored no skipped 1; else result_line failed unknown skipped 1; fi
       restore_close
@@ -2566,7 +2578,7 @@ EOF
           # output and call its error PRE-EXISTING. Say what happened instead.
           echo ""
           echo "  ✗ The model still holds this script's changes and fails with [$CE_CODES]."
-          log_build "❌ gate failed" "$CE_COUNT error(s): $CE_CODES — NOT rolled back (restore did not run)"
+          log_build "❌ gate failed" "$CE_COUNT error(s): $CE_CODES — NOT rolled back (restore did not run)" mxbuild-gate
         else
           # ── Whose error is it? ───────────────────────────────────────────────
           # The model is now back at its pre-exec state. If it STILL fails, the
@@ -2594,7 +2606,7 @@ EOF
             echo "  → Undone: this script added $NEW_COUNT new error(s) [$NEW_CODES]. Fix those and re-run."
             echo "     The model is back to its $BASE_COUNT earlier error(s) [$BASE_CODES]. Those did not cause this; a script"
             echo "     that adds nothing new is kept even while they remain."
-            log_build "❌ gate failed" "$NEW_COUNT new error(s): $NEW_CODES — script rolled back; $BASE_COUNT pre-existing remain"
+            log_build "❌ gate failed" "$NEW_COUNT new error(s): $NEW_CODES — script rolled back; $BASE_COUNT pre-existing remain" mxbuild-gate
           elif [ "$BASE_COUNT" != "0" ] && [ "$BASE_COUNT" != "?" ]; then
             echo "  ⚠  PRE-EXISTING: the restored model already fails with $BASE_COUNT error(s) [$BASE_CODES]."
             echo "     This script is NOT the cause. Nothing will exec until that is cleared."
@@ -2604,13 +2616,13 @@ EOF
                 echo "       CE0066  security overview → update entity access"
                 echo "       CE0463  right-click a widget → Update all widgets" ;;
             esac
-            log_build "🚫 blocked" "PRE-EXISTING $BASE_CODES — not caused by this script; needs Studio Pro"
+            log_build "🚫 blocked" "PRE-EXISTING $BASE_CODES — not caused by this script; needs Studio Pro" pre-existing-errors
           elif [ "$BASE_COUNT" = "?" ]; then
             echo "  → The restored model could not be measured, so whose error it is stays open: [$CE_CODES]."
-            log_build "❌ gate failed" "$CE_COUNT error(s): $CE_CODES — script rolled back; restored model not measured"
+            log_build "❌ gate failed" "$CE_COUNT error(s): $CE_CODES — script rolled back; restored model not measured" mxbuild-gate
           else
             echo "  → The restored model builds clean, so this script introduced [$CE_CODES]."
-            log_build "❌ gate failed" "$CE_COUNT error(s): $CE_CODES — script rolled back"
+            log_build "❌ gate failed" "$CE_COUNT error(s): $CE_CODES — script rolled back" mxbuild-gate
           fi
         fi
         rm -f "$ERRORS_FILE"
@@ -2633,15 +2645,15 @@ EOF
       echo "  ✗ mxbuild ran on this model before the write and crashed after it — rolling the write back."
       restore_snapshot
       if [ "$RESTORED" -eq 1 ]; then
-        log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT on the written model (ran on the baseline) — script rolled back${MXB_WHY:+; mxbuild: $MXB_WHY}"
+        log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT on the written model (ran on the baseline) — script rolled back${MXB_WHY:+; mxbuild: $MXB_WHY}" mxbuild-crash
       else
         echo "  STOP: the model may not load. Restore it before the next exec: ./bin/restore-mpr.sh <newest .mpr-snapshots/ dir>"
-        log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT on the written model — NOT rolled back (restore did not run)"
+        log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT on the written model — NOT rolled back (restore did not run)" mxbuild-crash
       fi
     else
       echo "  → Snapshot preserved. Open in SP to verify manually before proceeding."
       # --patch logs its own row below, after rolling back; one row per run.
-      [ "$PATCH_MODE" = "1" ] || log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT"
+      [ "$PATCH_MODE" = "1" ] || log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT" mxbuild-crash
     fi
   else
     GATE_STATE="pass"; GATE_ERRORS=0
@@ -2671,10 +2683,19 @@ if [ "$PATCH_MODE" = "1" ] && [ "$GATE_STATE" != "pass" ] && [ "$RESTORE_TRIED" 
   echo "  ✗ --patch: gate $GATE_STATE — nothing verified the patch, so it is rolled back."
   restore_snapshot
   if [ -x ./bin/model-stamp.sh ]; then ./bin/model-stamp.sh clear >/dev/null 2>&1 || true; fi
+  # Not a catch (review of #813): this branch only sees a gate that never ran (skipped ->
+  # mxbuild-missing) or ran and could not verify (fail = a crash, unverified -> mxbuild-crash).
+  # Never mxbuild-gate. Literal ids, so the static guard-name check can read them.
   if [ "$RESTORED" -eq 1 ]; then
-    log_build "↩ patch rolled back" "gate $GATE_STATE${MXB_WHY:+ (mxbuild: $MXB_WHY)} — an unverified patch is not kept"
+    if [ "$GATE_STATE" = "skipped" ]; then
+      log_build "↩ patch rolled back" "gate $GATE_STATE — an unverified patch is not kept" mxbuild-missing
+    else
+      log_build "↩ patch rolled back" "gate $GATE_STATE${MXB_WHY:+ (mxbuild: $MXB_WHY)} — an unverified patch is not kept" mxbuild-crash
+    fi
+  elif [ "$GATE_STATE" = "skipped" ]; then
+    log_build "❌ patch unverified" "gate $GATE_STATE — NOT rolled back (restore did not run)" mxbuild-missing
   else
-    log_build "❌ patch unverified" "gate $GATE_STATE — NOT rolled back (restore did not run)"
+    log_build "❌ patch unverified" "gate $GATE_STATE — NOT rolled back (restore did not run)" mxbuild-crash
   fi
   if [ "$RESTORED" -eq 1 ]; then result_line restored no no 1; else result_line failed unknown no 1; fi
   restore_close

@@ -63,3 +63,28 @@ we now have three Mendix apps calling each other, who owns which contract	skills
 set up SSO across all our apps with one identity provider and group role mapping	skills/multi-app-system.md	-	-
 rolling out a new version of the shared module to every app that uses it	skills/multi-app-release.md	skills/company-brain.md	-
 in what order do we deploy the publisher and consumers when the API gets a v2	skills/multi-app-release.md	skills/mendix-service-seam.md,skills/rest-between-mendix-apps.md	-
+# Symptom phrasings from issues #759-#805 and field reports (routing retrieval experiment, 2026-11-20).
+my commit is refused by model-stamp, the pre-commit hook says the model is unstamped but the .mpr lives in its own git repo	bin/file-bugs.sh	skills/upstream-feedback.md,skills/agent-permission-friction.md	-
+Jaeger returns 404 and every trace check in the journey report reads zero spans	skills/journey-proof.md	skills/harness-architecture.md,skills/journey-examples.md	-
+monkey reports HTTP 551 with a datavalidation body as a crash	skills/monkey-test.md	skills/finding-disposition.md	-
+this was a greenfield project, after sync-project the register says requirements-driven — which stage are we in now	skills/conversion-runbook.md	bin/status.sh	-
+Team Server going live: which copy of the project do we deploy from	skills/platform-link.md	skills/teamserver-alignment.md,skills/deploy-to-sandbox.md	-
+status says the agent editor .mxmodule is missing from the model	skills/mendix-agents.md	skills/mendix-agent-setup.md	-
+I get a permission prompt on every single project-bin script call	skills/agent-permission-friction.md	-	-
+Marketplace has no widget that fits, should we build our own pluggable widget	skills/marketplace-catalogue.md	skills/learned-mdl-cannot-express.md	-
+file-bugs.sh mangled my issue text, it replaced the hyphens and spaces	bin/file-bugs.sh	skills/upstream-feedback.md	-
+the journey runner can't match a row in a Mendix 11 list view	skills/journey-examples.md	skills/journey-proof.md,skills/e2e-locators-that-lie.md	-
+every exec takes 13 minutes, it is copying node_modules into the build folder	skills/speed-setup.md	-	-
+we're in auto interview mode, how do I write down an assumed intake answer	skills/interview-protocol.md	-	-
+PROJECT.md says current stage 4 but the gate for 5 already passed	bin/status.sh	skills/conversion-runbook.md	-
+customer wants something clickable to show on Friday	skills/poc-build.md	-	-
+Data Grid 2 column with a widget inside fails CE0463	skills/learned-dg2-patterns.md	bin/bug-lookup.sh	-
+need parallel approval branches in the workflow but BUG-121 blocks it	skills/learned-workflow-patterns.md	skills/workflow-structure-rules.md,skills/retesting-learned-rules.md	-
+doctor warns the cached MxBuild version differs from the project's	skills/doctor-triage.md	-	-
+test-stack-up says whatever answered on port 8080 isn't our app	project-bin/test-stack-up.sh	skills/harness-architecture.md	-
+audit this existing app for security holes and regression-test it, we don't want the whole pipeline	skills/existing-app-assurance.md	-	-
+I want to move the Billing module out into its own app	skills/decompose-app.md	-	-
+project's over, write the learnings back to the toolkit	skills/close-the-loop.md	bin/file-bugs.sh	-
+we keep three apps in one repo under apps/{App}/{App}.mpr	skills/multi-app-system.md	-	-
+marketplace-check.sh aborts silently on macOS bash 3.2	bin/file-bugs.sh	skills/upstream-feedback.md,skills/doctor-triage.md	-
+the gate says READY but I'm not sure the tests would catch anything	skills/journey-proof.md	skills/testing-shape.md,skills/learned-detection-gaps.md,skills/tool-output-is-not-ground-truth.md	-

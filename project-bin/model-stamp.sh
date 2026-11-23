@@ -340,6 +340,27 @@ case "$cmd" in
     for a in "$@"; do case "$a" in --staged) staged=1 ;; -q|--quiet) quiet=1 ;; --clean) clean=1 ;; --full) full=1 ;; esac; done
     say() { [ "$quiet" = 1 ] || echo "$@"; }
     if [ "$staged" = 1 ]; then
+      # A model this commit cannot stage (#805: CLAUDE.local.md "Project MPR" pointing at a
+      # Team Server clone). git commit exports GIT_INDEX_FILE, so every `git -C "$MODEL_DIR"`
+      # below read the committing repo's index, found no model files in it and refused every
+      # commit, docs-only included. Pass ONLY when the model's real path is outside the work
+      # tree being committed to, or the model's own repo top (asked with git's repo variables
+      # unset) is strictly under that work tree, i.e. a separate nested repo. Anything else falls
+      # through: a GIT_DIR/GIT_WORK_TREE work tree with no .git inside an unrelated outer repo
+      # makes the model's "own top" the outer repo, and comparing tops alone waved an unverified
+      # model through there (independent review of #810). Same repo, worktree and --git-dir
+      # commits (the T9 cases) keep today's behaviour.
+      _htop="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+      _h="$( [ -n "$_htop" ] && cd "$_htop" 2>/dev/null && pwd -P || true)"
+      _m="$(cd "$MODEL_DIR" 2>/dev/null && pwd -P || true)"
+      if [ -n "$_h" ] && [ -n "$_m" ]; then
+        _mtop="$(unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE; git -C "$MODEL_DIR" rev-parse --show-toplevel 2>/dev/null || true)"
+        _mt="$( [ -n "$_mtop" ] && cd "$_mtop" 2>/dev/null && pwd -P || true)"
+        case "$_m/" in
+          "$_h"/*) case "$_mt" in "$_h"/?*) say "  the model is in another repository ($_mtop), nested in this one — nothing staged here to verify"; exit 0 ;; esac ;;
+          *) say "  the model is outside this work tree (${_mtop:-$_m}) — nothing staged here to verify"; exit 0 ;;
+        esac
+      fi
       in_git || exit 0
       _git_info; top="$_GI_TOP"
       _load_model_paths || exit 1

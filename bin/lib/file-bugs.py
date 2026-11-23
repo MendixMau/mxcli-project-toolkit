@@ -194,6 +194,29 @@ def name_pat(name, sub=None):
     return r"(?:(?<![A-Za-z0-9])(?i:" + core + r")|(?<=[a-z0-9])" + cap + r")(?![a-z0-9])"
 
 
+def attr_pat(name):
+    """Attribute names (#759). They come from the model, and many are plain English (Round, Used), so
+    the rule is tighter than name_pat's. A distinctive one still matches in any case and with anything
+    after it (Kundennummer2, kundennummerold, KundennummerCheck), but only where an identifier segment
+    starts: the attribute Round no longer turns "Workaround" into "WorkaAttr1", and ACT_Round_Save,
+    $w/Round and myRound are still caught (so is a whole word "round": case-insensitive, as before). A weak one (short or a common word: Used) matches as a whole
+    word or segment in its model spelling only, so "used" in prose survives and $w/Used does not.
+    Known limits, accepted for readable reports (were redacted before #759): a distinctive attribute
+    inside a lowercase compound (`prekundennummer`) and a weak one in all caps (`USED`) are left in
+    clear. Module and entity names still go through name_pat; hosts, emails and paths are unaffected."""
+    n = norm(name)
+    core = LB.join(re.escape(c) for c in n)
+    seg = r"(?<=[a-z0-9])" + LB.join(re.escape(c) for c in n[:1].upper() + n[1:])
+    if not is_weak(n):
+        return r"(?:(?<![A-Za-z0-9])(?i:" + core + r")|" + seg + r")"
+    return r"(?:(?<![A-Za-z0-9])" + core + r"|" + seg + r")(?![a-z0-9])"
+
+
+# A deny pattern that matches this is not a name: it matches ordinary text (#759). `\b.\b`, written by
+# `init-project.sh .` before the fix, turned every space and hyphen into <redacted>.
+DENY_PROBES = ("", " ", "a-b c")
+
+
 def _toolkit_names():
     here = os.path.dirname(os.path.abspath(__file__))
     root = os.path.normpath(os.path.join(here, "..", ".."))
@@ -300,10 +323,23 @@ class Redactor:
 
         def add(pat, src):
             try:
-                pats.append(re.compile(pat, re.I))
-                return
+                rx = re.compile(pat, re.I)
             except re.error:
-                pass
+                rx = None
+            if rx is not None:
+                if not any(rx.search(p) for p in DENY_PROBES):
+                    pats.append(rx)
+                elif not re.search(r"[^\W_]{3,}", pat):
+                    # holds no name at all (`\b.\b`, `\b\b`): dropping it loses nothing. Unicode-aware, so
+                    # `Öko|` counts as a name (review of #815)
+                    self.warnings.append("deny pattern `%s` matches ordinary text (empty, a space, a hyphen or a "
+                                         "one-letter word), so it is ignored. Remove that line from %s"
+                                         % (pat[:60], src))
+                else:
+                    # holds a name but also matches everything (`Acme|Initrode|`, `(Acme)?`): fail closed,
+                    # since dropping it would post those names in clear (review of #815)
+                    self.bad_deny.append("%s: %r matches ordinary text" % (src, pat[:60]))
+                return
             # invalid as a whole: nothing is kept, posting/--links/--json are refused until it is fixed
             self.bad_deny.append("%s: %r" % (src, pat[:60]))
 
@@ -441,9 +477,11 @@ class Redactor:
         self.matchers = []
         if self.app:
             self.matchers.append((self.app, "App1", name_pat(self.app)))
-        for table in (self.mods, self.ents, self.docs, self.attrs):
+        for table in (self.mods, self.ents, self.docs):
             for n, tok in table.items():
                 self.matchers.append((n, tok, name_pat(n)))
+        for n, tok in self.attrs.items():
+            self.matchers.append((n, tok, attr_pat(n)))
         for u in self.users:
             self.matchers.append((u, "<user>", name_pat(u)))
         for h in self.hosts:

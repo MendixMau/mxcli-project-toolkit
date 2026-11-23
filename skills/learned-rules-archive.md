@@ -132,6 +132,25 @@ Before the retest:
 
 - **No `elseif` in page/widget expressions** (DynamicClasses, Visible, ContentParams, …): nest `else if … then … else …`. Microflow `IF/ELSEIF` compiles into decision splits; a page expression passes through to Mendix's parser, which has no `elseif` token. v0.24.0: `check` and `exec` pass it, `mx check` gives `[CE0117] Error(s) in expression at Container '…'`; lint does not flag it.
 
+### Gotcha — mxcli v0.25 dialect, "never add `mdl 1;`" (retired 2026-11-23)
+
+**CONTRADICTED on v0.32.0-374.** mxcli's own generated `CLAUDE.md` says "Each starts with `mdl 1;`. A headerless one is `mdl 0`: upgrade it first", and the MDLBENCH run of 2026-11-20 (122 runs, real `mx check`) found every agent script in every arm starting with `mdl 1;` and building. The two hazards the gotcha named are now caught or warned: a headerless script parses as `mdl 0` with `MDL-DEPR*` deprecation warnings (retest probe M01), and under `mdl 1;` a `retrieve … limit 1` used as one object is refused at `check` ("$O was retrieved as a list (under `mdl 1;` `limit 1` is a list of one) …" [MDL-RETRIEVE03], probe M02). The `create or replace` spelling it told agents to keep is flagged MDL-DEPR001; write `create or modify`. Still true for a team that also runs mxcli v0.24: v0.24 rejects the header (`line 1:4 extraneous input '1'`), so keep such a team's scripts headerless until it upgrades.
+
+Before the retirement:
+
+- **mxcli v0.25 — keep the skills' spellings, never add `mdl 1;`.** The spellings in these skills (`count($L)`, `on error { … }`, `show page M.P($Obj = $Obj)`, `create or replace`) parse on v0.24.0 *and* v0.25.0; v0.25 only warns (`MDL-DEPR*`, "refused from `mdl 2`"). The new spellings (`count $L`, `on error begin … end error`, `P(Obj = $Obj)`) fail `check` on v0.24 — don't "modernise" a script the team may still run there. The hazard is the dialect header: v0.24 rejects it (`line 1:4 extraneous input '1'`), and under it v0.25 changes meanings — `show entity M.E` becomes an error (use `describe entity` / `list entities`; `-c` and the REPL already read this way), and `retrieve … limit 1` returns a *list* (use `first`; v0.32.0-374 `check` catches it). So strip the `mdl 1;` line from `describe` output before pasting it into a script, and never mix dialects in one file. Moving a whole file to mdl 1 on purpose: `mxcli fmt --upgrade -w -p <app>.mpr <script>`, then `check -p --references`, then exec once and run `bin/idempotence-check.sh <script>` (one `mxcli diff`; must say PASS, never a second exec).
+
+### STOP #21 and #23 — the `create or replace` spelling (reworded 2026-11-23)
+
+**REWORDED on v0.32.0-374.** `create or replace` is deprecated there (`MDL-DEPR001`: write `create or modify`), and the live rows now name only `create or modify`. The rule itself is unchanged; on an mxcli that does not flag `create or replace`, the old wording reads the same.
+
+Before the rewording:
+
+| # | If your script will… | Then… | Fails as | Kind |
+|---|---|---|---|---|
+| 21 | `DROP` + `CREATE`, `create or modify` or `create or replace` any document **another script also edits** — an aggregator microflow, an after-startup chain, a navigation profile | **STOP → `describe` the live document first, diff your restatement against that dump, and name in the script header which call sites you preserved. A new owner adds `-- supersedes: <script>`; drafting ahead of unrun scripts, `bin/describe-baseline.sh stamp <script>` after the DESCRIBE (exec.sh only warns).** Prefer an in-place edit where your mxcli has one: `alter navigation` / `alter menu` (v0.28+, mendixlabs/mxcli#1522; below it a parse error, `no viable alternative at input 'alternavigation'`), and `alter microflow` (v0.25+; inside loop bodies and `replace body of` v0.29+, ako/mxcli#1693). Whole-document restatement makes losing a sibling script's edit the *default* outcome, not an unlikely one. | A sibling script's call silently vanished; `mx check` 0 errors, lint's orphan rule exempts `ACT_` (2026-08-26). | any |
+| 23 | Name any document or entity that **might already exist** — `create or modify` on an entity, or any `create or replace` on a page, layout or microflow | **STOP → run `mxcli diff -p <app>.mpr <script>.mdl --format struct` FIRST** (read-only) and read every `-` line before you exec. | `create or modify` on an entity **replaces** its attribute set; `mx check` stays clean. Only warnings say so: `exec`, and `check` from v0.32.0-374 (MDL087). Older `diff` prints false `- Attribute` lines (BUG-146): check each against `DESCRIBE ENTITY`. | any |
+
 ## From `learned-detection-gaps.md` (the register)
 
 ### `CREATE` result discarded → CE6005

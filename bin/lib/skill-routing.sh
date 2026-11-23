@@ -208,6 +208,8 @@ _ROUTING_READ_SCRIPTS="bin/runbook-slice.sh"
 #   they depend on the task (`bin/mdl-rules.sh --check` and the PR body give the per-kind totals).
 #   Like the slice, it counts 0 when skills/learned-mdl-preflight.md is itself in the pack (a role
 #   that preloads the file whole, or the no-role pack): it prints a subset of files counted already.
+#   Since 2026-11-23 the core is skills/mdl-deltas-card.md (its `any` rows), so the card in the pack
+#   zeroes it the same way.
 _ROUTING_RULES_SCRIPT="bin/mdl-rules.sh"
 _routing_slice_words() { # _routing_slice_words <root> <stage> <full>
   if [ "$3" -eq 1 ]; then
@@ -243,6 +245,7 @@ routing_baseline_pack() {
     else
       [ "$path" = "skills/conversion-runbook.md" ] && rb_counted=1
       [ "$path" = "skills/learned-mdl-preflight.md" ] && pf_counted=1
+      [ "$path" = "skills/mdl-deltas-card.md" ] && pf_counted=1   # the card IS the core output
       wc_out="$(LC_ALL=C wc -w < "$p" 2>/dev/null | tr -d '[:space:]')"   # LC_ALL=C: see BASELINE_BUDGET in render-routing.sh
     fi
     [ -n "$wc_out" ] || wc_out=0

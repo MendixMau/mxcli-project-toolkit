@@ -40,7 +40,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/query-the-model.md` | Any question before asking the user or writing anything — query the model, then read the source, then ask the human, in that order |
 | `skills/degrade-to-judgement.md` | Any pass whose input is missing, stale or unresolvable — before recording UNMEASURED, N/A or a silent skip: name what was missing, say what you assessed against instead, still deliver a verdict |
 | `skills/module-brief.md` | Building any module — before the first script. The mdl-agent's single per-module input |
-| `bin/mdl-rules.sh` | Writing ANY MDL script — before the first line: run bin/mdl-rules.sh <kinds> (page, microflow, access, workflow, entity) or --for <draft.mdl>, or read skills/generated/rules-<kind>.md, and read ALL of it — the STOP rows, gotchas and preflight sections for the statement kinds the script writes; your PREFLIGHT reports "STOP rows for kinds K: n/n checked" |
+| `bin/mdl-rules.sh` | Writing ANY MDL script — before the first line: run bin/mdl-rules.sh <kinds> (page, microflow, access, workflow, entity) or --for <draft.mdl>, or read skills/generated/rules-<kind>.md, and read ALL of it — the mdl-deltas-card rows, then the STOP rows, gotchas and preflight sections for the statement kinds the script writes; your PREFLIGHT reports "STOP rows for kinds K: n/n checked" |
 | `skills/module-folder-convention.md` | Placing any document in a module — before the first `create`. Feature group, then Pages/Microflows/Services/Resources; the path comes from the brief's folder plan, and the table says which types mxcli can actually place |
 | `project-bin/check-design-reaches-app.sh` | After the FIRST build that follows any design-system port, and before any page is built on it — reads the BUILT stylesheet and reports how many framework knobs point at a design token, how many tokens arrived, how many component classes arrived, each with its denominator. Measured on a real run: 55 tokens ported correctly into the right file, 0 of 35 knobs bound and 0 of 20 classes present, two build phases shipped in the framework's default blue with mx check, mxcli lint, the MDL suite and two e2e journeys all green |
 | `project-bin/check-page-shell.sh` | Before exec'ing ANY page script — compares the drafted MDL's shell against the wireframe's: page column, layout/nav shell, one H1. Measured 0/10 pages on a real first build, repaired wholesale 47 scripts later |
@@ -55,7 +55,8 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/skills-over-scripts.md` | Script or skill? Before writing any .js or bash/.sh for a check, checker, linter, gate or report, or adding a rule or regex to an existing one |
 | `skills/checkpoints/checkpoint-build.md` | CAC-5, after design sign-off and before the build plan |
 | `skills/image-transcription.md` | Images to read listed by images-to-md or the documents index |
-| `skills/learned-mdl-preflight.md` | Writing ANY MDL script |
+| `skills/mdl-deltas-card.md` | Writing ANY MDL script |
+| `skills/learned-mdl-preflight.md` | Choosing the write mode per operation, up front, on every MDL task (Step 0: exec.sh by default, Studio Pro by hand only for what MDL cannot express, --patch), a STOP #n cited and needed in full, or the final self-check of a long or multi-owner script |
 | `skills/learned-microflow-patterns.md` | Writing or fixing any microflow |
 | `skills/learned-rules-archive.md` | On an mxcli older than v0.32.0-374, before writing a construct a learned-* rule calls retired or "older mxcli only" |
 | `skills/microflow-preflight.md` | Writing a microflow with any loop, a retrieve/commit/call inside a loop, nested or multiple loops, >20 activities counting loop bodies, or a list built from a list |
@@ -202,7 +203,7 @@ this summary. The hard STOPs below are inline on purpose; never route around the
 For a genuinely mechanical script — a forward-reference stub, an added enum value, a rename, a
 constant, a pure domain-attribute add with no page — you do **not** need the UI pre-flight or a
 per-page review: there's no rendered surface to verify. Still required: read the brief for names, the
-`learned-mdl-preflight.md` STOP check, `mxcli check`, and the mxbuild gate. When in doubt whether a
+`mdl-deltas-card.md` row check (step 4a), `mxcli check`, and the mxbuild gate. When in doubt whether a
 change is trivial (anything that adds/alters a page, widget, or user-facing microflow is **not**),
 treat it as full-discipline.
 
@@ -214,7 +215,9 @@ treat it as full-discipline.
 4a. **Load the MDL rules for the statement kinds this script writes — before the first MDL line.**
     Run `<toolkit>/bin/mdl-rules.sh <kinds>` (page, microflow, access, workflow, entity; a harness
     that cannot run it reads `<toolkit>/skills/generated/rules-<kind>.md`) and read ALL of its output:
-    it is the STOP table, the gotchas and the page/microflow preflights, filtered to your kinds. After
+    it is the deltas card (`mdl-deltas-card.md`), then the preflight's STOP rows, the gotchas and the
+    page/microflow preflights, filtered to your kinds. A card row that names a `STOP #n` you need in
+    full → `learned-mdl-preflight.md`. After
     drafting, run `<toolkit>/bin/mdl-rules.sh --for <draft>`; a kind it lists that you did not load → read it and
     re-check. Your PREFLIGHT ends with `STOP rows for kinds <K>: n/n checked` — n/n from the closing line
     of that output; fewer checked than listed is an unfinished preflight, not a pass.

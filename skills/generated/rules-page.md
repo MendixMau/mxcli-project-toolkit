@@ -7,10 +7,65 @@ count in your PREFLIGHT as "STOP rows for kinds any, page: n/n checked". A scrip
 not listed here needs that kind's rules too: `bin/mdl-rules.sh --for <script>` after drafting.
 Each block names the skill it comes from; the skill is the authority if they ever differ.
 
+> Source: `skills/mdl-deltas-card.md` § top
+# MDL deltas card — what the toolkit knows that mxcli's guidance does not
+**Applies to:** any mxcli project.
+**Purpose:** the MDL rules read before every script. mxcli's `CLAUDE.md`, `.ai-context` skills, `mxcli syntax` and `check --references` teach the language and win where this card is silent (`mdl 1;` first, `create or modify`). Each row: trigger, rule, the error it prevents. Measured on mxcli v0.32.0-374, Mendix 11.8.
+
+**Every script:** `mxcli check <script> -p <app>.mpr --references`, read every error and warning, exec (`./bin/exec.sh` in a wired project), then real `mx check` — `exec` writes some scripts `check` flags, and most rows below pass `check`. An identifier fails quoted or unquoted → try the other form.
+
+
+> Source: `skills/mdl-deltas-card.md` § The rows
+## The rows
+
+| # | If your script will… | Then… | Fails as | Kind |
+|---|---|---|---|---|
+| 26 | Bind a DataGrid 2 column over an association | Unquoted: `Attribute: Assoc_A_B/Name` — here "quote every identifier" breaks | `CE1613 The selected attribute 'Shop.Line."Line_Order/Name"' no longer exists.` | page |
+| 24 | Set `DesignProperties: [...]` on a widget | `grep -l '<property>' themesource/*/web/design-properties.json`; absent → Atlas class | `CE6083 Design property Column gap is not supported by your theme.` | page |
+| 4 | Bind a widget to `AutoChangedBy` | Omit it, or bind `AutoChangedDate` | `CE1613 The selected attribute 'Shop.Audited.changedBy' no longer exists.` | page |
+| 21 | Restate a document another script also edits (aggregator, startup chain, navigation) | `describe` it and diff your restatement against the dump; prefer `alter navigation` / `alter microflow` | A sibling's call silently vanishes; `mx check` 0 errors | any |
+| 22 | Write a non-idempotent statement (`alter entity … add attribute`, bare `create`) | `create or modify` everywhere; ONE owning script per document | Re-run: `Error: attribute 'X' already exists on entity M.E`, exit 1, nothing written | any |
+| 23 | `create or modify` something that may exist | `mxcli diff -p <app>.mpr <script>.mdl --format struct` first; read every `-` line | Attributes replaced, not extended; only warning `removes 2 member(s) … [MDL087]` | any |
+| G | Create a microflow, page or entity | Its grant in the same script | No error; blank screen or CE2729 for non-admins | any |
+| P | Walk an association across modules | Prefix every step: `$Item/ModA.Item_Other/ModB.Other/Attr` | `Order_Customer is an association: an expression names it qualified … CE0117` | any |
+| E2 | `rename module` | Rewrite each XPath naming the old module | `CE1613 The selected association 'RenMe.Thing_Other' no longer exists.` | any |
+
+
+> Source: `skills/mdl-deltas-card.md` § When this card is not enough
+## When this card is not enough
+
+A numbered row is `STOP #n` of `learned-mdl-preflight.md` (full text, root causes, write mode in Step 0). Other CE code → `bin/bug-lookup.sh <code>`. Full rules for your kinds → `bin/mdl-rules.sh <kinds>`. mxcli older than v0.32.0-374 → `learned-rules-archive.md`.
+
+> Source: `skills/learned-mdl-preflight.md` § The checklist — run before writing a single line of MDL
+## The checklist — run before writing a single line of MDL
+
+🔎 = `bin/mdl-scan.sh` flags it in `exec.sh`.
+
+Each row keeps one failure clause; the full root cause is in `process/baseline-incident-history.md` § PF1. `Kind` names what the script writes — rows of kind `any` apply to every script.
+
+| # | If your script will… | Then… | Fails as | Kind |
+|---|---|---|---|---|
+| 1 🔎 | Use `visible:` or `editable:` **conditional expressions** on containers **inside a `datagrid customContent` column** | **STOP → Studio Pro by hand** | mxcli writes blank `AttributeIdentifier` → `StorageLoadException` on SP open; mxbuild passes clean (BUG-18; SP open not retested on v0.32.0-374). Safe CLI alternative: `dynamictext (Attribute: "State")` renders enum caption natively. Per-value colours: set them in Studio Pro. | page |
+| 1b | Put `Editable:` on an input widget in `CREATE PAGE` | **Write a bare expression: `Editable: $currentObject/Status != 'Closed'` (v0.25+; `[<expr>]` is deprecated there, MDL-DEPR081; below v0.25 write `[<expr>]`).** Below v0.28 never the quoted string `Editable: '<expr>'`. | Below v0.28 the quoted form is dropped with no message, so the field is silently always editable (fixed in v0.28, mendixlabs/mxcli#1567). Read the page back with `describe page`. | page |
+| 4 | Bind a widget to the `AutoChangedBy` system attribute | **STOP → omit it, or bind `AutoChangedDate` instead** | `check` passes, then `mx check` CE1613 (`changedBy` no longer exists); lint does not flag it. | page |
+| 12 🔎 | Put an expression in a `dynamictext`'s `ContentParams` | **On v0.32.0-374, write every attribute in it as `$currentObject/Attr`** (`toString($currentObject/Status)`), and use no format-string function: `formatDecimal($currentObject/Amount, '0.00')` passes `check` and fails CE0117 there; on an older mxcli, bind a bare attribute or a quoted literal only (`learned-rules-archive.md`). | A bare attribute inside a function (`toString(Status)`) passes `check` and `exec`, then CE0117 at mxbuild (v0.32.0-374); older mxcli: any expression → CE1613 (BUG-142). | page |
+| 21 | `DROP` + `CREATE` or `create or modify` any document **another script also edits** — an aggregator microflow, an after-startup chain, a navigation profile | **STOP → `describe` the live document first, diff your restatement against that dump, and name in the script header which call sites you preserved. A new owner adds `-- supersedes: <script>`; drafting ahead of unrun scripts, `bin/describe-baseline.sh stamp <script>` after the DESCRIBE (exec.sh only warns).** Prefer an in-place edit where your mxcli has one: `alter navigation` / `alter menu` (v0.28+, mendixlabs/mxcli#1522; below it a parse error, `no viable alternative at input 'alternavigation'`), and `alter microflow` (v0.25+; inside loop bodies and `replace body of` v0.29+, ako/mxcli#1693). Whole-document restatement makes losing a sibling script's edit the *default* outcome, not an unlikely one. | A sibling script's call silently vanished; `mx check` 0 errors, lint's orphan rule exempts `ACT_` (2026-08-26). | any |
+| 22 | Write a script containing ANY non-idempotent statement — `alter entity … add attribute`, bare `CREATE ASSOCIATION`, bare `CREATE MICROFLOW`/`CREATE PAGE` on a name that may already exist | **STOP → use the `create or modify` form for every statement, and give every document exactly ONE owning script.** From mxcli v0.27 any write failure **rolls back the whole run**, so one non-idempotent statement, even last, fails every re-run. The property to hold is that `mdlsource/` replays cleanly against an EMPTY app; that is one command and it is the only thing that proves it. | v0.27+: nothing written; older: earlier statements stay written. `mx check` 0 errors — the exit code is the only signal: never ignore it. | any |
+| 23 | Name any document or entity that **might already exist** — `create or modify` on an entity, page, layout or microflow | **STOP → run `mxcli diff -p <app>.mpr <script>.mdl --format struct` FIRST** (read-only) and read every `-` line before you exec. | `create or modify` on an entity **replaces** its attribute set; `mx check` stays clean. Only warnings say so: `exec`, and `check` from v0.32.0-374 (MDL087). Older `diff` prints false `- Attribute` lines (BUG-146): check each against `DESCRIBE ENTITY`. | any |
+| 24 | Put a `DesignProperties: [...]` entry on a widget in an app scaffolded by `mxcli new` | **Grep the theme first: `grep -l '<property name>' themesource/*/web/design-properties.json`; if absent, use the Atlas class (`Class: 'form-vertical'`).** | CE6083; v0.32.0-374 refuses it at `check` (MDL-WIDGET11). A class that builds can still change nothing on screen — the look catches that. | page |
+| 26 🔎 | Bind a DataGrid 2 column over an **association** | **STOP → write the column path unquoted.** Use `Attribute: Assoc_A_B/Name`, never `"Assoc_A_B/Name"`. This is the one place a quote-every-identifier convention must break. | A quoted path is stored as one attribute → CE1613 at `mx check`; passes `check --references`. `BUG-DRAFT-dg2-association-path-bindings` | page |
+| 30 | Put a `dynamicimage` on a React-client page | **Use the pluggable `image` widget.** | `check` passes; mxbuild CE0582; lint MPR012 flags it. #445. Not reproduced on Mendix 11.8; keep. | page |
+| 32 | Give a widget's `show page` the `$currentObject` argument outside a data view/list/grid row | **Pass this page's own parameter, or call a microflow that shows the page.** | `check` refuses: MDL-PAGEARG01. BUG-70/95. #445 | page |
+| 1c 2 3 5 6 6b 7 8 9 10 11 13 15 17 27 | *(retired 2026-09-30 — numbers kept for `STOP #n` citations; why each went: `process/baseline-incident-history.md` § PF1)* | | | |
+| 31 | *(retired 2026-11-20 on mxcli v0.32.0-374: `learned-rules-archive.md`)* | | | |
+
+**Default to the CLI for everything in the table above that is not a STOP row** (`./bin/exec.sh`, Studio Pro closed).
+
+
 > Source: `skills/learned-mdl-preflight.md` § top
 # MDL Pre-flight Checklist — STOP conditions before writing any script
 **Applies to:** any mxcli project.
-**Purpose:** Before drafting any MDL script, check every planned operation against this table. Each STOP row was born from a real MPR corruption or silent runtime failure — not theoretical concerns. Skipping this check has caused project-unloadable corruption every time.
+**Purpose:** Before drafting any MDL script, check every planned operation against this table. Each STOP row was born from a real MPR corruption or silent runtime failure — not theoretical concerns. Skipping this check has caused project-unloadable corruption every time. The always-read short form is `mdl-deltas-card.md`; open this file to cite or check a `STOP #n` row in full, to pick the write mode (Step 0), or for the final self-check of a long script.
 
 **Source:** Generalized from a live Mendix 11.12.0 Beta project, 2026-07-06/07. Incident detail stays in that project's own `bug-logs/` — only the generalizable rule is here.
 
@@ -35,45 +90,18 @@ Each block names the skill it comes from; the skill is the authority if they eve
 ---
 
 
-> Source: `skills/learned-mdl-preflight.md` § The checklist — run before writing a single line of MDL
-## The checklist — run before writing a single line of MDL
+> Source: `skills/learned-mdl-preflight.md` § Every-script gotchas
+## Every-script gotchas
 
-🔎 = `bin/mdl-scan.sh` flags it in `exec.sh`.
-
-Each row keeps one failure clause; the full root cause is in `process/baseline-incident-history.md` § PF1. `Kind` names what the script writes — rows of kind `any` apply to every script.
-
-| # | If your script will… | Then… | Fails as | Kind |
-|---|---|---|---|---|
-| 1 🔎 | Use `visible:` or `editable:` **conditional expressions** on containers **inside a `datagrid customContent` column** | **STOP → Studio Pro by hand** | mxcli writes blank `AttributeIdentifier` → `StorageLoadException` on SP open; mxbuild passes clean (BUG-18; SP open not retested on v0.32.0-374). Safe CLI alternative: `dynamictext (Attribute: "State")` renders enum caption natively. Per-value colours: set them in Studio Pro. | page |
-| 1b | Put `Editable:` on an input widget in `CREATE PAGE` | **Write a bare expression: `Editable: $currentObject/Status != 'Closed'` (v0.25+; `[<expr>]` is deprecated there, MDL-DEPR081; below v0.25 write `[<expr>]`).** Below v0.28 never the quoted string `Editable: '<expr>'`. | Below v0.28 the quoted form is dropped with no message, so the field is silently always editable (fixed in v0.28, mendixlabs/mxcli#1567). Read the page back with `describe page`. | page |
-| 4 | Bind a widget to the `AutoChangedBy` system attribute | **STOP → omit it, or bind `AutoChangedDate` instead** | `check` passes, then `mx check` CE1613 (`changedBy` no longer exists); lint does not flag it. | page |
-| 12 🔎 | Put an expression in a `dynamictext`'s `ContentParams` | **On v0.32.0-374, write every attribute in it as `$currentObject/Attr`** (`toString($currentObject/Status)`), and use no format-string function: `formatDecimal($currentObject/Amount, '0.00')` passes `check` and fails CE0117 there; on an older mxcli, bind a bare attribute or a quoted literal only (`learned-rules-archive.md`). | A bare attribute inside a function (`toString(Status)`) passes `check` and `exec`, then CE0117 at mxbuild (v0.32.0-374); older mxcli: any expression → CE1613 (BUG-142). | page |
-| 21 | `DROP` + `CREATE`, `create or modify` or `create or replace` any document **another script also edits** — an aggregator microflow, an after-startup chain, a navigation profile | **STOP → `describe` the live document first, diff your restatement against that dump, and name in the script header which call sites you preserved. A new owner adds `-- supersedes: <script>`; drafting ahead of unrun scripts, `bin/describe-baseline.sh stamp <script>` after the DESCRIBE (exec.sh only warns).** Prefer an in-place edit where your mxcli has one: `alter navigation` / `alter menu` (v0.28+, mendixlabs/mxcli#1522; below it a parse error, `no viable alternative at input 'alternavigation'`), and `alter microflow` (v0.25+; inside loop bodies and `replace body of` v0.29+, ako/mxcli#1693). Whole-document restatement makes losing a sibling script's edit the *default* outcome, not an unlikely one. | A sibling script's call silently vanished; `mx check` 0 errors, lint's orphan rule exempts `ACT_` (2026-08-26). | any |
-| 22 | Write a script containing ANY non-idempotent statement — `alter entity … add attribute`, bare `CREATE ASSOCIATION`, bare `CREATE MICROFLOW`/`CREATE PAGE` on a name that may already exist | **STOP → use the `create or modify` form for every statement, and give every document exactly ONE owning script.** From mxcli v0.27 any write failure **rolls back the whole run**, so one non-idempotent statement, even last, fails every re-run. The property to hold is that `mdlsource/` replays cleanly against an EMPTY app; that is one command and it is the only thing that proves it. | v0.27+: nothing written; older: earlier statements stay written. `mx check` 0 errors — the exit code is the only signal: never ignore it. | any |
-| 23 | Name any document or entity that **might already exist** — `create or modify` on an entity, or any `create or replace` on a page, layout or microflow | **STOP → run `mxcli diff -p <app>.mpr <script>.mdl --format struct` FIRST** (read-only) and read every `-` line before you exec. | `create or modify` on an entity **replaces** its attribute set; `mx check` stays clean. Only warnings say so: `exec`, and `check` from v0.32.0-374 (MDL087). Older `diff` prints false `- Attribute` lines (BUG-146): check each against `DESCRIBE ENTITY`. | any |
-| 24 | Put a `DesignProperties: [...]` entry on a widget in an app scaffolded by `mxcli new` | **Grep the theme first: `grep -l '<property name>' themesource/*/web/design-properties.json`; if absent, use the Atlas class (`Class: 'form-vertical'`).** | CE6083; v0.32.0-374 refuses it at `check` (MDL-WIDGET11). A class that builds can still change nothing on screen — the look catches that. | page |
-| 26 🔎 | Bind a DataGrid 2 column over an **association** | **STOP → write the column path unquoted.** Use `Attribute: Assoc_A_B/Name`, never `"Assoc_A_B/Name"`. This is the one place a quote-every-identifier convention must break. | A quoted path is stored as one attribute → CE1613 at `mx check`; passes `check --references`. `BUG-DRAFT-dg2-association-path-bindings` | page |
-| 30 | Put a `dynamicimage` on a React-client page | **Use the pluggable `image` widget.** | `check` passes; mxbuild CE0582; lint MPR012 flags it. #445. Not reproduced on Mendix 11.8; keep. | page |
-| 32 | Give a widget's `show page` the `$currentObject` argument outside a data view/list/grid row | **Pass this page's own parameter, or call a microflow that shows the page.** | `check` refuses: MDL-PAGEARG01. BUG-70/95. #445 | page |
-| 1c 2 3 5 6 6b 7 8 9 10 11 13 15 17 27 | *(retired 2026-09-30 — numbers kept for `STOP #n` citations; why each went: `process/baseline-incident-history.md` § PF1)* | | | |
-| 31 | *(retired 2026-11-20 on mxcli v0.32.0-374: `learned-rules-archive.md`)* | | | |
-
-**Default to the CLI for everything in the table above that is not a STOP row** (`./bin/exec.sh`, Studio Pro closed).
-
-
-> Source: `skills/learned-mdl-preflight.md` § MDL gotchas
-## MDL gotchas (quick reference — common traps)
-
-None of these needs a STOP; each passed `mxcli check` on the version named and failed later — at native `mx check`, on SP open, or silently at runtime. The generated project `CLAUDE.md` already covers `EXTENDS` placement and the missing `CASE`/`TRY` statements; [[learned-microflow-patterns]] covers `toString()` on enums. Only what lives nowhere else is kept here.
+`mdl-deltas-card.md` carries these in short; the full text stays here. The `mdl 1;` gotcha that stood here was retired on 2026-11-23 (`learned-rules-archive.md`).
 
 - **Quote / unquote retry rule:** when any identifier fails at `mxcli check`, `mx check`, or runtime, try the other form before concluding anything. Applies to every identifier position. One form always works; the other may parse and still write wrong BSON.
-- **Cross-module association paths need the module prefix on every step:** `$Item/ModA.Item_Other/ModB.OtherEntity/Attr`, not `$Item/Item_Other/Attr`. v0.32.0-374 refuses the short form at `check`; older mxcli: CE0117 at `mx check`.
-- **Changing an existing DataGrid 2 column is a whole-page re-emit, never `ALTER PAGE`** (`learned-dg2-patterns.md` rule 1). v0.32.0-374 refuses DG2 column `REPLACE`/`INSERT AFTER` at `check` ("… is in no data container", BUG-DRAFT-dg2-column-alter-refused); older mxcli fails at mxbuild.
 - **Grants are co-located with the element, never deferred to one `security.mdl`:** `grant execute` ends the microflow script, `grant view` the page script, entity access the domain script — the entity and its access rule are one unit, same script, same commit. mxbuild raises no error for a missing grant; the only symptom is a blank screen or CE2729 once a non-admin role opens the page. A `roles.mdl` that only *creates* roles is fine. Pre-flight per entity: access rule in the same script? every module role that needs it granted? every module role composed into a user role? non-persistent DTOs — read/write only (CONV006)?
-- **No `elseif` in page/widget expressions** (DynamicClasses, Visible, …): nest `else if … then … else …`. v0.32.0-374: a `check` parse error; older mxcli: CE0117 at `mx check`.
 - **`mxcli check` does not catch corruption.** Most STOP rows above are valid MDL that `check` passes; only mxbuild or SP open reveals the damage. Run the real mxbuild gate after every exec (`iterative-build-loop.md`).
-- **mxcli v0.25 — keep the skills' spellings, never add `mdl 1;`.** The spellings in these skills (`count($L)`, `on error { … }`, `show page M.P($Obj = $Obj)`, `create or replace`) parse on v0.24.0 *and* v0.25.0; v0.25 only warns (`MDL-DEPR*`, "refused from `mdl 2`"). The new spellings (`count $L`, `on error begin … end error`, `P(Obj = $Obj)`) fail `check` on v0.24 — don't "modernise" a script the team may still run there. The hazard is the dialect header: v0.24 rejects it (`line 1:4 extraneous input '1'`), and under it v0.25 changes meanings — `show entity M.E` becomes an error (use `describe entity` / `list entities`; `-c` and the REPL already read this way), and `retrieve … limit 1` returns a *list* (use `first`; v0.32.0-374 `check` catches it). So strip the `mdl 1;` line from `describe` output before pasting it into a script, and never mix dialects in one file. Moving a whole file to mdl 1 on purpose: `mxcli fmt --upgrade -w -p <app>.mpr <script>`, then `check -p --references`, then exec once and run `bin/idempotence-check.sh <script>` (one `mxcli diff`; must say PASS, never a second exec).
 - **`exec` is not `check`.** v0.24.0 (still on v0.32.0-374): `exec` refuses on reference errors and a few hard checks (MDL043, MDL044, MDL070, MDL-WIDGET14/19/24) but still writes scripts that plain `mxcli check` flags — e.g. an enum concatenation (E004). Run `mxcli check <script> -p <app>.mpr --references` yourself and read every error and warning before `exec`; a clean `exec` is not a clean `check`.
+
+---
+
 
 > Source: `skills/learned-mdl-preflight.md` § Final self-check
 ## Final self-check (mandatory before reporting back)
@@ -91,6 +119,15 @@ you whole. A per-layer plan does not mean a layer is one script; see
 Isolate anything the other units depend on, group the rest by "would one failure explain the
 others?", and do not over-split — every extra script is another approval prompt, and approval
 fatigue hollows out RULE 1 as surely as an opaque mega-script does.
+
+> Source: `skills/learned-mdl-preflight.md` § MDL gotchas
+## MDL gotchas (quick reference — common traps)
+
+None of these needs a STOP; each passed `mxcli check` on the version named and failed later — at native `mx check`, on SP open, or silently at runtime. The generated project `CLAUDE.md` already covers `EXTENDS` placement and the missing `CASE`/`TRY` statements; [[learned-microflow-patterns]] covers `toString()` on enums. Only what lives nowhere else is kept here.
+
+- **Cross-module association paths need the module prefix on every step:** `$Item/ModA.Item_Other/ModB.OtherEntity/Attr`, not `$Item/Item_Other/Attr`. v0.32.0-374 refuses the short form at `check`; older mxcli: CE0117 at `mx check`.
+- **Changing an existing DataGrid 2 column is a whole-page re-emit, never `ALTER PAGE`** (`learned-dg2-patterns.md` rule 1). v0.32.0-374 refuses DG2 column `REPLACE`/`INSERT AFTER` at `check` ("… is in no data container", BUG-DRAFT-dg2-column-alter-refused); older mxcli fails at mxbuild.
+- **No `elseif` in page/widget expressions** (DynamicClasses, Visible, …): nest `else if … then … else …`. v0.32.0-374: a `check` parse error; older mxcli: CE0117 at `mx check`.
 
 > Source: `skills/ui-preflight-pages.md`
 # UI Pre-flight — Design Cross-Reference Before Building Pages
@@ -666,4 +703,4 @@ check is not optional: the show-message incident had the correct knowledge in
 **at the same time**, in the same repo, for three weeks. Two files, two answers, no one reading
 both.
 
-Rules for kinds any, page: STOP rows 11/11 listed
+Rules for kinds any, page: STOP rows 14/14 listed

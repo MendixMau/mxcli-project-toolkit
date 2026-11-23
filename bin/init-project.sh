@@ -803,12 +803,14 @@ echo "Machine preflight (bin/doctor.sh):"
 # three lines, never a prompt, never a failure: the denylist protects the TOOLKIT repo, and
 # a project scaffold must not block on it (kickoff is just the cheapest moment to remember).
 echo ""
-if [ -f "$TOOLKIT_ROOT/.leakguard-deny" ]; then
+# $DENYFILE, not $TOOLKIT_ROOT/.leakguard-deny: with MXTK_LEAKGUARD_DENYFILE set, the registration above
+# wrote that file and this line then said "no …/.leakguard-deny found" (real-mxcli scaffold, 2026-11-20).
+if [ -f "$DENYFILE" ]; then
   echo "Leak guard: if this project is for a new client, add their name (and codename) to"
-  echo "  $TOOLKIT_ROOT/.leakguard-deny — one regex per line — and update the toolkit repo's"
+  echo "  $DENYFILE — one regex per line — and update the toolkit repo's"
   echo "  LEAKGUARD_DENY GitHub Actions secret to match. 30 seconds now beats a scrub later."
 else
-  echo "Leak guard: no $TOOLKIT_ROOT/.leakguard-deny found on this machine. Create it (one"
+  echo "Leak guard: no $DENYFILE found on this machine. Create it (one"
   echo "  client-name regex per line, gitignored) so check-no-client-data.sh can catch client"
   echo "  names before they reach the public toolkit repo — see that script's header."
 fi

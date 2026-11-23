@@ -13,7 +13,9 @@
 #   verify:  SAME on the same model; DRIFT with a diff when the live message changed (the #261
 #            shape); DRIFT when an absent document appeared; SAME for a re-run by the last
 #            recorded writer and on a fresh model; STALEHEADER alone is a warn (exit 1); after an
-#            mxcli upgrade a changed hash is RESTAMP, not DRIFT.
+#            mxcli upgrade a changed hash is RESTAMP, not DRIFT — also from an untagged build, whose
+#            `--version` names only a commit (captured from a real v0.32.0-374 build relinked with
+#            VERSION=591bcd7, which is what `make build` stamps on a shallow clone).
 #   exec.sh: WARN + BUILD-LOG cell, exit 0; `ask` approval stays exit 0; =off silent; a script
 #            without a header costs zero DESCRIBE calls.
 # NOTHING here touches a real .mpr, mxcli or mxbuild.
@@ -62,7 +64,8 @@ MXCLI
 cat >> "$P/mxcli" <<'MXCLI'
 D="$(cd "$(dirname "$0")" && pwd)"
 case "${1:-}" in
-  --version) sed "s/v0\.26\.0/${FAKE_VERSION:-v0.26.0}/" "$CAP26/mxcli-version-v0.26.0.txt"; exit 0 ;;
+  --version) [ -n "${FAKE_VERSION_FILE:-}" ] && { cat "$CAP26/$FAKE_VERSION_FILE"; exit 0; }
+             sed "s/v0\.26\.0/${FAKE_VERSION:-v0.26.0}/" "$CAP26/mxcli-version-v0.26.0.txt"; exit 0 ;;
   check) exit 0 ;;
   exec)  echo "fake mxcli exec"; echo "written by the script" >> "$D/Fixture.mpr"
          [ -n "${FAKE_APPLY:-}" ] && cp "${FAKE_APPLY%%=*}" "$D/live/${FAKE_APPLY#*=}"; exit 0 ;;
@@ -115,6 +118,16 @@ hasnt "the unchanged microflow is not reported" "$OUT" "DRIFT	Sales.ACT_Approval
 OUT="$(FAKE_VERSION=v0.27.0 db verify "$S")"; RC=$?
 [ "$RC" -eq 1 ] && has "after an mxcli upgrade: RESTAMP, not DRIFT" "$OUT" "RESTAMP	Sales.ACT_ApprovalStep_Reject	re-stamp after mxcli upgrade (v0.26.0 → v0.27.0)" || bad "upgrade rc $RC: $OUT"
 hasnt "  no DRIFT row then" "$OUT" "DRIFT"
+# Untagged build (a `make build` on a shallow clone): the captured --version line names only a
+# commit. It is stamped as it is, and a later tagged build reads as an upgrade, not as drift.
+U="$WORK/untagged.mdl"; cp "$S" "$U"
+cp "$REJ" "$P/live/MICROFLOW__Sales.ACT_ApprovalStep_Reject.out"; rm -f "$P/live/MICROFLOW__Sales.ACT_ApprovalStep_Hold.out"
+FAKE_VERSION_FILE=mxcli-version-untagged-591bcd7.txt db stamp "$U" >/dev/null
+grep -q '^-- baseline-mxcli: 591bcd7$' "$U" && ok "untagged build: its commit is recorded as the version" || bad "untagged build: no baseline-mxcli line ($(grep '^-- baseline-mxcli' "$U"))"
+sed "s/A comment is required to reject./Please add a comment before rejecting./" "$REJ" > "$P/live/MICROFLOW__Sales.ACT_ApprovalStep_Reject.out"
+OUT="$(FAKE_VERSION_FILE=mxcli-version-v0.32.0-374.txt db verify "$U")"; RC=$?
+[ "$RC" -eq 1 ] && has "untagged -> tagged build: RESTAMP, not DRIFT" "$OUT" "re-stamp after mxcli upgrade (591bcd7 → v0.32.0)" || bad "untagged upgrade rc $RC: $OUT"
+rm -f "$U"
 rm -f "$P/live/MICROFLOW__Sales.ACT_ApprovalStep_Hold.out"
 H="$P/mdlsource/13-header-only.mdl"
 { grep '^-- baseline' "$S"; cat "$APP"; } > "$H"; cp "$APP" "$P/live/"

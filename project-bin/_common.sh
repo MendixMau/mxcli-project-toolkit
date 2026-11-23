@@ -1771,15 +1771,31 @@ mxtk_ensure_mxbuild() {
   fi
   echo "→ mxbuild not found — downloading the toolchain for this model's Mendix version" >&2
   echo "  ($mxcli setup mxbuild — the same download bin/doctor.sh --install runs; cached under ~/.mxcli/mxbuild/)" >&2
-  if (cd "$root" && "$mxcli" setup mxbuild -p "$(basename "$mpr")" >&2); then
+  # mxcli always caches under its own home (~/.mxcli, os.UserHomeDir) and ignores MXCLI_HOME, which only
+  # the toolkit reads. So the path mxcli prints last ("MxBuild ready: <path>", mxcli v0.32 setup.go; capture
+  # in tests/wave2/fixtures/mxbuild-setup/) is taken as the answer when re-discovery under MXCLI_HOME finds
+  # nothing: before, a "successful" download was followed by "no runnable mxbuild found" and a refused exec.
+  local _sout _src _ready _vdir
+  _sout="$(mktemp "${TMPDIR:-/tmp}/mxbuild-setup.XXXXXX")"
+  (cd "$root" && "$mxcli" setup mxbuild -p "$(basename "$mpr")") 2>&1 | tee "$_sout" >&2; _src=${PIPESTATUS[0]}
+  _ready="$(tr -d '\r' < "$_sout" | sed -n 's/^MxBuild ready: //p' | tail -1)"; rm -f "$_sout"
+  if [ "$_src" -eq 0 ]; then
     found="$(find_mxbuild 2>/dev/null || true)"
-    if [ -n "$found" ] && [ -x "$found" ]; then
-      if [ -n "$ver" ] && ! mxtk_mxbuild_for_version "$ver" >/dev/null 2>&1; then
-        echo "  ⚠  download finished but there is still no mxbuild for $ver — using $found; the gate will report the refusal as unverified." >&2
-      fi
+    if [ -n "$found" ] && [ -x "$found" ] && { [ -z "$ver" ] || mxtk_mxbuild_for_version "$ver" >/dev/null 2>&1; }; then
       printf '%s\n' "$found"; return 0
     fi
-    echo "  download reported success but no runnable mxbuild was found afterwards (looked under ${MXCLI_HOME:-$HOME/.mxcli}/mxbuild/)." >&2
+    if [ -n "$_ready" ] && [ -x "$_ready" ]; then
+      _vdir="${_ready%/modeler/mxbuild*}"
+      if [ -z "$ver" ] || mxtk_version_in_name "$_vdir" "$ver"; then
+        [ -n "${MXCLI_HOME:-}" ] && echo "  note: mxcli caches under ~/.mxcli whatever MXCLI_HOME says (MXCLI_HOME=$MXCLI_HOME); using the mxbuild it reported: $_ready" >&2
+        printf '%s\n' "$_ready"; return 0
+      fi
+    fi
+    if [ -n "$found" ] && [ -x "$found" ]; then
+      echo "  ⚠  download finished but there is still no mxbuild for $ver — using $found; the gate will report the refusal as unverified." >&2
+      printf '%s\n' "$found"; return 0
+    fi
+    echo "  download reported success but no runnable mxbuild was found afterwards (looked under ${MXCLI_HOME:-$HOME/.mxcli}/mxbuild/${_ready:+ and at $_ready, the path mxcli reported})." >&2
   else
     echo "  '$mxcli setup mxbuild' failed — a blocked network or proxy is the usual cause (the download comes from the Mendix CDN)." >&2
   fi

@@ -1,6 +1,6 @@
 # MDL Pre-flight Checklist — STOP conditions before writing any script
 **Applies to:** any mxcli project.
-**Purpose:** The full reference behind `mdl-deltas-card.md`, the short card read before every script: open this file to cite or check a `STOP #n` row in full, to pick the write mode (Step 0), or for the final self-check of a long script. Check every planned operation against this table. Each STOP row was born from a real MPR corruption or silent runtime failure — not theoretical concerns. Skipping this check has caused project-unloadable corruption every time.
+**Purpose:** Before drafting any MDL script, check every planned operation against this table. Each STOP row was born from a real MPR corruption or silent runtime failure — not theoretical concerns. Skipping this check has caused project-unloadable corruption every time. The always-read short form is `mdl-deltas-card.md`; open this file to cite or check a `STOP #n` row in full, to pick the write mode (Step 0), or for the final self-check of a long script.
 
 **Source:** Generalized from a live Mendix 11.12.0 Beta project, 2026-07-06/07. Incident detail stays in that project's own `bug-logs/` — only the generalizable rule is here.
 

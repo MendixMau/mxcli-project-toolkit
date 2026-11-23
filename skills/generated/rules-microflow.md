@@ -50,6 +50,9 @@ Each row keeps one failure clause; the full root cause is in `process/baseline-i
 
 | # | If your script will… | Then… | Fails as | Kind |
 |---|---|---|---|---|
+| 21 | `DROP` + `CREATE` or `create or modify` any document **another script also edits** — an aggregator microflow, an after-startup chain, a navigation profile | **STOP → `describe` the live document first, diff your restatement against that dump, and name in the script header which call sites you preserved. A new owner adds `-- supersedes: <script>`; drafting ahead of unrun scripts, `bin/describe-baseline.sh stamp <script>` after the DESCRIBE (exec.sh only warns).** Prefer an in-place edit where your mxcli has one: `alter navigation` / `alter menu` (v0.28+, mendixlabs/mxcli#1522; below it a parse error, `no viable alternative at input 'alternavigation'`), and `alter microflow` (v0.25+; inside loop bodies and `replace body of` v0.29+, ako/mxcli#1693). Whole-document restatement makes losing a sibling script's edit the *default* outcome, not an unlikely one. | A sibling script's call silently vanished; `mx check` 0 errors, lint's orphan rule exempts `ACT_` (2026-08-26). | any |
+| 22 | Write a script containing ANY non-idempotent statement — `alter entity … add attribute`, bare `CREATE ASSOCIATION`, bare `CREATE MICROFLOW`/`CREATE PAGE` on a name that may already exist | **STOP → use the `create or modify` form for every statement, and give every document exactly ONE owning script.** From mxcli v0.27 any write failure **rolls back the whole run**, so one non-idempotent statement, even last, fails every re-run. The property to hold is that `mdlsource/` replays cleanly against an EMPTY app; that is one command and it is the only thing that proves it. | v0.27+: nothing written; older: earlier statements stay written. `mx check` 0 errors — the exit code is the only signal: never ignore it. | any |
+| 23 | Name any document or entity that **might already exist** — `create or modify` on an entity, page, layout or microflow | **STOP → run `mxcli diff -p <app>.mpr <script>.mdl --format struct` FIRST** (read-only) and read every `-` line before you exec. | `create or modify` on an entity **replaces** its attribute set; `mx check` stays clean. Only warnings say so: `exec`, and `check` from v0.32.0-374 (MDL087). Older `diff` prints false `- Attribute` lines (BUG-146): check each against `DESCRIBE ENTITY`. | any |
 | 25 | Write a microflow with any loop, >20 planned activities, or a list built from a list | **STOP → run `microflow-preflight.md` and post its checklist first.** | Lint runs only after exec and counts only top-level activities (a loop body is invisible to CONV009/QUAL003); CONV011 commit-in-loop and MPR008 overlap findings came back on field builds after the write, not before. | microflow |
 | 28 | Change an existing microflow near a `return` in a dense flow | **Plan drop + create in one script, after `show access on microflow` (re-grant what it lists).** A passing `check -p --references` skips exec's free-room test. | v0.25.0: `check` passed, exec refused `insert before return $LiveResult: there is no free room for the fragment`. BUG-156 | microflow |
 | 29 | Use a constant in a nanoflow | **Set `ExposedToClient: true`, or use a microflow.** | `check` passes; mxbuild CE0117. #445. Not reproduced on Mendix 11.8; keep. | microflow |
@@ -59,6 +62,48 @@ Each row keeps one failure clause; the full root cause is in `process/baseline-i
 
 **Default to the CLI for everything in the table above that is not a STOP row** (`./bin/exec.sh`, Studio Pro closed).
 
+
+> Source: `skills/learned-mdl-preflight.md` § top
+# MDL Pre-flight Checklist — STOP conditions before writing any script
+**Applies to:** any mxcli project.
+**Purpose:** Before drafting any MDL script, check every planned operation against this table. Each STOP row was born from a real MPR corruption or silent runtime failure — not theoretical concerns. Skipping this check has caused project-unloadable corruption every time. The always-read short form is `mdl-deltas-card.md`; open this file to cite or check a `STOP #n` row in full, to pick the write mode (Step 0), or for the final self-check of a long script.
+
+**Source:** Generalized from a live Mendix 11.12.0 Beta project, 2026-07-06/07. Incident detail stays in that project's own `bug-logs/` — only the generalizable rule is here.
+
+**Version context:** a retired row keeps its number (other skills cite `STOP #n`). Why each went, the version notes and every row's full root cause: `process/baseline-incident-history.md` § PF1; rows the 2026-11-20 retest (mxcli v0.32.0-374) retired or rewrote: `learned-rules-archive.md`. `v0.32.0-374` is the build 374 commits after the v0.32.0 release (`mxcli version v0.32.0-374-g591bcd73e`); v0.32.0 itself and every earlier release count as older. If in doubt about a rule, retest on your version and stamp the result in `bug-logs/mxcli-bugs.md`.
+
+**Workflow `DECISION`:** on mxcli v0.32.0-374 write enum outcomes `'Module.Enum.Value'` plus `'' -> { }` (`check` refuses the rest: MDL-WF03, MDL-WF06); on an older mxcli it is a STOP (BUG-76, `learned-workflow-patterns.md` §8 Warning 1). Never `--no-check`. Restart safety: BUG-141. Before a first `marketplace install`, read the #879 entry in `bug-logs/mxcli-bugs.md`.
+
+
+> Source: `skills/learned-mdl-preflight.md` § Every-script gotchas
+## Every-script gotchas
+
+`mdl-deltas-card.md` carries these in short; the full text stays here. The `mdl 1;` gotcha that stood here was retired on 2026-11-23 (`learned-rules-archive.md`).
+
+- **Quote / unquote retry rule:** when any identifier fails at `mxcli check`, `mx check`, or runtime, try the other form before concluding anything. Applies to every identifier position. One form always works; the other may parse and still write wrong BSON.
+- **Grants are co-located with the element, never deferred to one `security.mdl`:** `grant execute` ends the microflow script, `grant view` the page script, entity access the domain script — the entity and its access rule are one unit, same script, same commit. mxbuild raises no error for a missing grant; the only symptom is a blank screen or CE2729 once a non-admin role opens the page. A `roles.mdl` that only *creates* roles is fine. Pre-flight per entity: access rule in the same script? every module role that needs it granted? every module role composed into a user role? non-persistent DTOs — read/write only (CONV006)?
+- **`mxcli check` does not catch corruption.** Most STOP rows above are valid MDL that `check` passes; only mxbuild or SP open reveals the damage. Run the real mxbuild gate after every exec (`iterative-build-loop.md`).
+- **`exec` is not `check`.** v0.24.0 (still on v0.32.0-374): `exec` refuses on reference errors and a few hard checks (MDL043, MDL044, MDL070, MDL-WIDGET14/19/24) but still writes scripts that plain `mxcli check` flags — e.g. an enum concatenation (E004). Run `mxcli check <script> -p <app>.mpr --references` yourself and read every error and warning before `exec`; a clean `exec` is not a clean `check`.
+
+---
+
+
+> Source: `skills/learned-mdl-preflight.md` § Final self-check
+## Final self-check (mandatory before reporting back)
+
+After drafting a script, re-read it line by line against the table above — not just the mental pre-check you did before writing. Conditional visibility inside datagrid customContent columns, quoted DataGrid 2 association paths, unprefixed association steps in expressions and a quoted `Editable:` can creep in during drafting without intent. `mxcli check --references` will not catch them. This re-read is the actual corruption-prevention step.
+
+**Then diff it before you exec it** (rule 23): `mxcli diff -p <app>.mpr <script>.mdl --format struct` is read-only and prints what the script would add *and remove*. The re-read above catches what you wrote; the diff catches what you did not know was already there — a name you believed free, an entity whose attribute set your `create or modify` would replace rather than extend. Read every `-` line.
+
+**And check the size before you execute:** could you diagnose a failure of this script from the
+error output alone, or would you be re-reading the whole file to find which unit broke? If the
+latter, split it and say so in chat before executing — even when the build plan handed it to
+you whole. A per-layer plan does not mean a layer is one script; see
+`brd-to-build-plan.md` Step 3. Observed failure: a plan that put 13 microflows in one exec.
+
+Isolate anything the other units depend on, group the rest by "would one failure explain the
+others?", and do not over-split — every extra script is another approval prompt, and approval
+fatigue hollows out RULE 1 as surely as an opaque mega-script does.
 
 > Source: `skills/learned-mdl-preflight.md` § MDL gotchas
 ## MDL gotchas (quick reference — common traps)
@@ -823,4 +868,4 @@ check is not optional: the show-message incident had the correct knowledge in
 **at the same time**, in the same repo, for three weeks. Two files, two answers, no one reading
 both.
 
-Rules for kinds any, microflow: STOP rows 18/18 listed
+Rules for kinds any, microflow: STOP rows 17/17 listed

@@ -21,13 +21,15 @@
 #               stop     the STOP table under that heading, rows filtered by their Kind column
 #                        (the kinds asked for, plus `any`; the retired-numbers row always). A stop
 #                        table listed under kind `any` (the card's) is the core; one listed only
-#                        under the five kinds (the preflight's) leaves out its Kind `any` rows,
-#                        which the card condenses (they stay in the file, on demand)
+#                        only under the five kinds leaves out its Kind `any` rows; the preflight's
+#                        is also listed under `script`, so its full rows 21–23 print with every kind.
+#                        Each STOP number counts once in n/n (card and preflight share numbers)
 #               bullet   one bullet under that heading: arg is "<heading>::<bullet lead text>"
 #               rows     the table rows under that heading whose FIRST cell matches an ERE
 #                        (case-insensitive): arg is "<heading>::<ERE>"
 #               exclude  kind "-": a `##` section deliberately reaching no kind (it is not a rule
-#                        for writing MDL); arg is "<heading>::<one-line reason>"
+#                        for writing MDL); arg is "<heading>::<one-line reason>"; the heading "(top)"
+#                        names the text above the file's first `##` heading
 #   4 arg       heading text, or heading::lead / heading::ERE / heading::reason as above; "-" for
 #               file and top
 #
@@ -47,9 +49,11 @@ microflow	skills/learned-mdl-preflight.md	stop	The checklist — run before writ
 access	skills/learned-mdl-preflight.md	stop	The checklist — run before writing a single line of MDL
 workflow	skills/learned-mdl-preflight.md	stop	The checklist — run before writing a single line of MDL
 entity	skills/learned-mdl-preflight.md	stop	The checklist — run before writing a single line of MDL
+script	skills/learned-mdl-preflight.md	top	-
+script	skills/learned-mdl-preflight.md	stop	The checklist — run before writing a single line of MDL
+script	skills/learned-mdl-preflight.md	section	Every-script gotchas
+script	skills/learned-mdl-preflight.md	section	Final self-check
 -	skills/learned-mdl-preflight.md	exclude	Step 0 — choose the write mode::write mode and exec.sh process; the card's "Every script" line says it in short, the preflight routing row opens it on demand
--	skills/learned-mdl-preflight.md	exclude	Every-script gotchas::the card carries these in short (rows G, P and its "Every script" line); full text on demand
--	skills/learned-mdl-preflight.md	exclude	Final self-check::the card's "Every script" line and row 23 carry check, diff and mx check; the full re-read and size check open on demand
 page	skills/learned-mdl-preflight.md	bullet	MDL gotchas::**Cross-module association paths
 microflow	skills/learned-mdl-preflight.md	bullet	MDL gotchas::**Cross-module association paths
 page	skills/learned-mdl-preflight.md	bullet	MDL gotchas::**Changing an existing DataGrid 2 column

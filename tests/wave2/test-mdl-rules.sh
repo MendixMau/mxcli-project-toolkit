@@ -24,9 +24,11 @@
 #       baseline block, on a single-tree and a two-tree (.mpr under app/) layout; an old table that
 #       still names ui-preflight-pages passes; a CLAUDE.local.md with neither still fails
 #   T14 the core is skills/mdl-deltas-card.md (2026-11-23): `any` prints the card and none of the
-#       preflight's Step 0 / self-check; a kind prints the card's rows of that kind, the preflight's
-#       STOP rows of that kind and NOT its Kind `any` rows (the card condenses those); the core stays
-#       under 800 words
+#       preflight; every other kind still prints the preflight's header, full rows 21–23, every-script
+#       gotchas and Final self-check (kind `script`); n/n counts each STOP number once; the pre-rewording
+#       rows 21/23 are archived; the core stays under 800 words
+#   T15 text above a file's first `##` that no `top` row selects and no "(top)" exclude names fails
+#       --check (the header the first #833 draft dropped unseen)
 set -uo pipefail
 
 SUT="${1:?usage: test-mdl-rules.sh /path/to/bin/mdl-rules.sh}"
@@ -38,13 +40,15 @@ ok()  { PASS=$((PASS+1)); printf '  ok   %s\n' "$1"; }
 bad() { FAIL=$((FAIL+1)); printf '  FAIL %s\n' "$1"; [ -n "${2:-}" ] && printf '%s\n' "$2" | sed 's/^/       /'; }
 has() { grep -qF -- "$2" <<<"$1"; }   # here-string: a pipe into grep -q dies of SIGPIPE under pipefail
 
-# STOP rows of one Kind, counted straight from a table (the fixture's own denominator): the card's
-# table (the core: its `any` rows always) and the preflight's (a kind's own rows only).
-rows_of() { awk -v k="$1" -v h="$2" 'index($0, "## " h) == 1 {on=1;next} on&&/^## /{exit}
-  on&&/^\|/{n=split($0,c,"|"); x=c[n-1]; gsub(/^[ \t]+|[ \t]+$/,"",x); if(x==k)t++} END{print t+0}' "$3"; }
-stop_rows() { echo $(( $(rows_of "$1" "The rows" "$TK/skills/mdl-deltas-card.md") \
-                     + $(rows_of "$1" "The checklist" "$TK/skills/learned-mdl-preflight.md") )); }
-ANY="$(rows_of any "The rows" "$TK/skills/mdl-deltas-card.md")"
+# STOP rows of one Kind, read straight from a table (the fixture's own denominator), as STOP numbers:
+# the card's table (the core: its `any` rows always) and the preflight's (with every kind: its `any`
+# rows and that kind's). A number in both tables is one row to check, so the count is of unique numbers.
+ids_of() { awk -v k="$1" -v h="$2" 'index($0, "## " h) == 1 {on=1;next} on&&/^## /{exit}
+  on&&/^\|/{n=split($0,c,"|"); x=c[n-1]; gsub(/^[ \t]+|[ \t]+$/,"",x); if(x==k){id=c[2]; gsub(/^[ \t]+/,"",id); sub(/[ \t].*/,"",id); print id}}' "$3"; }
+CARDF="$TK/skills/mdl-deltas-card.md"; PREF="$TK/skills/learned-mdl-preflight.md"
+stop_union() { { ids_of any "The rows" "$CARDF"; ids_of "$1" "The rows" "$CARDF"
+                 ids_of any "The checklist" "$PREF"; ids_of "$1" "The checklist" "$PREF"; } | LC_ALL=C sort -u | wc -l | tr -d ' '; }
+ANY="$(ids_of any "The rows" "$CARDF" | LC_ALL=C sort -u | wc -l | tr -d ' ')"
 
 echo "== T1: each kind — its own sections, nothing of another kind's, n/n adds up, equals the generated file =="
 #        kind      must contain (a source line)                           must not contain
@@ -57,7 +61,7 @@ for spec in "page|skills/ui-preflight-pages.md|skills/microflow-preflight.md" \
   k="${spec%%|*}"; rest="${spec#*|}"; want="${rest%|*}"; not="${rest##*|}"
   [ "$k" = workflow ] && { want="| 18 | Write **any workflow MDL**"; }
   OUT="$(bash "$SUT" "$k" 2>&1)"; RC=$?
-  n=0; [ "$k" = any ] || n="$(stop_rows "$k")"; exp=$((ANY + n))
+  exp="$ANY"; [ "$k" = any ] || exp="$(stop_union "$k")"
   last="$(printf '%s\n' "$OUT" | tail -1)"
   if [ "$RC" -eq 0 ] && has "$OUT" "$want" && ! has "$OUT" "> Source: \`$not\`" \
      && [ "$last" = "Rules for kinds any$([ "$k" = any ] || printf ', %s' "$k"): STOP rows $exp/$exp listed" ]; then
@@ -74,7 +78,11 @@ for spec in "page|skills/ui-preflight-pages.md|skills/microflow-preflight.md" \
   for core in "## The rows" "| 21 |" "| 22 |" "| 23 |" "## When this card is not enough"; do
     has "$OUT" "$core" || bad "$k: core part missing: $core"
   done
-  if [ "$k" != any ]; then has "$OUT" "## The ladder" || bad "$k: every-script part missing: ## The ladder"; fi
+  if [ "$k" != any ]; then
+    for sp in "## The ladder" "## Final self-check" "## Every-script gotchas" "bin/describe-baseline.sh stamp" "Never \`--no-check\`"; do
+      has "$OUT" "$sp" || bad "$k: every-script part missing: $sp"
+    done
+  fi
 done
 [ "$FAIL" -eq 0 ] && ok "all six outputs equal their generated files and carry the core"
 
@@ -262,7 +270,7 @@ case "$(item2 "$P")" in *"✓"*) ok "an old, unsynced table naming ui-preflight-
 P="$WORK/p-none"; mkdir -p "$P"; printf '## Wiring\n\nnothing routed here\n' > "$P/CLAUDE.local.md"
 case "$(item2 "$P")" in *"✗ baseline routing missing UI-quality rows"*) ok "a file with neither name still fails item 2" ;; *) bad "neither: '$(item2 "$P")'" ;; esac
 
-echo "== T14: the core is the deltas card; the preflight's every-script parts stay in the skill, on demand =="
+echo "== T14: the core is the deltas card; every kind still prints the preflight's every-script parts =="
 CARD="$TK/skills/mdl-deltas-card.md"
 O="$(bash "$SUT" any 2>&1)"; RC=$?
 [ "$RC" -eq 0 ] && has "$O" "> Source: \`skills/mdl-deltas-card.md\`" && ! has "$O" "skills/learned-mdl-preflight.md" \
@@ -273,17 +281,40 @@ W="$(printf '%s\n' "$O" | LC_ALL=C wc -w | tr -d ' ')"
 O="$(bash "$SUT" page 2>&1)"
 has "$O" "| 26 | Bind a DataGrid 2 column over an association" && ok "page: the card's page row (26) is in" || bad "page: card row 26 missing"
 has "$O" "| 1 🔎 |" && ok "page: the preflight's page STOP row 1 is still in" || bad "page: preflight row 1 missing"
-! has "$O" "bin/describe-baseline.sh stamp" && ok "page: the preflight's Kind-any row 21 is left to the card" || bad "page: the preflight's long row 21 printed too"
+has "$O" "bin/describe-baseline.sh stamp" && has "$O" "Observed failure: a plan that put 13 microflows in one exec" \
+  && ok "page: the preflight's full row 21 and its Final self-check still print (protected text, review of #833)" || bad "page: the preflight's row 21 or self-check missing"
 ! has "$O" "| 34 |" && ok "page: no workflow STOP row" || bad "page: workflow row 34 printed"
 has "$(bash "$SUT" workflow 2>&1)" "| 34 |" && ok "workflow: the preflight's row 34 is in" || bad "workflow: row 34 missing"
 grep -q '^## Step 0 — choose the write mode' "$TK/skills/learned-mdl-preflight.md" \
   && grep -q '^## Every-script gotchas' "$TK/skills/learned-mdl-preflight.md" \
-  && ok "the preflight keeps Step 0 and the every-script gotchas (moved out of the core, not deleted)" || bad "preflight lost a section"
+  && ok "the preflight keeps Step 0 and the every-script gotchas" || bad "preflight lost a section"
+grep -q '^| 21 | `DROP` + `CREATE`, `create or modify` or `create or replace` any document' "$TK/skills/learned-rules-archive.md" \
+  && grep -q '^| 23 | .*any `create or replace` on a page, layout or microflow' "$TK/skills/learned-rules-archive.md" \
+  && ok "the pre-rewording rows 21 and 23 are archived word for word" || bad "old rows 21/23 not in the archive"
+L="$(bash "$SUT" page | tail -1)"; N="${L##* rows }"; N="${N%%/*}"
+O="$(bash "$SUT" page)"; T="$(( $(ids_of page "The rows" "$CARDF" | wc -l) + $(ids_of any "The rows" "$CARDF" | wc -l) + $(ids_of page "The checklist" "$PREF" | wc -l) + $(ids_of any "The checklist" "$PREF" | wc -l) ))"
+has "$O" "| 26 | Bind a DataGrid 2 column" && has "$O" "| 26 🔎 |" && [ "$N" = "$(stop_union page)" ] && [ "$N" -lt "$T" ] \
+  && ok "page: rows 26 (card and preflight) both print, n/n counts STOP numbers once ($N of $T rows)" || bad "page: n=$N, unique $(stop_union page), rows $T"
+
 for c in 4 14 18 21 22 23 24 26 33; do grep -q "^| $c |" "$CARD" || bad "card: protected row $c missing"; done
 grep -q '^| G |' "$CARD" && grep -q '^| P |' "$CARD" && ok "card: protected rows 4 14 18 21-24 26 33, grants (G) and cross-module prefix (P) present" || bad "card: G or P missing"
 ! grep -qi 'create or replace' "$CARD" "$TK/skills/learned-mdl-preflight.md" && ok "no create-or-replace spelling in the card or the preflight" || bad "a create-or-replace spelling remains"
 ! grep -q 'never add `mdl 1;`' "$TK/skills/learned-mdl-preflight.md" && grep -q 'never add `mdl 1;`' "$TK/skills/learned-rules-archive.md" \
   && ok "the 'never add mdl 1;' gotcha moved to the archive" || bad "mdl 1 gotcha not moved"
+
+echo "== T15: text above a file's first ## heading must be selected (top) or excluded ((top)::reason) =="
+C15="$WORK/tk15"; mkcopy "$C15"
+grep -v '^script	skills/learned-mdl-preflight.md	top	' "$C15/bin/lib/mdl-rule-kinds.tsv" > "$C15/x" && mv "$C15/x" "$C15/bin/lib/mdl-rule-kinds.tsv"
+bash "$C15/bin/mdl-rules.sh" --render >/dev/null 2>&1
+O="$(bash "$C15/bin/mdl-rules.sh" --check 2>&1)"; RC=$?
+[ "$RC" -eq 1 ] && has "$O" "skills/learned-mdl-preflight.md: the text above the first ## heading reaches no kind" \
+  && ok "an unselected preflight header: --check exit 1, names the file" || bad "unselected header passed --check: rc=$RC" "$O"
+printf -- '-\tskills/learned-mdl-preflight.md\texclude\t(top)::test: deliberately unread\n' >> "$C15/bin/lib/mdl-rule-kinds.tsv"
+bash "$C15/bin/mdl-rules.sh" --check >/dev/null 2>&1 && ok "an explicit (top) exclude row makes it pass" || bad "(top) exclude not honoured" "$(bash "$C15/bin/mdl-rules.sh" --check 2>&1 | head -4)"
+C15b="$WORK/tk15b"; mkcopy "$C15b"
+printf -- '-\tskills/learned-mdl-preflight.md\texclude\t(top)::stale\n' >> "$C15b/bin/lib/mdl-rule-kinds.tsv"
+O="$(bash "$C15b/bin/mdl-rules.sh" --check 2>&1)"; RC=$?
+[ "$RC" -eq 1 ] && has "$O" "stale exclude row" && ok "a (top) exclude beside a top row is stale" || bad "stale (top) exclude passed: rc=$RC"
 
 echo ""
 echo "test-mdl-rules: $PASS passed, $FAIL failed"

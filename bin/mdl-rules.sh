@@ -123,7 +123,7 @@ _extract() {
         key = f SUBSEP sel SUBSEP h
         if (!(key in seen)) { seen[key] = ++ng; gf[ng] = f; gs[ng] = sel; gh[ng] = h }
         g = seen[key]
-        if (t[1] == "any") gany[g] = 1
+        if (t[1] == "any" || t[1] == "script") gany[g] = 1
         if (sel == "bullet") { nb[g]++; lead[g, nb[g]] = part }
         if (sel == "rows")   { nr[g]++; rx[g, nr[g]] = part }
         if (sel == "file")   whole[f] = 1
@@ -181,7 +181,12 @@ _extract() {
               kd = c[n - 1]
               if (kd == "") { emit(line); continue }       # the retired-numbers row: kept for citations
               # A kind-only STOP table (the preflight) leaves its Kind `any` rows to the core card.
-              if (index(want, " " kd " ") && (gany[g] || kd != "any")) { emit(line); stops_listed++ }
+              if (index(want, " " kd " ") && (gany[g] || kd != "any")) {
+                emit(line)
+                # counted once per STOP number: card row 26 and preflight row 26 are one row to check
+                id = c[2]; sub(/[ \t].*/, "", id)
+                if (!(id in sid)) { sid[id] = 1; stops_listed++ }
+              }
             }
           }
           if (tab == 0) err(f ": no table under \"" h "\"")
@@ -199,27 +204,26 @@ _extract() {
 
 # _stop_total <kinds...> — the denominator, counted by a second, independent pass over every STOP
 # table the kinds select: rows whose Kind cell is one of the kinds (or any), leaving out the Kind
-# `any` rows of a table no `any` row selects — the same rule _extract applies. The two must agree.
+# `any` rows of a table no `any` or `script` row selects — the same rule _extract applies — and
+# counting each STOP number once across tables (card and preflight share numbers). The two must agree.
 _stop_total() {
-  local want t=0 f h ga n
+  local want f h ga
   want="$(_want "$@")"
   while IFS=$'\t' read -r f h ga; do
     [ -n "$f" ] || continue
-    n="$(awk -v want="$want" -v h="$h" -v ga="$ga" '
+    awk -v want="$want" -v h="$h" -v ga="$ga" '
       /^[ \t]*(```|~~~)/ { fe = !fe; next }
       fe { next }
       index($0, "## " h) == 1 { on = 1; next }
       on && /^## / { exit }
       on && /^\|/ { n = split($0, c, "|"); k = c[n - 1]; gsub(/^[ \t]+|[ \t]+$/, "", k)
-                    if (k != "" && k != "Kind" && k !~ /^-+$/ && index(want, " " k " ") && (ga == 1 || k != "any")) t++ }
-      END { print t + 0 }' "$ROOT/$f")"
-    t=$((t + n))
-  done <<EOF
+                    if (k != "" && k != "Kind" && k !~ /^-+$/ && index(want, " " k " ") && (ga == 1 || k != "any")) {
+                      id = c[2]; gsub(/^[ \t]+/, "", id); sub(/[ \t].*/, "", id); print id } }' "$ROOT/$f"
+  done <<EOF | sort -u | awk 'END { print NR }'
 $(awk -F'\t' -v want="$want" '!/^[ \t]*#/ && NF >= 4 && $3 == "stop" && index(want, " " $1 " ") {
-    k = $2 SUBSEP $4; if (!(k in s)) { s[k] = 0; o[++n] = k; F[k] = $2; H[k] = $4 }; if ($1 == "any") s[k] = 1 }
+    k = $2 SUBSEP $4; if (!(k in s)) { s[k] = 0; o[++n] = k; F[k] = $2; H[k] = $4 }; if ($1 == "any" || $1 == "script") s[k] = 1 }
   END { for (i = 1; i <= n; i++) printf "%s\t%s\t%d\n", F[o[i]], H[o[i]], s[o[i]] }' "$TSV")
 EOF
-  echo "$t"
 }
 
 # print_rules <label> <kinds...> — the full output: header, rules, closing count line.
@@ -350,16 +354,18 @@ coverage() {
         if (!(f in used)) { used[f] = 1; files[++nf] = f }
         k = index(h, "::")
         if (sel == "exclude") { nx++; xf[nx] = f; xh[nx] = (k ? substr(h, 1, k - 1) : h); continue }
-        if (sel == "top") continue
+        if (sel == "top") { topsel[f] = 1; continue }
         if (k) h = substr(h, 1, k - 1)
         ns++; sf[ns] = f; sh[ns] = h
       }
       close(tsv)
       for (q = 1; q <= nf; q++) {
         f = files[q]; if (f in whole) continue
-        p = root "/" f; n = 0; fe = 0
+        p = root "/" f; n = 0; fe = 0; seen2 = 0; pretext = 0; h1sel = 0
         while ((getline l < p) > 0) {
           n++; lv[n] = 0; tx[n] = ""; cov[n] = 0; exc[n] = 0
+          # text above the first `##` heading (a `# Title` line alone is not text)
+          if (!seen2) { if (!fe && l ~ /^## /) seen2 = 1; else if (l !~ /^[ \t]*$/ && (fe || l !~ /^# /)) pretext = 1 }
           if (l ~ /^[ \t]*(```|~~~)/) { fe = !fe; continue }
           if (fe || l !~ /^#+ /) continue
           match(l, /^#+/); lv[n] = RLENGTH; x = l; sub(/^#+[ \t]+/, "", x); tx[n] = x
@@ -368,15 +374,21 @@ coverage() {
         if (fe) print "  " f ": unclosed code fence (an odd number of ``` / ~~~ lines hides every ## after it)"
         for (i = 1; i <= ns; i++) {
           if (sf[i] != f || !(s = first(sh[i], n))) continue   # a missing heading is the lookup error
-          cov[s] = 1
+          cov[s] = 1; if (lv[s] < 2) h1sel = 1
           if (lv[s] < 2) for (j = s + 1; j <= n && !(lv[j] && lv[j] <= lv[s]); j++) cov[j] = 1
         }
         for (i = 1; i <= nx; i++) {
           if (xf[i] != f) continue
+          if (xh[i] == "(top)") {
+            if (topsel[f]) print "  " f ": the text above the first ## is excluded, but a kind selects it with `top` (stale exclude row)"
+            topx[f] = 1; continue
+          }
           if (!(s = first(xh[i], n))) { print "  " f ": exclude row names no heading: \"" xh[i] "\" (stale — fix bin/lib/mdl-rule-kinds.tsv)"; continue }
           if (cov[s]) { print "  " f " § " tx[s] ": excluded, but a kind selects it (stale exclude row)"; continue }
           exc[s] = 1
         }
+        if (pretext && !topsel[f] && !topx[f] && !h1sel)
+          print "  " f ": the text above the first ## heading reaches no kind (select it with a `top` row, or add an exclude row \"(top)::<reason>\")"
         for (j = 1; j <= n; j++)
           if (lv[j] == 2 && !cov[j] && !exc[j])
             print "  " f " § " tx[j] ": ## section reaches no kind (select it, or add an exclude row with its reason)"

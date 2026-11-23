@@ -218,6 +218,7 @@ _art_entry_mode() {
   case "$tok" in
     requirements-driven) echo "requirements" ;;
     greenfield-retired)  echo "" ;;   # retired, not yet synced: every row owed — louder, never quieter
+    poc)                 echo "" ;;   # Entry mode: poc = Build type: poc, whose rows are owed as before (#819)
     *)                   echo "$tok" ;;
   esac
 }

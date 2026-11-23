@@ -125,7 +125,16 @@ describe_hash() {  # $1 = KIND, $2 = Doc
   echo "sha256=$h"
 }
 # "v0.26.0" from `mxcli --version` (captured: "mxcli version v0.26.0 (2026-10-11T18:37:07Z)").
-mxcli_version() { "$MXCLI" --version 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1; }
+# A build with no release tag in reach (a `make build` on a shallow clone) prints only a commit:
+# "mxcli version 591bcd7 (2026-11-20T18:49:18Z)" (captured, tests/wave2/fixtures/restatement-guard/).
+# That word is recorded as it is; before, nothing was stamped and an upgrade read as DRIFT.
+mxcli_version() {
+  local line v
+  line="$("$MXCLI" --version 2>/dev/null | grep -m1 '^mxcli version ')"
+  v="$(printf '%s\n' "$line" | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+  [ -n "$v" ] || v="$(printf '%s\n' "$line" | awk '{ print $3 }')"
+  printf '%s\n' "$v"
+}
 
 if [ "$CMD" = live ]; then
   need_mxcli || exit 3
@@ -165,7 +174,7 @@ fi
 need_mxcli || exit 3
 KINDS="$(restated)"
 KEY="$(script_key "$SCRIPT")"
-WAS_V="$(sed -nE 's/^[[:space:]]*--[[:space:]]*baseline-mxcli:[[:space:]]*(v[0-9.]+).*$/\1/p' "$SCRIPT" | head -1)"
+WAS_V="$(sed -nE 's/^[[:space:]]*--[[:space:]]*baseline-mxcli:[[:space:]]*([^[:space:]]+).*$/\1/p' "$SCRIPT" | head -1)"
 NOW_V=""; [ -n "$WAS_V" ] && NOW_V="$(mxcli_version)"
 RC=0
 while read -r doc want; do

@@ -191,7 +191,7 @@ function describeAct(a, vars) {
   switch (a.do) {
     case 'nav':      return { verb: 'Navigate', target: [a.group, a.item].filter(Boolean).join(' › '), selector: null };
     case 'click':    return { verb: 'Click', target: (lab || a.widget) + (a.row !== undefined ? ` in the row "${v(a.row)}"` : ''), selector: `.mx-name-${a.widget}` };
-    case 'fill':     return { verb: 'Type', target: `"${v(a.value)}" into ${lab || a.widget}`, selector: `.mx-name-${a.widget}` };
+    case 'fill':     return { verb: 'Type', target: `"${v(a.value)}" into ${lab || a.widget}` + (a.row !== undefined ? ` in the row "${v(a.row)}"` : ''), selector: `.mx-name-${a.widget}` };
     case 'combobox': return { verb: 'Select', target: `"${v(a.match)}" in ${lab || a.widget}`, selector: `.mx-name-${a.widget}` };
     case 'wait':     return { verb: 'Wait', target: `${a.ms || 0}ms`, selector: null };
     case 'back':     return { verb: 'Browser Back', target: '', selector: null };
@@ -245,7 +245,12 @@ async function act(page, a, vars, note) {
       break;
     }
     case 'fill': {
-      const el = page.locator(`.mx-name-${a.widget} input, .mx-name-${a.widget} textarea`).first();
+      // `row` / `in` scope a fill exactly as they scope a click (#760): a list view or grid repeats
+      // one textbox name per item, and the bare locator types into row 1, so a step meant for row 2
+      // could PASS on the wrong row. Neither field → the old page-wide first match, unchanged.
+      const el = (a.row !== undefined || a.in)
+        ? (await scopedWidget(page, a, vars)).locator('input, textarea').first()
+        : page.locator(`.mx-name-${a.widget} input, .mx-name-${a.widget} textarea`).first();
       if (!(await H.visibleWithin(el, 6000)))
         throw new Error(`.mx-name-${a.widget} input not visible`);
       await el.fill(String(subst(a.value, vars)));
@@ -429,11 +434,16 @@ function backLeftApp(url, baseUrl) {
 
 // The opt-in `ui.no5xx` row (#564): every answer >= 500 between the step's first action and its
 // landing guard. Mendix can render a page's frame while every data source on it failed (HTTP 560
-// on /xas/), and the landing guard alone then reads PASS.
-function no5xxVerdict(hits) {
+// on /xas/), and the landing guard alone then reads PASS. `feedback` holds the 551 answers whose
+// body is Mendix validation feedback (#818, helpers.isValidationFeedback): a refused save on a
+// negative-path step is the app working, so they are a note on the row, never a hit.
+function no5xxVerdict(hits, feedback = []) {
+  const note = feedback.length
+    ? ` (${feedback.length} validation answer(s), HTTP 551 datavalidation, not counted: ${feedback.slice(0, 3).join('; ')}${feedback.length > 3 ? '; …' : ''})`
+    : '';
   return hits.length
-    ? { verdict: 'FAIL', detail: `${hits.length} answer(s) >= 500: ${hits.slice(0, 5).join('; ')}${hits.length > 5 ? '; …' : ''}` }
-    : { verdict: 'PASS', detail: 'no answer >= 500' };
+    ? { verdict: 'FAIL', detail: `${hits.length} answer(s) >= 500: ${hits.slice(0, 5).join('; ')}${hits.length > 5 ? '; …' : ''}${note}` }
+    : { verdict: 'PASS', detail: `no answer >= 500${note}` };
 }
 
 // ── Device, network and position (#521) ─────────────────────────────────────
@@ -1079,15 +1089,24 @@ async function runJourney(page, j) {
     // what it managed, or the walk goes quiet exactly where it matters most.
     // ui.no5xx (opt-in, #564): watch every response from the first action to the landing guard.
     const watch5xx = !!(step.ui && step.ui.no5xx === true);
-    const hits5xx = [];
-    const on5xx = (r) => { if (r.status() >= 500) hits5xx.push(`${r.status()} ${r.request().method()} ${r.url().slice(0, 120)}`); };
+    const hits5xx = [], feedback5xx = [], pending5xx = [];
+    const on5xx = (r) => {
+      const st = r.status();
+      if (st < 500) return;
+      const line = `${st} ${r.request().method()} ${r.url().slice(0, 120)}`;
+      if (st !== 551) { hits5xx.push(line); return; }
+      // Only a 551's body is read (#818); one that cannot be read stays a hit.
+      pending5xx.push(r.text().catch(() => '')
+        .then(body => (H.isValidationFeedback(st, body) ? feedback5xx : hits5xx).push(line)));
+    };
     let no5xxDone = !watch5xx;
     // Recorded before any bail-out, so a 5xx that is WHY the page never landed shows beside it.
-    const record5xx = () => {
+    const record5xx = async () => {
       if (no5xxDone) return;
       no5xxDone = true;
       page.off('response', on5xx);
-      const v = no5xxVerdict(hits5xx);
+      await Promise.all(pending5xx.splice(0));
+      const v = no5xxVerdict(hits5xx, feedback5xx);
       record('ui', `${step.name}: no HTTP 5xx during the step`, v.verdict, v.detail, req);
     };
     if (watch5xx) page.on('response', on5xx);
@@ -1136,7 +1155,7 @@ async function runJourney(page, j) {
     } catch (e) {
       record('ui', `${step.name}: actions completed`, 'FAIL', e.message.split('\n')[0], req);
       leg.shot = await shoot(page, `${j.id}-step${i + 1}-ACTION-FAILED`);
-      record5xx();
+      await record5xx();
       seal();
       return; // the journey's state is now unknown; later steps would measure noise
     }
@@ -1158,7 +1177,7 @@ async function runJourney(page, j) {
       }
       leg.reached = onPage;
     }
-    record5xx();
+    await record5xx();
 
     // The success shot, taken HERE: after the actions and the landing guard, before
     // the text/trace/data rungs. That ordering is the whole point — this image is the

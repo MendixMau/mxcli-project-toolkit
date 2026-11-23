@@ -65,9 +65,9 @@ t('incidental flows tolerated', seq([mf('A', 1), mf('X', 2), mf('B', 3)], ['A', 
 // The whole reason rung 2 walks activity spans: a caught error leaves the
 // microflow green while the commit did nothing.
 const swallowed = [
-  { start: 1, op: 'mf', tags: { 'mx.microflow.name': 'FieldScan.ACT_Movement_Receive', 'otel.status_code': 'OK' }, logs: [] },
+  { start: 1, op: 'mf', tags: { 'mx.microflow.name': 'Sample.ACT_Movement_Receive', 'otel.status_code': 'OK' }, logs: [] },
   { start: 2, op: 'act', tags: { 'mx.activity.name': 'CallRest', 'otel.status_code': 'ERROR',
-                                 'otel.status_description': 'Error calling REST service\n  at FieldScan.ACT_Movement_Receive (CallRest)' }, logs: [] },
+                                 'otel.status_description': 'Error calling REST service\n  at Sample.ACT_Movement_Receive (CallRest)' }, logs: [] },
 ];
 let errOk; O.assertNoErrors(swallowed, (_n, ok) => { errOk = ok; });
 t('swallowed activity error is caught', errOk, false);

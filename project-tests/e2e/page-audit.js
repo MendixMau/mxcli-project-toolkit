@@ -4,7 +4,7 @@
 // ----------------------------------------------------------------------------
 //   node tests/e2e/page-audit.js                    # full run (needs the app up)
 //   node tests/e2e/page-audit.js --static-only      # model-side only, app may be down
-//   node tests/e2e/page-audit.js --page Equipment.Item_Detail
+//   node tests/e2e/page-audit.js --page Sales.Order_Detail
 //   node tests/e2e/page-audit.js --positive-control # prove every category can go red
 //
 // Output: tests/e2e/artifacts/page-audit.json          (one artifact, per-page sections)

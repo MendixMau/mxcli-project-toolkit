@@ -637,7 +637,7 @@ else
 fi
 
 # ── 2. Runtime instruments (need the app) ───────────────────────────────────
-# F-042 (MarkUseCase, 2026-08-28): design-audit.js reads .claude/loop/page-scope.json for
+# F-042 (field build, 2026-08-28): design-audit.js reads .claude/loop/page-scope.json for
 # its page denominator, but nothing in any mandatory chain ever GENERATED that file — its
 # producer (bin/page-scope.sh) was wired into no step, so the audit either faulted on a
 # missing scope or ran against a stale one. Generate/refresh it here, before its consumers: the

@@ -49,7 +49,7 @@
 // instrument will not catch it, by construction. Verified, not assumed: scored the
 // pre-64 script set and the post-64 set; both 100%.
 //
-// EVERY RUN IS RECORDED. A score printed to a terminal evaporates — the MarkUseCase field
+// EVERY RUN IS RECORDED. A score printed to a terminal evaporates — a field
 // run (2026-08-27) built its first pages with no fidelity trace at all, and "what went
 // wrong" had to be reconstructed from a session status line. So the scorer appends each
 // run to <project>/docs/PAGE-FIDELITY.tsv (project root = nearest .mpr above the

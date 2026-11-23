@@ -57,7 +57,7 @@ already-promoted class is invisible to it.
 (`--mxt-*` custom properties) into the theme — nothing else. No component class rule
 (`.tab`, `.status`, `.metric`, `.kpi`, …) ever travels with it. The trap is that its result
 is *visibly convincing*: the brand colors land, the app stops looking like bare Atlas, and
-the session concludes the design system is installed. Measured (MarkUseCase field run,
+the session concludes the design system is installed. Measured (a field run,
 2026-08-28): every page across four screens referenced `ds.css` component classes, `theme
 apply` had run, and **zero** of those classes existed in `main.scss` — the whole app rendered
 unstyled for the entire build, confirmed as 5 pages FAIL on `design-audit.js`'s

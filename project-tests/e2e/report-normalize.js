@@ -2462,7 +2462,7 @@ function loadInputs(outFile) {
   const findingsMobile = readJsonInput(INPUTS.findingsMobile);
 
   // Journey contracts. The module a journey walks is taken from its FILE NAME
-  // (FieldScan.journey.json → FieldScan) because the contract schema has no module
+  // (Sales.journey.json → Sales) because the contract schema has no module
   // field — noted as an instrument gap rather than inferred from SQL text.
   const contracts = [];
   const journeyModule = new Map();

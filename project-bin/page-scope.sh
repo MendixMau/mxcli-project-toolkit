@@ -90,7 +90,7 @@ QNAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$")
 # Column labels that are table furniture, never a page or module name.
 HEADER_WORDS = {"name", "page", "pages", "module", "modules", "type", "source", "title",
                 "layout", "url", "documents", "count", "excluded", "folder", "params"}
-# F-042 (MarkUseCase, 2026-08-28): SHOW PAGES headers carrying Excluded/Folder/Params
+# F-042 (field build, 2026-08-28): SHOW PAGES headers carrying Excluded/Folder/Params
 # columns were parsed as page rows — 6 real pages inflated to 13, so every consumer of
 # page-scope.json measured against a denominator that was half furniture.
 

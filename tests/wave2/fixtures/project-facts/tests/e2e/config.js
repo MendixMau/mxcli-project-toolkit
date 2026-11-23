@@ -237,23 +237,17 @@ function resolveTarget() {
 // A project.config.js still carrying it navigates menu captions the app does not have, so a
 // monkey run reaches nothing and measures nothing. Compared like TEMPLATE_PASSWORDS above;
 // tests/wave2/test-monkey-template-nav.sh asserts this copy equals the template's.
-const TEMPLATE_NAV = {
-  dashboard:    ['Dashboard'],
-  equipment:    ['Assets & Barcodes', 'Equipment'],
-  locations:    ['Assets & Barcodes', 'Locations'],
-  fieldScan:    ['Assets & Barcodes', 'Field Scan'],
-  barcodeLabel: ['Assets & Barcodes', 'Barcode Labels'],
-  aiAssistant:  ['AI', 'AI Assistant'],
-  aiAdmin:      ['AI', 'AI Admin'],
-  designSystem: ['Configuration', 'Design System'],
-};
+// Stored as a sha256 of the normalised NAV, not as the captions themselves: the sample was a
+// real app's menu and a public repo should not list it. Same test as before, entry for entry.
+const TEMPLATE_NAV_SHA256 = '7d6ab4e600e93ca269a33433e65a6798017b0671dafb3391534e9abb81cc354d';
+const navHash = o => require('crypto').createHash('sha256')
+  .update(JSON.stringify(Object.keys(o).sort().map(k => [k, o[k]]))).digest('hex');
 // True when every NAV entry is the template's, entry for entry (key order ignored).
 // ALLOW_TEMPLATE_NAV=1 overrides, for the one app whose menu really is the sample's.
 function navIsTemplate({ nav = NAV, env = process.env } = {}) {
   if (env.ALLOW_TEMPLATE_NAV === '1' || !nav) return false;
-  const norm = o => JSON.stringify(Object.keys(o).sort().map(k => [k, o[k]]));
-  return norm(nav) === norm(TEMPLATE_NAV);
+  return navHash(nav) === TEMPLATE_NAV_SHA256;
 }
 
 module.exports = { cfg, NAV, TARGETS, resolveTarget, resolveAdmin, passwordSource, TEMPLATE_PASSWORDS,
-                   TEMPLATE_NAV, navIsTemplate };
+                   TEMPLATE_NAV_SHA256, navHash, navIsTemplate };

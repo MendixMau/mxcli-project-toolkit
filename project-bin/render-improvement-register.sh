@@ -71,7 +71,7 @@ except OSError as e:
 
 # ── parse ────────────────────────────────────────────────────────────────────────────────────
 # Markdown tables, columns mapped by header name. The current header mapping is carried across
-# blank lines and prose: real registers (e.g. RoutingMgmt) split one logical table into several
+# blank lines and prose: real registers (a field project's) split one logical table into several
 # chunks separated by blank lines, and only the first chunk repeats the header row.
 SEP_ROW = re.compile(r"^\s*\|?\s*:?-{2,}")          # |---|---| separator under a header
 DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")

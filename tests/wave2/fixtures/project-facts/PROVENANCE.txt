@@ -3,3 +3,5 @@ from a real generated project (the e2e-balanced Purchasing/Approval build, 2026-
 .mxcli/run-local.json is the committed capture in ../run-local/run-local.json.
 The test appends a 'Roles and ports' section (with a planted password) to a TEMP copy of PROJECT.md:
 the real PROJECT.md has no such section, and the secret line must be planted to be asserted absent.
+The tests/e2e/config.js TEMPLATE_NAV block (toolkit engine code, not project data) was later replaced by its
+sha256 form, matching project-tests/e2e/config.js, so the captured copy does not list another app's menu.

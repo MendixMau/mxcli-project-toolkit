@@ -16,7 +16,12 @@
 # Follow-up (field run 2026-11-20, a real Mendix 11.8 app): the template now ships NAV EMPTY, and
 # an empty NAV reached "0 of 0 target(s)" and exited 0 after a login. An empty NAV now exits 2
 # before the browser, and exitCode() treats 0 targets as not measured. The old sample NAV is still
-# recognised (config.js TEMPLATE_NAV) for project.config.js files installed before the change.
+# recognised (config.js navIsTemplate()) for project.config.js files installed before the change.
+#
+# Privacy follow-up: config.js keeps that NAV only as a sha256 (TEMPLATE_NAV_SHA256), not as
+# captions. Golden input for the old installed config is the last template that shipped the sample
+# NAV, read from git history (OLD_REV below; MONKEY_OLD_TEMPLATE=<file> overrides) — never a copy in
+# the tree, which would publish the captions again. Without that history the cases print NOT RUN.
 
 set -uo pipefail
 
@@ -46,27 +51,55 @@ mkdir -p "$WORK/tests/e2e"; : > "$WORK/Fixture.mpr"
 cp "$SUT" "$E2E/helpers.js" "$E2E/otel.js" "$E2E/config.js" "$WORK/tests/e2e/"
 cp "$CFG" "$WORK/tests/e2e/project.config.js"
 
-echo "== config.js: navIsTemplate() against the old sample and the shipped (empty) template =="
+# The last project.config.template.js that shipped the sample NAV (parent of #826): what an
+# older install's project.config.js still is, byte for byte.
+OLD_REV=f935900e1a14755d1c810b6f0cce0d3765ce45df
+OLDCFG="$WORK/old.project.config.js"
+if [ -n "${MONKEY_OLD_TEMPLATE:-}" ] && [ -f "$MONKEY_OLD_TEMPLATE" ]; then cp "$MONKEY_OLD_TEMPLATE" "$OLDCFG"
+else git -C "$HERE" show "$OLD_REV:project-tests/e2e/project.config.template.js" > "$OLDCFG" 2>/dev/null || rm -f "$OLDCFG"; fi
+OLD="$WORK/old/tests/e2e"
+if [ -s "$OLDCFG" ]; then
+  mkdir -p "$OLD"; : > "$WORK/old/Fixture.mpr"
+  cp "$SUT" "$E2E/helpers.js" "$E2E/otel.js" "$E2E/config.js" "$OLD/"; cp "$OLDCFG" "$OLD/project.config.js"
+fi
+
+echo "== config.js: navIsTemplate() against an old installed config and the shipped (empty) template =="
+OUT="$(cd "$WORK/tests/e2e" && printf '%s' \
+  "const C=require('./config.js'); console.log('EMPTY ' + Object.keys(require('./project.config.js').NAV || {}).length + ',' + (typeof C.navIsTemplate === 'function' ? C.navIsTemplate() : 'NOFN'));" \
+  | APP_PORT=1 node - 2>&1)"
+line() { printf '%s\n' "$OUT" | sed -n "s/^$1 //p"; }
+[ "$(line EMPTY)" = "0,false" ] && ok "the shipped template's NAV is empty (and is not 'the sample')" || bad "template NAV not empty" "$(line EMPTY)"
 IFS= read -r -d '' JS <<'EOF' || true
+const fs = require('fs');
 const C = require('./config.js');
 if (typeof C.navIsTemplate !== 'function') { console.log('NOFN'); process.exit(0); }
-const S = C.TEMPLATE_NAV;
-console.log('TPL ' + C.navIsTemplate({ nav: S }));
-console.log('EMPTY ' + Object.keys(require('./project.config.js').NAV || {}).length + ',' + C.navIsTemplate());
-const edited = Object.assign({}, S, { dashboard: ['Home'] });
-console.log('EDITED ' + C.navIsTemplate({ nav: edited }));
+const S = require('./project.config.js').NAV;
+console.log('N ' + Object.keys(S).length);
+console.log('TPL ' + C.navIsTemplate());
+const k0 = Object.keys(S)[0];
+console.log('EDITED ' + C.navIsTemplate({ nav: Object.assign({}, S, { [k0]: ['Home'] }) }));
 const reordered = {}; for (const k of Object.keys(S).reverse()) reordered[k] = S[k];
 console.log('REORDER ' + C.navIsTemplate({ nav: reordered }));
 console.log('ALLOW ' + C.navIsTemplate({ nav: S, env: { ALLOW_TEMPLATE_NAV: '1' } }));
+// No caption of the old sample menu, quoted, anywhere in the shipped engine.
+const src = fs.readFileSync('./config.js', 'utf8');
+const caps = [...new Set(Object.values(S).flat())];
+console.log('CLEAR ' + caps.filter(c => src.includes("'" + c + "'")).length + '/' + caps.length);
 EOF
-OUT="$(cd "$WORK/tests/e2e" && printf '%s' "$JS" | APP_PORT=1 node - 2>&1)"
-line() { printf '%s\n' "$OUT" | sed -n "s/^$1 //p"; }
-if printf '%s\n' "$OUT" | grep -qx NOFN; then bad "#679 config.js exports no navIsTemplate()"; else
-  [ "$(line TPL)" = true ]      && ok "#679 the old sample NAV, unedited, reads as the sample" || bad "#679 sample NAV not detected" "$OUT"
-  [ "$(line EMPTY)" = "0,false" ] && ok "the shipped template's NAV is empty (and is not 'the sample')" || bad "template NAV not empty" "$(line EMPTY)"
-  [ "$(line EDITED)" = false ]  && ok "one edited caption → not the sample" || bad "edited NAV flagged as template" "$(line EDITED)"
-  [ "$(line REORDER)" = true ]  && ok "key order is ignored" || bad "reordered template NAV missed" "$(line REORDER)"
-  [ "$(line ALLOW)" = false ]   && ok "ALLOW_TEMPLATE_NAV=1 overrides" || bad "ALLOW_TEMPLATE_NAV ignored" "$(line ALLOW)"
+if [ ! -d "$OLD" ]; then
+  echo "  NOT RUN — the old template is not in this clone's history ($OLD_REV); fetch full history or set MONKEY_OLD_TEMPLATE"
+else
+  OUT="$(cd "$OLD" && printf '%s' "$JS" | APP_PORT=1 node - 2>&1)"
+  if printf '%s\n' "$OUT" | grep -qx NOFN; then bad "#679 config.js exports no navIsTemplate()"; else
+    [ "$(line N)" = 8 ] && ok "golden input: the old installed config carries the 8-entry sample NAV" || bad "old template NAV" "$OUT"
+    [ "$(line TPL)" = true ]      && ok "#679 an old installed project.config.js, unedited, reads as the sample" || bad "#679 sample NAV not detected" "$OUT"
+    [ "$(line EDITED)" = false ]  && ok "one edited caption → not the sample" || bad "edited NAV flagged as template" "$(line EDITED)"
+    [ "$(line REORDER)" = true ]  && ok "key order is ignored" || bad "reordered template NAV missed" "$(line REORDER)"
+    [ "$(line ALLOW)" = false ]   && ok "ALLOW_TEMPLATE_NAV=1 overrides" || bad "ALLOW_TEMPLATE_NAV ignored" "$(line ALLOW)"
+    [ "$(line CLEAR)" = "0/$(printf '%s\n' "$OUT" | sed -n 's/^CLEAR [0-9]*\///p')" ] \
+      && ok "config.js lists none of the sample's captions in clear ($(line CLEAR) found)" \
+      || bad "config.js still lists sample captions in clear" "$(line CLEAR)"
+  fi
 fi
 
 echo "== monkey.js: exit codes =="
@@ -96,22 +129,20 @@ printf '%s\n' "$RUNOUT" | grep -qE 'INSTRUMENT FAULT|\(login\)|MONKEY SUMMARY|pa
   && bad "the empty-NAV run went past the check (browser/login reached)" "$(printf '%s' "$RUNOUT" | tail -3)" \
   || ok "nothing after the NAV check ran: no browser launch, no login attempt"
 
-echo "== monkey.js main: the old sample NAV exits 2 BEFORE the browser =="
-# A project.config.js installed before the template went empty: its NAV is the old sample.
-( cd "$WORK/tests/e2e" && APP_PORT=1 node -e '
-  const fs = require("fs"), f = "project.config.js";
-  const nav = JSON.stringify(require("./config.js").TEMPLATE_NAV || {});
-  fs.writeFileSync(f, fs.readFileSync(f, "utf8").replace(/const NAV = \{[\s\S]*?\n\};/, "const NAV = " + nav + ";"));
-' ) >/dev/null 2>&1
+echo "== monkey.js main: an old installed config (sample NAV) exits 2 BEFORE the browser =="
 # APP_PORT=1: nothing listens. Without the check the run launches a browser and fails at login
 # (exit 1), or exits 2 on a missing playwright — neither names the NAV.
-RUNOUT="$(cd "$WORK/tests/e2e" && env -u ALLOW_TEMPLATE_NAV APP_PORT=1 timeout 120 node monkey.js --rounds 1 2>&1)"; RC=$?
-[ "$RC" -eq 2 ] && ok "#679 sample NAV → exit 2 (instrument fault, not measured)" || bad "#679 sample NAV exit code" "rc=$RC $(printf '%s' "$RUNOUT" | tail -3)"
-printf '%s\n' "$RUNOUT" | grep -q 'SETUP  NAV is the unedited sample' && ok "#679 a SETUP line names the sample NAV" \
-  || bad "#679 no SETUP line for the sample NAV" "$(printf '%s' "$RUNOUT" | tail -3)"
-printf '%s\n' "$RUNOUT" | grep -qE 'INSTRUMENT FAULT|\(login\)|MONKEY SUMMARY|page\.goto|loginOnce' \
-  && bad "#679 the run went past the NAV check (browser/login reached)" "$(printf '%s' "$RUNOUT" | tail -3)" \
-  || ok "#679 nothing after the NAV check ran: no browser launch, no login attempt"
+if [ ! -d "$OLD" ]; then
+  echo "  NOT RUN — no old template (see above)"
+else
+  RUNOUT="$(cd "$OLD" && env -u ALLOW_TEMPLATE_NAV APP_PORT=1 timeout 120 node monkey.js --rounds 1 2>&1)"; RC=$?
+  [ "$RC" -eq 2 ] && ok "#679 sample NAV → exit 2 (instrument fault, not measured)" || bad "#679 sample NAV exit code" "rc=$RC $(printf '%s' "$RUNOUT" | tail -3)"
+  printf '%s\n' "$RUNOUT" | grep -q 'SETUP  NAV is the unedited sample' && ok "#679 a SETUP line names the sample NAV" \
+    || bad "#679 no SETUP line for the sample NAV" "$(printf '%s' "$RUNOUT" | tail -3)"
+  printf '%s\n' "$RUNOUT" | grep -qE 'INSTRUMENT FAULT|\(login\)|MONKEY SUMMARY|page\.goto|loginOnce' \
+    && bad "#679 the run went past the NAV check (browser/login reached)" "$(printf '%s' "$RUNOUT" | tail -3)" \
+    || ok "#679 nothing after the NAV check ran: no browser launch, no login attempt"
+fi
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"

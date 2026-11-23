@@ -436,6 +436,17 @@ neg "alter page set Action = close_page" "alter page M.P { set Action = close_pa
 neg "alter page set OnChange = save_changes" "alter page M.P { set OnChange = save_changes on sw }\n"
 printf "alter page M.P {\n set Caption = 'never closed\n set Class = 'x' on b;\n" > "$WORK/open.mdl"
 expect "$WORK/open.mdl" "$UNK" "unterminated" "a string that never closes is unknown, never watch-safe"
+# Field run 2026-11-20: the head of a demo-user statement printed its literals blank —
+# `create or modify demo user '' ( Password: '', ...` — reading as an empty user name. A blanked
+# literal now shows as '…'; the literal itself (here a password) is never printed.
+printf "create or modify demo user 'demo_administrator' ( Password: 'Fx-Secret-9', Entity: Administration.Account, UserRoles: ('Administrator') );\n" > "$WORK/demouser.mdl"
+OUT="$(cd "$WORK" && bash "$SUBJECT" --watch-compat demouser.mdl 2>&1)"
+case "$OUT" in *"demo user '…' ( Password: '…'"*) ok "watch line marks blanked literals '…' (not an empty '')" ;;
+  *) bad "watch line still blanks literals to '': $OUT" ;; esac
+OUT2="$(cd "$WORK" && bash "$SUBJECT" --change-class demouser.mdl 2>&1)"
+case "$OUT2" in *"demo user '…'"*) ok "change-class line marks them the same way" ;; *) bad "change-class line: $OUT2" ;; esac
+case "$OUT $OUT2" in *Fx-Secret-9*|*demo_administrator*) bad "a string literal (the password) was printed" ;;
+  *) ok "no literal printed: the password stays masked" ;; esac
 
 echo "-- watch-compat in a real run"
 cp "$GAL/05-demo-data.mdl" "$P/mdlsource/demo.mdl"

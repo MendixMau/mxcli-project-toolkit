@@ -158,6 +158,8 @@ modules reference this one, which cannot exceed the own-module count. Reading th
 second is how an early version of the page claimed a module was "depended on by 1707 others"
 in an app with 73 own modules. `bin/app-report.sh` derives the module count from
 `dependencies.json` `edges`.
+Known gap: `edges` joins `refs` to documents by qualified name, so attribute-level refs (`member`,
+`xpath`, target `M.E.Attr`) never reach it; a module used only through attributes or XPath is undercounted.
 
 None of these inputs is an opinion: what the statement costs per turn of the loop, whether
 anything runs it unattended today, and what multiplies it. `bin/app-report.sh` does the

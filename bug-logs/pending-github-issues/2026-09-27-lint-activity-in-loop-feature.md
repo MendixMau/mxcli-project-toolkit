@@ -1,5 +1,5 @@
 Repo: mendixlabs/mxcli
-Source: toolkit inbox `contrib/inbox/2026-09-27-mxcli-upstream-issues.md`, probes on scratch copies 2026-09-27
+Source: a field project's guest-groups work, probes on scratch copies 2026-09-27 (mxcli v0.23.0, Mendix 11.12.2)
 Status: **FILED — comment on https://github.com/mendixlabs/mxcli/issues/671#issuecomment-5856968540 (2026-09-27)**. Retested before filing on mxcli main 95091765 in a neutral blank 11.12.2 app; the filed text (the live issue) supersedes this draft. Filed as a comment on the open PERF-series proposal #671, not a new issue; activities_for() exposes no loop containment.
 
 --- everything above this line is stripped before filing ---

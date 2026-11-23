@@ -17,6 +17,10 @@ OBCHECK="$(dirname "$SYNC")/lib/obligation-check.sh"
 for f in "$INIT" "$OBCHECK"; do [ -r "$f" ] || { echo "missing $f"; exit 2; }; done
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/mh-adv.XXXXXX")"
 trap '[ -n "${KEEP:-}" ] || rm -rf "$WORK"' EXIT
+# init-project.sh registers each scaffolded project's name in the toolkit clone's .leakguard-deny
+# unless told otherwise; run alone (outside run-all.sh) this fixture would leave its project names
+# there and the pre-commit leak guard would flag every file for the next committer.
+export MXTK_LEAKGUARD_DENYFILE="$WORK/leakguard-deny"
 export MXTK_NO_GUIDE=1
 PASS=0; FAIL=0
 ok()  { PASS=$((PASS+1)); printf '  ok   %s\n' "$1"; }

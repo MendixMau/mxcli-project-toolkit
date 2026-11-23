@@ -276,6 +276,11 @@ association direction; all fine, page empty → stale deployment or a different 
 
 **A clean build is not a working page.** mxbuild is blind to every row in that tree.
 
+**Unconfigured is not empty: say which, in the text the feature returns.** An integration with no
+credentials answers with a guard string (`GRAPH_NOT_CONFIGURED: … a configuration gap, not an empty
+graph`) and a transport failure with `GRAPH_ERROR: <status>`; then one question after a deploy tells
+the three states apart, where an empty result cannot (2026-09-16, an app-replacement project).
+
 ---
 
 ## 4. Things that still hold from v1

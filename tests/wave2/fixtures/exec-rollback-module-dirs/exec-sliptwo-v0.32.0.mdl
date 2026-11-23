@@ -1,0 +1,12 @@
+mdl 1;
+create module SlipTwo;
+create persistent entity SlipTwo.Thing (
+  Name: string(100)
+);
+create microflow SlipTwo.ACT_Thing ()
+returns boolean as $ok
+begin
+  $T = create SlipTwo.Thing (Nmae = 'x');
+  declare $ok boolean = true;
+  return $ok;
+end;

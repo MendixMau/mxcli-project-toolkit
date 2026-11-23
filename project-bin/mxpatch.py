@@ -35,6 +35,11 @@ LIBRARY (what a patch script imports -- it lives beside this file):
     one -- the model is not the one the patch was written against, so it refuses.
     write_unit() returns "written", "dry-run" or "already" (encoded bytes identical to disk).
 
+    Lookups that miss (each is how the model is stored, not a bug): an entity's $Type is
+    DomainModels$EntityImpl; a DomainModels$DomainModel unit has no Name, so select it by
+    m.module_of(u) (the CLI's get/set cannot); a flow's own Documentation is a key on the unit
+    root, which find_element skips -- set it on u.doc (the CLI does when --element is left out).
+
 CLI (dry run unless --apply; exit 0 ok/already/dry-run, 2 usage, 3 drift, 4 not found or
 ambiguous, 5 hash index problem):
 

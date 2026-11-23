@@ -557,6 +557,7 @@ mxcli **v0.18.0**, where `DECISION` writes correctly.
 | `v0.18.0`+ | writes correctly; verify what was stored anyway |
 | `v0.20.0` / `v0.21.0` | **resolved 2026-09-08 — a spelling pincer, not a shape.** The two 2026-08-31 probes disagreed because one used bare outcomes and one used qualified ones: bare `'Yes'` passes `mxcli check` and produces the byte-exact `StorageLoadException`; qualified `Module.Enum.Value` is rejected by `MDL-WF03` but loads natively via `exec --no-check` with one `CE0117` (the empty condition). Re-probed on v0.21.0: unchanged. Workaround: qualified spelling + `--no-check`, then pick the expression in Studio Pro (BUG-76, mendixlabs/mxcli#1031) |
 | `v0.24.0` | **split in two, 2026-09-26 (Mendix 11.13.0, a card-disbursement requirements-driven build).** Bare-enum outcome: refused before the write by `MDL-WF03`; forced with `--no-check`, the same `StorageLoadException` (rc 1) — guarded, not fixed. Boolean decision with `true`/`false` outcome keywords on a context-attribute expression: check, exec and native `mx check` 0 errors, `DESCRIBE` shows the expression intact — scriptable. The string-labelled `'1 = 1'` repro below was not re-run; run it before scripting that shape |
+| `v0.32.0-374` | **writes correctly in the qualified spelling, 2026-11-20 (Mendix 11.8.0, a ledger retest).** Enum outcomes `'Module.Enum.Value'` plus an empty `'' -> { }` outcome: check, exec and `mx check` 0 errors, `DESCRIBE` reads them back. The bare `'Draft'` is refused at `check` (MDL-WF03, with the reason) and a missing empty outcome too (MDL-WF06, CE6686). A Boolean decision: 0 errors. Restart safety (BUG-141) was not testable |
 
 Two half-right versions of this warning coexisted for four days from 2026-08-21. One said
 "absolute prohibition, confirmed on v0.17.0" and never learned about the v0.18.0 fix — follow
@@ -1278,6 +1279,12 @@ exclusive split anywhere. The lesson generalises past the bug: an approval chain
 *human's answer*, and a user task's outcomes already express that. A `DECISION` is for
 branching on *data*. If the first draft of an approval workflow has a split after every task,
 the split is redundant before it is dangerous.
+
+**The opposite failure: one user task for every role.** A task whose every outcome is `jump to`
+itself, with "whose turn" in an attribute read by a targeting microflow, hides the whole chain in
+microflows and gives the inbox one caption for every step. One user task per role or decision point,
+named for it; a jump is for a loop the business names (a return to the owner) — STOP and redesign
+(2026-10-02, a four-role approval prototype, Mendix 11.15).
 
 ### `CE6681` on a dangling jump describes the wrong fault
 

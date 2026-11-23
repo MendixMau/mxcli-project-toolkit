@@ -170,6 +170,18 @@ has "says there was nothing to stop" "$OUT" "nothing — recorded pid $D is not 
 has "uses the remembered command" "$OUT" "remembered from the last restart"
 KILL_LIST="$KILL_LIST $(hs_pid "$P") $(cat "$P/.fakechild" 2>/dev/null)"
 
+echo "-- the start log is this project's, not a /tmp file shared by every model of the same name"
+# Field run 2026-11-20: several experiments' models were all ProbeApp.mpr, so they all wrote
+# ${TMPDIR:-/tmp}/ProbeApp-run-local.log. Without LOGDIR the log now lives beside start.cmd.
+mkdir -p "$WORK/tmpd"
+OUT="$( ( cd "$P" && env -u LOGDIR TMPDIR="$WORK/tmpd" FAKE_GOLDEN="$GOLDEN" ./bin/app-restart.sh --timeout 30 ) 2>&1)"; RC=$?
+[ "$RC" -eq 0 ] && ok "exit 0" || bad "exit $RC: $(printf '%s' "$OUT" | tail -4)"
+PLOG="$P/.claude/loop/app-restart/run-local.log"
+[ -f "$PLOG" ] && ok "the start log is <project>/.claude/loop/app-restart/run-local.log" || bad "no per-project start log" "$(ls "$P/.claude/loop/app-restart" 2>&1)"
+has "and the output names it" "$OUT" "log: $PLOG"
+[ ! -e "$WORK/tmpd/Fixture-run-local.log" ] && ok "nothing written to \$TMPDIR/<mpr>-run-local.log" || bad "the shared TMPDIR log was written"
+KILL_LIST="$KILL_LIST $(hs_pid "$P") $(cat "$P/.fakechild" 2>/dev/null)"
+
 echo "-- #304 review: a stale record whose pid now belongs to another process → that process is never stopped"
 # A SIGKILLed mxcli leaves its record; the OS reuses the pid. With --cmd the start command no longer
 # comes from the pid, so only a check on the pid itself can tell. The old code sent it TERM.

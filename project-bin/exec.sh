@@ -28,7 +28,9 @@
 #   1  NOT applied, or rolled back: a refusal, a failed pre-exec check, a gate that failed or
 #      could not run, a patch that failed or was not verified. Also a PARTIAL application.
 #      Exception: a LINT ROSE under `Lint gate: hard` (write KEPT; read the last line).
-#   2  usage error (no script, bad argument, missing or unrunnable file); nothing was touched
+#   2  usage error (no script, bad argument, missing or unrunnable file); nothing was touched.
+#      Also `<script> --help|-h` (#820): usage is printed and the script is NOT run.
+#      Only a bare or leading `--help|-h` (no script before it) exits 0, with usage only.
 #   4  applied and the gate passed, but LINT ROSE or LINT BLIND. The write is KEPT: do not
 #      re-apply it. The last line of output reads "gate passed, lint only". Opt-in: with
 #      `Lint gate: hard` in PROJECT.md a LINT ROSE exits 1 instead (write still kept, #496).
@@ -54,7 +56,7 @@
 #   blind    lint could not run or measure (a blind rule, reverted rules, lint-gate fault, no baseline)
 #   skipped  lint was skipped (SKIP_LINT) or bin/lint-gate.sh is not installed
 #   na       lint never ran on this path (a refusal, a restored write, a --patch)
-# NO LINE: exit 2 (usage error), a missing .mpr, and any abort under `set -e` before a verdict
+# NO LINE: exit 2 (usage error, including `<script> --help`), `exec.sh --help` (exit 0, usage only), a missing .mpr, and any abort under `set -e` before a verdict
 # (for example a failing snapshot step) print no MXTK-RESULT line. Read "no MXTK-RESULT line" as
 # "no verdict reached", never as success. The line goes to STDOUT; some refusal text goes to
 # STDERR, so capture both streams (2>&1) when reading a run.
@@ -241,7 +243,10 @@ _MXTK_MDL_LEX='
       start_depth = depth
       tmp = clean; o = gsub(/[({]/, "", tmp); tmp = clean; cl = gsub(/[)}]/, "", tmp)
       depth += o - cl; if (depth < 0) depth = 0
-    }'
+    }
+    # For DISPLAY only: a blanked literal reads as "\047…\047", not as an empty string. The text
+    # is never shown — a statement head can carry a password (`demo user ... Password: ...`).
+    function shown(s) { gsub("\047\047", "\047…\047", s); return s }'
 mxtk_change_class() {  # $1 = MDL script; prints "<class>\t<why>"
   awk "$_MXTK_MDL_LEX"'
     function head_class(w1, w2, w4,    obj) {
@@ -267,7 +272,7 @@ mxtk_change_class() {  # $1 = MDL script; prints "<class>\t<why>"
         if (k == "ui") ui++
         else if (k == "logic" && logic == "") {
           h = t; if (length(h) > 60) h = substr(h, 1, 60) "..."
-          logic = "line " NR ": " h
+          logic = "line " NR ": " shown(h)
         }
       }
     }
@@ -322,8 +327,16 @@ mxtk_subjects() {  # $1 = MDL script
 # `[--commit-first] [--cr CR-NN]`; in that order commit-first committed the model and the run
 # went on with "--cr" as its script path.
 CR_ID=""; COMMIT_FIRST="${MXTK_COMMIT_FIRST:-0}"; PATCH_MODE=0; ADVISORY=""
+exec_usage() {  # stdout; --help / -h (#820)
+  echo "Usage: ./bin/exec.sh [--commit-first] [--cr CR-NN] <script.mdl>"
+  echo "       ./bin/exec.sh [--commit-first] [--cr CR-NN] --patch <script> [args...]"
+  echo "       ./bin/exec.sh --change-class | --watch-compat | --subjects <script.mdl>   (advisory; writes nothing)"
+  echo "Flags go BEFORE the script. Only --patch takes arguments after it (passed to the patch script)."
+  echo "Exit codes and the MXTK-RESULT line: the header of bin/exec.sh."
+}
 while [ $# -gt 0 ]; do
   case "$1" in
+    --help|-h) exec_usage; exit 0 ;;
     --cr)
       CR_ID="${2:-}"
       case "$CR_ID" in
@@ -342,12 +355,25 @@ while [ $# -gt 0 ]; do
   esac
 done
 case "${1:-}" in
+  --help|-h) exec_usage; exit 0 ;;
   --*)
     echo "✗ Unknown option or misplaced flag '$1' — nothing was committed, snapshotted or executed." >&2
     echo "  Usage: ./bin/exec.sh [--commit-first] [--cr CR-NN] <script.mdl>" >&2
     echo "         ./bin/exec.sh [--commit-first] [--cr CR-NN] --patch <script> [args...]" >&2
     exit 2 ;;
 esac
+# Arguments AFTER the script (#820). They used to be ignored, so `exec.sh s.mdl --help` (an agent
+# checking usage) or a flag typed after the script ran a real model write. Only --patch takes
+# trailing args (they go to the patch script, so `--patch s.py --help` still passes --help on).
+# Anywhere else: --help / -h prints usage and exits 2 (exit 0 means "applied, gate passed" when a
+# script was named), anything else is refused — both before the lock, the commit, the snapshot,
+# BUILD-LOG and mxcli. A bare/leading `exec.sh --help` (no script) exits 0.
+if [ "$PATCH_MODE" != "1" ] && [ $# -gt 1 ]; then
+  for _a in "${@:2}"; do case "$_a" in --help|-h) exec_usage; echo "(usage only: the script was NOT run — exit 2)" >&2; exit 2 ;; esac; done
+  echo "✗ unexpected argument after the script: '$2' — nothing was executed." >&2
+  echo "  Flags go before the script: ./bin/exec.sh [--commit-first] [--cr CR-NN] <script.mdl> (./bin/exec.sh --help)" >&2
+  exit 2
+fi
 if [ "$ADVISORY" = "--change-class" ]; then
   [ -f "${1:-}" ] || { echo "Usage: ./bin/exec.sh --change-class <script.mdl>" >&2; exit 2; }
   mxtk_change_class "$1"
@@ -440,7 +466,7 @@ mxtk_watch_compat() {  # $1 = MDL script; prints "restart\t<reasons>" | "unknown
           else if (v == "CREATE" && o1 == "PAGE" && j == 2)
             add("new page", NR)
           else if (v == "CREATE" && o1 == "PAGE") {
-            if (maybe == "") maybe = "line " NR ": " substr(t, 1, 60)
+            if (maybe == "") maybe = "line " NR ": " shown(substr(t, 1, 60))
           }
           # The watch-safe list (skills/ui-loop.md "What watch picks up", left column): an
           # ALTER PAGE / ALTER SNIPPET edit, a new or changed snippet. Everything else that is
@@ -454,7 +480,7 @@ mxtk_watch_compat() {  # $1 = MDL script; prints "restart\t<reasons>" | "unknown
             ;
           else if (nunk < 3) {
             h = t; if (length(h) > 50) h = substr(h, 1, 50) "..."
-            unk = unk (nunk++ ? "; " : "") "line " NR ": " h
+            unk = unk (nunk++ ? "; " : "") "line " NR ": " shown(h)
           } else nunk++
         }
       }
@@ -470,7 +496,7 @@ mxtk_watch_compat() {  # $1 = MDL script; prints "restart\t<reasons>" | "unknown
         if (lc ~ re_act) add("widget action changed (the runtime registers actions at boot)", NR)
         else if (!ui_unk && lc ~ re_ds) {
           ui_unk = 1
-          if (nunk < 3) { h = t; if (length(h) > 50) h = substr(h, 1, 50) "..."; unk = unk (nunk++ ? "; " : "") "line " NR ": " h " (microflow/nanoflow data source)" }
+          if (nunk < 3) { h = t; if (length(h) > 50) h = substr(h, 1, 50) "..."; unk = unk (nunk++ ? "; " : "") "line " NR ": " shown(h) " (microflow/nanoflow data source)" }
           else nunk++
         }
       }
@@ -528,7 +554,7 @@ MPR_BASE="${MPR##*/}"
 NAME="${MPR_BASE%.mpr}"
 SCRIPT="${1:-}"
 [ $# -gt 0 ] && shift
-# Remaining args go to the patch script, after the model path. An MDL run takes none.
+# Remaining args go to the patch script, after the model path. An MDL run takes none (refused above, #820).
 LOG_NAME="${SCRIPT##*/}"
 [ "$PATCH_MODE" = "1" ] && LOG_NAME="patch: $LOG_NAME"
 
@@ -682,7 +708,19 @@ for _ea in "${MXTK_ROOT:-}/bin/exec-approval.sh" "$_TKR/bin/exec-approval.sh"; d
   break
 done
 
-log_build() {   # $1=status  $2=detail
+# $3 (refusal, rollback and blocked rows only) names the guard that stopped the write, as a
+# stable token " · guard=<id>" right after the detail text: plan-rule · stop-row-scan ·
+# row-group-gate · lock-studio-pro · commit-first · uncommitted-model · marketplace-gate ·
+# mxcli-check · mxbuild-missing (toolchain absent: environment, not a catch) ·
+# pre-existing-errors (model already broken, not by this script) · mxbuild-crash (gate could
+# not run) · mxbuild-gate (errors this script introduced: the real catches) · hash-verify.
+# patch-exit is NOT a guard: the --patch script itself exited non-zero, and metrics-trend.sh
+# counts it apart, as "script failed". WHY (overengineering audit,
+# 2026-11-20): 13 of 136 field execs were "blocked or refused" and no row said which guard,
+# so nobody could weigh a guard's catches against its false refusals. Counted per guard by
+# project-bin/metrics-trend.sh. Inside the detail cell, so the row keeps its 5 cells and every
+# column reader is unchanged; a parameter expansion, so no process start.
+log_build() {   # $1=status  $2=detail  [$3=guard id]
   [ -d "${BUILD_LOG%/*}" ] || mkdir -p "${BUILD_LOG%/*}"
   [ -f "$BUILD_LOG" ] || cat > "$BUILD_LOG" <<'HDR'
 # Build log — auto-appended by bin/exec.sh
@@ -715,7 +753,7 @@ HDR2
   # The gate cell is read from GATE_STATE rather than passed in, so no caller
   # can omit it — a blank cell in this table reads as "fine", which is the exact
   # false-green the gate exists to prevent.
-  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${POS_NOTE:+ · $POS_NOTE}${SCAN_NOTE:+ · $SCAN_NOTE}${ROWS_NOTE:+ · $ROWS_NOTE}${MKT_NOTE:+ · $MKT_NOTE}${RESTATE_NOTE:+ · $RESTATE_NOTE}${GATE_NOTE:+ · $GATE_NOTE}${MXB_LOG_NOTE:+ · $MXB_LOG_NOTE}${HV_NOTE:+ · $HV_NOTE}${SCOPE_NOTE:+ · $SCOPE_NOTE}$_EXEC_APPROVAL_SUFFIX${STEP_TIMES:+ · steps: $STEP_TIMES}"
+  _detail="$2${3:+ · guard=$3}${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${POS_NOTE:+ · $POS_NOTE}${SCAN_NOTE:+ · $SCAN_NOTE}${ROWS_NOTE:+ · $ROWS_NOTE}${MKT_NOTE:+ · $MKT_NOTE}${RESTATE_NOTE:+ · $RESTATE_NOTE}${GATE_NOTE:+ · $GATE_NOTE}${MXB_LOG_NOTE:+ · $MXB_LOG_NOTE}${HV_NOTE:+ · $HV_NOTE}${SCOPE_NOTE:+ · $SCOPE_NOTE}$_EXEC_APPROVAL_SUFFIX${STEP_TIMES:+ · steps: $STEP_TIMES}"
   if [ -n "${EPOCHSECONDS:-}" ]; then printf -v _when '%(%Y-%m-%dT%H:%M:%S%z)T' -1; else _when="$(date '+%Y-%m-%dT%H:%M:%S%z')"; fi
   printf '| %s | `%s` | %s | %s | %s |\n' \
     "$_when" "$LOG_NAME" \
@@ -834,7 +872,7 @@ if [ -f "$_XD/_position.sh" ]; then
     echo "✗ Plan rule (Interview mode: auto): $1, and the pre-build steps are not done — $_GC $PROJECT_ROOT build-ready has not passed. NOTHING was written."
     echo "  Remedy: run stages 1-4, then $_GC $PROJECT_ROOT build-ready; or $_GC $PROJECT_ROOT --adopt 5 --reason \"...\" — under auto that is a ✋ human-pending decision, and Stage 6 FAILs until a person confirms it."
     echo "  Already building past Stage 5? One build-ready pass clears it: its record is kept per clone (.mpr-snapshots/), so each fresh clone runs it once."
-    log_build "🚫 blocked" "plan rule (auto): $1, build-ready not passed and no adoption — nothing written"
+    log_build "🚫 blocked" "plan rule (auto): $1, build-ready not passed and no adoption — nothing written" plan-rule
     exit 1
   }
   if [ "$POS_ENTRY" = greenfield-retired ]; then
@@ -867,7 +905,7 @@ if [ -f "$_XD/_position.sh" ]; then
       echo "✗ Plan rule: Entry mode $POS_ENTRY, and Stage 4 has not passed or been adopted — no build plan, no module briefs. NOTHING was written."
       echo "  Remedy: run stages 1-4 (conversion-runbook.md), or record why not: $_GC $PROJECT_ROOT --adopt 5 --reason \"...\" (it shows in the register)."
       echo "  This is the one refusal this clone will ever get: every later write goes on, its BUILD-LOG row tagged \"no plan\"."
-      log_build "🚫 blocked" "plan rule: Entry mode $POS_ENTRY, no build plan/briefs and Stage 4 not adopted — refused once, nothing written"
+      log_build "🚫 blocked" "plan rule: Entry mode $POS_ENTRY, no build plan/briefs and Stage 4 not adopted — refused once, nothing written" plan-rule
       exit 1
     fi
   fi
@@ -917,7 +955,7 @@ if [ "$PATCH_MODE" != "1" ]; then
             echo "✗ STOP-row scan: refusing exec on a blocking rule. NOTHING was locked, snapshotted or written."
             echo "  Each line above names its learned-mdl-preflight.md row and the rewrite. Fix the script."
             echo "  Only the user may override, with a reason: MXTK_SCAN_OVERRIDE=\"<why>\" ./bin/exec.sh $SCRIPT"
-            log_build "🚫 blocked" "STOP-row scan: $(printf '%s\n' "$_scan_out" | grep -c ' \[block\]$') blocking hit(s), $(scan_ids block) — nothing written"
+            log_build "🚫 blocked" "STOP-row scan: $(printf '%s\n' "$_scan_out" | grep -c ' \[block\]$') blocking hit(s), $(scan_ids block) — nothing written" stop-row-scan
             exit 1 ;;
           *)
             echo "⚠ STOP-row scan OVERRIDDEN by MXTK_SCAN_OVERRIDE: ${MXTK_SCAN_OVERRIDE}" >&2
@@ -950,7 +988,7 @@ if [ "$PATCH_MODE" != "1" ] && [ -x "$PROJECT_ROOT/bin/row-groups.sh" ]; then
       result_line refused no skipped 1
       echo "✗ Row-group gate: refusing exec. NOTHING was locked, snapshotted or written."
       echo "  See the groups: bin/row-groups.sh. Override with a reason: MXTK_ROWS_OVERRIDE=\"<why>\" ./bin/exec.sh $SCRIPT"
-      log_build "🚫 blocked" "row-group gate: $(printf '%s' "$_rg_out" | head -1 | tr '|' '/' | cut -c1-200) — nothing written"
+      log_build "🚫 blocked" "row-group gate: $(printf '%s' "$_rg_out" | head -1 | tr '|' '/' | cut -c1-200) — nothing written" row-group-gate
       exit 1
     fi
     echo "⚠ Row-group gate OVERRIDDEN: ${MXTK_ROWS_OVERRIDE}" >&2
@@ -1078,7 +1116,8 @@ if [ "$LOCK_TAKEN" != 1 ]; then
   echo "  → Wait for the other exec to finish, then re-run. Nothing was written."
   exit 1
 fi
-trap 'mxtk_resume_watchers; exec_lock_release; [ "$_PROFILING" != 1 ] || _prof_report' EXIT
+EXEC_OUT=""   # never an inherited value: the EXIT trap removes it
+trap 'mxtk_resume_watchers; exec_lock_release; [ -z "${EXEC_OUT:-}" ] || rm -f -- "$EXEC_OUT"; [ "$_PROFILING" != 1 ] || _prof_report' EXIT
 mxtk_resume_leftover "$PROJECT_ROOT"   # a watcher an earlier, SIGKILLed exec.sh left stopped
 
 # 3. A raw `mxcli exec` elsewhere on the machine is NOT this project's business. The old guard
@@ -1102,7 +1141,7 @@ commit_model_first() {
     echo "✗ --commit-first refused: Studio Pro holds $NAME (PID $SP_PID). Its in-memory model is not"
     echo "  what is on disk, so a commit now would record a state nobody is looking at."
     echo "  → Save and close the project in Studio Pro, then re-run. Nothing was committed or executed."
-    log_build "🚫 blocked" "--commit-first refused: Studio Pro holds the model"
+    log_build "🚫 blocked" "--commit-first refused: Studio Pro holds the model" lock-studio-pro
     return 1
   fi
   echo "→ --commit-first: committing ONLY these model paths (nothing else is staged or committed):"
@@ -1118,7 +1157,7 @@ commit_model_first() {
     IFS="$_IFS"; set +f
     result_line refused no skipped 1
     echo "✗ --commit-first: git add of the model paths failed — nothing was committed or executed."
-    log_build "🚫 blocked" "--commit-first: git add failed"
+    log_build "🚫 blocked" "--commit-first: git add failed" commit-first
     return 1
   fi
   if ! _cout="$(git commit -q -m "model: commit pending model changes before exec.sh $LOG_NAME" \
@@ -1130,7 +1169,7 @@ commit_model_first() {
     echo "✗ --commit-first: git commit was refused — nothing was executed. The model paths are left staged."
     echo "  If the model-stamp hook refused it: ./bin/verify-model.sh (one mxbuild, stamps a clean model),"
     echo "  then re-run with --commit-first."
-    log_build "🚫 blocked" "--commit-first: git commit refused"
+    log_build "🚫 blocked" "--commit-first: git commit refused" commit-first
     return 1
   fi
   IFS="$_IFS"; set +f
@@ -1155,7 +1194,7 @@ if [ -n "$MPR_DIRTY" ]; then
     # A refusal here is otherwise invisible in docs/BUILD-LOG.md — nothing runs
     # after this exit, so the row has to be written before it, same shape as
     # every other blocked-exec row this script writes.
-    log_build "🚫 blocked" "uncommitted model changes — refusing exec to prevent snapshot regression"
+    log_build "🚫 blocked" "uncommitted model changes — refusing exec to prevent snapshot regression" uncommitted-model
     exit 1
   fi
   echo "  (FORCE_EXEC set — proceeding despite uncommitted changes)"
@@ -1325,7 +1364,7 @@ if [ "$PATCH_MODE" != "1" ] && [ -f "$SCRIPT" ] && [ -n "$_MKT_LIB" ] \
         echo "  or record it as deliberately not installed: bin/gate-check.sh --waive marketplace/<Name> --reason \"...\""
         echo "  The PAT the install needs: skills/learned-constants-and-secrets.md § \"Creating a PAT for Marketplace installs\"."
         echo "  Override with a reason: MXTK_MKT_OVERRIDE=\"<why>\" ./bin/exec.sh $SCRIPT"
-        log_build "🚫 blocked" "marketplace install gate: $(printf '%s' "$_mkt_nt" | tr '|' '/' | cut -c1-200) — nothing written"
+        log_build "🚫 blocked" "marketplace install gate: $(printf '%s' "$_mkt_nt" | tr '|' '/' | cut -c1-200) — nothing written" marketplace-gate
         exit 1
       fi
       echo "⚠ Marketplace install gate OVERRIDDEN: ${MXTK_MKT_OVERRIDE}" >&2
@@ -1601,11 +1640,15 @@ step_done guards
 # Shapes are real mxcli v0.26.0 captures (tests/wave2/fixtures/exec-check-refusal/): an error
 # violation is "✗ <message> [RULE]" after any warnings, in ANSI colour even when piped; a parse
 # failure is "- line N:M ..." under "Syntax errors found:". Rule id first, so truncation keeps it.
+# v0.32 reference errors take two lines under "Reference errors:", a header ending in ":" and the
+# cause as "  - ..." (fixtures/exec-check-refusal/reference-v0.32.0.out); both go in the row,
+# because the header alone ("microflow 'X' has reference errors:") names no cause.
 check_refusal_reason() {  # $1 = captured check output
   _esc="$(printf '\033')"
   tr -d '\r' < "$1" 2>/dev/null | sed "s/${_esc}\[[0-9;]*m//g" | awk '
     /^(Syntax|Reference) errors( found)?:$/ { hdr = 1; next }
-    hdr && h == "" && NF { h = $0 }
+    hd == 1 { hd = 2; if ($0 ~ /^ *- /) { d = $0; sub(/^ *- */, "", d); h = h " " d } }
+    hdr && h == "" && NF { h = $0; if (h ~ /:$/) hd = 1 }
     e == "" && /^ *✗ / && !/ found$/ { e = $0 }
     f == "" && /[Ee]rror/ && !/^WARNING: / { f = $0 }
     END { r = (e != "") ? e : ((h != "") ? h : f); print r }' \
@@ -1634,7 +1677,7 @@ elif [ "${SKIP_CHECK:-0}" != "1" ] && [ -n "$PMXCLI" ]; then
     echo ""
     echo "  ✗ mxcli check failed — refusing to exec. NOTHING was written to the model."
     echo "    Fix the script, or re-run with SKIP_CHECK=1 if you know why the parser is wrong."
-    log_build "🚫 blocked" "mxcli check failed pre-exec — nothing written to the model${_why:+; check: $_why}"
+    log_build "🚫 blocked" "mxcli check failed pre-exec — nothing written to the model${_why:+; check: $_why}" mxcli-check
     exit 1
   fi
   rm -f "$_co"
@@ -1744,15 +1787,61 @@ if [ ! -x "$MXBUILD" ] || [ ! -x "$JAVA_EXE" ]; then
       echo "  To write anyway, unverified: ALLOW_UNVERIFIED=1 ./bin/exec.sh $SCRIPT  — the commit hook will then" >&2
       echo "  refuse the result until ./bin/verify-model.sh has run the gate over it." >&2
     fi
-    log_build "✗ refused" "mxbuild gate cannot run (mxbuild: $([ -x "$MXBUILD" ] && echo ok || echo missing), java: $([ -x "$JAVA_EXE" ] && echo ok || echo missing)); nothing written"
+    log_build "✗ refused" "mxbuild gate cannot run (mxbuild: $([ -x "$MXBUILD" ] && echo ok || echo missing), java: $([ -x "$JAVA_EXE" ] && echo ok || echo missing)); nothing written" mxbuild-missing
     exit 1
   fi
 fi
 
+# The snapshot holds the .mpr and mprcontents/ only. A module the script creates gets source folders
+# beside the .mpr that the snapshot does not cover: the gate's own `mx check` generates
+# themesource/<module>/ (settings.json, web/*, native/*, public/) for every module that lacks one
+# (mxcli v0.32 + MxBuild 11.8.0, captured in fixtures/exec-rollback-module-dirs/). After a rollback
+# those folders stayed, untracked, for a module the model no longer has. So after a successful restore,
+# the folders of the modules THIS RUN created (`Created module: X`: themesource/<x>, javasource/<x>,
+# javascriptsource/<X> or <x>, the names mxcli's removeModuleSourceDirs uses) are moved into the
+# snapshot (stray-module-dirs/), when they were not there at snapshot time and hold no tracked file.
+# "Creates" is read from mxcli's own exec output (script_created_modules), not from the script text.
+# Nothing else is touched: another session's or the user's new folder in the same window stays put.
+module_dirs() {
+  local d
+  for d in "$MODEL_DIR"/themesource/*/ "$MODEL_DIR"/javasource/*/ "$MODEL_DIR"/javascriptsource/*/; do
+    [ -d "$d" ] && printf '%s\n' "${d%/}"
+  done
+  return 0
+}
+# Modules mxcli actually created in this run, from its exec stdout (captured verbatim, mxcli v0.32:
+# "Created module: X"; an existing module prints "Module 'X' already exists", `if not exists` on an
+# existing one "module X already exists, skipped (if not exists)", a module role "Created module role:
+# M.R" — none of those match). Not the script text: `create or modify module Sales` on an existing
+# module named a folder the gate regenerates, and the move then claimed the script created it.
+# No captured exec output (a --patch run, or no write) = no names = nothing is moved.
+script_created_modules() {
+  [ -n "${EXEC_OUT:-}" ] && [ -f "$EXEC_OUT" ] || return 0
+  tr -d '\r' < "$EXEC_OUT" | sed -n 's/^Created module: \([A-Za-z_][A-Za-z0-9_]*\)$/\1/p' || true
+}
+move_stray_module_dirs() {
+  local m lm d rel dest
+  [ -n "${NEWEST_SNAP:-}" ] || return 0
+  for m in $(script_created_modules); do
+    lm="$(printf '%s' "$m" | tr '[:upper:]' '[:lower:]')"
+    for d in "$MODEL_DIR/themesource/$lm" "$MODEL_DIR/javasource/$lm" \
+             "$MODEL_DIR/javascriptsource/$m" "$MODEL_DIR/javascriptsource/$lm"; do
+      [ -d "$d" ] && [ ! -L "$d" ] || continue
+      printf '%s\n' "$MODDIRS_BEFORE" | grep -qxF -- "$d" && continue
+      rel="${d#"$PROJECT_ROOT"/}"
+      [ -n "$(git -C "$PROJECT_ROOT" ls-files -- "$rel" 2>/dev/null | head -1)" ] && continue
+      dest="${NEWEST_SNAP%/}/stray-module-dirs/$rel"
+      mkdir -p "$(dirname "$dest")" && mv -- "$d" "$dest" \
+        && echo "  → Moved $rel/ (source folder of module $m, which this run created: mxcli printed \"Created module: $m\") to $dest"
+    done
+  done
+}
 step_done check
 echo "→ Snapshotting model..."
 ./bin/snapshot-mpr.sh
 step_done snapshot
+# Module source folders as they stand before the write (see module_dirs / move_stray_module_dirs above).
+MODDIRS_BEFORE="$(module_dirs)"
 # The snapshot just taken. A --patch run hands it to the script as MXPATCH_BACKUP_DIR, so the
 # .bak that bin/mxpatch.py keeps of each unit it rewrites lands beside the snapshot, OUTSIDE
 # the model tree, and is pruned with it. Until 2026-10-15 it was <unit>.mxunit.bak inside
@@ -1784,6 +1873,7 @@ restore_snapshot() {
   elif R_OUT=$(MXTK_RESTORE_SAME_LEDGER=1 bash "$RESTORER" "$NEWEST_SNAP" 2>&1); then
     RESTORED=1
     printf '%s\n' "$R_OUT" | sed 's/^/  → /'
+    [ -n "${MODDIRS_BEFORE+x}" ] && move_stray_module_dirs
     echo "  → Auto-restored from: $NEWEST_SNAP"
   else
     printf '%s\n' "$R_OUT" | sed 's/^/     /'
@@ -2235,9 +2325,9 @@ if [ "$PATCH_MODE" = "1" ]; then
     restore_snapshot
     if [ -x ./bin/model-stamp.sh ]; then ./bin/model-stamp.sh clear >/dev/null 2>&1 || true; fi
     if [ "$RESTORED" -eq 1 ]; then
-      log_build "❌ patch failed" "script exit $EXEC_STATUS — rolled back, gate not run"
+      log_build "❌ patch failed" "script exit $EXEC_STATUS — rolled back, gate not run" patch-exit
     else
-      log_build "❌ patch failed" "script exit $EXEC_STATUS — NOT rolled back (restore did not run)"
+      log_build "❌ patch failed" "script exit $EXEC_STATUS — NOT rolled back (restore did not run)" patch-exit
     fi
     rm -f "$HV_BASE"
     if [ "$RESTORED" -eq 1 ]; then result_line restored no skipped 1; else result_line failed unknown skipped 1; fi
@@ -2325,9 +2415,9 @@ EOF_HV
       if [ -x ./bin/model-stamp.sh ]; then ./bin/model-stamp.sh clear >/dev/null 2>&1 || true; fi
       rm -f "$HV_BASE" "$HV_POST"
       if [ "$RESTORED" -eq 1 ]; then
-        log_build "❌ patch refused" "$_hv_detail — rolled back, gate not run"
+        log_build "❌ patch refused" "$_hv_detail — rolled back, gate not run" hash-verify
       else
-        log_build "❌ patch refused" "$_hv_detail — NOT rolled back (restore did not run)"
+        log_build "❌ patch refused" "$_hv_detail — NOT rolled back (restore did not run)" hash-verify
       fi
       if [ "$RESTORED" -eq 1 ]; then result_line restored no skipped 1; else result_line failed unknown skipped 1; fi
       restore_close
@@ -2336,7 +2426,23 @@ EOF_HV
     rm -f "$HV_BASE" "$HV_POST"
   fi
 else
-  "${PMXCLI:-./mxcli}" exec "$SCRIPT" -p "$MPR" || EXEC_STATUS=$?
+  # stdout is kept (EXEC_OUT) for move_stray_module_dirs, which reads its "Created module:" lines,
+  # but only when the script can create a module: mktemp + tee are two process starts, a per-row cost
+  # every other exec must not pay (test-exec-process-budget.sh). The test reads the script with the
+  # `read` builtin and a bash pattern (case-insensitive by bracket classes; bash 3.2-safe, no fork).
+  # It may over-match (a comment, `create module role`): that only captures, the moves still need
+  # mxcli's own "Created module:" line. Otherwise exec runs exactly as before the capture existed.
+  # Neither the capture nor tee may stop exec.sh under set -e once mxcli has written: a failed
+  # mktemp leaves EXEC_OUT empty (tee then only passes stdout through, and nothing is moved later),
+  # and a failed tee is swallowed. EXEC_STATUS is mxcli's own exit code either way.
+  _SCRIPT_TXT=""; IFS= read -r -d '' _SCRIPT_TXT < "$SCRIPT" || true
+  if [[ "$_SCRIPT_TXT" == *[Cc][Rr][Ee][Aa][Tt][Ee][[:space:]]*[Mm][Oo][Dd][Uu][Ll][Ee]* ]]; then
+    EXEC_OUT="$(mktemp "${TMPDIR:-/tmp}/exec-out.XXXXXX" 2>/dev/null)" || EXEC_OUT=""
+    { "${PMXCLI:-./mxcli}" exec "$SCRIPT" -p "$MPR" | tee ${EXEC_OUT:+"$EXEC_OUT"}; EXEC_STATUS=${PIPESTATUS[0]}; } || true
+  else
+    "${PMXCLI:-./mxcli}" exec "$SCRIPT" -p "$MPR" || EXEC_STATUS=$?
+  fi
+  unset _SCRIPT_TXT
 fi
 
 if [ "$EXEC_STATUS" -ne 0 ]; then
@@ -2555,7 +2661,7 @@ EOF
           # output and call its error PRE-EXISTING. Say what happened instead.
           echo ""
           echo "  ✗ The model still holds this script's changes and fails with [$CE_CODES]."
-          log_build "❌ gate failed" "$CE_COUNT error(s): $CE_CODES — NOT rolled back (restore did not run)"
+          log_build "❌ gate failed" "$CE_COUNT error(s): $CE_CODES — NOT rolled back (restore did not run)" mxbuild-gate
         else
           # ── Whose error is it? ───────────────────────────────────────────────
           # The model is now back at its pre-exec state. If it STILL fails, the
@@ -2583,7 +2689,7 @@ EOF
             echo "  → Undone: this script added $NEW_COUNT new error(s) [$NEW_CODES]. Fix those and re-run."
             echo "     The model is back to its $BASE_COUNT earlier error(s) [$BASE_CODES]. Those did not cause this; a script"
             echo "     that adds nothing new is kept even while they remain."
-            log_build "❌ gate failed" "$NEW_COUNT new error(s): $NEW_CODES — script rolled back; $BASE_COUNT pre-existing remain"
+            log_build "❌ gate failed" "$NEW_COUNT new error(s): $NEW_CODES — script rolled back; $BASE_COUNT pre-existing remain" mxbuild-gate
           elif [ "$BASE_COUNT" != "0" ] && [ "$BASE_COUNT" != "?" ]; then
             echo "  ⚠  PRE-EXISTING: the restored model already fails with $BASE_COUNT error(s) [$BASE_CODES]."
             echo "     This script is NOT the cause. Nothing will exec until that is cleared."
@@ -2593,13 +2699,13 @@ EOF
                 echo "       CE0066  security overview → update entity access"
                 echo "       CE0463  right-click a widget → Update all widgets" ;;
             esac
-            log_build "🚫 blocked" "PRE-EXISTING $BASE_CODES — not caused by this script; needs Studio Pro"
+            log_build "🚫 blocked" "PRE-EXISTING $BASE_CODES — not caused by this script; needs Studio Pro" pre-existing-errors
           elif [ "$BASE_COUNT" = "?" ]; then
             echo "  → The restored model could not be measured, so whose error it is stays open: [$CE_CODES]."
-            log_build "❌ gate failed" "$CE_COUNT error(s): $CE_CODES — script rolled back; restored model not measured"
+            log_build "❌ gate failed" "$CE_COUNT error(s): $CE_CODES — script rolled back; restored model not measured" mxbuild-gate
           else
             echo "  → The restored model builds clean, so this script introduced [$CE_CODES]."
-            log_build "❌ gate failed" "$CE_COUNT error(s): $CE_CODES — script rolled back"
+            log_build "❌ gate failed" "$CE_COUNT error(s): $CE_CODES — script rolled back" mxbuild-gate
           fi
         fi
         rm -f "$ERRORS_FILE"
@@ -2622,15 +2728,15 @@ EOF
       echo "  ✗ mxbuild ran on this model before the write and crashed after it — rolling the write back."
       restore_snapshot
       if [ "$RESTORED" -eq 1 ]; then
-        log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT on the written model (ran on the baseline) — script rolled back${MXB_WHY:+; mxbuild: $MXB_WHY}"
+        log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT on the written model (ran on the baseline) — script rolled back${MXB_WHY:+; mxbuild: $MXB_WHY}" mxbuild-crash
       else
         echo "  STOP: the model may not load. Restore it before the next exec: ./bin/restore-mpr.sh <newest .mpr-snapshots/ dir>"
-        log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT on the written model — NOT rolled back (restore did not run)"
+        log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT on the written model — NOT rolled back (restore did not run)" mxbuild-crash
       fi
     else
       echo "  → Snapshot preserved. Open in SP to verify manually before proceeding."
       # --patch logs its own row below, after rolling back; one row per run.
-      [ "$PATCH_MODE" = "1" ] || log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT"
+      [ "$PATCH_MODE" = "1" ] || log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT" mxbuild-crash
     fi
   else
     GATE_STATE="pass"; GATE_ERRORS=0
@@ -2660,10 +2766,19 @@ if [ "$PATCH_MODE" = "1" ] && [ "$GATE_STATE" != "pass" ] && [ "$RESTORE_TRIED" 
   echo "  ✗ --patch: gate $GATE_STATE — nothing verified the patch, so it is rolled back."
   restore_snapshot
   if [ -x ./bin/model-stamp.sh ]; then ./bin/model-stamp.sh clear >/dev/null 2>&1 || true; fi
+  # Not a catch (review of #813): this branch only sees a gate that never ran (skipped ->
+  # mxbuild-missing) or ran and could not verify (fail = a crash, unverified -> mxbuild-crash).
+  # Never mxbuild-gate. Literal ids, so the static guard-name check can read them.
   if [ "$RESTORED" -eq 1 ]; then
-    log_build "↩ patch rolled back" "gate $GATE_STATE${MXB_WHY:+ (mxbuild: $MXB_WHY)} — an unverified patch is not kept"
+    if [ "$GATE_STATE" = "skipped" ]; then
+      log_build "↩ patch rolled back" "gate $GATE_STATE — an unverified patch is not kept" mxbuild-missing
+    else
+      log_build "↩ patch rolled back" "gate $GATE_STATE${MXB_WHY:+ (mxbuild: $MXB_WHY)} — an unverified patch is not kept" mxbuild-crash
+    fi
+  elif [ "$GATE_STATE" = "skipped" ]; then
+    log_build "❌ patch unverified" "gate $GATE_STATE — NOT rolled back (restore did not run)" mxbuild-missing
   else
-    log_build "❌ patch unverified" "gate $GATE_STATE — NOT rolled back (restore did not run)"
+    log_build "❌ patch unverified" "gate $GATE_STATE — NOT rolled back (restore did not run)" mxbuild-crash
   fi
   if [ "$RESTORED" -eq 1 ]; then result_line restored no no 1; else result_line failed unknown no 1; fi
   restore_close

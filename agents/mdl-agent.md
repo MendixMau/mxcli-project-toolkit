@@ -50,13 +50,14 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `bin/ready.sh` | Claiming READY or done for a module or the app — the only way to write READY: `bin/ready.sh <project-root> [--module M]` runs the Stage 5/6 gates, the look ledger, the must-have list and (unattended) the independent review, prints K of N for each and commits the evidence; a READY line it did not write is not READY and FAILs Stage 6 and CI |
 | `skills/tool-output-is-not-ground-truth.md` | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude |
 | `bin/bug-lookup.sh` | A CE error (mx check or mxbuild: CE0066, CE0117…), a cited BUG-n, or behavior that looks like a known mxcli quirk rather than a modeling mistake — `bin/bug-lookup.sh CE0117` / `BUG-102` / "keyword" / the whole pasted error message (ranked top 3) prints the matching ledger entries, so the session reads one entry, not the whole ledger |
-| `bin/file-bugs.sh` | You hit, or worked around, a bug in mxcli or the toolkit, or log a FINDINGS.md entry about either — `bin/file-bugs.sh` (the `--add` line is in learned-detection-gaps.md) keeps docs/bugs.jsonl, redacts, shows duplicates, files with `--auto` when PROJECT.md says `Bug filing: auto`, else only a human files (`!`, `--file PBUG-NN`, y/N, denied to agents), or prints new-issue links (`--links`, `--json`) |
+| `bin/file-bugs.sh` | A toolkit script or hook (bin/, project-bin/, pre-commit) or mxcli misbehaves, aborts silently or refuses wrongly, or you worked around such a bug or log a FINDINGS.md entry about one — log it before working around it: `bin/file-bugs.sh` (the `--add` line is in learned-detection-gaps.md) keeps docs/bugs.jsonl, redacts, shows duplicates, files with `--auto` when PROJECT.md says `Bug filing: auto`, else only a human files (`!`, `--file PBUG-NN`, y/N, denied to agents), or prints new-issue links (`--links`, `--json`) |
 | `bin/status.sh` | The first command of every session, and any time someone asks "where are we" or "what next" — one screen: stage, done/overdue, the ONE next action, from the instruments, never from memory |
 | `skills/skills-over-scripts.md` | Script or skill? Before writing any .js or bash/.sh for a check, checker, linter, gate or report, or adding a rule or regex to an existing one |
 | `skills/checkpoints/checkpoint-build.md` | CAC-5, after design sign-off and before the build plan |
 | `skills/image-transcription.md` | Images to read listed by images-to-md or the documents index |
 | `skills/learned-mdl-preflight.md` | Writing ANY MDL script |
 | `skills/learned-microflow-patterns.md` | Writing or fixing any microflow |
+| `skills/learned-rules-archive.md` | On an mxcli older than v0.32.0-374, before writing a construct a learned-* rule calls retired or "older mxcli only" |
 | `skills/microflow-preflight.md` | Writing a microflow with any loop, a retrieve/commit/call inside a loop, nested or multiple loops, >20 activities counting loop bodies, or a list built from a list |
 | `skills/mendix-best-practices-index.md` | Asked "is there a Mendix best practice for this", or mapping a lint rule that rose in the ratchet back to the practice and the skill that prevents it |
 | `skills/ui-preflight-pages.md` | Building any page or snippet |
@@ -74,7 +75,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/microflow-loop-antipatterns.md` | Reading what loop bodies do (LOOP_TQ, deferred commit, nested loop, REST in loop, transaction control per item, scheduled-event reachability) from described MDL; the catalog holds top-level activities only and cannot see inside a loop |
 | `skills/rehost-app.md` | Rehosting an existing Mendix .mpr into a fresh app |
 | `skills/marketplace-catalogue.md` | Writing a fit-gap row, or about to hand-build an LLM call, AI agent, embeddings, SSO, Kafka/events, PDF, Excel import/export, encryption, chart or e-mail capability: which Marketplace component covers it and when Build is acceptable |
-| `skills/iterative-build-loop.md` | An exec.sh guard refused a write (not a permission prompt), or building a module with mxcli |
+| `skills/iterative-build-loop.md` | An exec.sh guard (exec lock, uncommitted model, Studio Pro open, mxbuild gate) refused a write (not a permission prompt), or building a module with mxcli |
 | `skills/mdl-cookbook-microflows.md` | Writing MDL microflow scripts |
 | `skills/build/mdl/oneshot-mdl-method.md` | Writing a single MDL script that takes a project from nothing to a working vertical slice |
 | `skills/learned-page-patterns.md` | Building and auditing Mendix pages, or starting a UI fix round across many pages |
@@ -95,7 +96,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/improvement-register.md` | Any review pass that runs more than once |
 | `skills/wiring-sweep.md` | Every module before it is called done; buttons, links or actions that do nothing when clicked |
 | `skills/must-haves.md` | Closing any module with pages, any build type |
-| `skills/learned-workflow-patterns.md` | Writing or debugging a Mendix native Workflow (CREATE WORKFLOW/USER TASK/OUTCOMES) |
+| `skills/learned-workflow-patterns.md` | Writing or debugging a Mendix native Workflow (CREATE WORKFLOW/USER TASK/OUTCOMES), or routing decisions/parallel splits via a microflow when BUG-76/121 blocks it |
 | `skills/workflow-structure-rules.md` | Designing or reviewing a Workflow's SHAPE before or after the MDL |
 | `skills/rest-integration-first-time-right.md` | Building a REST integration (consumed or published) for the first time on a project |
 | `skills/rest-between-mendix-apps.md` | App-to-app REST or microservices: two or more Mendix apps you build that read each other over REST |
@@ -124,7 +125,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/walking-skeleton.md` | Stage 5 start, before the first module of any entry mode |
 | `skills/platform-link.md` | At project birth (before the first build script) and any time a model needs a platform home: creating the Team Server app, adopting an existing GitHub-born model into it without rewriting history, or deploying; also when the Platform SDK returns 403, git rejects the PAT, a deploy cannot be triggered from a PAT, or the app turns out to be a Free App |
 | `skills/teamserver-alignment.md` | Any session that will push a model to Mendix Team Server, and BEFORE telling the user a Team Server push is blocked |
-| `skills/retesting-learned-rules.md` | Before obeying any learned-* STOP or workaround that costs a detour |
+| `skills/retesting-learned-rules.md` | Before obeying any learned-* STOP or workaround that costs a detour, or when a newer mxcli may have fixed it |
 | `skills/deploy-to-sandbox.md` | Promoting an app to a deployed sandbox or cloud node, or before a customer tests a deployment |
 | `skills/learned-constants-and-secrets.md` | Adding a constant, installing a marketplace module, deploying to a new environment, or needing a Mendix PAT |
 | `project-bin/constants-audit.sh` | Before any first deploy to a new environment, and after installing or updating any marketplace module |

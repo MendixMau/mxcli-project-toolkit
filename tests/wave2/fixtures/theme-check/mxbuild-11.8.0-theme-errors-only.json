@@ -1,0 +1,9 @@
+{
+  "errors": [
+    {
+      "message": "An error occurred while compiling Theme files",
+      "details": "Error: Expected expression.\n   ,\n24 | .broken { color: ; }\n   |                  ^\n   '\n  /proj/theme/web/main.scss 24:18       @use\n  /proj/deployment/sass/main.scss 11:1  root stylesheet"
+    }
+  ],
+  "problems": []
+}

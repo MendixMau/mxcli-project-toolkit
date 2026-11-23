@@ -1,0 +1,13 @@
+{
+  "serialization_version": 1,
+  "errors": [
+    {
+      "code": "CE6093",
+      "message": "The theme could not be compiled:\r\n",
+      "locations": []
+    }
+  ],
+  "warnings": [],
+  "deprecations": [],
+  "total-problems": 1
+}

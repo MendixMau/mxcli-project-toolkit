@@ -1,0 +1,7 @@
+Error: Expected expression.
+  ,
+4 | .card { padding: 10px +* 2; 
+  |                        ^
+  '
+  themesource/myfirstmodule/web/main.scss 4:24  @use
+  /tmp/entry.scss 10:1                          root stylesheet

@@ -50,7 +50,7 @@ STEPS="lint=1;check=3;exec=14;gate=2" row a.mdl
 [ "$(head -n 1 "$L" | awk -F'\t' '{print NF" "$(NF-1)" "$NF}')" = "21 platform step_s" ] && ok "A: fresh ledger header is 21 columns ending platform, step_s" || bad "A: header" "$(head -n 1 "$L")"
 [ "$(awk -F'\t' '{print NF}' "$L" | sort -u | tr '\n' ' ')" = "21 " ] && ok "A: header and row are 21 columns" || bad "A: column counts"
 [ "$(col "$L" 21)" = "lint=1;check=3;exec=14;gate=2" ] && ok "A: step_s is the compact field as given" || bad "A: step_s" "$(col "$L" 21)"
-case "$(col "$L" 20)" in macos|linux|windows-gitbash|wsl) ok "A: platform is one of the four labels ($(col "$L" 20))" ;; *) bad "A: platform label" "$(col "$L" 20)" ;; esac
+case "$(col "$L" 20)" in macos|linux|windows-gitbash|cygwin|wsl) ok "A: platform is one of the four labels ($(col "$L" 20))" ;; *) bad "A: platform label" "$(col "$L" 20)" ;; esac
 grep -qE "$(hostname 2>/dev/null || echo __nohost__)|${USER:-__nouser__}|[/\\]" "$L" 2>/dev/null && bad "A: ledger holds a host, user or a path separator" || ok "A: no hostname, user or path separator in the ledger"
 STEPS="evil step/with paths" row b.mdl
 [ -z "$(col "$L" 21)" ] && ok "A: a malformed steps value is dropped, not stored" || bad "A: malformed steps stored" "$(col "$L" 21)"
@@ -89,6 +89,40 @@ printf 'ts\tscript\tcustom\n2026-01-01T00:00:00Z\tx\ty\n' > "$WORK/c/.claude/loo
 ( cd "$WORK/c" && bash bin/metrics-ledger.sh exec --script n.mdl --gate pass --result applied --elapsed 1 >/dev/null 2>&1 )
 [ "$(head -n 1 "$WORK/c/.claude/loop/metrics-ledger.tsv")" = "$(printf 'ts\tscript\tcustom')" ] && ok "B: a header that is not the old shape is never rewritten" || bad "B: custom header rewritten"
 [ -z "$(ls "$WORK/m/.claude/loop" | grep '\.tmp$')" ] && ok "B: no temp file left behind" || bad "B: temp left"
+
+# B2: the review of #842: parallel writers, CRLF header, file mode, cygwin label
+lost=0; trials=6
+for t in $(seq 1 $trials); do
+  rm -rf "$WORK/par"; mkdir -p "$WORK/par/bin" "$WORK/par/.claude/loop"; cp "$WORK/p/bin/"* "$WORK/par/bin/"
+  cp "$FIX/ledger-old-19col.captured.tsv" "$WORK/par/.claude/loop/metrics-ledger.tsv"; n0=$(grep -c '' "$WORK/par/.claude/loop/metrics-ledger.tsv")
+  for i in $(seq 1 12); do ( cd "$WORK/par" && MXTK_STEP_KV="exec=$i" bash bin/metrics-ledger.sh exec --script "w$i.mdl" --gate pass --result applied --elapsed 1 >/dev/null 2>&1 ) & done; wait
+  got=$(grep -c '' "$WORK/par/.claude/loop/metrics-ledger.tsv"); [ "$got" = $((n0 + 12)) ] || lost=$((lost + n0 + 12 - got))
+  [ "$(grep -c '^ts	' "$WORK/par/.claude/loop/metrics-ledger.tsv")" = 1 ] || lost=$((lost + 100))
+done
+[ "$lost" = 0 ] && ok "B2: 12 parallel writers x $trials trials on an old-header ledger: zero rows lost, one header" || bad "B2: parallel writers lost rows" "$lost"
+[ ! -e "$WORK/par/.claude/loop/metrics-ledger.tsv.lock" ] && [ -z "$(ls "$WORK/par/.claude/loop" | grep '\.tmp')" ] && ok "B2: no lock or temp left behind" || bad "B2: lock/temp left" "$(ls -a "$WORK/par/.claude/loop")"
+rm -rf "$WORK/par2"; mkdir -p "$WORK/par2/bin" "$WORK/par2/.claude/loop"; cp "$WORK/p/bin/"* "$WORK/par2/bin/"
+for i in $(seq 1 8); do ( cd "$WORK/par2" && bash bin/metrics-ledger.sh exec --script "n$i.mdl" --gate pass --result applied --elapsed 1 >/dev/null 2>&1 ) & done; wait
+[ "$(grep -c '' "$WORK/par2/.claude/loop/metrics-ledger.tsv")" = 9 ] && [ "$(grep -c '^ts	' "$WORK/par2/.claude/loop/metrics-ledger.tsv")" = 1 ] && ok "B2: 8 parallel writers on a NEW ledger: one header, 8 rows" || bad "B2: new ledger race" "$(grep -c '' "$WORK/par2/.claude/loop/metrics-ledger.tsv")"
+# stale lock (a crashed writer) does not block forever: older than 30 s is removed
+rm -rf "$WORK/st"; mkdir -p "$WORK/st/bin" "$WORK/st/.claude/loop"; cp "$WORK/p/bin/"* "$WORK/st/bin/"; mkdir "$WORK/st/.claude/loop/metrics-ledger.tsv.lock"; touch -d '2 minutes ago' "$WORK/st/.claude/loop/metrics-ledger.tsv.lock" 2>/dev/null
+cp "$FIX/ledger-old-19col.captured.tsv" "$WORK/st/.claude/loop/metrics-ledger.tsv"
+( cd "$WORK/st" && bash bin/metrics-ledger.sh exec --script s.mdl --gate pass --result applied --elapsed 1 >/dev/null 2>&1 )
+[ "$(grep -c '' "$WORK/st/.claude/loop/metrics-ledger.tsv" 2>/dev/null)" = 17 ] && [ "$(head -n 1 "$WORK/st/.claude/loop/metrics-ledger.tsv" | cut -f21)" = step_s ] && ok "B2: a stale lock directory is taken over" || bad "B2: stale lock"
+# CRLF header: upgraded, stays CRLF, old rows byte for byte
+rm -rf "$WORK/crlf"; mkdir -p "$WORK/crlf/bin" "$WORK/crlf/.claude/loop"; cp "$WORK/p/bin/"* "$WORK/crlf/bin/"
+CL="$WORK/crlf/.claude/loop/metrics-ledger.tsv"; sed 's/$/\r/' "$FIX/ledger-old-19col.captured.tsv" > "$CL"; cp "$CL" "$WORK/crlf.orig"
+( cd "$WORK/crlf" && MXTK_STEP_KV="exec=1" bash bin/metrics-ledger.sh exec --script n.mdl --gate pass --result applied --elapsed 1 >/dev/null 2>&1 )
+[ "$(head -n 1 "$CL" | tr -d '\r' | awk -F'\t' '{print NF" "$NF}')" = "21 step_s" ] && [ "$(head -n 1 "$CL" | tail -c 2 | od -An -c | tr -d ' ')" = '\r\n' ] && ok "B2: a CRLF header is upgraded and stays CRLF" || bad "B2: CRLF header" "$(head -n 1 "$CL" | od -c | tail -n 3)"
+[ "$(sed -n '2,$p' "$WORK/crlf.orig" | cksum)" = "$(sed -n "2,$(grep -c '' "$WORK/crlf.orig")p" "$CL" | cksum)" ] && ok "B2: CRLF ledger's old rows are byte for byte unchanged" || bad "B2: CRLF old rows changed"
+# file mode kept across the rewrite
+rm -rf "$WORK/md"; mkdir -p "$WORK/md/bin" "$WORK/md/.claude/loop"; cp "$WORK/p/bin/"* "$WORK/md/bin/"
+cp "$FIX/ledger-old-19col.captured.tsv" "$WORK/md/.claude/loop/metrics-ledger.tsv"; chmod 640 "$WORK/md/.claude/loop/metrics-ledger.tsv"
+( cd "$WORK/md" && bash bin/metrics-ledger.sh exec --script n.mdl --gate pass --result applied --elapsed 1 >/dev/null 2>&1 )
+[ "$(head -n 1 "$WORK/md/.claude/loop/metrics-ledger.tsv" | awk -F'\t' '{print NF}')" = 21 ] && [ "$($PY -c 'import os,sys; print(oct(os.stat(sys.argv[1]).st_mode & 0o777))' "$WORK/md/.claude/loop/metrics-ledger.tsv")" = 0o640 ] && ok "B2: the rewrite keeps the file mode (640)" || bad "B2: file mode"
+# cygwin label, through the function itself (OSTYPE cannot be set from outside)
+eval "$(sed -n '/^ledger_platform() {/,/^}/p' "$SUBDIR/metrics-ledger.sh")"
+[ "$(OSTYPE=cygwin MXTK_PLATFORM=windows ledger_platform)" = cygwin ] && [ "$(OSTYPE=msys MXTK_PLATFORM=windows ledger_platform)" = windows-gitbash ] && ok "B2: cygwin has its own label, msys stays windows-gitbash" || bad "B2: cygwin label"
 
 # ---- C: readers ------------------------------------------------------------------------------
 mkdir -p "$WORK/r"; cp "$FIX/ledger-old-19col.captured.tsv" "$WORK/r/old.tsv"; cp "$FIX/ledger-new-21col.captured.tsv" "$WORK/r/new.tsv"
@@ -168,6 +202,46 @@ printf '%s\n' "$OUT" | grep -q '^  elapsed: ' && bad "D: a fast failing exec pri
 runq MXB_FAIL=0 MXTK_TIME_SHOW_MIN=0
 [ "$RC" = 0 ] && [ "$(printf '%s\n' "$OUT" | grep -c '^  elapsed: ')" = 1 ] && ok "D: success path: one elapsed line, exit 0" || bad "D: success path" "rc=$RC lines=$(printf '%s\n' "$OUT" | grep -c '^  elapsed: ')"
 printf '%s\n' "$OUT" | grep -q '^  elapsed: [0-9]*s (check + snapshot + exec + mxbuild gate)$' && ok "D: success path text unchanged" || bad "D: success path text changed"
+
+# ---- F: the documented last line stays last (review of #842) --------------------------------
+# exit 4 / hard-lint exit 1 / exit 5 document their last line; the time line must come BEFORE it.
+R="$WORK/lastline"
+mkdir -p "$R/bin" "$R/mprcontents" "$R/mdlsource"
+printf 'not a real model\n' > "$R/Fixture.mpr"; printf 'bson\n' > "$R/mprcontents/a.mxunit"; printf 'CREATE MODULE "Nope";\n' > "$R/mdlsource/test.mdl"
+cp "$SUBDIR/_common.sh" "$SUBDIR/restore-mpr.sh" "$SUBDIR/metrics-ledger.sh" "$R/bin/"; cp "$SUBJECT" "$R/bin/exec.sh"; cp "$Q/bin/snapshot-mpr.sh" "$R/bin/"
+cat > "$R/mxcli" <<'MXCLI'
+#!/usr/bin/env bash
+D="$(cd "$(dirname "$0")" && pwd)"
+case "${1:-}" in
+  exec) echo "written by the script" >> "$D/Fixture.mpr"; echo "x" >> "$D/mprcontents/a.mxunit"; exit 0 ;;
+esac
+exit 0
+MXCLI
+cat > "$R/bin/lint-gate.sh" <<'LG'
+#!/usr/bin/env bash
+if [ "${LINT_MODE:-}" = rose ]; then printf 'FAIL\n  SEC003     security   9 -> 10   (+1)\n'; exit 1; fi
+echo PASS; exit 0
+LG
+chmod +x "$R/bin/"*.sh "$R/mxcli"
+( cd "$R" && git init -q . && printf '.mpr-snapshots/\ndocs/\n.claude/\n' > .gitignore && git add -A \
+  && git -c user.email=t@t -c user.name=t commit -qm fixture ) >/dev/null 2>&1
+runr() {  # extra env as args -> RC, OUT
+  rm -f "$WORK/mxb-n"; ( cd "$R" && git checkout -q -- Fixture.mpr mprcontents 2>/dev/null; rm -f PROJECT.md; [ -z "${HARD:-}" ] || printf 'Lint gate: hard\n' > PROJECT.md
+    env TMPDIR="$WORK/tq" SP_RESTART=0 MXTK_NO_INSTALL=1 MXTK_NO_SCORE=1 MXB_N="$WORK/mxb-n" MXB_FAIL=0 MXTK_TIME_SHOW_MIN=0 \
+    MXBUILD_PATH="$WORK/mxbuild" JAVA_HOME="$WORK/jdk" "$@" ./bin/exec.sh mdlsource/test.mdl ) >"$WORK/out.r" 2>&1
+  RC=$?; OUT="$(cat "$WORK/out.r")"; }
+timeline_before() {  # $1 = last-line prefix: the time line exists, comes after MXTK-RESULT, before the last line
+  [ "$(printf '%s\n' "$OUT" | tail -n 1 | cut -c1-${#1})" = "$1" ] || return 1
+  _a=$(printf '%s\n' "$OUT" | grep -n '^MXTK-RESULT' | cut -d: -f1 | head -n 1); _b=$(printf '%s\n' "$OUT" | grep -n '^  elapsed: ' | cut -d: -f1 | head -n 1)
+  [ -n "$_a" ] && [ -n "$_b" ] && [ "$_b" -gt "$_a" ] && [ "$(printf '%s\n' "$OUT" | grep -c '^  elapsed: ')" = 1 ]; }
+runr LINT_MODE=rose
+[ "$RC" = 4 ] && timeline_before "gate passed, lint only" && ok "F: exit 4 (lint rose): time line printed, last line still 'gate passed, lint only'" || bad "F: exit 4" "rc=$RC $(printf '%s\n' "$OUT" | tail -n 3)"
+HARD=1 runr LINT_MODE=rose
+[ "$RC" = 1 ] && timeline_before "gate passed, LINT ROSE under" && ok "F: hard-lint exit 1: time line printed, closing line still last" || bad "F: hard lint" "rc=$RC $(printf '%s\n' "$OUT" | tail -n 3)"
+runr ALLOW_UNVERIFIED=1 MXBUILD_PATH="$WORK/no-such-mxbuild"
+[ "$RC" = 5 ] && timeline_before "applied, UNVERIFIED" && ok "F: exit 5: time line printed, 'applied, UNVERIFIED' still last" || bad "F: exit 5" "rc=$RC $(printf '%s\n' "$OUT" | tail -n 3)"
+runq MXTK_TIME_SHOW_MIN=0
+[ "$RC" = 1 ] && [ "$(printf '%s\n' "$OUT" | grep -c '^  elapsed: ')" = 1 ] && ok "F: a rolled-back --patch still prints the line exactly once" || bad "F: rolled-back count"
 
 # ---- E: step_done / theme --------------------------------------------------------------------
 if [ -n "${EPOCHSECONDS:-}" ]; then

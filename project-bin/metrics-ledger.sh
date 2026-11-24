@@ -24,12 +24,13 @@
 #   platform  step_s
 #
 # `platform` and `step_s` (#841, appended at the END so a reader of the first 19 columns is unchanged):
-# platform is one of macos | linux | windows-gitbash | wsl — never a hostname, user or path — and
+# platform is one of macos | linux | windows-gitbash | cygwin | wsl — never a hostname, user or path — and
 # step_s is the per-step seconds of that exec as one field, `lint=1;check=3;exec=14;gate=2` (exec.sh
 # passes it in MXTK_STEP_KV; `theme=N` is the SCSS compile, split out of the baseline/gate). Both
 # are empty on module-close / score-only rows (platform is still set; step_s is not). A ledger that
 # predates them keeps its 19-column header until the first new-format row is appended; that append
-# rewrites ONLY the header line (the two names added, via a temp file and an atomic replace), so the old
+# rewrites ONLY the header line (the two names added, via a per-pid temp file and an atomic replace, under
+# a lock directory every append takes; a CRLF header stays CRLF and the file keeps its mode), so the old
 # rows stay short and the new rows are as long as the header. Readers key on the header names.
 #
 # `result` is a short class, not the BUILD-LOG wording: applied · applied-lint-rose · applied-lint-blind ·
@@ -111,7 +112,7 @@ ledger_platform() {
   elif type mxtk_platform >/dev/null 2>&1; then _p="$(mxtk_platform)"
   else case "${OSTYPE:-}" in darwin*) _p=macos ;; msys*|cygwin*|win*) _p=windows ;; *) _p=linux ;; esac; fi
   case "$_p" in
-    windows) echo windows-gitbash ;;
+    windows) case "${OSTYPE:-}" in cygwin*) echo cygwin ;; *) echo windows-gitbash ;; esac ;;
     linux) if [ -n "${WSL_DISTRO_NAME:-}${WSL_INTEROP:-}" ] || [ -e /proc/sys/fs/binfmt_misc/WSLInterop ]; then echo wsl; else echo linux; fi ;;
     *) echo "$_p" ;;
   esac
@@ -199,7 +200,7 @@ MODEL_COMMIT="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo "")"
 "$PY" - "$LEDGER" "$SCRIPT" "$GATE" "$RESULT" "$ELAPSED" "$MXB_ERR" "$LINT_RC" "$RESTORED" \
        "$SCORED" "$REPORT_LAST" "$LINT_LAST" "$MODEL_COMMIT" "$PLATFORM" \
        "$STEPS_ARG" <<'PYEOF'
-import datetime, json, os, re, sys
+import datetime, json, os, re, shutil, sys, time
 (ledger, script, gate, result, elapsed, mxb_err, lint_rc, restored,
  scored, report_last, lint_last, commit, platform, steps) = sys.argv[1:15]
 if not re.fullmatch(r"[a-z-]+", platform): platform = ""      # a label, never free text
@@ -249,22 +250,48 @@ header = ("ts\tscript\tgate\tresult\telapsed_s\tmxbuild_errors\tlint_rc\tlint_to
 OLD_HEADER = header.replace("\tplatform\tstep_s", "")
 row = [ts, script.replace("\t", " "), gate, classify(result), elapsed, mxb_err, lint_rc, lint_total, restored,
        score] + [cats[c] for c in CATS] + [violations, commit, platform, steps]
-new = not os.path.exists(ledger)
-if not new:
-    # Mixed ledger: an existing project's file has the 19-column header. Add the two names to the
-    # header line only (rows are never touched), so the new rows below it have named columns.
+# Every append takes a lock directory, so the one-time header rewrite below can never run between
+# another writer's append and the replace (12 parallel writers on an old ledger lost 2 rows in 1 of 5
+# trials without it, #842 review). No lock within ~5 s (or none creatable): append only, no rewrite.
+lock = ledger + ".lock"; got = False
+for _ in range(100):
     try:
-        with open(ledger) as f: first = f.readline()
-        if first == OLD_HEADER:
-            with open(ledger) as f: body = f.read()[len(first):]
-            tmp = ledger + ".tmp"
-            with open(tmp, "w") as f: f.write(header + body)
-            os.replace(tmp, ledger)
+        os.mkdir(lock); got = True; break
+    except FileExistsError:
+        try:
+            if time.time() - os.path.getmtime(lock) > 30: os.rmdir(lock)      # a crashed writer's lock
+        except OSError:
+            pass
+        time.sleep(0.05)
     except OSError:
-        pass
-with open(ledger, "a") as f:
-    if new: f.write(header)
-    f.write("\t".join(row) + "\n")
+        break
+try:
+    new = not os.path.exists(ledger)
+    if got and not new:
+        # Mixed ledger: an existing project's file has the 19-column header (LF, or CRLF when written on
+        # Windows). Add the two names to the header line only, keeping its line ending and the file's
+        # mode; rows are never touched, so the new rows below it have named columns.
+        tmp = "%s.tmp%d" % (ledger, os.getpid())
+        try:
+            with open(ledger, newline="") as f: first = f.readline()
+            eol = "\r\n" if first.endswith("\r\n") else "\n"
+            if first == OLD_HEADER[:-1] + eol:
+                with open(ledger, newline="") as f: body = f.read()[len(first):]
+                with open(tmp, "w", newline="") as f: f.write(header[:-1] + eol + body)
+                shutil.copymode(ledger, tmp)
+                os.replace(tmp, ledger)
+        except OSError:
+            pass
+        finally:
+            try: os.remove(tmp)
+            except OSError: pass
+    with open(ledger, "a") as f:
+        if new: f.write(header)
+        f.write("\t".join(row) + "\n")
+finally:
+    if got:
+        try: os.rmdir(lock)
+        except OSError: pass
 PYEOF
 _app=$?
 [ "$MODE" = "record" ] || exit "$_app"

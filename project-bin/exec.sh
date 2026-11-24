@@ -204,7 +204,13 @@ fail_rc() { case "$1" in 0) echo 0 ;; *) echo 1 ;; esac; }
 # MXTK-RESULT (see the header): the one place that builds the line. result_line <verdict> <applied>
 # <verified> <exit>. Printed BEFORE a path's closing human lines, never as the last line of output.
 LINT_NEW=na
-result_line() { echo "MXTK-RESULT exec verdict=$1 applied=$2 verified=$3 lint_new=${LINT_NEW:-na} exit=$4"; }
+# The time line (#841) follows it on every non-success verdict, so it never lands after a path's
+# documented last line ("gate passed, lint only", the restore hint, ...); the EXIT trap prints it
+# only for exits that reached no verdict. Exit 0 prints its own on the success path.
+result_line() {
+  echo "MXTK-RESULT exec verdict=$1 applied=$2 verified=$3 lint_new=${LINT_NEW:-na} exit=$4"
+  [ "$4" = 0 ] || exec_time_summary
+}
 # The closing human line of the paths whose verdict needs RESTORED. Three cases, because two of
 # these paths never attempt a restore (a partial run; mxbuild crashed with no baseline, where the
 # write is kept on purpose): telling the reader to "restore" there would contradict the text above.

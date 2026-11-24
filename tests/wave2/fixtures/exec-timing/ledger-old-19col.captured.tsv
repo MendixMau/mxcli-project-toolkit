@@ -1,0 +1,16 @@
+ts	script	gate	result	elapsed_s	mxbuild_errors	lint_rc	lint_total	restored	score	security	quality	architecture	performance	naming	design	other	violations	model_commit
+2026-11-23T11:07:04Z	noop.mdl	pass	applied	20	0	2		0										2bcc389
+2026-11-23T11:07:07Z	noop2.mdl	not-run	blocked	0	?			0										2bcc389
+2026-11-23T11:07:33Z	noop2.mdl	fail	gate-failed	23	?			1										ff1cafc
+2026-11-23T11:08:07Z	noop3.mdl	pass	applied-dirty	24	1			0										3844e65
+2026-11-23T11:09:29Z	noop4.mdl	fail	gate-failed	21	?			1										292a521
+2026-11-23T11:11:29Z	noop5.mdl	fail	gate-failed	22	?			1										a2e8149
+2026-11-23T11:17:21Z	noop6.mdl	unverified	applied-dirty	45	1			0										ce8d776
+2026-11-23T11:17:21Z	noop6.mdl	unverified	applied-unverified	45	1			0										ce8d776
+2026-11-23T11:17:29Z	noop6.mdl	not-run	blocked	0	?			0										8e0856e
+2026-11-23T11:18:02Z	noop7.mdl	unverified	applied-dirty	30	1			0										8e0856e
+2026-11-23T11:18:02Z	noop7.mdl	unverified	applied-unverified	30	1			0										8e0856e
+2026-11-23T11:18:45Z	noop8.mdl	unverified	applied-dirty	22	1			0										9bd0b7e
+2026-11-23T11:18:45Z	noop8.mdl	unverified	applied-unverified	22	1			0										9bd0b7e
+2026-11-23T11:19:54Z	noop9.mdl	pass	applied	12	0	2		0										061ed86
+2026-11-23T11:19:55Z	noop10.mdl	not-run	blocked	1	?			0										061ed86

@@ -1601,7 +1601,16 @@ mxtk_find_sass() {
   return 1
 }
 
+# Wrapper (#841): adds the wall seconds of every check in this run to MXTK_THEME_SECS, which exec.sh's
+# step_done splits out of the baseline/gate mark as a "theme" step. Builtins only; whole seconds,
+# and nothing is added on a bash with no EPOCHSECONDS (3.2: no process is spent to find out).
 mxtk_theme_check() {
+  local _t0="${EPOCHSECONDS:-}" _r=0
+  _mxtk_theme_check_run "$@" || _r=$?
+  [ -z "$_t0" ] || MXTK_THEME_SECS=$(( ${MXTK_THEME_SECS:-0} + EPOCHSECONDS - _t0 ))
+  return "$_r"
+}
+_mxtk_theme_check_run() {
   local _md="${1:-}" _mk _nw _sass _entry _alt _tmp _in _out _err _rc=0 _line _rel _n=0 _m=0 _re _sassmd
   MXTK_THEME_STATE=notrun; MXTK_THEME_FILE=""; MXTK_THEME_LINE=""; MXTK_THEME_COL=""; MXTK_THEME_MSG=""
   MXTK_THEME_WHY=""; MXTK_THEME_DENOM=""; MXTK_THEME_CACHED=0

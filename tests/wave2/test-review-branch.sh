@@ -13,8 +13,9 @@
 # Both layouts: the model at the root (A-E) and under app/ (F, two-tree).
 #
 # Positive control: against master (no review-branch.sh) every case but A5 fails. With the lean
-# filter's @(position|curve) pattern dropped, A3 fails; with the .ai-context exclusion dropped
-# from state(), E3 fails; with the guard removed, E2 fails.
+# filter's @(position|curve) pattern dropped, A3 fails; with state() widened from the model to
+# every tracked file, E3 fails; with the guard removed, E2 fails; without clearing the old REVIEW.md
+# before a run, E7 fails.
 set -uo pipefail
 
 TOOLKIT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -30,6 +31,7 @@ echo "== subject: $SUBJECT"
 # Stub mxcli: diff-local replays the capture (with mxcli's banner, which the pack strips).
 cat > "$WORK/mxcli" <<EOF
 #!/usr/bin/env bash
+echo "\$*" >> "$WORK/mxcli.args"
 case " \$* " in *" diff-local "*) echo "WARNING: This is a vibe-coded tool"; cat "$FX/diff-local.txt" ;; esac
 EOF
 chmod +x "$WORK/mxcli"
@@ -95,26 +97,53 @@ stubclaude() {
   cat > "$WORK/$1" <<EOF
 #!/usr/bin/env bash
 $2
+printf '%s\n' "\$@" > "$WORK/\$(basename "\$0").args"
 python3 -c 'import json,sys; print(json.dumps({"result":"Here is the review.\\n\\n"+open(sys.argv[1]).read(),"num_turns":3,"total_cost_usd":0.01}))' "$WORK/r1"
 EOF
   chmod +x "$WORK/$1"
 }
 stubclaude ok-claude ':'
-stubclaude dirty-claude 'echo touched >> README.md'
-stubclaude sync-claude 'echo synced >> .ai-context/x.md'
+stubclaude dirty-claude 'echo touched >> mprcontents/ab/unit.mxunit'
+stubclaude sync-claude 'echo synced >> .ai-context/x.md; echo synced >> README.md'
+stubclaude busy-claude "git -C '$P' -c user.email=t@t -c user.name=t commit -q --allow-empty -m 'next CR'"
+cat > "$WORK/broken-claude" <<'EOF'
+#!/usr/bin/env bash
+echo "not json"
+EOF
+chmod +x "$WORK/broken-claude"
 out=$(cd "$P" && CLAUDE_BIN="$WORK/ok-claude" PROJECT_ROOT="$P" MXTK_ROOT="$TOOLKIT" MXCLI="$WORK/mxcli" ./bin/review-branch.sh --run --out "$WORK/e1" 2>&1); rc=$?
 [ $rc -eq 0 ] && head -1 "$WORK/e1/REVIEW.md" | grep -q '^VERDICT: comments' \
   && ok "E1 --run: REVIEW.md starts at the verdict, rc 0" || bad "E1 --run" "$out"
 out=$(cd "$P" && CLAUDE_BIN="$WORK/dirty-claude" PROJECT_ROOT="$P" MXTK_ROOT="$TOOLKIT" MXCLI="$WORK/mxcli" ./bin/review-branch.sh --run --out "$WORK/e2" 2>&1); rc=$?
-[ $rc -eq 1 ] && [ -f "$WORK/e2/REVIEW.rejected.md" ] && [ ! -f "$WORK/e2/REVIEW.md" ] \
-  && ok "E2 a run that edits a tracked file is refused (rc 1, REVIEW.rejected.md)" || bad "E2 guard (rc $rc)" "$out"
-git -C "$P" checkout -q -- README.md
+[ $rc -eq 1 ] && [ -f "$WORK/e2/REVIEW.rejected.md" ] && [ ! -f "$WORK/e2/REVIEW.md" ] && grep -q unit.mxunit "$WORK/e2/guard.txt" \
+  && ok "E2 a run that edits the model is refused (rc 1, REVIEW.rejected.md, guard.txt)" || bad "E2 guard (rc $rc)" "$out"
 out=$(cd "$P" && CLAUDE_BIN="$WORK/sync-claude" PROJECT_ROOT="$P" MXTK_ROOT="$TOOLKIT" MXCLI="$WORK/mxcli" ./bin/review-branch.sh --run --out "$WORK/e3" 2>&1); rc=$?
-[ $rc -eq 0 ] && ok "E3 mxcli's own .ai-context sync does not trip the guard" || bad "E3 .ai-context excluded (rc $rc)" "$out"
+[ $rc -eq 0 ] && ok "E3 tool-file syncs in the review worktree (.ai-context, non-model files) do not trip the guard" || bad "E3 .ai-context excluded (rc $rc)" "$out"
+
+[ "$(git -C "$P" worktree list | wc -l | tr -d ' ')" = 1 ] && [ -z "$(git -C "$P" status --porcelain --untracked-files=no)" ] \
+  && ok "E4 the review worktree is removed and the project checkout untouched" || bad "E4 worktree cleanup" "$(git -C "$P" worktree list)"
+a="$WORK/ok-claude.args"
+grep -qx -- '--permission-mode' "$a" && grep -qx default "$a" && grep -qx Edit "$a" && grep -qx -- '--add-dir' "$a" \
+  && grep -qx "$WORK/e1" "$a" && grep -qx 'Bash(git diff --output\*)' "$a" && ! grep -qx 'Bash(mxcli:\*)' "$a" \
+  && ok "E5 claude args: permission-mode default, Edit off, pack dir added, no blanket mxcli" || bad "E5 claude args" "$(cat "$a")"
+out=$(cd "$P" && CLAUDE_BIN="$WORK/busy-claude" PROJECT_ROOT="$P" MXTK_ROOT="$TOOLKIT" MXCLI="$WORK/mxcli" ./bin/review-branch.sh --run --out "$WORK/e6" 2>&1); rc=$?
+[ $rc -eq 0 ] && ok "E6 the builder committing during a background run does not void it" || bad "E6 background run (rc $rc)" "$out"
+git -C "$P" reset -q --hard HEAD~1
+out=$(cd "$P" && CLAUDE_BIN="$WORK/broken-claude" PROJECT_ROOT="$P" MXTK_ROOT="$TOOLKIT" MXCLI="$WORK/mxcli" ./bin/review-branch.sh --run --out "$WORK/e1" 2>&1); rc=$?
+[ $rc -eq 1 ] && [ ! -f "$WORK/e1/REVIEW.md" ] && ok "E7 a failed rerun never reports the previous REVIEW.md" || bad "E7 stale review (rc $rc)" "$out"
+
+# ── G: a branch name with a slash names the default pack folder safely ──
+git -C "$P" branch -q feature/x-1 feat
+out=$(rb "$P" --head feature/x-1 2>&1); rc=$?
+h=$(git -C "$P" rev-parse --short=8 feature/x-1)
+[ $rc -eq 0 ] && [ -f "$P/docs/review/feature-x-1-$h/PACK.md" ] && ok "G1 feature/x-1 → docs/review/feature-x-1-<sha>/" || bad "G1 slash branch" "$out"
 
 # ── F: two-tree layout (model under app/) ──
 P2="$WORK/two"; mkproj "$P2" app
+: > "$WORK/mxcli.args"
 out=$(rb "$P2" --out "$WORK/f" 2>&1); rc=$?
+grep -q -- '-p app/App.mpr --ref [0-9a-f]\{40\}\.\.[0-9a-f]\{40\}' "$WORK/mxcli.args" \
+  && ok "F2 two-tree: diff-local gets app/App.mpr and merge-base..head" || bad "F2 diff-local args" "$(cat "$WORK/mxcli.args")"
 [ $rc -eq 0 ] && grep -q '(1 model files)' "$WORK/f/PACK.md" && ! grep -q 'mprcontents' "$WORK/f/other.diff" \
   && ok "F1 two-tree: model files counted, kept out of other.diff" || bad "F1 two-tree" "$out$(grep '| Model' "$WORK/f/PACK.md")"
 

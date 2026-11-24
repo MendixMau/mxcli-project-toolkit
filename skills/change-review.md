@@ -16,14 +16,17 @@ human routes come from platform teams reviewing agent-built Mendix MRs on GitLab
 - **No new test runs.** The evidence is what the build loop already made: the gate and the tests
   `affected-tests.sh` says the change owes. A review never requests the full suite or reruns
   anything "to be safe"; that is the loop `affected-tests.sh` exists to stop.
-- **Off the critical path.** Start `--run` in the background and move on to the next CR. Only a
+- **Off the critical path.** Start `--run` in the background and move on to the next CR: it
+  reviews in its own throwaway worktree at the head commit, so commits made meanwhile do not
+  void it. Only a
   **blocker** (security, data loss, broken flow) pulls the work back. Majors and below go on the
   findings list for the next round.
 - **Scaled by size.** S: no review. M: one agent run. L, or anything touching access,
   integrations or data: an agent run, and the change is flagged for the human pass.
 - **Not a gate.** A CR's status never waits on a review file or a person.
 
-Field cost: one run on a Mendix 11.15 app, 8 commits, 5 changed units: 234 s, 24 turns, $0.82.
+Field cost: one run on a Mendix 11.15 app, 8 commits, 5 changed units: 144 s, 17 turns, $0.61,
+in its own worktree, the real checkout untouched.
 
 ## The two reviews
 
@@ -53,7 +56,9 @@ The pack lands in `docs/review/<branch>-<head>/`: `PACK.md` (commits, counts, ev
 standard), `model-diff.mdl` (full), `model-diff.lean.mdl` (layout-only `@position`/`@curve`
 lines dropped, what the agent reads first), `other.diff` (non-model files), `PROMPT.md`, and
 with `--run` `REVIEW.md`. Exit: `0` approve or comments · `3` changes · `1` no valid review ·
-`2` usage. `CLAUDE_BIN` names a launcher wrapper when plain `claude` is not the one to use.
+`2` usage. `CLAUDE_BIN` names a launcher wrapper when plain `claude` is not the one to use; a
+wrapper that adds `--dangerously-skip-permissions` lifts the reviewer's tool allow-list, and only
+the checkout guard is left.
 
 ## The review file
 
@@ -64,7 +69,8 @@ with `--run` `REVIEW.md`. Exit: `0` approve or comments · `3` changes · `1` no
     ## Standard applied the checklist sections and brain rows that fired
     ## Not checked      what could not be verified here and why
 
-`approve`: nothing above minor. `comments`: minor and nits only. `changes`: a blocker or major.
+`approve`: no findings, or nits only. `comments`: at least one minor, nothing above. `changes`:
+a blocker or major.
 Evidence that is not there is **reported**, never a reason on its own for `changes` and never a
 request to run more tests; the person deciding the push reads it.
 

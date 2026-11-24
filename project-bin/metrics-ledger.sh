@@ -21,6 +21,16 @@
 #
 #   ts  script  gate  result  elapsed_s  mxbuild_errors  lint_rc  lint_total  restored
 #   score  security  quality  architecture  performance  naming  design  other  violations  model_commit
+#   platform  step_s
+#
+# `platform` and `step_s` (#841, appended at the END so a reader of the first 19 columns is unchanged):
+# platform is one of macos | linux | windows-gitbash | wsl — never a hostname, user or path — and
+# step_s is the per-step seconds of that exec as one field, `lint=1;check=3;exec=14;gate=2` (exec.sh
+# passes it in MXTK_STEP_KV; `theme=N` is the SCSS compile, split out of the baseline/gate). Both
+# are empty on module-close / score-only rows (platform is still set; step_s is not). A ledger that
+# predates them keeps its 19-column header until the first new-format row is appended; that append
+# rewrites ONLY the header line (the two names added, via a temp file and an atomic replace), so the old
+# rows stay short and the new rows are as long as the header. Readers key on the header names.
 #
 # `result` is a short class, not the BUILD-LOG wording: applied · applied-lint-rose · applied-lint-blind ·
 # applied-dirty · applied-unverified · partial · gate-failed · gate-not-run · rolled-back ·
@@ -88,6 +98,25 @@ if ! type find_project_mxcli >/dev/null 2>&1; then
   find_project_mxcli() { [ -x "$PROJECT_ROOT/mxcli" ] && echo "$PROJECT_ROOT/mxcli"; }
 fi
 require_py
+# Machine-neutral platform label (#841). mxtk_platform (_common.sh) says macos | windows | linux;
+# "windows" is Git Bash here (Node-side rules say so), and a Linux that is WSL is told apart because
+# its disk and process-start costs are the slow ones users report. An older, unsynced _common.sh
+# has no mxtk_platform: fall back to $OSTYPE. No process is started on the common paths.
+ledger_platform() {
+  local _p=""
+  # $OSTYPE answers linux without mxtk_platform's `uname -s` fallback: one process start per exec saved
+  # (tests/wave2/test-exec-process-budget.sh counted it).
+  if [ -n "${MXTK_PLATFORM:-}" ]; then _p="$MXTK_PLATFORM"   # the override _common.sh native_path also honours
+  elif [[ "${OSTYPE:-}" == linux* ]]; then _p=linux
+  elif type mxtk_platform >/dev/null 2>&1; then _p="$(mxtk_platform)"
+  else case "${OSTYPE:-}" in darwin*) _p=macos ;; msys*|cygwin*|win*) _p=windows ;; *) _p=linux ;; esac; fi
+  case "$_p" in
+    windows) echo windows-gitbash ;;
+    linux) if [ -n "${WSL_DISTRO_NAME:-}${WSL_INTEROP:-}" ] || [ -e /proc/sys/fs/binfmt_misc/WSLInterop ]; then echo wsl; else echo linux; fi ;;
+    *) echo "$_p" ;;
+  esac
+}
+PLATFORM="$(ledger_platform)"
 
 MODE="${1:-}"; shift 2>/dev/null || true
 case "$MODE" in
@@ -164,13 +193,17 @@ done
 [ "$MODE" = "record" ] || { [ -n "$SCRIPT" ] && [ -n "$GATE" ] && [ -n "$RESULT" ] && [ -n "$ELAPSED" ]; } || {
   echo "metrics-ledger: exec needs --script --gate --result --elapsed" >&2; exit 2; }
 
+STEPS_ARG=""; [ "$MODE" != exec ] || STEPS_ARG="${MXTK_STEP_KV:-}"
 MODEL_COMMIT="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo "")"
 [ -d "$LOOP" ] || mkdir -p "$LOOP"
 "$PY" - "$LEDGER" "$SCRIPT" "$GATE" "$RESULT" "$ELAPSED" "$MXB_ERR" "$LINT_RC" "$RESTORED" \
-       "$SCORED" "$REPORT_LAST" "$LINT_LAST" "$MODEL_COMMIT" <<'PYEOF'
-import datetime, json, os, sys
+       "$SCORED" "$REPORT_LAST" "$LINT_LAST" "$MODEL_COMMIT" "$PLATFORM" \
+       "$STEPS_ARG" <<'PYEOF'
+import datetime, json, os, re, sys
 (ledger, script, gate, result, elapsed, mxb_err, lint_rc, restored,
- scored, report_last, lint_last, commit) = sys.argv[1:13]
+ scored, report_last, lint_last, commit, platform, steps) = sys.argv[1:15]
+if not re.fullmatch(r"[a-z-]+", platform): platform = ""      # a label, never free text
+if not re.fullmatch(r"([a-z_]+=[0-9]+)(;[a-z_]+=[0-9]+)*", steps): steps = ""
 
 def classify(s):
     t = s.lower()
@@ -211,10 +244,24 @@ if scored == "1" and os.path.exists(report_last):
 
 ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 header = ("ts\tscript\tgate\tresult\telapsed_s\tmxbuild_errors\tlint_rc\tlint_total\trestored\t"
-          "score\tsecurity\tquality\tarchitecture\tperformance\tnaming\tdesign\tother\tviolations\tmodel_commit\n")
+          "score\tsecurity\tquality\tarchitecture\tperformance\tnaming\tdesign\tother\tviolations\tmodel_commit\t"
+          "platform\tstep_s\n")
+OLD_HEADER = header.replace("\tplatform\tstep_s", "")
 row = [ts, script.replace("\t", " "), gate, classify(result), elapsed, mxb_err, lint_rc, lint_total, restored,
-       score] + [cats[c] for c in CATS] + [violations, commit]
+       score] + [cats[c] for c in CATS] + [violations, commit, platform, steps]
 new = not os.path.exists(ledger)
+if not new:
+    # Mixed ledger: an existing project's file has the 19-column header. Add the two names to the
+    # header line only (rows are never touched), so the new rows below it have named columns.
+    try:
+        with open(ledger) as f: first = f.readline()
+        if first == OLD_HEADER:
+            with open(ledger) as f: body = f.read()[len(first):]
+            tmp = ledger + ".tmp"
+            with open(tmp, "w") as f: f.write(header + body)
+            os.replace(tmp, ledger)
+    except OSError:
+        pass
 with open(ledger, "a") as f:
     if new: f.write(header)
     f.write("\t".join(row) + "\n")

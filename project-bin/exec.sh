@@ -130,8 +130,34 @@ _T0=${EPOCHSECONDS:-$(date +%s)}   # EPOCHSECONDS (bash 5): no process per times
 # adds "<name> <s>s" since the previous mark; the run summary and the BUILD-LOG detail print it.
 # The gate mark sits right after the mxbuild run, before any pass/fail branch, so a rolled-back
 # run (the costliest ones) logs its gate seconds too.
-_TLAST=$_T0; STEP_TIMES=""
-step_done() { _tn=${EPOCHSECONDS:-$(date +%s)}; STEP_TIMES="${STEP_TIMES:+$STEP_TIMES }$1 $((_tn - _TLAST))s"; _TLAST=$_tn; }
+_TLAST=$_T0; STEP_TIMES=""; STEP_KV=""; MXTK_THEME_SECS=0
+# STEP_KV is the same seconds as one machine-readable field for the metrics ledger ("lint=1;gate=14";
+# #841). The theme (SCSS) compile runs inside the baseline and the gate; _common.sh
+# mxtk_theme_check adds its seconds to MXTK_THEME_SECS, and the next mark splits them out as their
+# own "theme" step, so a slow compile is not read as a slow mxbuild. Builtins only: no process per step.
+step_done() {
+  _tn=${EPOCHSECONDS:-$(date +%s)}; _sd=$((_tn - _TLAST)); _sth=${MXTK_THEME_SECS:-0}
+  [ "$_sth" -le "$_sd" ] 2>/dev/null || _sth=$_sd
+  _sd=$((_sd - _sth))
+  STEP_TIMES="${STEP_TIMES:+$STEP_TIMES }$1 ${_sd}s"; STEP_KV="${STEP_KV:+$STEP_KV;}$1=$_sd"
+  if [ "$_sth" -gt 0 ]; then STEP_TIMES="$STEP_TIMES theme ${_sth}s"; STEP_KV="$STEP_KV;theme=$_sth"; fi
+  MXTK_THEME_SECS=0; _TLAST=$_tn
+}
+# One timing line pair for every exit that is not the success path (#841): a failed, blocked or
+# rolled-back exec showed no time at all, so "the harness is slow" could not be told from "mxbuild
+# failed slowly". Called from the EXIT trap; the success path prints its own and sets _TIME_SHOWN.
+# Silent under 10 s (a refusal at the first check is not a timing question). MXTK_TIME_SHOW_MIN and
+# MXTK_SLOW_S override the 10 s and 240 s thresholds (tests/wave2/test-exec-timing.sh sets them to 0 and -1).
+_TIME_SHOWN=0; _SLOW_S=${MXTK_SLOW_S:-240}
+exec_time_summary() {
+  [ "$_TIME_SHOWN" = 1 ] && return 0
+  _TIME_SHOWN=1
+  _tn=${EPOCHSECONDS:-$(date +%s)}; _tel=$((_tn - _T0))
+  [ "$_tel" -ge "${MXTK_TIME_SHOW_MIN:-10}" ] || return 0
+  echo "  elapsed: ${_tel}s${STEP_TIMES:+ · steps: $STEP_TIMES}"
+  [ "$_tel" -gt "$_SLOW_S" ] && echo "  ⚠  slower than a healthy run — run doctor.sh --quick $PROJECT_ROOT to see why (spawn speed, path, OneDrive)"
+  return 0
+}
 # MXTK_PROFILE=1 (#584/#585): one trace line per command with a wall-clock stamp, written to
 # .claude/loop/exec-profile-<pid>.log; at exit the slowest lines and the number of commands
 # are printed. Needs bash 4.1+ (BASH_XTRACEFD); bash 5 has EPOCHREALTIME (microseconds), 4.x
@@ -773,7 +799,9 @@ HDR2
 SCORED=0
 record_metrics() {  # $1=status text (as given to log_build)
   [ -x "$PROJECT_ROOT/bin/metrics-ledger.sh" ] || return 0
-  bash "$PROJECT_ROOT/bin/metrics-ledger.sh" exec \
+  # Steps travel in the environment, not as an argument: a metrics-ledger.sh that was not synced
+  # yet would refuse an unknown flag and the row would be lost (the `|| true` below hides that).
+  MXTK_STEP_KV="$STEP_KV" bash "$PROJECT_ROOT/bin/metrics-ledger.sh" exec \
     --script "$LOG_NAME" --gate "${GATE_STATE:-not-run}" --result "$1" \
     --elapsed "$(( ${EPOCHSECONDS:-$(date +%s)} - _T0 ))" --mxbuild-errors "${GATE_ERRORS:-}" \
     --lint-rc "${LINT_RC_FOR_LEDGER:-}" --restored "${RESTORED:-0}" --scored "$SCORED" 2>/dev/null || true
@@ -1117,7 +1145,7 @@ if [ "$LOCK_TAKEN" != 1 ]; then
   exit 1
 fi
 EXEC_OUT=""   # never an inherited value: the EXIT trap removes it
-trap 'mxtk_resume_watchers; exec_lock_release; [ -z "${EXEC_OUT:-}" ] || rm -f -- "$EXEC_OUT"; [ "$_PROFILING" != 1 ] || _prof_report' EXIT
+trap 'exec_time_summary; mxtk_resume_watchers; exec_lock_release; [ -z "${EXEC_OUT:-}" ] || rm -f -- "$EXEC_OUT"; [ "$_PROFILING" != 1 ] || _prof_report' EXIT
 mxtk_resume_leftover "$PROJECT_ROOT"   # a watcher an earlier, SIGKILLed exec.sh left stopped
 
 # 3. A raw `mxcli exec` elsewhere on the machine is NOT this project's business. The old guard
@@ -3123,6 +3151,7 @@ result_line applied yes yes 0
 echo "✓ Script applied to $MPR_BASE."
 echo ""
 _EL=$(( ${EPOCHSECONDS:-$(date +%s)} - _T0 ))
+_TIME_SHOWN=1
 echo "  elapsed: ${_EL}s (check + snapshot + exec + mxbuild gate)"
 if [ -n "$STEP_TIMES" ]; then echo "  steps: $STEP_TIMES"; fi
 [ -n "$CHANGE_CLASS" ] && echo "  change class: $CHANGE_CLASS — test lane: $(change_lane)"
@@ -3130,7 +3159,7 @@ if [ -n "$STEP_TIMES" ]; then echo "  steps: $STEP_TIMES"; fi
 # A budget, not a gate: a normal run is 30-90 s on a healthy machine. Past 4 minutes the
 # usual cause is the machine (Defender scanning every fork, OneDrive, a slow disk), and
 # doctor --quick names which — the reader should not have to guess "is it me or the toolkit".
-[ "$_EL" -gt 240 ] && echo "  ⚠  slower than a healthy run — run doctor.sh --quick $PROJECT_ROOT to see why (spawn speed, path, OneDrive)"
+[ "$_EL" -gt "$_SLOW_S" ] && echo "  ⚠  slower than a healthy run — run doctor.sh --quick $PROJECT_ROOT to see why (spawn speed, path, OneDrive)"
 echo "  Gate passed (mxbuild-clean). If the happy path / coverage checklist is ALSO"
 echo "  verified for this script, rename it now: git mv <path> <path>/done-<name>"
 echo "  (skills/iterative-build-loop.md — a clean gate is necessary, not sufficient)"

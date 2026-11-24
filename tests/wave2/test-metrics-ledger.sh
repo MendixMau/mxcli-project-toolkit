@@ -9,7 +9,7 @@
 # scores, float overall, JSON from byte 0.
 #
 # Covers: score mode (writes report-last.json, strips violations, exit 3 without mxcli);
-# exec mode (header once, 19 columns, result classification, lint_total only when lint ran,
+# exec mode (header once, 21 columns, result classification, lint_total only when lint ran,
 # score columns only when --scored 1); the reader's summary, --runs, --score, --since; and
 # that exec.sh is actually wired (every log_build row records, score taken in log_applied).
 # Score cadence (2026-11-05): take_score, extracted from exec.sh, does NOT score by default; the
@@ -74,7 +74,7 @@ bash "$P/bin/metrics-ledger.sh" exec --script 030-pages.mdl --gate not-run --res
 
 [ "$(grep -c '^ts	script	gate' "$L")" = 1 ] && ok "exactly one header" || bad "header count $(grep -c '^ts' "$L")"
 [ "$(wc -l < "$L" | tr -d ' ')" = 5 ] && ok "4 rows + header" || bad "line count $(wc -l < "$L")"
-[ "$(awk -F'\t' '{print NF}' "$L" | sort -u | tr '\n' ' ')" = "19 " ] && ok "every line has 19 columns" || bad "column counts: $(awk -F'\t' '{print NF}' "$L" | sort -u | tr '\n' ' ')"
+[ "$(awk -F'\t' '{print NF}' "$L" | sort -u | tr '\n' ' ')" = "21 " ] && ok "every line has 21 columns" || bad "column counts: $(awk -F'\t' '{print NF}' "$L" | sort -u | tr '\n' ' ')"
 r1=$(sed -n 2p "$L"); r2=$(sed -n 3p "$L"); r3=$(sed -n 4p "$L"); r4=$(sed -n 5p "$L")
 f() { printf '%s' "$1" | cut -f"$2"; }
 [ "$(f "$r1" 4)" = applied ]           && ok "✅ applied → applied" || bad "row1 result $(f "$r1" 4)"
@@ -113,7 +113,7 @@ r5=$(tail -1 "$L")
 [ "$(f "$r5" 2)" = "module-close: Billing" ] && [ "$(f "$r5" 4)" = module-close ] && [ "$(f "$r5" 10)" = 41.3 ] \
   && ok "record row: script 'module-close: Billing', result module-close, score 41.3" || bad "record row: $r5"
 [ -z "$(f "$r5" 5)" ] && [ -z "$(f "$r5" 8)" ] && ok "record row: elapsed and lint_total empty (not an exec)" || bad "record row elapsed/lint: $r5"
-[ "$(awk -F'\t' '{print NF}' "$L" | sort -u | tr '\n' ' ')" = "19 " ] && ok "record row keeps 19 columns" || bad "record columns"
+[ "$(awk -F'\t' '{print NF}' "$L" | sort -u | tr '\n' ' ')" = "21 " ] && ok "record row keeps 21 columns" || bad "record columns"
 mv "$P/mxcli" "$P/mxcli.off"
 out=$(bash "$P/bin/metrics-ledger.sh" record 2>&1); rc=$?
 r6=$(tail -1 "$L")

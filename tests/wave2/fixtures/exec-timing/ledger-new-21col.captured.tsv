@@ -1,0 +1,7 @@
+ts	script	gate	result	elapsed_s	mxbuild_errors	lint_rc	lint_total	restored	score	security	quality	architecture	performance	naming	design	other	violations	model_commit	platform	step_s
+2026-11-24T03:09:59Z	ok1.mdl	not-run	blocked	0	?			0											linux	
+2026-11-24T03:10:40Z	ok1.mdl	pass	applied	17	0	2		0										8540993	linux	guards=0;check=0;snapshot=0;baseline=0;theme=1;exec=0;gate=14;lint=2
+2026-11-24T03:10:47Z	bad1.mdl	not-run	blocked	0	?			0										71f6afe	linux	
+2026-11-24T03:10:51Z	bad1.mdl	not-run	blocked	0	?			0										0095de6	linux	guards=0
+2026-11-24T03:11:21Z	bad2.mdl	unverified	applied-dirty	24	1			0										2798bed	linux	guards=0;check=1;snapshot=0;baseline=12;exec=0;gate=11
+2026-11-24T03:11:21Z	bad2.mdl	unverified	applied-unverified	24	1			0										2798bed	linux	guards=0;check=1;snapshot=0;baseline=12;exec=0;gate=11

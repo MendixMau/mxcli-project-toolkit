@@ -46,6 +46,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/checkpoints/checkpoint-cutover.md` | Going live / cutover: CAC-6, after Stage 6 passes and before any cutover or old-data migration step |
 | `skills/image-transcription.md` | Images to read listed by images-to-md or the documents index |
 | `skills/mendix-best-practices-index.md` | Asked "is there a Mendix best practice for this", or mapping a lint rule that rose in the ratchet back to the practice and the skill that prevents it |
+| `skills/change-review.md` | Reviewing an M/L change (CR, round, worktree, MR) on an app with a baseline: a read-only agent review of the MDL diff in the background (bin/review-branch.sh --run, verdict in REVIEW.md), no new test runs, only blockers pull work back; optional human pass per push to test/UAT; not for the greenfield build, module-review is the pass there |
 | `project-bin/security-check.sh` | Before hand-over, before calling a module security-ready, or after any change to roles, access rules or project security |
 | `skills/cloud-dev-environment.md` | Setting up or resuming an mxcli project in a cloud/ephemeral container |
 | `skills/existing-app-assurance.md` | Auditing or regression/e2e-testing an EXISTING app |

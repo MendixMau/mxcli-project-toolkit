@@ -67,6 +67,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/ui-loop.md` | After every page-building script, and any time the UI looks wrong |
 | `project-bin/check-design-portability.sh` | Before porting ds.css into SCSS, and at the Stage-3 gate |
 | `skills/module-review.md` | Is the module done? Reviewing any module before calling it done |
+| `skills/change-review.md` | Reviewing an M/L change (CR, round, worktree, MR) on an app with a baseline: a read-only agent review of the MDL diff in the background (bin/review-branch.sh --run, verdict in REVIEW.md), no new test runs, only blockers pull work back; optional human pass per push to test/UAT; not for the greenfield build, module-review is the pass there |
 | `project-bin/context-pack.sh` | Dispatching a build step to a helper |
 | `project-bin/security-check.sh` | Before hand-over, before calling a module security-ready, or after any change to roles, access rules or project security |
 | `bug-logs/mxcli-bugs.md` | Reading a whole class of tool defects (a retest, a new mxcli release, an audit) |

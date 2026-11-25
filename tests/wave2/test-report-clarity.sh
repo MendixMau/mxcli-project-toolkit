@@ -12,7 +12,7 @@
 #       opens past the sentinel; a failing opener neither fails the run nor leaves the sentinel unwritten.
 #   D7  the rendered page holds neither the project's own absolute root nor the running user's home (POSIX or C:\Users
 #       spelling), nor a session-log folder name carrying the user name; an app route such as /Users/123/orders or
-#       /home/dashboard is content and survives; an href is never rewritten.
+#       /home/456/reports is content and survives; an href is never rewritten.
 #   D8  a "What do these words mean?" block lists the words the page uses; a finished stage with no time, tokens or
 #       decisions prints none of those lines; the "No Claude Code session log" sentence appears once.
 #
@@ -24,6 +24,7 @@ case "$SCRIPT" in /*) ;; *) SCRIPT="$PWD/$SCRIPT" ;; esac
 GEN="$(dirname "$SCRIPT")/progress-report.py"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/report-clarity.XXXXXX")"
+FXHOME="$WORK/fx-home/fixture-user"; mkdir -p "$FXHOME"   # a stand-in home: no literal home path in this file (leak guard)
 trap '[ -n "${KEEP:-}" ] || rm -rf "$WORK"' EXIT
 # shellcheck disable=SC1091
 . "$ROOT/bin/lib/portable.sh"
@@ -61,7 +62,7 @@ MD
 | 3 | PROVE | tests | not built |
 MD
   local abs; abs="$(cd "$d" && pwd -P)"
-  printf '<table><tr><td>P</td><td>t</td><td>PASS</td><td>ok</td></tr><tr><td>0</td><td>t</td><td>FAIL</td><td>unanswered in %s/triage.md</td></tr><tr><td>1</td><td>t</td><td>FAIL</td><td>GET /Users/123/orders fails</td></tr><tr><td>2</td><td>t</td><td>FAIL</td><td>route /home/dashboard opens</td></tr><tr><td>3</td><td>t</td><td>FAIL</td><td>see /home/fixture-user/secret/x.md</td></tr></table>' "$abs" > "$d/index.html"
+  printf '<table><tr><td>P</td><td>t</td><td>PASS</td><td>ok</td></tr><tr><td>0</td><td>t</td><td>FAIL</td><td>unanswered in %s/triage.md</td></tr><tr><td>1</td><td>t</td><td>FAIL</td><td>GET /Users/123/orders fails</td></tr><tr><td>2</td><td>t</td><td>FAIL</td><td>route /home/456/reports opens</td></tr><tr><td>3</td><td>t</td><td>FAIL</td><td>see %s/secret/x.md</td></tr></table>' "$abs" "$FXHOME" > "$d/index.html"
 }
 
 # ── D2 ───────────────────────────────────────────────────────────────────────
@@ -155,10 +156,10 @@ X2="$(newproj dflt)"; printf '# P\n\nNo setting line here\n' > "$X2/PROJECT.md";
 X3="$(newproj tmpdir)"; : > "$LOG"; env -i HOME="$WORK/home" PATH="$STUB:/usr/bin:/bin" CLAUDE_CONFIG_DIR="$EMPTY" MXTK_PLATFORM=linux DISPLAY=:0 TMPDIR="$WORK" bash "$SCRIPT" "$X3" --refresh >/dev/null 2>&1; sleep 0.4
 [ "$(opens)" = 0 ] && [ ! -e "$X3/.claude/.report-shown" ] && ok "a project in the temp folder never opens by itself (a fixture or scratch run is safe by default)" || bad "temp-folder rule"
 # the temp-folder test, on the rule itself: macOS per-user temp, Git Bash /tmp, and normal folders that merely contain "tmp"
-for r in /tmp/x/proj /var/folders/ab/cd/T/x/proj /private/var/folders/ab/cd/T/x/proj /var/tmp/x /c/Users/u/AppData/Local/Temp/x/proj /mnt/c/Users/u/AppData/Local/Temp/x/proj; do
+for r in /tmp/x/proj /var/folders/ab/cd/T/x/proj /private/var/folders/ab/cd/T/x/proj /var/tmp/x /c/Users/123/AppData/Local/Temp/x/proj /mnt/c/Users/123/AppData/Local/Temp/x/proj; do
   [ "$(env -u CI -u GITHUB_ACTIONS -u MXTK_NO_REPORT_OPEN -u SSH_CONNECTION -u SSH_TTY -u SSH_CLIENT bash -c 'ROOT="$1"; TMPDIR=""; MXTK_REPORT_OPEN_TMP=""; eval "$(sed -n "/^report_auto_ok() {/,/^}/p" "$2")"; report_pm_value() { case "$1" in "Progress report") _pmv=auto ;; *) _pmv= ;; esac; }; report_auto_ok && echo open || echo skip' _ "$r" "$SCRIPT")" = skip ] && ok "temp rule: $r never auto-opens" || bad "temp rule $r"
 done
-for r in /home/u/tmp/proj /home/u/my-tmp/proj /home/u/work/tmpfiles/proj /Users/u/tmp /home/u/proj-temp /mnt/c/Users/u/proj /mnt/c/Users/u/AppData/Local/proj; do
+for r in /work/u/tmp/proj /work/u/my-tmp/proj /work/u/dev/tmpfiles/proj /Users/123/tmp /work/u/proj-temp /mnt/c/Users/123/proj /mnt/c/Users/123/AppData/Local/proj; do
   [ "$(env -u CI -u GITHUB_ACTIONS -u MXTK_NO_REPORT_OPEN -u SSH_CONNECTION -u SSH_TTY -u SSH_CLIENT bash -c 'ROOT="$1"; TMPDIR=""; MXTK_REPORT_OPEN_TMP=""; eval "$(sed -n "/^report_auto_ok() {/,/^}/p" "$2")"; report_pm_value() { case "$1" in "Progress report") _pmv=auto ;; *) _pmv= ;; esac; }; report_auto_ok && echo open || echo skip' _ "$r" "$SCRIPT")" = open ] && ok "temp rule: $r (a normal folder that merely contains tmp) is not treated as temp" || bad "temp rule misfires on $r"
 done
 X4="$(newproj ssh)"; refresh "$X4" MXTK_PLATFORM=linux DISPLAY=:0 SSH_CONNECTION="1 2 3 4"
@@ -191,22 +192,23 @@ P7="$WORK/p7"; mkproj "$P7"; ABS="$(cd "$P7" && pwd -P)"
 R7="$WORK/r7.html"; CLAUDE_CONFIG_DIR="$EMPTY" "$PY" "$GEN" "$P7" --out "$R7" >/dev/null 2>&1
 hasnt "$R7" "$ABS" "the project's own absolute root is not on the page"
 hasnt "$R7" "$P7" "nor the unresolved spelling of it"
-CLAUDE_CONFIG_DIR="$EMPTY" HOME=/home/fixture-user "$PY" "$GEN" "$P7" --out "$R7" >/dev/null 2>&1
-hasnt "$R7" "/home/fixture-user" "the running user's home is gone"
+CLAUDE_CONFIG_DIR="$EMPTY" HOME="$FXHOME" "$PY" "$GEN" "$P7" --out "$R7" >/dev/null 2>&1
+hasnt "$R7" "$FXHOME" "the running user's home is gone"
 has "$R7" "see ~/secret/x.md" "... and shown as ~/"
 has "$R7" "GET /Users/123/orders fails" "an app route /Users/123/orders is content and survives"
-has "$R7" "route /home/dashboard opens" "an app route /home/dashboard survives"
+has "$R7" "route /home/456/reports opens" "an app route /home/456/reports survives"
 has "$R7" "in triage.md\|unanswered in triage.md" "the project root became a relative path"
 CLAUDE_CONFIG_DIR="$EMPTY" HOME='C:\Users\fixtureuser' "$PY" "$GEN" "$P7" --out "$WORK/r7w.html" >/dev/null 2>&1
 grep -qF 'fixtureuser' "$WORK/r7w.html" && bad "a C:\\Users home spelling is not on the page" || ok "a C:\\Users home spelling is not on the page"
-"$PY" - "$GEN" <<'PYEOF' && ok "scrub: the home and toolkit slugs in a session-log folder name are masked; href values are never rewritten" || bad "scrub unit cases"
-import importlib.util, os, sys
-os.environ["HOME"] = "/home/fixture-user"
+"$PY" - "$GEN" "$FXHOME" <<'PYEOF' && ok "scrub: the home and toolkit slugs in a session-log folder name are masked; href values are never rewritten" || bad "scrub unit cases"
+import importlib.util, os, re, sys
+H = sys.argv[2]; os.environ["HOME"] = H; SL = re.sub(r"[^A-Za-z0-9]", "-", H)
 spec = importlib.util.spec_from_file_location("pr", sys.argv[1]); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
-t = m.scrub_paths("<code>/home/fixture-user/.claude/projects/-home-fixture-user-other/s.jsonl</code> <a href='/home/fixture-user/x'>l</a> /tmp/zz/proj/a.md", "/tmp/zz/proj")
-assert "fixture-user" not in t.replace("href='/home/fixture-user/x'", ""), t
+HREF = "href='" + H + "/x'"
+t = m.scrub_paths("<code>" + H + "/.claude/projects/" + SL + "-other/s.jsonl</code> <a " + HREF + ">l</a> /tmp/zz/proj/a.md", "/tmp/zz/proj")
+assert "fixture-user" not in t.replace(HREF, ""), t
 assert "-~-other" in t and "~/.claude/projects" in t, t
-assert "href='/home/fixture-user/x'" in t, t
+assert HREF in t, t
 assert "a.md" in t and "/tmp/zz/proj" not in t, t
 PYEOF
 has "$R7" "<details class=gloss" "the word block is present"

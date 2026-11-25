@@ -1914,14 +1914,14 @@ def signoff_rollup(bp):
 # The page is written to be shared and opened from disk. Gate text, session-log hints, error text and the footer carry
 # whatever path the tool that wrote them saw, so one pass over the finished page turns exactly three known prefixes
 # into short forms: this project's root (relative, or "."), the running user's own home ("~/...") and the toolkit
-# folder. A path that merely looks like a home (an app route /Users/123/orders, /home/dashboard) is content and is
+# folder. A path that merely looks like a home (an app route /Users/123/orders, /home/456/reports) is content and is
 # never touched, and neither is an href or src value. Left alone on purpose: the copy-paste "File to ..." command (data-cmd and its code line): a command
 # that runs in a terminal anywhere needs the real path, and its home paths are already "~/".
 _KEEP_RE = re.compile(r"(data-cmd='[^']*'|<code class=cmd>.*?</code>|\b(?:href|src)=(?:'[^']*'|\"[^\"]*\"))", re.S)
 def _slug(p_): return re.sub(r"[^A-Za-z0-9]", "-", p_)
 def scrub_paths(text, proj, toolkit=None):
     """Only literal, known prefixes are rewritten: this project's root, the home folder of the user running this, and
-    the toolkit's folder. An app route such as /Users/123/orders or /home/dashboard is content and stays as written."""
+    the toolkit's folder. An app route such as /Users/123/orders or /home/456/reports is content and stays as written."""
     def spell(p_):
         out = []
         for r in ((os.path.abspath(p_), os.path.realpath(p_)) if os.path.isabs(p_) else (p_,)):

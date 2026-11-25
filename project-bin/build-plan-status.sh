@@ -154,7 +154,7 @@ report_pm_value() {
 # CAVEAT: a real project that lives under the system temp folder never auto-opens (an explicit --open still works).
 # "Under" means the root starts with one of: /tmp/ /var/tmp/ /private/tmp/ (Git Bash's /tmp included),
 # /var/folders/ and /private/var/ (macOS per-user temp), $TMPDIR/ and $TEMP/ (Windows). A prefix match on a whole
-# folder, so /home/u/tmp/proj, /Users/u/my-tmp/x or /home/u/proj-temp are normal folders and still open.
+# folder, so a folder that only has "tmp" or "temp" somewhere in its name (my-tmp, proj-temp, a tmp folder in a home) is a normal folder and still open.
 report_auto_ok() {
   [ -z "${CI:-}" ] || return 1
   [ -z "${SSH_CONNECTION:-}${SSH_TTY:-}" ] || return 1

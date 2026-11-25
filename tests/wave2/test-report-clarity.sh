@@ -155,10 +155,10 @@ X2="$(newproj dflt)"; printf '# P\n\nNo setting line here\n' > "$X2/PROJECT.md";
 X3="$(newproj tmpdir)"; : > "$LOG"; env -i HOME="$WORK/home" PATH="$STUB:/usr/bin:/bin" CLAUDE_CONFIG_DIR="$EMPTY" MXTK_PLATFORM=linux DISPLAY=:0 TMPDIR="$WORK" bash "$SCRIPT" "$X3" --refresh >/dev/null 2>&1; sleep 0.4
 [ "$(opens)" = 0 ] && [ ! -e "$X3/.claude/.report-shown" ] && ok "a project in the temp folder never opens by itself (a fixture or scratch run is safe by default)" || bad "temp-folder rule"
 # the temp-folder test, on the rule itself: macOS per-user temp, Git Bash /tmp, and normal folders that merely contain "tmp"
-for r in /tmp/x/proj /var/folders/ab/cd/T/x/proj /private/var/folders/ab/cd/T/x/proj /var/tmp/x; do
+for r in /tmp/x/proj /var/folders/ab/cd/T/x/proj /private/var/folders/ab/cd/T/x/proj /var/tmp/x /c/Users/u/AppData/Local/Temp/x/proj /mnt/c/Users/u/AppData/Local/Temp/x/proj; do
   [ "$(bash -c 'ROOT="$1"; TMPDIR=""; MXTK_REPORT_OPEN_TMP=""; eval "$(sed -n "/^report_auto_ok() {/,/^}/p" "$2")"; report_pm_value() { case "$1" in "Progress report") _pmv=auto ;; *) _pmv= ;; esac; }; report_auto_ok && echo open || echo skip' _ "$r" "$SCRIPT")" = skip ] && ok "temp rule: $r never auto-opens" || bad "temp rule $r"
 done
-for r in /home/u/tmp/proj /home/u/my-tmp/proj /home/u/work/tmpfiles/proj /Users/u/tmp /home/u/proj-temp; do
+for r in /home/u/tmp/proj /home/u/my-tmp/proj /home/u/work/tmpfiles/proj /Users/u/tmp /home/u/proj-temp /mnt/c/Users/u/proj /mnt/c/Users/u/AppData/Local/proj; do
   [ "$(bash -c 'ROOT="$1"; TMPDIR=""; MXTK_REPORT_OPEN_TMP=""; eval "$(sed -n "/^report_auto_ok() {/,/^}/p" "$2")"; report_pm_value() { case "$1" in "Progress report") _pmv=auto ;; *) _pmv= ;; esac; }; report_auto_ok && echo open || echo skip' _ "$r" "$SCRIPT")" = open ] && ok "temp rule: $r (a normal folder that merely contains tmp) is not treated as temp" || bad "temp rule misfires on $r"
 done
 X4="$(newproj ssh)"; refresh "$X4" MXTK_PLATFORM=linux DISPLAY=:0 SSH_CONNECTION="1 2 3 4"

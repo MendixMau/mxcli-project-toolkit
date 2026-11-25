@@ -160,7 +160,7 @@ report_auto_ok() {
   [ -z "${SSH_CONNECTION:-}${SSH_TTY:-}" ] || return 1
   case "${MXTK_NO_REPORT_OPEN:-}" in ""|0) ;; *) return 1 ;; esac
   if [ "${MXTK_REPORT_OPEN_TMP:-}" != 1 ]; then
-    case "$ROOT" in /tmp/*|/var/tmp/*|/var/folders/*|/private/var/*|/private/tmp/*|"${TMPDIR:-/nonexistent-tmp}"/*|"${TEMP:-/nonexistent-temp}"/*|/[a-zA-Z]/Users/*/AppData/Local/Temp/*) return 1 ;; esac
+    case "$ROOT" in /tmp/*|/var/tmp/*|/var/folders/*|/private/var/*|/private/tmp/*|"${TMPDIR:-/nonexistent-tmp}"/*|"${TEMP:-/nonexistent-temp}"/*|/[a-zA-Z]/Users/*/AppData/Local/Temp/*|/mnt/[a-zA-Z]/Users/*/AppData/Local/Temp/*) return 1 ;; esac
   fi
   report_pm_value "Progress report"; [ "$_pmv" = auto ] || return 1
   report_pm_value "Interview mode"; case "$_pmv" in auto|unattended) return 1 ;; esac

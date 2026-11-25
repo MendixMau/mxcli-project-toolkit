@@ -99,6 +99,14 @@ all scripts upfront. See `brd-to-build-plan.md` ("The build plan contains no MDL
 >   beyond CE-error-free
 > - Something else — name it
 
+**Branch-parallel (in the same Offer, only when the build plan reads `Branch-parallel: offered`).**
+> "Slices <A> and <B> touch separate modules, so they could be built on separate branches at
+> the same time and merged afterwards (`parallel-builds.md`). It costs a merge and a check per
+> branch, and shared parts stay with <X>. Build them in parallel, or one after the other?"
+
+**Record as:** `Branch-parallel: yes (<slices>, owner <X>)` or `Branch-parallel: no` in `PROJECT.md`.
+If the plan reads `not offered`, do not ask.
+
 **Record as:** `Opt-in artifact <id>: <why>` lines in `PROJECT.md` (`demo-script`,
 `test-plan`, `acceptance-criteria`), or `Optional artifacts: none for Stage 5` as a Stage-4
 decision.

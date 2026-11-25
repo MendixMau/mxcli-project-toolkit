@@ -43,8 +43,12 @@
 #               --json, same no-rewrite-for-a-timestamp rule) and never creates one
 #     --open    --html, then show it, ignoring the once-only sentinel: on macOS reload the Chrome tab
 #               whose URL is this report's, else open the file; on Git Bash, WSL and Linux (with a
-#               display) open it through the platform's opener. exec.sh/gate-check's first --refresh
-#               write also opens it, once per project (.claude/.report-shown; MXTK_NO_REPORT_OPEN=1 stops it)
+#               display) open it through the platform's opener. This is also what the offer under
+#               `Progress report: ask` calls (iterative-build-loop.md). Under `Progress report: auto` only, the
+#               first --refresh write (exec.sh, gate-check) opens it by itself, once per project
+#               (.claude/.report-shown, claimed atomically and kept even if the opener then fails, so a
+#               browser that cannot launch is not retried on every exec); never in CI, over SSH, under
+#               `Interview mode: auto`, from the temp folder, or with MXTK_NO_REPORT_OPEN=1
 #     PROJECT.md `Progress report: off | ask | auto` (default ask): off = never write the page
 #     --json    also write architecture/build-plan.json, parsed from architecture/build-plan.md's
 #               Step-5 Phase headings, row tables and claims: blocks (see "C." below)
@@ -94,8 +98,9 @@ if [ -n "${EPOCHSECONDS:-}" ]; then TZ=UTC printf -v STAMP '%(%Y-%m-%dT%H:%M:%SZ
 else STAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; fi
 
 # PROJECT.md `Progress report: off | ask | auto` (default ask). off = this script never writes the
-# page; ask and auto only change what the agent does at a stage gate or module close (the skills
-# say: ask once, or open it), so the script treats them the same.
+# page; for writing, ask and auto are the same. They differ in opening: ask offers at a stage gate or module
+# close (the agent then runs --open), auto also lets the first --refresh write open the page once (see
+# report_auto_ok below).
 report_name() {  # the page name lives in progress-report.py (REPORT_FILE); asked once, here
   REPORT_FILE="$("${PY:-python3}" "${_bpd:-$(dirname "${BASH_SOURCE[0]}")}/progress-report.py" --print-name 2>/dev/null)"  # portability-ok: PY is resolve_py output; python3 only if unset
   [ -n "$REPORT_FILE" ] || REPORT_FILE="progress-report.html"
@@ -128,50 +133,84 @@ report_open_platform() {
   fi
   if [ "$_plat" = linux ] && [ -n "${WSL_DISTRO_NAME:-}" ]; then _plat=wsl; fi
 }
-# report_open_file <file> <auto|explicit>: start the platform's opener on the page. Returns 0 when an opener was
-# started (the caller then writes the sentinel), 1 when nothing was tried (the sentinel stays unwritten, so a
-# later run on a machine that can open it still does). The opener runs in the background with all output
-# discarded: it never waits and never fails an exec. An automatic open also refuses in CI and when the person
-# turned it off (MXTK_NO_REPORT_OPEN=1 in the environment, or in .claude/toolkit.env / ~/.mxcli-toolkit.env,
-# which _common.sh loads); an explicit --open ignores both.
-report_open_file() {
-  _f="$1"
-  if [ "$2" = auto ]; then
-    [ -z "${CI:-}" ] || return 1
-    case "${MXTK_NO_REPORT_OPEN:-}" in ""|0) ;; *) return 1 ;; esac
+# report_pm_value <Key>: the first PROJECT.md line "<Key>: value" read in-shell (no process start), its first
+# word lower-cased into _pmv. A pasted option list ("ask | off | auto") reads as its first word.
+report_pm_value() {
+  _pmv=""; _pml=""; _pmre="^[[:space:]>*_-]*$1[[:space:]]*:[[:space:]*_\`]*([A-Za-z]+)"
+  [ -f "$ROOT/PROJECT.md" ] || return 0
+  while IFS= read -r _pml || [ -n "$_pml" ]; do
+    if [[ $_pml =~ $_pmre ]]; then
+      _pmv="${BASH_REMATCH[1]}"
+      case "$_pmv" in [Aa][Uu][Tt][Oo]) _pmv=auto ;; [Uu][Nn][Aa][Tt][Tt][Ee][Nn][Dd][Ee][Dd]) _pmv=unattended ;; esac
+      return 0
+    fi
+  done < "$ROOT/PROJECT.md"
+}
+# report_auto_ok: may the page open BY ITSELF (the first --refresh write)? Only under `Progress report: auto`
+# (skills/brd-to-build-plan.md: ask offers at a gate, off writes nothing), never in CI, over SSH, with the opt-out
+# MXTK_NO_REPORT_OPEN=1 (environment, .claude/toolkit.env or ~/.mxcli-toolkit.env), under `Interview mode: auto` or
+# unattended, or for a project that lives in the system temp folder (a fixture or scratch run: no one is watching).
+# MXTK_REPORT_OPEN_TMP=1 lifts the temp-folder rule; only the opener's own fixture sets it. All builtins.
+# CAVEAT: a real project that lives under the system temp folder never auto-opens (an explicit --open still works).
+# "Under" means the root starts with one of: /tmp/ /var/tmp/ /private/tmp/ (Git Bash's /tmp included),
+# /var/folders/ and /private/var/ (macOS per-user temp), $TMPDIR/ and $TEMP/ (Windows). A prefix match on a whole
+# folder, so /home/u/tmp/proj, /Users/u/my-tmp/x or /home/u/proj-temp are normal folders and still open.
+report_auto_ok() {
+  [ -z "${CI:-}" ] || return 1
+  [ -z "${SSH_CONNECTION:-}${SSH_TTY:-}" ] || return 1
+  case "${MXTK_NO_REPORT_OPEN:-}" in ""|0) ;; *) return 1 ;; esac
+  if [ "${MXTK_REPORT_OPEN_TMP:-}" != 1 ]; then
+    case "$ROOT" in /tmp/*|/var/tmp/*|/var/folders/*|/private/var/*|/private/tmp/*|"${TMPDIR:-/nonexistent-tmp}"/*|"${TEMP:-/nonexistent-temp}"/*|/[a-zA-Z]/Users/*/AppData/Local/Temp/*) return 1 ;; esac
   fi
+  report_pm_value "Progress report"; [ "$_pmv" = auto ] || return 1
+  report_pm_value "Interview mode"; case "$_pmv" in auto|unattended) return 1 ;; esac
+  return 0
+}
+# report_open_plan <file>: pick the platform's opener into the array _cmd (and _msys=1 when MSYS must leave /c
+# alone). Returns 1, touching nothing, when this machine cannot open a page: Linux without a display, no opener.
+report_open_plan() {
+  _f="$1"; _cmd=(); _msys=0
   report_open_platform
   case "$_plat" in
     macos)
       command -v open >/dev/null 2>&1 || return 1  # portability-ok: this branch runs on macOS only
-      open "$_f" </dev/null >/dev/null 2>&1 & ;;  # portability-ok: this branch runs on macOS only
-    windows)   # Git Bash: cmd.exe start, the path as a Windows path; MSYS must not rewrite /c
+      _cmd=(open "$_f") ;;  # portability-ok: this branch runs on macOS only
+    windows)   # Git Bash: cmd.exe start, the path as a Windows path
       if command -v cygpath >/dev/null 2>&1; then _w="$(cygpath -w "$_f" 2>/dev/null)"; else _w="$_f"; fi
-      if command -v cmd.exe >/dev/null 2>&1; then
-        MSYS2_ARG_CONV_EXCL='*' cmd.exe /c start "" "$_w" </dev/null >/dev/null 2>&1 &
-      elif command -v explorer.exe >/dev/null 2>&1; then
-        explorer.exe "$_w" </dev/null >/dev/null 2>&1 &
+      if command -v cmd.exe >/dev/null 2>&1; then _cmd=(cmd.exe /c start "" "$_w"); _msys=1
+      elif command -v explorer.exe >/dev/null 2>&1; then _cmd=(explorer.exe "$_w")
       else return 1; fi ;;
     wsl)       # the browser is Windows': wslview, else explorer.exe / cmd.exe with a Windows path
-      if command -v wslview >/dev/null 2>&1; then
-        wslview "$_f" </dev/null >/dev/null 2>&1 &
+      if command -v wslview >/dev/null 2>&1; then _cmd=(wslview "$_f")
       elif command -v wslpath >/dev/null 2>&1 && command -v explorer.exe >/dev/null 2>&1; then
-        _w="$(wslpath -w "$_f" 2>/dev/null)"; [ -n "$_w" ] || return 1
-        explorer.exe "$_w" </dev/null >/dev/null 2>&1 &
+        _w="$(wslpath -w "$_f" 2>/dev/null)"; [ -n "$_w" ] || return 1; _cmd=(explorer.exe "$_w")
       elif command -v wslpath >/dev/null 2>&1 && command -v cmd.exe >/dev/null 2>&1; then
-        _w="$(wslpath -w "$_f" 2>/dev/null)"; [ -n "$_w" ] || return 1
-        cmd.exe /c start "" "$_w" </dev/null >/dev/null 2>&1 &
+        _w="$(wslpath -w "$_f" 2>/dev/null)"; [ -n "$_w" ] || return 1; _cmd=(cmd.exe /c start "" "$_w")
       else return 1; fi ;;
     *)         # Linux: only with a display, only when xdg-open exists
       [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] || return 1
       command -v xdg-open >/dev/null 2>&1 || return 1
-      xdg-open "$_f" </dev/null >/dev/null 2>&1 & ;;
+      _cmd=(xdg-open "$_f") ;;
   esac
   return 0
 }
-# The sentinel, beside .claude/.guide-shown: the page opens by itself at most once per project. Written only
-# when an opener was really started. Delete the file to see the page open again.
+# report_open_run: start _cmd in the background, all output discarded: it never waits and never fails an exec.
+report_open_run() {
+  if [ "$_msys" = 1 ]; then MSYS2_ARG_CONV_EXCL='*' "${_cmd[@]}" </dev/null >/dev/null 2>&1 &
+  else "${_cmd[@]}" </dev/null >/dev/null 2>&1 &
+  fi
+  return 0
+}
+# The sentinel, beside .claude/.guide-shown: the page opens by itself at most once per project. Delete the file to
+# see the page open again. The claim is one exclusive create (noclobber), so two refreshes racing for it cannot both
+# win, and a .claude/ that cannot be written means no open at all (it would reopen on every run). It is claimed
+# BEFORE the opener starts and kept even if that opener then fails (it runs in the background and its exit code is
+# not seen): a browser that cannot be launched is not a reason to try on every exec.
 REPORT_SENTINEL="$ROOT/.claude/.report-shown"
+report_claim() {
+  [ -d "$ROOT/.claude" ] || mkdir -p "$ROOT/.claude" 2>/dev/null
+  ( set -C; : > "$REPORT_SENTINEL" ) 2>/dev/null
+}
 report_sentinel_write() { mkdir -p "$ROOT/.claude" 2>/dev/null && : > "$REPORT_SENTINEL" 2>/dev/null; return 0; }
 
 # ── A. Build-plan phase progress, from mdlsource/<phase>/done- counts ───────
@@ -875,8 +914,8 @@ if [ "$WRITE_HTML" -eq 1 ]; then
         mv -f "$OUT_TMP" "$OUT"
         # First write by exec.sh or gate-check (--refresh): open the page once. A later run costs one
         # builtin test; nothing else runs once the sentinel exists.
-        if [ "$REFRESH" -eq 1 ] && [ ! -e "$REPORT_SENTINEL" ]; then
-          if report_open_file "$OUT" auto; then report_sentinel_write; fi
+        if [ "$REFRESH" -eq 1 ] && [ ! -e "$REPORT_SENTINEL" ] && report_auto_ok; then
+          if report_open_plan "$OUT" && report_claim; then report_open_run; fi
         fi
       fi
       [ "$QUIET" -eq 0 ] && echo "" && echo "  wrote ${OUT#$ROOT/}"
@@ -894,7 +933,7 @@ fi
 # An explicit request: it ignores the once-only sentinel (and the opt-out) and writes the sentinel, so the
 # automatic open does not follow it. macOS with Chrome running: reload the tab showing this project's report (its
 # exact file:// URL), never a new window when a tab exists; otherwise open the file. Git Bash, WSL and Linux
-# open through report_open_file. The setting gates the write above; this only needs the file.
+# open through report_open_plan and report_open_run. The setting gates the write above; this only needs the file.
 if [ "$OPEN" -eq 1 ]; then report_name; fi
 if [ "$OPEN" -eq 1 ] && [ -f "$ROOT/architecture/$REPORT_FILE" ] && [ "$(progress_report_setting)" != "off" ]; then
   report_open_platform
@@ -925,8 +964,8 @@ return "none"'
       [ "$QUIET" -eq 0 ] && echo "  opened architecture/$REPORT_FILE"
     fi
     report_sentinel_write
-  elif report_open_file "$ROOT/architecture/$REPORT_FILE" explicit; then
-    report_sentinel_write
+  elif report_open_plan "$ROOT/architecture/$REPORT_FILE"; then
+    report_open_run; report_sentinel_write
     [ "$QUIET" -eq 0 ] && echo "  opened architecture/$REPORT_FILE"
   else
     [ "$QUIET" -eq 0 ] && echo "  could not open a browser here (no display or no opener); open architecture/$REPORT_FILE yourself"

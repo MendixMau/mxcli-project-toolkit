@@ -1912,30 +1912,35 @@ def signoff_rollup(bp):
 
 # ── Paths: none absolute on the page ─────────────────────────────────────────
 # The page is written to be shared and opened from disk. Gate text, session-log hints, error text and the footer carry
-# whatever path the tool that wrote them saw, so one pass over the finished page turns them into project-relative
-# paths (or "." for the root), or "~/..." for anything under a home folder, whoever's home it was. href attributes are
-# relative already. Left alone on purpose: the copy-paste "File to ..." command (data-cmd and its code line): a command
+# whatever path the tool that wrote them saw, so one pass over the finished page turns exactly three known prefixes
+# into short forms: this project's root (relative, or "."), the running user's own home ("~/...") and the toolkit
+# folder. A path that merely looks like a home (an app route /Users/123/orders, /home/dashboard) is content and is
+# never touched, and neither is an href or src value. Left alone on purpose: the copy-paste "File to ..." command (data-cmd and its code line): a command
 # that runs in a terminal anywhere needs the real path, and its home paths are already "~/".
-_HOME_RE = re.compile(r"(?<![\w~.-])(?:/home|/Users)/[^/\s'\"<>&;:)(,\\]+|(?<![\w~.-])[A-Za-z]:[\\/]+Users[\\/]+[^\\/\s'\"<>&;:)(,]+")
-_KEEP_RE = re.compile(r"(data-cmd='[^']*'|<code class=cmd>.*?</code>)", re.S)
-def scrub_paths(text, proj):
-    roots = []
-    for r in {os.path.abspath(proj), os.path.realpath(proj)}:
-        for v in (r, r.replace("\\", "/"), r.replace("/", "\\")):
-            if len(v) > 1 and v not in roots: roots.append(v)
-    roots.sort(key=len, reverse=True)
-    homes = []
-    for h in {os.path.expanduser("~")}:
-        for v in (h, h.replace("\\", "/")):
-            if len(h) > 1 and v not in homes: homes.append(v)
+_KEEP_RE = re.compile(r"(data-cmd='[^']*'|<code class=cmd>.*?</code>|\b(?:href|src)=(?:'[^']*'|\"[^\"]*\"))", re.S)
+def _slug(p_): return re.sub(r"[^A-Za-z0-9]", "-", p_)
+def scrub_paths(text, proj, toolkit=None):
+    """Only literal, known prefixes are rewritten: this project's root, the home folder of the user running this, and
+    the toolkit's folder. An app route such as /Users/123/orders or /home/dashboard is content and stays as written."""
+    def spell(p_):
+        out = []
+        for r in ((os.path.abspath(p_), os.path.realpath(p_)) if os.path.isabs(p_) else (p_,)):
+            for v in (r, r.replace("\\", "/"), r.replace("/", "\\")):
+                if len(v) > 1 and v not in out: out.append(v)
+        return out
+    roots = spell(proj); homes = spell(os.path.expanduser("~")); tks = spell(toolkit) if toolkit else []
+    def sub_prefix(t, pre, to_dir, to_exact):
+        pat = r"(?<![\w.~/\\-])" + re.escape(pre)
+        t = re.sub(pat + r"[/\\]+", to_dir, t)
+        return re.sub(pat + r"(?![\w.\-/\\])", to_exact, t)
     def one(t):
-        for r in roots:
-            t = re.sub(re.escape(r) + r"[/\\]+", "", t)
-            t = re.sub(re.escape(r) + r"(?![\w.\-/\\])", ".", t)
-        for h in homes:
-            t = re.sub(re.escape(h) + r"(?=[/\\])", "~", t)
-            t = re.sub(re.escape(h) + r"(?![\w.\-/\\])", "~", t)
-        return _HOME_RE.sub("~", t)
+        for r in sorted(roots, key=len, reverse=True): t = sub_prefix(t, r, "", ".")
+        for r in sorted(tks, key=len, reverse=True): t = sub_prefix(t, r, "<toolkit>/", "<toolkit>")
+        for h in sorted(homes, key=len, reverse=True): t = sub_prefix(t, h, "~/", "~")
+        # Claude Code names a session-log folder after the path it belongs to ("-home-user-proj"): the user name rides in it
+        for pre, to in [(_slug(r), "-project") for r in roots] + [(_slug(r), "-toolkit") for r in tks] + [(_slug(h), "-~") for h in homes]:
+            if len(pre) > 2: t = re.sub(r"(?<![A-Za-z0-9])" + re.escape(pre) + r"(?![A-Za-z0-9])", to, t)
+        return t
     parts = _KEEP_RE.split(text)
     return "".join(p_ if i % 2 else one(p_) for i, p_ in enumerate(parts))
 
@@ -1952,7 +1957,7 @@ GLOSSARY = [
     ("Bar capped at 95%", r"capped at 95%", "Until a stage's gate passes, its bar stops at 95% even when every promised file is present: the gate completes a stage, the file count does not. (generator)"),
     ("Boundary not detected", r"boundary not detected", "Nothing marks when this stage started (a gate-check call, the sign-off time in PROJECT.md, a commit of the stage's files), so the page shows no time for it rather than guess. (generator)"),
     ("Confirmed, assumed, raised", r"\b(?:confirmed|assumed|raised)\b", "Decision marks in PROJECT.md. CONFIRMED: the user agreed. ASSUMED: the agent took a position and the user consented to it. RAISED: asked in chat, still waiting for the answer. (interview-protocol.md)"),
-    ("Waived", r"\bwaived\b", "Declared out of scope in the register, with a reason, instead of passing. (CLAUDE.md, gate verdicts)"),
+    ("Waived", r"\bwaived\b", "A gate verdict meaning the stage was declared out of scope in the register, with a reason, instead of passing."),
     ("Compaction", r"\bcompactions?\b", "Claude Code replaces a long conversation with a summary to free room: the story is kept and the specifics are dropped. (close-the-loop.md)"),
     ("Cache read", r"[Cc]ache reads?", "Input tokens served from the prompt cache instead of being read in full again; they are billed at a fraction of the normal price. (generator)"),
     ("KB", r"\bKBs?\b", "Knowledge Base: a structured English markdown summary of one source document or domain area. (kb-generation.md)"),
@@ -1978,7 +1983,7 @@ AGE_JS = ("(function(){var s=document.getElementById('stamp'),f=document.getElem
   "function paint(){var n=Date.now()/1000,x=Math.max(0,Math.floor(n-t));s.textContent=x<45?'Updated just now':'Updated '+dur(x)+' ago';s.title='Page written '+clock;\n"
   " if(f){if(x>%(stale)d){f.textContent='No update for '+dur(x)+'. The page changes only when a build step ends, so a long step or the assistant thinking looks the same as a stopped session. ';\n"
   "  var a=document.createElement('a');a.href='#';a.textContent='Reload';a.onclick=function(e){e.preventDefault();(window.__prReload||function(){history.go(0)})()};f.appendChild(a);f.hidden=false}else{f.hidden=true}}\n"
-  " if(lv&&act&&n-act>=%(active)d&&lv.textContent!=='Paused')lv.textContent='Not re-checking: no build step for over %(activemin)d min'}\n"
+  " if(lv&&act&&n-act>=%(active)d+30&&lv.textContent!=='Paused')lv.textContent='Not re-checking: no build step for over %(activemin)d min'}\n"
   "paint();setInterval(paint,10000)})();") % {"stale": STALE_S, "active": ACTIVE_S, "activemin": ACTIVE_S // 60}
 
 def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, tot, peak, args):
@@ -2021,7 +2026,7 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
     w("<nav class=snav aria-label='Page sections'><a href='#stages'>Stages</a><a href='#build-detail'>Build</a><a href='#pages'>Pages</a>" + ("<a href='#tips'>Tips</a>" if L else "") + "<span class=tabbar role=tablist>" + "".join("<a href='#%s' data-tab='%s' role=tab>%s</a>" % (t_, t_, n_) for t_, n_ in TABS) + "<a href='#' id=showall title='Every tab on one page, for searching and printing'>Show all</a></span></nav><main><div class='layout solo'><div class=content>")
     last_ev = datetime.datetime.fromtimestamp(an["t1"]).strftime("%Y-%m-%d %H:%M") if L else "no session log"
     w("<header><h1>Progress report: %s</h1>" % esc(info["name"]))
-    live_ = ("<span class=live id=livewrap>&middot; <span id=livetxt>Updates after each build step &middot; re-checks every 30 s</span> &middot; <a href='#' id=livebtn>Pause</a></span>" if args.reload
+    live_ = ("<span class=live id=livewrap>&middot; <span id=livetxt>Updates after each build step</span> &middot; <a href='#' id=livebtn>Pause</a></span>" if args.reload
              else "<span class=live id=livewrap>&middot; Updates after each build step &middot; not re-checking, reload to refresh</span>")
     w("<div class=statusrow><span class=updated id=stamp data-stamp data-t='%d' data-act='%d' data-clock='%s %s'>Last updated %s %s</span> <span class=sub id=lastevent data-stamp>session log last event %s</span> %s</div><div class='sub stale' id=fresh hidden></div>" % (int(gen_epoch), int(args.last_act or 0), gen, datetime.datetime.now().astimezone().strftime("%Z"), gen, datetime.datetime.now().astimezone().strftime("%Z"), last_ev, live_))
     nowstage = ("<a href='#stage-%s'>Stage %s: %s</a>" % (info["current"], info["current"], esc(STAGE_NAME[info["current"]]))) if info["current"] in STAGE_NAME else "unknown"
@@ -2343,7 +2348,7 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
         w("<script id=autoreload>%s</script>" % ("(function(){\nvar VK='pr-view:'+location.pathname,PK='pr-paused',IDLE=20000,EVERY=30000,last=%d,active=%d,lastInput=0,de=document.documentElement;\nfunction get(k){try{return sessionStorage.getItem(k)}catch(e){return null}}\nfunction put(k,v){try{if(v===null)sessionStorage.removeItem(k);else sessionStorage.setItem(k,v)}catch(e){}}\ntry{history.scrollRestoration='manual'}catch(e){}\nfunction restore(){try{var st=JSON.parse(get(VK)||'null');if(!st)return;\n var d=st.d||{};for(var id in d){var e=document.getElementById(id);if(e&&e.tagName==='DETAILS')e.open=!!d[id]}\n var sb=de.style.scrollBehavior;de.style.scrollBehavior='auto';window.scrollTo(0,st.y||0);de.style.scrollBehavior=sb;\n }catch(e){}}\nrestore();window.addEventListener('load',function(){restore();put(VK,null)});\nfunction save(){var d={};var all=document.querySelectorAll('details[id]');for(var i=0;i<all.length;i++)d[all[i].id]=all[i].open;put(VK,JSON.stringify({y:window.pageYOffset||de.scrollTop||0,d:d}))}\nfunction reloadNow(){save();location.reload()}\nwindow.__prReload=reloadNow;\n['scroll','click','keydown','wheel','touchstart','mouseup'].forEach(function(n){window.addEventListener(n,function(){lastInput=Date.now()},{passive:true})});\ndocument.addEventListener('selectionchange',function(){lastInput=Date.now()});\nvar live=document.getElementById('live'),btn=document.getElementById('livebtn'),txt=document.getElementById('livetxt');\nfunction paint(){var p=get(PK)==='1';if(txt)txt.textContent=p?'Paused':'Updates after each build step · re-checks every 30 s';if(btn)btn.textContent=p?'Resume':'Pause'}\nif(btn)btn.addEventListener('click',function(ev){ev.preventDefault();put(PK,get(PK)==='1'?null:'1');paint()});\npaint();\nfunction tick(){if(get(PK)==='1'||Date.now()-lastInput<IDLE){setTimeout(tick,EVERY);return}reloadNow()}\nif(Date.now()/1000-last<active)setTimeout(tick,EVERY);\n})();" % (int(args.last_act), ACTIVE_S)))
     w("</body></html>")
     H[gloss_ix] = glossary_html("\n".join(H))
-    out = scrub_paths("\n".join(H), proj)
+    out = scrub_paths("\n".join(H), proj, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     return out.replace("\u2014", " - ").replace("\u2013", " - ")
 
 def main_():

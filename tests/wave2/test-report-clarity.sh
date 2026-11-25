@@ -5,11 +5,14 @@
 #   D2  the stamp carries the epoch it was written; the page script turns it into "Updated N min ago" and, past 5 min,
 #       says "No update for N"; the live wording says the page updates after each build step; no "refreshes every 30 s"
 #       claim; nothing says a step is running.
-#   D3  build-plan-status.sh --refresh opens the page once per project (.claude/.report-shown): macOS, Linux with a
+#   D3  build-plan-status.sh --refresh opens the page once per project (.claude/.report-shown), only under
+#       `Progress report: auto`, and not from the temp folder, over SSH or under `Interview mode: auto`: macOS, Linux with a
 #       display, WSL and Git Bash each pick their opener (platform override, stub openers on PATH); not twice; not with CI
 #       set; not with MXTK_NO_REPORT_OPEN (environment or toolkit.env); not without a display; an explicit --open still
 #       opens past the sentinel; a failing opener neither fails the run nor leaves the sentinel unwritten.
-#   D7  the rendered page holds neither the project's own absolute root nor /home/, /Users/ or C:\Users paths.
+#   D7  the rendered page holds neither the project's own absolute root nor the running user's home (POSIX or C:\Users
+#       spelling), nor a session-log folder name carrying the user name; an app route such as /Users/123/orders or
+#       /home/dashboard is content and survives; an href is never rewritten.
 #   D8  a "What do these words mean?" block lists the words the page uses; a finished stage with no time, tokens or
 #       decisions prints none of those lines; the "No Claude Code session log" sentence appears once.
 #
@@ -43,6 +46,8 @@ mkproj() {  # dir: a stage-5 project with a plan, a gate page whose detail carri
 **Stage 5 - Build**, in progress - gates passed: P, 0, 1, 2, 3, 4 · manual: 5 (derived by gate-check)
 
 Entry mode: requirements-driven
+
+Progress report: auto
 MD
   cat > "$d/architecture/build-plan.md" <<'MD'
 # Build plan
@@ -56,7 +61,7 @@ MD
 | 3 | PROVE | tests | not built |
 MD
   local abs; abs="$(cd "$d" && pwd -P)"
-  printf '<table><tr><td>P</td><td>t</td><td>PASS</td><td>ok</td></tr><tr><td>0</td><td>t</td><td>FAIL</td><td>unanswered section(s) in %s/triage.md and /home/someone/else/x.md and /Users/al/y.md and C:\\Users\\bob\\z.md</td></tr></table>' "$abs" > "$d/index.html"
+  printf '<table><tr><td>P</td><td>t</td><td>PASS</td><td>ok</td></tr><tr><td>0</td><td>t</td><td>FAIL</td><td>unanswered in %s/triage.md</td></tr><tr><td>1</td><td>t</td><td>FAIL</td><td>GET /Users/123/orders fails</td></tr><tr><td>2</td><td>t</td><td>FAIL</td><td>route /home/dashboard opens</td></tr><tr><td>3</td><td>t</td><td>FAIL</td><td>see /home/fixture-user/secret/x.md</td></tr></table>' "$abs" > "$d/index.html"
 }
 
 # ── D2 ───────────────────────────────────────────────────────────────────────
@@ -74,6 +79,7 @@ has "$R2" "id=agelabel" "the age script is present"
 has "$R2" "Updates after each build step" "the live wording says the page updates after each build step"
 hasnt "$R2" "refreshes every 30 s" "no 'refreshes every 30 s' claim"
 hasnt "$R2" "is running" "nothing on the page says a step is running"
+has "$R2" "<span id=livetxt>Updates after each build step</span>" "without JavaScript the live line says nothing about re-checking"
 has "$R2" "id=fresh hidden" "the stale notice exists, hidden until the page is old"
 if command -v node >/dev/null 2>&1; then
   node - "$R2" <<'JSEOF' && ok "node: 'Updated N min ago', ticking text, 'No update for N' only past 5 min" || bad "age script behaviour (node)"
@@ -95,6 +101,7 @@ let r = run(10, 10); assert.strictEqual(r.s.textContent, "Updated just now"); as
 r = run(240, 240); assert.strictEqual(r.s.textContent, "Updated 4 min ago"); assert.strictEqual(r.f.hidden, true); assert.ok(r.s.title.includes("CLOCK-TEXT"));
 r = run(720, 720); assert.strictEqual(r.s.textContent, "Updated 12 min ago"); assert.strictEqual(r.f.hidden, false); assert.ok(r.f.textContent.startsWith("No update for 12 min"));
 assert.ok(r.lv.textContent.startsWith("Not re-checking"), "stopped polling is said, not hidden behind 'Live'");
+r = run(720, 610); assert.ok(!r.lv.textContent.startsWith("Not re-checking"), "polling still runs up to 30 s past the 10 min mark");
 r = run(7200, 7200); assert.strictEqual(r.s.textContent, "Updated 2 h ago");
 assert.ok(!/running/.test(r.f.textContent));
 JSEOF
@@ -112,11 +119,17 @@ newproj() { local d="$WORK/$1"; mkproj "$d"; printf '%s' "$d"; }
 refresh() {  # dir, then env assignments: run --refresh with a clean environment plus the stubs; waits for a background opener
   local d="$1"; shift
   : > "$LOG"
-  env -i HOME="$WORK/home" PATH="$STUB:/usr/bin:/bin" CLAUDE_CONFIG_DIR="$EMPTY" "$@" bash "$SCRIPT" "$d" --refresh >/dev/null 2>&1; RC=$?
+  env -i HOME="$WORK/home" PATH="$STUB:/usr/bin:/bin" CLAUDE_CONFIG_DIR="$EMPTY" MXTK_REPORT_OPEN_TMP=1 "$@" bash "$SCRIPT" "$d" --refresh >/dev/null 2>&1; RC=$?
   sleep 0.6
 }
 opens() { grep -c . "$LOG" 2>/dev/null | head -1; }
 mkdir -p "$WORK/home"
+# guard: inside this fixture's clean environment every opener name resolves to a stub, never to a real browser launcher
+GUARD_OK=1
+for n in open xdg-open cmd.exe explorer.exe wslview; do
+  r="$(env -i PATH="$STUB:/usr/bin:/bin" sh -c "command -v $n")"; [ "$r" = "$STUB/$n" ] || GUARD_OK=0
+done
+[ "$GUARD_OK" = 1 ] && ok "guard: open, xdg-open, cmd.exe, explorer.exe and wslview all resolve to stubs in the fixture's PATH" || bad "guard: a real opener is reachable from the fixture's PATH"
 A="$(newproj a)"; refresh "$A" MXTK_PLATFORM=linux DISPLAY=:0
 [ "$(opens)" = 1 ] && grep -q "xdg-open .*progress-report.html" "$LOG" && ok "linux with a display: xdg-open called once on the page" || bad "linux open ($(cat "$LOG"))"
 [ -e "$A/.claude/.report-shown" ] && ok "the sentinel is written when an opener was started" || bad "sentinel written"
@@ -135,6 +148,28 @@ A5="$(newproj a5)"; printf 'MXTK_NO_REPORT_OPEN=1\n' > "$A5/.claude/toolkit.env"
 [ "$(opens)" = 0 ] && ok "MXTK_NO_REPORT_OPEN=1 in .claude/toolkit.env: opt-out" || bad "toolkit.env opt-out"
 A6="$(newproj a6)"; printf '# P\n\nProgress report: off\n' > "$A6/PROJECT.md"; refresh "$A6" MXTK_PLATFORM=linux DISPLAY=:0
 [ "$(opens)" = 0 ] && [ ! -f "$A6/architecture/progress-report.html" ] && ok "Progress report: off writes no page and opens nothing" || bad "setting off"
+X1="$(newproj ask)"; printf '# P\n\nProgress report: ask\n' > "$X1/PROJECT.md"; refresh "$X1" MXTK_PLATFORM=linux DISPLAY=:0
+[ "$(opens)" = 0 ] && [ -f "$X1/architecture/progress-report.html" ] && [ ! -e "$X1/.claude/.report-shown" ] && ok "Progress report: ask writes the page and opens nothing by itself" || bad "ask opens ($(opens))"
+X2="$(newproj dflt)"; printf '# P\n\nNo setting line here\n' > "$X2/PROJECT.md"; refresh "$X2" MXTK_PLATFORM=linux DISPLAY=:0
+[ "$(opens)" = 0 ] && ok "no Progress report line (default ask): nothing opens" || bad "default opens"
+X3="$(newproj tmpdir)"; : > "$LOG"; env -i HOME="$WORK/home" PATH="$STUB:/usr/bin:/bin" CLAUDE_CONFIG_DIR="$EMPTY" MXTK_PLATFORM=linux DISPLAY=:0 TMPDIR="$WORK" bash "$SCRIPT" "$X3" --refresh >/dev/null 2>&1; sleep 0.4
+[ "$(opens)" = 0 ] && [ ! -e "$X3/.claude/.report-shown" ] && ok "a project in the temp folder never opens by itself (a fixture or scratch run is safe by default)" || bad "temp-folder rule"
+# the temp-folder test, on the rule itself: macOS per-user temp, Git Bash /tmp, and normal folders that merely contain "tmp"
+for r in /tmp/x/proj /var/folders/ab/cd/T/x/proj /private/var/folders/ab/cd/T/x/proj /var/tmp/x; do
+  [ "$(bash -c 'ROOT="$1"; TMPDIR=""; MXTK_REPORT_OPEN_TMP=""; eval "$(sed -n "/^report_auto_ok() {/,/^}/p" "$2")"; report_pm_value() { case "$1" in "Progress report") _pmv=auto ;; *) _pmv= ;; esac; }; report_auto_ok && echo open || echo skip' _ "$r" "$SCRIPT")" = skip ] && ok "temp rule: $r never auto-opens" || bad "temp rule $r"
+done
+for r in /home/u/tmp/proj /home/u/my-tmp/proj /home/u/work/tmpfiles/proj /Users/u/tmp /home/u/proj-temp; do
+  [ "$(bash -c 'ROOT="$1"; TMPDIR=""; MXTK_REPORT_OPEN_TMP=""; eval "$(sed -n "/^report_auto_ok() {/,/^}/p" "$2")"; report_pm_value() { case "$1" in "Progress report") _pmv=auto ;; *) _pmv= ;; esac; }; report_auto_ok && echo open || echo skip' _ "$r" "$SCRIPT")" = open ] && ok "temp rule: $r (a normal folder that merely contains tmp) is not treated as temp" || bad "temp rule misfires on $r"
+done
+X4="$(newproj ssh)"; refresh "$X4" MXTK_PLATFORM=linux DISPLAY=:0 SSH_CONNECTION="1 2 3 4"
+[ "$(opens)" = 0 ] && ok "over SSH: no automatic open" || bad "ssh opens"
+X5="$(newproj unatt)"; printf '\nInterview mode: auto\n' >> "$X5/PROJECT.md"; refresh "$X5" MXTK_PLATFORM=linux DISPLAY=:0
+[ "$(opens)" = 0 ] && ok "Interview mode: auto: no automatic open" || bad "interview auto opens"
+X6="$(newproj ro)"; rm -rf "$X6/.claude"; : > "$X6/.claude"; refresh "$X6" MXTK_PLATFORM=linux DISPLAY=:0
+[ "$(opens)" = 0 ] && ok "a .claude that cannot hold the sentinel: no open (it would reopen every run)" || bad "unwritable sentinel opens"
+X7="$(newproj claim)"; mkdir -p "$X7/.claude"; CLAIMS="$WORK/claims"; : > "$CLAIMS"
+for i in 1 2 3 4 5 6 7 8; do ( bash -c 'ROOT="$1"; REPORT_SENTINEL="$1/.claude/.report-shown"; eval "$(sed -n "/^report_claim()/,/^}/p" "$2")"; report_claim && echo won' _ "$X7" "$SCRIPT" >> "$CLAIMS" ) & done; wait
+[ "$(grep -c won "$CLAIMS")" = 1 ] && ok "eight parallel claims of the sentinel: exactly one wins" || bad "parallel claim ($(grep -c won "$CLAIMS"))"
 M="$(newproj mac)"; refresh "$M" MXTK_PLATFORM=macos
 [ "$(opens)" = 1 ] && grep -q "^open .*progress-report.html" "$LOG" && ok "macOS branch: open" || bad "macos ($(cat "$LOG"))"
 W="$(newproj win)"; refresh "$W" MXTK_PLATFORM=windows
@@ -156,10 +191,24 @@ P7="$WORK/p7"; mkproj "$P7"; ABS="$(cd "$P7" && pwd -P)"
 R7="$WORK/r7.html"; CLAUDE_CONFIG_DIR="$EMPTY" "$PY" "$GEN" "$P7" --out "$R7" >/dev/null 2>&1
 hasnt "$R7" "$ABS" "the project's own absolute root is not on the page"
 hasnt "$R7" "$P7" "nor the unresolved spelling of it"
-grep -q "/home/" "$R7" && bad "no /home/ path" || ok "no /home/ path"
-grep -q "/Users/" "$R7" && bad "no /Users/ path" || ok "no /Users/ path"
-grep -qF 'C:\Users' "$R7" && bad "no C:\\Users path" || ok "no C:\\Users path"
-has "$R7" "in triage.md and ~/else/x.md and ~/y.m" "paths became project-relative or ~/... (the gate text is cut at 110 characters)"
+CLAUDE_CONFIG_DIR="$EMPTY" HOME=/home/fixture-user "$PY" "$GEN" "$P7" --out "$R7" >/dev/null 2>&1
+hasnt "$R7" "/home/fixture-user" "the running user's home is gone"
+has "$R7" "see ~/secret/x.md" "... and shown as ~/"
+has "$R7" "GET /Users/123/orders fails" "an app route /Users/123/orders is content and survives"
+has "$R7" "route /home/dashboard opens" "an app route /home/dashboard survives"
+has "$R7" "in triage.md\|unanswered in triage.md" "the project root became a relative path"
+CLAUDE_CONFIG_DIR="$EMPTY" HOME='C:\Users\fixtureuser' "$PY" "$GEN" "$P7" --out "$WORK/r7w.html" >/dev/null 2>&1
+grep -qF 'fixtureuser' "$WORK/r7w.html" && bad "a C:\\Users home spelling is not on the page" || ok "a C:\\Users home spelling is not on the page"
+"$PY" - "$GEN" <<'PYEOF' && ok "scrub: the home and toolkit slugs in a session-log folder name are masked; href values are never rewritten" || bad "scrub unit cases"
+import importlib.util, os, sys
+os.environ["HOME"] = "/home/fixture-user"
+spec = importlib.util.spec_from_file_location("pr", sys.argv[1]); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+t = m.scrub_paths("<code>/home/fixture-user/.claude/projects/-home-fixture-user-other/s.jsonl</code> <a href='/home/fixture-user/x'>l</a> /tmp/zz/proj/a.md", "/tmp/zz/proj")
+assert "fixture-user" not in t.replace("href='/home/fixture-user/x'", ""), t
+assert "-~-other" in t and "~/.claude/projects" in t, t
+assert "href='/home/fixture-user/x'" in t, t
+assert "a.md" in t and "/tmp/zz/proj" not in t, t
+PYEOF
 has "$R7" "<details class=gloss" "the word block is present"
 for term in "<dt>Gate</dt>" "<dt>Row</dt>" "<dt>Kind: BRIEF, BUILD, PROVE</dt>" "<dt>Owed and missing</dt>" "<dt>Bar capped at 95%</dt>"; do has "$R7" "$term" "defined: $term"; done
 hasnt "$R7" "<dt>Compaction</dt>" "a word the page does not use is not defined"
@@ -180,6 +229,9 @@ for k in range(6):
 open(os.path.join(d, "s1.jsonl"), "w").write("\n".join(json.dumps(r) for r in rows) + "\n")
 PYEOF
 R8="$WORK/r8.html"; CLAUDE_CONFIG_DIR="$EMPTY" "$PY" "$GEN" "$P7" --out "$R8" >/dev/null 2>&1
+SLUG="$(printf '%s' "$ABS" | sed 's/[^A-Za-z0-9]/-/g')"
+hasnt "$R8" "$SLUG" "the session-log folder name (the project's path with dashes) is masked"
+has "$R8" "projects/-project/s1.jsonl" "... as -project"
 "$PY" - "$R8" <<'PYEOF' && ok "log present: finished stages show only what has content; the stage with data keeps its lines" || bad "zero lines (log present)"
 import re, sys
 h = open(sys.argv[1], encoding="utf-8").read()

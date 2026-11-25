@@ -219,7 +219,7 @@ hasnt "$R2" "sleep x[0-9]" "sleep is never a repeat-failure tip"
 has "$R2" "Failing tool on repeat: gate-check.sh 2" "the real failing script is still named"
 
 echo "T13 context windows"
-hasnt "$R6" "500" "no invented 500k window"
+grep -v "id=stamp" "$R6" > "$R6.nostamp"; hasnt "$R6.nostamp" "500" "no invented 500k window"  # the stamp line carries epoch seconds, which can contain 500
 mkproj "$WORK/p13"; CTX_CR=199000 mklog "$WORK/cfg13" "$WORK/p13" "$(( $("$PY" -c 'import time;print(int(time.time()))') - 7200 ))"
 CLAUDE_CONFIG_DIR="$WORK/cfg13" bash "$SCRIPT" "$WORK/p13" --html >/dev/null 2>&1
 has "$WORK/p13/architecture/progress-report.html" "Context: the window was reached" "199k of 200k reads window reached"

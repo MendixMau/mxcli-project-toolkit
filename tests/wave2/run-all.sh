@@ -32,6 +32,9 @@ SENTINEL="$MXTK_LEAKGUARD_DENYFILE"
 # would open toolkit-guide.html in the developer's real browser, one tab per fixture, all run long.
 # test-guide-reopen.sh unsets this and uses a fake `open` to test the opening itself.
 export MXTK_NO_GUIDE=1
+# Same for the progress report: its first write by exec.sh or gate-check opens it once per project.
+# test-report-clarity.sh runs the opener with stubs on PATH and its own clean environment.
+export MXTK_NO_REPORT_OPEN=1
 ROOT_DENY="$TOOLKIT/.leakguard-deny"; ROOT_DENY_BEFORE=0; [ -f "$ROOT_DENY" ] && ROOT_DENY_BEFORE=1
 
 echo "### SYNTAX — every shell script in the toolkit"

@@ -518,7 +518,7 @@ CLAUDE_CONFIG_DIR="$EMPTY" "$PY" "$GEN" "$P14" --out "$WORK/out14/r.html" >/dev/
 has "$WORK/out14/r.html" "history.scrollRestoration='manual'" "scrollRestoration is set to manual"
 has "$WORK/out14/r.html" "sessionStorage" "scroll position and open details go to sessionStorage"
 has "$WORK/out14/r.html" "id=livebtn" "Pause control present"
-has "$WORK/out14/r.html" "Live &middot; refreshes every 30 s" "live indicator present"
+has "$WORK/out14/r.html" "Updates after each build step" "live indicator says the page updates after each build step"
 [ "$(grep -c 'id=stamp' "$WORK/out14/r.html")" -eq 1 ] && ok "exactly one id=stamp on the live page (#479)" || bad "id=stamp count $(grep -c 'id=stamp' "$WORK/out14/r.html")"
 grep 'id=stamp' "$WORK/out14/r.html" | grep -q "Last updated.*id=livetxt.*id=livebtn" && ok "the autoreload finds its stamp: Last updated and the live controls share the one id=stamp line" || bad "autoreload stamp line"
 for _id in livetxt livebtn; do [ "$(grep -o "id=$_id\b" "$WORK/out14/r.html" | wc -l | tr -d ' ')" -eq 1 ] && ok "id=$_id is unique" || bad "id=$_id not unique"; done

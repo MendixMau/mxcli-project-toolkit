@@ -41,8 +41,10 @@
 #               write, and leaves the file untouched when nothing but the stamp lines would change
 #               It also keeps an EXISTING architecture/build-plan.json current (same parser as
 #               --json, same no-rewrite-for-a-timestamp rule) and never creates one
-#     --open    --html, then show it: on macOS reload the Chrome tab whose URL contains
-#               progress-report.html, else open the file once; elsewhere a no-op
+#     --open    --html, then show it, ignoring the once-only sentinel: on macOS reload the Chrome tab
+#               whose URL is this report's, else open the file; on Git Bash, WSL and Linux (with a
+#               display) open it through the platform's opener. exec.sh/gate-check's first --refresh
+#               write also opens it, once per project (.claude/.report-shown; MXTK_NO_REPORT_OPEN=1 stops it)
 #     PROJECT.md `Progress report: off | ask | auto` (default ask): off = never write the page
 #     --json    also write architecture/build-plan.json, parsed from architecture/build-plan.md's
 #               Step-5 Phase headings, row tables and claims: blocks (see "C." below)
@@ -108,6 +110,69 @@ progress_report_setting() {
     *) echo ask ;;
   esac
 }
+
+# ── Opening the page in a browser (any OS) ───────────────────────────────────
+# report_open_platform sets _plat to macos | windows | linux | wsl. MXTK_PLATFORM wins (the same override
+# _common.sh's mxtk_platform honours, which is what the fixture drives); then $OSTYPE read in-shell, because
+# a headless run that never writes the sentinel would otherwise pay a subshell on every exec; mxtk_platform
+# only when OSTYPE is empty. WSL is a Linux whose browser is Windows': WSL_DISTRO_NAME says so.
+report_open_platform() {
+  _plat="${MXTK_PLATFORM:-}"
+  if [ -z "$_plat" ]; then
+    case "${OSTYPE:-}" in
+      darwin*) _plat=macos ;;
+      msys*|cygwin*|win*) _plat=windows ;;
+      "") if type mxtk_platform >/dev/null 2>&1; then _plat="$(mxtk_platform)"; else _plat=linux; fi ;;
+      *) _plat=linux ;;
+    esac
+  fi
+  if [ "$_plat" = linux ] && [ -n "${WSL_DISTRO_NAME:-}" ]; then _plat=wsl; fi
+}
+# report_open_file <file> <auto|explicit>: start the platform's opener on the page. Returns 0 when an opener was
+# started (the caller then writes the sentinel), 1 when nothing was tried (the sentinel stays unwritten, so a
+# later run on a machine that can open it still does). The opener runs in the background with all output
+# discarded: it never waits and never fails an exec. An automatic open also refuses in CI and when the person
+# turned it off (MXTK_NO_REPORT_OPEN=1 in the environment, or in .claude/toolkit.env / ~/.mxcli-toolkit.env,
+# which _common.sh loads); an explicit --open ignores both.
+report_open_file() {
+  _f="$1"
+  if [ "$2" = auto ]; then
+    [ -z "${CI:-}" ] || return 1
+    case "${MXTK_NO_REPORT_OPEN:-}" in ""|0) ;; *) return 1 ;; esac
+  fi
+  report_open_platform
+  case "$_plat" in
+    macos)
+      command -v open >/dev/null 2>&1 || return 1  # portability-ok: this branch runs on macOS only
+      open "$_f" </dev/null >/dev/null 2>&1 & ;;  # portability-ok: this branch runs on macOS only
+    windows)   # Git Bash: cmd.exe start, the path as a Windows path; MSYS must not rewrite /c
+      if command -v cygpath >/dev/null 2>&1; then _w="$(cygpath -w "$_f" 2>/dev/null)"; else _w="$_f"; fi
+      if command -v cmd.exe >/dev/null 2>&1; then
+        MSYS2_ARG_CONV_EXCL='*' cmd.exe /c start "" "$_w" </dev/null >/dev/null 2>&1 &
+      elif command -v explorer.exe >/dev/null 2>&1; then
+        explorer.exe "$_w" </dev/null >/dev/null 2>&1 &
+      else return 1; fi ;;
+    wsl)       # the browser is Windows': wslview, else explorer.exe / cmd.exe with a Windows path
+      if command -v wslview >/dev/null 2>&1; then
+        wslview "$_f" </dev/null >/dev/null 2>&1 &
+      elif command -v wslpath >/dev/null 2>&1 && command -v explorer.exe >/dev/null 2>&1; then
+        _w="$(wslpath -w "$_f" 2>/dev/null)"; [ -n "$_w" ] || return 1
+        explorer.exe "$_w" </dev/null >/dev/null 2>&1 &
+      elif command -v wslpath >/dev/null 2>&1 && command -v cmd.exe >/dev/null 2>&1; then
+        _w="$(wslpath -w "$_f" 2>/dev/null)"; [ -n "$_w" ] || return 1
+        cmd.exe /c start "" "$_w" </dev/null >/dev/null 2>&1 &
+      else return 1; fi ;;
+    *)         # Linux: only with a display, only when xdg-open exists
+      [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] || return 1
+      command -v xdg-open >/dev/null 2>&1 || return 1
+      xdg-open "$_f" </dev/null >/dev/null 2>&1 & ;;
+  esac
+  return 0
+}
+# The sentinel, beside .claude/.guide-shown: the page opens by itself at most once per project. Written only
+# when an opener was really started. Delete the file to see the page open again.
+REPORT_SENTINEL="$ROOT/.claude/.report-shown"
+report_sentinel_write() { mkdir -p "$ROOT/.claude" 2>/dev/null && : > "$REPORT_SENTINEL" 2>/dev/null; return 0; }
 
 # ── A. Build-plan phase progress, from mdlsource/<phase>/done- counts ───────
 # Phase folders are read as they exist on disk, not matched against build-plan.md's prose Phase
@@ -808,6 +873,11 @@ if [ "$WRITE_HTML" -eq 1 ]; then
         rm -f "${OUT_TMP:?}"
       else
         mv -f "$OUT_TMP" "$OUT"
+        # First write by exec.sh or gate-check (--refresh): open the page once. A later run costs one
+        # builtin test; nothing else runs once the sentinel exists.
+        if [ "$REFRESH" -eq 1 ] && [ ! -e "$REPORT_SENTINEL" ]; then
+          if report_open_file "$OUT" auto; then report_sentinel_write; fi
+        fi
       fi
       [ "$QUIET" -eq 0 ] && echo "" && echo "  wrote ${OUT#$ROOT/}"
     else
@@ -821,14 +891,16 @@ if [ "$WRITE_HTML" -eq 1 ]; then
 fi
 
 # ── --open: show the page ────────────────────────────────────────────────────
-# macOS with Chrome running: reload the tab showing this project's report (its exact file:// URL), never a new
-# window when a tab exists. Otherwise open the file once. Anywhere else (Linux, Windows, no GUI)
-# it does nothing and says so. The setting gates the write above; this only needs the file.
+# An explicit request: it ignores the once-only sentinel (and the opt-out) and writes the sentinel, so the
+# automatic open does not follow it. macOS with Chrome running: reload the tab showing this project's report (its
+# exact file:// URL), never a new window when a tab exists; otherwise open the file. Git Bash, WSL and Linux
+# open through report_open_file. The setting gates the write above; this only needs the file.
 if [ "$OPEN" -eq 1 ]; then report_name; fi
 if [ "$OPEN" -eq 1 ] && [ -f "$ROOT/architecture/$REPORT_FILE" ] && [ "$(progress_report_setting)" != "off" ]; then
-  if [ "$(uname -s)" = "Darwin" ]; then
+  report_open_platform
+  if [ "$_plat" = macos ] || [ "$(uname -s)" = "Darwin" ]; then
     _res="none"
-    if pgrep -x "Google Chrome" >/dev/null 2>&1; then  # portability-ok: --open is macOS-only by design (guarded by uname)
+    if pgrep -x "Google Chrome" >/dev/null 2>&1; then  # portability-ok: this branch runs on macOS only (guarded by the platform test above)
       # Match this project's file URL exactly (file:// + absolute path, percent-encoded), never any tab that
       # merely contains the page name: another project's report must not be reloaded in its place.
       _url="file://$("${PY:-python3}" -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1]))' "$ROOT/architecture/$REPORT_FILE" 2>/dev/null)"  # portability-ok: PY is resolve_py output
@@ -844,16 +916,20 @@ end repeat
 end repeat
 end tell
 return "none"'
-      _res="$(osascript -e "$_as" 2>/dev/null || echo none)"  # portability-ok: --open is macOS-only by design (guarded by uname)
+      _res="$(osascript -e "$_as" 2>/dev/null || echo none)"  # portability-ok: this branch runs on macOS only (guarded by the platform test above)
     fi
     if [ "$_res" = "reloaded" ]; then
       [ "$QUIET" -eq 0 ] && echo "  reloaded the open $REPORT_FILE tab"
     else
-      open "$ROOT/architecture/$REPORT_FILE" >/dev/null 2>&1 || true  # portability-ok: --open is macOS-only by design (guarded by uname)
+      open "$ROOT/architecture/$REPORT_FILE" >/dev/null 2>&1 || true  # portability-ok: this branch runs on macOS only (guarded by the platform test above)
       [ "$QUIET" -eq 0 ] && echo "  opened architecture/$REPORT_FILE"
     fi
+    report_sentinel_write
+  elif report_open_file "$ROOT/architecture/$REPORT_FILE" explicit; then
+    report_sentinel_write
+    [ "$QUIET" -eq 0 ] && echo "  opened architecture/$REPORT_FILE"
   else
-    [ "$QUIET" -eq 0 ] && echo "  --open does nothing outside macOS; open architecture/$REPORT_FILE yourself"
+    [ "$QUIET" -eq 0 ] && echo "  could not open a browser here (no display or no opener); open architecture/$REPORT_FILE yourself"
   fi
 fi
 

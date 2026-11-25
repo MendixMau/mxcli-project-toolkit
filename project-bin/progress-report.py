@@ -31,6 +31,7 @@ GIT_BURST_GAP_S = 4 * 3600   # commits to one stage's artifacts less than this a
 IDLE_GAP_S = 600          # a gap longer than this between two events counts as waiting for the user
 CACHE_TTL_S = 300         # prompt cache time to live assumed for the cache rewrite observation
 ACTIVE_S = 600            # a build counts as active when its last session or exec event is younger than this
+STALE_S = 300             # the page says "No update for N" once it is older than this: the page changes only when a build step ends
 # Placeholder list prices in USD per million tokens: glob, input, cache write, cache read, output.
 # These are ASSUMED rates, not read from any source. Override with --rates FILE (same 5 columns).
 DEFAULT_RATES = [("*opus*", 5.0, 6.25, 0.50, 25.0), ("*sonnet*", 3.0, 3.75, 0.30, 15.0),
@@ -293,7 +294,7 @@ def render_bugs(w, bugs):
             # a finding that is really both is two submissions, one per repo (skills/upstream-feedback.md section 1)
             cmds = [(base, "File to " + label, "")] + [(base + " --to " + k, "also to " + BUG_REPO[k][0], " alt") for k in BUG_REPO if k != tgt and tgt in BUG_REPO]
             act = "".join("<button type=button class='filebtn%s' data-cmd='%s' title='Copies the command; paste it in your terminal, or in Claude Code after !'>%s</button> " % (c_, esc(cmd), esc(lab_)) for cmd, lab_, c_ in cmds)
-            act += "<div class=sub><code>%s</code></div>" % esc(base)
+            act += "<div class=sub><code class=cmd>%s</code></div>" % esc(base)
         else: act = "<span class=sub>no button (see note above)</span>"
         w("<tr><td><b>%s</b><div class=sub>%s</div></td><td>%s</td><td>%s</td><td><span class='crst cr-%s'>%s</span></td><td>%s</td></tr>" % (
             esc(r.get("id", "")), esc(r.get("date", "")), esc(label), esc(r.get("title", "")), {"open": "waiting", "bundled": "waiting", "filed": "built", "fixed": "proven"}.get(st, "closed"), esc(st), act))
@@ -1831,7 +1832,7 @@ button.filebtn{font:inherit;font-size:13px;cursor:pointer;border:1px solid var(-
 .advi{border-left:4px solid var(--warn)}.advi.hi{border-left-color:var(--bad)}.advi .rk{font-size:12px;color:var(--mut)}.advi h3{margin:2px 0 6px}.advi p{margin:4px 0;font-size:13px}.advi .why{color:var(--mut);font-size:12px}
 details.ph>summary{list-style:none;cursor:pointer;color:var(--ink)}details.ph>summary::-webkit-details-marker{display:none}
 details.ph[open]{grid-column:1/-1;border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);background:var(--soft)}.steps td{font-size:12px;padding:3px 6px}
-.nolog{margin:10px 0;font-size:13px}.note-card{margin-top:14px;border-left:4px solid var(--warn)}.live{font-size:12px;color:var(--muted)}.live a{color:inherit}details.how{margin:10px 0;font-size:13px;color:var(--muted)}details.how summary{cursor:pointer}
+.statusrow{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;margin-top:6px}.statusrow .updated{margin-top:0}.statusrow .sub,.statusrow .live{white-space:nowrap}#fresh{margin:6px 0;font-size:13px}.gloss{margin:10px 0;font-size:13px;color:var(--mut)}.gloss summary{cursor:pointer}.gloss dl{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:4px 12px;margin:8px 0}.gloss dt{font-weight:600;color:var(--ink)}.gloss dd{margin:0}.nolog{margin:10px 0;font-size:13px}.note-card{margin-top:14px;border-left:4px solid var(--warn)}.live{font-size:12px;color:var(--muted)}.live a{color:inherit}details.how{margin:10px 0;font-size:13px;color:var(--muted)}details.how summary{cursor:pointer}
 .frag h2{font-size:16px;margin:24px 0 4px}.frag h3{margin:14px 0 2px}.frag .scroll{overflow-x:auto}
 .frag .lede{font-size:14px}.frag .empty{color:var(--mut)}.frag code{font-size:12px}
 .frag .st-built,.ph .st-built,.frag .done,.frag .CLEAN{color:var(--ok)}.frag .st-progress,.ph .st-progress,.frag .in-progress,.frag .INCOMPLETE{color:var(--warn)}
@@ -1841,7 +1842,7 @@ details.ph[open]{grid-column:1/-1;border-color:var(--accent);box-shadow:0 0 0 1p
 .pages .tree{margin-top:6px;font-size:13px}.pg{display:grid;grid-template-columns:minmax(120px,220px) minmax(0,1fr);gap:2px 12px;padding:5px 0;border-bottom:1px solid var(--line)}.pg:last-child{border-bottom:0}
 .pg .dir{font-weight:600;overflow-wrap:anywhere}.pg ul{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:3px 14px}.pg li{overflow-wrap:anywhere}.pg details{margin:0}.pg details ul{margin-top:4px}
 footer{margin-top:36px;font-size:13px;color:var(--mut)}footer li{margin:3px 0}
-@media(max-width:520px){code,pre,.stage dd,.stage dt{overflow-wrap:anywhere;min-width:0}.stage dl{grid-template-columns:minmax(0,1fr)}.stage dd{text-align:left}.hd .sub{white-space:normal;flex:1 1 100%}.snav{padding:6px 12px;flex-wrap:nowrap;overflow-x:auto;max-width:100%}.snav a{flex:0 0 auto}.updated{max-width:100%;overflow-wrap:anywhere}.advl{grid-template-columns:minmax(0,1fr)}.pg{grid-template-columns:minmax(0,1fr)}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.rail{grid-template-columns:minmax(0,1fr)}main{padding:12px}h1{font-size:20px}.kpi .v{font-size:19px}}
+@media(max-width:520px){code,pre,.stage dd,.stage dt{overflow-wrap:anywhere;min-width:0}.stage dl{grid-template-columns:minmax(0,1fr)}.stage dd{text-align:left}.hd .sub{white-space:normal;flex:1 1 100%}.snav{padding:6px 12px;flex-wrap:nowrap;overflow-x:auto;max-width:100%}.snav a{flex:0 0 auto}.updated{max-width:100%;overflow-wrap:anywhere}.statusrow .sub,.statusrow .live{white-space:normal}.gloss dl{grid-template-columns:minmax(0,1fr)}.gloss dd{margin-bottom:6px}.advl{grid-template-columns:minmax(0,1fr)}.pg{grid-template-columns:minmax(0,1fr)}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.rail{grid-template-columns:minmax(0,1fr)}main{padding:12px}h1{font-size:20px}.kpi .v{font-size:19px}}
 """
 KC = {"BRIEF": "#8b5cf6", "BUILD": "#2f6fed", "PROVE": "#1f9d63", "HARNESS": "#d98a0b", "RUN": "#c93c3c"}
 
@@ -1909,6 +1910,77 @@ def signoff_rollup(bp):
     if other: txt += (" " if txt else "") + "%d other HARNESS row%s listed in %s phase, not counted." % (other, "" if other == 1 else "s", "its" if other == 1 else "their")
     return "<div class=note id=signoffs>%s HARNESS rows are a module's sign-off or a harness pass, not build rows, so the counts above leave them out.</div>" % txt
 
+# ── Paths: none absolute on the page ─────────────────────────────────────────
+# The page is written to be shared and opened from disk. Gate text, session-log hints, error text and the footer carry
+# whatever path the tool that wrote them saw, so one pass over the finished page turns them into project-relative
+# paths (or "." for the root), or "~/..." for anything under a home folder, whoever's home it was. href attributes are
+# relative already. Left alone on purpose: the copy-paste "File to ..." command (data-cmd and its code line): a command
+# that runs in a terminal anywhere needs the real path, and its home paths are already "~/".
+_HOME_RE = re.compile(r"(?<![\w~.-])(?:/home|/Users)/[^/\s'\"<>&;:)(,\\]+|(?<![\w~.-])[A-Za-z]:[\\/]+Users[\\/]+[^\\/\s'\"<>&;:)(,]+")
+_KEEP_RE = re.compile(r"(data-cmd='[^']*'|<code class=cmd>.*?</code>)", re.S)
+def scrub_paths(text, proj):
+    roots = []
+    for r in {os.path.abspath(proj), os.path.realpath(proj)}:
+        for v in (r, r.replace("\\", "/"), r.replace("/", "\\")):
+            if len(v) > 1 and v not in roots: roots.append(v)
+    roots.sort(key=len, reverse=True)
+    homes = []
+    for h in {os.path.expanduser("~")}:
+        for v in (h, h.replace("\\", "/")):
+            if len(h) > 1 and v not in homes: homes.append(v)
+    def one(t):
+        for r in roots:
+            t = re.sub(re.escape(r) + r"[/\\]+", "", t)
+            t = re.sub(re.escape(r) + r"(?![\w.\-/\\])", ".", t)
+        for h in homes:
+            t = re.sub(re.escape(h) + r"(?=[/\\])", "~", t)
+            t = re.sub(re.escape(h) + r"(?![\w.\-/\\])", "~", t)
+        return _HOME_RE.sub("~", t)
+    parts = _KEEP_RE.split(text)
+    return "".join(p_ if i % 2 else one(p_) for i, p_ in enumerate(parts))
+
+# ── Words the page uses, explained once ──────────────────────────────────────
+# (shown-as, regex that decides whether the page uses the word at all, plain definition, where the definition comes from)
+# A term the page never prints is not listed. Each definition is the toolkit's own text, shortened; "generator" means the
+# rule is this page's own and is stated in this file.
+GLOSSARY = [
+    ("Gate", r"\bgates?\b", "The check that closes a stage. Its decisions are confirmed and bin/gate-check.sh passes; the next stage does not start before that. (conversion-runbook.md, stages are sequential)"),
+    ("Row", r"\brows?\b", "One step in architecture/build-plan.md. Every row has a kind and a state: built, partial, not built or blocked. (brd-to-build-plan.md, row schema)"),
+    ("Kind: BRIEF, BUILD, PROVE", r"\b(?:BRIEF|BUILD|PROVE)\b", "BRIEF writes no model: it checks the module brief exists. BUILD writes the model, one use case or one shared foundation. PROVE is a headless mechanical test in the middle of a phase (mxcli test, a curl, a DESCRIBE read-back). (brd-to-build-plan.md)"),
+    ("Slice", r"\bslices?\b", "In the speed figures, one exec.sh run: one script applied to the model. A plan heading called Slice is a phase of the build plan. (generator)"),
+    ("Owed and missing", r"owed and missing", "A file this stage promised (bin/lib/artifact-manifest.tsv lists them per stage) that is not on disk yet."),
+    ("Bar capped at 95%", r"capped at 95%", "Until a stage's gate passes, its bar stops at 95% even when every promised file is present: the gate completes a stage, the file count does not. (generator)"),
+    ("Boundary not detected", r"boundary not detected", "Nothing marks when this stage started (a gate-check call, the sign-off time in PROJECT.md, a commit of the stage's files), so the page shows no time for it rather than guess. (generator)"),
+    ("Confirmed, assumed, raised", r"\b(?:confirmed|assumed|raised)\b", "Decision marks in PROJECT.md. CONFIRMED: the user agreed. ASSUMED: the agent took a position and the user consented to it. RAISED: asked in chat, still waiting for the answer. (interview-protocol.md)"),
+    ("Waived", r"\bwaived\b", "Declared out of scope in the register, with a reason, instead of passing. (CLAUDE.md, gate verdicts)"),
+    ("Compaction", r"\bcompactions?\b", "Claude Code replaces a long conversation with a summary to free room: the story is kept and the specifics are dropped. (close-the-loop.md)"),
+    ("Cache read", r"[Cc]ache reads?", "Input tokens served from the prompt cache instead of being read in full again; they are billed at a fraction of the normal price. (generator)"),
+    ("KB", r"\bKBs?\b", "Knowledge Base: a structured English markdown summary of one source document or domain area. (kb-generation.md)"),
+    ("BRD", r"\bBRDs?\b", "Business Requirements Document: a structured, machine-readable summary of one feature area, the handoff from analysis to building. (brd-generation.md)"),
+    ("Workflow run", r"workflow run", "Sub-agents started together as one batch, for example parallel inventory batches; shown as one group. (generator)"),
+]
+def glossary_html(page_html):
+    body = re.sub(r"(?s)<(script|style)[^>]*>.*?</\1>", " ", page_html)
+    body = html.unescape(re.sub(r"<[^>]+>", " ", body))
+    used = [(t, d) for t, rx, d in GLOSSARY if re.search(rx, body)]
+    if not used: return ""
+    return ("<details class=gloss id=gloss><summary>What do these words mean?</summary><dl>%s</dl></details>"
+            % "".join("<dt>%s</dt><dd>%s</dd>" % (esc(t), esc(d)) for t, d in used))
+
+# ── Freshness: a relative age, ticking in the browser ────────────────────────
+# data-t on the stamp is the moment this page was written, data-act the last build activity it knew of. The text the
+# server writes ("Last updated <clock>") is what shows without JavaScript; the script swaps it for "Updated 4 min ago",
+# keeps the clock in the title, and says plainly when the page has not changed for STALE_S. It states only what is
+# known: that the page is this old. It never says a step is running, because nothing here proves one is.
+AGE_JS = ("(function(){var s=document.getElementById('stamp'),f=document.getElementById('fresh'),lv=document.getElementById('livetxt');"
+  "if(!s)return;var t=+s.getAttribute('data-t'),act=+s.getAttribute('data-act')||0;if(!t)return;var clock=s.getAttribute('data-clock')||'';\n"
+  "function dur(x){if(x<60)return x+' s';var m=Math.floor(x/60);if(m<60)return m+' min';var h=Math.floor(m/60);if(h<48)return h+' h'+(h<6&&m%%60?' '+m%%60+' min':'');return Math.floor(h/24)+' days'}\n"
+  "function paint(){var n=Date.now()/1000,x=Math.max(0,Math.floor(n-t));s.textContent=x<45?'Updated just now':'Updated '+dur(x)+' ago';s.title='Page written '+clock;\n"
+  " if(f){if(x>%(stale)d){f.textContent='No update for '+dur(x)+'. The page changes only when a build step ends, so a long step or the assistant thinking looks the same as a stopped session. ';\n"
+  "  var a=document.createElement('a');a.href='#';a.textContent='Reload';a.onclick=function(e){e.preventDefault();(window.__prReload||function(){history.go(0)})()};f.appendChild(a);f.hidden=false}else{f.hidden=true}}\n"
+  " if(lv&&act&&n-act>=%(active)d&&lv.textContent!=='Paused')lv.textContent='Not re-checking: no build step for over %(activemin)d min'}\n"
+  "paint();setInterval(paint,10000)})();") % {"stale": STALE_S, "active": ACTIVE_S, "activemin": ACTIVE_S // 60}
+
 def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, tot, peak, args):
     L = args.has_log
     facts = exec_facts(proj, bp)
@@ -1949,8 +2021,9 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
     w("<nav class=snav aria-label='Page sections'><a href='#stages'>Stages</a><a href='#build-detail'>Build</a><a href='#pages'>Pages</a>" + ("<a href='#tips'>Tips</a>" if L else "") + "<span class=tabbar role=tablist>" + "".join("<a href='#%s' data-tab='%s' role=tab>%s</a>" % (t_, t_, n_) for t_, n_ in TABS) + "<a href='#' id=showall title='Every tab on one page, for searching and printing'>Show all</a></span></nav><main><div class='layout solo'><div class=content>")
     last_ev = datetime.datetime.fromtimestamp(an["t1"]).strftime("%Y-%m-%d %H:%M") if L else "no session log"
     w("<header><h1>Progress report: %s</h1>" % esc(info["name"]))
-    w("<span class=updated id=stamp data-stamp>Last updated %s %s</span> <span class=sub id=lastevent data-stamp>session log last event %s</span>%s<br>" % (gen, datetime.datetime.now().astimezone().strftime("%Z"), last_ev,
-      " <span class=live>&middot; <span id=livetxt>Live &middot; refreshes every 30 s</span> &middot; <a href='#' id=livebtn>Pause</a></span>" if args.reload else ""))
+    live_ = ("<span class=live id=livewrap>&middot; <span id=livetxt>Updates after each build step &middot; re-checks every 30 s</span> &middot; <a href='#' id=livebtn>Pause</a></span>" if args.reload
+             else "<span class=live id=livewrap>&middot; Updates after each build step &middot; not re-checking, reload to refresh</span>")
+    w("<div class=statusrow><span class=updated id=stamp data-stamp data-t='%d' data-act='%d' data-clock='%s %s'>Last updated %s %s</span> <span class=sub id=lastevent data-stamp>session log last event %s</span> %s</div><div class='sub stale' id=fresh hidden></div>" % (int(gen_epoch), int(args.last_act or 0), gen, datetime.datetime.now().astimezone().strftime("%Z"), gen, datetime.datetime.now().astimezone().strftime("%Z"), last_ev, live_))
     nowstage = ("<a href='#stage-%s'>Stage %s: %s</a>" % (info["current"], info["current"], esc(STAGE_NAME[info["current"]]))) if info["current"] in STAGE_NAME else "unknown"
     w("<div class=sub><span class=nowstage>Current stage: %s</span> &middot; Stage P to 6 &middot; entry mode %s &middot; <a href='%s'>PROJECT.md</a> &middot; <a href='%s'>gate-check page</a></div></header>" %
       (nowstage, esc(info["entry_mode"]), href(os.path.join(proj, "PROJECT.md")), href(os.path.join(proj, "index.html"))))
@@ -1966,14 +2039,17 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
         looked = (" Looked in this project's own log folder and %d other project folders (%d logs from the last %d days)." % (dsc.get("other_dirs", 0), dsc.get("other_files", 0), SCAN_DAYS)) if dsc.get("searched") and not args.no_log else ""
         howto = (" To use a log from another place pass it with <code>--session-log &lt;path&gt;</code> (a .jsonl file, or a folder of them, for example <code>~/.claude/projects/&lt;slug&gt;/</code>), then regenerate: <code>project-bin/build-plan-status.sh &lt;project&gt; --html --session-log &lt;path&gt;</code>.") if not args.no_log else ""
         ledgers = (" Build runs below come from the exec log (%s); tokens and cost need a session log." % ", ".join("<code>%s</code>" % esc(x) for x in args.ledgers["sources"])) if args.ledgers else ""
-        how_parts.append("<p><b>No session log.</b> %s%s%s%s</p>" % (esc(args.log_note), looked, howto, ledgers))
+        how_parts.append("<p><b>No session log.</b>%s%s%s</p>" % (looked, howto, ledgers))
     if how_parts: w("<details class=how id=how><summary>How this was measured</summary>%s</details>" % "".join(how_parts))
+    gloss_ix = len(H); w("")   # filled at the end, from the words the finished page really uses
     if not L:
-        w("<p class=nolog>%s Time, token and cost figures are not shown; everything else is (details in How this was measured).</p>" % esc(args.log_note))
+        w("<p class=nolog>%s Time, token and cost figures are not shown; everything else is (the how-to for pointing at a log is under How this was measured).</p>" % esc(args.log_note))
     PERF = []
     if not L and args.ledgers and args.ledgers["phases"]: render_ledgers(PERF.append, args.ledgers)
     w("<section class=tab id=tab-overview>")
-    w("<div class='card' style='margin-top:14px'><div class=hd><h3><a href='#stage-%s'>%s</a></h3><span class=sub>%d of 8 gates passed%s</span></div>" % (info["current"] or "P", esc(info["current_line"] or "Current stage unknown"), npass, (", %d waived" % sum(1 for s_ in STAGES if states[s_] == "waived")) if "waived" in states.values() else ""))
+    cl_ = info["current_line"] or "Current stage unknown"
+    cl_head, cl_tail = (re.split(r"\s+[-,]\s+(?=gates passed)", cl_, 1) + [""])[:2]   # the headline and the gate list read as two lines, not one bold block
+    w("<div class='card' style='margin-top:14px'><div class=hd><h3><a href='#stage-%s'>%s</a></h3><span class=sub>%d of 8 gates passed%s</span></div>%s" % (info["current"] or "P", esc(cl_head), npass, (", %d waived" % sum(1 for s_ in STAGES if states[s_] == "waived")) if "waived" in states.values() else "", ("<div class=sub>%s</div>" % esc(cl_tail[0].upper() + cl_tail[1:])) if cl_tail else ""))
     w("<div class='bar big ok' style='margin:8px 0' title='mean of the eight stage bars'><i style='width:%.0f%%'></i></div>" % overall)
     w("<div class=sub>Overall progress %.0f%%: mean of the stage bars below (passed or waived stage = 100, current stage = promised artifacts present, Stage 5 = plan rows built).</div></div>" % overall)
     if gate["mtime"] and info["has_md"]:
@@ -2023,7 +2099,7 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
         parts.append("<div class=muted>%d check(s) ran without needing action; %d more are inherent to how the toolkit and mxcli work (build time, required gates and reviews, waiting) and are never shown.</div></aside>" % (len(quiet), n_inherent))
         aside = "".join(parts)
     # stage rail
-    w("<h2 id=stages>Stage rail: Kickoff (P) to Verify and report (6)</h2><div class=sub>Each card shows gate state, artifact progress%s, decisions and links.%s</div><div class=rail>" % (", wall time, tokens, sub-agents" if L else "", " Time and token splits per stage are approximate (see footer)." if L else ""))
+    w("<h2 id=stages>Stage rail: Kickoff (P) to Verify and report (6)</h2><div class=sub>Each card shows gate state, artifact progress%s, decisions and links. A line with nothing to report (no time, no tokens, no decisions) is left out.%s</div><div class=rail>" % (", wall time, tokens, sub-agents" if L else "", " Time and token splits per stage are approximate (see footer)." if L else ""))
     wins = {s: (a, b) for s, a, b in an["wins"]}
     for s in ["pre"] + STAGES:
         sd = S[s]
@@ -2041,19 +2117,19 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
         w("<div class='card stage %s' id='stage-%s'><div class=hd><h3><a href='%s' title='%s'>%s</a></h3><span class=badge>%s</span></div>" % (st, s, "#agents-" + s if L and sd["agents"] else "#stage-" + s, "Jump to the sub-agents of this stage" if L and sd["agents"] else "This stage", esc(title), esc(badge)))
         if s != "pre":
             w("<div><div class='bar %s' title='%s'><i style='width:%.0f%%'></i></div><div class=sub>%.0f%%: %s</div></div>" % ("ok" if st == "passed" else "", esc(owed_txt[s]), prog[s], prog[s], esc((owed_txt[s] + ("; gate not yet passed, bar capped at 95%" if st == "progress" else "")) if st in ("progress", "pending") else "gate " + st)))
-        w("<dl>")
-        cl = sd["ctx"]
+        cl = sd["ctx"]; dl_ = []   # rows that carry content only: a stage with no time, tokens or decisions shows none of them
         if L:
-            w("<dt>Wall time</dt><dd>%s (%s active, %s waiting)</dd>" % (fmt_dur(mins * 60) if mins else "none", fmt_dur(act * 60), fmt_dur(tm["idle"] * 60)))
-            w("<dt>New tokens</dt><dd>%s &middot; est. %s</dd>" % (fmt_tok(head(tk)) if tk["n"] or head(tk) else "none", money(tk["cost"])))
-            w("<dt>Main context</dt><dd>%s</dd>" % ("avg %s, peak %s (%s of %s)" % (fmt_tok(sum(cl) / len(cl)), fmt_tok(max(cl)), pw(max(cl)), fmt_tok(cwin) if cwin else "unknown window") if cl else "no requests"))
-            w("<dt>Sub-agents</dt><dd>%d + %d workflow &middot; %s tokens</dd>" % (subn, wfn, fmt_tok(subh) if sd["agents"] else "0"))
-        if s == "5" and bp: w("<dt>Build progress</dt><dd><a href='#build-detail'>%d of %d rows built%s%s</a></dd>" % (bp["built"], bp["total"], (", %d partial" % bp["partial"]) if bp["partial"] else "", signoff_suffix(bp)))
+            if mins: dl_.append("<dt>Wall time</dt><dd>%s (%s active, %s waiting)</dd>" % (fmt_dur(mins * 60), fmt_dur(act * 60), fmt_dur(tm["idle"] * 60)))
+            if tk["n"] or head(tk) or tk["cost"]: dl_.append("<dt>New tokens</dt><dd>%s &middot; est. %s</dd>" % (fmt_tok(head(tk)), money(tk["cost"])))
+            if cl: dl_.append("<dt>Main context</dt><dd>avg %s, peak %s (%s of %s)</dd>" % (fmt_tok(sum(cl) / len(cl)), fmt_tok(max(cl)), pw(max(cl)), fmt_tok(cwin) if cwin else "unknown window"))
+            if sd["agents"] or subh: dl_.append("<dt>Sub-agents</dt><dd>%d + %d workflow &middot; %s tokens</dd>" % (subn, wfn, fmt_tok(subh)))
+        if s == "5" and bp: dl_.append("<dt>Build progress</dt><dd><a href='#build-detail'>%d of %d rows built%s%s</a></dd>" % (bp["built"], bp["total"], (", %d partial" % bp["partial"]) if bp["partial"] else "", signoff_suffix(bp)))
         if s != "pre":
-            c = dec[s]; w("<dt>Decisions</dt><dd class=dec><span class=c>%d confirmed</span><span class=a>%d assumed</span><span class=r>%d raised</span></dd>" % (c["CONFIRMED"], c["ASSUMED"], c["RAISED"]))
-            if s == "2" and gate["extra"].get("raised"): w("<dt>BRD questions</dt><dd>%d raised</dd>" % gate["extra"]["raised"])
-        w("</dl>")
-        if L: w("<details><summary>Token breakdown</summary><dl><dt>Input</dt><dd>%s</dd><dt>Output</dt><dd>%s</dd><dt>Cache write</dt><dd>%s</dd><dt>Cache read</dt><dd>%s</dd><dt>Main thread</dt><dd>%s</dd><dt>Sub-agents</dt><dd>%s</dd></dl></details>" %
+            c = dec[s]
+            if c["CONFIRMED"] or c["ASSUMED"] or c["RAISED"]: dl_.append("<dt>Decisions</dt><dd class=dec><span class=c>%d confirmed</span><span class=a>%d assumed</span><span class=r>%d raised</span></dd>" % (c["CONFIRMED"], c["ASSUMED"], c["RAISED"]))
+            if s == "2" and gate["extra"].get("raised"): dl_.append("<dt>BRD questions</dt><dd>%d raised</dd>" % gate["extra"]["raised"])
+        if dl_: w("<dl>%s</dl>" % "".join(dl_))
+        if L and (tk["in"] or tk["out"] or tk["cw"] or tk["cr"] or subh or head(sd["main"])): w("<details><summary>Token breakdown</summary><dl><dt>Input</dt><dd>%s</dd><dt>Output</dt><dd>%s</dd><dt>Cache write</dt><dd>%s</dd><dt>Cache read</dt><dd>%s</dd><dt>Main thread</dt><dd>%s</dd><dt>Sub-agents</dt><dd>%s</dd></dl></details>" %
           (fmt_tok(tk["in"]), fmt_tok(tk["out"]), fmt_tok(tk["cw"]), fmt_tok(tk["cr"]), fmt_tok(head(sd["main"])), fmt_tok(subh)))
         if s != "pre":
             row = gate["rows"].get(s)
@@ -2075,12 +2151,12 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
             for d_, fl in groups.items():
                 if len(fl) > 4: chips.append("<span class=chip>%s (%d html, see list)</span>" % (esc(os.path.relpath(d_, proj) + "/"), len(fl)))
                 else: chips += [chip(f) for f in fl]
-            w("<div class=chips>%s</div>" % ("".join(chips) or "<span class='chip miss'>no html artifact yet</span>"))
+            if chips or st not in ("passed", "waived"): w("<div class=chips>%s</div>" % ("".join(chips) or "<span class='chip miss'>no html artifact yet</span>"))
             miss = [o["id"] for o in arts[s]["owed"] if not o["found"] and o["absence"] != "optin"]
             more = [f for f, i in files if len(groups.get(os.path.dirname(f), [])) > 4 and link_kind(f) == "html"] + [f for f, i in rest]
             if more or miss:
-                w("<details><summary>%d more files%s</summary><div class=chips style='margin-top:6px'>%s%s</div></details>" %
-                  (len(more), (", %d owed and missing" % len(miss)) if miss else "", "".join(chip(f) for f in more),
+                w("<details><summary>%s</summary><div class=chips style='margin-top:6px'>%s%s</div></details>" %
+                  (", ".join(([("%d more files" % len(more))] if more else []) + ([("%d owed and missing" % len(miss))] if miss else [])), "".join(chip(f) for f in more),
                    "".join("<span class='chip miss'>%s</span>" % esc(m) for m in miss)))
         w("</div>")
     w("</div>")
@@ -2231,7 +2307,7 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
     w("</section>")
     render_changes(w, chg, bp)
     w("<section class=tab id=tab-performance>")
-    if not L: w("<h2>Performance</h2><p class=nolog>%s Time, token and cost figures need a Claude Code session log of this project (see How this was measured at the top).</p>" % esc(args.log_note))
+    if not L: w("<h2>Performance</h2><p class=nolog>Time, token and cost figures need a Claude Code session log of this project (see the note under the title).</p>")
     H.extend(PERF)
     w("</section><section class=tab id=tab-pages>")
     w(render_pages(proj, args.outdir, [SELF_OUT]))
@@ -2258,14 +2334,16 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
     rates_txt = ("<code>%s</code>" % esc(args.rates_used)) if args.rates_used else "built-in placeholder rates (a file at <code>%s</code> or --rates would override them)" % esc(args.rates_default)
     regen = "project-bin/build-plan-status.sh &lt;project&gt; --html" + "".join(" --session-log &lt;path&gt;" for _ in args.session_log[:1])
     direct = "progress-report.py &lt;project&gt; " + (" ".join("--session-log <code>%s</code>" % esc(x) for x in args.session_log) if args.session_log else "--logs-dir &lt;dir&gt;")
-    w("<li><b>Inputs.</b> Project folder: <code>%s</code>. Session log(s) (%s): %s. Rates file: %s. To regenerate with the same inputs: <code>%s</code>, or <code>%s</code>.</li>" % (esc(proj), how, logs_txt, rates_txt, regen, direct))
+    w("<li><b>Inputs.</b> Project folder: <code>%s</code> (the project root). Session log(s) (%s): %s. Rates file: %s. To regenerate with the same inputs: <code>%s</code>, or <code>%s</code>.</li>" % (esc(proj), how, logs_txt, rates_txt, regen, direct))
     w("</ul>")
     w("<div class=note id=rebuildnote data-stamp>Rebuild: project-bin/build-plan-status.sh --html. Setting in PROJECT.md: Progress report: off, ask or auto (now %s). Generated %s.</div></details></footer></section></div></div></main>" % (esc(info["setting"]), gen))
     w(JS)
+    w("<script id=agelabel>%s</script>" % AGE_JS)
     if args.reload:
-        w("<script id=autoreload>%s</script>" % ("(function(){\nvar VK='pr-view:'+location.pathname,PK='pr-paused',IDLE=20000,EVERY=30000,last=%d,active=%d,lastInput=0,de=document.documentElement;\nfunction get(k){try{return sessionStorage.getItem(k)}catch(e){return null}}\nfunction put(k,v){try{if(v===null)sessionStorage.removeItem(k);else sessionStorage.setItem(k,v)}catch(e){}}\ntry{history.scrollRestoration='manual'}catch(e){}\nfunction restore(){try{var st=JSON.parse(get(VK)||'null');if(!st)return;\n var d=st.d||{};for(var id in d){var e=document.getElementById(id);if(e&&e.tagName==='DETAILS')e.open=!!d[id]}\n var sb=de.style.scrollBehavior;de.style.scrollBehavior='auto';window.scrollTo(0,st.y||0);de.style.scrollBehavior=sb;\n }catch(e){}}\nrestore();window.addEventListener('load',function(){restore();put(VK,null)});\nfunction save(){var d={};var all=document.querySelectorAll('details[id]');for(var i=0;i<all.length;i++)d[all[i].id]=all[i].open;put(VK,JSON.stringify({y:window.pageYOffset||de.scrollTop||0,d:d}))}\nfunction reloadNow(){save();location.reload()}\nwindow.__prReload=reloadNow;\n['scroll','click','keydown','wheel','touchstart','mouseup'].forEach(function(n){window.addEventListener(n,function(){lastInput=Date.now()},{passive:true})});\ndocument.addEventListener('selectionchange',function(){lastInput=Date.now()});\nvar live=document.getElementById('live'),btn=document.getElementById('livebtn'),txt=document.getElementById('livetxt');\nfunction paint(){var p=get(PK)==='1';if(txt)txt.textContent=p?'Paused':'Live · refreshes every 30 s';if(btn)btn.textContent=p?'Resume':'Pause'}\nif(btn)btn.addEventListener('click',function(ev){ev.preventDefault();put(PK,get(PK)==='1'?null:'1');paint()});\npaint();\nfunction tick(){if(get(PK)==='1'||Date.now()-lastInput<IDLE){setTimeout(tick,EVERY);return}reloadNow()}\nif(Date.now()/1000-last<active)setTimeout(tick,EVERY);\n})();" % (int(args.last_act), ACTIVE_S)))
+        w("<script id=autoreload>%s</script>" % ("(function(){\nvar VK='pr-view:'+location.pathname,PK='pr-paused',IDLE=20000,EVERY=30000,last=%d,active=%d,lastInput=0,de=document.documentElement;\nfunction get(k){try{return sessionStorage.getItem(k)}catch(e){return null}}\nfunction put(k,v){try{if(v===null)sessionStorage.removeItem(k);else sessionStorage.setItem(k,v)}catch(e){}}\ntry{history.scrollRestoration='manual'}catch(e){}\nfunction restore(){try{var st=JSON.parse(get(VK)||'null');if(!st)return;\n var d=st.d||{};for(var id in d){var e=document.getElementById(id);if(e&&e.tagName==='DETAILS')e.open=!!d[id]}\n var sb=de.style.scrollBehavior;de.style.scrollBehavior='auto';window.scrollTo(0,st.y||0);de.style.scrollBehavior=sb;\n }catch(e){}}\nrestore();window.addEventListener('load',function(){restore();put(VK,null)});\nfunction save(){var d={};var all=document.querySelectorAll('details[id]');for(var i=0;i<all.length;i++)d[all[i].id]=all[i].open;put(VK,JSON.stringify({y:window.pageYOffset||de.scrollTop||0,d:d}))}\nfunction reloadNow(){save();location.reload()}\nwindow.__prReload=reloadNow;\n['scroll','click','keydown','wheel','touchstart','mouseup'].forEach(function(n){window.addEventListener(n,function(){lastInput=Date.now()},{passive:true})});\ndocument.addEventListener('selectionchange',function(){lastInput=Date.now()});\nvar live=document.getElementById('live'),btn=document.getElementById('livebtn'),txt=document.getElementById('livetxt');\nfunction paint(){var p=get(PK)==='1';if(txt)txt.textContent=p?'Paused':'Updates after each build step · re-checks every 30 s';if(btn)btn.textContent=p?'Resume':'Pause'}\nif(btn)btn.addEventListener('click',function(ev){ev.preventDefault();put(PK,get(PK)==='1'?null:'1');paint()});\npaint();\nfunction tick(){if(get(PK)==='1'||Date.now()-lastInput<IDLE){setTimeout(tick,EVERY);return}reloadNow()}\nif(Date.now()/1000-last<active)setTimeout(tick,EVERY);\n})();" % (int(args.last_act), ACTIVE_S)))
     w("</body></html>")
-    out = "\n".join(H)
+    H[gloss_ix] = glossary_html("\n".join(H))
+    out = scrub_paths("\n".join(H), proj)
     return out.replace("\u2014", " - ").replace("\u2013", " - ")
 
 def main_():

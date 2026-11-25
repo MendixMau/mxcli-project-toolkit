@@ -54,6 +54,7 @@ git push <teamserver-remote> main:main
 `git pull --ff-only` failing here is **not an error to route around.** It means both sides carry
 real commits and a merge is the correct answer. Reaching for `--rebase` or `--force` because
 `--ff-only` refused is how a Studio Pro checkout gets orphaned.
+**Both sides changed the model?** Then not a plain `git merge`: it silently drops units while `mx check` stays at 0 errors. Use `mxcli git merge` and the checks in `parallel-builds.md` §4–5. The push after such a merge is unverified (#741 item 7).
 
 **Studio Pro's "Merge feature branch" merges `origin/<branch>`, not your local branch** (Studio Pro 10.24.18,
 macOS, read from its `git.log.*.txt`; seen against a plain git remote, not Team Server). A local-only

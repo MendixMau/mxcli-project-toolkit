@@ -69,8 +69,9 @@ never a model.
 - Read-only agents on the running app log out after each login — `ui-loop.md`.
 
 *Measured (#732):* 4 wireframe-built pages from parallel authors who could not run their page, plus one executor,
-took 40 min against 16 serial; first journey run 10/31 (two microflows with no access grant, one
+took 40 min against 16 serial (25 min with a private app copy per author); first journey run 10/31 (two microflows with no access grant, one
 reserved widget name chosen twice, three pages broken on screen that passed `mxcli check`).
+Several builders on separate branches of one app (worktrees, cloud sessions merged afterwards): `parallel-builds.md` §0.
 
 Done when: the batch names its N drafts; each of the 4 shared parts (access grants, navigation,
 theme/SCSS, seed data) has 1 named owner; there is 1 writer per `.mpr`.

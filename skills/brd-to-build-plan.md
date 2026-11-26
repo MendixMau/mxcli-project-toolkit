@@ -300,12 +300,12 @@ afterwards (`parallel-builds.md`) is offered here, never assumed. The default st
 
 1. 2 or more slices (phases or modules) whose rows' Produces lists share no document;
 2. no slice writes a shared unit (navigation, security, menu bar, seed data) except through its named owner's scripts;
-3. each slice is roughly an hour of build or more: on a small app serial won, 16 min against 25 to 40 parallel (`dispatching.md`, #732);
+3. each slice is roughly an hour of build or more — a judgement, not a measured threshold: the only timing, page authors in one app (`dispatching.md`, #732), had serial win on a small app, 16 min against 25 to 40;
 4. `mxcli --version` is 0.30 or later (`mxcli git merge` exists).
 
 *Fails when:* offered on a small or tangled plan, the merge stops on every shared unit (#845: two different menu items on one profile stopped at exit 3) and costs more than it saves.
 
-Record one line in the build plan: `Branch-parallel: offered (slices <A>, <B>; owner of shared parts <X>)`, or `Branch-parallel: not offered — <the condition that failed>`. The user's answer goes to `PROJECT.md` as `CONFIRMED`.
+Record one line in the build plan: `Branch-parallel: offered (slices <A>, <B>; owner of shared parts <X>)`, or `Branch-parallel: not offered — <the condition that failed>`. The user's answer goes to `PROJECT.md` as `CONFIRMED` (`ASSUMED` `no` in auto mode, `checkpoint-build.md`).
 
 Done when: the build plan carries that line, naming 4 of 4 conditions met or the first one that failed.
 

@@ -49,11 +49,11 @@ Never a plain `git merge` of the model (A; section 5 shows what it does).
 
 **On every merge, either path, one at a time:** commit work; create the rollback tag on the line first (`git tag pre-merge-<date>`); merge; section 5; the model check; the full gates on the line; then the next branch. Recovery: fallback path → check out the target and delete the merge branch; merge-command path (it merges ON the line) → cut a fresh branch from the rollback tag and continue there, never a hard reset of the line. The line keeps the bad merge until the maintainer decides; nothing is reset.
 
-**First choice: `mxcli git --help` lists `merge` (v0.30+, A).** Merge through `mxcli git merge <branch> -p <app>.mpr`. One app per run (`-p` takes one model); a repo with two apps changed on both sides needs one run per app (no recipe proven here). Refused while Studio Pro has the model open.
+**First choice: `mxcli git --help` lists `merge` (v0.30+, B; reproduced on v0.32 and ≈v0.33, A).** Merge through `mxcli git merge <branch> -p <app>.mpr`. One app per run (`-p` takes one model); a repo with two apps changed on both sides needs one run per app (no recipe proven here). Refused while Studio Pro has the model open.
 
 **Engine version first (A, cloud run).** The command runs Studio Pro's merge engine (`mx merge`) of the version it finds, and up to at least `7ec3d1c` it takes **any** version: an `mx` on PATH, then any cached one. *Fails when:* an 11.12.2 project merged with only 11.13.0 cached — exit 0, merge committed, the project silently upgraded to 11.13.0 (`_ProductVersion`), while the log said "with mx 11.12.2". So before every merge: `mxcli setup mxbuild --version <project version>`, no other `mx` on PATH; after it, the project version is unchanged (`mxcli -p <app>.mpr -c "show version"` or the `.mpr`'s `_MetaData`). A fixed mxcli refuses the mismatch (fix on its way upstream).
 
-Exit codes (A): **0** merged (or up to date), **1** failed, **3** stopped for a decision (a plan template `<app>.mpr.merge-plan.json` is written, the tree is back to the pre-merge state). Preconditions below (line checked out and clean, a review decision) are the maintainer's wrapper's (B).
+Exit codes (v0.32+, A): **0** merged (or up to date), **1** failed, **3** stopped for a decision (a plan template `<app>.mpr.merge-plan.json` is written, the tree is back to the pre-merge state). Preconditions below (line checked out and clean, a review decision) are the maintainer's wrapper's (B).
 
 | Result | Do |
 |---|---|
@@ -94,7 +94,7 @@ Exit codes (A): **0** merged (or up to date), **1** failed, **3** stopped for a 
 
 Each cloud session builds one branch and pushes it; the merge then runs in **one** place, one branch at a time, per §4–5.
 
-- **The merge can run in a cloud container.** The engine runs on Linux, and `mxcli setup mxbuild --version <project version>` downloads it from the Mendix CDN (cloud run: merge 8 s, full build 66 s, 4 cores). A session that clones an existing repo must run that setup itself; `mxcli new` does it only for new apps.
+- **The merge can run in a cloud container.** The engine runs on Linux, and `mxcli setup mxbuild --version <project version>` downloads it from the Mendix CDN (cloud run: merge 8 s, full build 66 s). A session that clones an existing repo must run that setup itself; `mxcli new` does it only for new apps.
 - **Dead ends without Studio Pro:** a decision that must mix both sides inside one unit, and units added, deleted or moved on both sides. Exit 3 there means: hand the merge to a machine with Studio Pro, or replay one side's scripts (§4).
 - **Per session, as §1:** its own branch cut from the line, its own number block, its own ports and database if it runs the app. Never push to the line from a builder session.
 - **Unverified:** branches built in two different sessions (the cloud run built both in one); pushing the merged model to Team Server.

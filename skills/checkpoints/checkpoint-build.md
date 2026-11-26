@@ -111,6 +111,8 @@ decision.
 
 **Record as:** `Branch-parallel: yes (<slices>, owner <X>)` or `Branch-parallel: no` in `PROJECT.md`,
 `CONFIRMED`, or `ASSUMED` (`no`, the recommendation) in auto mode. If the plan reads `not offered`, do not ask.
+**EXPERIMENT branch:** a plan reading `Branch-parallel: auto (experiment)` is not asked; say in
+the Offer which slices will run on branches and that `Branch-parallel: off` stops it.
 
 **Test strategy (in the same Offer, not a separate question).** Show the defaults; the
 developer may change any cell in the same answer:

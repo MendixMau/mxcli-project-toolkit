@@ -99,6 +99,33 @@ Each cloud session builds one branch and pushes it; the merge then runs in **one
 - **Per session, as §1:** its own branch cut from the line, its own number block, its own ports and database if it runs the app. Never push to the line from a builder session.
 - **Unverified:** branches built in two different sessions (the cloud run built both in one); pushing the merged model to Team Server.
 
+## 8. EXPERIMENT: auto when modules split (branch `exp/branch-parallel-auto`)
+
+Runs when the build plan reads `Branch-parallel: auto (experiment)` (`brd-to-build-plan.md`
+Step 4c). Its purpose is to **measure** whether branch-parallel pays, so the log is the point.
+
+1. **Before Stage 5:** §1 set-up for each slice: one worktree and branch per slice cut from the
+   line, own ports and database, own script-number block, `mxcli` copied in, `bin/exec.sh`
+   present. Shared parts (navigation, security, menu bar, seed data) are built **first, on the
+   line, by their owner**, before the slices branch off, so no slice writes them.
+2. **During Stage 5:** one implementer per slice, dispatched in one message, each told its
+   worktree path, ports and number block, and that it applies only through `./bin/exec.sh` in
+   that worktree and never touches the line. Each runs its own module gates there.
+3. **Merge:** one slice at a time per §4–5, after a review file per §3. A shared-unit stop
+   (exit 3) is resolved per §4 ("What stops for a decision") and logged.
+4. **Log every run** in `docs/progress/branch-parallel-log.md`, one block per build:
+   slices and their row counts; wall-clock start and end per slice; each merge's exit code,
+   conflicted units and the resolution; `fix hashes` exit code; module count N of N; the
+   project's Mendix version before and after; total wall time against the serial estimate in
+   the build plan; anything that broke. Then run `bin/harvest-learnings.sh` at wrap-up so the
+   numbers reach the toolkit.
+
+*Fails when:* a slice's implementer applies to the line, or a slice writes a shared unit — the
+merge then stops (§4) or, after a plain `git merge`, loses units silently (§5).
+
+Done when: N of N slices merged per the §4–5 done-when, and the log block has every field
+above filled or marked `not measured` with the reason.
+
 A wrapper that automates these rules may come later; the rules stand without it.
 
 **Done when:** the §0 decision is recorded; N of N branches merged, each with a written `Decision: merge`; `fix hashes` exit 0; N of N modules listed; shared units checked by eye; 0 duplicate names; build gate 0 errors; full gates on the line passed; the project's Mendix version unchanged; rollback tag still present; ledger rows released.

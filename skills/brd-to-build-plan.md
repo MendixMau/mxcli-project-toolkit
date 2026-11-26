@@ -309,6 +309,14 @@ Record one line in the build plan: `Branch-parallel: offered (slices <A>, <B>; o
 
 Done when: the build plan carries that line, naming 4 of 4 conditions met or the first one that failed.
 
+**EXPERIMENT (branch `exp/branch-parallel-auto`): auto when modules split.** On this branch the
+question is not asked. When conditions 1, 2 and 4 hold (condition 3, size, is dropped on purpose:
+the experiment exists to measure it), record `Branch-parallel: auto (experiment) — slices <A>, <B>;
+owner of shared parts <X>` in the build plan and in `PROJECT.md` as `ASSUMED`, and build per
+`parallel-builds.md` §8. A project opts out with `Branch-parallel: off` in `PROJECT.md`; then
+the offer above applies. When 1, 2 or 4 fails, record `Branch-parallel: serial — <the condition
+that failed>` and build as usual.
+
 ---
 
 ## Step 5: Produce the Numbered Script Sequence

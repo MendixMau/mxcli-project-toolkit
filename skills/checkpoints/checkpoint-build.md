@@ -103,6 +103,15 @@ all scripts upfront. See `brd-to-build-plan.md` ("The build plan contains no MDL
 `test-plan`, `acceptance-criteria`), or `Optional artifacts: none for Stage 5` as a Stage-4
 decision.
 
+**Branch-parallel (in the same Offer, only when the build plan reads `Branch-parallel: offered`).**
+> "Slices <A> and <B> touch separate modules, so they could be built on separate branches at
+> the same time and merged afterwards (`parallel-builds.md`). It costs a merge and a check per
+> branch, and shared parts stay with <X>. Recommended: one after the other, unless you want
+> the time saving and accept the merge. Build them in parallel, or one after the other?"
+
+**Record as:** `Branch-parallel: yes (<slices>, owner <X>)` or `Branch-parallel: no` in `PROJECT.md`,
+`CONFIRMED`, or `ASSUMED` (`no`, the recommendation) in auto mode. If the plan reads `not offered`, do not ask.
+
 **Test strategy (in the same Offer, not a separate question).** Show the defaults; the
 developer may change any cell in the same answer:
 

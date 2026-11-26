@@ -88,3 +88,7 @@ project's over, write the learnings back to the toolkit	skills/close-the-loop.md
 we keep three apps in one repo under apps/{App}/{App}.mpr	skills/multi-app-system.md	-	-
 marketplace-check.sh aborts silently on macOS bash 3.2	bin/file-bugs.sh	skills/upstream-feedback.md,skills/doctor-triage.md	-
 the gate says READY but I'm not sure the tests would catch anything	skills/journey-proof.md	skills/testing-shape.md,skills/learned-detection-gaps.md,skills/tool-output-is-not-ground-truth.md	-
+can we do parallel implementation of multiple stories at once	skills/parallel-builds.md	skills/dispatching.md	-
+two sessions building different features of the same app at the same time	skills/parallel-builds.md	skills/dispatching.md	-
+one cloud session per branch and merge the model afterwards	skills/parallel-builds.md	-	-
+how do I merge two branches that both changed App.mpr	skills/parallel-builds.md	skills/teamserver-alignment.md	-

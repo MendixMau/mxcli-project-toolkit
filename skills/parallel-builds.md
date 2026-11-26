@@ -1,14 +1,23 @@
 # Parallel builds in git worktrees
 
-**Optional, advanced reference, used only when the user asks for it. The default stays one writer per `.mpr` (`dispatching.md`); the pipeline does not call this skill.**
+**Optional, advanced reference: offered at Stage 4 when the build plan shows it pays (`brd-to-build-plan.md` Step 4c), or used when the user asks. The default stays one writer per `.mpr` (`dispatching.md`).**
 
 **Applies to:** any mxcli project where two or more builders (more than one agent building on the same repo) change the SAME app on separate branches at the same time. Opt-in.
 **Purpose:** run N builders in N worktrees and bring their branches together without losing model units. Default stays one writer per `.mpr` (`dispatching.md`); here every worktree has its own `.mpr`, so still one writer each.
 
 **Status: EXPERIMENTAL. Two evidence tiers, marked on each rule.**
 - **Tier A, reproduced here** (mxcli v0.28, Mendix 11.13, 2026-11-11, fictional two-module app, 7 units on the lost side): plain-merge failure, script replay, check order, ports and disk.
-- **Tier B, field-tested by the maintainer with mxcli v0.30+, not reproduced here:** the `mxcli git merge` path, review file, rerun marks, isolation rewiring, commit discipline.
-- **Nobody has proven:** more than two branches under this text; the merge command on a model with orphans; the app size where parallel page authors beat serial (25 min against 16 serial, private copy per author). Team Server push after a merge: unverified.
+- **Tier A, cloud run** (2026-11-25, #845: Linux container, no Studio Pro, mxcli upstream `7ec3d1c` ≈ v0.33, Mendix 11.13.0 and 11.12.2, blank apps): the `mxcli git merge` path (§4), its exit codes, which shared-unit changes stop for a decision and the `--plan` + replay remedy (§4), the engine-version trap (§4), cloud sessions (§7).
+- **Tier B, field-tested by the maintainer with mxcli v0.30+, not reproduced here:** review file, rerun marks, isolation rewiring, commit discipline.
+- **Nobody has proven:** more than two branches under this text; two apps in one repo; branches built in two separate cloud sessions; the merge command on a model with orphans; mxcli v0.30–0.32 specifically; the app size where parallel page authors beat serial (25 min against 16 serial, private copy per author). Team Server push after a merge: unverified.
+
+## 0. Decide first
+
+1. **Parallel or sequential.** Stories that each add or change their **own** modules: parallel is safe. Stories that both change a **shared unit** (navigation, security, menu bar, one entity's attributes): the merge stops for a decision even when the edits do not overlap (§4) — parallel only with a named owner and every shared-unit change in a script; otherwise sequential. Two stories changing the same document: sequential.
+2. **Merge path.** `mxcli --version` ≥ 0.30 and `mxcli git --help` lists `merge`: §4 first choice. Below that: §4 second choice, or stay sequential.
+3. **Where each branch is built.** Worktrees on one machine (§1) or one cloud session per branch (§7). The merge rules are the same.
+
+Done when: the user has confirmed parallel or sequential, the merge path is named, and each shared unit has one owner.
 
 ## 1. Set up
 
@@ -18,6 +27,7 @@
 4. **Disk.** A built worktree is about 400 MB (A). Keep a handful of built worktrees; clear `deployment/` of stopped ones. *Fails when:* disk ran out with about 20 (B).
 5. **Script number block per branch (B).** The brief names it; else the next free hundred above the highest number on the line. *Fails when:* two merge scripts both numbered 81.
 6. **Owners.** One for shared parts (navigation, security, theme), one for cross-page flows and the shell (A; failure: a list does not refresh after another page's popup submit).
+7. **Before cutting branches, once on the line:** `mxcli fix property-sets -p <app>.mpr` and commit it alone, when any document was written by mxcli before 0.26 — otherwise the merge engine throws "do not have the same properties" on those documents (mxcli's `docs-site/src/tools/outside-studio-pro.md`; not reproduced here).
 
 Done when: N worktrees, N ledger rows, 0 shared ports, 0 local-URL constants left unchecked, N distinct number blocks, 1 owner each for shared parts and cross-page flows.
 
@@ -39,17 +49,21 @@ Never a plain `git merge` of the model (A; section 5 shows what it does).
 
 **On every merge, either path, one at a time:** commit work; create the rollback tag on the line first (`git tag pre-merge-<date>`); merge; section 5; the model check; the full gates on the line; then the next branch. Recovery: fallback path → check out the target and delete the merge branch; merge-command path (it merges ON the line) → cut a fresh branch from the rollback tag and continue there, never a hard reset of the line. The line keeps the bad merge until the maintainer decides; nothing is reset.
 
-**First choice: `mxcli git --help` lists `merge` (v0.30+, B).** Merge through `mxcli git merge`. One app per run is what #744 reports for the command; a repo with two apps changed on both sides needs one run per app (no recipe proven here).
+**First choice: `mxcli git --help` lists `merge` (v0.30+, B; reproduced on v0.32 and ≈v0.33, A).** Merge through `mxcli git merge <branch> -p <app>.mpr`. One app per run (`-p` takes one model); a repo with two apps changed on both sides needs one run per app (no recipe proven here). Refused while Studio Pro has the model open.
 
-Outcomes as reported by the maintainer's wrapper (B); the bare command's exit codes are not in #744 — read `mxcli git merge --help`. Preconditions below (line checked out and clean, a review decision) are the wrapper's.
+**Engine version first (A, cloud run).** The command runs Studio Pro's merge engine (`mx merge`) of the version it finds, and up to at least `7ec3d1c` it takes **any** version: an `mx` on PATH, then any cached one. *Fails when:* an 11.12.2 project merged with only 11.13.0 cached — exit 0, merge committed, the project silently upgraded to 11.13.0 (`_ProductVersion`), while the log said "with mx 11.12.2". So before every merge: `mxcli setup mxbuild --version <project version>`, no other `mx` on PATH; after it, the project version is unchanged (`mxcli -p <app>.mpr -c "show version"` or the `.mpr`'s `_MetaData`). A fixed mxcli refuses the mismatch (fix on its way upstream).
+
+Exit codes (v0.32+, A): **0** merged (or up to date), **1** failed, **3** stopped for a decision (a plan template `<app>.mpr.merge-plan.json` is written, the tree is back to the pre-merge state). Preconditions below (line checked out and clean, a review decision) are the maintainer's wrapper's (B).
 
 | Result | Do |
 |---|---|
 | merged, model check passes | section 5 (orphan check, module count), then the full gates on the line |
 | refused (no review decision, line dirty or not checked out) | fix what it names |
-| units left open | read the engine's report, fill the merge plan, re-run with the plan; never pick ours/theirs without reading the units |
+| units left open (exit 3) | read the engine's report, fill the merge plan, re-run with `--plan`; never pick ours/theirs without reading the units |
 | merged, model check has errors | fix on the line with one MDL script, or check out a fresh branch from the rollback tag |
 | text-file conflict after an aborted run | resolve, stage those files explicitly, commit |
+
+**What stops for a decision (A, cloud run).** Disjoint modules: auto-merged. A different entity added to the same module on each side: auto-merged. The same attribute changed two ways: exit 3, both values shown. A **different** menu item appended to the same navigation profile on each side: **also exit 3**, and the report reads only "Yours: Menu item / Theirs: Menu item". `--plan` takes a unit **whole** from one side, so the other side's item is dropped without a warning. Remedy, proven: `--plan` with one side, then replay the other branch's script for that unit through `exec.sh`, then section 5. *Fails when:* the other side's change was made by hand and has no script — then Studio Pro (third choice) is the only way to keep both.
 
 **Same name added on both sides (B).** Two builders each creating a folder with the same name merge cleanly, then the model check fails with CE0081. After merging, check for duplicates; fix by moving the documents out, dropping both, moving them into one.
 
@@ -76,6 +90,15 @@ Outcomes as reported by the maintainer's wrapper (B); the bare command's exit co
 - `git add -A`, or an unscoped `mxcli git commit`.
 - Team Server push after a merge: the field needed an extra step (the settings unit's ContentsHash, #741 item 7) that `teamserver-alignment.md` does not cover; unverified here.
 
+## 7. One cloud session per branch (A for the merge, untested for separate sessions)
+
+Each cloud session builds one branch and pushes it; the merge then runs in **one** place, one branch at a time, per §4–5.
+
+- **The merge can run in a cloud container.** The engine runs on Linux, and `mxcli setup mxbuild --version <project version>` downloads it from the Mendix CDN (cloud run: merge 8 s, full build 66 s). A session that clones an existing repo must run that setup itself; `mxcli new` does it only for new apps.
+- **Dead ends without Studio Pro:** a decision that must mix both sides inside one unit, and units added, deleted or moved on both sides. Exit 3 there means: hand the merge to a machine with Studio Pro, or replay one side's scripts (§4).
+- **Per session, as §1:** its own branch cut from the line, its own number block, its own ports and database if it runs the app. Never push to the line from a builder session.
+- **Unverified:** branches built in two different sessions (the cloud run built both in one); pushing the merged model to Team Server.
+
 A wrapper that automates these rules may come later; the rules stand without it.
 
-**Done when:** N of N branches merged, each with a written `Decision: merge`; `fix hashes` exit 0; N of N modules listed; shared units checked by eye; 0 duplicate names; build gate 0 errors; full gates on the line passed; rollback tag still present; ledger rows released.
+**Done when:** the §0 decision is recorded; N of N branches merged, each with a written `Decision: merge`; `fix hashes` exit 0; N of N modules listed; shared units checked by eye; 0 duplicate names; build gate 0 errors; full gates on the line passed; the project's Mendix version unchanged; rollback tag still present; ledger rows released.

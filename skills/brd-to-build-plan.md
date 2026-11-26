@@ -291,6 +291,26 @@ See `design-artifacts.md` and `learned-stylegallery.md` for full process.
 
 ---
 
+## Step 4c: Offer branch-parallel only when it pays ✋
+
+Several slices of **one** app built on separate branches (worktrees or cloud sessions) and merged
+afterwards (`parallel-builds.md`) is offered here, never assumed. The default stays one writer per
+`.mpr` with drafts in parallel (`dispatching.md`). Offer it at the Stage 4 checkpoint
+(`checkpoint-build.md` → the Offer) only when **all four** hold:
+
+1. 2 or more slices (phases or modules) whose rows' Produces lists share no document;
+2. no slice writes a shared unit (navigation, security, menu bar, seed data) except through its named owner's scripts;
+3. each slice is roughly an hour of build or more — a judgement, not a measured threshold: the only timing, page authors in one app (`dispatching.md`, #732), had serial win on a small app, 16 min against 25 to 40;
+4. `mxcli --version` is 0.30 or later (`mxcli git merge` exists).
+
+*Fails when:* offered on a small or tangled plan, the merge stops on every shared unit (#845: two different menu items on one profile stopped at exit 3) and costs more than it saves.
+
+Record one line in the build plan: `Branch-parallel: offered (slices <A>, <B>; owner of shared parts <X>)`, or `Branch-parallel: not offered — <the condition that failed>`. The user's answer goes to `PROJECT.md` as `CONFIRMED` (`ASSUMED` `no` in auto mode, `checkpoint-build.md`).
+
+Done when: the build plan carries that line, naming 4 of 4 conditions met or the first one that failed.
+
+---
+
 ## Step 5: Produce the Numbered Script Sequence
 
 ### Script 00 — the project scaffold row (mxcli ≥ v0.20.0)

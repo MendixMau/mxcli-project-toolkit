@@ -111,14 +111,21 @@ Step 4c). Its purpose is to **measure** whether branch-parallel pays, so the log
 2. **During Stage 5:** one implementer per slice, dispatched in one message, each told its
    worktree path, ports and number block, and that it applies only through `./bin/exec.sh` in
    that worktree and never touches the line. Each runs its own module gates there.
+   Commit paths per slice: `<app>.mpr`, `mprcontents/`, `mdlsource/`, `docs/BUILD-LOG.md` and the
+   slice module's own `themesource/<module>/` (a build creates it; run 1 left it untracked).
 3. **Merge:** one slice at a time per §4–5, after a review file per §3. A shared-unit stop
-   (exit 3) is resolved per §4 ("What stops for a decision") and logged.
+   (exit 3) is resolved per §4 ("What stops for a decision") and logged. *Expect* exit 3 on
+   `docs/BUILD-LOG.md` from the second slice on: every `exec.sh` appends to it on its own branch.
+   It is append-only, so keep both sides (`git merge-file --union`), `git add` it, and re-run
+   the merge (run 1). `.claude/loop/` ledgers stay out of slice commits; the line's ledgers
+   then lack the slices' rows — note it in the log.
 4. **Log every run** in `docs/progress/branch-parallel-log.md`, one block per build:
    slices and their row counts; wall-clock start and end per slice; each merge's exit code,
    conflicted units and the resolution; `fix hashes` exit code; module count N of N; the
    project's Mendix version before and after; total wall time against the serial estimate in
    the build plan; anything that broke. Then run `bin/harvest-learnings.sh` at wrap-up so the
-   numbers reach the toolkit.
+   numbers reach the toolkit. Run 1's log (a two-slice lab app, about 6 min end to end) is on
+   #845; copy its format.
 
 *Fails when:* a slice's implementer applies to the line, or a slice writes a shared unit — the
 merge then stops (§4) or, after a plain `git merge`, loses units silently (§5).

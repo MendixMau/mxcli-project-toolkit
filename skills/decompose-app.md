@@ -207,7 +207,7 @@ became **one journey per crossing kind**, because per edge was undefined for 536
 | 2 seam-live | every behaviour-carrying stub replaced by a working REST/OData call, or handed off with a written reason when external entities cannot carry it (XPath, aggregates) — hand-offs counted separately from stubs; security Production, roles mapped |
 | 3 strangled | monolith in-edges rewired or handed off (Stage 4 step 4); modules deleted from the monolith (Stage 5b); one journey per crossing kind (read, write, join, sync pull, offline forward) passes with data checked in both databases, and passes again on a second consecutive run (idempotent) |
 
-Calling level 1 "done" hides the stubs. Journeys follow `project-tests/e2e/journey-runner.js`:
+Calling level 1 "done" hides the stubs. Journeys follow `project-tests/e2e/journey-runner.js` (installed in a project as `tests/e2e/journey-runner.js`):
 landing guard and ledger pointer per step, data effects checked by `mxcli oql`, exit 2 for an
 instrument fault. Measured: increment 7's journey across both apps passed 16/16 steps on two
 consecutive runs.

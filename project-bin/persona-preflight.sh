@@ -7,7 +7,7 @@
 # Speed-night experiment B (2026-11-09): 11 per-row journey runs each logged in as a persona that is
 # not a demo user in the model, each waited out the login (~104 s) and failed "The username or
 # password you entered is incorrect" -- 19 minutes, and nothing flagged it: the runs "failed as
-# expected" for a half-built module. This check costs ~1 s (`mxcli show demo users`) and fails the
+# expected" for a half-built module. This check costs ~1 s (`mxcli -p <app>.mpr -c "show demo users"`) and fails the
 # batch before the first browser opens, ONE NAMED LINE PER MISSING PERSONA.
 #
 # What is checked, per distinct persona the journeys DECLARE (the top-level `persona`). A journey with
@@ -24,7 +24,7 @@
 # demo-user table, unreadable journey): never green-by-absence.
 # Producer: verify-module.sh runs it before the journey step; the per-row/close harness calls it
 # before a batch (journey-proof.md). Golden input: tests/wave2/fixtures/persona-preflight/ (verbatim
-# `mxcli show demo users` / `show user roles`, v0.28.0).
+# `mxcli -p <app>.mpr -c "show demo users"` / `show user roles`, v0.28.0).
 set -uo pipefail
 _sd="${0%/*}"; [ "$_sd" != "$0" ] || _sd=.
 

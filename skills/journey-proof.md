@@ -120,7 +120,7 @@ still answers), the journeys after it are INVALID `<id>: precondition` "NOT RUN"
 and the runner exits 124. `--rerun-failed` picks all of them up. Why: one hung journey held a run ~10 min
 (speed-night run 3); a healthy batch of 3-4 journeys took 244 s at most.
 
-**Persona preflight before a batch.** `bin/persona-preflight.sh <journeys...>` reads `mxcli show demo users`
+**Persona preflight before a batch.** `bin/persona-preflight.sh <journeys...>` reads `mxcli -p <app>.mpr -c "show demo users"`
 and prints ONE LINE PER MISSING PERSONA (`PERSONA MISSING: "requester_test_user" (J-REQ-01) ...`) before
 any browser opens; exit 1 = do not start the batch. A journey may declare `personaRole`; without it the
 user role named like the persona (`requester` -> `Requester`) is the expected role. Why: 11 per-row runs
@@ -313,6 +313,8 @@ Therefore:
 
 Record actions in reviewer language (`Click "Receive"`) *and* the selector (`.mx-name-bReceive`) —
 the sentence is for the person reading, the selector for the person fixing.
+
+Before writing a `click` step, give the widget a name in MDL: an unnamed or generated-name widget has no stable `.mx-name-*` class, so the step cannot find it (a field run could not write 7 of 10 journeys this way).
 
 ---
 

@@ -106,7 +106,7 @@ since it catches a double membership for any person rather than just the seeded 
 
 ## Runner status
 
-`project-tests/e2e/journey-runner.js` (the shipped runner, as of this skill's promotion) does
+`project-tests/e2e/journey-runner.js` (installed in a project as `tests/e2e/journey-runner.js`; the shipped runner, as of this skill's promotion) does
 **not** yet apply rules 1–3: its widget lookup is `.mx-name-<n>` + `.first()` without `:visible`,
 its click order is force-then-plain, and its `textPresent` / `textAbsent` rungs read the body once.
 So until that lands, the four rules apply to hand-written specs **and** are the first things to check

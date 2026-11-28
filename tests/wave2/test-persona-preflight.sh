@@ -67,4 +67,8 @@ bash "$SUT" --demo-users "$WORK/h.txt" "$FX/journeys" >/dev/null 2>&1; [ $? -eq 
 printf '{not json' > "$WORK/bad.journey.json"; run "$WORK/bad.journey.json" >/dev/null 2>&1; [ $? -eq 2 ] && ok "H unreadable journey -> exit 2" || bad "H2"
 run "$WORK/nope" >/dev/null 2>&1; [ $? -eq 2 ] && ok "H missing path -> exit 2" || bad "H3"
 
+# I. journey-proof.md cites the working mxcli form (bare `mxcli show demo users` exits 1: "Unknown type")
+JP="${JOURNEY_PROOF:-$TOOLKIT/skills/journey-proof.md}"
+if grep -q -- '-c "show demo users"' "$JP" && ! grep -q 'mxcli show demo users' "$JP"; then ok "I journey-proof.md cites -c \"show demo users\", no bare form"; else bad "I journey-proof.md cites a bare 'mxcli show demo users'"; fi
+
 echo "== $PASS passed, $FAIL failed"; [ "$FAIL" -eq 0 ]

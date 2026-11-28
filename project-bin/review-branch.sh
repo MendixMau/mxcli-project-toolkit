@@ -251,7 +251,7 @@ command -v python3 >/dev/null 2>&1 || { echo "review-branch: --run needs python3
 MODEL_SPEC="${MPR_DIR_REL:+$MPR_DIR_REL/}mprcontents"
 state() {
   git -C "$WT" rev-parse HEAD
-  git -C "$WT" status --porcelain --untracked-files=no -- "$MPR_REL" "$MODEL_SPEC"
+  git -C "$WT" status --porcelain --untracked-files=all -- "$MPR_REL" "$MODEL_SPEC"
   git -C "$WT" diff --binary HEAD -- "$MPR_REL" "$MODEL_SPEC" | cksum
 }
 BEFORE=$(state)
@@ -266,8 +266,8 @@ T0=$(date +%s)
                  "Bash($MXR -p * -c show*)" "Bash($MXR -p * -c \"show*)" \
                  "Bash($MXR -p * -c SHOW*)" "Bash($MXR -p * -c \"SHOW*)" "Bash($MXR check*)" \
                  "Bash($MXR help*)" "Bash(grep:*)" "Bash(head:*)" "Bash(wc:*)" \
-  --disallowedTools Edit Write NotebookEdit "Bash(git diff --output*)" "Bash(git log --output*)" \
-                    "Bash(git show --output*)" < /dev/null) > "$OUT/run.json" 2> "$OUT/run.err"
+  --disallowedTools Edit Write NotebookEdit "Bash(git diff*--ou*)" "Bash(git log*--ou*)" \
+                    "Bash(git show*--ou*)" < /dev/null) > "$OUT/run.json" 2> "$OUT/run.err"
 RC=$?
 SECS=$(( $(date +%s) - T0 ))
 python3 -I - "$OUT/run.json" "$OUT/REVIEW.md" <<'PY' || true

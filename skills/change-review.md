@@ -78,8 +78,8 @@ request to run more tests; the person deciding the push reads it.
 
 - **CR flow.** Cite the `REVIEW.md` in the CR's *Closed-by* cell next to its tests when there is
   one. A blocker sends the CR back to `applied`; anything else is listed, not waited on.
-- **Worktrees.** `mx-wt review` writes the local PR; the agent's verdict sits beside it when the
-  human sets `Decision: merge`.
+- **Worktrees.** a worktree wrapper that writes the local PR can keep the agent's verdict beside
+  it when the human sets `Decision: merge`.
 - **MRs.** Paste `REVIEW.md` as the MR's first note; the human approval stays the MR approval.
 - **Pushes to test/UAT.** The optional human pass reads the verdicts since the last push, and
   the pack from `--base <last-pushed-tag>`.

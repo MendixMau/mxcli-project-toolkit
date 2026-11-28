@@ -15,7 +15,8 @@
 # Positive control: against master (no review-branch.sh) every case but A5 fails. With the lean
 # filter's @(position|curve) pattern dropped, A3 fails; with state() widened from the model to
 # every tracked file, E3 fails; with the guard removed, E2 fails; without clearing the old REVIEW.md
-# before a run, E7 fails.
+# before a run, E7 fails; with state() back to --untracked-files=no, E8 fails; with the --output denies
+# narrowed to the first argument, E5 fails.
 set -uo pipefail
 
 TOOLKIT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -104,6 +105,7 @@ EOF
 }
 stubclaude ok-claude ':'
 stubclaude dirty-claude 'echo touched >> mprcontents/ab/unit.mxunit'
+stubclaude newfile-claude 'echo new > mprcontents/ab/added.mxunit'
 stubclaude sync-claude 'echo synced >> .ai-context/x.md; echo synced >> README.md'
 stubclaude busy-claude "git -C '$P' -c user.email=t@t -c user.name=t commit -q --allow-empty -m 'next CR'"
 cat > "$WORK/broken-claude" <<'EOF'
@@ -120,11 +122,15 @@ out=$(cd "$P" && CLAUDE_BIN="$WORK/dirty-claude" PROJECT_ROOT="$P" MXTK_ROOT="$T
 out=$(cd "$P" && CLAUDE_BIN="$WORK/sync-claude" PROJECT_ROOT="$P" MXTK_ROOT="$TOOLKIT" MXCLI="$WORK/mxcli" ./bin/review-branch.sh --run --out "$WORK/e3" 2>&1); rc=$?
 [ $rc -eq 0 ] && ok "E3 tool-file syncs in the review worktree (.ai-context, non-model files) do not trip the guard" || bad "E3 .ai-context excluded (rc $rc)" "$out"
 
+out=$(cd "$P" && CLAUDE_BIN="$WORK/newfile-claude" PROJECT_ROOT="$P" MXTK_ROOT="$TOOLKIT" MXCLI="$WORK/mxcli" ./bin/review-branch.sh --run --out "$WORK/e8" 2>&1); rc=$?
+[ $rc -eq 1 ] && [ -f "$WORK/e8/REVIEW.rejected.md" ] && grep -q added.mxunit "$WORK/e8/guard.txt" \
+  && ok "E8 a run that adds a new unit under mprcontents/ is refused" || bad "E8 untracked unit (rc $rc)" "$out"
+
 [ "$(git -C "$P" worktree list | wc -l | tr -d ' ')" = 1 ] && [ -z "$(git -C "$P" status --porcelain --untracked-files=no)" ] \
   && ok "E4 the review worktree is removed and the project checkout untouched" || bad "E4 worktree cleanup" "$(git -C "$P" worktree list)"
 a="$WORK/ok-claude.args"
 grep -qx -- '--permission-mode' "$a" && grep -qx default "$a" && grep -qx Edit "$a" && grep -qx -- '--add-dir' "$a" \
-  && grep -qx "$WORK/e1" "$a" && grep -qx 'Bash(git diff --output\*)' "$a" && ! grep -qx 'Bash(mxcli:\*)' "$a" \
+  && grep -qx "$WORK/e1" "$a" && grep -Fqx 'Bash(git diff*--ou*)' "$a" && grep -Fqx 'Bash(git log*--ou*)' "$a" && grep -Fqx 'Bash(git show*--ou*)' "$a" && ! grep -qx 'Bash(mxcli:\*)' "$a" \
   && ok "E5 claude args: permission-mode default, Edit off, pack dir added, no blanket mxcli" || bad "E5 claude args" "$(cat "$a")"
 out=$(cd "$P" && CLAUDE_BIN="$WORK/busy-claude" PROJECT_ROOT="$P" MXTK_ROOT="$TOOLKIT" MXCLI="$WORK/mxcli" ./bin/review-branch.sh --run --out "$WORK/e6" 2>&1); rc=$?
 [ $rc -eq 0 ] && ok "E6 the builder committing during a background run does not void it" || bad "E6 background run (rc $rc)" "$out"

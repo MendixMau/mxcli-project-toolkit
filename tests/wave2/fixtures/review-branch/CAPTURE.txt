@@ -1,0 +1,6 @@
+diff-local.txt — verbatim `mxcli diff-local -p <App>.mpr --ref <merge-base>..<head>` output,
+captured 2026-11-24 with mxcli on a Mendix 11.15.0 app (8 commits, 1 new + 4 modified units).
+Only names are changed (model file, module, entity and attribute names) so no client name
+ships with the toolkit; structure, @position/@curve lines, the "changed in properties the MDL
+rendering does not show" rows and the Summary line are as mxcli printed them. The vibe-coded
+WARNING banner was already stripped by review-branch.sh, as it is in every pack.

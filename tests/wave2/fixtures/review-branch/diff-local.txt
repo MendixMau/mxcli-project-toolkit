@@ -1,0 +1,46 @@
+Connected to: App.mpr (Mendix 11.15.0)
+Modified: DomainModel Admin: changed in properties the MDL rendering does not show: Entities[Snapshot].Location, Entities[Snapshot].Attributes[ClosedDetail].NewType.Length, Entities[Snapshot].Attributes[RefreshedAt].NewType.Length, Entities[Snapshot].Attributes[AgreeText].NewType.Length, …
+--- Microflow.Ops.WFA_ApplyChoice (b578ffba1cf84b4fcbdecfcd43958808992157cb)
++++ Microflow.Ops.WFA_ApplyChoice (c2bde7b90fec89ef86fafa1ea815c4a0ea2992fa)
+@@ -5,6 +5,7 @@
+   $Task: Ops.Task,
+   $UserChoice: enum Ops.UserChoice
+ )
++exposed as workflow action 'WFA Apply choice - DEMO' in 'Ops'
+ begin
+   @position(360, 200)
+   declare $By String = 'system';
+
+--- /dev/null
++++ JavaAction.JA_Demo (c2bde7b90fec89ef86fafa1ea815c4a0ea2992fa)
++-- JavaAction: JA_Demo
++-- Type: JavaActions$JavaAction
+
+--- Microflow.Ops.WFA_AutoClose (b578ffba1cf84b4fcbdecfcd43958808992157cb)
++++ Microflow.Ops.WFA_AutoClose (c2bde7b90fec89ef86fafa1ea815c4a0ea2992fa)
+@@ -2,15 +2,17 @@
+  * SolveTask boundary, interrupting: AUTOMATICCLOSETIME reached. ASSUMED: auto-close = callingTaskOff -> finalizing.
+  */
+ create or modify microflow Ops.WFA_AutoClose (
++  @position(87, 53)
+   $Task: Ops.Task
+ )
+ begin
+-  @position(360, 200)
++  @position(247, 200)
+   change $Task (LastActor = 'system', LastNote = 'Auto-closed after ' + toString($Task/AutoCloseDays) + ' days in solving');
+-  @position(520, 200)
++  @position(407, 200)
+   commit $Task;
+-  @position(680, 200)
++  @position(567, 200)
++  @curve(from: (30, 0), to: (-15, 0))
+   call microflow Ops.WFA_ApplyChoice(Task = $Task, UserChoice = Ops.UserChoice.callingTaskOff);
+-  @position(840, 200)
++  @position(897, 200)
+   return;
+ end;
+
+Modified: DomainModel Cases: changed in properties the MDL rendering does not show: Entities[CaseFile].Attributes[CaseId].NewType.Length, Entities[CaseFile].Attributes[Title].NewType.Length, Entities[CaseFile].Attributes[RefMasked].NewType.Length, Entities[CaseFile].Attributes[PartyName].NewType.Length, …
+
+Summary: 1 new, 4 modified, 0 deleted
